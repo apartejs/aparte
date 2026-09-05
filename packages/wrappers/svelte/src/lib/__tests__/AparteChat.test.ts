@@ -322,3 +322,30 @@ describe('AparteChat.svelte', () => {
         expect(generation, 'the generation line exists').toBeGreaterThan(mount);
     });
 });
+
+describe('AparteChat while a conversation is on its way', () => {
+    it('draws the wait, is not empty, and disables the composer while `loading`', async () => {
+        const { container, component } = render(AparteChat, { messages: [], centerWhenEmpty: true, loading: true });
+        await tick();
+        const box = container.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.getAttribute('data-aparte-empty')).toBeNull();
+        expect(box.querySelector('aparte-chat-viewport')?.getAttribute('loading')).toBe('');
+        expect(box.querySelector('.aparte-viewport-loading')).not.toBeNull();
+        expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+
+        component.$set({ loading: false });
+        await tick();
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
+        expect(box.querySelector('.aparte-viewport-loading')).toBeNull();
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('keeps a disabled the consumer set once the wait ends', async () => {
+        const { container, component } = render(AparteChat, { messages: [], disabled: true, loading: true });
+        component.$set({ loading: false });
+        await tick();
+        expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});

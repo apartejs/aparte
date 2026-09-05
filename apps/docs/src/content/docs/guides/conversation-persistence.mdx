@@ -216,6 +216,9 @@ The list has the same word for its own wait: set `loading` on
 `<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign
 `conversations`.
 
+The framework wrappers draw the same wait themselves — the controller sets it while it
+fetches — and each has a `loading` prop (an input in Angular) for a wait of your own.
+
 ## 4. Render a sidebar
 
 `<aparte-conversation-list>` is a display primitive: set its `conversations` property and

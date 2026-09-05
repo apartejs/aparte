@@ -99,6 +99,13 @@ export interface AparteChatHostBinding {
     afterRender(cb: () => void): void;
     /** Reset the composer (clear text/attachments) on conversation swap. */
     resetComposer?(): void;
+    /**
+     * The transcript is on its way (`true`) or has arrived (`false`): the controller's
+     * wait, forwarded so a wrapper that draws its own DOM can draw the wait too — the
+     * skeleton, the empty state kept off, the composer disabled. The viewport's
+     * `loading` attribute is set either way.
+     */
+    onLoadingChange?(loading: boolean): void;
 }
 
 export interface AparteChatHostOptions {
@@ -302,7 +309,7 @@ export class AparteChatHost {
                 return this._vp()?.exportTree?.();
             },
             importTree: (tree) => { this._vp()?.importTree?.(tree); },
-            setLoading: (on) => { this._vp()?.setLoading?.(on); },
+            setLoading: (on) => { this._vp()?.setLoading?.(on); this.binding.onLoadingChange?.(on); },
         };
 
         this._controller = new AparteConversationController(convBinding, {

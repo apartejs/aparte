@@ -407,3 +407,27 @@ describe('AparteChat.vue', () => {
         expect(typeof wrapper.emitted('conversationCreated')![0][0]).toBe('string');
     });
 });
+
+describe('AparteChat while a conversation is on its way', () => {
+    it('draws the wait, is not empty, and disables the composer while `loading`', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], centerWhenEmpty: true, loading: true } });
+        const box = wrapper.element as HTMLElement;
+        expect(box.getAttribute('data-aparte-empty')).toBeNull();
+        expect(box.querySelector('aparte-chat-viewport')?.getAttribute('loading')).toBe('');
+        expect(box.querySelector('.aparte-viewport-loading')).not.toBeNull();
+        expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+
+        await wrapper.setProps({ loading: false });
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
+        expect(box.querySelector('.aparte-viewport-loading')).toBeNull();
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('keeps a disabled the consumer set once the wait ends', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], disabled: true, loading: true } });
+        await wrapper.setProps({ loading: false });
+        expect((wrapper.element as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});

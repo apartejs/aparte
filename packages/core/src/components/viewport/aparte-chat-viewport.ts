@@ -279,6 +279,7 @@ export class AparteChatViewport extends HTMLElement {
         const existing = container.querySelector(':scope > .aparte-viewport-loading');
         if (!on) {
             existing?.remove();
+            container.querySelector(':scope > .aparte-viewport-loading-status')?.remove();
             return;
         }
         if (existing) return;
@@ -299,8 +300,8 @@ export class AparteChatViewport extends HTMLElement {
         status.className = 'aparte-viewport-loading-status aparte-sr-only';
         status.setAttribute('role', 'status');
         status.textContent = cfg.t('loadingConversation');
-        skeleton.appendChild(status);
-        container.prepend(skeleton);
+        // A sibling, not a child: inside the aria-hidden skeleton it would be hidden too.
+        container.prepend(skeleton, status);
     }
 
     constructor() {

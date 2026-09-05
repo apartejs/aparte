@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -29,6 +29,13 @@ interface Props {
    * attribute the shipped `aparte.css` recipe keys off).
    */
   centerWhenEmpty?: boolean;
+  /**
+   * The conversation is on its way: the viewport draws two skeleton turns, the empty
+   * state stays off and the composer is disabled until it lands. The conversation
+   * controller sets this itself while it fetches through your adapter's `loadFull()`;
+   * the prop is for a wait of your own. Off by default.
+   */
+  loading?: boolean;
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   overlayComposer?: boolean;
   /**
@@ -69,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
   submitOnEnter: true,
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
+  loading: false,
   overlayComposer: false,
   attachments: false,
   elicitation: true,
@@ -118,6 +126,11 @@ function onAction(e: Event) {
   emit('action', (e as CustomEvent<AparteActionEventDetail>).detail);
 }
 
+// The controller's wait (a conversation fetched through the adapter) OR the consumer's.
+const hostLoading = ref(false);
+const waiting = computed(() => props.loading || hostLoading.value);
+const loadingText = computed(() => (props.config ?? aparteGlobalConfig).t('loadingConversation'));
+
 onMounted(() => {
   const binding: AparteChatHostBinding = {
     hostId,
@@ -131,6 +144,7 @@ onMounted(() => {
     onStreamingChange: () => { /* exposed via isStreaming() */ },
     afterRender: (cb) => { void nextTick(cb); },
     resetComposer: () => (composerRef.value as unknown as { reset?: () => void })?.reset?.(),
+    onLoadingChange: (on) => { hostLoading.value = on; },
   };
   host = new AparteChatHost(binding, {
     layoutTransitionMs: props.layoutTransitionMs,
@@ -209,14 +223,24 @@ defineExpose({
     :class="['aparte-chat-container', { 'aparte-chat-container--auto-center': centerWhenEmpty }]"
     data-aparte-chat
     :overlay-composer="overlayComposer ? '' : null"
-    :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 ? '' : null"
+    :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null"
     :id="hostId"
     ref="rootRef"
   >
-    <aparte-chat-viewport ref="viewportRef" framework-managed="">
+    <aparte-chat-viewport ref="viewportRef" framework-managed="" :loading="waiting ? '' : null">
+      <!-- The wait, drawn here because this DOM is Vue's: the kit's skeleton recipe,
+           and a line for a screen reader. -->
+      <div v-if="waiting" class="aparte-viewport-loading" aria-hidden="true">
+        <span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>
+      </div>
+      <span v-if="waiting" class="aparte-viewport-loading-status aparte-sr-only" role="status">{{ loadingText }}</span>
       <!-- Welcome / placeholder shown inside the viewport while there are no
            messages (a real empty-state region). -->
-      <slot v-if="internalMessages.length === 0" name="empty-state" />
+      <slot v-if="internalMessages.length === 0 && !waiting" name="empty-state" />
       <!-- `bubble` scoped slot renders your OWN element per message in place of
            <aparte-chat-bubble>; driven by the reactive list so it streams live. -->
       <template v-for="m in internalMessages" :key="m.id">
@@ -249,7 +273,7 @@ defineExpose({
       ref="composerRef"
       :target="hostId"
       :placeholder.attr="placeholder"
-      :disabled.attr="disabled ? '' : null"
+      :disabled.attr="disabled || waiting ? '' : null"
       :submit-on-enter="submitOnEnter ? null : 'false'"
     >
       <!-- Custom composer via the `composer` slot; falls back to the default

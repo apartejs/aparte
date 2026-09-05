@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
   /**
@@ -26,6 +26,17 @@
    * default — additive.
    */
   export let centerWhenEmpty = false;
+  /**
+   * The conversation is on its way: the viewport draws two skeleton turns, the empty
+   * state stays off and the composer is disabled until it lands. The conversation
+   * controller sets this itself while it fetches through your adapter's `loadFull()`;
+   * the prop is for a wait of your own. Off by default.
+   */
+  export let loading = false;
+  // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
+  let hostLoading = false;
+  $: waiting = loading || hostLoading;
+  $: loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
@@ -142,7 +153,7 @@
   $: if (composerRef) {
     composerRef.setAttribute('target', hostId);
     composerRef.setAttribute('placeholder', placeholder);
-    toggleAttr(composerRef, 'disabled', disabled, '');
+    toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
   }
 
@@ -179,6 +190,7 @@
       onStreamingChange: () => { /* exposed via isStreaming() */ },
       afterRender: (cb) => { void tick().then(cb); },
       resetComposer: () => (composerRef as unknown as { reset?: () => void })?.reset?.(),
+      onLoadingChange: (on) => { hostLoading = on; },
     };
     host = new AparteChatHost(binding, {
       layoutTransitionMs,
@@ -263,13 +275,25 @@
   {style}
   data-aparte-chat
   {...(overlayComposer ? { 'overlay-composer': '' } : {})}
-  data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 ? '' : null}
+  data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null}
   id={hostId}
   bind:this={rootRef}
 >
-  <aparte-chat-viewport bind:this={viewportRef} framework-managed="">
+  <aparte-chat-viewport bind:this={viewportRef} framework-managed="" loading={waiting ? '' : null}>
+    <!-- The wait, drawn here because this DOM is Svelte's: the kit's skeleton recipe,
+         and a line for a screen reader. -->
+    {#if waiting}
+      <div class="aparte-viewport-loading" aria-hidden="true">
+        <span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>
+      </div>
+      <span class="aparte-viewport-loading-status aparte-sr-only" role="status">{loadingText}</span>
+    {/if}
     <!-- Welcome / placeholder shown inside the viewport while empty. -->
-    {#if internalMessages.length === 0}
+    {#if internalMessages.length === 0 && !waiting}
       <slot name="empty-state" />
     {/if}
     <!-- `bubble` slot renders your OWN element per message in place of

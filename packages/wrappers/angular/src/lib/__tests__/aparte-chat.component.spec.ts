@@ -777,3 +777,42 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(typeof created[0]).toBe('string');
     });
 });
+
+describe('AparteChatComponent while a conversation is on its way', () => {
+    beforeEach(async () => {
+        await TestBed.configureTestingModule({ imports: [AparteChatComponent] }).compileComponents();
+    });
+
+    it('draws the wait, is not empty, and disables the composer while `loading`', () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('centerWhenEmpty', true);
+        (fixture.componentRef as any).setInput('loading', true);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        const box = el.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.getAttribute('data-aparte-empty')).toBeNull();
+        expect(el.querySelector('aparte-chat-viewport')?.getAttribute('loading')).toBe('');
+        expect(el.querySelector('.aparte-viewport-loading')).not.toBeNull();
+        expect(el.querySelector('.aparte-viewport-loading-status')?.textContent?.trim()).toBe('Loading the conversation');
+        expect(el.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+
+        (fixture.componentRef as any).setInput('loading', false);
+        fixture.detectChanges();
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        expect(el.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
+        expect(el.querySelector('.aparte-viewport-loading')).toBeNull();
+        expect(el.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('keeps a disabled the consumer set once the wait ends', () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('disabled', true);
+        (fixture.componentRef as any).setInput('loading', true);
+        fixture.detectChanges();
+        (fixture.componentRef as any).setInput('loading', false);
+        fixture.detectChanges();
+        expect((fixture.nativeElement as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});

@@ -499,3 +499,32 @@ describe('AparteChat React Wrapper', () => {
         expect(typeof onConversationCreated.mock.calls[0][0]).toBe('string');
     });
 });
+
+describe('AparteChat while a conversation is on its way', () => {
+    const mockOnMessageSent = vi.fn();
+    it('draws the wait, is not empty, and disables the composer while `loading`', () => {
+        const { container, rerender } = render(
+            <AparteChat messages={[]} onMessageSent={mockOnMessageSent} centerWhenEmpty loading />,
+        );
+        const box = container.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.getAttribute('data-aparte-empty')).toBeNull();
+        expect(container.querySelector('aparte-chat-viewport')?.getAttribute('loading')).toBe('');
+        expect(container.querySelector('.aparte-viewport-loading')).not.toBeNull();
+        expect(container.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
+        expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+
+        rerender(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} centerWhenEmpty />);
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        expect(container.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
+        expect(container.querySelector('.aparte-viewport-loading')).toBeNull();
+        expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('keeps a disabled the consumer set once the wait ends', () => {
+        const { container, rerender } = render(
+            <AparteChat messages={[]} onMessageSent={mockOnMessageSent} disabled loading />,
+        );
+        rerender(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} disabled />);
+        expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});

@@ -29,7 +29,7 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@aparte/core';
 
 /**
  * AparteChatComponent — Angular 19 Wrapper
@@ -58,10 +58,22 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
       class="aparte-chat-container"
       [class.aparte-chat-container--auto-center]="centerWhenEmpty()"
       [attr.overlay-composer]="overlayComposer() ? '' : null"
-      [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 ? '' : null"
+      [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 && !waiting() ? '' : null"
     >
-      <aparte-chat-viewport #viewport framework-managed="">
-        @if (messages().length === 0) {
+      <aparte-chat-viewport #viewport framework-managed="" [attr.loading]="waiting() ? '' : null">
+        @if (waiting()) {
+          <!-- The wait, drawn here because this DOM is Angular's: the kit's skeleton
+               recipe, and a line for a screen reader. -->
+          <div class="aparte-viewport-loading" aria-hidden="true">
+            <span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>
+          </div>
+          <span class="aparte-viewport-loading-status aparte-sr-only" role="status">{{ loadingText }}</span>
+        }
+        @if (messages().length === 0 && !waiting()) {
           <!-- Welcome / placeholder shown inside the viewport while empty. -->
           <ng-content select="[slot='empty-state']"></ng-content>
         }
@@ -102,7 +114,7 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
       <aparte-composer
         #input
         [attr.placeholder]="placeholder()"
-        [attr.disabled]="disabled() ? '' : null"
+        [attr.disabled]="disabled() || waiting() ? '' : null"
         [attr.submit-on-enter]="submitOnEnter() ? null : 'false'"
         (aparte-send)="onAparteSend($event)"
       >
@@ -223,6 +235,19 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
     readonly centerWhenEmpty = signal<boolean>(false);
+
+    /**
+     * The conversation is on its way: the viewport draws two skeleton turns, the empty
+     * state stays off and the composer is disabled until it lands. The conversation
+     * controller sets this itself while it fetches through your adapter's `loadFull()`;
+     * the input is for a wait of your own. Off by default.
+     */
+    @Input({ alias: 'loading', transform: booleanAttribute }) set loadingInput(val: boolean) { this.loading.set(val); }
+    readonly loading = signal<boolean>(false);
+    /** The controller's wait (a conversation fetched through the adapter). */
+    readonly hostLoading = signal<boolean>(false);
+    readonly waiting = computed(() => this.loading() || this.hostLoading());
+    get loadingText(): string { return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
 
     /**
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
@@ -366,6 +391,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             onMessageAppended: (msg) => this.messageAppended.emit(msg as AparteMessage),
             onTypingChange: (typing) => { this.isTyping.set(typing); this.typingChange.emit(typing); },
             onStreamingChange: (id) => this._streamingId.set(id),
+            onLoadingChange: (on) => this.hostLoading.set(on),
             // Sibling-info / deferred work runs after Angular has re-rendered.
             afterRender: (cb) => { setTimeout(cb, 0); },
             resetComposer: () => {
