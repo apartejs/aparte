@@ -148,17 +148,17 @@ importers:
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
       '@aparte/titler':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-efigsp':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-latin':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-latin-mini':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@astrojs/check':
         specifier: ^0.9.10
         version: 0.9.10(prettier@3.9.6)(typescript@5.9.3)
@@ -1309,20 +1309,20 @@ packages:
       '@angular/animations':
         optional: true
 
-  '@aparte/titler-efigsp@1.0.3':
-    resolution: {integrity: sha512-SJagoACTxPbE8hzAR00/JvbbtP+e/9iY0dy1fV60QHcsQ2uLlXke9dl3N4kyHNMnwW4e+lgz1r3ON2sKWUek5g==}
+  '@aparte/titler-efigsp@1.1.0':
+    resolution: {integrity: sha512-hlu3B/7D7SmfI5g9+uzWMHXj9MeDEnjOK+EdacU9wOm+x2OVP7YdDFUtS6k8AJi5NChJWbZhAWsVJWjg7PfeQA==}
     engines: {node: '>=18'}
 
-  '@aparte/titler-latin-mini@1.0.3':
-    resolution: {integrity: sha512-kQi3LU2f5DNU/OyGwvGQBir8v/i/jj31EK3PoHrI60PyaXL7m1EQy2UZo5aB+S540vSRBtHryNnIe9TFcogXpw==}
+  '@aparte/titler-latin-mini@1.1.0':
+    resolution: {integrity: sha512-7m+c85siTx5x/JFWR57FIHuvkxNqEZlksysQvGIufzASCd+zZFM+OfDEhVd7Xvzf+TsFa5KEApSzJD+SnTZoaA==}
     engines: {node: '>=18'}
 
-  '@aparte/titler-latin@1.0.3':
-    resolution: {integrity: sha512-c+OPIHF2cYY1mBIeEWr8QEWYqrSX6N7TsFTrcZ7IhsP2vwhMPBuNY5heufIU1A6aqyxmkxb/xCzPuUAnzYI2rA==}
+  '@aparte/titler-latin@1.1.0':
+    resolution: {integrity: sha512-IK+oxdemBT/ivLHAe+DrVphvNluzgRXCdE+6xcPUEqsSZUzX7IKe0Sywf1Q5nIboTc9jL/9ETB1EC95AMl3Crw==}
     engines: {node: '>=18'}
 
-  '@aparte/titler@1.0.3':
-    resolution: {integrity: sha512-8vgY2OVtkrZtRcmbvH5ejvEQHHOFkCmAwr1FnzRN3+nhLfzwv5HU/StUiofI43gk94EDYqv0SuLQRBAJjoDfuA==}
+  '@aparte/titler@1.1.0':
+    resolution: {integrity: sha512-bHlzY9gsZ+PwJCJ7ar0BdhzLHuug9lQzyIVReDprFx9xfkrp7S1eByKUune1lQNR8zdclkQr6/RIILlnZBz3Rg==}
     engines: {node: '>=18'}
 
   '@arethetypeswrong/cli@0.18.5':
@@ -11402,13 +11402,13 @@ snapshots:
       '@angular/core': 19.2.25(rxjs@7.8.2)(zone.js@0.15.1)
       tslib: 2.8.1
 
-  '@aparte/titler-efigsp@1.0.3': {}
+  '@aparte/titler-efigsp@1.1.0': {}
 
-  '@aparte/titler-latin-mini@1.0.3': {}
+  '@aparte/titler-latin-mini@1.1.0': {}
 
-  '@aparte/titler-latin@1.0.3': {}
+  '@aparte/titler-latin@1.1.0': {}
 
-  '@aparte/titler@1.0.3': {}
+  '@aparte/titler@1.1.0': {}
 
   '@arethetypeswrong/cli@0.18.5':
     dependencies:
