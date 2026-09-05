@@ -387,7 +387,8 @@ test.describe('at phone width', () => {
     test('the application shell opens and closes its drawer', async ({ page }) => {
         const { errors } = await open(page, 'shell');
         const sidebar = page.locator('aparte-sidebar');
-        const toggle = page.locator('[data-aparte-sidebar-toggle]');
+        // The header's toggle: the sidebar carries one of its own too, inside the drawer.
+        const toggle = page.locator('.aparte-app-header__toggle');
 
         // Under 48rem the sidebar leaves the grid and enters CLOSED: a narrow window
         // that opens on an overlay covering the chat is the wrong first screen.

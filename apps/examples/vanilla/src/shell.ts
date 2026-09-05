@@ -1,25 +1,31 @@
 /**
  * The site around the chat: the conversation list, the new-chat button, the theme
- * toggle — over the library's own conversation chain, not a store of this file's.
+ * toggle, the settings dialog — over the library's own conversation chain, not a
+ * store of this file's.
  *
  * The list is `<aparte-conversation-list>`, the drawer and the search are
  * `<aparte-sidebar>`'s, the grid is the `.aparte-app-shell` recipe. The data is an
- * `AparteConversationManager` over a storage adapter (sample-adapter.ts, which answers
- * after a delay on purpose), and an `AparteConversationController` binds the chat to
- * it: it hears the list's select, the composer's send, creates a conversation on the
- * first message, persists after every turn, fetches a conversation's messages on
- * demand and shows the wait on the viewport. What this file adds is small: feed the
- * list from the manager, forward the list's intents to the manager, the theme toggle.
+ * `AparteConversationManager` over a storage adapter (../../_shared/sample-adapter.ts,
+ * which answers after a delay on purpose), and an `AparteConversationController`
+ * binds the chat to it: it hears the list's select, the composer's send, creates a
+ * conversation on the first message, persists after every turn, fetches a
+ * conversation's messages on demand and shows the wait on the viewport. What this
+ * file adds is small: feed the list from the manager, forward the list's intents
+ * to the manager, the theme toggle, the settings.
  */
 import {
     AparteConversationController,
-    AparteConversationManager,
-    aparteGlobalConfig,
     type AparteChatViewport,
     type AparteConversationList,
 } from '@aparte/core';
-import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
-import { createSampleAdapter } from './sample-adapter';
+import {
+    createSiteManager,
+    documentTitleFor,
+    drawSearchIcon,
+    listItemsOf,
+    wireSettingsDialog,
+    wireThemeToggle,
+} from '../../_shared/site-shell';
 
 export function wireShell(): void {
     const list = document.querySelector<AparteConversationList>('aparte-conversation-list');
@@ -28,8 +34,7 @@ export function wireShell(): void {
     if (!list || !viewport || !chat) return;
 
     // The manager, registered for every <aparte-*> element on the page.
-    const manager = new AparteConversationManager(createSampleAdapter());
-    aparteGlobalConfig.setConversationManager(manager);
+    const manager = createSiteManager();
 
     // The controller: the chat bound to the manager. `setLoading` is how it shows a
     // conversation on its way — the viewport draws the wait itself.
@@ -50,11 +55,11 @@ export function wireShell(): void {
     // follows the manager's selection. The document's title carries the name — the
     // product keeps it out of the header.
     manager.subscribe(() => {
-        list.conversations = manager.conversations.map(({ id, title, updatedAt, pinnedAt, archivedAt }) => ({ id, title, updatedAt, pinnedAt, archivedAt }));
+        list.conversations = listItemsOf(manager);
         const active = manager.active;
         if (active) list.setAttribute('active-id', active.id);
         else list.removeAttribute('active-id');
-        document.title = active?.title ? `${active.title} · aparté` : 'aparté';
+        document.title = documentTitleFor(manager);
     });
 
     // The list's intents, forwarded to the manager. Select is not here: the controller
@@ -74,8 +79,9 @@ export function wireShell(): void {
         chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
     });
 
-    wireThemeToggle();
-    drawSearchIcon();
+    wireThemeToggle(document.getElementById('theme-toggle'));
+    drawSearchIcon(document.getElementById('search-icon'));
+    wireSettingsDialog(document.querySelector<HTMLDialogElement>('#settings'));
     // The composer has the focus on load, the way every chat product does: with a
     // sidebar before it, the editor is twenty-odd tab stops from the top of the page.
     chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
@@ -84,36 +90,4 @@ export function wireShell(): void {
     // first notification fills it.
     list.loading = true;
     void manager.init().then(() => { list.loading = false; });
-}
-
-/** The search row's glyph, from the extended set — a static SVG string, never user input. */
-function drawSearchIcon(): void {
-    const slot = document.getElementById('search-icon');
-    if (slot) slot.innerHTML = searchIcon;
-}
-
-/**
- * Light or dark, on `data-aparte-theme` at the root — the one attribute core's theme
- * reads. With no attribute the OS decides, and the button's first state reflects it.
- */
-function wireThemeToggle(): void {
-    const button = document.getElementById('theme-toggle');
-    if (!button) return;
-    const root = document.documentElement;
-    const isDark = (): boolean => {
-        const forced = root.getAttribute('data-aparte-theme');
-        return forced ? forced === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-    };
-    const paint = (): void => {
-        const dark = isDark();
-        // Static SVG strings from the package's extended icon set — never user input.
-        button.innerHTML = dark ? sunIcon : moonIcon;
-        button.setAttribute('aria-label', dark ? 'Switch to the light theme' : 'Switch to the dark theme');
-    };
-    button.addEventListener('click', () => {
-        root.setAttribute('data-aparte-theme', isDark() ? 'light' : 'dark');
-        paint();
-    });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paint);
-    paint();
 }

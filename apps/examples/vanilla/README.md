@@ -15,13 +15,16 @@ pnpm --filter @aparte-workspace/example-vanilla dev
 - [`index.html`](./index.html) — the whole site as static HTML: the `.aparte-app-shell` grid,
   `<aparte-sidebar>`, `<aparte-conversation-list>`, the `.aparte-app-header` recipe, and the chat.
   Nothing here needs script to have its shape.
-- [`src/shell.ts`](./src/shell.ts) — the site's glue: which conversation is open, what the header
-  says, what a send does to the list, the theme toggle.
-- [`src/sample-conversations.ts`](./src/sample-conversations.ts) — the conversations the sidebar
-  lists. Hand-written, not stored: a site with a store plugs the
-  [conversation manager](https://apartejs.dev/guides/conversation-persistence/) in instead.
-- [`src/main.ts`](./src/main.ts) — the chat's wiring: renderers and plugins, the provider, the
-  transport, the `AparteClient`, the layout variants, the settings view.
+- [`src/shell.ts`](./src/shell.ts) — the site's glue over the library's conversation chain: the
+  [conversation manager](https://apartejs.dev/guides/conversation-persistence/) and controller, the
+  list fed from the manager, new chat, the theme toggle, the settings dialog.
+- [`src/main.ts`](./src/main.ts) — the shared setup, then what is this page's alone: the layout
+  variants (`?layout=…`) and the two-chats page (`?chats=2`).
+- [`../_shared/`](../_shared/) — what the five examples share: `site-setup.ts` (renderers and
+  plugins, the provider, the transport, the `AparteClient`), `site-shell.ts` (the helpers the
+  shell calls), `sample-conversations.ts` and `sample-adapter.ts` (the conversations the sidebar
+  lists, served after a delay on purpose — `?fast` and `?slow` change it), `theme-chatgpt.css`
+  (the skin, every value measured on the product) and `site.css`.
 
 ## Talking to a model
 

@@ -92,8 +92,11 @@ test('a dark chat derives from the DARK palette, not the light substitution', as
     expect(await cssVar(page, 'aparte-chat', '--aparte-accent')).toBe(darkPrimary);
     expect(await cssVar(page, 'aparte-chat', '--aparte-accent')).not.toBe(lightAccent);
     // `--aparte-input-bg: var(--aparte-surface-1)` was one of the 24 that dark had
-    // pinned to a literal from an abandoned palette. It now tracks the dark surface.
-    expect(await cssVar(page, 'aparte-chat', '--aparte-input-bg')).toBe(darkSurface1);
+    // pinned to a literal from an abandoned palette. It now tracks a dark surface — the
+    // first, or the second when a skin lifts the composer one surface up, as the chat
+    // site's does (measured on the product: the pill sits on #303030 over #212121).
+    const darkSurface2 = await cssVar(page, 'aparte-chat', '--aparte-surface-2');
+    expect([darkSurface1, darkSurface2]).toContain(await cssVar(page, 'aparte-chat', '--aparte-input-bg'));
     expect(await cssVar(page, 'aparte-chat', '--aparte-input-bg')).not.toBe(lightInputBg);
 
     // Not only the variables: something is actually painted differently.

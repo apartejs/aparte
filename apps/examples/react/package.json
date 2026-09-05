@@ -1,32 +1,39 @@
 {
-    "name": "@aparte-workspace/example-react",
-    "version": "0.0.27",
-    "private": true,
-    "type": "module",
-    "description": "Minimal React example — @aparte/react + a real (BYOK / local) model.",
-    "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview",
-        "typecheck": "tsc --noEmit"
-    },
-    "dependencies": {
-        "@aparte/core": "workspace:*",
-        "@aparte/locale-fr": "workspace:*",
-        "@aparte/plugin-artifacts": "workspace:*",
-        "@aparte/plugin-ask-user": "workspace:*",
-        "@aparte/plugin-marked": "workspace:*",
-        "@aparte/plugin-model-selector": "workspace:*",
-        "@aparte/provider-openai-compat": "workspace:*",
-        "@aparte/react": "workspace:*",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0"
-    },
-    "devDependencies": {
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "@vitejs/plugin-react": "^4.3.0",
-        "typescript": "^5.4.0",
-        "vite": "^6.0.0"
-    }
+  "name": "@aparte-workspace/example-react",
+  "version": "0.0.27",
+  "private": true,
+  "type": "module",
+  "description": "Minimal React example — @aparte/react + a real (BYOK / local) model.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aparte/core": "workspace:*",
+    "@aparte/engine": "workspace:*",
+    "@aparte/locale-fr": "workspace:*",
+    "@aparte/plugin-artifacts": "workspace:*",
+    "@aparte/plugin-ask-user": "workspace:*",
+    "@aparte/plugin-compaction": "workspace:*",
+    "@aparte/plugin-marked": "workspace:*",
+    "@aparte/plugin-model-selector": "workspace:*",
+    "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/provider-openai-compat": "workspace:*",
+    "@aparte/provider-scenario": "workspace:*",
+    "@aparte/react": "workspace:*",
+    "@shikijs/langs": "^4.0.0",
+    "@shikijs/themes": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "shiki": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0"
+  }
 }

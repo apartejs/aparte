@@ -36,7 +36,7 @@ async function gapsAroundSelector(chat: ChatPage): Promise<{ start: number; end:
 test('the toolbar renders, and its control is pushed to the end of the row', async ({ page }) => {
     await installLlmMock(page);
     const chat = new ChatPage(page);
-    await page.goto('/');
+    await page.goto('/?selector=toolbar');
     await chat.waitUngated();
 
     await expect(chat.composerToolbar).toHaveCount(1);
@@ -62,7 +62,7 @@ test('the toolbar renders, and its control is pushed to the end of the row', asy
 test('the push is logical — the control changes sides with the reading direction', async ({ page }) => {
     await installLlmMock(page);
     const chat = new ChatPage(page);
-    await page.goto('/');
+    await page.goto('/?selector=toolbar');
     await chat.waitUngated();
 
     const ltr = await gapsAroundSelector(chat);
@@ -81,7 +81,7 @@ test('the push is logical — the control changes sides with the reading directi
 test('the composer keeps its breathing room at the bottom edge', async ({ page }) => {
     await installLlmMock(page);
     const chat = new ChatPage(page);
-    await page.goto('/');
+    await page.goto('/?selector=toolbar');
     await chat.waitUngated();
 
     // Paul saw this in two live apps: as soon as a conversation starts, `center-empty`

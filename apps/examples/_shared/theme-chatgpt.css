@@ -142,10 +142,16 @@
     --aparte-thinking-content: #cdcdcd;
   }
 }
+/* And an element set dark under a light root — `data-aparte-theme="dark"` on one chat or
+   on a boundary — takes the same tokens: core answers that case on its own anchors, so
+   the skin has to as well, one step above them. */
 :root:root[data-aparte-theme="dark"],
 :root:root[data-aparte-theme="dark"] [data-aparte-theme],
 :root:root[data-aparte-theme="dark"] [data-aparte-host],
-:root:root[data-aparte-theme="dark"] aparte-chat {
+:root:root[data-aparte-theme="dark"] aparte-chat,
+:root:root [data-aparte-theme="dark"],
+:root:root [data-aparte-theme="dark"] [data-aparte-host],
+:root:root [data-aparte-theme="dark"] aparte-chat {
   --aparte-bg: #212121;
   --aparte-surface-1: #212121;
   --aparte-surface-2: #303030;
@@ -182,10 +188,14 @@
   display: none;
 }
 
-/* The user's bubble sits on the end edge, hugging its text, at most 70 % of the column. */
+/* The user's bubble sits on the end edge, hugging its text, at most 70 % of the column —
+   and its attachment strip is anchored to the same edge, above it. */
 .aparte-message[data-role="user"] .aparte-message-content {
   margin-inline-start: auto;
   max-width: 70%;
+}
+.aparte-message[data-role="user"] .aparte-attachments {
+  justify-content: flex-end;
 }
 
 /* The composer pill: measured 768 × 52, 1px emphasis border, a soft double shadow in
@@ -340,6 +350,23 @@
 .site-model aparte-model-selector {
   min-width: 12rem;
 }
+/* On a phone the picker yields: the actions on the end edge (the theme toggle, the
+   settings, a split's pane buttons) do not shrink, so the picker takes what is left. */
+.site-model {
+  flex: 1 1 0;
+}
+@media (max-width: 48rem) {
+  .site-model aparte-model-selector,
+  .site-model aparte-select,
+  .site-model .aparte-select-trigger {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+}
+.aparte-app-header__actions {
+  flex-shrink: 0;
+}
 
 /* The person in the sidebar's footer. */
 .aparte-sidebar__footer {
@@ -370,12 +397,3 @@
   background-color: var(--aparte-code-bg);
 }
 
-/* The welcome (heading + starters) belongs to the empty state, and the chat says when
-   it is empty: `data-empty` is off while messages are there OR on their way, so the
-   welcome never shows over a conversation that is loading. */
-aparte-chat:not([data-empty]) .welcome {
-  grid-template-rows: 0fr;
-  padding-block: 0;
-  opacity: 0;
-  pointer-events: none;
-}

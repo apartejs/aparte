@@ -38,8 +38,14 @@ test('a user attachment strip is anchored to the same edge as the bubble', async
     // The strip sits directly above the text bubble; both belong to the same
     // message, so their leading edges must line up (they were 700+px apart when
     // the strip was right-anchored while the bubble hugged text on the left).
+    // The same edge: the leading one when the bubble hugs its text on the start side,
+    // the trailing one when a skin anchors the user's turn to the end edge (the chat
+    // site's does, as the product it measures). Either way the strip and the bubble
+    // share an edge; what must never happen is one on each side.
+    const leading = Math.abs(tileBox!.x - contentBox!.x);
+    const trailing = Math.abs((tileBox!.x + tileBox!.width) - (contentBox!.x + contentBox!.width));
     expect(
-        Math.abs(tileBox!.x - contentBox!.x),
-        `attachment tile x=${tileBox!.x} vs bubble content x=${contentBox!.x}`,
+        Math.min(leading, trailing),
+        `attachment tile x=${tileBox!.x}..${tileBox!.x + tileBox!.width} vs bubble content x=${contentBox!.x}..${contentBox!.x + contentBox!.width}`,
     ).toBeLessThan(4);
 });

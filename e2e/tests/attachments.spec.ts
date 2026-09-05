@@ -91,9 +91,15 @@ test('the attachment strip lines up with the bubble it belongs to', async ({ pag
     const contentBox = await userBubble.locator('.aparte-message-content').first().boundingBox();
     expect(tileBox).not.toBeNull();
     expect(contentBox).not.toBeNull();
+    // The same edge: the leading one when the bubble hugs its text on the start side,
+    // the trailing one when a skin anchors the user's turn to the end edge (the chat
+    // site's does, as the product it measures). Either way the strip and the bubble
+    // share an edge; what must never happen is one on each side.
+    const leading = Math.abs(tileBox!.x - contentBox!.x);
+    const trailing = Math.abs((tileBox!.x + tileBox!.width) - (contentBox!.x + contentBox!.width));
     expect(
-        Math.abs(tileBox!.x - contentBox!.x),
-        `attachment tile x=${tileBox!.x} vs bubble content x=${contentBox!.x}`,
+        Math.min(leading, trailing),
+        `attachment tile x=${tileBox!.x}..${tileBox!.x + tileBox!.width} vs bubble content x=${contentBox!.x}..${contentBox!.x + contentBox!.width}`,
     ).toBeLessThan(4);
 });
 
