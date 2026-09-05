@@ -1,5 +1,7 @@
 # @aparte/plugin-artifacts
 
+## 0.16.10
+
 ## 0.16.9
 
 ## 0.16.8
