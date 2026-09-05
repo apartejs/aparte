@@ -55,7 +55,8 @@
         "plugin",
         "tool",
         "ask-user",
-        "elicitation"
+        "elicitation",
+        "web-components"
     ],
     "license": "MIT",
     "repository": {

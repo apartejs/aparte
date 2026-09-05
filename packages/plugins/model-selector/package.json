@@ -89,7 +89,8 @@
     "plugin",
     "model-selector",
     "web-component",
-    "byok"
+    "byok",
+    "web-components"
   ],
   "license": "MIT",
   "repository": {

@@ -56,7 +56,8 @@
         "tool",
         "approval",
         "human-in-the-loop",
-        "agent"
+        "agent",
+        "web-components"
     ],
     "license": "MIT",
     "repository": {
