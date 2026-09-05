@@ -56,7 +56,8 @@
         "tool",
         "artifact",
         "artifacts",
-        "preview"
+        "preview",
+        "web-components"
     ],
     "license": "MIT",
     "repository": {
