@@ -1,5 +1,7 @@
 # @aparte/core
 
+[![Published on webcomponents.org](https://img.shields.io/badge/webcomponents.org-published-blue.svg)](https://www.webcomponents.org/element/@aparte/core)
+
 Framework-agnostic AI chat UI as **vanilla Web Components, with the agent loop inside** —
 zero third-party dependencies, ESM-only, usable in any framework or none.
 
