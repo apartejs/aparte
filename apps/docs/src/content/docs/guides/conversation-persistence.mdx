@@ -210,7 +210,12 @@ marks its scroll surface `aria-busy` and names the wait for a screen reader, and
 conversation that is loading. The composer is disabled for the duration — a message sent
 into a transcript that has not arrived would be overwritten by it — and comes back as
 it was (a `disabled` you set stays). Two quick clicks are safe: a reply that lands for a
-conversation the user has already left is dropped.
+conversation the user has already left is dropped. `ensureFull()` resolves `false` when the store
+has no such record — the row then does not count as loaded, and the controller goes home rather
+than keep an empty transcript active. A metadata change (`updateTitle`, `pin`, `archive`) on a
+conversation whose messages are not in memory goes through the adapter's own hook when it has one
+(`rename()`, `pin()`, `archive()`…) and otherwise fetches the messages first, so a row the list came
+with is never written back without them; `updateMessages()` on such a row is refused with a warning.
 
 The list has the same word for its own wait: set `loading` on
 `<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign

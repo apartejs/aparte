@@ -269,3 +269,13 @@ export interface AparteInputConfig {
     /** Minimum height in pixels */
     minHeight?: number;
 }
+
+/**
+ * Marks a message whose `segments` were DERIVED from its `content` on display (the
+ * viewport parses a markdown string into segments so a stored reply renders like the
+ * stream did). The manager reads it to compare messages without those segments: a
+ * conversation merely opened and left must not count as changed, or it re-saves and
+ * floats to the top of the list. Set as a non-enumerable property, so a spread or a
+ * JSON round-trip never carries it into storage.
+ */
+export const APARTE_DERIVED_SEGMENTS: unique symbol = Symbol.for('aparte.derivedSegments');

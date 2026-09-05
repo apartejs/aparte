@@ -1,4 +1,5 @@
 import type { AparteMessage } from '../types/index.js';
+import { APARTE_DERIVED_SEGMENTS } from '../types/models.js';
 import type { AparteConversation, AparteStorageAdapter } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
@@ -91,6 +92,20 @@ export function applyRetention(
  * mutation so framework wrappers (Angular signals, Vue reactive, etc.) can
  * react without polling.
  */
+/**
+ * The messages as the store would see them: without the `segments` a viewport derived
+ * from a message's markdown on display (marked with the non-enumerable
+ * `APARTE_DERIVED_SEGMENTS`). Comparing with them counted every opened conversation as
+ * changed, so it was re-saved on leave and floated to the top of the list.
+ */
+function withoutDerivedSegments(messages: AparteMessage[]): AparteMessage[] {
+    return messages.map((m) => {
+        if (!(m as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS]) return m;
+        const { segments: _derived, ...rest } = m;
+        return rest;
+    });
+}
+
 export class AparteConversationManager {
     private _adapter: AparteStorageAdapter;
     private _conversations: AparteConversation[] = [];
@@ -102,7 +117,9 @@ export class AparteConversationManager {
     /** Ids whose messages are in memory. Every id, after a loadAll(); only fetched ones after loadMeta(). */
     private _loaded = new Set<string>();
     /** One fetch per id at a time: a second ensureFull(id) while the first is in flight joins it. */
-    private _fetching = new Map<string, Promise<void>>();
+    private _fetching = new Map<string, Promise<boolean>>();
+    /** The list on its way: a conversation created meanwhile waits for it, or the list would replace it. */
+    private _initPromise: Promise<void> | null = null;
 
     constructor(adapter: AparteStorageAdapter, options?: ConversationManagerOptions) {
         this._adapter = adapter;
@@ -130,20 +147,41 @@ export class AparteConversationManager {
 
     /** Load all conversations from the adapter. Call once at app startup. */
     async init(): Promise<void> {
-        // The list first, the messages on demand — when the adapter can split the two.
-        // loadMeta() and loadFull() were in the contract from the start and nothing called
-        // them: every store loaded everything, and between a click and its messages there
-        // was no moment at all (the chat-site review, 2026-09-05). An adapter without
-        // loadMeta loads everything as before, and every conversation counts as loaded.
-        if (this._adapter.loadMeta && this._adapter.loadFull) {
-            const metas = await this._adapter.loadMeta();
-            this._conversations = metas.map((m) => ({ ...m, messages: [] }));
-        } else {
-            this._conversations = await this._adapter.loadAll();
-            for (const c of this._conversations) this._loaded.add(c.id);
+        const load = (async () => {
+            // The list first, the messages on demand — when the adapter can split the two.
+            // loadMeta() and loadFull() were in the contract from the start and nothing
+            // called them: every store loaded everything, and between a click and its
+            // messages there was no moment at all (the chat-site review, 2026-09-05). An
+            // adapter without loadMeta loads everything as before, and every
+            // conversation counts as loaded.
+            const split = !!(this._adapter.loadMeta && this._adapter.loadFull);
+            if (this._adapter.loadMeta && !this._adapter.loadFull) {
+                console.warn('[AparteConversationManager] the adapter lists through loadMeta() but has no loadFull(): everything is loaded through loadAll() instead.');
+            }
+            // A second init() reads the store again, so what the first one fetched is
+            // forgotten with the rows it lived on — or a fetched id would open empty.
+            this._loaded.clear();
+            const rows: AparteConversation[] = split
+                ? (await this._adapter.loadMeta!()).map((m) => ({ ...m, messages: [] }))
+                : (await this._adapter.loadAll()).map((c) => ({ ...c, messages: c.messages ?? [] }));
+            // One row per id: a list that repeats one would make every later write, and
+            // every delete, hit twins.
+            const seen = new Set<string>();
+            const unique = rows.filter((c) => !seen.has(c.id) && (seen.add(c.id), true));
+            if (unique.length !== rows.length) {
+                console.warn(`[AparteConversationManager] ${rows.length - unique.length} repeated id(s) in the list; the first row wins.`);
+            }
+            this._conversations = unique;
+            if (!split) for (const c of unique) this._loaded.add(c.id);
+            this._initialized = true;
+            this._notify();
+        })();
+        this._initPromise = load;
+        try {
+            await load;
+        } finally {
+            if (this._initPromise === load) this._initPromise = null;
         }
-        this._initialized = true;
-        this._notify();
     }
 
     /** Whether a conversation's messages are in memory (always, without split storage). */
@@ -154,21 +192,47 @@ export class AparteConversationManager {
     /**
      * Fetch a conversation's messages through the adapter's loadFull(), the first time
      * they are needed; later calls resolve at once. The row keeps its place and its meta;
-     * the messages (and the tree) come from the full record.
+     * the messages (and the tree) come from the full record, and a message written to
+     * the row while the fetch ran goes after them. Resolves `false` when the store has no
+     * such record (or answers with another id) — the row is then NOT loaded, and says so,
+     * rather than counting as an empty conversation.
      */
-    async ensureFull(id: string): Promise<void> {
-        if (this._loaded.has(id) || !this._adapter.loadFull) return;
+    async ensureFull(id: string): Promise<boolean> {
+        if (this._loaded.has(id)) return true;
+        if (!this._adapter.loadFull) return false;
         const inFlight = this._fetching.get(id);
         if (inFlight) return inFlight;
-        const fetch = (async () => {
+        const fetch = (async (): Promise<boolean> => {
             const full = await this._adapter.loadFull!(id);
             const row = this._find(id);
-            if (full && row) this._replace({ ...row, ...full, id });
+            if (!row || !full) return false;
+            if (full.id !== id) {
+                console.warn(`[AparteConversationManager] loadFull('${id}') answered with '${full.id}': ignored.`);
+                return false;
+            }
+            // No write can have landed on the row meanwhile: every write to a
+            // conversation whose messages are not in memory fetches them first (or, for
+            // a wholesale replace, is refused), so the record is the store's plus nothing.
+            this._replace({ ...row, ...full, id, messages: full.messages ?? [] });
             this._loaded.add(id);
             this._notify();
+            return true;
         })().finally(() => this._fetching.delete(id));
         this._fetching.set(id, fetch);
         return fetch;
+    }
+
+    /**
+     * The row with its messages in memory — fetched first when they are not, so a
+     * metadata change never writes a row back without them. `null` when the id is
+     * unknown or the store has no record to fetch.
+     */
+    private async _full(id: string): Promise<AparteConversation | null> {
+        if (!this._loaded.has(id) && this._adapter.loadFull) {
+            const loaded = await this.ensureFull(id);
+            if (!loaded) return null;
+        }
+        return this._find(id) ?? null;
     }
 
     /**
@@ -228,10 +292,23 @@ export class AparteConversationManager {
             messages: [],
             schemaVersion: APARTE_CONVERSATION_SCHEMA_VERSION,
         };
-        this._conversations = [conv, ...this._conversations];
-        this._loaded.add(conv.id); // born in memory: nothing to fetch
+        // Active SYNCHRONOUSLY, before any await: the controller reads `activeId` on a
+        // send that overlaps the creation, to join it rather than create a second one.
         this._activeId = conv.id;
-        await this._adapter.save(conv);
+        this._loaded.add(conv.id); // born in memory: nothing to fetch
+        // The list on its way replaces `_conversations` when it lands: a conversation
+        // created meanwhile waits for it, or it would vanish from the list while staying
+        // the active one.
+        if (this._initPromise) await this._initPromise.catch(() => { /* init reports it */ });
+        this._conversations = [conv, ...this._conversations];
+        try {
+            await this._adapter.save(conv);
+        } catch (err) {
+            // The conversation exists in memory and is active: the next write saves the
+            // whole record again. Failing here used to leave the controller with no
+            // active id for the rest of the session — nothing persisted after that.
+            console.warn('[AparteConversationManager] save() failed for a new conversation; it stays in memory and the next write retries.', err);
+        }
         this._notify();
         return conv;
     }
@@ -251,18 +328,27 @@ export class AparteConversationManager {
 
     /** Append a message to a conversation. Auto-generates title from first user message. */
     async addMessage(convId: string, msg: AparteMessage): Promise<void> {
-        const conv = this._find(convId);
+        // The messages first, when they are not in memory: appending to the `[]` the
+        // list came with, then saving, wrote that one message over the stored ones.
+        const conv = await this._full(convId);
         if (!conv) return;
 
         const isFirstUserMsg =
             msg.role === 'user' &&
             conv.messages.every(m => m.role !== 'user');
 
+        // The title provider may take its time (a model loads on the first send), and
+        // the reply streams meanwhile: the record is read AGAIN after the await, or the
+        // write would carry the snapshot from before it — the reply and the tree gone.
+        const title = isFirstUserMsg ? await this._title(msg) : null;
+        const fresh = this._find(convId);
+        if (!fresh) return;
+        const present = fresh.messages.some(m => m.id === msg.id);
         const updated: AparteConversation = {
-            ...conv,
-            messages: [...conv.messages, msg],
+            ...fresh,
+            messages: present ? fresh.messages : [...fresh.messages, msg],
             updatedAt: Date.now(),
-            title: isFirstUserMsg ? await this._title(msg) : conv.title,
+            title: title ?? fresh.title,
         };
         if (isFirstUserMsg) updated.autoTitle = true;
         this._replace(updated);
@@ -278,6 +364,16 @@ export class AparteConversationManager {
     async updateMessages(convId: string, messages: AparteMessage[], tree?: ExportedMessageRepository): Promise<void> {
         const conv = this._find(convId);
         if (!conv) return;
+        // A conversation whose messages are not in memory cannot be replaced: the
+        // binding that asks is showing an empty transcript while the fetch runs, and
+        // writing that through would wipe the stored messages.
+        if (!this._loaded.has(convId)) {
+            console.warn(`[AparteConversationManager] updateMessages('${convId}') before its messages were loaded: ignored.`);
+            return;
+        }
+        // The title follows the first user message the CALLER sent — read before
+        // retention trims the list, or a later message becomes "the first".
+        const firstUser = messages.find(m => m.role === 'user');
         // Opt-in history retention (bounds STORAGE, never the live session).
         if (this._retention) {
             ({ messages, tree } = applyRetention(messages, tree, this._retention.maxMessages));
@@ -286,27 +382,37 @@ export class AparteConversationManager {
         // content change. `_persistActive()` also fires on plain navigation /
         // teardown (opening a conversation, switching away) ; without this
         // guard, merely viewing a conversation re-saves identical messages and
-        // floats it to the top of the list.
+        // floats it to the top of the list. Segments a viewport DERIVED from a
+        // message's markdown on display are not a change either.
         let contentChanged = true;
+        let treeChanged = tree !== undefined;
         try {
-            contentChanged = JSON.stringify(messages) !== JSON.stringify(conv.messages);
+            contentChanged = JSON.stringify(withoutDerivedSegments(messages)) !== JSON.stringify(withoutDerivedSegments(conv.messages));
+            if (tree !== undefined) treeChanged = JSON.stringify(tree) !== JSON.stringify(conv.tree);
         } catch { /* unserialisable payload → assume changed */ }
-        const updated: AparteConversation = {
-            ...conv,
-            messages,
-            updatedAt: contentChanged ? Date.now() : conv.updatedAt,
-        };
-        if (tree !== undefined) updated.tree = tree;
         // The title follows the first user message while it is the manager's decision:
         // editing that message re-titles, the way the first send titled. A title the
         // user typed (`updateTitle`) is not the manager's and stays.
+        let title: string | undefined;
         if (conv.autoTitle) {
             const before = conv.messages.find(m => m.role === 'user');
-            const after = messages.find(m => m.role === 'user');
-            if (after && (after.content ?? '') !== (before?.content ?? '')) {
-                updated.title = await this._title(after);
+            if (firstUser && (firstUser.content ?? '') !== (before?.content ?? '')) {
+                title = await this._title(firstUser);
             }
         }
+        // Nothing changed: nothing to write. A conversation opened and left keeps its
+        // record byte for byte, and its place in the list.
+        if (!contentChanged && !treeChanged && title === undefined) return;
+        // Read again after the await above: a write that landed meanwhile is the record.
+        const fresh = this._find(convId);
+        if (!fresh) return;
+        const updated: AparteConversation = {
+            ...fresh,
+            messages,
+            updatedAt: contentChanged ? Date.now() : fresh.updatedAt,
+        };
+        if (tree !== undefined) updated.tree = tree;
+        if (title !== undefined) updated.title = title;
         this._replace(updated);
         await this._adapter.save(updated);
         this._notify();
@@ -315,6 +421,7 @@ export class AparteConversationManager {
     /** Permanently delete a conversation. */
     async delete(id: string): Promise<void> {
         this._conversations = this._conversations.filter(c => c.id !== id);
+        this._loaded.delete(id);
         if (this._activeId === id) this._activeId = null;
         await this._adapter.delete(id);
         this._notify();
@@ -322,35 +429,45 @@ export class AparteConversationManager {
 
     /** Archive a conversation (soft-delete). */
     async archive(id: string): Promise<void> {
-        const conv = this._find(id);
-        if (!conv) return;
         // Archiving is a metadata change, not a content change — leave
         // `updatedAt` untouched so the conv keeps its real chronological slot.
-        const updated: AparteConversation = { ...conv, archivedAt: Date.now() };
-        this._replace(updated);
-        if (this._adapter.archive) {
-            await this._adapter.archive(id);
-        } else {
-            await this._adapter.save(updated);
-        }
+        if (!await this._meta(id, (conv) => ({ ...conv, archivedAt: Date.now() }), this._adapter.archive)) return;
         if (this._activeId === id) this._activeId = null;
         this._notify();
     }
 
+    /**
+     * A metadata change, through the adapter's own hook when it has one (the row is
+     * updated in memory, nothing else travels), else through `save()` — with the
+     * messages fetched first, so a row the list came with (`messages: []`) is never
+     * written back over the stored ones.
+     */
+    private async _meta(
+        id: string,
+        change: (conv: AparteConversation) => AparteConversation,
+        hook: ((id: string) => Promise<void>) | undefined,
+    ): Promise<boolean> {
+        if (hook) {
+            const conv = this._find(id);
+            if (!conv) return false;
+            this._replace(change(conv));
+            await hook.call(this._adapter, id);
+            return true;
+        }
+        const conv = await this._full(id);
+        if (!conv) return false;
+        const updated = change(conv);
+        this._replace(updated);
+        await this._adapter.save(updated);
+        return true;
+    }
+
     /** Restore an archived conversation. */
     async unarchive(id: string): Promise<void> {
-        const conv = this._find(id);
-        if (!conv) return;
         // Unarchiving is metadata-only — don't bump `updatedAt`, otherwise the
         // restored conv wrongly floats to the top instead of returning to its
         // real chronological position.
-        const updated: AparteConversation = { ...conv, archivedAt: undefined };
-        this._replace(updated);
-        if (this._adapter.unarchive) {
-            await this._adapter.unarchive(id);
-        } else {
-            await this._adapter.save(updated);
-        }
+        if (!await this._meta(id, (conv) => ({ ...conv, archivedAt: undefined }), this._adapter.unarchive)) return;
         this._notify();
     }
 
@@ -361,29 +478,13 @@ export class AparteConversationManager {
      * does not gets the whole record through `save()`.
      */
     async pin(id: string): Promise<void> {
-        const conv = this._find(id);
-        if (!conv) return;
-        const updated: AparteConversation = { ...conv, pinnedAt: Date.now() };
-        this._replace(updated);
-        if (this._adapter.pin) {
-            await this._adapter.pin(id);
-        } else {
-            await this._adapter.save(updated);
-        }
+        if (!await this._meta(id, (conv) => ({ ...conv, pinnedAt: Date.now() }), this._adapter.pin)) return;
         this._notify();
     }
 
     /** Unpin a conversation. Metadata only — see `pin()`. */
     async unpin(id: string): Promise<void> {
-        const conv = this._find(id);
-        if (!conv) return;
-        const updated: AparteConversation = { ...conv, pinnedAt: undefined };
-        this._replace(updated);
-        if (this._adapter.unpin) {
-            await this._adapter.unpin(id);
-        } else {
-            await this._adapter.save(updated);
-        }
+        if (!await this._meta(id, (conv) => ({ ...conv, pinnedAt: undefined }), this._adapter.unpin)) return;
         this._notify();
     }
 
@@ -392,12 +493,17 @@ export class AparteConversationManager {
      *  (`min-w-0` + `truncate`). Auto-titles produced internally by
      *  `_autoTitle()` remain capped at a sensible length on input. */
     async updateTitle(id: string, title: string): Promise<void> {
-        const conv = this._find(id);
-        if (!conv) return;
-        const updated: AparteConversation = { ...conv, title: title.trim(), autoTitle: false, updatedAt: Date.now() };
-        this._replace(updated);
-        await this._adapter.save(updated);
-        this._notify();
+        if (!this._find(id)) {
+            console.warn(`[AparteConversationManager] updateTitle('${id}'): unknown conversation.`);
+            return;
+        }
+        const next = title.trim();
+        const done = await this._meta(
+            id,
+            (conv) => ({ ...conv, title: next, autoTitle: false, updatedAt: Date.now() }),
+            this._adapter.rename ? (convId) => this._adapter.rename!(convId, next) : undefined,
+        );
+        if (done) this._notify();
     }
 
     // ─── Observer ───────────────────────────────────────────────────────────
