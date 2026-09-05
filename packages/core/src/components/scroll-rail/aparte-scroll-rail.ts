@@ -39,12 +39,14 @@ const ALIGN_TOLERANCE = 1;
  * jump. Honoured by core alone, so it is live by default (ratified decision #8, tier a).
  *
  * Place it as a direct child of `<aparte-chat>` (or the wrapper's `[data-aparte-chat]`
- * host): the stylesheet floats it on the transcript's end edge, spanning the transcript
+ * host): the stylesheet floats it on the transcript's end edge, centred on the transcript
  * and clear of a classic scrollbar, and hides it under a coarse pointer, where a 2px
  * tick is not a target. Under two ticks it renders nothing — a rail with one mark says
- * nothing. When more turns exist than 24px targets fit, the pitch tightens to what fits,
- * down to a 6px floor; past that the rail scrolls itself so the current tick is always
- * in view, and the arrow keys walk every tick whatever the pitch.
+ * nothing. It is a list, not a minimap: it takes the height of its ticks, up to a share
+ * of the transcript (`--aparte-scroll-rail-share`, 60%). When more turns exist than 24px
+ * targets fit in that, the pitch tightens to what fits, down to a 6px floor; past that
+ * the rail scrolls itself so the current tick is always in view, and the arrow keys walk
+ * every tick whatever the pitch.
  *
  * @element aparte-scroll-rail
  *
@@ -59,8 +61,9 @@ const ALIGN_TOLERANCE = 1;
  * @cssprop [--aparte-scroll-rail-tick-thickness=2px] - Thickness of a tick.
  * @cssprop [--aparte-scroll-rail-hit-size=24px] - The pressable zone around a tick (WCAG 2.5.8). The drawn line keeps its own size; this one sizes the pseudo-element and, through the gap below, the pitch — so raising it spaces the ticks out rather than overlapping them. When the ticks would not fit, the rail sets it on itself to the pitch that does, never under 6px.
  * @cssprop [--aparte-scroll-rail-gap=calc(var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness))] - Space between ticks: the zone minus the line, so gap + thickness is exactly the pitch. Set it smaller and the zones overlap.
+ * @cssprop [--aparte-scroll-rail-share=.6] - The share of the transcript's height the rail may take. It is the height of its list up to this, centred on the transcript; past it the pitch tightens, then the rail scrolls.
  * @cssprop [--aparte-scroll-rail-bar=0px] - Published BY the element: the width of the transcript's scrollbar when it is a classic one (0 for an overlay bar), which the stylesheet adds to the rail's end inset so the ticks never sit on the bar.
- * @cssprop [--aparte-scroll-rail-block-start=0px] - Published BY the element: the distance from the host's top edge to the transcript's, so the rail spans the transcript rather than the composer too.
+ * @cssprop [--aparte-scroll-rail-block-start=0px] - Published BY the element: the distance from the host's top edge to the transcript's, so the rail centres on the transcript rather than on the composer too.
  * @cssprop [--aparte-scroll-rail-block-end=0px] - Published BY the element: the distance from the transcript's bottom edge to the host's.
  *
  * @example
