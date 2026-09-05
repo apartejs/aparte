@@ -41,7 +41,19 @@ export type AparteHighlightProvider =
     | ((code: string, lang: string) => Promise<string>);
 export type AparteSystemPromptVarsProvider = () => Record<string, string>;
 export type AparteLocaleProvider = AparteLocale;
-export type AparteKeyProvider = (providerId: string) => string | Promise<string | undefined> | undefined;
+/**
+ * How the page answers "what are this provider's credentials?".
+ *
+ * A bare key, or the same `{ apiKey, endpoint }` record the transport reads
+ * (`readAuth`) and `fetchModels` accepts. The record is not a nicety: a consumer
+ * who points a preset at their own host — a corporate proxy, a self-hosted vLLM,
+ * an LM Studio box — configures it as `endpoint`, and while this channel could
+ * only carry a string, `refreshProviderModels` sent `GET {vendor default}/models`
+ * with the key that host had been given.
+ */
+export type AparteKeyProvider = (providerId: string) =>
+    | string | Record<string, string> | undefined | null
+    | Promise<string | Record<string, string> | undefined | null>;
 
 /**
  * The bubble-action defaults — `copy` on, everything else off.
@@ -129,6 +141,8 @@ export class AparteConfig {
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
+    /** Sources added with `registerKeyProvider` — consulted before `_keyProvider`. */
+    private _extraKeyProviders: Set<AparteKeyProvider> = new Set();
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
@@ -206,7 +220,7 @@ export class AparteConfig {
      * (soon) the tool-approval gate. A custom presenter registered by a consumer gets
      * the same protection for free, which it previously had none of.
      */
-    private _elicitationQueue: Promise<void> | null = null;
+    private _elicitationQueue = new Map<HTMLElement | null, Promise<void>>();
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
@@ -645,11 +659,42 @@ export class AparteConfig {
     }
 
     /**
-     * Get API key for a provider
+     * Add a key source, without replacing the one `setKeyProvider` holds. Returns a
+     * teardown.
+     *
+     * This is how `AparteClient({ keyResolver })` — the channel the docs teach as
+     * primary — reaches everything that needs a key rather than the chat alone. It
+     * used to reach the chat ONLY, so the model selector, whose one data path is
+     * `refreshProviderModels`, showed an empty list on every cloud provider while
+     * the chat worked: `fetchModels` returns `[]` without a key, so there was
+     * nothing to see and nothing said.
+     *
+     * The direction matters (decision #9): the client registers a source ON the
+     * config, so the capability is never hostage to the client — a page that only
+     * ever calls `setKeyProvider` is unchanged, and a page that constructs no
+     * client at all still lists models.
      */
-    async getKey(providerId: string): Promise<string | undefined> {
+    registerKeyProvider(provider: AparteKeyProvider): () => void {
+        this._extraKeyProviders.add(provider);
+        return () => { this._extraKeyProviders.delete(provider); };
+    }
+
+    /**
+     * The credentials for a provider: a key, or the `{ apiKey, endpoint }` record
+     * the transport and `fetchModels` both read.
+     *
+     * ONE resolution order, so the chat and the model list cannot disagree about
+     * what an endpoint is: a registered resolver (`AparteClient`'s `keyResolver`)
+     * first — which is the precedence the client has always documented — then
+     * `setKeyProvider`.
+     */
+    async getKey(providerId: string): Promise<string | Record<string, string> | undefined> {
+        for (const provider of this._extraKeyProviders) {
+            const resolved = await provider(providerId);
+            if (resolved) return resolved;
+        }
         if (this._keyProvider) {
-            return await this._keyProvider(providerId);
+            return await this._keyProvider(providerId) || undefined;
         }
         return undefined;
     }
@@ -664,9 +709,12 @@ export class AparteConfig {
         if (!provider || !provider.fetchModels) return [];
 
         try {
-            const apiKey = await this.getKey(providerId);
-            // apiKey may be undefined for keyless local providers (e.g. LMStudio) — provider handles it
-            const models = await provider.fetchModels(apiKey);
+            // The whole answer, not just a key: `{ apiKey, endpoint }` is what a
+            // consumer pointing a preset at their own host configures, and
+            // `fetchModels` reads the endpoint off it. May be undefined for keyless
+            // local providers (e.g. LM Studio) — the provider handles that.
+            const auth = await this.getKey(providerId);
+            const models = await provider.fetchModels(auth);
             // Cached so `getCurrentModel()` can see it: a fetched list is the only
             // list a compat endpoint has, and capabilities are read off the model.
             this._fetchedModels.set(providerId, models);
@@ -1324,7 +1372,8 @@ export class AparteConfig {
      * "installs itself — nothing to register", which is how that was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
-        const previous = this._elicitationQueue;
+        const queue = this._elicitationQueueKey(request);
+        const previous = this._elicitationQueue.get(queue);
         /*
          * Nothing waiting → present in THIS tick.
          *
@@ -1333,7 +1382,7 @@ export class AparteConfig {
          * request would be an observable change bought for nothing, so the queue only
          * costs a hop when there is actually something ahead.
          */
-        const settled = previous === null ? this._present(request) : previous.then(
+        const settled = previous === undefined ? this._present(request) : previous.then(
             () => this._present(request),
             () => this._present(request),
         );
@@ -1341,10 +1390,25 @@ export class AparteConfig {
             // Drained: back to "nothing waiting", so the next request is immediate
             // again. Guarded because a request enqueued behind this one owns the tail
             // now, and clearing it would drop that one on the floor.
-            if (this._elicitationQueue === mine) this._elicitationQueue = null;
+            if (this._elicitationQueue.get(queue) === mine) this._elicitationQueue.delete(queue);
         });
-        this._elicitationQueue = mine;
+        this._elicitationQueue.set(queue, mine);
         return settled;
+    }
+
+    /**
+     * Which queue a request waits in: its own chat's.
+     *
+     * The wait exists so a second question cannot take the panel away from the one on
+     * screen — a property of ONE panel, and `_present` routes by target, so a chat is
+     * the right unit. It used to be one queue for the whole config: two chats on the
+     * global config shared it, and an approval waiting for an answer in the first (which
+     * is all an approval does) held the second's question behind it for ever, with
+     * nothing on screen to answer. Requests that name no chat keep sharing the `null`
+     * queue, because they all reach the same presenter — the top of the stack.
+     */
+    private _elicitationQueueKey(request: AparteElicitationRequest): HTMLElement | null {
+        return chatBoundaryOf(request.target);
     }
 
     /** Hand ONE request to the presenter. Called only from the queue. */
@@ -1404,9 +1468,9 @@ export class AparteConfig {
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenters = [];
-        // The queue too: a request left waiting across a reset belongs to a chat that
-        // no longer exists, and holding the tail would make the next request wait on it.
-        this._elicitationQueue = null;
+        // The queues too: a request left waiting across a reset belongs to a chat that
+        // no longer exists, and holding a tail would make the next request wait on it.
+        this._elicitationQueue.clear();
         this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;

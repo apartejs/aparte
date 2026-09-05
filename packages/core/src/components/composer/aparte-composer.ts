@@ -1,6 +1,7 @@
 import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
+import { presenceOn } from '../../utils/presence.js';
 
 /**
  * What the composer's one button means while a panel is up — and whether it is
@@ -328,12 +329,25 @@ export class AparteComposer extends HTMLElement {
     get streaming(): boolean { return this._streaming; }
     get disabled(): boolean { return this.hasAttribute('disabled'); }
     /**
+     * The attribute is the state, so the property writes it. It has to exist: React 19
+     * and Svelte assign the PROPERTY whenever the element has one of that name, and a
+     * getter alone made `<aparte-composer disabled="">` — a spelling the wrappers type
+     * as valid — throw and take the render down. `presenceOn` because `''` is what
+     * those templates hand a presence property (#62).
+     */
+    set disabled(value: boolean) { this.toggleAttribute('disabled', presenceOn(value)); }
+    /**
      * When false, Shift+Enter submits and a bare Enter inserts a newline —
      * the inverse of the default. Driven by the `submit-on-enter` attribute.
      */
     get submitOnEnter(): boolean { return this.getAttribute('submit-on-enter') !== 'false'; }
     get attachments(): File[] { return this._attachments; }
     get placeholder(): string { return this.getAttribute('placeholder') ?? ''; }
+    /** Writes the attribute the inputs read (see `disabled` for why the setter exists). */
+    set placeholder(value: string) {
+        if (value === null || value === undefined) this.removeAttribute('placeholder');
+        else this.setAttribute('placeholder', String(value));
+    }
     get targetId(): string | null { return this.getAttribute('target'); }
 
     /**
@@ -761,14 +775,38 @@ export class AparteComposer extends HTMLElement {
         return undefined;
     }
 
+    /**
+     * The message this composer's turn is writing, when the event that started it said.
+     * Kept so the END of a DIFFERENT turn cannot be read as the end of this one — see
+     * `_isForThisTurn`.
+     */
+    private _streamingMessageId: string | null = null;
+
+    /**
+     * Whether a terminal event ends the turn this composer is following.
+     *
+     * `_isForThisComposer` answers "is this chat's?", and both turns of a retry belong
+     * to the same chat: the client aborts the superseded reply, the engine emits
+     * `run-aborted` for it, and that unwind turned Stop back into Send while the new
+     * reply was still streaming — and evicted the open panel, i.e. the approval question
+     * a tool was still waiting on. An event with no `messageId` still ends the turn: a
+     * loop of one's own saying "done" has always meant this one.
+     */
+    private _isForThisTurn(e: Event): boolean {
+        const id = (e as CustomEvent).detail?.messageId as string | undefined;
+        return !id || this._streamingMessageId === null || id === this._streamingMessageId;
+    }
+
     private _handleMessageStart(e: Event): void {
         if (!this._isForThisComposer(e)) return;
+        this._streamingMessageId = ((e as CustomEvent).detail?.messageId as string | undefined) ?? null;
         this._streaming = true;
         this._emit('streaming-change', { streaming: true });
     }
 
     private _handleMessageDone(e: Event): void {
-        if (!this._isForThisComposer(e)) return;
+        if (!this._isForThisComposer(e) || !this._isForThisTurn(e)) return;
+        this._streamingMessageId = null;
         this._streaming = false;
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends

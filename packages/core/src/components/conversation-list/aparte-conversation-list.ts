@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import { APARTE_DEFAULT_LOCALE } from '../../config/locale.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { presenceOn } from '../../utils/presence.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -58,6 +59,11 @@ type ListLocaleKey =
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
     | 'conversationGroupWeek' | 'conversationGroupMonth';
+
+/** A selector for the row button carrying `id` on `attr`. */
+function rowSelector(attr: string, id: string): string {
+    return `[${attr}="${cssEscape(id)}"]`;  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+}
 
 const DAY = 864e5;
 const MENU_GAP = 4;
@@ -173,7 +179,10 @@ export class AparteConversationList extends HTMLElement {
     }
 
     set loading(value: boolean) {
-        this.toggleAttribute('loading', value);
+        // `presenceOn`, like every other boolean property in core: `''` is the ON that
+        // React stringifies and Svelte 5 assigns, and `toggleAttribute` reads it as
+        // falsy — the documented spelling turned the wait off.
+        this.toggleAttribute('loading', presenceOn(value));
     }
 
     // ─── Lifecycle ────────────────────────────────────────────────────────
@@ -240,21 +249,46 @@ export class AparteConversationList extends HTMLElement {
         // The menu and the rename input live inside the rows; a render replaces them.
         this._closeMenu();
         this._renaming = null;
+        // Where the keyboard was, so it can be put back: `innerHTML` below replaces every
+        // row, and Enter on a row is followed by exactly this render (the host marks the
+        // active conversation and re-assigns the list). The button the reader was on is
+        // gone by then and the focus lands on `<body>`, so the next Tab restarts at the
+        // top of the page. Same rule the rename exit already follows.
+        const focused = document.activeElement as HTMLElement | null;
+        const held = focused && this.contains(focused)
+            ? focused.closest<HTMLElement>('[data-select-id], [data-more-id]')
+            : null;
+        const restore = held?.dataset['selectId']
+            ? rowSelector('data-select-id', held.dataset['selectId'])
+            : held?.dataset['moreId']
+                ? rowSelector('data-more-id', held.dataset['moreId'])
+                : null;
         const loading = this.hasAttribute('loading');
         this.setAttribute('aria-busy', loading ? 'true' : 'false');
         if (loading) {
             // Six rows of the recipe, the widths varied so it reads as a list and not a
             // grid; a status line off screen, because aria-busy alone is often ignored.
-            // Literals only in the skeleton: the text-escaping guard reads a `.repeat()` on a
-            // string as an interpolation it cannot see through, and a red guard is a guard
-            // somebody skips. The status line is the one interpolation, escaped.
+            // Literals only, no interpolation at all: the text-escaping guard reads a
+            // `.repeat()` on a string as an interpolation it cannot see through, and a red
+            // guard is a guard somebody skips.
             const row = '<span class="aparte-skeleton aparte-skeleton--text"></span>';
             this.innerHTML =
                 '<div class="aparte-conv-list-loading" aria-hidden="true">' + row + row + row + row + row + row + '</div>'
-                + `<span class="aparte-conv-list-loading-status aparte-sr-only" role="status">${escapeHtml(this._t('loadingConversations'))}</span>`;
+                + '<span class="aparte-conv-list-loading-status aparte-sr-only" role="status"></span>';
+            // The text lands AFTER the node does. A live region created with its content
+            // already in it is a new node, not a change, and several screen readers
+            // announce nothing at all. One frame is enough for it to be registered; if the
+            // wait ends first the node is gone and there is nothing left to say.
+            const status = this.querySelector<HTMLElement>('.aparte-conv-list-loading-status');
+            const say = (): void => { if (status?.isConnected) status.textContent = this._t('loadingConversations'); };
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(say);
+            else say();
             return;
         }
         this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
+        // The same row, by id — not the same element, which no longer exists. A row that
+        // left the list takes the focus with it: there is nothing to put it back on.
+        if (restore) this.querySelector<HTMLElement>(restore)?.focus();  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
     }
 
     private _t(key: ListLocaleKey): string {
@@ -513,12 +547,29 @@ export class AparteConversationList extends HTMLElement {
                     ));
                 }
                 return;
-            case 'delete':
-                // Ask first. The safe answer takes the focus.
-                open.menu.innerHTML = this._confirmMarkup(conv);  // safe-text: _confirmMarkup escapes the title and every locale string.
-                this._placeMenu(open.button, open.menu);
+            case 'delete': {
+                // Ask first. The safe answer takes the focus — and it takes it BEFORE the
+                // items it replaces are removed, which is the whole of this dance.
+                //
+                // `menu.innerHTML = …` destroyed the item the reader had just activated
+                // while it still held the focus, and a browser blurs a node it is about to
+                // remove: `focusout`, no `relatedTarget`, dispatched while the node is
+                // still in the tree. `_onFocusOut` reads that as "the focus left the menu"
+                // and closes it — so the question never appeared and there was no way at
+                // all to delete a conversation. jsdom runs no such fixup, which is why the
+                // unit tests were green; see `the-keyboard-keeps-its-place.test.ts`.
+                //
+                // Adding the question, moving the focus into it, and only then removing the
+                // old items means nothing focused is ever removed.
+                const previous = [...open.menu.childNodes];
+                const holder = document.createElement('div');
+                holder.innerHTML = this._confirmMarkup(conv);  // safe-text: _confirmMarkup escapes the title and every locale string.
+                open.menu.append(...holder.childNodes);
                 open.menu.querySelector<HTMLElement>('[data-menu-action="cancel"]')?.focus();
+                for (const node of previous) node.remove();
+                this._placeMenu(open.button, open.menu);
                 return;
+            }
             case 'cancel':
                 this._closeMenu(true);
                 return;

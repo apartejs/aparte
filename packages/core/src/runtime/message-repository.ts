@@ -104,6 +104,21 @@ export class AparteMessageRepository {
     }
 
     /**
+     * Every message the tree holds — every branch, not just the active path.
+     *
+     * `getMessages()` walks head → root, so a question about the whole conversation
+     * ("is anything still streaming?") answered from it could not see a turn that a
+     * retry had just taken off the path — and the viewport wrote that turn's remaining
+     * segments into the bubble which replaced it. No order is promised beyond
+     * insertion: a caller that needs the topology reads `export()`.
+     */
+    getAllMessages(): AparteMessage[] {
+        const all: AparteMessage[] = [];
+        for (const node of this._nodes.values()) all.push(node.current);
+        return all;
+    }
+
+    /**
      * Returns the IDs of all siblings of `messageId`
      * (i.e. all children of its parent, including itself).
      * Use this to build branch-picker UI.
@@ -173,16 +188,20 @@ export class AparteMessageRepository {
     }
 
     /**
-     * Remove all descendants of `messageId` (inclusive) and set `head` to
-     * the parent of `messageId`. Used by edit/truncate flows.
+     * Remove all descendants of `messageId` (inclusive) and, when the head was among
+     * them, set `head` to the parent of `messageId`. Used by edit/truncate flows.
+     *
+     * A head in a branch this call did not touch stays where it is: it used to be
+     * relocated regardless, which took the active path out of the version the reader was
+     * on for a truncate somewhere else entirely.
      *
      * @param messageId  The first message to remove
-     * @param newParentId  Optional explicit parent to set head to
      */
     resetHead(messageId: string): void {
         const node = this._nodes.get(messageId);
         if (!node) return;
 
+        const headBefore = this._head;
         // Delete all descendants first
         this._deleteDescendants(node);
 
@@ -198,8 +217,14 @@ export class AparteMessageRepository {
         }
         this._nodes.delete(messageId);
 
-        // Move head to parent (null if the root was deleted)
-        this._head = node.prev;
+        // Move head to the parent (null if the root was deleted) — but ONLY when the head
+        // is one of the messages just removed. It moved unconditionally, so truncating a
+        // branch the reader was not on jumped the active path out of the version they
+        // were reading.
+        const headSurvived = headBefore !== null
+            && headBefore !== node
+            && this._nodes.get(headBefore.current.id) === headBefore;
+        if (!headSurvived) this._head = node.prev;
     }
 
     /**

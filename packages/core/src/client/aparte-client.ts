@@ -343,6 +343,21 @@ export class AparteClient {
         };
         this._config = options.config ?? aparteGlobalConfig;
 
+        /*
+         * The key channel this client was given becomes a key source on its CONFIG,
+         * so everything that needs a key can see it — not the chat alone.
+         *
+         * `refreshProviderModels`, the model selector's one data path, read
+         * `config.getKey` only: an app following the documented primary channel
+         * (`keyResolver`) therefore got an empty picker on every cloud provider,
+         * because `fetchModels` returns `[]` without a key. Nothing warned; the list
+         * simply read as "the vendor returned nothing".
+         *
+         * Registered on the config rather than answered by the client, so the
+         * capability stays reachable without one (decision #9).
+         */
+        if (options.keyResolver) this._config.registerKeyProvider(options.keyResolver);
+
         // Both take THIS client's config, not the global one. Segment renderers are
         // registered per config as of 0.8.0, so a client constructed with
         // `{ config }` must register — or decline — on that instance; otherwise

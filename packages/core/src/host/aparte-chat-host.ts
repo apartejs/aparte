@@ -55,6 +55,8 @@ interface ViewportApi {
     appendMessage?(message: AparteMessage): void;
     /** Framework-managed DOM: record a message in the tree without painting a bubble. */
     addMessage?(message: AparteMessage): void;
+    /** Replace the tree with a list — what opening a stored conversation does. */
+    setMessages?(messages: AparteMessage[]): void;
     updateMessage?(messageId: string, updates: Partial<AparteMessage>): void;
     /** The transcript's read-only-while-streaming flag; in framework-managed mode the host is its one writer. */
     setTranscriptBusy?(busy: boolean): void;
@@ -101,9 +103,14 @@ export interface AparteChatHostBinding {
     resetComposer?(): void;
     /**
      * The transcript is on its way (`true`) or has arrived (`false`): the controller's
-     * wait, forwarded so a wrapper that draws its own DOM can draw the wait too — the
-     * skeleton, the empty state kept off, the composer disabled. The viewport's
-     * `loading` attribute is set either way.
+     * wait, forwarded so a wrapper that draws its own DOM can draw the wait — the
+     * skeleton, the empty state kept off, the composer disabled.
+     *
+     * Declaring it makes the wait YOURS, `aria-busy` included: the host stops writing the
+     * viewport's `loading` attribute and leaves it to you, because two writers with two
+     * ideas of when the wait ends is how a wrapper came to draw a skeleton over a
+     * transcript the attribute said had arrived. A binding without this callback keeps
+     * the attribute written for it.
      */
     onLoadingChange?(loading: boolean): void;
 }
@@ -295,7 +302,17 @@ export class AparteChatHost {
             setMessages: (msgs) => {
                 this._beginConversationSwap();
                 this._vp()?.resetSpacer?.();
-                this.binding.setMessages(msgs.map(adoptMessageSegments));
+                const adopted = msgs.map(adoptMessageSegments);
+                this.binding.setMessages(adopted);
+                // …and into the viewport's TREE, which is what `exportTree` serialises and
+                // what every branch operation reads. This handed the list to the framework
+                // alone, so a stored conversation was invisible to the repository: the next
+                // message became the root of a fresh tree, and `syncRepoFromMessages` then
+                // appended the history it could not find at the head — after the new turn.
+                // The saved tree read [new turn, old history], and the next open restored
+                // it. The vanilla binding has always gone through this method; so does this
+                // one now.
+                this._vp()?.setMessages?.(adopted);
             },
             appendMessage: (msg) => this.appendMessage(msg),
             getMessages: () => this.binding.getMessages(),
@@ -309,7 +326,17 @@ export class AparteChatHost {
                 return this._vp()?.exportTree?.();
             },
             importTree: (tree) => { this._vp()?.importTree?.(tree); },
-            setLoading: (on) => { this._vp()?.setLoading?.(on); this.binding.onLoadingChange?.(on); },
+            // One writer for the wait. A wrapper that hears `onLoadingChange` draws the
+            // wait itself and writes the viewport's attribute from its own
+            // `loading || hostLoading` — so the host writing it too meant that, with the
+            // consumer's own prop on, a `setLoading(false)` here removed the attribute
+            // (and `aria-busy`) while the wrapper still drew the skeleton and still held
+            // the composer shut. A binding that cannot hear it has no other way to know,
+            // and there the attribute stays the host's to write.
+            setLoading: (on) => {
+                if (this.binding.onLoadingChange) this.binding.onLoadingChange(on);
+                else this._vp()?.setLoading?.(on);
+            },
         };
 
         this._controller = new AparteConversationController(convBinding, {
@@ -445,7 +472,7 @@ export class AparteChatHost {
                 resolveConfig(this.binding.host).getSegmentDefaults(segment.type),
             )
             : segment;
-        this._lastBubble()?.addSegment?.(stamped);
+        this._streamBubble(last?.id)?.addSegment?.(stamped);
         if (!last) return;
         const segments = [...(last.segments || []), stamped];
         const next = [...msgs.slice(0, -1), { ...last, segments }];
@@ -463,7 +490,7 @@ export class AparteChatHost {
         // Same ordering trap as `addSegment`: the bubble is written first, so the
         // `endedAt` has to be computed before that write, not after it.
         const stamped = current ? stampSegmentOnUpdate(current, updates) : updates;
-        this._lastBubble()?.updateSegment?.(segmentId, stamped);
+        this._streamBubble(last?.id)?.updateSegment?.(segmentId, stamped);
         if (!last || !last.segments) return;
         const segments = last.segments.map((s) =>
             s.id === segmentId ? mergeSegmentUpdate(s, stamped) : s,
@@ -476,7 +503,7 @@ export class AparteChatHost {
     /** Remove a transient segment (a status row the host added itself). */
     removeSegment(segmentId: string): void {
         this._flushStreamState();
-        this._lastBubble()?.removeSegment?.(segmentId);
+        this._streamBubble(this.binding.getMessages().at(-1)?.id)?.removeSegment?.(segmentId);
         const msgs = this.binding.getMessages();
         const last = msgs[msgs.length - 1];
         if (!last?.segments) return;
@@ -842,6 +869,28 @@ export class AparteChatHost {
         ) as unknown as StreamingBubble | null;
     }
 
+    /**
+     * The bubble the streaming writes below belong to: the one carrying that message's
+     * id, and NOTHING when it is not on the page yet.
+     *
+     * It used to be "the last bubble in the viewport", which is a different message
+     * whenever the DOM is a render behind the list — which is every framework here.
+     * `appendMessage` puts the new reply in React's state and React paints it on its own
+     * schedule, so a first chunk arriving in between went into the PREVIOUS reply's
+     * bubble; `syncBubbles` then wrote the same segment onto the real one, and the same
+     * `data-segment-id` was on two bubbles.
+     *
+     * Skipping the paint is safe because it is only ever a paint: the message list is
+     * written either way, and `syncBubbles` — called by the framework after each render,
+     * always re-syncing the last message — puts it on screen as soon as the bubble
+     * exists. Without an id there is nothing to resolve, so the last bubble stands: that
+     * is a host writing into a transcript it has not appended to.
+     */
+    private _streamBubble(messageId: string | undefined): StreamingBubble | null {
+        if (messageId) return this._bubbleById(messageId);
+        return this._lastBubble();
+    }
+
     private _lastBubble(): StreamingBubble | null {
         const vp = this.binding.viewport;
         if (!vp) return null;
@@ -876,12 +925,30 @@ export class AparteChatHost {
             const d = (e as CustomEvent)?.detail as { messageId?: string } | undefined;
             if (d?.messageId) this._setStreamingId(d.messageId);
         };
+        /**
+         * Whether a terminal event ends the turn THIS host is following.
+         *
+         * A retry supersedes the reply being written: the client aborts it, and the
+         * engine's `run-aborted` reaches this host as an `aparte-message-aborted`
+         * carrying the OLD message's id. `onEnd` took no event at all, so it could not
+         * tell — and one turn's unwind un-busied the turn still streaming. An event with
+         * no id still ends the turn: that is a host or a loop of its own saying "done",
+         * and it has always meant this one.
+         */
+        const endsThisTurn = (e: Event): boolean => {
+            const id = ((e as CustomEvent)?.detail as { messageId?: string } | undefined)?.messageId;
+            return !id || this._streamingId === null || id === this._streamingId;
+        };
         const onDone = (e: Event) => {
-            this.binding.onTypingChange?.(false);
-            this._setStreamingId(null);
+            if (endsThisTurn(e)) {
+                this.binding.onTypingChange?.(false);
+                this._setStreamingId(null);
+            }
             const d = (e as CustomEvent)?.detail as
                 | { messageId?: string; usage?: AparteUsage }
                 | undefined;
+            // The usage is recorded whoever reported it: it belongs to the message the
+            // event names, not to the turn in flight.
             if (!d?.messageId || !d.usage) return;
             const next = this.binding.getMessages().map((m) =>
                 m.id === d.messageId ? { ...m, usage: d.usage } : m,
@@ -890,7 +957,8 @@ export class AparteChatHost {
             this.binding.onMessagesChange?.(next);
             this._bubbleById(d.messageId)?.setUsage?.(d.usage);
         };
-        const onEnd = () => {
+        const onEnd = (e: Event) => {
+            if (!endsThisTurn(e)) return;
             this.binding.onTypingChange?.(false);
             this._setStreamingId(null);
         };

@@ -126,6 +126,8 @@ export class AparteChat extends HTMLElement {
 
   private _observer: MutationObserver | null = null;
   private _loadingObserver: MutationObserver | null = null;
+  /** Waits for a `<aparte-chat-viewport>` child to appear — see `_watchForViewport`. */
+  private _childObserver: MutationObserver | null = null;
   /** The viewport is loading and the gate is on — see `_applyLoadingGate`. */
   private _gated = false;
   /** The composer's `disabled` is the gate's to remove, not one the consumer set. */
@@ -145,6 +147,7 @@ export class AparteChat extends HTMLElement {
     this._forwardAttr('submit-on-enter');
     this._syncEmptyWatch();
     this._syncLoadingWatch();
+    this._watchForViewport();
   }
 
   disconnectedCallback(): void {
@@ -152,6 +155,8 @@ export class AparteChat extends HTMLElement {
     this._observer = null;
     this._loadingObserver?.disconnect();
     this._loadingObserver = null;
+    this._childObserver?.disconnect();
+    this._childObserver = null;
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -310,6 +315,28 @@ export class AparteChat extends HTMLElement {
     this._applyLoadingGate();
     this._loadingObserver = new MutationObserver(() => this._applyLoadingGate());
     this._loadingObserver.observe(viewport, { attributes: true, attributeFilter: ['loading'] });
+  }
+
+  /**
+   * Both watches above need a viewport to observe, and they were installed once, at
+   * connect, when there might not be one yet: `<aparte-chat framework-managed>` IS
+   * Angular's host element — upgraded on insert, filled by the template afterwards — and
+   * hand-written markup upgrades before its children are parsed. Neither ever got its
+   * observer, so the documented "every chat gates" was inert on exactly the chats whose
+   * transcript is fetched. This waits for the child to arrive, installs them, and stops.
+   */
+  private _watchForViewport(): void {
+    this._childObserver?.disconnect();
+    this._childObserver = null;
+    if (this.querySelector('aparte-chat-viewport')) return;
+    this._childObserver = new MutationObserver(() => {
+      if (!this.querySelector('aparte-chat-viewport')) return;
+      this._childObserver?.disconnect();
+      this._childObserver = null;
+      this._syncEmptyWatch();
+      this._syncLoadingWatch();
+    });
+    this._childObserver.observe(this, { childList: true, subtree: true });
   }
 
   /**

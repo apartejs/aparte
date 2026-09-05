@@ -177,5 +177,5 @@ export type {
 } from './element-attributes.js';
 
 // The canonical imperative surface every framework <AparteChat> exposes.
-export type { AparteChatImperativeApi } from './imperative-api.js';
+export type { AparteChatImperativeApi, AparteUiHandle } from './imperative-api.js';
 

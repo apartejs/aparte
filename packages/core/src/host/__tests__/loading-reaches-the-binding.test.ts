@@ -10,7 +10,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { AparteChatHost, type AparteChatHostBinding } from '../aparte-chat-host.js';
 import { AparteConfig } from '../../config/aparte-config.js';
 import { AparteConversationManager } from '../../conversations/conversation-manager.js';
-import type { AparteConversation, AparteMessage, AparteStorageAdapter } from '../../types/index.js';
+import type { AparteMessage } from '../../types/index.js';
+// From the module that defines them: the types barrel carries the element/segment
+// surface, not the storage contract.
+import type { AparteConversation, AparteStorageAdapter } from '../../conversations/types.js';
 
 const conv: AparteConversation = {
     id: 'c1', title: 'One', createdAt: 1, updatedAt: 1,

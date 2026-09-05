@@ -96,4 +96,33 @@ describe('attachment object-URL lifetime', () => {
         // The leak this revoking was added for must stay fixed.
         expect(revoked, 'a reset still releases what it drops').toContain(BLOB);
     });
+
+    it('and revokes the branches too, not just the active path', async () => {
+        const vp = document.createElement('aparte-chat-viewport') as never as HTMLElement & {
+            setMessages(m: AparteMessage[]): void;
+            addSiblingOf(existingId: string, m: AparteMessage): string | null;
+            clearAll(): void;
+        };
+        document.body.appendChild(vp);
+        await vi.waitFor(() => expect(typeof vp.setMessages).toBe('function'));
+
+        // A retry forks the transcript: the first reply leaves the active path, taking
+        // the file it produced with it. `clearAll` walked head → root, so that object
+        // URL became unreachable without ever being released.
+        vp.setMessages([
+            { id: 'u1', role: 'user', content: 'draw it', timestamp: Date.now() },
+            {
+                id: 'a1', role: 'assistant', content: 'here', timestamp: Date.now(),
+                attachments: [{ id: 'f1', name: 'shot.png', type: 'image/png', size: 10, url: BLOB }],
+            },
+        ]);
+        vp.addSiblingOf('a1', {
+            id: 'a2', role: 'assistant', content: 'again', timestamp: Date.now(),
+            attachments: [{ id: 'f2', name: 'other.png', type: 'image/png', size: 10, url: 'blob:aparte-test-2' }],
+        });
+        vp.clearAll();
+
+        expect(revoked, 'the reply the retry replaced').toContain(BLOB);
+        expect(revoked, 'and the one that replaced it').toContain('blob:aparte-test-2');
+    });
 });

@@ -31,7 +31,10 @@ describe('aparte-conversation-list — loading', () => {
         expect(el.querySelectorAll('.aparte-skeleton').length).toBeGreaterThanOrEqual(4);
         expect(el.querySelector('[data-conv-id]')).toBeNull();
         expect(el.getAttribute('aria-busy')).toBe('true');
-        expect(el.querySelector('.aparte-conv-list-loading-status')?.textContent?.trim()).not.toBe('');
+        // A frame later: the live region is inserted empty and named after, or a screen
+        // reader has a new node instead of a change to announce. See
+        // `loading-is-a-presence-property.test.ts`.
+        await vi.waitFor(() => expect(el.querySelector('.aparte-conv-list-loading-status')?.textContent?.trim()).not.toBe(''));
     });
 
     it('shows the rows the moment the attribute goes', async () => {

@@ -32,7 +32,10 @@ describe('aparte-chat-viewport — loading', () => {
         expect(skeleton!.querySelectorAll('.aparte-skeleton').length).toBeGreaterThanOrEqual(4);
         expect(skeleton!.getAttribute('aria-hidden')).toBe('true');
         expect(vp.querySelector('.aparte-viewport-container')?.getAttribute('aria-busy')).toBe('true');
-        expect(vp.querySelector('.aparte-viewport-loading-status')?.textContent?.trim()).not.toBe('');
+        // A frame later: the live region is inserted empty and named after, or a screen
+        // reader has a new node instead of a change to announce. See
+        // `loading-is-a-presence-property.test.ts`.
+        await vi.waitFor(() => expect(vp.querySelector('.aparte-viewport-loading-status')?.textContent?.trim()).not.toBe(''));
     });
 
     it('removes them and clears busy when the attribute goes', async () => {

@@ -7,6 +7,9 @@ import type {
     AparteSiblingInfo,
     AparteUsage,
 } from '../../types/index.js';
+// From the module rather than the barrel: `types/index.ts` re-exports TYPES only, and
+// this is a value — the marker `withParsedSegments` stamps on what it derived.
+import { APARTE_DERIVED_SEGMENTS } from '../../types/models.js';
 import { resolveConfig } from '../../config/index.js';
 import { AparteMessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
@@ -15,6 +18,7 @@ import { parseMarkdownToSegments } from '../../parsers/index.js';
 import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { presenceOn } from '../../utils/presence.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
 import {
@@ -35,13 +39,40 @@ import {
  * that already carries segments, a person's message (their fences are their own), an
  * empty or multimodal content, and plain prose with nothing to split, which keeps the
  * cheaper content path.
+ *
+ * What it derived, it MARKS — see {@link markDerivedSegments}.
  */
 function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[]): AparteMessage {
     if (message.role !== 'assistant' || message.segments?.length) return message;
     if (typeof message.content !== 'string' || !message.content.trim()) return message;
     const segments = parseMarkdownToSegments(message.content, { blocks });
     const onlyProse = segments.length <= 1 && segments.every((s) => s.type === 'text');
-    return onlyProse ? message : { ...message, segments };
+    return onlyProse ? message : markDerivedSegments({ ...message, segments });
+}
+
+/**
+ * Say that THIS array of segments is core's reading of the message's own `content`,
+ * not something the host wrote.
+ *
+ * Merely opening a stored conversation ran the parser over every markdown reply, so
+ * `getMessages()` no longer matched what the store held: the manager's "did anything
+ * change?" guard saw a change on the first persist, bumped `updatedAt`, and the row
+ * jumped date group in the sidebar — one silent rewrite per conversation, for reading
+ * it. The marker is what lets that comparison ignore a derived array.
+ *
+ * Non-enumerable on purpose: a spread, `JSON.stringify` and a storage adapter never
+ * carry it, so nothing of this reaches the wire. Which is also why every place that
+ * copies a marked message has to put it back — {@link adoptMessageSegments} and the
+ * stamping spread below both return a fresh object.
+ */
+function markDerivedSegments<T extends object>(message: T): T {
+    Object.defineProperty(message, APARTE_DERIVED_SEGMENTS, { value: true, enumerable: false });
+    return message;
+}
+
+/** True when {@link withParsedSegments} is the author of this message's segments. */
+function hasDerivedSegments(message: AparteMessage): boolean {
+    return (message as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS] === true;
 }
 
 /**
@@ -259,7 +290,10 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     set loading(value: boolean) {
-        this.toggleAttribute('loading', value);
+        // `presenceOn`, like every other boolean property in core: `''` is the ON that
+        // React stringifies and Svelte 5 assigns, and `toggleAttribute` reads it as
+        // falsy — the documented spelling turned the wait off.
+        this.toggleAttribute('loading', presenceOn(value));
     }
 
     setLoading(loading: boolean): void {
@@ -299,9 +333,15 @@ export class AparteChatViewport extends HTMLElement {
         const status = document.createElement('span');
         status.className = 'aparte-viewport-loading-status aparte-sr-only';
         status.setAttribute('role', 'status');
-        status.textContent = cfg.t('loadingConversation');
         // A sibling, not a child: inside the aria-hidden skeleton it would be hidden too.
         container.prepend(skeleton, status);
+        // The text lands AFTER the node does. A live region created with its content
+        // already in it is a new node, not a change — several screen readers announce
+        // nothing at all. One frame is enough for the region to be registered; if the
+        // wait ends first the node is gone and there is nothing to say.
+        const say = (): void => { if (status.isConnected) status.textContent = cfg.t('loadingConversation'); };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(say);
+        else say();
     }
 
     constructor() {
@@ -544,12 +584,32 @@ export class AparteChatViewport extends HTMLElement {
         return head;
     }
 
-    /** The id of the message currently streaming, if any. */
+    /**
+     * The id of the message currently streaming, if any — searched across the whole
+     * TREE, and answering with an OFF-HEAD one first when there are two.
+     *
+     * It used to scan `getMessages()`, the active path. A retry or an edit on an
+     * earlier bubble calls `addSiblingOf`, which switches the branch to the new pending
+     * reply: the turn still being written leaves the path, the scan found nothing, and
+     * the rest of that turn was appended to the message that had just replaced it.
+     *
+     * A new pending reply is itself marked streaming, so "the first one found" would
+     * answer the head and let the write through — the very case this exists to refuse.
+     * Answering the off-head one instead makes `_activeMessageId` refuse while ANY turn
+     * elsewhere in the tree is still open. That also refuses the new turn's own first
+     * deltas for as long as the superseded one has not settled, which is the trade this
+     * whole path already makes: losing the tail is visible, writing it onto someone
+     * else's message is not.
+     */
     private _streamingMessageId(): string | null {
-        for (const message of this._repo.getMessages()) {
-            if ((message as { isStreaming?: boolean }).isStreaming) return message.id;
+        const head = this._repo.headId;
+        let atHead: string | null = null;
+        for (const message of this._repo.getAllMessages()) {
+            if (!(message as { isStreaming?: boolean }).isStreaming) continue;
+            if (message.id !== head) return message.id;
+            atHead = message.id;
         }
-        return null;
+        return atHead;
     }
 
     /**
@@ -754,6 +814,12 @@ export class AparteChatViewport extends HTMLElement {
     /**
      * Atomic update for a message by ID
      * Supports updating content, status, segments, and other metadata
+     *
+     * An id the tree does not hold is a silent no-op, deliberately: the message may have
+     * been truncated away by an edit while a turn was still writing to it, and inventing
+     * it back would put a message the reader deleted on screen. It does mean a late error
+     * card can have nowhere to land — `aparte-message-error` still fires, so a host that
+     * wants to show one has the event.
      */
     updateMessage(messageId: string, updates: Partial<AparteMessage>): void {
         const message = this._repo.getMessageById(messageId);
@@ -861,6 +927,10 @@ export class AparteChatViewport extends HTMLElement {
         // could not see a turn that had not yet been updated once. Not for a
         // historical message: a conversation saved mid-reply is a record, not a turn.
         if (!options?.historical && isAwaitingReply(message)) stored.isStreaming = true;
+        // Both branches above copy the object, and the marker is non-enumerable, so it
+        // has to be put back on the copy the repository will hold — `getMessages()`
+        // hands that very object to the store's comparison.
+        if (hasDerivedSegments(message)) markDerivedSegments(stored);
         this._repo.addOrUpdateMessage(this._repo.headId, stored);
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
@@ -1116,12 +1186,20 @@ export class AparteChatViewport extends HTMLElement {
         // held, and a tree saved before those fields existed came back without them.
         // It also runs AFTER `setMessages` on a conversation load, so whatever that
         // stamped was being replaced by this anyway: two paths, one of them silent.
+        // One grammar, THREE paths. `appendMessage` has run the stream's parser over a
+        // reply that arrived as a markdown string since 0.16 — and its docblock names
+        // this one as covered. It was not: a tree went to the repository raw, and since
+        // the controller runs `setMessages` and then this, the raw snapshot won on every
+        // conversation that had ever persisted a tree. The fence came back as bare prose.
+        const blocks = resolveConfig(this).getStreamBlocks();
         this._repo.import({
             ...tree,
-            messages: tree.messages.map((entry) => ({
-                ...entry,
-                message: adoptMessageSegments(entry.message),
-            })),
+            messages: tree.messages.map((entry) => {
+                const parsed = withParsedSegments(entry.message, blocks);
+                const message = adoptMessageSegments(parsed);
+                if (hasDerivedSegments(parsed)) markDerivedSegments(message);
+                return { ...entry, message };
+            }),
         });
         this._reRenderActivePath();
     }
@@ -1154,7 +1232,10 @@ export class AparteChatViewport extends HTMLElement {
          * messages really are gone.
          */
         if (options?.revokeAttachments !== false) {
-            for (const message of this._repo.getMessages()) {
+            // Every branch, not the active path: a retry or an edit takes a message off
+            // the path with whatever it carried, and `_repo.clear()` below makes those
+            // unreachable — the one case where nothing else can ever release them.
+            for (const message of this._repo.getAllMessages()) {
                 revokeAttachmentUrls(message.attachments);
             }
         }

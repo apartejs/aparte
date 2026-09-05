@@ -104,6 +104,32 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleOptionClick = this._handleOptionClick.bind(this);
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
+    /**
+     * The trigger's own three, bound for the same reason and left inline for a whole
+     * release: they were arrows on `this`, so nothing could ever remove them, and the
+     * trigger element survives a re-connect. One re-parent made a click toggle twice —
+     * open and shut inside the same click, i.e. a control that looks dead — and two made
+     * it announce `aparte-select-open` twice. The docblock above describes exactly this,
+     * fixed for the option click and not for its neighbours.
+     */
+    private _boundHandleTriggerClick = (): void => { this._toggle(); };
+    private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            // When open, Enter/Space selects the active option — handled by the
+            // document-level nav handler. Only toggle when closed, so we don't close the
+            // dropdown on the very keystroke meant to select.
+            if (this._isOpen) return;
+            e.preventDefault();
+            this._toggle();
+        }
+        if (e.key === 'ArrowDown' && !this._isOpen) {
+            e.preventDefault();
+            this._openDropdown();
+        }
+    };
+    private _boundHandleSearchInput = (e: Event): void => {
+        this._filterOptions((e.target as HTMLInputElement).value.toLowerCase());
+    };
 
     static get observedAttributes(): string[] {
         return ['value', 'placeholder', 'disabled', 'searchable', 'open'];
@@ -320,6 +346,13 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _setupMutationObserver(): void {
+        // The previous one first: this is called from `_render()` AND from
+        // `connectedCallback`, so assigning over the field left an orphan observing from
+        // the very first mount, plus one per re-connect. `_updateDropdownContent` silences
+        // `this._observer` before its own writes — only the newest — so the orphans woke
+        // on core's own rebuilds, which is precisely what the comment below says cannot
+        // happen.
+        this._observer?.disconnect();
         this._observer = new MutationObserver(() => {
             this._updateDropdownContent();
             // A list refreshed IN PLACE (a consumer writing into `.aparte-select-options`,
@@ -403,37 +436,23 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _setupEventListeners(): void {
-        // Trigger click
-        this._trigger?.addEventListener('click', () => this._toggle());
+        // Removed first, every one of them: this runs on every connect and the elements
+        // it binds to survive a re-connect (`_render` keeps the structure it already
+        // built). Adding the same bound reference twice is a no-op per spec — the remove
+        // is what makes that true and survives a future refactor that rebinds.
+        this._trigger?.removeEventListener('click', this._boundHandleTriggerClick);
+        this._trigger?.addEventListener('click', this._boundHandleTriggerClick);
 
-        // Trigger keyboard
-        this._trigger?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                // When open, Enter/Space selects the active option — handled by
-                // the document-level nav handler. Only toggle when closed, so we
-                // don't close the dropdown on the very keystroke meant to select.
-                if (this._isOpen) return;
-                e.preventDefault();
-                this._toggle();
-            }
-            if (e.key === 'ArrowDown' && !this._isOpen) {
-                e.preventDefault();
-                this._openDropdown();
-            }
-        });
+        this._trigger?.removeEventListener('keydown', this._boundHandleTriggerKeydown);
+        this._trigger?.addEventListener('keydown', this._boundHandleTriggerKeydown);
 
-        // Option selection. Removed first: `_setupEventListeners` runs on every
-        // connect, and adding the same bound reference twice is a no-op per spec —
-        // but being explicit costs nothing and survives a future refactor that
-        // rebinds.
+        // Option selection.
         this.removeEventListener('click', this._boundHandleOptionClick);
         this.addEventListener('click', this._boundHandleOptionClick);
 
         // Search filter
-        this._searchInput?.addEventListener('input', (e) => {
-            const query = (e.target as HTMLInputElement).value.toLowerCase();
-            this._filterOptions(query);
-        });
+        this._searchInput?.removeEventListener('input', this._boundHandleSearchInput);
+        this._searchInput?.addEventListener('input', this._boundHandleSearchInput);
 
         // Close on outside click
         document.addEventListener('click', this._boundHandleDocumentClick);
