@@ -139,6 +139,8 @@ behind the generates in flight.
 Downloading and status are **methods on the provider** you registered:
 
 - `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
+  Issued while a reply streams, it waits for that reply: a prepare no longer disposes the runner a
+  generation is using.
 
   A first load is tens or hundreds of megabytes, so `onProgress` is the whole point of
   calling it. It receives a `ModelLoadProgress` (exported by `@aparte/core`):

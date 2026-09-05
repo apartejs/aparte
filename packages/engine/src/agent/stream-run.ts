@@ -298,6 +298,33 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             envelope = { role: 'tool_call', content: '', toolCalls: toolCallsThisTurn, precedingText: precedingText.trim() || undefined };
             append(envelope);
         };
+        /*
+         * The envelope's text is a SNAPSHOT taken when the first call is declared, and
+         * a turn can go on streaming afterwards — a provider that emits `[tool, text]`
+         * in that order (`@aparte/provider-scenario` does; openai-compat flushes its
+         * calls at the end of the stream and so cannot) had the sentence shown to the
+         * user and dropped from the history, where nothing else carries it. Re-read at
+         * the turn's end, through the closure: the envelope is held by reference for
+         * exactly this reason, the way `toolCalls` is.
+         */
+        const syncEnvelopeText = (): void => {
+            if (envelope) envelope.precedingText = precedingText.trim() || undefined;
+        };
+        /*
+         * A call id must be unique WITHIN the turn: the transcript keys a row on it
+         * (`tool-${id}`, and `updateSegment` takes the first match) and the history
+         * files a `tool_result` under it. A vendor that omits `id` used to give every
+         * call of a turn the same one, so the second call's result was written onto the
+         * first call's row and the pair could not be matched at all on the next turn.
+         * A repeat is renamed rather than refused — the model asked for both.
+         */
+        const idsThisTurn = new Set<string>();
+        const uniqueCallId = (raw: string): string => {
+            let id = raw;
+            for (let n = 2; idsThisTurn.has(id); n++) id = `${raw}#${n}`;
+            idsThisTurn.add(id);
+            return id;
+        };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
         // Checked on BOTH sides of the read, and the second check is the one that
@@ -310,7 +337,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         const iterator = response[Symbol.asyncIterator]();
         const bailOnAbort = async (): Promise<boolean> => {
             if (!signal.aborted) return false;
-            await iterator.return?.(undefined);
+            // Guarded like the `finally` below: a transport whose iterator rejects on
+            // the way out turned a deliberate Stop into a thrown run error, and core
+            // paints an error card over the reply the user had just stopped.
+            await iterator.return?.(undefined).catch(() => { /* best effort */ });
             continueLoop = false;
             return true;
         };
@@ -361,13 +391,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continue;
                 }
                 sawToolUse = true;
+                // From here the CALL's id, not the event's: see `uniqueCallId`. The
+                // row, the handler, the approval and the history slot must all name
+                // the same call, so the rename happens once, before the first emit.
+                const callId = uniqueCallId(event.id);
 
                 // No built-in tool of any name: `create_artifact` used to be dispatched
                 // here, before the tool path, with no handler, no approval and its own
                 // result. A tool is a tool — the app registers it (`@aparte/plugin-artifacts`
                 // does), and it goes through tool-start, the gate, the handler and the
                 // envelope like every other.
-                emitter({ type: 'tool-start', toolCallId: event.id, name: event.name, input: event.input });
+                emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
 
                 const cfg = toolConfigLookup?.(event.name);
 
@@ -377,14 +411,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // allowed N-1 calls against the global option's N.
                 const effectiveMaxTurns = cfg?.maxTurns ?? maxTurns;
                 if (turns > effectiveMaxTurns) {
-                    emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: event.id });
+                    emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: callId });
                     continueLoop = false;
                     break;
                 }
 
                 const handler = toolLookup(event.name);
                 if (!handler) {
-                    emitter({ type: 'tool-aborted', toolCallId: event.id });
+                    emitter({ type: 'tool-aborted', toolCallId: callId });
                     continueLoop = false;
                     break;
                 }
@@ -393,7 +427,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
                 // ── HITL approval gate ────────────────────────────────────────
                 const gated = typeof cfg?.needsApproval === 'function'
-                    ? cfg.needsApproval({ id: event.id, name: event.name, input: event.input as Record<string, unknown> })
+                    ? cfg.needsApproval({ id: callId, name: event.name, input: event.input as Record<string, unknown> })
                     : cfg?.needsApproval;
                 if (gated) {
                     // Announced only when someone is actually being asked: a `'deny'` is a
@@ -401,7 +435,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
                     // for a call nobody was ever going to be asked about.
                     if (gated !== 'deny') {
-                        emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
+                        emitter({ type: 'tool-awaiting-approval', toolCallId: callId, name: event.name, input: event.input });
                     }
                     /*
                      * Nothing can ask, so nothing may answer.
@@ -413,7 +447,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                      * call, not a decision.
                      */
                     if (!approvalResolver) {
-                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        emitter({ type: 'tool-aborted', toolCallId: callId });
                         continueLoop = false;
                         break;
                     }
@@ -435,7 +469,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     if (!signal.aborted) {
                         try {
                             decision = await approvalResolver(
-                                { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
+                                { id: callId, name: event.name, input: event.input as Record<string, unknown> },
                                 signal,
                             );
                         } catch (err) {
@@ -443,7 +477,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                         }
                     }
                     if (signal.aborted || !decision) {
-                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        emitter({ type: 'tool-aborted', toolCallId: callId });
                         continueLoop = false;
                         break;
                     }
@@ -472,9 +506,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                             || (decision.instruction
                                 ? `The user rejected this tool call and said: ${decision.instruction}`
                                 : 'Tool execution was rejected by the user.');
-                        emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
-                        declareCall({ id: event.id, name: event.name, input: event.input });
-                        append({ role: 'tool_result', content: rejection, toolCallId: event.id });
+                        emitter({ type: 'tool-rejected', toolCallId: callId, reason: rejection });
+                        declareCall({ id: callId, name: event.name, input: event.input });
+                        append({ role: 'tool_result', content: rejection, toolCallId: callId });
                         /*
                          * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
                          * point. The remaining tool calls of this turn must not run — the
@@ -492,13 +526,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
                         effectiveInput = { ...(event.input as Record<string, unknown>), ...(decision.payload as Record<string, unknown>) };
                     }
-                    emitter({ type: 'tool-approved', toolCallId: event.id });
+                    emitter({ type: 'tool-approved', toolCallId: callId });
                 }
 
                 // ── handler invocation with per-call timeout ──────────────────
                 const outcome = await invokeToolHandler(
                     handler,
-                    { id: event.id, name: event.name, input: effectiveInput },
+                    { id: callId, name: event.name, input: effectiveInput },
                     signal,
                     toolTimeoutMs,
                 );
@@ -506,18 +540,18 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     // Same rule as the rejection / turn-limit / missing-handler
                     // exits above, which this branch was missing: a stopped turn
                     // must not go on running the tool calls that follow it.
-                    emitter({ type: 'tool-aborted', toolCallId: event.id });
+                    emitter({ type: 'tool-aborted', toolCallId: callId });
                     continueLoop = false;
                     break;
                 } else if (outcome.status === 'failed') {
                     // A crash is the handler's, and the run ends on it as before —
                     // but the row hears about it first, instead of spinning for good.
-                    emitter({ type: 'tool-failed', toolCallId: event.id, error: errorText(outcome.error) });
+                    emitter({ type: 'tool-failed', toolCallId: callId, error: errorText(outcome.error) });
                     throw outcome.error;
                 } else {
-                    emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content, structuredResult: outcome.structuredContent });
-                    declareCall({ id: event.id, name: event.name, input: event.input });
-                    append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
+                    emitter({ type: 'tool-resolved', toolCallId: callId, result: outcome.content, structuredResult: outcome.structuredContent });
+                    declareCall({ id: callId, name: event.name, input: event.input });
+                    append({ role: 'tool_result', content: outcome.content, toolCallId: callId });
                 }
             }
 
@@ -526,6 +560,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             // end AND abort-break, but NOT after a thrown `error` (which escapes
             // this try before reaching here, exactly like `_streamLoop`).
             emitter({ type: 'text-flush' });
+            // Everything this turn streamed belongs to the turn, including what came
+            // after the call that opened the envelope.
+            syncEnvelopeText();
 
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator.

@@ -246,7 +246,16 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             };
             if (request.tools?.length) {
                 body['tools'] = toOpenAITools(request.tools);
-                body['tool_choice'] = 'auto';
+                /*
+                 * A forced tool travels; `'auto'` is only the DEFAULT. It used to be
+                 * written unconditionally, so `toolChoice: { name }` — a shape the loop
+                 * passes straight through, since it intercepts only `{ name, input }`
+                 * (the synthetic call it runs itself) — was silently downgraded to
+                 * "the model decides", while the ai-sdk bridge honoured the same field.
+                 * `'none'` never reaches here: core strips the tools upstream.
+                 */
+                const forced = typeof request.toolChoice === 'object' ? request.toolChoice.name : undefined;
+                body['tool_choice'] = forced ? { type: 'function', function: { name: forced } } : 'auto';
             }
             return {
                 path: '/chat/completions',
@@ -288,10 +297,16 @@ export function parseOpenAICompatStream(
     const decoder = new TextDecoder();
     let buffer = '';
 
-    // Tool call accumulation state (keyed by the vendor's `index`). A null-prototype
-    // object: the key comes off the wire, and on a plain `{}` a chunk whose `index` is
-    // `"__proto__"` writes into Object.prototype for the whole page.
-    let toolCallsById: Record<number, { id: string; name: string; args: string }> = Object.create(null);
+    /*
+     * Tool call accumulation state, in wire order, keyed by `toolCallKey` below.
+     * A Map, not an object: the key comes off the wire, and on a plain `{}` a chunk
+     * whose `index` is `"__proto__"` writes into Object.prototype for the whole page.
+     */
+    const toolCalls = new Map<string, { id: string; name: string; args: string }>();
+    /** The call the last delta touched — what a bare argument fragment continues. */
+    let lastToolKey: string | null = null;
+    /** Ids minted for a vendor that sends none. Per stream, i.e. per turn. */
+    let mintedCallIds = 0;
     let capturedUsage: AparteUsage | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
@@ -308,7 +323,7 @@ export function parseOpenAICompatStream(
      * be worse than dropping it — so those are dropped, with a breadcrumb.
      */
     const flushToolCalls = (controller: ReadableStreamDefaultController<AparteStreamEvent>, complete: boolean): void => {
-        for (const entry of Object.values(toolCallsById)) {
+        for (const entry of toolCalls.values()) {
             let input: Record<string, unknown> = {};
             try {
                 input = entry.args.trim() ? JSON.parse(entry.args) : {};
@@ -325,7 +340,37 @@ export function parseOpenAICompatStream(
             const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
             controller.enqueue({ type: 'tool_use', ...toolCall });
         }
-        toolCallsById = Object.create(null);
+        toolCalls.clear();
+        lastToolKey = null;
+    };
+
+    /*
+     * Which accumulated call a `delta.tool_calls` entry belongs to.
+     *
+     * `index` is the wire format's own key and wins whenever the vendor sends one.
+     * It is OPTIONAL in practice across the compat family, though — a streaming
+     * convenience, not part of the function-call payload — and keying on it alone
+     * (`Number(tc.index ?? 0)`) put every call of a server that omits it on slot 0:
+     * the second id and name overwrote the first, the two argument strings
+     * concatenated into non-JSON, and the turn ran ONE tool on `{}`. So `id` is the
+     * next identity, and with neither, the function NAME decides: it appears only on
+     * a call's FIRST delta, so a nameless chunk continues the call before it and a
+     * named one starts a new one.
+     *
+     * `null` means "skip this entry": an `index` the vendor sent that is not a
+     * non-negative integer is not a slot number, it is malformed (or hostile —
+     * `"__proto__"` was the shape that made this a Map).
+     */
+    const toolCallKey = (tc: { index?: unknown; id?: string; function?: { name?: string } }): string | null => {
+        if (tc.index !== undefined && tc.index !== null) {
+            // Made a number, not annotated as one: `index` is whatever the vendor's JSON put there.
+            const idx = Number(tc.index);
+            if (!Number.isInteger(idx) || idx < 0) return null;
+            return `i${idx}`;
+        }
+        if (tc.id) return `d${tc.id}`;
+        if (!tc.function?.name && lastToolKey !== null) return lastToolKey;
+        return `p${toolCalls.size}`;
     };
 
     return new ReadableStream<AparteStreamEvent>({
@@ -377,16 +422,27 @@ export function parseOpenAICompatStream(
                                 }
                                 if (delta.tool_calls) {
                                     for (const tc of delta.tool_calls) {
-                                        // Made a number, not annotated as one: `index` is whatever
-                                        // the vendor's JSON put there.
-                                        const idx = Number(tc.index ?? 0);
-                                        if (!Number.isInteger(idx) || idx < 0) continue;
-                                        if (!toolCallsById[idx]) {
-                                            toolCallsById[idx] = { id: tc.id ?? '', name: tc.function?.name ?? '', args: '' };
+                                        const key = toolCallKey(tc);
+                                        if (key === null) continue;
+                                        let entry = toolCalls.get(key);
+                                        if (!entry) {
+                                            /*
+                                             * An id is MINTED when the vendor sends none. `id: ''`
+                                             * used to travel: the transcript keys a row on
+                                             * `tool-${id}` and the history a result on
+                                             * `toolCallId`, so two id-less calls in one turn shared
+                                             * one row (the second call's result landed on the first
+                                             * call's line) and one history slot an OpenAI-shaped
+                                             * endpoint rejects on the next turn. A real id arriving
+                                             * in a later chunk still wins, below.
+                                             */
+                                            entry = { id: tc.id ?? `call_${++mintedCallIds}`, name: tc.function?.name ?? '', args: '' };
+                                            toolCalls.set(key, entry);
                                         }
-                                        if (tc.id) toolCallsById[idx].id = tc.id;
-                                        if (tc.function?.name) toolCallsById[idx].name = tc.function.name;
-                                        if (tc.function?.arguments) toolCallsById[idx].args += tc.function.arguments;
+                                        lastToolKey = key;
+                                        if (tc.id) entry.id = tc.id;
+                                        if (tc.function?.name) entry.name = tc.function.name;
+                                        if (tc.function?.arguments) entry.args += tc.function.arguments;
                                     }
                                 }
                             }

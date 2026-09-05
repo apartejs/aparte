@@ -82,6 +82,13 @@ export interface ScenarioProviderOptions {
      * Calls answered in order; the last one repeats. The simplest form — a demo that
      * always goes the same way, a test that needs three replies. Every call to the
      * model advances, a tool round-trip included.
+     *
+     * The cursor belongs to the PROVIDER, not to a chat: a request carries no
+     * conversation identity, so two chats registered against one provider take turns
+     * from the same script and interleave it (chat A gets `turns[0]`, chat B
+     * `turns[1]`). On a page with more than one chat, build a provider per chat —
+     * `createScenarioProvider` is cheap and takes an `id` — or use `scenarios`, which
+     * answers from the request itself and has no cursor at all.
      */
     turns?: ScenarioTurn[];
     /**

@@ -188,12 +188,19 @@ export function getComputeDevice(): ComputeDevice {
     return _computeDevice;
 }
 
-/** Evict models from cache until count <= _maxCachedModels; `keepModelId` is never evicted. */
+/**
+ * Evict models from cache until count <= _maxCachedModels. `keepModelId` is never
+ * evicted, and neither is a model a generate is queued or running on: the budget
+ * fires from `pipeline-ready`, i.e. when ANOTHER model finishes loading, so it
+ * used to delete the weights of the model that was answering — and
+ * `deleteCachedModel` terminates the worker when that model is the loaded one.
+ */
 async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
     if (_maxCachedModels === 0) return; // unlimited
     try {
         const cached = await listCachedModels();
-        const others = cached.filter(e => e.modelId !== keepModelId);
+        const inUse = new Set(_queuedModelIds.values());
+        const others = cached.filter(e => e.modelId !== keepModelId && !inUse.has(e.modelId));
         const excess = cached.length - _maxCachedModels;
         if (excess <= 0) return;
         // Delete the excess models (oldest first — they appear first in cache scan order).

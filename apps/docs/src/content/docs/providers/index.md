@@ -59,9 +59,11 @@ keyInput.addEventListener('change', () => {
   `keyResolver` can return `undefined` for them. Run one and you need no key at all.
 - Want the key **off the client** entirely? Use [`AparteBackendTransport`](/guides/backend-transport/)
   instead — the key stays on your server and never reaches the browser.
-- `keyResolver` may return a `Record<string, string>` (for providers needing several auth headers)
-  and may be async (fetch from your own vault). `aparteGlobalConfig.setKeyProvider(...)` is an alternative
-  channel if you'd rather register the key globally instead of per-client.
+- `keyResolver` may return a `Record<string, string>` — `{ apiKey, endpoint }` points a provider at
+  your own host, and the model list follows the same endpoint as the chat — and may be async (fetch
+  from your own vault). `aparteGlobalConfig.setKeyProvider(...)` is the same channel registered
+  globally instead of per-client; it may return the record too, and a client's `keyResolver` is
+  consulted first, for the chat and for the model list alike.
 
 ## Which one?
 

@@ -243,6 +243,16 @@ export function fullStreamToAparteEvents(
                     controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
                 }
             } finally {
+                /*
+                 * Told to stop on EVERY exit, not only when the consumer cancels: the
+                 * `finish` and `error` branches `return` straight out of the loop, so
+                 * they used to reach this `finally` having said nothing to the SDK —
+                 * after an error part the vendor call was left to drain on its own,
+                 * which is the very thing `cancel()` exists to prevent. Best effort:
+                 * an iterator that objects to being settled must not become the
+                 * stream's error.
+                 */
+                try { await iterator?.return?.(undefined); } catch { /* best effort */ }
                 controller.close();
             }
         },
