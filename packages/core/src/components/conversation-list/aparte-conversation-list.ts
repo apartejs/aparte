@@ -444,6 +444,8 @@ export class AparteConversationList extends HTMLElement {
         this._placeMenu(button, menu);
         menu.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
         document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
+        document.addEventListener('pointerup', this._onDocumentPointerUp, true);
+        document.addEventListener('pointercancel', this._onDocumentPointerUp, true);
         window.addEventListener('scroll', this._onWindowScroll, true);
         window.addEventListener('resize', this._onWindowScroll);
     }
@@ -476,15 +478,32 @@ export class AparteConversationList extends HTMLElement {
         open.menu.remove();
         open.button.setAttribute('aria-expanded', 'false');
         document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
+        document.removeEventListener('pointerup', this._onDocumentPointerUp, true);
+        document.removeEventListener('pointercancel', this._onDocumentPointerUp, true);
+        this._pressInMenu = false;
         window.removeEventListener('scroll', this._onWindowScroll, true);
         window.removeEventListener('resize', this._onWindowScroll);
         if (returnFocus && open.button.isConnected) open.button.focus();
     }
 
+    /**
+     * A pointer is down inside the open menu. WebKit does not move the focus to a
+     * button on mousedown: the element that held it is blurred instead — `focusout`
+     * with no `relatedTarget` — before the click reaches the item. `_onFocusOut` used
+     * to read that as the focus leaving the menu and close it on the press, so with a
+     * mouse no item could be chosen at all. Held from the press to its release.
+     */
+    private _pressInMenu = false;
+
+    private _onDocumentPointerUp = (): void => {
+        this._pressInMenu = false;
+    };
+
     private _onDocumentPointerDown = (e: Event): void => {
         const open = this._open;
         if (!open) return;
         const target = e.target as Node;
+        this._pressInMenu = open.menu.contains(target);
         // The button's own click toggles; closing here too would reopen on the click.
         if (open.menu.contains(target) || open.button.contains(target)) return;
         this._closeMenu();
@@ -498,6 +517,9 @@ export class AparteConversationList extends HTMLElement {
         const open = this._open;
         if (!open) return;
         const next = e.relatedTarget as Node | null;
+        // A blur with nowhere to go, during a press inside the menu: the browser is
+        // clearing the focus for a button it will not focus (WebKit), not leaving.
+        if (!next && this._pressInMenu) return;
         if (next && (open.menu.contains(next) || open.button.contains(next))) return;
         // Focus left the menu for somewhere else (a Tab, a programmatic move): close
         // without pulling it back.

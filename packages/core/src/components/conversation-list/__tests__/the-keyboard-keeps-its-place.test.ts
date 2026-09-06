@@ -108,6 +108,26 @@ describe('the delete confirmation', () => {
             stop();
         }
     });
+
+    it('stays open when a mouse press blurs the item the browser never focuses', () => {
+        // WebKit does not move the focus to a button on mousedown: the element that held
+        // it is blurred instead — `focusout`, `relatedTarget: null` — before the click
+        // reaches the item. Read as "the focus left the menu", that closed the menu on
+        // the press itself, so with a mouse no item could be chosen at all.
+        const el = mount([{ id: 'c1', title: 'Hello' }]);
+        moreOf(el, 'c1').click();
+        const menu = el.querySelector<HTMLElement>('[role="menu"]')!;
+        const item = menu.querySelector<HTMLElement>('[data-menu-action="delete"]')!;
+        const held = document.activeElement as HTMLElement;
+        expect(menu.contains(held), 'the menu opens focused').toBe(true);
+
+        item.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        held.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+        expect(el.querySelector('[role="menu"]'), 'the press leaves the menu open').not.toBeNull();
+
+        item.click();
+        expect(el.querySelector('[data-menu-action="confirm-delete"]'), 'and the click reaches the item').not.toBeNull();
+    });
 });
 
 describe('a re-render of the rows', () => {
