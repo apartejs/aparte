@@ -210,6 +210,13 @@ export class AparteChatViewport extends HTMLElement {
     private _isAutoScrollEnabled: boolean = true;
     /** The last scroll position we saw, so growth can be told from a gesture. */
     private _lastScrollTop = 0;
+    /** The scroll height at the last scroll event: how much it moved since bounds what churn can do. */
+    private _lastScrollHeight = 0;
+    /** When the transcript last mutated under our observer — an engine's settle adjustment follows one. */
+    private _lastMutationAt = Number.NEGATIVE_INFINITY;
+    /** How long after a mutation an engine's settle adjustment can arrive, and how far it moves. */
+    private readonly _settleShadowMs = 100;
+    private readonly _settleBoundPx = 100;
     /** When this component last moved `scrollTop` itself — see `_handleScroll`. "Never" is
      *  -Infinity rather than 0: `performance.now()` can be under a second old. */
     private _ownScrollAt = Number.NEGATIVE_INFINITY;
@@ -1788,6 +1795,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         this._mutationObserver = new MutationObserver((mutations) => {
+            this._lastMutationAt = performance.now();
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
             // A user bubble arriving is a send, whichever framework rendered it: the pin
@@ -1953,23 +1961,32 @@ export class AparteChatViewport extends HTMLElement {
          * (find-in-page, a host's own `scrollTo`) still disarms, except in that
          * one-second shadow of our own scroll.
          *
-         * The size of the decrease is NOT what tells the two apart, and it took three
-         * versions to stop pretending it could: a 100px cap was refuted by a React branch
-         * swap (the rebuild flickers the height by ~200px and WebKit moves scrollTop by
-         * as much); no cap at all snapped a reader drag-selecting text upward back to the
-         * bottom on the next token, because during a stream every token refreshes
-         * `_ownScrollAt` and the shadow never closes; and bounding it by the churn — a
-         * decrease no larger than the height change seen at THIS event — was refuted by
-         * the settle on WebKit, which hands the event a decrease its regrown height no
-         * longer explains (−82 against +30, −27 against nothing, one frame after our own
-         * pin; the follow disarmed, the transcript 81px short for good). What tells them
-         * apart is the HAND: a scroll gesture leaves a trace in `_readerInputAt` (wheel,
-         * touch, a press in the gutter, a scroll key), and a press on the text that drags
-         * a selection past the edge holds the pointer down (`_pointerHeld`) while the
-         * container scrolls. No trace and no hand, inside the shadow, is the layout's.
+         * The size of the decrease alone cannot tell the two apart, and it took three
+         * versions to learn what can: a 100px cap was refuted by a React branch swap (the
+         * rebuild flickers the height by ~200px and WebKit moves scrollTop by as much); no
+         * cap at all snapped a reader drag-selecting text upward back to the bottom on the
+         * next token, because during a stream every token refreshes `_ownScrollAt` and
+         * the shadow never closes; and bounding it by the churn alone — a decrease no
+         * larger than the height change seen at THIS event — was refuted by the settle on
+         * WebKit, which hands the event a decrease its regrown height no longer explains
+         * (−82 against +30, −27 against nothing, one frame after our own pin; the follow
+         * disarmed, the transcript 81px short for good). Three signals decide now. The
+         * HAND: a scroll gesture leaves a trace in `_readerInputAt` (wheel, touch, a
+         * press in the gutter, a scroll key), and a press on the text that drags a
+         * selection past the edge holds the pointer (`_pointerHeld`) while the container
+         * scrolls — either one is the reader. The CHURN, still: a decrease no larger than
+         * the height change is the layout's. And the SETTLE: a decrease of at most
+         * `_settleBoundPx` within `_settleShadowMs` of a transcript mutation we observed
+         * is the engine finishing that mutation's layout — where a host's own `scrollTo`
+         * or a tool's scroll-into-view comes with no mutation, or moves by far more, and
+         * disarms the way a reader does. Measured: the overlay spec's `scrollTop = 0` and
+         * Playwright's scroll-into-view before a click both re-pinned in a loop under a
+         * hand-only rule.
          */
         const top = this._container.scrollTop;
+        const height = this._container.scrollHeight;
         const drop = this._lastScrollTop - top;
+        const churn = Math.abs(height - this._lastScrollHeight);
         const now = performance.now();
         // Ours when it falls in the shadow of our own scroll and no hand was on the surface
         // in that window. It used to also require the decrease to be no larger than the
@@ -1980,15 +1997,21 @@ export class AparteChatViewport extends HTMLElement {
         // disarmed as "the reader went up". The reader's hand is the evidence, and it is
         // recorded (wheel, touch, gutter press, key on the container) or HELD (a press on
         // the text, dragging a selection past the edge); the churn was a proxy for both.
+        // An engine settling a reply it just re-laid out moves scrollTop within a few
+        // frames of the mutation and by tens of pixels; a host's own jump, or a tool's
+        // scroll-into-view before a click, comes with no mutation, or moves it by hundreds.
+        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && drop <= this._settleBoundPx;
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs
-            && !this._pointerHeld;
+            && !this._pointerHeld
+            && (drop <= churn + 2 || afterMutation);
         const readerWentUp = drop > 1 && !settlingOurs;
         // The same decrease, asked of the reader's HAND rather than of its size. The
         // generosity below is for layout drift; a gesture we can see is not drift, however
         // few pixels it moved.
         const readerHandOnIt = drop > 1 && now - this._readerInputAt < this._ownScrollWindowMs;
         this._lastScrollTop = top;
+        this._lastScrollHeight = height;
 
         if (this._isAtBottom() && !readerHandOnIt) {
             // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a

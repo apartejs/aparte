@@ -12,15 +12,17 @@
  * for good. Measured on react-webkit, one frame at the end of a streamed turn; Chromium
  * pinned first and never showed it.
  *
- * The reader's hand is the evidence that matters, and it is already recorded: wheel,
- * touch, pointer and key on the container. No hand within the window, a height that
- * moved or not, our own scroll a moment ago — that is a settle. A drag-selection upward
- * (a press on the surface) and a find-in-page jump (outside the window) keep disarming.
+ * Three signals decide: the reader's hand (a recorded gesture, or a pointer held on the
+ * text), the churn (a decrease no larger than the height change), and the settle — a
+ * small decrease within a few frames of a transcript mutation the viewport observed. A
+ * drag-selection upward (a press on the surface), a host jump (hundreds of pixels), a
+ * scroll-into-view with no mutation behind it and a find-in-page jump (outside the
+ * window) keep disarming.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 class NoopObserver { observe(): void {} unobserve(): void {} disconnect(): void {} }
-type Vp = HTMLElement & { _isAutoScrollEnabled: boolean; _ownScrollAt: number; _readerInputAt: number };
+type Vp = HTMLElement & { _isAutoScrollEnabled: boolean; _ownScrollAt: number; _readerInputAt: number; _lastMutationAt: number };
 let vp: Vp;
 let box: HTMLElement;
 
@@ -48,6 +50,7 @@ describe('a clamp in our own window', () => {
         geometry(1000, 1500);                       // at the bottom, armed
         expect(vp._isAutoScrollEnabled).toBe(true);
         vp._ownScrollAt = performance.now();        // we just pinned
+        vp._lastMutationAt = performance.now();     // the settle we just laid out
         geometry(918, 1530);                        // −82 with the content +30, no hand on it
         expect(vp._isAutoScrollEnabled, 'a settle clamp read as the reader going up').toBe(true);
     });
@@ -55,6 +58,7 @@ describe('a clamp in our own window', () => {
     it('still yields to a reader whose hand is on it', () => {
         geometry(1000, 1500);
         vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now();
         vp._readerInputAt = performance.now();      // a wheel notch, mid-settle
         geometry(918, 1530);
         expect(vp._isAutoScrollEnabled, 'the reader must be able to read back').toBe(false);
@@ -63,9 +67,30 @@ describe('a clamp in our own window', () => {
     it('still reads a drag-selection upward as the reader: the press is on the surface', () => {
         geometry(1000, 1500);
         vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now();
         box.dispatchEvent(new Event('pointerdown'));   // the hand, recorded by the container
         geometry(918, 1500);
         expect(vp._isAutoScrollEnabled).toBe(false);
+    });
+
+    it('reads a host jump inside the window as the reader: no hand, but far more than a settle moves', () => {
+        // The overlay spec does exactly this: pinned by us a moment ago, then
+        // `scrollTop = 0` from the page — a host scrollTo, no gesture — and the
+        // scroll-to-bottom button must show. A settle moves scrollTop by tens of
+        // pixels; a jump moves it by hundreds.
+        geometry(1000, 1500);
+        vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now();
+        geometry(0, 1500);
+        expect(vp._isAutoScrollEnabled, 'a 1000px jump is not a settle').toBe(false);
+    });
+
+    it('reads a small decrease with no mutation behind it as the reader: a scroll-into-view before a click', () => {
+        geometry(1000, 1500);
+        vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now() - 5000;
+        geometry(940, 1500);                        // −60, the height still, nothing of ours changed
+        expect(vp._isAutoScrollEnabled, 'nothing of ours moved it').toBe(false);
     });
 
     it('reads a decrease outside our own window as the reader (a find-in-page jump)', () => {
