@@ -78,6 +78,15 @@ export interface AparteChatMessage {
     toolName?: string;
 }
 
+/**
+ * The request one turn sends to a provider.
+ *
+ * `prefill`, `systemOverride` and `fastStream` used to sit here, each documented "providers
+ * MAY ignore it" and read by none — one model family's raw-completion vocabulary flattened
+ * onto every provider's request. A provider reads its option off `_meta`, the namespaced bag,
+ * which reaches it untouched; the trigger to reconsider is a raw-completion provider in this
+ * repo (`provider-llamacpp`) that would actually read one.
+ */
 export interface AparteChatRequest {
     messages: AparteChatMessage[];
     modelId: string;
@@ -111,38 +120,13 @@ export interface AparteChatRequest {
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
 
     /**
-     * Optional prefill string applied after the chat template's generation
-     * prompt — the model continues from the end of this string. Provider- and
-     * model-specific; core prescribes no syntax (the consuming app/orchestrator
-     * decides what control tokens, if any, to inject). Providers that support a
-     * "continue final message" mode apply it; others MAY ignore this field.
-     */
-    prefill?: string;
-
-    /**
-     * Verbatim system message to use INSTEAD of the provider building its own
-     * (e.g. the transformers provider's tool-system-message). Generic transport
-     * field : when set, the provider uses this string as the system message
-     * as-is. `tools` may still be passed (for the tool-call parser/dispatch)
-     * but is NOT re-rendered into the system prompt. Used to feed a fine-tuned
-     * model its EXACT training system prompt (anti-OOD). Providers that build no
-     * system message MAY ignore it.
-     */
-    systemOverride?: string;
-
-    /**
-     * Hint : stream tokens AS THEY ARRIVE (bypass the provider's flush-throttle).
-     * Default throttling coalesces UI paints to protect WebGPU decode speed ;
-     * a short code-generation turn that drives a live preview opts in so the
-     * consumer can render progressively. Providers MAY ignore it.
-     */
-    fastStream?: boolean;
-
-    /**
-     * Opaque metadata bag threaded through the request pipeline (e.g. from a
-     * requestInterceptor to the loop's post-processing). Never sent to the
-     * AI provider — stripped before the network call. The well-known keys are
-     * typed; see {@link AparteRequestMeta}.
+     * Opaque, namespaced metadata bag threaded through the request pipeline (e.g.
+     * from a `requestInterceptor` to the loop's post-processing). Core neither
+     * filters nor rewrites it, which is what makes it the channel for an option
+     * only one provider understands: it reaches that provider verbatim, and
+     * `AparteBackendTransport`'s default body serialises it to your endpoint too.
+     * So it is not a place to hide a secret. The well-known keys are typed; see
+     * {@link AparteRequestMeta}.
      */
     _meta?: AparteRequestMeta;
 }
