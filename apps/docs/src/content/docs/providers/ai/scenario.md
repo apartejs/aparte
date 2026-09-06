@@ -51,7 +51,8 @@ is the mid-stream alternative).
 advances — a retry, and the second half of a tool round-trip, included. It is the form
 for a demo that always goes the same way, or a test that needs exactly three replies.
 
-A turn is a string (one text step) or a list of steps:
+A turn is a string (one text step) or a list of steps — that is a `ScenarioTurn`, and each
+row below is one member of `ScenarioStep`:
 
 | Step | What it does |
 |---|---|
@@ -80,7 +81,9 @@ declared `after` for that tool; otherwise the first scenario whose `when` matche
 last user message (a string is a case-insensitive substring, a RegExp is tested as is);
 otherwise `default`; otherwise the first one declared. A bare string or step list is a
 scenario with no condition. Pass `match(request, scenarios)` to pick by a rule of your
-own — return `undefined` to fall back to the default rule.
+own — return `undefined` to fall back to the default rule. That rule ships as
+`defaultMatch`, so a `match` of your own can defer to it explicitly rather than by
+returning `undefined`.
 
 The `get_weather` above only does something if the app registered a tool of that name
 (`aparteGlobalConfig.registerTool`); an unregistered tool fails the call the way it
@@ -121,7 +124,8 @@ perfectly good contract between the two.
 
 ## Pace, usage, the model picker
 
-`pacing: { chunk: 12, delay: 24 }` (the defaults) streams twelve characters every 24 ms;
+`pacing: { chunk: 12, delay: 24 }` (the defaults, a `ScenarioPacing`) streams twelve
+characters every 24 ms;
 `pacing: 'instant'` gives a test the whole reply at once. Every turn ends with a `done`
 carrying an estimated usage — four characters per token — so a context gauge moves;
 a `{ usage }` step overrides it.
@@ -129,6 +133,17 @@ a `{ usage }` step overrides it.
 The provider is local and keyless (`isLocal: true`, an empty config schema) and offers
 one model, `scripted`, declaring `streaming` and `function_calling`, so the model
 selector and the tool gate work unchanged; pass `models` to offer others.
+
+Every option lives on one object, `ScenarioProviderOptions`. Five are named on this page —
+`turns`, `scenarios`, `match`, `pacing`, `models` — and two more are not: `id`, the provider
+id core sees for key resolution, the model picker and the events (default `scenario`), and
+`name`, the label the picker shows (default `Scripted model`).
+
+Give each provider its own `id` when a page runs more than one chat. The `turns` cursor
+belongs to the provider, not to a chat, so two chats registered against one provider take
+turns from the same script and interleave it — chat A gets `turns[0]`, chat B `turns[1]`.
+`createScenarioProvider` is cheap, so build one per chat; or use `scenarios`, which answers
+from the request itself and has no cursor at all.
 
 ## The ready-made showcase
 

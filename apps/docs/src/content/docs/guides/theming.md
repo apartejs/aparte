@@ -31,6 +31,20 @@ scoped to a subtree, or per chat instance:
 Because they are plain CSS variables, they cascade and inherit like any other — no build
 step, no theme provider, no re-render.
 
+Typing a theme object in TypeScript? `AparteThemeVariables` is the record type —
+`` { [K in `--aparte-${string}`]?: string } `` — so a key that does not start with
+`--aparte-` is a compile error. The part after the prefix is not checked; the generated
+[CSS variables](/reference/css-variables/) reference is the discoverable list.
+
+```ts
+import type { AparteThemeVariables } from '@aparte/core';
+
+export const brand: AparteThemeVariables = {
+  '--aparte-primary': '#7c3aed',
+  '--aparte-surface-1': '#ffffff',
+};
+```
+
 :::note[`:host` in the stylesheet is defensive, not a shadow root]
 Core has **no shadow DOM** — every element renders light DOM, which is why a plain
 `.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
@@ -41,6 +55,16 @@ document-level handlers read the node a click really hit, and resolve the elemen
 control lives in, so the row menus, the sidebar toggle, the split's pane buttons and the selects work inside your
 shadow root; a `:root` declaration is the one thing that does not, hence `:host`. Overriding
 from outside works the same in both cases — set the variable on any ancestor, or on the chat element itself.
+
+**Where you may set a token depends on which kind it is.** A **master** —
+`--aparte-primary`, `--aparte-space-unit`, `--aparte-radius-unit`,
+`--aparte-btn-size-md|lg`, `--aparte-font-scale` — can be set anywhere: `:root`, a
+subtree, or one `aparte-chat`. A **derived** token cannot: core re-declares its 239
+derived tokens on `:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat`, and
+a custom property declared on an element beats the one it would have inherited — so a
+`:root` value for a derived token never reaches inside a chat. Set the master it reads, or
+declare the derived token on `aparte-chat` or a theme boundary. The
+[CSS variables](/reference/css-variables/) reference marks which is which.
 :::
 
 ## Light and dark
@@ -148,15 +172,8 @@ a themed subtree, a `[data-aparte-host]` boundary, or one element:
 
 That single attribute moves this chat's send button, its user avatar, its focus ring, its
 input's focus border and its progress fill, and leaves every other chat on the page alone.
-A derived variable is still yours to set on its own — declare it where core does. Core
-re-declares its 239 derived tokens on `:root, :host, [data-aparte-theme],
-[data-aparte-host], aparte-chat`, and a custom property declared on an element beats the
-one it would have inherited: a `:root` value for a derived token never reaches inside a
-chat. Set the master it reads (`--aparte-primary`, `--aparte-space-unit`,
-`--aparte-radius-unit`, `--aparte-btn-size-md|lg`, `--aparte-font-scale`), or declare the
-derived token on `aparte-chat` / `[data-aparte-theme]` itself. The
-[CSS variables](/reference/css-variables/) reference marks which is which.
-:::
+A derived variable is yours to set too, but only where core declares it — the rule is under
+[How it works](#how-it-works).
 
 :::note[`--aparte-bg` is yours to paint]
 Core sets no background on the chat root — it inherits from your page on purpose, so a

@@ -11,6 +11,7 @@ state and the client, and a generic `<AparteUi>` escape hatch.
 
 ```bash
 npm install @aparte/vue @aparte/core vue
+npm install @aparte/provider-scenario   # the scripted model, for the first run below, with no key
 ```
 
 `@aparte/core` and `vue` are **peer dependencies**.
@@ -57,13 +58,42 @@ the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. Th
 (`chat.chatRef`) exposes streaming, branch/edit and `scrollToBottom` — also available as plain
 methods straight off the `chat` object.
 
+The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
+discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
+For full control of the input row, fill the `composer` slot; for the primitives as
+children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+
 The six callbacks are `@message-sent`, `@action`, `@messages-change`, `@message-appended`, `@typing-change` and `@conversation-created`. Vue hands you the payload directly — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 
 The wrapper is **provider-agnostic**. Register a provider + transport once (see
 [Providers](/providers/)) and mount an `AparteClient` with `useAparteClient` — it bridges composer
-sends to the model:
+sends to the model.
+
+Start with the scripted model: it needs no key and no network, and every line below is the
+same for a real one.
+
+```vue
+<script setup lang="ts">
+import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+import { AparteChat, useAparteChat, useAparteClient } from '@aparte/vue';
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+
+const chat = useAparteChat();
+useAparteClient();           // streams the scripted reply — no key, no network
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+</template>
+```
+
+Swap the provider for a real one and nothing else changes:
 
 ```vue
 <script setup lang="ts">
@@ -178,3 +208,13 @@ entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
 `HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
 specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
 entry with the elements in it.
+
+## The whole thing, running
+
+A complete chat site in Vue — the conversation sidebar, the header, the settings dialog,
+markdown, highlighting, tools, and the scripted model — is in this repository:
+[`apps/examples/vue`](https://github.com/apartejs/aparte/tree/main/apps/examples/vue). It
+shares its setup with the vanilla, React, Svelte and Angular sites through
+[`apps/examples/_shared`](https://github.com/apartejs/aparte/tree/main/apps/examples/_shared), so
+the framework-specific part is `App.vue` and the `main.ts` that mounts it — everything
+else is what an app writes in any framework.

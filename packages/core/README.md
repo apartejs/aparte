@@ -36,6 +36,12 @@ new AparteClient().start();
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
+**No key yet?** `npm i @aparte/provider-scenario` and register
+`createScenarioProvider({ scenarios: showcase })` as the provider above: a real streaming
+reply — markdown, reasoning, a tool round-trip — with no backend and no network. It is
+what this repository's own examples run on, and the docs' live frames that answer.
+[Scenario provider](https://apartejs.dev/providers/ai/scenario/).
+
 The built-in segment renderers install themselves the first time a segment needs one, so
 there is nothing to call for text, code or thinking blocks to appear. Calling
 `registerDefaultRenderers()` yourself still works and makes the moment explicit.

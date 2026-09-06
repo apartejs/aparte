@@ -20,8 +20,9 @@ import { APARTE_CLIENT_OPTIONS, AparteAiService } from './aparte-ai.service';
 
 /**
  * Any function that initialises a plugin — sync or async, so it can wrap a
- * dynamic `import()` of a package YOU choose:
- * `() => import('@aparte/plugin-model-selector')`.
+ * dynamic `import()` of a package YOU choose. It resolves to nothing, so `await`
+ * the import rather than returning it:
+ * `async () => { await import('@aparte/plugin-model-selector'); }`.
  */
 export type ApartePluginLoader = () => void | Promise<void>;
 
@@ -37,7 +38,11 @@ export interface ProvideAparteOptions {
 
     /** Optional plugin wiring — objects or loaders, never package-name strings. */
     plugins?: {
-        /** Action plugins, as loaders: `[() => import('@aparte/plugin-model-selector')]`. */
+        /**
+         * Action plugins, as loaders. A loader resolves to nothing, so `await` the
+         * import rather than returning it:
+         * `[async () => { await import('@aparte/plugin-model-selector'); }]`.
+         */
         actions?: ApartePluginLoader[];
         /** An icon provider object, or a loader that registers one. */
         icons?: AparteIconProvider | ApartePluginLoader;

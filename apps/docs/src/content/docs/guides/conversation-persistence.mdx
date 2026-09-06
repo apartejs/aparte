@@ -181,7 +181,7 @@ it's exactly what the wrappers use internally:
 import { AparteConversationController } from '@aparte/core';
 
 const chat = document.querySelector('aparte-chat')!;
-const viewport = (chat as any).viewport;
+const viewport = chat.viewport!;
 
 const controller = new AparteConversationController({
   hostId: 'main-chat',
@@ -240,7 +240,7 @@ gestures need no code of yours at all:
 const list = document.querySelector('aparte-conversation-list')!;
 
 function render() {
-  (list as any).conversations = manager.activeConversations;
+  list.conversations = manager.activeConversations;
   list.setAttribute('active-id', manager.activeId ?? '');
 }
 manager.subscribe(render);

@@ -11,6 +11,7 @@ factories for state and the client, and a generic `<AparteUi>` escape hatch.
 
 ```bash
 npm install @aparte/svelte @aparte/core svelte
+npm install @aparte/provider-scenario   # the scripted model, for the first run below, with no key
 ```
 
 `@aparte/core` and `svelte` are **peer dependencies**.
@@ -64,13 +65,43 @@ the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble.
 method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` store and reachable via
 `bind:this`.
 
+The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
+discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
+For full control of the input row, fill the `composer` slot; for the primitives as
+children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+
 The other five are `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange` and `onconversationCreated` (as events: `on:action`, `on:messagesChange`, … with the payload under `event.detail`) — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 
 The wrapper is **provider-agnostic**. Register a provider + transport once (see
 [Providers](/providers/)) and start an `AparteClient` with `createAparteClient` — it bridges composer
-sends to the model:
+sends to the model.
+
+Start with the scripted model: it needs no key and no network, and every line below is the
+same for a real one.
+
+```svelte
+<script lang="ts">
+  import { AparteChat, createAparteChat, createAparteClient, type AparteChatImperativeApi } from '@aparte/svelte';
+  import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
+  import { createScenarioProvider } from '@aparte/provider-scenario';
+  import { showcase } from '@aparte/provider-scenario/showcase';
+
+  aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+
+  const chat = createAparteChat();
+  createAparteClient();          // streams the scripted reply — no key, no network
+  const { messages } = chat;
+  let comp: AparteChatImperativeApi | null = null;
+  $: chat.connect(comp);
+</script>
+
+<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} />
+```
+
+Swap the provider for a real one and nothing else changes:
 
 ```svelte
 <script lang="ts">
@@ -189,3 +220,13 @@ entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
 `HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
 specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
 entry with the elements in it.
+
+## The whole thing, running
+
+A complete chat site in Svelte — the conversation sidebar, the header, the settings dialog,
+markdown, highlighting, tools, and the scripted model — is in this repository:
+[`apps/examples/svelte5`](https://github.com/apartejs/aparte/tree/main/apps/examples/svelte5), and [`apps/examples/svelte4`](https://github.com/apartejs/aparte/tree/main/apps/examples/svelte4) for the previous major. It
+shares its setup with the vanilla, React, Vue and Angular sites through
+[`apps/examples/_shared`](https://github.com/apartejs/aparte/tree/main/apps/examples/_shared), so
+the framework-specific part is `App.svelte` and the `main.ts` that mounts it — everything
+else is what an app writes in any framework.

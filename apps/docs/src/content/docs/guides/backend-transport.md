@@ -163,6 +163,61 @@ around the handler, or inside `authorize` reading `req.clone().json()`. Clone it
 handler parses the original body itself, and a body read twice fails the request with a
 `400`.
 
+## 1b. Or: your server already uses the AI SDK
+
+`createAparteChatHandler` runs a **format adapter** server-side, and the Vercel AI SDK
+bridge is not one — it owns its I/O through `streamText`. That does not put the AI SDK
+outside this path: [`@aparte/provider-ai-sdk`](/providers/ai/ai-sdk/) exports the four
+pieces of the server half, and the route is a dozen lines.
+
+- `toModelMessages(messages)` — aparté's `AparteChatMessage[]` to the SDK's
+  `ModelMessage[]`, the assistant's calls and the `tool` messages included.
+- `toToolSet(tools)` — the declarations **without** `execute`: aparté's loop runs your
+  handlers, in the browser, under your approval policy.
+- `toToolChoice(choice)` — aparté's `toolChoice` in the SDK's spelling.
+- `fullStreamToAparteEvents(fullStream)` — a `ReadableStream<AparteStreamEvent>`; one
+  `JSON.stringify(event) + '\n'` per event is the NDJSON `AparteBackendTransport` reads.
+
+```ts
+// app/api/chat/route.ts (Next.js) — the AI SDK on your server, aparté in the browser
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { streamText } from 'ai';
+import type { AparteChatRequest, AparteStreamEvent } from '@aparte/core';
+import { fullStreamToAparteEvents, toModelMessages, toToolChoice, toToolSet } from '@aparte/provider-ai-sdk';
+
+// Your own session lookup — the same one guarding your other authenticated routes.
+declare function getSession(req: Request): Promise<{ userId: string } | null>;
+
+export async function POST(req: Request): Promise<Response> {
+  // This route spends your key. Decide who may call it before any work.
+  if (!(await getSession(req))) return new Response('Unauthorized', { status: 401 });
+
+  const { request } = (await req.json()) as { request: AparteChatRequest };
+
+  const result = streamText({
+    model: createAnthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] })(request.modelId),
+    messages: toModelMessages(request.messages),
+    abortSignal: req.signal,
+    ...(request.tools?.length
+      ? { tools: toToolSet(request.tools), toolChoice: toToolChoice(request.toolChoice) ?? 'auto' }
+      : {}),
+  });
+
+  // One JSON event per line: aparté's own wire format, not the AI SDK Data Stream Protocol.
+  const ndjson = fullStreamToAparteEvents(result.fullStream)
+    .pipeThrough(new TransformStream<AparteStreamEvent, string>({
+      transform: (event, controller) => controller.enqueue(`${JSON.stringify(event)}\n`),
+    }))
+    .pipeThrough(new TextEncoderStream());
+
+  return new Response(ndjson, { headers: { 'content-type': 'application/x-ndjson' } });
+}
+```
+
+The browser half is unchanged — `AparteBackendTransport` and a `providerId`, section 2
+below. The tools stay **client-side**: the SDK gets declarations only, your handlers run in
+the browser, and the approval gate is where it always was.
+
 ## 2. Point the browser at it
 
 On the client, skip the provider adapter entirely — the browser only needs to know the
@@ -201,6 +256,8 @@ The NDJSON `AparteBackendTransport` reads back is aparté's own — one JSON `Ap
 per line — **not** the Vercel AI SDK Data Stream Protocol. You don't need to think about
 this if you use `createAparteChatHandler` on the server (it produces exactly this format),
 but a hand-rolled route must match it if you skip the helper.
+`fullStreamToAparteEvents` produces exactly this format too — see
+[1b](#1b-or-your-server-already-uses-the-ai-sdk).
 
 ## Next steps
 
