@@ -9,8 +9,8 @@ import type { RunnerContext, TransformersModule } from './types.js';
 
 export const TOOL_TURNS_DROPPED =
     'Dropped tool turn(s) from the prompt: this runner does not support tool calling, so the '
-    + 'model will not see the call or its result. Use an OpenAI-compatible endpoint for tools, '
-    + 'or a runner that renders them.';
+    + 'model sees neither the call the assistant made nor the result that answered it. Use an '
+    + 'OpenAI-compatible endpoint for tools, or a runner that renders them.';
 
 /**
  * The options a `from_pretrained` / `pipeline()` call takes from the context: download
