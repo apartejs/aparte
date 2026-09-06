@@ -120,11 +120,11 @@ const MAX_UNMENTIONED = new Map([
     // Ratcheted 76 → 66 by the generated events reference. It names every event-detail
     // interface in one place, which is ten types that were exported, typed in the event
     // map, and named on no page a reader opens.
-    ['@aparte/core', 51],      // of 200 exports checked
+    ['@aparte/core', 44],      // of 200 exports checked
     ['@aparte/react', 6],
     ['@aparte/vue', 2],
     ['@aparte/svelte', 3],
-    ['@aparte/angular', 6],
+    ['@aparte/angular', 0],
     ['@aparte/engine', 0],      // of 39 — credited by the generated reference; see below
     // First measurement of these nine. They are VALUE exports a consumer calls —
     // `setupShikiProvider`, `askUserTool`, `createAiSdkProvider` — so they matter
@@ -137,17 +137,17 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/plugin-ask-user', 6],
     ['@aparte/plugin-artifacts', 0],
     ['@aparte/provider-openai-compat', 2],
-    ['@aparte/provider-ai-sdk', 5],
-    ['@aparte/provider-transformers', 9],
+    ['@aparte/provider-ai-sdk', 0],
+    ['@aparte/provider-transformers', 1],
     // First measurement of the three barrels above, same as the nine before them: the
     // number is recorded so it cannot grow, and the pages are a lot of their own.
     // plugin-approval's twelve are the ones that matter — createApprovalPolicy,
     // getApprovalController, classifyTool and rulingFor are called by a consumer.
-    ['@aparte/plugin-approval', 12],
+    ['@aparte/plugin-approval', 0],
     // plugin-compaction: every export is on its page — the four that matter
     // (setupCompaction, createCompactionSelector, transcriptForSummary, the budget) in a fence.
     ['@aparte/plugin-compaction', 0],
-    ['@aparte/provider-scenario', 6],
+    ['@aparte/provider-scenario', 1],
     ['@aparte/docs-mcp', 7],
     ['@aparte/locale-fr', 0],
 ]);
