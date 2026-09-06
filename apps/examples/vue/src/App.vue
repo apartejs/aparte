@@ -45,33 +45,20 @@ const params = new URLSearchParams(window.location.search);
 const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
 
 let unsubscribe: (() => void) | null = null;
-let offs: Array<() => void> = [];
 
 // The site's wiring, once: the manager registered for every element on the page,
-// the list fed from it, its intents forwarded, the header's controls.
+// the list fed from it, the header's controls.
 onMounted(() => {
     const manager = createSiteManager();
-    const list = listRef.value;
     unsubscribe = manager.subscribe(() => {
         items.value = listItemsOf(manager);
         activeId.value = manager.active?.id ?? null;
         document.title = documentTitleFor(manager);
     });
-    // Select is not here: the chat's controller hears `aparte-conversation-select`
-    // on the window and loads the conversation.
-    const on = (name: string, fn: (detail: { id: string; title: string }) => void) => {
-        const handler = (e: Event) => fn((e as CustomEvent<{ id: string; title: string }>).detail);
-        list?.addEventListener(name, handler);
-        return () => list?.removeEventListener(name, handler);
-    };
-    offs = [
-        on('aparte-conversation-delete', ({ id }) => { void manager.delete(id); }),
-        on('aparte-conversation-rename', ({ id, title }) => { void manager.updateTitle(id, title); }),
-        on('aparte-conversation-pin', ({ id }) => { void manager.pin(id); }),
-        on('aparte-conversation-unpin', ({ id }) => { void manager.unpin(id); }),
-        on('aparte-conversation-archive', ({ id }) => { void manager.archive(id); }),
-        on('aparte-conversation-unarchive', ({ id }) => { void manager.unarchive(id); }),
-    ];
+    // The row menu's writes need no listener: `manage` on the element lets the list
+    // carry them out on the manager `createSiteManager()` registered. Select is not one
+    // of them — the chat's controller hears `aparte-conversation-select` on the window
+    // and loads the conversation.
     wireThemeToggle(themeRef.value);
     drawSearchIcon(searchIconRef.value);
     wireSettingsDialog(dialogRef.value);
@@ -93,7 +80,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     unsubscribe?.();
-    for (const off of offs) off();
 });
 
 function newChat(): void {
@@ -126,7 +112,7 @@ function newChat(): void {
                 </label>
             </div>
             <div class="aparte-sidebar__body">
-                <aparte-conversation-list ref="listRef" :conversations="items" :loading="listLoading ? '' : null" :active-id="activeId ?? null"></aparte-conversation-list>
+                <aparte-conversation-list ref="listRef" manage="" :conversations="items" :loading="listLoading ? '' : null" :active-id="activeId ?? null"></aparte-conversation-list>
             </div>
             <div class="aparte-sidebar__footer">
                 <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true">P</span>

@@ -2,6 +2,7 @@ import './aparte-option.js';
 import { presenceOn } from '../../utils/presence.js';
 import './aparte-optgroup.js';
 import { resolveConfig } from '../../config/config-context.js';
+import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 
 export interface AparteSelectChangeDetail {
     value: string;
@@ -469,7 +470,11 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _handleDocumentClick(e: Event): void {
-        if (!this.contains(e.target as Node)) {
+        // `eventOrigin`, not `e.target`: this listens on `document`, so a select inside a
+        // consumer's shadow root saw the shadow HOST as the target — never itself — and
+        // shut its own dropdown on the very click that opened it.
+        const origin = eventOrigin(e) as Node | null;
+        if (!origin || !this.contains(origin)) {
             this._closeDropdown();
         }
     }
@@ -479,7 +484,9 @@ export class AparteSelect extends HTMLElement {
 
         // Home/End move the caret when typing in the search box; only hijack
         // them for option navigation when focus is not in the search field.
-        const inSearch = document.activeElement === this._searchInput;
+        // `activeElementIn`: inside a consumer's shadow root `document.activeElement` is
+        // the shadow host, and Home would hijack the caret out of the filter field.
+        const inSearch = activeElementIn(this) === this._searchInput;
 
         switch (e.key) {
             case 'Escape':

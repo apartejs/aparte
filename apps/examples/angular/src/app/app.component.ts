@@ -1,12 +1,5 @@
 import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
-import type {
-    AparteConversationArchiveDetail,
-    AparteConversationDeleteDetail,
-    AparteConversationListItem,
-    AparteConversationManager,
-    AparteConversationPinDetail,
-    AparteConversationRenameDetail,
-} from '@aparte/core';
+import type { AparteConversationListItem } from '@aparte/core';
 import { AparteChatComponent } from '@aparte/angular';
 import { mountModelSelector } from '../../../_shared/site-setup';
 import {
@@ -39,16 +32,15 @@ function resolveOverlayComposer(): boolean {
  * they are; the chat is `<aparte-chat>` (`@aparte/angular`'s `AparteChatComponent`),
  * whose host runs the conversation controller (it hears the list's select, creates
  * a conversation on the first message, fetches one on demand and shows the wait).
- * What this component adds: feed the list from the manager, forward the list's
- * intents, and hand the header's controls to the shared helpers — exactly what
- * `App.tsx` does in `useEffect`, done here in `ngAfterViewInit`.
+ * What this component adds: feed the list from the manager, and hand the header's
+ * controls to the shared helpers — exactly what `App.tsx` does in `useEffect`, done
+ * here in `ngAfterViewInit`.
  *
  * Angular binds the list's `conversations`/`loading` PROPERTIES declaratively
- * (`[conversations]`, `[loading]`) and its intents declaratively too
- * (`(aparte-conversation-delete)`, …) — where React had to reach for `listRef.current`
- * and manual `addEventListener`, a template binding is the idiomatic Angular way to
- * say the same thing, and CUSTOM_ELEMENTS_SCHEMA (below) is what lets it compile
- * against an element with no Angular wrapper of its own.
+ * (`[conversations]`, `[loading]`); the row menu's writes need no binding at all,
+ * because `manage` on the element lets the list carry them out on the manager
+ * registered with `setConversationManager()`. CUSTOM_ELEMENTS_SCHEMA (below) is what
+ * lets a template compile against an element with no Angular wrapper of its own.
  */
 @Component({
     selector: 'app-root',
@@ -87,16 +79,13 @@ function resolveOverlayComposer(): boolean {
                     </label>
                 </div>
                 <div class="aparte-sidebar__body">
+                    <!-- manage: the list carries the row menu's writes out on the
+                         registered manager, so this template binds no handler for them. -->
                     <aparte-conversation-list
+                        manage
                         [conversations]="items()"
                         [loading]="listLoading()"
                         [attr.active-id]="activeId()"
-                        (aparte-conversation-delete)="onDelete($event)"
-                        (aparte-conversation-rename)="onRename($event)"
-                        (aparte-conversation-pin)="onPin($event)"
-                        (aparte-conversation-unpin)="onUnpin($event)"
-                        (aparte-conversation-archive)="onArchive($event)"
-                        (aparte-conversation-unarchive)="onUnarchive($event)"
                     ></aparte-conversation-list>
                 </div>
                 <div class="aparte-sidebar__footer">
@@ -229,17 +218,15 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     private readonly searchIcon = viewChild.required<ElementRef<HTMLSpanElement>>('searchIcon');
     private readonly modelSlot = viewChild.required<ElementRef<HTMLDivElement>>('modelSlot');
 
-    private manager?: AparteConversationManager;
     private unsubscribe?: () => void;
 
     // The site's wiring, once: the manager registered for every element on the page,
-    // the list fed from it, its intents forwarded (declaratively, in the template),
-    // the header's controls.
+    // the list fed from it, the header's controls. The row menu's writes are the
+    // list's own, through `manage` in the template.
     ngAfterViewInit(): void {
         const manager = createSiteManager();
-        this.manager = manager;
-        // Select is not here: the chat's controller hears `aparte-conversation-select`
-        // on the window and loads the conversation.
+        // Select is not one of them: the chat's controller hears
+        // `aparte-conversation-select` on the window and loads the conversation.
         this.unsubscribe = manager.subscribe(() => {
             this.items.set(listItemsOf(manager));
             this.activeId.set(manager.active?.id ?? null);
@@ -276,22 +263,4 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         this.chat().focusInput();
     }
 
-    protected onDelete(e: CustomEvent<AparteConversationDeleteDetail>): void {
-        void this.manager?.delete(e.detail.id);
-    }
-    protected onRename(e: CustomEvent<AparteConversationRenameDetail>): void {
-        void this.manager?.updateTitle(e.detail.id, e.detail.title);
-    }
-    protected onPin(e: CustomEvent<AparteConversationPinDetail>): void {
-        void this.manager?.pin(e.detail.id);
-    }
-    protected onUnpin(e: CustomEvent<AparteConversationPinDetail>): void {
-        void this.manager?.unpin(e.detail.id);
-    }
-    protected onArchive(e: CustomEvent<AparteConversationArchiveDetail>): void {
-        void this.manager?.archive(e.detail.id);
-    }
-    protected onUnarchive(e: CustomEvent<AparteConversationArchiveDetail>): void {
-        void this.manager?.unarchive(e.detail.id);
-    }
 }

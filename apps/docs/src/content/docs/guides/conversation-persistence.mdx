@@ -229,10 +229,12 @@ fetches — and each has a `loading` prop (an input in Angular) for a wait of yo
 ## 4. Render a sidebar
 
 `<aparte-conversation-list>` is a display primitive: set its `conversations` property and
-`active-id` attribute, and handle the events it emits (all bubble, `detail: { id }` —
-rename adds `title`). Each row is its title plus a `⋯` menu: rename, pin/unpin,
+`active-id` attribute. Each row is its title plus a `⋯` menu: rename, pin/unpin,
 archive/unarchive, delete (which asks first). The rows are grouped by date as soon as any
 item carries `updatedAt`; set `flat` to render them flat.
+
+Add `manage` and the menu writes through to the manager you registered in step 2 — those
+gestures need no code of yours at all:
 
 ```ts
 const list = document.querySelector('aparte-conversation-list')!;
@@ -244,14 +246,27 @@ function render() {
 manager.subscribe(render);
 render();
 
+// The two lines that finish the row menu — the first is step 2's, repeated here so the
+// pair is visible together.
+aparteGlobalConfig.setConversationManager(manager);
+list.setAttribute('manage', '');
+// Selecting a conversation is owned by the `conversationId` binding (or a window-level
+// `aparte-conversation-select` event that every bound controller listens for), not the list.
+```
+
+**When you own the persistence**, leave `manage` off: the list then only announces the
+intent, and every gesture is yours to carry out. The events all bubble, with
+`detail: { id }` — rename adds `title`. They fire under `manage` too, first and
+cancelable, so `preventDefault()` on one takes that single gesture back and leaves the
+rest to the list.
+
+```ts
 list.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
 list.addEventListener('aparte-conversation-pin', (e) => manager.pin(e.detail.id));
 list.addEventListener('aparte-conversation-unpin', (e) => manager.unpin(e.detail.id));
 list.addEventListener('aparte-conversation-archive', (e) => manager.archive(e.detail.id));
 list.addEventListener('aparte-conversation-unarchive', (e) => manager.unarchive(e.detail.id));
 list.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
-// Selecting a conversation is owned by the `conversationId` binding (or a window-level
-// `aparte-conversation-select` event that every bound controller listens for), not the list.
 ```
 
 Each wrapper ships a reactive helper around the same manager — call its `init(adapter)`

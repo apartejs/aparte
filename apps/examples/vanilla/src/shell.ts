@@ -10,8 +10,8 @@
  * binds the chat to it: it hears the list's select, the composer's send, creates a
  * conversation on the first message, persists after every turn, fetches a
  * conversation's messages on demand and shows the wait on the viewport. What this
- * file adds is small: feed the list from the manager, forward the list's intents
- * to the manager, the theme toggle, the settings.
+ * file adds is small: feed the list from the manager, hand it `manage` so the row
+ * menu writes through to it, the theme toggle, the settings.
  */
 import {
     AparteConversationController,
@@ -70,17 +70,11 @@ export function wireShell(): void {
         document.title = documentTitleFor(manager);
     });
 
-    // The list's intents, forwarded to the manager. Select is not here: the controller
-    // hears `aparte-conversation-select` on the window and loads the conversation.
-    list.addEventListener('aparte-conversation-delete', (e) => { void manager.delete((e as CustomEvent<{ id: string }>).detail.id); });
-    list.addEventListener('aparte-conversation-rename', (e) => {
-        const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
-        void manager.updateTitle(id, title);
-    });
-    list.addEventListener('aparte-conversation-pin', (e) => { void manager.pin((e as CustomEvent<{ id: string }>).detail.id); });
-    list.addEventListener('aparte-conversation-unpin', (e) => { void manager.unpin((e as CustomEvent<{ id: string }>).detail.id); });
-    list.addEventListener('aparte-conversation-archive', (e) => { void manager.archive((e as CustomEvent<{ id: string }>).detail.id); });
-    list.addEventListener('aparte-conversation-unarchive', (e) => { void manager.unarchive((e as CustomEvent<{ id: string }>).detail.id); });
+    // The row menu's intents: `manage` lets the list carry them out on the manager
+    // `createSiteManager()` registered, so rename, pin, archive and delete need no
+    // listener here. Select is not one of them — the controller hears
+    // `aparte-conversation-select` on the window and loads the conversation.
+    list.setAttribute('manage', '');
 
     document.getElementById('new-chat')?.addEventListener('click', () => {
         void controller.setConversationId(null);

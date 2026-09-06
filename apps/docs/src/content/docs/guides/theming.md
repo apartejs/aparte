@@ -36,8 +36,11 @@ Core has **no shadow DOM** — every element renders light DOM, which is why a p
 `.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
 `:root` and, a second time, on `:host` — only so the same sheet keeps working if *you*
 mount a chat inside a shadow root of your own (a web component of yours, a micro-frontend):
-there, `:root` is outside and `:host` is the boundary. Overriding from outside works the same in both cases — set
-the variable on any ancestor, or on the chat element itself.
+there, `:root` is outside and `:host` is the boundary. Behaviour crosses that boundary on its own — core's
+document-level handlers read the node a click really hit, and resolve the element a control drives in the tree that
+control lives in, so the row menus, the sidebar toggle, the split's pane buttons and the selects work inside your
+shadow root; a `:root` declaration is the one thing that does not, hence `:host`. Overriding
+from outside works the same in both cases — set the variable on any ancestor, or on the chat element itself.
 :::
 
 ## Light and dark
@@ -86,7 +89,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **241 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **239 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -146,7 +149,7 @@ a themed subtree, a `[data-aparte-host]` boundary, or one element:
 That single attribute moves this chat's send button, its user avatar, its focus ring, its
 input's focus border and its progress fill, and leaves every other chat on the page alone.
 A derived variable is still yours to set on its own — declare it where core does. Core
-re-declares its 241 derived tokens on `:root, :host, [data-aparte-theme],
+re-declares its 239 derived tokens on `:root, :host, [data-aparte-theme],
 [data-aparte-host], aparte-chat`, and a custom property declared on an element beats the
 one it would have inherited: a `:root` value for a derived token never reaches inside a
 chat. Set the master it reads (`--aparte-primary`, `--aparte-space-unit`,

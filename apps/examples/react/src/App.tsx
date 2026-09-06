@@ -42,30 +42,18 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
     const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
 
     // The site's wiring, once: the manager registered for every element on the page,
-    // the list fed from it, its intents forwarded, the header's controls.
+    // the list fed from it, the header's controls.
     useEffect(() => {
         const manager = createSiteManager();
-        const list = listRef.current;
         const unsubscribe = manager.subscribe(() => {
             setItems(listItemsOf(manager));
             setActiveId(manager.active?.id ?? null);
             document.title = documentTitleFor(manager);
         });
-        // Select is not here: the chat's controller hears `aparte-conversation-select`
-        // on the window and loads the conversation.
-        const on = (name: string, fn: (detail: { id: string; title: string }) => void) => {
-            const handler = (e: Event) => fn((e as CustomEvent<{ id: string; title: string }>).detail);
-            list?.addEventListener(name, handler);
-            return () => list?.removeEventListener(name, handler);
-        };
-        const offs = [
-            on('aparte-conversation-delete', ({ id }) => { void manager.delete(id); }),
-            on('aparte-conversation-rename', ({ id, title }) => { void manager.updateTitle(id, title); }),
-            on('aparte-conversation-pin', ({ id }) => { void manager.pin(id); }),
-            on('aparte-conversation-unpin', ({ id }) => { void manager.unpin(id); }),
-            on('aparte-conversation-archive', ({ id }) => { void manager.archive(id); }),
-            on('aparte-conversation-unarchive', ({ id }) => { void manager.unarchive(id); }),
-        ];
+        // The row menu's writes need no listener: `manage` on the element lets the list
+        // carry them out on the manager `createSiteManager()` registered. Select is not
+        // one of them — the chat's controller hears `aparte-conversation-select` on the
+        // window and loads the conversation.
         wireThemeToggle(themeRef.current);
         drawSearchIcon(searchIconRef.current);
         wireSettingsDialog(dialogRef.current);
@@ -83,7 +71,7 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                 console.warn('[chat-site] failed to load conversations', err);
             });
         chat.ref.current?.focusInput();
-        return () => { unsubscribe(); for (const off of offs) off(); };
+        return () => { unsubscribe(); };
     }, []);
 
     // The list's rows and its wait are PROPERTIES of the element, set imperatively:
@@ -119,7 +107,7 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                         </label>
                     </div>
                     <div className="aparte-sidebar__body">
-                        <aparte-conversation-list ref={listRef as React.Ref<HTMLElement>} active-id={activeId ?? undefined} />
+                        <aparte-conversation-list ref={listRef as React.Ref<HTMLElement>} active-id={activeId ?? undefined} manage="" />
                     </div>
                     <div className="aparte-sidebar__footer">
                         <span className="aparte-avatar aparte-avatar--sm" aria-hidden="true">P</span>

@@ -1,7 +1,9 @@
 import { resolveConfig } from '../../config/index.js';
 import { APARTE_DEFAULT_LOCALE } from '../../config/locale.js';
+import type { AparteConversationManager } from '../../conversations/conversation-manager.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
 
 export interface AparteConversationListItem {
@@ -72,7 +74,8 @@ const VIEWPORT_MARGIN = 8;
 /**
  * Conversation-history sidebar — a framework-agnostic web component. The host sets
  * the `conversations` JS property and the `active-id` attribute; this renders the
- * rows and fires the user's intent, never acting on it itself.
+ * rows and fires the user's intent. Acting on it is the host's, unless `manage` hands
+ * the row menu's writes to the registered conversation manager.
  *
  * A row is two real buttons: the title, which selects, and a `⋯` that opens the row's
  * menu — rename, pin or unpin, archive or unarchive, delete. Every item fires an event
@@ -91,7 +94,11 @@ const VIEWPORT_MARGIN = 8;
  *
  * What it is not: a store. Selecting, renaming, pinning, archiving and deleting all
  * leave the array untouched — the events carry an id (and, for rename, the title) and
- * stop. A row's text comes from the array, so it changes when the host assigns
+ * stop. Set `manage` and the menu's write gestures are carried out on the conversation
+ * manager you registered, so those six listeners are no longer yours to write; the
+ * event still goes out first and `preventDefault()` takes the gesture back. The array
+ * is still not this element's: the manager's own change is what re-renders it.
+ * A row's text comes from the array, so it changes when the host assigns
  * `conversations` again; the exception is an empty title, which falls back to the
  * locale's new-chat label and therefore follows a locale switch. An archived item is
  * still rendered (it gains `aparte-conv-item--archived`); filtering archived
@@ -108,14 +115,19 @@ const VIEWPORT_MARGIN = 8;
  *                    element is `aria-busy` and a visually hidden line names the wait. A list that is
  *                    not there yet is not an empty list. Set it while your store answers, clear it when
  *                    you assign `conversations`.
+ * @attr {boolean} manage - Let the list finish the gesture: rename, pin, unpin, archive, unarchive and
+ *                    delete are performed on the conversation manager registered with
+ *                    `setConversationManager()`, instead of leaving you six listeners to write. The
+ *                    event still fires first, and `preventDefault()` on it takes the gesture back.
+ *                    Off by default, and selecting stays yours either way.
  *
  * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-conversation-select - A row's title was activated; the host loads that conversation.
- * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-conversation-rename - A rename was committed with a new, non-empty title. Nothing is renamed here.
- * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-pin - The pin item was chosen on an unpinned row.
- * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-unpin - The same item on a pinned row; same detail shape, opposite intent.
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-archive - The archive item was chosen on a live conversation.
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-unarchive - The same item on an already-archived one; same detail shape, opposite intent.
- * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-conversation-delete - The delete was confirmed. Nothing is removed here.
+ * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-conversation-rename - A rename was committed with a new, non-empty title. Cancelable: `preventDefault()` takes the gesture back from `manage`.
+ * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-pin - The pin item was chosen on an unpinned row. Cancelable: `preventDefault()` takes the gesture back from `manage`.
+ * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-unpin - The same item on a pinned row; same detail shape, opposite intent. Cancelable, like the rest.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-archive - The archive item was chosen on a live conversation. Cancelable: `preventDefault()` takes the gesture back from `manage`.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-unarchive - The same item on an already-archived one; same detail shape, opposite intent. Cancelable, like the rest.
+ * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-conversation-delete - The delete was confirmed. Cancelable: `preventDefault()` takes the gesture back from `manage`.
  *
  * @cssprop [--aparte-conv-list-gap=var(--aparte-space-1)] - Vertical gap between rows, and between a group's heading and its rows.
  * @cssprop [--aparte-conv-item-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of a row's title button.
@@ -157,15 +169,22 @@ const VIEWPORT_MARGIN = 8;
  * list.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
  * list.addEventListener('aparte-conversation-pin', (e) => manager.pin(e.detail.id));
  * list.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
+ *
+ * @example
+ * // Or let the list finish the gesture: register the manager once, add `manage`, and
+ * // rename / pin / archive / delete are carried out for you. The events still fire.
+ * aparteGlobalConfig.setConversationManager(manager);
+ * list.setAttribute('manage', '');
  */
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
     private _activeId: string | null = null;
     private _open: OpenMenu | null = null;
     private _renaming: { id: string; input: HTMLInputElement; done: boolean } | null = null;
+    private _warnedNoManager = false;
 
     static get observedAttributes(): string[] {
-        return ['active-id', 'flat', 'loading'];
+        return ['active-id', 'flat', 'loading', 'manage'];
     }
 
     /**
@@ -525,8 +544,11 @@ export class AparteConversationList extends HTMLElement {
     private _onDocumentPointerDown = (e: Event): void => {
         const open = this._open;
         if (!open) return;
-        const target = e.target as Node;
-        this._pressInMenu = open.menu.contains(target);
+        // `eventOrigin`, not `e.target`: this listens on `document`, and a chat mounted
+        // inside a consumer's shadow root retargets the event to the shadow host on its
+        // way out — every question below would be asked of the wrong element.
+        const target = eventOrigin(e) as Node | null;
+        this._pressInMenu = !!target && open.menu.contains(target);
         // The button's own click toggles; closing here too would reopen on the click.
         if (open.menu.contains(target) || open.button.contains(target)) return;
         this._closeMenu();
@@ -549,6 +571,36 @@ export class AparteConversationList extends HTMLElement {
         if (open.menu.contains(e.target as Node)) this._closeMenu();
     };
 
+    /**
+     * The gesture, finished. The event has already gone out — cancelable, so a host
+     * that wants the write for itself calls `preventDefault()` and this stands down —
+     * and what is left is the registered conversation manager doing it. Without
+     * `manage` the element behaves exactly as it did before the attribute existed.
+     *
+     * A `manage` with no manager registered is a menu that does nothing, so the first
+     * gesture says so and names the call that fixes it. Said here rather than at
+     * `connectedCallback` because a list in the page's HTML connects before the script
+     * that registers the manager runs: a warning at connect would fire on a setup that
+     * is perfectly correct one tick later.
+     */
+    private _manage(event: Event, run: (manager: AparteConversationManager) => Promise<unknown>): void {
+        if (!this.hasAttribute('manage') || event.defaultPrevented) return;
+        const manager = resolveConfig(this).getConversationManager();
+        if (!manager) {
+            if (this._warnedNoManager) return;
+            this._warnedNoManager = true;
+            console.warn(
+                '[aparte-conversation-list] `manage` is set but no conversation manager is registered, '
+                + 'so the row menu writes nothing. Call setConversationManager(manager) on your config, '
+                + 'or drop `manage` and handle the events yourself.'
+            );
+            return;
+        }
+        void run(manager).catch((err: unknown) => {
+            console.warn('[aparte-conversation-list] the conversation manager refused the change:', err);
+        });
+    }
+
     private _onMenuAction(action: string): void {
         const open = this._open;
         if (!open) return;
@@ -567,29 +619,37 @@ export class AparteConversationList extends HTMLElement {
             case 'pin':
                 this._closeMenu(true);
                 if (conv.pinnedAt) {
-                    this.dispatchEvent(new CustomEvent<AparteConversationPinDetail>(
+                    const unpin = new CustomEvent<AparteConversationPinDetail>(
                         'aparte-conversation-unpin',
-                        { detail: { id }, bubbles: true, composed: true }
-                    ));
+                        { detail: { id }, bubbles: true, composed: true, cancelable: true }
+                    );
+                    this.dispatchEvent(unpin);
+                    this._manage(unpin, (m) => m.unpin(id));
                 } else {
-                    this.dispatchEvent(new CustomEvent<AparteConversationPinDetail>(
+                    const pin = new CustomEvent<AparteConversationPinDetail>(
                         'aparte-conversation-pin',
-                        { detail: { id }, bubbles: true, composed: true }
-                    ));
+                        { detail: { id }, bubbles: true, composed: true, cancelable: true }
+                    );
+                    this.dispatchEvent(pin);
+                    this._manage(pin, (m) => m.pin(id));
                 }
                 return;
             case 'archive':
                 this._closeMenu(true);
                 if (conv.archivedAt) {
-                    this.dispatchEvent(new CustomEvent<AparteConversationArchiveDetail>(
+                    const unarchive = new CustomEvent<AparteConversationArchiveDetail>(
                         'aparte-conversation-unarchive',
-                        { detail: { id }, bubbles: true, composed: true }
-                    ));
+                        { detail: { id }, bubbles: true, composed: true, cancelable: true }
+                    );
+                    this.dispatchEvent(unarchive);
+                    this._manage(unarchive, (m) => m.unarchive(id));
                 } else {
-                    this.dispatchEvent(new CustomEvent<AparteConversationArchiveDetail>(
+                    const archive = new CustomEvent<AparteConversationArchiveDetail>(
                         'aparte-conversation-archive',
-                        { detail: { id }, bubbles: true, composed: true }
-                    ));
+                        { detail: { id }, bubbles: true, composed: true, cancelable: true }
+                    );
+                    this.dispatchEvent(archive);
+                    this._manage(archive, (m) => m.archive(id));
                 }
                 return;
             case 'delete': {
@@ -618,13 +678,16 @@ export class AparteConversationList extends HTMLElement {
             case 'cancel':
                 this._closeMenu(true);
                 return;
-            case 'confirm-delete':
+            case 'confirm-delete': {
                 this._closeMenu(true);
-                this.dispatchEvent(new CustomEvent<AparteConversationDeleteDetail>(
+                const remove = new CustomEvent<AparteConversationDeleteDetail>(
                     'aparte-conversation-delete',
-                    { detail: { id }, bubbles: true, composed: true }
-                ));
+                    { detail: { id }, bubbles: true, composed: true, cancelable: true }
+                );
+                this.dispatchEvent(remove);
+                this._manage(remove, (m) => m.delete(id));
                 return;
+            }
         }
     }
 
@@ -702,10 +765,12 @@ export class AparteConversationList extends HTMLElement {
         const title = renaming.input.value.trim();
         this._render();
         if (commit && conv && title && title !== conv.title) {
-            this.dispatchEvent(new CustomEvent<AparteConversationRenameDetail>(
+            const rename = new CustomEvent<AparteConversationRenameDetail>(
                 'aparte-conversation-rename',
-                { detail: { id: conv.id, title }, bubbles: true, composed: true }
-            ));
+                { detail: { id: conv.id, title }, bubbles: true, composed: true, cancelable: true }
+            );
+            this.dispatchEvent(rename);
+            this._manage(rename, (m) => m.updateTitle(conv.id, title));
         }
         // After the event, not before: a host that re-assigns `conversations` on it
         // re-renders the list, and the button focused beforehand is gone by now.

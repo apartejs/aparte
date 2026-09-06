@@ -127,7 +127,8 @@
       "attributes": [
         "active-id",
         "flat",
-        "loading"
+        "loading",
+        "manage"
       ]
     },
     "aparte-elicitation": {
@@ -485,8 +486,7 @@
     "@aparte/provider-scenario": [
       "createScenarioProvider",
       "defaultMatch",
-      "playTurn",
-      "showcase"
+      "playTurn"
     ],
     "@aparte/provider-transformers": [
       "TransformersProvider",
