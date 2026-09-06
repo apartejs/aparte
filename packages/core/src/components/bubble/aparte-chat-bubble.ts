@@ -780,6 +780,18 @@ export class AparteChatBubble extends HTMLElement {
     `;
     }
 
+    // The shell contract lists CLASS hooks, so a shell written from it carries no ARIA
+    // and the transcript loses one article and one accessible name per custom bubble —
+    // measured on this repo's own documented shell. Re-applied here rather than asked of
+    // the author: a markup contract that also demanded a `role` fails the first time
+    // somebody forgets one, silently (decision #8 — honoured end to end). A root that
+    // already declares a `role` keeps it, which is how a shell overrides the default.
+    const messageEl = this.querySelector('.aparte-message');
+    if (messageEl && !messageEl.hasAttribute('role')) {
+      messageEl.setAttribute('role', 'article');
+      messageEl.setAttribute('aria-label', this._getAriaLabel());
+    }
+
     this._contentEl = this.querySelector('.aparte-content');
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
@@ -888,7 +900,13 @@ export class AparteChatBubble extends HTMLElement {
 
     if (message) {
       message.setAttribute('data-role', this._role);
-      message.setAttribute('aria-label', this._getAriaLabel());
+      // The accessible name follows the role only on a root whose role the bubble wrote.
+      // A shell that declares its own `role` overrides the default (the shell contract
+      // says so), and an override that kept the role and lost the name would be half
+      // of one.
+      if (message.getAttribute('role') === 'article') {
+        message.setAttribute('aria-label', this._getAriaLabel());
+      }
     }
     if (avatar) {
       avatar.setAttribute('data-role', this._role);

@@ -407,6 +407,13 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
 aparte-composer-toolbar,
 .aparte-composer-footer {
   display: flex;
+  /* It WRAPS. `aparte-select` sets `min-width` on its host, so a select in this row is a
+     hard 200px that cannot shrink; the documented arrangement puts two of them here (the
+     approval switch beside the model selector), and at a phone's 390px the second one was
+     pushed to x=449 and CLIPPED — the page did not scroll to it, so the model picker was
+     unreachable. Wrapping puts it on its own line; an end-aligned control keeps its
+     `margin-inline-start: auto` and lands at the end of the line it is on. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--aparte-space-4);
   padding: var(--aparte-space-3) var(--aparte-space-6);

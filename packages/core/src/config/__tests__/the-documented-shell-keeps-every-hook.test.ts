@@ -81,15 +81,23 @@ function shellFrom(hooks: string[], role: string): string {
         }
         if (h === 'aparte-waiting') {
             const label = hooks.includes('aparte-sr-only') ? `<span class="aparte-sr-only"></span>` : '';
-            return `<div class="aparte-waiting" hidden>${label}</div>`;
+            // The dots are markup the SHELL authors: the bubble only shows and hides the
+            // region, so a shell that renders the label alone has a waiting state nothing
+            // paints. Built from the bullet list like everything else here, so the clause
+            // and this fixture cannot drift apart.
+            const dots = hooks.includes('aparte-dots')
+                ? `<span class="aparte-dots" aria-hidden="true">${'<span class="aparte-dot"></span>'.repeat(3)}</span>`
+                : '';
+            return `<div class="aparte-waiting" hidden>${dots}${label}</div>`;
         }
         if (h === 'aparte-message-content') {
             return `<div class="aparte-message-content">${boxed.map(node).join('')}</div>`;
         }
         return `<div class="${h}"></div>`;
     };
+    const nested = ['aparte-branch-status', 'aparte-sr-only', 'aparte-dots', 'aparte-dot'];
     const inner = hooks
-        .filter((h) => h !== 'aparte-branch-status' && h !== 'aparte-sr-only' && !boxed.includes(h))
+        .filter((h) => !nested.includes(h) && !boxed.includes(h))
         .map(node)
         .join('');
     return `<div class="aparte-message" data-role="${role}">${inner}</div>`;
@@ -133,6 +141,52 @@ describe('a shell built from the documented contract', () => {
         expect(waiting).not.toBeNull();
         expect(waiting!.hidden).toBe(false);
         expect(waiting!.textContent).toContain(aparteGlobalConfig.getLocale().typing);
+        // And something a SIGHTED reader can see. `.aparte-waiting` paints nothing on its
+        // own — `styles/segment/thinking.css` animates `.aparte-dot`, so a shell built from
+        // a contract that names only the label has a thinking state only a screen reader
+        // perceives, and Playwright cannot even screenshot the region ("not visible").
+        expect(waiting!.querySelectorAll('.aparte-dot').length).toBe(3);
+        el.remove();
+    });
+
+    it('gets the role and the accessible name the bubble gives its own shell', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(({ role }) => shellFrom(documentedHooks(), role));
+        const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+        el.setAttribute('data-role', 'assistant');
+        el.setAttribute('message-id', 'shell-r');
+        document.body.appendChild(el);
+
+        // Not asked of the author: the contract lists CLASS hooks, so a shell written from
+        // it carries no ARIA, and the transcript loses one article and one name per custom
+        // bubble. The bubble re-applies both after the shell renders (decision #8: honoured
+        // end to end), which is why no existing shell has to change.
+        const message = el.querySelector('.aparte-message') as HTMLElement | null;
+        expect(message).not.toBeNull();
+        expect(message!.getAttribute('role')).toBe('article');
+        expect(message!.getAttribute('aria-label')).toBeTruthy();
+        el.remove();
+    });
+
+    it('leaves the role and the accessible name alone when the shell declares its own', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(({ role }) =>
+            shellFrom(documentedHooks(), role).replace(
+                'class="aparte-message"',
+                'class="aparte-message" role="listitem" aria-label="mine"',
+            ));
+        const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+        el.setAttribute('data-role', 'assistant');
+        el.setAttribute('message-id', 'shell-o');
+        document.body.appendChild(el);
+
+        // The contract says a root that already carries a `role` is how you override the
+        // default. An override that kept the role and lost the name would be half of one:
+        // the bubble refreshes the accessible name on every role change, and that refresh
+        // must stop at a root whose role it did not write.
+        el.setAttribute('data-role', 'user');
+        const message = el.querySelector('.aparte-message') as HTMLElement | null;
+        expect(message).not.toBeNull();
+        expect(message!.getAttribute('role')).toBe('listitem');
+        expect(message!.getAttribute('aria-label')).toBe('mine');
         el.remove();
     });
 

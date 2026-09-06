@@ -30,4 +30,6 @@ const citation: CitationSegment = {
 };
 ```
 
+One clause of the field's documentation was wrong and is corrected. In the HISTORY sent back to the model, `fallback` stands in for the segment only where core does not serialise the type itself — `custom`, and any type core does not know (a registered block grammar's, a plugin's). A `text` or a `code` segment contributes its `content` and nothing else, and `thinking` / `tool_call` / `error` are kept out of the history on purpose. The docblock used to promise the substitution for every type; the behaviour is unchanged, the sentence is.
+
 Supplying a fallback also silences the "no renderer for segment" developer warning: an author who wrote one has already said this can happen.

@@ -81,6 +81,38 @@ test('the push is logical — the control changes sides with the reading directi
     expect(rtl.start).toBeLessThan(20);
 });
 
+test('at a phone width the row wraps instead of pushing a control off the composer', async ({ page }) => {
+    await installLlmMock(page);
+    const chat = new ChatPage(page);
+    await page.setViewportSize({ width: 390, height: 780 });
+    await page.goto('/?selector=toolbar');
+    await chat.waitUngated();
+
+    // TWO controls, which is the case: every example puts the approval switch in this
+    // row, and `?selector=toolbar` adds the model selector beside it. Each is an
+    // `aparte-select`, and `primitives/select.css` gives the host a `min-width` — a hard
+    // 200px floor — so 400px of controls have to go somewhere on a 390px screen.
+    const selector = chat.composerToolbar.locator('aparte-model-selector').first();
+    await expect(chat.composerToolbar.locator('aparte-approval-mode')).toHaveCount(1);
+    await expect(selector).toHaveCount(1);
+
+    const row = await chat.composerToolbar.boundingBox();
+    const control = await selector.boundingBox();
+    if (!row || !control) throw new Error('the toolbar or its control has no bounding box');
+
+    // It used to sit at x=449 against a 390px viewport with
+    // `documentElement.scrollWidth === clientWidth`: an ancestor clipped it, so the model
+    // picker could not be scrolled to and could not be opened. Both edges, because RTL
+    // mirrored the same failure to x=-59.
+    expect(control.x).toBeGreaterThanOrEqual(row.x - 1);
+    expect(control.x + control.width).toBeLessThanOrEqual(row.x + row.width + 1);
+
+    // And the page still does not scroll sideways — the assertion that stayed true while
+    // the control was clipped, kept here so the two are read together.
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+});
+
 test('the composer keeps its breathing room at the bottom edge', async ({ page }) => {
     await installLlmMock(page);
     const chat = new ChatPage(page);

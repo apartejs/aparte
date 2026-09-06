@@ -56,14 +56,6 @@
   background: var(--aparte-thinking-bg);
 }
 
-/* Two classes, and the descendant is not decoration: `prose.css` declares a background
-   on `.aparte-thinking-content` and is imported last, so a one-class rule here would
-   lose the cascade and the token would resolve to nothing anyone can see. The panel
-   only ever exists inside the block, so naming the block costs nothing. */
-.aparte-segment-thinking .aparte-thinking-content {
-  background: var(--aparte-thinking-content-bg);
-}
-
 /* WHAT IS LEFT is only what belongs to REASONING, not to disclosure.
    The flex row, the `list-style`/`::-webkit-details-marker` reset, the chevron and its
    180° turn were all redrawn here under four private classes while

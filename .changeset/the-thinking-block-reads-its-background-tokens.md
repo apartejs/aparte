@@ -16,3 +16,5 @@ aparte-chat {
 ```
 
 That turns the understated left rail into a filled card, which is a look, not a default.
+
+The panel's token is read on ONE class, and that matters if you style the panel yourself. It first shipped as a two-class rule (`.aparte-segment-thinking .aparte-thinking-content`) so it would beat `prose.css`, which is imported last — and it beat the one-class `.aparte-thinking-content { background: … }` a consumer may already have written just as well, with nothing on screen to explain it. `prose.css` reads the token itself now: same pixels, one specificity, your own rule wins again.

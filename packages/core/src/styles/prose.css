@@ -164,7 +164,12 @@
   font-size: var(--aparte-font-size-md);
   line-height: var(--aparte-thinking-content-line-height);
   color: var(--aparte-thinking-content);
-  background: transparent;
+  /* The panel's own token, read HERE because this is the only sheet that paints the
+     panel. It used to be a hard-coded `transparent` with the token declared in
+     `segment/thinking.css` under two classes so it could win this rule — which also beat
+     the one-class `.aparte-thinking-content { background: … }` a consumer writes, core
+     being light DOM. Same pixels (the token defaults to `transparent`), one specificity. */
+  background: var(--aparte-thinking-content-bg);
   max-height: var(--aparte-thinking-content-max-height);
   overflow-y: auto;
 }

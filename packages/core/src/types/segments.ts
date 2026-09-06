@@ -20,14 +20,18 @@ export interface AparteSegmentBase {
 
     /**
      * One sentence standing in for the segment when no renderer claims its `type` —
-     * read for EVERY type, not only for `custom`.
+     * DRAWN for every type, not only for `custom`.
      *
      * It is the answer to a real moment: a conversation replayed in another app, a
      * client that loads its views lazily, an export. Core draws it as text (no markup)
-     * under `.aparte-segment-fallback`, and it also stands in for the segment in the
-     * history sent back to the model when the segment has no `content`. Supplying one
-     * also silences the "no renderer" developer warning: an author who wrote a fallback
-     * has already said this can happen.
+     * under `.aparte-segment-fallback`. Supplying one also silences the "no renderer"
+     * developer warning: an author who wrote a fallback has already said this can happen.
+     *
+     * In the HISTORY sent back to the model it stands in for the segment only where core
+     * does not serialise the type itself — `custom`, and any type core does not know (a
+     * registered block grammar's, a plugin's). A `text` or a `code` segment contributes
+     * its `content` and nothing else; `thinking` and `tool_call` are left out of the history
+     * on purpose (`_segmentsToText` in `AparteClient` states why), and so is `error`.
      */
     fallback?: string;
 

@@ -31,7 +31,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * @element aparte-composer-action
  *
- * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
+ * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`.
+ *   A key core's glyph set does not hold renders AS TEXT (`icon="star"` draws the word
+ *   *star*), so bring your own set through `setIconProvider` or pass the SVG.
  * @attr {string} label - Accessible label (also used as tooltip)
  * @attr {boolean} disabled - Disables the button
  * @attr {string} action-id - Identifies WHICH button fired; carried as
@@ -60,7 +62,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *   <div class="aparte-composer-shell">
  *     <div class="aparte-composer-row">
  *       <aparte-composer-input></aparte-composer-input>
- *       <aparte-composer-action icon="star" label="Favourite" action-id="favourite"></aparte-composer-action>
+ *       <aparte-composer-action icon="pin" label="Pin" action-id="pin"></aparte-composer-action>
  *       <aparte-composer-send></aparte-composer-send>
  *     </div>
  *   </div>
@@ -69,7 +71,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * <script>
  *   // The event bubbles, so one listener above the composer serves every action.
  *   document.addEventListener('aparte-action-click', (event) => {
- *     if (event.detail.actionId === 'favourite') console.log('starred');
+ *     if (event.detail.actionId === 'pin') console.log('pinned');
  *   });
  * </script>
  */

@@ -583,7 +583,8 @@ function toLine(item) {
         html: `<!-- The same message twice. The first bubble is the one core draws; the second is a
      shell of your own, scoped to that bubble alone by an instance config. A shell is markup:
      the bubble finds the hooks it knows by class and fills them, so the name, the
-     content, the waiting dots and the action bar keep working. -->
+     content and the action bar keep working. The waiting indicator is the one hook whose
+     inside is yours to write: the dots below are markup, not something the bubble adds. -->
 <div class="two-up">
   <aparte-chat-bubble
     message-id="a1"
@@ -616,7 +617,13 @@ function toLine(item) {
       <div class="aparte-message-content">
         <div class="aparte-segments"></div>
         <div class="aparte-content"></div>
-        <div class="aparte-waiting" hidden><span class="aparte-sr-only"></span></div>
+        <!-- The dots are yours to draw: the bubble only shows and hides this region. -->
+        <div class="aparte-waiting" hidden>
+          <span class="aparte-dots" aria-hidden="true">
+            <span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span>
+          </span>
+          <span class="aparte-sr-only"></span>
+        </div>
       </div>
       <div class="aparte-footer"><div class="aparte-action-bar"></div></div>
     </div>\`);
