@@ -82,9 +82,10 @@ registerModel({
 
 Measured: SmolVLM-256M on WebGPU (Chromium, AMD Radeon 8060S): first load 7 s (download included), first token 3.7 s cold; Stop interrupts the model, not just the read.
 
-Each runner is its own chunk, loaded only when a model asks for it. Both drop `tool_call` /
-`tool_result` turns with one warning (tool syntax is per model family), and the text runner
-**says so when it drops an image** — it never answers a photo it could not see as if it had.
+Each runner is its own chunk, loaded only when a model asks for it. Both drop tool turns — the
+calls on an assistant turn and the `tool` turns that answer them — with one warning (tool syntax is
+per model family), and the text runner **says so when it drops an image**: it never answers a photo
+it could not see as if it had.
 
 ### A runner of your own
 
@@ -172,7 +173,8 @@ Cache and hardware are **standalone helpers** — import them from `@aparte/prov
 :::note
 **Scope:** text and vision models through the built-in runners, anything else through a runner of
 your own (above). Tool-calling for local models is model-specific (each family has its own format):
-a conversation that already contains `tool_call` / `tool_result` turns still runs, those turns are
-**dropped** from what the model sees, with one `console.warn` so the omission isn't silent — and a
-text model attached an image says so the same way, instead of answering as if it had seen it.
+a conversation that already contains tool turns still runs, but the calls on an assistant turn and
+the `tool` turns that answer them are **dropped** from what the model sees, with one `console.warn`
+so the omission isn't silent — and a text model attached an image says so the same way, instead of
+answering as if it had seen it.
 :::

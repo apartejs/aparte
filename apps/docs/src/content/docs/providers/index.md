@@ -90,3 +90,46 @@ Both shapes share the identity part: `getMetadata()` returns an `AparteAIProvide
 provider select display. The type is exported, so a provider written outside this
 repository can annotate its own `getMetadata()` with it rather than spell it
 `ReturnType<AparteAIProvider['getMetadata']>`.
+
+## What a provider must translate
+
+A **tool turn** reaches a provider as two kinds of message, and both are ordinary
+`AparteChatMessage` values:
+
+- one **`assistant`** message whose `toolCalls` are the calls the model made this turn —
+  its `content` is what it said before them, `''` when it said nothing;
+- then one **`tool`** message per result, carrying `toolCallId` (the call it answers) and
+  `toolName` (what ran).
+
+```ts
+import type { AparteChatMessage } from '@aparte/core';
+
+// One tool turn, exactly as the loop appends it before re-calling the provider.
+const history: AparteChatMessage[] = [
+  { role: 'user', content: 'Any news on the beta?' },
+  {
+    role: 'assistant',
+    content: 'Let me look.',
+    toolCalls: [{ id: 'call_1', name: 'search', input: { query: 'beta' } }],
+  },
+  { role: 'tool', content: '3 results', toolCallId: 'call_1', toolName: 'search' },
+];
+```
+
+That is already the OpenAI wire shape, which is why the mapping there is two branches on top of
+the ordinary one: a `tool` message becomes `{ role: 'tool', tool_call_id, content }`, and the
+assistant message becomes `{ role: 'assistant', content, tool_calls }`. The worked example is in
+[`@aparte/provider-openai-compat`](/providers/ai/openai-compat/)'s own source, down to the one
+asymmetry: an empty `content` is sent as `null` beside `tool_calls`, because that is what the
+API takes there.
+
+Other vendors are not that shape. Anthropic carries the call and its answer as **content blocks**
+inside `user` and `assistant` messages, so a provider talking to it directly is the one that
+builds those blocks. Going through a bridge moves that work into the SDK: `toModelMessages` in
+[`@aparte/provider-ai-sdk`](/providers/ai/ai-sdk/) maps the two messages to the AI SDK's own
+normalised parts — a `tool-result` on a `tool` message, `tool-call`s on the assistant one — and
+the `@ai-sdk/*` package you bring reaches the vendor from there.
+
+Either way the translation is the provider's job. A `role: 'tool'` message that reaches a vendor
+untranslated is a bug in the provider, not in the history the caller handed it. See
+[Tools](/guides/tools/) for how the turn is produced.

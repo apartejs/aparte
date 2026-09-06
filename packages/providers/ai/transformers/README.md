@@ -56,9 +56,10 @@ registerModel({
 
 Measured: SmolVLM-256M on WebGPU (Chromium, AMD Radeon 8060S): first load 7 s (download included), first token 3.7 s cold; Stop interrupts the model, not just the read.
 
-Each runner is its own chunk, loaded only when a model asks for it. Both drop `tool_call` /
-`tool_result` turns with one warning (tool syntax is per model family), and the text runner
-**says so when it drops an image** — it never answers a photo it could not see as if it had.
+Each runner is its own chunk, loaded only when a model asks for it. Both drop tool turns — the
+calls on an assistant turn and the `tool` turns that answer them — with one warning (tool syntax is
+per model family), and the text runner **says so when it drops an image**: it never answers a photo
+it could not see as if it had.
 
 ### A runner of your own
 
@@ -133,7 +134,7 @@ getMaxCachedModels();             // the current budget
 > **Scope:** text and vision models through the built-in runners, anything else through a
 > runner of your own; **browser-only** (unlike the other providers — it needs WebGPU/WASM,
 > Workers and the Cache API, so it is the one adapter that does not run in Node). Tool-calling
-> for local models is model-specific: the built-in runners drop `tool_call` / `tool_result`
-> turns with one console warning; a custom runner may render them. Part of the
-> [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
+> for local models is model-specific: the built-in runners drop tool turns — the calls on an
+> assistant turn and the `tool` turns that answer them — with one console warning; a custom runner
+> may render them. Part of the [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
 > See the **Providers** guide in the docs for the full usage.

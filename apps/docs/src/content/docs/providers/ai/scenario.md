@@ -96,7 +96,7 @@ and the keys it knows.
 `after:` routes on which tool ran, not on what it returned. To pick the next scenario from
 the *value* — the option the user chose in an `ask_user` question, the branch of a wizard —
 let the tool's handler put the answer in its result and read it back in `match`, from the
-last `tool_result` message. The provider stays stateless; the conversation carries the state:
+last `tool` message. The provider stays stateless; the conversation carries the state:
 
 ```ts
 createScenarioProvider({
@@ -106,7 +106,7 @@ createScenarioProvider({
     server:   { turn: 'On a server: the backend transport, the key never leaves it.' },
   },
   match: (request, scenarios) => {
-    const last = [...request.messages].reverse().find((m) => m.role === 'tool_result');
+    const last = [...request.messages].reverse().find((m) => m.role === 'tool');
     if (!last) return 'start';
     const picked = String(last.content).trim();          // "browser" or "server" — the tool's own result
     return picked in scenarios ? picked : undefined;      // undefined → the default rule

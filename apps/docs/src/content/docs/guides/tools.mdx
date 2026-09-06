@@ -72,8 +72,9 @@ into a no-op with nothing to read anywhere. When the model calls one:
    a row with the tool name and a spinner.
 2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
    on resolve flips the segment to `status: 'resolved'`.
-3. The `tool_call` and its result are appended to history and the provider is re-called
-   automatically, so the model sees the outcome and continues.
+3. An `assistant` message carrying the call and a `tool` message carrying its result are appended
+   to history, and the provider is re-called automatically, so the model sees the outcome and
+   continues.
 4. If `maxTurns` (per-tool or global) is hit first, the segment becomes `'aborted'`.
 
 `AparteToolCallSegment.status` is one of
@@ -219,7 +220,7 @@ sees the whole request rather than an id on an event.
   surface can edit the arguments (fix a path, tighten a query) before the tool runs. The
   built-in panel sends no payload.
 - **Typing instead of choosing** is a refusal that carries your words: the instruction
-  becomes the `tool_result` the model reads on the turn it gets back. That is only useful
+  becomes the `tool` message the model reads on the turn it gets back. That is only useful
   because a refusal hands the model a turn — before, whatever you wrote had nowhere to go.
 
 To drive approval from something with no DOM — a CLI, a webhook, an ops channel — or to
