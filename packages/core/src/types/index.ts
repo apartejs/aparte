@@ -110,7 +110,6 @@ export type {
     AparteContentPart,
     AparteTextPart,
     AparteImagePart,
-    AparteFilePart,
     AparteStreamEvent,
     AparteStreamEventMap,
     AparteUsage

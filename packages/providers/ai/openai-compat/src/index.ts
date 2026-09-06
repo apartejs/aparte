@@ -75,11 +75,12 @@ export interface OpenAICompatProviderOptions {
 /** Content → OpenAI multipart array when images are present. */
 function toOpenAIContent(content: string | AparteContentPart[]): unknown {
     if (typeof content === 'string') return content;
-    return content.map(p => {
-        if (p.type === 'text') return { type: 'text', text: p.text };
-        if (p.type === 'image') return { type: 'image_url', image_url: { url: p.image } };
-        return { type: 'text', text: '' }; // AparteFilePart — no inline-file support in the compat format
-    });
+    // Two arms, exhaustive: a part is text or an image. A third used to answer the
+    // removed `AparteFilePart` with an empty text part — a branch nothing could reach,
+    // standing in for inline-file support this format does not have.
+    return content.map(p => (p.type === 'text'
+        ? { type: 'text', text: p.text }
+        : { type: 'image_url', image_url: { url: p.image } }));
 }
 
 /** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */

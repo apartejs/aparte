@@ -112,8 +112,7 @@ export interface StreamTool {
  */
 export interface StreamTextPart { type: 'text'; text: string }
 export interface StreamImagePart { type: 'image'; image: string; mimeType?: string }
-export interface StreamFilePart { type: 'file'; data: string; mimeType: string; name?: string }
-export type StreamContentPart = StreamTextPart | StreamImagePart | StreamFilePart;
+export type StreamContentPart = StreamTextPart | StreamImagePart;
 
 /**
  * A conversation message (mirrors `AparteChatMessage`).

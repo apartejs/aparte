@@ -17,9 +17,6 @@ import { TOOL_TURNS_DROPPED, generationOptions, interruptOn, loadOptions, textSt
 type HFPart = { type: 'image' } | { type: 'text'; text: string };
 type HFMessage = { role: 'user' | 'assistant' | 'system'; content: HFPart[] };
 
-export const UNSUPPORTED_PARTS_DROPPED =
-    'Dropped content part(s) this vision runner cannot carry (only text and image parts reach the model).';
-
 /**
  * The conversation in the HF chat shape the processor's template expects — every turn's
  * content as parts, an `{ type: 'image' }` placeholder where a picture goes — plus the
@@ -29,23 +26,24 @@ export function toChatTemplate(messages: AparteChatMessage[], warn: (message: st
     const chat: HFMessage[] = [];
     const images: string[] = [];
     let droppedToolTurns = 0;
-    let droppedParts = 0;
     for (const m of messages) {
         if (m.role !== 'user' && m.role !== 'assistant' && m.role !== 'system') { droppedToolTurns++; continue; }
+        // An assistant's calls ride on an `assistant` message, which passes the role test
+        // above and, when the model said nothing before them, carries no part either — so
+        // without this the whole turn leaves the prompt with nothing said.
+        if (m.toolCalls?.length) droppedToolTurns++;
         const parts: HFPart[] = [];
         if (typeof m.content === 'string') {
             if (m.content) parts.push({ type: 'text', text: m.content });
         } else {
             for (const p of m.content) {
                 if (p.type === 'text') { if (p.text) parts.push({ type: 'text', text: p.text }); }
-                else if (p.type === 'image') { images.push(p.image); parts.push({ type: 'image' }); }
-                else droppedParts++;
+                else { images.push(p.image); parts.push({ type: 'image' }); }
             }
         }
         if (parts.length > 0) chat.push({ role: m.role, content: parts });
     }
     if (droppedToolTurns > 0) warn(TOOL_TURNS_DROPPED);
-    if (droppedParts > 0) warn(UNSUPPORTED_PARTS_DROPPED);
     return { chat, images };
 }
 

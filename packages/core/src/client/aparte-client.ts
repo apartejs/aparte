@@ -246,6 +246,13 @@ export interface AparteClientOptions {
 }
 
 /**
+ * Files `_filesToContentParts` has already announced — warn once per name, the idiom the
+ * stream loop uses for an event it cannot map. Repeating it on every send is how a
+ * warning gets muted, and the developer only needs to hear it once per attachment.
+ */
+const warnedUninlinedFiles = new Set<string>();
+
+/**
  * AparteClient
  *
  * The "Automatic Transmission" for Aparte.
@@ -1348,7 +1355,8 @@ export class AparteClient {
      * - Images → AparteImagePart (base64 data URL)
      * - Text files (txt, md, json, csv, xml, html, css, js, ts, …) → AparteTextPart
      *   injected as a fenced block so all models (including local) can read them.
-     * - Other binary files → silently ignored.
+     * - Other binary files → no content part, and a one-time `console.warn` naming the
+     *   file (see the branch below for why it is not silent).
      */
     private async _filesToContentParts(files: File[]): Promise<AparteContentPart[]> {
         const TEXT_TYPES = /^(text\/|application\/(json|xml|javascript|typescript|x-yaml|yaml|toml|csv|markdown))/i;
@@ -1381,6 +1389,17 @@ export class AparteClient {
                     });
                 }
 
+                // Everything else — a PDF, a spreadsheet, an archive. The chip stays on
+                // screen, so silence here reads as the model ignoring the attachment
+                // rather than as aparté never having sent it.
+                if (!warnedUninlinedFiles.has(file.name)) {
+                    warnedUninlinedFiles.add(file.name);
+                    console.warn(
+                        `[aparte] ${file.name} (${file.type || 'unknown type'}) is attached to the message but is `
+                        + 'not sent to the model: aparté inlines images and text files only. Handle it in your app '
+                        + '(RAG, an upload) — the chip stays visible either way.',
+                    );
+                }
                 return Promise.resolve(null);
             })
         );

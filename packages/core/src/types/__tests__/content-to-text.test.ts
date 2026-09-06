@@ -36,14 +36,6 @@ describe('contentToText', () => {
         expect(contentToText(parts)).toBe('caption');
     });
 
-    it('ignores file parts', () => {
-        const parts: AparteContentPart[] = [
-            { type: 'file', data: 'base64data', mimeType: 'application/pdf', name: 'doc.pdf' },
-            { type: 'text', text: 'see attachment' }
-        ];
-        expect(contentToText(parts)).toBe('see attachment');
-    });
-
     it('returns empty string when array contains only image parts', () => {
         const parts: AparteContentPart[] = [
             { type: 'image', image: 'data:image/jpeg;base64,xyz' }

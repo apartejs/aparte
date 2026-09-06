@@ -27,18 +27,15 @@ export interface AparteImagePart {
 }
 
 /**
- * File content part — reserved for future PDF/audio support.
- * `data` must be a base64 data URL.
+ * Discriminated union of all content part types.
+ *
+ * There was a third, `AparteFilePart`, "reserved for future PDF/audio support" — nothing
+ * ever produced one: the client inlines images and text files and drops the rest, and both
+ * wire mappers answered it with an empty text part no message could reach. What it did do
+ * was promise a consumer that attaching a PDF sent it. That promise is now a warning at the
+ * one place the file is really dropped.
  */
-export interface AparteFilePart {
-    type: 'file';
-    data: string;
-    mimeType: string;
-    name?: string;
-}
-
-/** Discriminated union of all content part types */
-export type AparteContentPart = AparteTextPart | AparteImagePart | AparteFilePart;
+export type AparteContentPart = AparteTextPart | AparteImagePart;
 
 /**
  * Extract plain text from a `string | AparteContentPart[]` content value.
@@ -56,7 +53,8 @@ export interface AparteChatMessage {
     role: 'user' | 'assistant' | 'system' | 'tool';
     /**
      * Message content — either a plain string (backward compatible) or an array
-     * of typed content parts for multimodal messages (text + images + files).
+     * of typed content parts: text and images. A binary the model cannot read is
+     * not a content part; see the note on {@link AparteContentPart}.
      *
      * Use `contentToText(content)` to extract the text-only representation.
      */

@@ -150,11 +150,12 @@ export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
         } else {
             out.push({
                 role: 'user',
-                content: msg.content.map(p => {
-                    if (p.type === 'text') return { type: 'text' as const, text: p.text };
-                    if (p.type === 'image') return { type: 'image' as const, image: p.image };
-                    return { type: 'text' as const, text: '' }; // AparteFilePart — not bridged
-                }),
+                // Two arms, exhaustive: a part is text or an image. A third used to answer
+                // the removed `AparteFilePart` with an empty text part — a branch nothing
+                // could reach, standing in for a file bridge that was never written.
+                content: msg.content.map(p => (p.type === 'text'
+                    ? { type: 'text' as const, text: p.text }
+                    : { type: 'image' as const, image: p.image })),
             });
         }
     }

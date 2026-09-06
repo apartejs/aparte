@@ -286,7 +286,8 @@ describe('AparteClient', () => {
             expect(parts[0].image).toMatch(/^data:image\/png;base64,/);
         });
 
-        it('ignores non-image files', async () => {
+        it('ignores non-image files, and says so', async () => {
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
             client = new AparteClient({ autoRegister: false });
             const pdfBlob = new Blob(['pdf-data'], { type: 'application/pdf' });
             const pdfFile = new File([pdfBlob], 'doc.pdf', { type: 'application/pdf' });
@@ -294,6 +295,10 @@ describe('AparteClient', () => {
             const parts = await (client as any)._filesToContentParts([pdfFile]);
 
             expect(parts).toHaveLength(0);
+            // The chip is still on screen: dropping the bytes in silence reads as the
+            // model ignoring the attachment. See `a-binary-attachment-is-announced-not-swallowed`.
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(String(warn.mock.calls[0]?.[0])).toContain('doc.pdf');
         });
 
         it('returns empty array for empty input', async () => {
