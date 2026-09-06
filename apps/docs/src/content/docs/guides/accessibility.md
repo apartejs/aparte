@@ -83,14 +83,20 @@ an oversight. The composer follows the same restraint: its focus signal is the c
 plus the shell's border tint (`.aparte-composer-shell:focus-within`), not a second ring
 drawn around the whole field.
 
-A site that wants AAA anyway widens the ring with the one token that draws it
-everywhere it's read, declared on the same anchors as any other chat override:
+A site that wants AAA anyway widens the ring with the one token that draws it, everywhere
+it's read — the chat, the composer, the conversation list, the sidebar, the header:
 
 ```css
-aparte-chat, [data-aparte-theme] {
+:root {
   --aparte-focus-outline-width: 2px;
 }
 ```
+
+`:root` is enough here because `--aparte-focus-outline-width` is a literal: core declares
+it exactly once, and inheritance carries it into every element that reads it. The
+`aparte-chat, [data-aparte-theme]` anchors belong to the *derived* tokens — core
+re-declares those on the chat itself, so a value inherited from `:root` never reaches
+them ([Theming](/guides/theming/) says which is which).
 
 ## What core leaves to you
 

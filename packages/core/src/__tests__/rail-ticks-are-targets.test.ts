@@ -149,6 +149,16 @@ describe('the rail is a capped list, centred on the transcript', () => {
  * focus. At 4.72:1 it satisfied SC 1.4.11 and SC 2.4.7; the shortfall was area, i.e.
  * AAA SC 2.4.13. Two lines either way, so it moved onto the `::before` that already
  * computes the zone.
+ *
+ * And the ring on that zone is INSET by its own width, because the zone IS the rail's
+ * clip box: the rail is exactly `--aparte-scroll-rail-width` wide with no inline
+ * padding, the zone is anchored to both of its inline edges, and `outline` paints
+ * OUTSIDE the border box — so at the shared `0` offset both verticals landed 1px into
+ * what `overflow-x: hidden` cuts, and the block edge of the first and last tick lost a
+ * third side to the same clip. Measured on a page: two detached 16px hairlines, 24px
+ * apart, on the one indicator a keyboard reader follows down the transcript; inset by
+ * the ring's width the same tick paints all four sides. Same inset idiom as the
+ * conversation row and the thumbnail, and for the same reason — a clip in the way.
  */
 describe('the ring marks the zone, not the line', () => {
     it('draws nothing on the tick itself', () => {
@@ -159,7 +169,9 @@ describe('the ring marks the zone, not the line', () => {
         const ring = rule(rail, '.aparte-scroll-rail__tick:focus-visible::before');
         expect(ring, 'the ring is not on the ::before').toBeTruthy();
         expect(ring).toMatch(/outline:\s*var\(--aparte-focus-outline-width\)\s+solid\s+var\(--aparte-border-focus\)/);
-        expect(ring).toMatch(/outline-offset:\s*var\(--aparte-focus-outline-offset\)/);
+        expect(ring, 'the ring has to be inset, the zone is the rail’s clip box').toMatch(
+            /outline-offset:\s*calc\(-1 \* var\(--aparte-focus-outline-width\)\)/,
+        );
         expect(ring, 'a square ring around a rounded zone').toMatch(/border-radius:/);
     });
 });

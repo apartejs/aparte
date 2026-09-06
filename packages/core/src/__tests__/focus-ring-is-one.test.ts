@@ -32,7 +32,10 @@
  *     narrower than the row, measured in Chromium.
  *   - A scroll-rail tick. `outline` paints on the element's border box and the tick is a
  *     14×2 line, so the indicator for its 24×24 pressable zone came out 16×4. The ring
- *     moved onto the `::before` that already draws the zone.
+ *     moved onto the `::before` that already draws the zone — and it is inset there,
+ *     because that zone spans the rail's own width and the rail clips (`overflow-x:
+ *     hidden`). At the shared `0` offset both verticals fell outside the clip and the
+ *     reader saw two detached hairlines; inset by the ring's width, all four sides paint.
  */
 import { describe, it, expect } from 'vitest';
 import { readAparteStylesheet } from './read-stylesheet';
@@ -80,6 +83,9 @@ const INSET_ALLOWED = new Set([
     ".aparte-thumbnail__image[role='button']:focus-visible",
     // The list clips horizontally; a ring outside the row was cut on both edges.
     '.aparte-conv-item:has(.aparte-conv-item__select:focus-visible)',
+    // The tick's pressable zone spans the rail, and the rail clips: an outward ring lost
+    // both verticals (and a third side on the first and last tick).
+    '.aparte-scroll-rail__tick:focus-visible::before',
 ]);
 /** One shape for every inset ring: pulled in by exactly the ring's own width. */
 const INSET_OFFSET = 'calc(-1 * var(--aparte-focus-outline-width))';

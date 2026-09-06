@@ -175,7 +175,13 @@ aparte-chat-viewport {
   /* Container-query root: children adapt to the WIDGET's width, not the
      viewport's — an embedded chat can be narrow inside a wide page. */
   container-type: inline-size;
-  text-align: left;
+  /* The transcript's baseline alignment, against a host that centres its page. `start`,
+     never `left`: this is inherited by every message, segment and paragraph below it,
+     so it is the widest blast radius in the sheets — and it was `left` while core still
+     wrote `dir="ltr"` onto its own DOM, where it could not lie. Now that the direction
+     follows the host, an Arabic transcript with correctly flipped lists and blockquote
+     rail was still left-aligned line by line. */
+  text-align: start;
 }
 
 .aparte-viewport-container {

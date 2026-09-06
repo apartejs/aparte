@@ -251,7 +251,7 @@
 .aparte-art-file__preview-pane td {
     border: var(--aparte-border-width) solid var(--aparte-art-paper-border);
     padding: var(--aparte-space-3) var(--aparte-space-5);
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
     color: var(--aparte-art-paper-text);
     background: var(--aparte-art-paper-bg);

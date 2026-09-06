@@ -17,13 +17,23 @@
  *
  * This suite reads the sheets rather than a browser: jsdom resolves neither `dir` nor
  * `var()`, so what a unit test can hold is the SHAPE — that these five sites name a
- * logical edge. `display/thumbnail.css` (`left: 0; right: 0`) and `components/shell.css`
- * (`left: 50%` + `translateX(-50%)`) are symmetric or centring and stay as they are.
+ * logical edge. `display/thumbnail.css` (`left: 0; right: 0`) and `components/shell.css`'s
+ * `left: 50%` + `translateX(-50%)` are symmetric or centring and stay as they are.
+ *
+ * The sixth site was found later, and by looking at the wrong list: this docblock cleared
+ * `components/shell.css` after reading its `left: 50%` and stopping there, while
+ * `aparte-chat-viewport { text-align: left }` sat eight lines below it. `text-align` is
+ * inherited, so that one declaration reached every message, segment and paragraph in the
+ * transcript — measured under `dir="rtl"`, an Arabic assistant line hugged the LEFT edge
+ * of a right-to-left transcript whose lists and blockquote rail had correctly flipped.
+ * Hence the sweep at the end: `text-align: left|right` is physical wherever it appears,
+ * and it is read across the whole corpus rather than the four sheets named above, because
+ * naming the sheets is how this one was missed.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { coreRoot } from './read-stylesheet.js';
+import { coreRoot, readAparteStylesheet } from './read-stylesheet.js';
 
 const STYLES = resolve(coreRoot(), 'src/styles');
 const read = (rel: string) => readFileSync(resolve(STYLES, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
@@ -62,5 +72,15 @@ describe('the other three sites', () => {
     it('puts the status dot’s gap on the start edge', () => {
         expect(select).toMatch(/margin-inline-start:\s*var\(--aparte-space-4\)/);
         expect(select).not.toMatch(/margin-left:\s*var\(--aparte-space-4\)/);
+    });
+});
+
+describe('no sheet aligns text to a physical edge', () => {
+    const corpus = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+    it('reads the whole corpus, and it aligns text with start or end', () => {
+        // `center` is symmetric; only left and right lie under RTL.
+        expect(corpus).toMatch(/text-align:\s*start/);
+        expect([...corpus.matchAll(/text-align:\s*(left|right)/g)].map((m) => m[0])).toEqual([]);
     });
 });
