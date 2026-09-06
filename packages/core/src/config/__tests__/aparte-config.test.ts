@@ -112,30 +112,19 @@ describe('aparteGlobalConfig', () => {
 
     describe('Action registry (unified, zoned)', () => {
         afterEach(() => {
-            ['composer-a', 'bubble-a', 'both-a', 'ord-1', 'ord-2', 'hide-me'].forEach(id =>
+            ['bubble-a', 'both-a', 'ord-1', 'ord-2'].forEach(id =>
                 aparteGlobalConfig.unregisterAction(id));
         });
 
-        it('registers a composer action and returns it from getActions("composer")', () => {
-            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'A', icon: '<svg></svg>', zones: ['composer'] });
-            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).toContain('composer-a');
-        });
-
-        it('does not surface a composer-only action in the bubble zone', () => {
-            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'A', icon: '', zones: ['composer'] });
-            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).not.toContain('composer-a');
-        });
-
-        it('surfaces a multi-zone action in every declared zone', () => {
-            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
-            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).toContain('both-a');
-            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).toContain('both-a');
+        it('registers a bubble action and returns it from getActions("bubble")', () => {
+            aparteGlobalConfig.registerAction({ id: 'bubble-a', label: 'A', icon: '<svg></svg>', zones: ['bubble'] });
+            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).toContain('bubble-a');
         });
 
         it('upserts on duplicate id instead of adding twice', () => {
-            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'first', icon: '', zones: ['composer'] });
-            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'second', icon: '', zones: ['composer'] });
-            const hits = aparteGlobalConfig.getActions('composer').filter(a => a.id === 'composer-a');
+            aparteGlobalConfig.registerAction({ id: 'bubble-a', label: 'first', icon: '', zones: ['bubble'] });
+            aparteGlobalConfig.registerAction({ id: 'bubble-a', label: 'second', icon: '', zones: ['bubble'] });
+            const hits = aparteGlobalConfig.getActions('bubble').filter(a => a.id === 'bubble-a');
             expect(hits).toHaveLength(1);
             expect(hits[0]?.label).toBe('second');
         });
@@ -148,23 +137,15 @@ describe('aparteGlobalConfig', () => {
         });
 
         it('unregisterAction removes the action from every zone', () => {
-            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
+            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['bubble'] });
             aparteGlobalConfig.unregisterAction('both-a');
-            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).not.toContain('both-a');
             expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).not.toContain('both-a');
-        });
-
-        it('setActionHidden toggles the composer hidden flag', () => {
-            aparteGlobalConfig.registerAction({ id: 'hide-me', label: 'H', icon: '', zones: ['composer'], composer: { position: 'left' } });
-            aparteGlobalConfig.setActionHidden('hide-me', true);
-            const a = aparteGlobalConfig.getActions('composer').find(x => x.id === 'hide-me');
-            expect(a?.composer?.hidden).toBe(true);
         });
 
         it('calls an optional onClick alongside the event contract', () => {
             const onClick = vi.fn();
-            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer'], onClick });
-            const a = aparteGlobalConfig.getActions('composer').find(x => x.id === 'both-a');
+            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['bubble'], onClick });
+            const a = aparteGlobalConfig.getActions('bubble').find(x => x.id === 'both-a');
             expect(a?.onClick).toBe(onClick);
         });
     });

@@ -6,6 +6,7 @@
 import type { AparteMessage } from './models.js';
 import type { AparteUsage } from './chat.js';
 import type { AparteError } from './errors.js';
+import type { AparteActionZone } from '../config/action-provider.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User Input Events
@@ -220,9 +221,9 @@ export interface AparteFeedbackEventDetail {
 /**
  * Detail payload for `aparte-action`.
  * Dispatched by a custom action button (registered via `aparteGlobalConfig.registerAction`)
- * in either the composer or a message-bubble toolbar. Apps listen (bubbling) and
- * dispatch on `actionId`. Mirrors the built-in bubble events (retry/feedback) so
- * custom actions are wired the same way in every framework and in vanilla.
+ * in a message-bubble toolbar. Apps listen (bubbling) and dispatch on `actionId`.
+ * Mirrors the built-in bubble events (retry/feedback) so custom actions are wired
+ * the same way in every framework and in vanilla.
  *
  * @event aparte-action
  */
@@ -230,10 +231,10 @@ export interface AparteActionEventDetail {
     /** The registered action's id (from `AparteAction.id`). */
     actionId: string;
     /** Which zone the action was clicked in. */
-    zone: 'composer' | 'bubble';
-    /** Message id of the bubble the action was clicked on (bubble zone only). */
+    zone: AparteActionZone;
+    /** Message id of the bubble the action was clicked on. */
     messageId?: string;
-    /** Role of that bubble (bubble zone only). */
+    /** Role of that bubble. */
     role?: 'user' | 'assistant';
     /** Optional host element id (aparte-chat) — same use as retry/edit's targetId. */
     targetId?: string;

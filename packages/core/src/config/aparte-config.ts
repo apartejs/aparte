@@ -244,9 +244,10 @@ export class AparteConfig {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register a custom action button. `zones` places it in the composer toolbar
-     * and/or the message (bubble) toolbar. Re-registering the same id overwrites
-     * it. Notifies mounted elements so they re-render.
+     * Register a custom action button. `zones` places it in the message (bubble)
+     * toolbar. Re-registering the same id overwrites it. Notifies mounted elements
+     * so they re-render. A button in the composer is an `<aparte-composer-action>`
+     * element you write in your markup, not a registry entry.
      */
     registerAction(action: AparteAction): void {
         const existing = this._actions.findIndex(a => a.id === action.id);
@@ -271,18 +272,6 @@ export class AparteConfig {
         const before = this._actions.length;
         this._actions = this._actions.filter(a => a.id !== id);
         if (this._actions.length !== before) this._notify();
-    }
-
-    /**
-     * Show or hide a composer action button by id.
-     * Triggers a config update so all mounted composer elements react immediately.
-     */
-    setActionHidden(id: string, hidden: boolean): void {
-        const action = this._actions.find(a => a.id === id);
-        if (action) {
-            action.composer = { ...action.composer, hidden };
-            this._notify();
-        }
     }
 
     /**

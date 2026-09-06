@@ -120,13 +120,13 @@ A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with 
 
 ### Actions
 
-Custom buttons placed in the composer toolbar and/or the message (bubble) toolbar — one
-merged registry, a `zones` parameter picks where each appears.
+Custom buttons placed in the message (bubble) toolbar. A button in the composer is an
+element you write in your own markup — `<aparte-composer-action>`, listened for with
+`aparte-action-click` — so the registry has the one zone.
 
 - `registerAction(action: AparteAction): void` — register (or overwrite, by `id`) a custom action button.
-- `getActions(zone: AparteActionZone): AparteAction[]` — actions for a zone (`'composer' | 'bubble'`), sorted by `order`.
-- `unregisterAction(id: string): void` — remove an action from every zone.
-- `setActionHidden(id: string, hidden: boolean): void` — show/hide a composer action button at runtime.
+- `getActions(zone: AparteActionZone): AparteAction[]` — actions for a zone (`'bubble'`), sorted by `order`.
+- `unregisterAction(id: string): void` — remove a registered action.
 - `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`/`info`) appear in bubbles, or set explicit per-role ordered lists. Only `copy` is on by default; the others need a host to honour them (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 - `getBubbleActions(): { copy, retry, edit, feedback, info, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
 - `APARTE_DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.

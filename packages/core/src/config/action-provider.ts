@@ -1,16 +1,26 @@
-/** Zones where a custom action can appear. */
-export type AparteActionZone = 'composer' | 'bubble';
+/**
+ * Zones where a custom action can appear — the message (bubble) toolbar, and only it.
+ *
+ * The type is a single member on purpose: a composer button is an element the consumer
+ * writes in their own markup (`<aparte-composer-action>`), not a registry entry, so the
+ * composer never asked the registry for anything. The zone stays a named type rather
+ * than the bare literal because `getActions(zone)` reads as a lookup, and a second zone
+ * (a toolbar of core's own, say) would be added here.
+ */
+export type AparteActionZone = 'bubble';
 
 /**
  * A custom action button, registered once via `aparteGlobalConfig.registerAction(...)`
- * and placed in one or more zones — the composer toolbar and/or the message
- * (bubble) toolbar — via `zones`.
+ * and placed in the message (bubble) toolbar via `zones`.
  *
  * Declarative and framework-agnostic: clicking it emits an `aparte-action`
  * CustomEvent (bubbles, composed) carrying `{ actionId, zone, … }`, exactly like
  * the built-in retry/feedback buttons — so you wire it the same way in
  * React/Vue/Svelte/Angular and in vanilla. An optional `onClick` callback fires
  * alongside the event for imperative convenience.
+ *
+ * For a button in the composer, write an `<aparte-composer-action>` in your markup and
+ * listen for `aparte-action-click` — see that element's docs.
  *
  * @example
  * aparteGlobalConfig.registerAction({
@@ -39,16 +49,6 @@ export interface AparteAction {
     order?: number;
     /** Which zones this action appears in. */
     zones: AparteActionZone[];
-    /** Composer-toolbar placement (used when `zones` includes `'composer'`). */
-    composer?: {
-        /** Toolbar side. Default: `'left'`. */
-        position?: 'left' | 'right';
-        /**
-         * When `true`, the button is hidden from the composer toolbar.
-         * Toggle at runtime with `aparteGlobalConfig.setActionHidden(id, hidden)`.
-         */
-        hidden?: boolean;
-    };
     /** Bubble-toolbar placement (used when `zones` includes `'bubble'`). */
     bubble?: {
         /** Bubble roles this action shows on. Default: both user and assistant. */
