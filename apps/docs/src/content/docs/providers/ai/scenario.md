@@ -134,7 +134,8 @@ selector and the tool gate work unchanged; pass `models` to offer others.
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
-import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
 
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
 ```
@@ -144,6 +145,9 @@ question* (an `ask_user` call, answered by `@aparte/plugin-ask-user`'s panel), *
 (two questions in one call — the panel's stepper), *artifact* (a card with the artifacts plugin set up), *slow* and *fail* — the
 surface a chat has, in one registration. It is what the docs'
 live frames run on.
+
+It ships on its own entry point, `@aparte/provider-scenario/showcase`, so writing
+your own scenarios never pulls this corpus into your bundle.
 
 ## What it is not
 

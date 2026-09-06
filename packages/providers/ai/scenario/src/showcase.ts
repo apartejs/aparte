@@ -3,9 +3,13 @@ import type { Scenario } from './index.js';
 /**
  * A ready-made set of scenarios that shows the whole surface of a chat: markdown, a
  * code block, reasoning, a tool round-trip, a typed question, an artifact, an error.
- * The docs' live frames and a demo page can register it as is:
+ * It ships on its own entry point, so a consumer who writes their own scenarios
+ * never pays for this one. The docs' live frames and a demo page register it as is:
  *
  * ```ts
+ * import { createScenarioProvider } from '@aparte/provider-scenario';
+ * import { showcase } from '@aparte/provider-scenario/showcase';
+ *
  * aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
  * ```
  *

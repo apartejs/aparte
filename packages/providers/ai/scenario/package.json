@@ -14,6 +14,12 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "default": "./dist/index.js"
+        },
+        "./showcase": {
+            "@aparte-workspace/source": "./src/showcase.ts",
+            "types": "./dist/showcase.d.ts",
+            "import": "./dist/showcase.js",
+            "default": "./dist/showcase.js"
         }
     },
     "files": [

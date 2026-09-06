@@ -42,7 +42,8 @@ import { setupAskUser } from '@aparte/plugin-ask-user';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
 import { runStreamAgent } from '@aparte/engine';
 import { setupCompaction } from '@aparte/plugin-compaction';
-import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
 
 export interface SiteSetup {

@@ -48,7 +48,10 @@ createScenarioProvider({
 A tool step calls the tool you registered on the config; the real loop runs its handler
 and calls the provider again with the result, which `after` answers. `pacing:
 { chunk, delay }` sets the typing speed; `pacing: 'instant'` gives a test the whole
-reply at once. `showcase` is a ready-made set covering markdown, code, reasoning, a tool
-round-trip, a typed question (`ask_user`), an artifact (a card once `@aparte/plugin-artifacts` is set up, prose otherwise) and an error.
+reply at once. `showcase` is a ready-made set covering markdown, code, reasoning, a
+tool round-trip, a typed question (`ask_user`), an artifact (a card once
+`@aparte/plugin-artifacts` is set up, prose otherwise) and an error; it is imported
+from `@aparte/provider-scenario/showcase`, its own entry point, so your own scenarios
+do not pay for it.
 
 Full guide: [apartejs.dev/providers/ai/scenario](https://apartejs.dev/providers/ai/scenario/).

@@ -19,7 +19,8 @@
 
 <script>
     import { aparteGlobalConfig, AparteClient, AparteDirectTransport, filesToAttachments } from '@aparte/core';
-    import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+    import { createScenarioProvider } from '@aparte/provider-scenario';
+    import { showcase } from '@aparte/provider-scenario/showcase';
 
     const scripted = createScenarioProvider({
         scenarios: showcase,

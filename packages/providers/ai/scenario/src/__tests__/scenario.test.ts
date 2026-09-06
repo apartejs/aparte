@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { AparteChatRequest, AparteStreamEvent } from '@aparte/core';
-import { createScenarioProvider, defaultMatch, playTurn, showcase } from '../index.js';
+import { createScenarioProvider, defaultMatch, playTurn } from '../index.js';
+import { showcase } from '../showcase.js';
 
 const request = (...messages: AparteChatRequest['messages']): AparteChatRequest => ({ modelId: 'scripted', messages });
 const user = (content: string): AparteChatRequest['messages'][number] => ({ role: 'user', content });

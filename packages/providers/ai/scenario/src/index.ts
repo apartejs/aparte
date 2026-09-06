@@ -340,5 +340,3 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
         },
     };
 }
-
-export { showcase } from './presets.js';
