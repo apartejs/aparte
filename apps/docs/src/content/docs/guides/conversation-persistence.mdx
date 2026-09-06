@@ -33,7 +33,7 @@ interface AparteStorageAdapter {
 An `AparteConversation` carries `id`, `title`, `createdAt`, `updatedAt`, a flat `messages`
 array (the active path — always kept for sidebar previews and compat), an optional `tree`
 (full branch topology, see [Conversations & branching](/guides/conversations-branching/)),
-and optional `archivedAt` / `pinnedAt` / `folderId` / `schemaVersion` (current version is
+and optional `archivedAt` / `pinnedAt` / `schemaVersion` (current version is
 `2`; treat `undefined` as legacy data).
 
 The current value is exported as `APARTE_CONVERSATION_SCHEMA_VERSION`, so an adapter
