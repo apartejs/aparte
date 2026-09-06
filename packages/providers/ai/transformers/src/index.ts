@@ -634,12 +634,19 @@ export const TransformersProvider: AparteAIProvider
             if (stopped) return;
             stopped = true;
             signal?.removeEventListener('abort', stop);
-            if (posted) {
-                _getWorker().postMessage({ type: 'cancel', id: requestId });
-                return;
-            }
             const ctrl = _pendingGenerates.get(requestId);
             _pendingGenerates.delete(requestId);
+            if (posted) {
+                _getWorker().postMessage({ type: 'cancel', id: requestId });
+                // The reply ends HERE, not when the worker gets round to answering:
+                // a token already in flight was otherwise enqueued into a stream the
+                // user had stopped. `done` and not an error — a stop is not a failure,
+                // and it is what settles the non-streaming path too. The worker's own
+                // `gen-done` still releases the queue slot: that happens before it
+                // looks the controller up.
+                try { ctrl?.enqueue({ type: 'done' as const }); ctrl?.close(); } catch { /* already closed */ }
+                return;
+            }
             if (!ctrl) return;
             try { ctrl.enqueue({ type: 'error' as const, message: 'Generation cancelled before it started' }); ctrl.close(); }
             catch { /* already closed */ }

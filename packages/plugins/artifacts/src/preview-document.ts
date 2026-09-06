@@ -138,9 +138,9 @@ try { ${safeBody}
 </script></body></html>`;
         }
         case 'css': {
-            const safeBody = escapeClosingStyleTag(body);  // safe-text: the model's stylesheet with its `</style>` neutralised — HTML-escaping CSS would render the sheet as text, which is the bug the wrapper exists to avoid
+            const safeSheet = escapeClosingStyleTag(body);  // safe-text: the model's stylesheet with its `</style>` neutralised — HTML-escaping CSS would render the sheet as text, which is the bug the wrapper exists to avoid
             return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeAttr(title)}</title>
-<style>${safeBody}</style></head><body>
+<style>${safeSheet}</style></head><body>
 <div class="demo">
   <h1>Heading</h1>
   <p>Paragraph with a <a href="#">link</a> and <strong>strong</strong> text.</p>
@@ -178,8 +178,12 @@ function escapeClosingScriptTag(body: string): string {
 }
 
 /**
- * The same, for the `<style>` the `css` kind wraps a stylesheet in. Listed by NAME
- * in `scripts/escaping-names.mjs` beside its sibling.
+ * The same, for the `<style>` the `css` kind wraps a stylesheet in. NOT listed in
+ * `scripts/escaping-names.mjs` — a positional escaper is blessed by name only where
+ * it is right in EVERY position, and this one is right in exactly one; its single
+ * use site carries a `// safe-text:` marker instead. That marker blesses an
+ * identifier name for the whole file, which is why the local it names is
+ * `safeSheet` and not the `safeBody` of the `js` case above.
  *
  * `<style>` is raw text exactly like `<script>`: the PARSER ends it on `</style` and
  * never asks the CSS tokenizer, so a stylesheet artifact could close its own wrapper

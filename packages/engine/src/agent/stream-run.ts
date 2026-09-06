@@ -82,6 +82,14 @@ export interface StreamRunOptions {
      * already in that same object's `toolCalls` — the array is shared by reference, not
      * copied. Hold the reference, not a snapshot, and every result you receive after it
      * is declared by it.
+     *
+     * Two of its fields are finalised after you are notified, then: `toolCalls` gains
+     * the turn's later calls, and `precedingText` is re-read at the turn's end (a
+     * provider that emits `[tool, text]` streams the rest of the sentence after the
+     * envelope is opened). A host that must write BYTES at receipt — an append-only
+     * log, which cannot hold a reference — should therefore treat the envelope as
+     * provisional and write it only once the turn's last `tool_result` has arrived,
+     * or re-read the object it holds before serialising.
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
@@ -222,6 +230,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // guard; the browser suite is what found the path, after the two
         // event-level guards were already closed.)
         const request: StreamChatRequest = { ...baseRequest, messages };
+        /*
+         * Forcing a tool is a TURN-1 instruction, and only the loop can lift it: the
+         * request is rebuilt from `baseRequest` every turn, so a `toolChoice` object
+         * left there was re-sent after the tool had already answered — the model was
+         * made to call it again, every turn, until `maxTurns`, and the run ended on
+         * `turn-limit-exceeded` instead of a reply. Every object shape, not only the
+         * `{ name, input }` the synthetic bypass above strips for itself: `{ name }`
+         * alone is what a consumer sets, and it never enters that branch.
+         */
+        const forced = baseRequest['toolChoice'];
+        if (forced && typeof forced === 'object') baseRequest = { ...baseRequest, toolChoice: 'auto' };
         let response: Awaited<ReturnType<typeof transportCall>>;
         try {
             response = await transportCall(request);
@@ -337,10 +356,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         const iterator = response[Symbol.asyncIterator]();
         const bailOnAbort = async (): Promise<boolean> => {
             if (!signal.aborted) return false;
-            // Guarded like the `finally` below: a transport whose iterator rejects on
+            // Guarded like the `finally` below: a transport whose iterator throws on
             // the way out turned a deliberate Stop into a thrown run error, and core
-            // paints an error card over the reply the user had just stopped.
-            await iterator.return?.(undefined).catch(() => { /* best effort */ });
+            // paints an error card over the reply the user had just stopped. `try`,
+            // not `.catch()`: a hand-written iterator throws BEFORE there is a promise
+            // to reject, and one that returns a plain object has no `.catch` at all.
+            try { await iterator.return?.(undefined); } catch { /* best effort */ }
             continueLoop = false;
             return true;
         };
@@ -565,8 +586,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             syncEnvelopeText();
 
         } finally {
-            // Mirror `reader.releaseLock()` in the finally: settle the iterator.
-            await iterator.return?.(undefined).catch(() => { /* best effort */ });
+            // Mirror `reader.releaseLock()` in the finally: settle the iterator,
+            // however it fails on the way out (see `bailOnAbort`).
+            try { await iterator.return?.(undefined); } catch { /* best effort */ }
         }
 
         // No tool calls this turn → the final answer.

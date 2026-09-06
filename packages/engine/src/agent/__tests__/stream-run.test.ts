@@ -598,6 +598,31 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
     });
 });
 
+describe('runStreamAgent — a forced tool is a turn-1 instruction', () => {
+    it('sends toolChoice { name } once, then lets the model answer', async () => {
+        // The request is rebuilt from `baseRequest` every turn, so a forced
+        // `{ name }` — the shape a consumer sets, with no `input` and therefore no
+        // synthetic bypass — was re-sent after the tool had already answered. The
+        // model called it again every turn until the cap: ten executions and
+        // `turn-limit-exceeded` instead of a reply.
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 't', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Done.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 't' } },
+            toolLookup: () => async () => ({ content: 'r' }),
+        }));
+        expect(t.calls).toHaveLength(2);
+        expect(t.calls[0]!['toolChoice']).toEqual({ name: 't' });
+        expect(t.calls[1]!['toolChoice']).toBe('auto');
+        expect(rec.types()).not.toContain('turn-limit-exceeded');
+        expect(rec.types()).toContain('text-delta');
+    });
+});
+
 describe('runStreamAgent — onHistoryAppend (the caller can own the history)', () => {
     // The loop keeps its own `messages` array and re-sends it every turn. A host
     // with a prefix cache (llama.cpp slots, vLLM) needs the opposite: an

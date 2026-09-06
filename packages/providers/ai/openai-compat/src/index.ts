@@ -305,6 +305,12 @@ export function parseOpenAICompatStream(
     const toolCalls = new Map<string, { id: string; name: string; args: string }>();
     /** The call the last delta touched — what a bare argument fragment continues. */
     let lastToolKey: string | null = null;
+    /**
+     * Every key a delta has addressed a call by → that call's slot in `toolCalls`.
+     * One call can be addressed both ways in one turn (by `index` in a chunk, by `id`
+     * in the next), so the identity is the alias, not the key of the moment.
+     */
+    const toolCallAliases = new Map<string, string>();
     /** Ids minted for a vendor that sends none. Per stream, i.e. per turn. */
     let mintedCallIds = 0;
     let capturedUsage: AparteUsage | undefined;
@@ -341,36 +347,51 @@ export function parseOpenAICompatStream(
             controller.enqueue({ type: 'tool_use', ...toolCall });
         }
         toolCalls.clear();
+        toolCallAliases.clear();
         lastToolKey = null;
     };
 
     /*
      * Which accumulated call a `delta.tool_calls` entry belongs to.
      *
-     * `index` is the wire format's own key and wins whenever the vendor sends one.
-     * It is OPTIONAL in practice across the compat family, though — a streaming
-     * convenience, not part of the function-call payload — and keying on it alone
-     * (`Number(tc.index ?? 0)`) put every call of a server that omits it on slot 0:
-     * the second id and name overwrote the first, the two argument strings
-     * concatenated into non-JSON, and the turn ran ONE tool on `{}`. So `id` is the
-     * next identity, and with neither, the function NAME decides: it appears only on
-     * a call's FIRST delta, so a nameless chunk continues the call before it and a
-     * named one starts a new one.
+     * Both `index` and `id` address a call, and a vendor may use one in a chunk and
+     * the other in the next — so neither can BE the identity: a delta's keys are
+     * ALIASES that all resolve to the same slot. A key already resolved names the
+     * call, and every key a delta carries is recorded against the slot it lands on.
+     * Picking one key instead (`index` first, `id` next) split such a call in two,
+     * the second half nameless, and the turn ran the tool on `{}`.
+     *
+     * When no key of the delta is known yet, the function NAME decides — it appears
+     * only on a call's FIRST delta, so a nameless delta continues the call before it
+     * and a named one opens its own. That single rule covers the vendor whose deltas
+     * never carry both addresses at once (open by `id`, continue by `index`, or the
+     * reverse) and the vendor that carries neither: `index` is a streaming
+     * convenience, not part of the function-call payload, and keying on it alone
+     * (`Number(tc.index ?? 0)`) put every call of a server that omits it on slot 0.
      *
      * `null` means "skip this entry": an `index` the vendor sent that is not a
      * non-negative integer is not a slot number, it is malformed (or hostile —
      * `"__proto__"` was the shape that made this a Map).
      */
     const toolCallKey = (tc: { index?: unknown; id?: string; function?: { name?: string } }): string | null => {
+        let indexKey: string | undefined;
         if (tc.index !== undefined && tc.index !== null) {
             // Made a number, not annotated as one: `index` is whatever the vendor's JSON put there.
             const idx = Number(tc.index);
             if (!Number.isInteger(idx) || idx < 0) return null;
-            return `i${idx}`;
+            indexKey = `i${idx}`;
         }
-        if (tc.id) return `d${tc.id}`;
-        if (!tc.function?.name && lastToolKey !== null) return lastToolKey;
-        return `p${toolCalls.size}`;
+        const idKey = tc.id ? `d${tc.id}` : undefined;
+        const known = (idKey ? toolCallAliases.get(idKey) : undefined) ?? (indexKey ? toolCallAliases.get(indexKey) : undefined);
+        // No key of this delta is known yet. A nameless delta never OPENS a call, so it
+        // continues the call before it — which is what keeps ONE call together when the
+        // vendor opens it with one address and continues it with the other, neither
+        // delta carrying both. A named delta still opens its own slot.
+        const key = known ?? ((!tc.function?.name && lastToolKey !== null) ? lastToolKey : (idKey ?? indexKey));
+        if (key === undefined) return `p${toolCalls.size}`;
+        if (idKey) toolCallAliases.set(idKey, key);
+        if (indexKey) toolCallAliases.set(indexKey, key);
+        return key;
     };
 
     return new ReadableStream<AparteStreamEvent>({
@@ -434,9 +455,12 @@ export function parseOpenAICompatStream(
                                              * one row (the second call's result landed on the first
                                              * call's line) and one history slot an OpenAI-shaped
                                              * endpoint rejects on the next turn. A real id arriving
-                                             * in a later chunk still wins, below.
+                                             * in a later chunk still wins, below. The mint is
+                                             * namespaced because `call_1` is what an OpenAI-shaped
+                                             * server calls its own first call: a turn mixing an
+                                             * id-less call with a real `call_1` minted a duplicate.
                                              */
-                                            entry = { id: tc.id ?? `call_${++mintedCallIds}`, name: tc.function?.name ?? '', args: '' };
+                                            entry = { id: tc.id ?? `aparte-call-${++mintedCallIds}`, name: tc.function?.name ?? '', args: '' };
                                             toolCalls.set(key, entry);
                                         }
                                         lastToolKey = key;

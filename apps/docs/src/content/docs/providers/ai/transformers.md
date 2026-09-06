@@ -140,7 +140,8 @@ Downloading and status are **methods on the provider** you registered:
 
 - `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
   Issued while a reply streams, it waits for that reply: a prepare no longer disposes the runner a
-  generation is using.
+  generation is using. The other direction holds too — a Stop reaches a reply that is still queued
+  behind a model load, so that reply never starts.
 
   A first load is tens or hundreds of megabytes, so `onProgress` is the whole point of
   calling it. It receives a `ModelLoadProgress` (exported by `@aparte/core`):

@@ -167,4 +167,28 @@ describe('a Stop stays a Stop', () => {
         }))).resolves.toBeUndefined();
         expect(seen.map(e => e.type)).toContain('run-aborted');
     });
+
+    it('survives a transport iterator whose return() throws synchronously', async () => {
+        // `.catch()` only sees a rejected promise. A hand-written iterator — the
+        // shape a host that drives the loop itself is most likely to pass — throws
+        // before there is a promise to reject, and the Stop came back to the caller
+        // as a run error.
+        const controller = new AbortController();
+        const hostile: AsyncIterable<StreamChatEvent> = {
+            [Symbol.asyncIterator]: () => ({
+                async next() {
+                    controller.abort();
+                    return { done: false, value: { type: 'text', delta: 'x' } as StreamChatEvent };
+                },
+                return(): Promise<IteratorResult<StreamChatEvent>> { throw new Error('return blew up'); },
+            }),
+        };
+        const seen: StreamRunEvent[] = [];
+        await expect(runStreamAgent(baseOpts({
+            transportCall: async () => hostile,
+            emitter: (e) => seen.push(e),
+            signal: controller.signal,
+        }))).resolves.toBeUndefined();
+        expect(seen.map(e => e.type)).toContain('run-aborted');
+    });
 });

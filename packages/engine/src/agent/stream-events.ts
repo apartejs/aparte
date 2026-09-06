@@ -186,7 +186,12 @@ export interface StreamChatRequest {
     modelId: string;
     /** Per-turn hints carried through for the host (`prefixSegments`, and whatever the consumer puts there); the loop reads none. */
     _meta?: Record<string, unknown>;
-    /** `'none'` makes the loop drop the tool inventory for that turn. */
+    /**
+     * `'none'` makes the loop drop the tool inventory for that turn. An object forces
+     * a tool, and forcing is a turn-1 instruction: the loop sends it on the first
+     * transport call of the run and lifts it (to `'auto'`) for every turn after, so
+     * the model can answer once the tool has.
+     */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
     /** The inventory the loop sends, and clears when `toolChoice` is `'none'`. */
     tools?: StreamTool[];

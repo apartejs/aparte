@@ -4,11 +4,14 @@
  * Mistral, OpenRouter, Z.ai, LM Studio and Ollama — so the edges live in their own
  * suite rather than among the happy paths.
  *
- * Three shapes, all from the 2026-09-05 audit:
+ * The shapes covered here:
  *  - `tool_calls[].index` omitted (it is a streaming convenience, not part of the
  *    function-call payload) — every call used to collapse onto slot 0;
  *  - `tool_calls[].id` omitted — every call used to come out with `id: ''`, which
- *    downstream keys a transcript row and a history slot;
+ *    downstream keys a transcript row and a history slot, and a minted `call_1`
+ *    used to collide with the id an OpenAI-shaped server gives its own first call;
+ *  - one call addressed by `index` in one delta and by `id` in the next — it used
+ *    to be split in two, the second half nameless;
  *  - a forced `tool_choice`, which used to be overwritten with `'auto'`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -125,6 +128,78 @@ describe('a vendor that omits tool_calls[].id', () => {
         expect(toolUses(events)).toEqual([
             { type: 'tool_use', id: 'real-id', name: 'search', input: { q: 'x' } },
         ]);
+    });
+});
+
+describe('a vendor that addresses one call by index in one delta and by id in the next', () => {
+    it('keeps the two addressings on one call rather than opening a second, nameless one', async () => {
+        // Each delta carried a key the parser understood, but not the SAME key: the
+        // first was filed under its `index`, the second under its `id`, so the
+        // arguments landed on a second entry whose name never arrived — the turn ran
+        // the tool on `{}` and then had a nameless call it could not answer.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'get_weather', arguments: '' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ id: 'c1', function: { arguments: '{"city":"Lille"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        expect(toolUses(events)).toEqual([
+            { type: 'tool_use', id: 'c1', name: 'get_weather', input: { city: 'Lille' } },
+        ]);
+    });
+
+    it('does the same when the opening delta carries only the id and the next only the index', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ id: 'c1', function: { name: 'get_weather', arguments: '' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"city":"Lille"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        expect(toolUses(events)).toEqual([
+            { type: 'tool_use', id: 'c1', name: 'get_weather', input: { city: 'Lille' } },
+        ]);
+    });
+
+    it('does the same when the opening delta carries only the index and the next only the id', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'get_weather', arguments: '' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ id: 'c1', function: { arguments: '{"city":"Lille"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        expect(toolUses(events)).toEqual([
+            { type: 'tool_use', id: 'c1', name: 'get_weather', input: { city: 'Lille' } },
+        ]);
+    });
+
+    it('still opens a second call when a differently addressed delta names one', async () => {
+        // The rule that keeps the two addressings together is "a nameless delta
+        // continues the call before it" — so a delta that DOES carry a name must
+        // still open its own call, whatever address it uses.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'search', arguments: '{"q":"x"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ id: 'c2', function: { name: 'lookup', arguments: '{"q":"y"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        const calls = toolUses(events);
+        expect(calls.map(c => c.name)).toEqual(['search', 'lookup']);
+        expect(calls.map(c => c.input)).toEqual([{ q: 'x' }, { q: 'y' }]);
+    });
+
+    it('a minted id cannot collide with an id the vendor issues in the same turn', async () => {
+        // The mint used to read `call_1`, which is exactly what an OpenAI-shaped
+        // server calls its own first call: a turn with one id-less call and one real
+        // `call_1` produced two calls wearing one id.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'a', arguments: '{}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 1, id: 'call_1', function: { name: 'b', arguments: '{}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        const calls = toolUses(events);
+        expect(calls.map(c => c.name)).toEqual(['a', 'b']);
+        expect(calls[0]!.id).not.toBe(calls[1]!.id);
     });
 });
 

@@ -110,11 +110,21 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
     }
 
     async function handleGenerate(msg: Extract<InMessage, { type: 'generate' }>): Promise<void> {
-        const controller = new AbortController();
+        // `onMessage` registered the controller when the message arrived; this is the
+        // same one, so a `cancel` that landed while the generate waited its turn is
+        // already recorded on it.
+        const controller = generates.get(msg.id) ?? new AbortController();
         generates.set(msg.id, controller);
         let usage: AparteUsage | undefined;
         let closed = false;
         try {
+            if (controller.signal.aborted) {
+                // Cancelled before it started: do not load a model in order to
+                // interrupt it a moment later. `gen-done` still goes out — it is what
+                // releases the main thread's queue slot.
+                deps.post({ type: 'gen-done', id: msg.id });
+                return;
+            }
             const runner = await ensureRunner(msg, msg.id);
             await runner.generate({
                 messages: msg.messages,
@@ -179,7 +189,15 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
             switch (msg.type) {
                 case 'init': moduleUrl = msg.transformersUrl; break;
                 case 'prepare': serialize(() => handlePrepare(msg)); break;
-                case 'generate': serialize(() => handleGenerate(msg)); break;
+                /*
+                 * The abort intent is registered HERE, when the message arrives, not
+                 * where the generate runs: a generate is chained, so it can wait for
+                 * as long as a model load takes, and a `cancel` reaching the worker in
+                 * that window found no controller to abort. The generate then started
+                 * as if nothing had happened and streamed tokens into a reply the user
+                 * had already stopped.
+                 */
+                case 'generate': generates.set(msg.id, new AbortController()); serialize(() => handleGenerate(msg)); break;
                 case 'cancel': generates.get(msg.id)?.abort(); break;
                 case 'command': serialize(() => handleCommand(msg)); break;
             }

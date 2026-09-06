@@ -543,4 +543,22 @@ describe('stop honours ctx.signal', () => {
         await stream.cancel();
         expect(posted('cancel')).toHaveLength(1);
     });
+
+    it('a token the worker emits after the stop never reaches the reader', async () => {
+        // Posting `cancel` left the stream open until the worker answered, so a token
+        // already in flight — or one emitted before the cancel crossed the thread
+        // boundary — was enqueued into the reply the user had just ended.
+        const ac = new AbortController();
+        const stream = await TransformersProvider.chat(request, undefined, ctx(ac.signal)) as ReadableStream<unknown>;
+        const reading = readAll(stream);
+        await flush();
+        const worker = workerHandler();
+        worker({ data: { type: 'gen-event', id: 'req-1', event: { type: 'text', delta: 'kept' } } });
+        ac.abort();
+        worker({ data: { type: 'gen-event', id: 'req-1', event: { type: 'text', delta: 'late' } } });
+        worker({ data: { type: 'gen-done', id: 'req-1' } });
+        const events = await reading;
+        expect(events).not.toContainEqual({ type: 'text', delta: 'late' });
+        expect(events[0]).toEqual({ type: 'text', delta: 'kept' });
+    });
 });
