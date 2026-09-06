@@ -15,8 +15,19 @@ void main();
 async function main(): Promise<void> {
     const { scenarioMode } = await setupSite();
 
+    // The approval switch, mounted here rather than written into index.html — the one
+    // control on this page whose element is a PLUGIN's. @aparte/plugin-approval defines
+    // <aparte-approval-mode> while its module body runs, so a tag in the static shell
+    // upgrades during the module graph, before the first statement of main(): it connects
+    // with no controller, warns that setupApproval() was never called, and paints itself
+    // disabled until the setup lands. setupSite() has resolved by here, so the element
+    // finds its controller the moment it connects. First in the row, so the model
+    // selector's `?selector=toolbar` placement (appended, `margin-inline-start: auto`)
+    // still lands at the end.
+    document.querySelector('aparte-composer-toolbar')?.append(document.createElement('aparte-approval-mode'));
+
     // The model selector, only with a local server: in the header, where the product
-    // keeps its picker; the toolbar row under the composer stays empty and draws nothing.
+    // keeps its picker, so nothing joins the switch in the toolbar row.
     if (!scenarioMode) mountModelSelector(document.getElementById('model-slot'), document.querySelector('aparte-composer-toolbar'));
 
     // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`) ───────

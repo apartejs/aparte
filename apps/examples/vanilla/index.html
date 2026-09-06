@@ -113,10 +113,18 @@
                    ?selector=toolbar it lands here too, at the end of the row). A context
                    gauge is a code assistant's thing, not a chat's — <aparte-context
                    auto-compact> goes here when you want one, and
-                   @aparte/plugin-compaction answers it. -->
-              <aparte-composer-toolbar>
-                <aparte-approval-mode></aparte-approval-mode>
-              </aparte-composer-toolbar>
+                   @aparte/plugin-compaction answers it.
+
+                   The row is EMPTY in the static shell and main() fills it: the
+                   approval switch is the one control here whose setup is async.
+                   @aparte/plugin-approval defines <aparte-approval-mode> as its module
+                   body runs, so a tag written here upgrades during the module graph —
+                   strictly before main() can call setupApproval() — and connects with
+                   no controller to bind to: it warns that the setup is missing and
+                   paints itself disabled until the setup lands. Every other element on
+                   this page is core's and needs nothing but its own definition, which
+                   is why only this one moved to JS. -->
+              <aparte-composer-toolbar></aparte-composer-toolbar>
             </div>
           </aparte-composer>
         </aparte-chat>
