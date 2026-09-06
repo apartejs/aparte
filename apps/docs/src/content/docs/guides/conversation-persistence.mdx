@@ -216,6 +216,8 @@ than keep an empty transcript active. A metadata change (`updateTitle`, `pin`, `
 conversation whose messages are not in memory goes through the adapter's own hook when it has one
 (`rename()`, `pin()`, `archive()`…) and otherwise fetches the messages first, so a row the list came
 with is never written back without them; `updateMessages()` on such a row is refused with a warning.
+A metadata change leaves `updatedAt` alone — a rename, a pin and an archive keep the conversation's
+place in the list, which sorts on the last message rather than on the last edit.
 
 The list has the same word for its own wait: set `loading` on
 `<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign
@@ -271,7 +273,12 @@ deliberately don't expose a `select()`.
 ## 5. What survives a round trip
 
 Your adapter stores `AparteMessage` objects verbatim, segments included, and hands them
-back. Core then **adopts** them rather than treating them as new — and the difference is
+back. One exception, and it is core's own: the `segments` core derived by splitting a
+markdown reply on display are not written back — neither in `messages` nor in the branch
+tree. They are core's reading of your `content`, so they are read again on the next open
+and a block grammar you register later applies to conversations already saved.
+
+Core then **adopts** the segments you did store rather than treating them as new — and the difference is
 worth knowing, because two of the fields on a segment are facts and two are measurements.
 
 | on a restored segment | what happens | why |

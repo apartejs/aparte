@@ -263,6 +263,13 @@ export class AparteConversationList extends HTMLElement {
             : held?.dataset['moreId']
                 ? rowSelector('data-more-id', held.dataset['moreId'])
                 : null;
+        // Where that row sat, for the case where it does not come back: a delete is
+        // confirmed from the row's own menu, so the row the keyboard is on is the row
+        // that leaves.
+        const heldRow = held?.closest<HTMLElement>('[data-conv-id]') ?? null;
+        const heldIndex = heldRow
+            ? Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]')).indexOf(heldRow)
+            : -1;
         const loading = this.hasAttribute('loading');
         this.setAttribute('aria-busy', loading ? 'true' : 'false');
         if (loading) {
@@ -286,9 +293,25 @@ export class AparteConversationList extends HTMLElement {
             return;
         }
         this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
-        // The same row, by id — not the same element, which no longer exists. A row that
-        // left the list takes the focus with it: there is nothing to put it back on.
-        if (restore) this.querySelector<HTMLElement>(restore)?.focus();  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+        if (!restore) return;
+        // The same row, by id — not the same element, which no longer exists.
+        const back = this.querySelector<HTMLElement>(restore);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+        if (back) { back.focus(); return; }
+        // That row left the list. The keyboard goes to the row that took its place (the
+        // next one, else the one above), and to the list itself when the last
+        // conversation goes — never to `<body>`, which would restart the next Tab at the
+        // top of the page right after the one action here that cannot be undone.
+        const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-select-id]'));
+        const next = heldIndex >= 0 ? (rows[heldIndex] ?? rows[rows.length - 1]) : null;
+        if (next) { next.focus(); return; }
+        // Borrowed, not taken: a host that made the list focusable keeps its own tab
+        // stop, and the one we add leaves with the focus rather than sitting in the tab
+        // order for the rest of the session.
+        if (!this.hasAttribute('tabindex')) {
+            this.setAttribute('tabindex', '-1');
+            this.addEventListener('blur', () => this.removeAttribute('tabindex'), { once: true });
+        }
+        this.focus();
     }
 
     private _t(key: ListLocaleKey): string {

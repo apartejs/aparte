@@ -455,9 +455,15 @@ export class AparteConversationController {
                         console.warn('[ConversationController] id still unknown after hydration — clearing. id:', id);
                         manager.clearActive();
                         this._binding.clearMessages();
+                        this._showWait(false);
                     }
                 });
                 this._stopHydrationRetry = stop;
+                // This call supersedes whatever was on its way: a wait shown for that
+                // fetch ends here, or it would outlive the call it belongs to (the fetch
+                // itself returns silently once the id has moved) and leave the composer
+                // disabled until a reload. The retry shows its own.
+                this._showWait(false);
                 return;
             }
             console.warn('[ConversationController] unknown id or no manager — clearing. manager:', !!manager, 'conv:', !!conv);
@@ -465,6 +471,9 @@ export class AparteConversationController {
             this._activeId = null;
             manager?.clearActive();
             this._binding.clearMessages();
+            // Same rule as the new-chat branch above: an id nobody knows — a deep link to
+            // a deleted conversation — still ends the wait it superseded.
+            this._showWait(false);
             return;
         }
 

@@ -93,17 +93,33 @@ export function applyRetention(
  * react without polling.
  */
 /**
- * The messages as the store would see them: without the `segments` a viewport derived
- * from a message's markdown on display (marked with the non-enumerable
- * `APARTE_DERIVED_SEGMENTS`). Comparing with them counted every opened conversation as
- * changed, so it was re-saved on leave and floated to the top of the list.
+ * A message as the store would see it: without the `segments` a viewport derived from
+ * its markdown on display (marked with the non-enumerable `APARTE_DERIVED_SEGMENTS`).
+ * Comparing with them counted every opened conversation as changed, so it was re-saved
+ * on leave and floated to the top of the list.
  */
+function withoutDerived(message: AparteMessage): AparteMessage {
+    if (!(message as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS]) return message;
+    const { segments: _derived, ...rest } = message;
+    return rest;
+}
+
 function withoutDerivedSegments(messages: AparteMessage[]): AparteMessage[] {
-    return messages.map((m) => {
-        if (!(m as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS]) return m;
-        const { segments: _derived, ...rest } = m;
-        return rest;
-    });
+    return messages.map(withoutDerived);
+}
+
+/**
+ * The same, for the branch tree — the two halves of a record have to agree. Stripping
+ * the flat messages alone left the tree carrying them, and a viewport imports the
+ * TREE: its parser short-circuits on a message that already has segments, so they came
+ * back UNMARKED, no longer strippable, and the next persist read them as a change. The
+ * conversation was re-saved and re-grouped under "Today" for having been opened.
+ */
+function withoutDerivedTree(tree: ExportedMessageRepository): ExportedMessageRepository {
+    return {
+        ...tree,
+        messages: tree.messages.map((entry) => ({ ...entry, message: withoutDerived(entry.message) })),
+    };
 }
 
 export class AparteConversationManager {
@@ -118,6 +134,8 @@ export class AparteConversationManager {
     private _loaded = new Set<string>();
     /** One fetch per id at a time: a second ensureFull(id) while the first is in flight joins it. */
     private _fetching = new Map<string, Promise<boolean>>();
+    /** One append per id at a time: the next addMessage(id) reads what the previous one wrote. */
+    private _appending = new Map<string, Promise<void>>();
     /** The list on its way: a conversation created meanwhile waits for it, or the list would replace it. */
     private _initPromise: Promise<void> | null = null;
 
@@ -145,7 +163,13 @@ export class AparteConversationManager {
 
     // ─── Initialisation ────────────────────────────────────────────────────
 
-    /** Load all conversations from the adapter. Call once at app startup. */
+    /**
+     * Load all conversations from the adapter. Call once at app startup.
+     *
+     * A later call re-reads the list from the store: rows it no longer lists are
+     * dropped, and a conversation whose messages are already in memory keeps them —
+     * so the one on screen goes on being persisted.
+     */
     async init(): Promise<void> {
         const load = (async () => {
             // The list first, the messages on demand — when the adapter can split the two.
@@ -158,11 +182,19 @@ export class AparteConversationManager {
             if (this._adapter.loadMeta && !this._adapter.loadFull) {
                 console.warn('[AparteConversationManager] the adapter lists through loadMeta() but has no loadFull(): everything is loaded through loadAll() instead.');
             }
-            // A second init() reads the store again, so what the first one fetched is
-            // forgotten with the rows it lived on — or a fetched id would open empty.
+            // A second init() reads the store again: the list is metadata, so a
+            // conversation whose messages are already in memory keeps them and stays
+            // loaded — the one on screen would otherwise come back with an empty
+            // transcript that no write is allowed to touch, so nothing said and nothing
+            // persisted for the rest of the session. A row the store no longer lists is
+            // forgotten with its messages.
+            const held = new Map(this._conversations.filter((c) => this._loaded.has(c.id)).map((c) => [c.id, c] as const));
             this._loaded.clear();
             const rows: AparteConversation[] = split
-                ? (await this._adapter.loadMeta!()).map((m) => ({ ...m, messages: [] }))
+                ? (await this._adapter.loadMeta!()).map((m) => {
+                    const kept = held.get(m.id);
+                    return kept ? { ...m, messages: kept.messages, ...(kept.tree ? { tree: kept.tree } : {}) } : { ...m, messages: [] };
+                })
                 : (await this._adapter.loadAll()).map((c) => ({ ...c, messages: c.messages ?? [] }));
             // One row per id: a list that repeats one would make every later write, and
             // every delete, hit twins.
@@ -172,7 +204,7 @@ export class AparteConversationManager {
                 console.warn(`[AparteConversationManager] ${rows.length - unique.length} repeated id(s) in the list; the first row wins.`);
             }
             this._conversations = unique;
-            if (!split) for (const c of unique) this._loaded.add(c.id);
+            for (const c of unique) if (!split || held.has(c.id)) this._loaded.add(c.id);
             this._initialized = true;
             this._notify();
         })();
@@ -326,8 +358,29 @@ export class AparteConversationManager {
         this._notify();
     }
 
-    /** Append a message to a conversation. Auto-generates title from first user message. */
+    /**
+     * Append a message to a conversation. Auto-generates title from first user message.
+     *
+     * One append at a time per conversation: two sends that overlap (a suggestion and a
+     * quick type, coalesced into one new conversation) both suspend before reading the
+     * record — for the messages, then for the title provider — so both used to read a
+     * conversation with no user message in it yet, and the second one's text became the
+     * title.
+     */
     async addMessage(convId: string, msg: AparteMessage): Promise<void> {
+        const previous = this._appending.get(convId);
+        const run = previous
+            ? previous.then(() => this._append(convId, msg))
+            : this._append(convId, msg);
+        // The queue never carries a rejection: a failed append must not swallow the next
+        // message. The caller still sees its own.
+        const tail = run.catch(() => { /* the caller's promise reports it */ });
+        this._appending.set(convId, tail);
+        void tail.then(() => { if (this._appending.get(convId) === tail) this._appending.delete(convId); });
+        return run;
+    }
+
+    private async _append(convId: string, msg: AparteMessage): Promise<void> {
         // The messages first, when they are not in memory: appending to the `[]` the
         // list came with, then saving, wrote that one message over the stored ones.
         const conv = await this._full(convId);
@@ -384,11 +437,13 @@ export class AparteConversationManager {
         // guard, merely viewing a conversation re-saves identical messages and
         // floats it to the top of the list. Segments a viewport DERIVED from a
         // message's markdown on display are not a change either.
+        const storedMessages = withoutDerivedSegments(messages);
+        const storedTree = tree === undefined ? undefined : withoutDerivedTree(tree);
         let contentChanged = true;
         let treeChanged = tree !== undefined;
         try {
-            contentChanged = JSON.stringify(withoutDerivedSegments(messages)) !== JSON.stringify(withoutDerivedSegments(conv.messages));
-            if (tree !== undefined) treeChanged = JSON.stringify(tree) !== JSON.stringify(conv.tree);
+            contentChanged = JSON.stringify(storedMessages) !== JSON.stringify(withoutDerivedSegments(conv.messages));
+            if (storedTree !== undefined) treeChanged = JSON.stringify(storedTree) !== JSON.stringify(conv.tree);
         } catch { /* unserialisable payload → assume changed */ }
         // The title follows the first user message while it is the manager's decision:
         // editing that message re-titles, the way the first send titled. A title the
@@ -408,10 +463,14 @@ export class AparteConversationManager {
         if (!fresh) return;
         const updated: AparteConversation = {
             ...fresh,
-            messages,
+            // What is stored is what the caller sent: segments a viewport DERIVED on
+            // display are not the app's content. Stored, they would fill the record with
+            // core-generated ids and freeze the parse as it stood the day it was saved —
+            // a block grammar registered later would never apply to that message.
+            messages: storedMessages,
             updatedAt: contentChanged ? Date.now() : fresh.updatedAt,
         };
-        if (tree !== undefined) updated.tree = tree;
+        if (storedTree !== undefined) updated.tree = storedTree;
         if (title !== undefined) updated.title = title;
         this._replace(updated);
         await this._adapter.save(updated);
@@ -498,9 +557,14 @@ export class AparteConversationManager {
             return;
         }
         const next = title.trim();
+        // A rename is metadata, like archive and pin: `updatedAt` keeps the
+        // conversation's real chronological slot. It also has to — an adapter's
+        // `rename()` hook carries the title alone, so a bump here would live in memory
+        // only, re-group the row under "Today" and send it back to its old date on the
+        // next reload.
         const done = await this._meta(
             id,
-            (conv) => ({ ...conv, title: next, autoTitle: false, updatedAt: Date.now() }),
+            (conv) => ({ ...conv, title: next, autoTitle: false }),
             this._adapter.rename ? (convId) => this._adapter.rename!(convId, next) : undefined,
         );
         if (done) this._notify();

@@ -15,12 +15,36 @@ import { AparteConversationController, type AparteChatBinding } from '../convers
 import { aparteGlobalConfig } from '../../config/index.js';
 import { APARTE_DERIVED_SEGMENTS } from '../../types/models.js';
 import type { AparteConversation, AparteConversationMeta, AparteStorageAdapter } from '../types.js';
+import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import type { AparteMessage } from '../../types/index.js';
 
 const msg = (id: string, content: string, role: AparteMessage['role'] = 'user'): AparteMessage => ({ id, role, content, timestamp: 1 });
 const conv = (id: string, ...messages: AparteMessage[]): AparteConversation => ({ id, title: id, createdAt: 1, updatedAt: 1, messages });
 const meta = ({ messages: _m, tree: _t, ...rest }: AparteConversation): AparteConversationMeta => rest;
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+/**
+ * What a viewport hands back after display: a markdown reply split into segments,
+ * MARKED as core's own reading of the content. A message that already carries
+ * segments is left alone — those are the host's, and the parser short-circuits on
+ * them, which is why a stored one comes back unmarked and unstrippable.
+ */
+function displayed(messages: AparteMessage[]): AparteMessage[] {
+    return messages.map((m) => {
+        if (m.role !== 'assistant' || m.segments?.length) return m;
+        const withSegments = { ...m, segments: [{ id: 's1', type: 'code', content: 'const a = 1;', language: 'ts' }] } as AparteMessage;
+        Object.defineProperty(withSegments, APARTE_DERIVED_SEGMENTS, { value: true, enumerable: false });
+        return withSegments;
+    });
+}
+
+/** The branch tree a viewport exports over an unbranched transcript. */
+function treeOf(messages: AparteMessage[]): ExportedMessageRepository {
+    return {
+        headId: messages[messages.length - 1]?.id ?? null,
+        messages: messages.map((message, i) => ({ message, parentId: messages[i - 1]?.id ?? null })),
+    };
+}
 
 /** A split store whose `loadFull` answers when told to. */
 function splitStore(seed: AparteConversation[]) {
@@ -82,6 +106,27 @@ describe('a metadata change on a conversation that was never fetched', () => {
         expect(rename).toHaveBeenCalledWith('a', 'Hooked');
         expect(rows.get('a')!.title).toBe('Hooked');
         expect(rows.get('a')!.messages.map((m) => m.id)).toEqual(['a1']);
+    });
+
+    it('keeps the conversation’s place in the list on a rename — through save()', async () => {
+        const { adapter, rows, answer } = splitStore([conv('a', msg('a1', 'one'))]);
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        const rename = manager.updateTitle('a', 'Renamed');
+        await tick(); answer('a'); await rename;
+        expect(manager.conversations[0]!.updatedAt).toBe(1);
+        expect(rows.get('a')!.updatedAt).toBe(1);
+    });
+
+    it('keeps the conversation’s place in the list on a rename — through the rename hook', async () => {
+        const { adapter, rows } = splitStore([conv('a', msg('a1', 'one'))]);
+        const rename = async (id: string, title: string): Promise<void> => { rows.get(id)!.title = title; };
+        const manager = new AparteConversationManager({ ...adapter, rename });
+        await manager.init();
+        await manager.updateTitle('a', 'Hooked');
+        // The hook carries the title alone, so a bump in memory alone would make the row
+        // re-group under "Today" and jump back to its old date on the next reload.
+        expect(manager.conversations[0]!.updatedAt).toBe(rows.get('a')!.updatedAt);
     });
 });
 
@@ -181,6 +226,60 @@ describe('a write that awaits', () => {
         expect(manager.conversations[0]!.updatedAt).toBe(1);
     });
 
+    it('saves the messages the caller sent, without the segments a viewport derived', async () => {
+        const stored = conv('a', msg('u1', 'Show me.'), { id: 'a1', role: 'assistant', content: '```ts\nconst a = 1;\n```', timestamp: 2 });
+        const { adapter, rows, answer } = splitStore([stored]);
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        const p = manager.ensureFull('a'); answer('a'); await p;
+        // What a viewport hands back after display: the same messages, plus segments it
+        // derived from the markdown — and one genuine new message, so there is a write.
+        const shown = manager.conversations[0]!.messages.map((m) => {
+            if (m.role !== 'assistant') return { ...m };
+            const withSegments = { ...m, segments: [{ id: 's1', type: 'code', content: 'const a = 1;', language: 'ts' }] } as AparteMessage;
+            Object.defineProperty(withSegments, APARTE_DERIVED_SEGMENTS, { value: true, enumerable: false });
+            return withSegments;
+        });
+        await manager.updateMessages('a', [...shown, msg('u2', 'And again.')]);
+        expect(rows.get('a')!.messages.map((m) => m.id)).toEqual(['u1', 'a1', 'u2']);
+        expect(rows.get('a')!.messages.find((m) => m.id === 'a1')!.segments).toBeUndefined();
+        expect(manager.conversations[0]!.messages.find((m) => m.id === 'a1')!.segments).toBeUndefined();
+    });
+
+    it('saves the branch tree without the derived segments either, so both halves of the record agree', async () => {
+        const stored = conv('a', msg('u1', 'Show me.'), { id: 'a1', role: 'assistant', content: '```ts\nconst a = 1;\n```', timestamp: 2 });
+        const { adapter, rows, answer } = splitStore([stored]);
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        const p = manager.ensureFull('a'); answer('a'); await p;
+        const sent = [...displayed(manager.conversations[0]!.messages), msg('u2', 'And again.')];
+        await manager.updateMessages('a', sent, treeOf(sent));
+        const inTree = rows.get('a')!.tree!.messages.find((e) => e.message.id === 'a1')!.message;
+        expect(inTree.segments).toBeUndefined();
+    });
+
+    it('writes nothing for a conversation opened in a later session, displayed and left', async () => {
+        const stored = conv('a', msg('u1', 'Show me.'), { id: 'a1', role: 'assistant', content: '```ts\nconst a = 1;\n```', timestamp: 2 });
+        const { adapter, rows, saves, answer } = splitStore([stored]);
+        const first = new AparteConversationManager(adapter);
+        await first.init();
+        const p1 = first.ensureFull('a'); answer('a'); await p1;
+        const sent = [...displayed(first.conversations[0]!.messages), msg('u2', 'And again.')];
+        await first.updateMessages('a', sent, treeOf(sent));
+        expect(saves).toHaveLength(1);
+
+        // The next session reads the row back. A viewport imports the TREE, so the
+        // transcript on screen is the tree's messages — and whatever segments they
+        // carry are the store's, not core's reading of them.
+        const second = new AparteConversationManager(adapter);
+        await second.init();
+        const p2 = second.ensureFull('a'); answer('a'); await p2;
+        const reshown = displayed(rows.get('a')!.tree!.messages.map((e) => e.message));
+        await second.updateMessages('a', reshown, treeOf(reshown));
+        expect(saves).toHaveLength(1);
+        expect(second.conversations[0]!.updatedAt).toBe(saves[0]!.updatedAt);
+    });
+
     it('titles from the first user message the caller sent, not the one retention kept', async () => {
         const { adapter } = splitStore([]);
         const manager = new AparteConversationManager(adapter, { retention: { maxMessages: 2 } });
@@ -194,13 +293,31 @@ describe('a write that awaits', () => {
 });
 
 describe('init()', () => {
-    it('forgets what was loaded when it runs again', async () => {
-        const { adapter, answer } = splitStore([conv('a', msg('a1', 'one'))]);
+    it('keeps the messages it already holds, so a conversation still on screen keeps being persisted', async () => {
+        const { adapter, rows, answer } = splitStore([conv('a', msg('a1', 'one'))]);
         const manager = new AparteConversationManager(adapter);
         await manager.init();
         const p = manager.ensureFull('a'); answer('a'); await p;
         expect(manager.isLoaded('a')).toBe(true);
+
         await manager.init();
+
+        expect(manager.isLoaded('a')).toBe(true);
+        expect(manager.conversations[0]!.messages.map((m) => m.id)).toEqual(['a1']);
+        await manager.addMessage('a', msg('u2', 'two'));
+        expect(rows.get('a')!.messages.map((m) => m.id)).toEqual(['a1', 'u2']);
+    });
+
+    it('forgets a conversation the store no longer lists', async () => {
+        const { adapter, rows, answer } = splitStore([conv('a', msg('a1', 'one'))]);
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        const p = manager.ensureFull('a'); answer('a'); await p;
+        rows.delete('a');
+
+        await manager.init();
+
+        expect(manager.conversations).toEqual([]);
         expect(manager.isLoaded('a')).toBe(false);
     });
 
@@ -287,6 +404,44 @@ describe('the controller’s wait', () => {
         answer('a'); await first;
         expect(b.loading).toBe(false);
         expect(b.messages).toEqual([]);
+        unbind();
+    });
+
+    it('ends when an id the manager does not know replaces the one being fetched', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { manager, b, controller, answer, unbind } = wire([conv('a', msg('a1', 'A'))]);
+        await manager.init();
+        const first = controller.setConversationId('a');
+        expect(b.loading).toBe(true);
+        // A deep link to a conversation another tab deleted, arriving while the first
+        // one is still on its way.
+        await controller.setConversationId('gone');
+        expect(b.loading).toBe(false);
+        expect(controller.activeId).toBeNull();
+        answer('a'); await first;
+        expect(b.loading).toBe(false);
+        warn.mockRestore();
+        unbind();
+    });
+
+    it('ends when the manager that replaces it is still hydrating', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { manager, b, controller, answer, unbind } = wire([conv('a', msg('a1', 'A'))]);
+        await manager.init();
+        const first = controller.setConversationId('a');
+        expect(b.loading).toBe(true);
+        // The manager is swapped for one whose init() has not landed: the decision on
+        // the new id is deferred, but the wait shown for the superseded fetch is not.
+        const second = new AparteConversationManager(splitStore([]).adapter);
+        aparteGlobalConfig.setConversationManager(second);
+        await controller.setConversationId('later');
+        expect(b.loading).toBe(false);
+        await second.init();
+        await tick();
+        expect(b.loading).toBe(false);
+        answer('a'); await first;
+        expect(b.loading).toBe(false);
+        warn.mockRestore();
         unbind();
     });
 
@@ -390,6 +545,11 @@ describe('two sends while the first one is still creating the conversation', () 
         expect(manager.conversations).toHaveLength(1);
         const saved = store.rows.get(controller.activeId!);
         expect(saved?.messages.map((m) => m.content)).toEqual(['first', 'second']);
+        // The conversation is titled from the message that opened it, in memory and in
+        // the store: the second send reading itself as the first one is permanent — the
+        // persist that follows the reply re-titles only an edited first message.
+        expect(manager.conversations[0]!.title).toBe('first');
+        expect(saved?.title).toBe('first');
         unbind();
     });
 });

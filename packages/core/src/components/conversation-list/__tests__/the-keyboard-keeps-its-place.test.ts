@@ -155,3 +155,76 @@ describe('a re-render of the rows', () => {
         expect(document.activeElement).toBe(outside);
     });
 });
+
+/**
+ * (c) **A confirmed delete left the focus on `<body>`.** The row the keyboard was on is
+ * the row that just left, so putting it back is not an option — but neither is dropping
+ * it: the reader's next Tab restarts at the top of the page, right after the one action
+ * of this list that cannot be undone.
+ */
+describe('a confirmed delete', () => {
+    /** What a host does on `aparte-conversation-delete`: drop the row and re-assign. */
+    function hostDeletes(el: ListEl): void {
+        el.addEventListener('aparte-conversation-delete', (e) => {
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            el.conversations = el.conversations.filter((c) => c.id !== id);
+        });
+    }
+    const remove = (el: ListEl, id: string): void => {
+        moreOf(el, id).focus();
+        moreOf(el, id).click();
+        choose(el, 'delete');
+        choose(el, 'confirm-delete');
+    };
+
+    it('hands the keyboard to the row that took the deleted one’s place', () => {
+        const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }, { id: 'c3', title: 'Three' }]);
+        hostDeletes(el);
+
+        remove(el, 'c2');
+
+        expect(el.querySelector('[data-conv-id="c2"]'), 'the row is gone').toBeNull();
+        expect(document.activeElement).toBe(selectOf(el, 'c3'));
+    });
+
+    it('falls back to the row above when the deleted one was the last', () => {
+        const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }]);
+        hostDeletes(el);
+
+        remove(el, 'c2');
+
+        expect(document.activeElement).toBe(selectOf(el, 'c1'));
+    });
+
+    it('takes the keyboard itself when the last conversation goes', () => {
+        const el = mount([{ id: 'c1', title: 'One' }]);
+        hostDeletes(el);
+
+        remove(el, 'c1');
+
+        expect(document.activeElement).toBe(el);
+        expect(el.getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('keeps the tab stop the host gave the list', () => {
+        const el = mount([{ id: 'c1', title: 'One' }]);
+        el.setAttribute('tabindex', '0');
+        hostDeletes(el);
+
+        remove(el, 'c1');
+
+        expect(document.activeElement).toBe(el);
+        expect(el.getAttribute('tabindex')).toBe('0');
+    });
+
+    it('gives back the tab order it borrowed once the focus leaves', () => {
+        const el = mount([{ id: 'c1', title: 'One' }]);
+        hostDeletes(el);
+        remove(el, 'c1');
+
+        const elsewhere = document.body.appendChild(document.createElement('button'));
+        elsewhere.focus();
+
+        expect(el.hasAttribute('tabindex')).toBe(false);
+    });
+});
