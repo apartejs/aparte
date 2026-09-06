@@ -39,13 +39,14 @@
  * what was missing was only ever the documentation.
  *
  * The pass also flags the reverse defect, which nothing could see before: tokens
- * DECLARED in `:root` that nothing in core reads. There are twenty — it was eighteen
- * until the derived layer was split into its own block, whose tokens this pass could
- * not see at all while it read only the first block. Some are
- * palette bases a consuming app applies itself (`--aparte-bg`, and core paints no
- * page background on purpose), some are unused steps of a documented scale, and
- * some are knobs that quietly do nothing. Marking them keeps the page from
- * promising a control that has no effect, without guessing which is which.
+ * DECLARED in `:root` that nothing aparté ships reads — core AND the plugins, because
+ * the "palette only" marker is a claim about the whole library and it was being made
+ * from core alone (see the `unread` docblock below for what that cost). Run the script
+ * to count them rather than trusting this line; it prints the figure. Some are palette
+ * bases a consuming app applies itself (`--aparte-bg`, and core paints no page
+ * background on purpose), some are unused steps of a documented scale, and some are
+ * knobs that quietly do nothing. Marking them keeps the page from promising a control
+ * that has no effect, without guessing which is which.
  *
  * A token core sets at runtime via `style.setProperty` is excluded: it is an
  * internal channel, not a knob. Exactly one qualifies (`--aparte-fw-spacer`), and
@@ -63,6 +64,27 @@ import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
+const PLUGINS = resolve(here, '../../../packages/plugins');
+
+/** Every `packages/plugins/<name>/src`, for the "palette only" pass only. */
+function pluginSourceDirs() {
+  const out = [];
+  for (const name of readdirSync(PLUGINS)) {
+    const src = join(PLUGINS, name, 'src');
+    try {
+      if (statSync(src).isDirectory()) out.push(src);
+    } catch {
+      // A plugin without a `src/` (or a stray file in the folder) simply contributes none.
+    }
+  }
+  /** A floor, like every other corpus here: a sweep that reads nothing is not a pass. */
+  if (out.length < 6) {
+    console.error(`[gen-css-vars] found only ${out.length} plugin source dir(s) under ${PLUGINS},`
+      + ' floor is 6. The layout moved and the "palette only" marker would go back to lying.');
+    process.exit(1);
+  }
+  return out;
+}
 /**
  * BOTH theme sheets, in the order `src/index.ts` imports them. Reading one was enough
  * until the tokens moved to `theme.css`: the generator kept pointing at `aparte.css`
@@ -360,14 +382,35 @@ if (declaredNames.size < DECLARED_FLOOR) {
   process.exit(1);
 }
 
-/** Read with a built-in default, never declared in `:root` — the missing half. */
+/**
+ * Read with a built-in default, never declared in `:root` — the missing half.
+ *
+ * Core only, and deliberately so. `scripts/frozen-surface.mjs` freezes the union of the
+ * same two passes, so a plugin's `var(--aparte-plugin-thing, …)` added here would enter
+ * the frozen token surface and a plugin's INTERNAL variable would become a name core
+ * cannot rename. The plugin sweep below therefore feeds `unread` and nothing else.
+ */
 const componentTokens = [...reads.keys()]
   .filter((n) => !declaredNames.has(n) && !runtimeManaged.has(n))
   .sort()
   .map((n) => ({ name: n, ...reads.get(n) }));
 
-/** Declared in `:root`, read by nothing in core — the reverse defect. */
-const unread = new Set([...declaredNames].filter((n) => !reads.has(n)));
+/**
+ * Declared in `:root`, read by nothing aparté ships — the reverse defect.
+ *
+ * "Nothing aparté ships" is core AND the plugins, because the marker is a claim about
+ * the whole library and it was being made from core alone. Three tokens carried it while
+ * `@aparte/plugin-artifacts` read all three (`--aparte-accent`, `--aparte-error-bg`,
+ * `--aparte-font-weight-bold`): the page told a reader that setting them changes nothing,
+ * and the card they style changed.
+ */
+const pluginReads = new Set();
+for (const dir of pluginSourceDirs()) {
+  for (const file of walk(dir)) {
+    for (const { name } of readsIn(readFileSync(file, 'utf8'))) pluginReads.add(name);
+  }
+}
+const unread = new Set([...declaredNames].filter((n) => !reads.has(n) && !pluginReads.has(n)));
 
 /**
  * `|` ends a table cell, and `<` opens an HTML tag in Markdown — the prose now

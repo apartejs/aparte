@@ -246,7 +246,12 @@
   /* Waiting Indicator (the bubble's own dots, before the first token) */
   --aparte-waiting-height: 1.5em;
 
-  /* Thinking Segment */
+  /* Thinking Segment. The two backgrounds are literals, not derived, because
+     transparent is what the block IS: an understated left rail, never a filled card.
+     They are declared here so a theme that wants the card has a name to set — before
+     this the two rules hard-coded `transparent` and setting either token did nothing. */
+  --aparte-thinking-bg: transparent;
+  --aparte-thinking-content-bg: transparent;
   --aparte-thinking-content-max-height: 300px;
   --aparte-thinking-content-line-height: 1.55;
   --aparte-thinking-rail-width: 2px;
@@ -1055,10 +1060,8 @@ aparte-chat {
 
   /* Thinking Segment */
   --aparte-thinking-border: var(--aparte-border);
-  --aparte-thinking-bg: var(--aparte-surface-2);
   --aparte-thinking-text: var(--aparte-text-muted);
   --aparte-thinking-content: var(--aparte-text);
-  --aparte-thinking-content-bg: var(--aparte-surface-1);
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);

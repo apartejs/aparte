@@ -412,7 +412,7 @@ import { registerDefaultRenderers, aparteGlobalConfig } from '@aparte/core';
 registerDefaultRenderers();
 
 const chat = document.querySelector('aparte-chat')!;
-const vp = () => (chat as any).viewport;
+const vp = () => chat.viewport!;
 
 let n = 0;
 

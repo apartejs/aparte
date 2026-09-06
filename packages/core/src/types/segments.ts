@@ -18,6 +18,19 @@ export interface AparteSegmentBase {
     /** Whether segment is currently being streamed */
     isStreaming?: boolean;
 
+    /**
+     * One sentence standing in for the segment when no renderer claims its `type` —
+     * read for EVERY type, not only for `custom`.
+     *
+     * It is the answer to a real moment: a conversation replayed in another app, a
+     * client that loads its views lazily, an export. Core draws it as text (no markup)
+     * under `.aparte-segment-fallback`, and it also stands in for the segment in the
+     * history sent back to the model when the segment has no `content`. Supplying one
+     * also silences the "no renderer" developer warning: an author who wrote a fallback
+     * has already said this can happen.
+     */
+    fallback?: string;
+
     // ── Identity and measurement ─────────────────────────────────────────────
     // A segment used to know only what it WAS, never where it sat or when it
     // happened — while the message one level up already carried a `timestamp`, a
@@ -225,27 +238,47 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
 }
 
 /**
- * Custom segment - for framework-specific views (Onboarding, Tools, etc.)
+ * Custom segment - one escape hatch for the views an app draws itself.
+ *
+ * Renderers are keyed on `type`, so **`subType` never reaches the registry**: you
+ * register ONE renderer for `custom` and switch on `subType` inside it, with `fallback`
+ * as the default branch. Independent views take their own `type` instead — register a
+ * `chart` renderer for a chart — and `custom` is for a family of small views an app
+ * would rather keep behind one key.
  *
  * @example
- * // With no renderer registered for `subType`, core draws `fallback` — which is why the
- * // field exists: an unknown view degrades to a sentence instead of to nothing.
- * {
- *   id: 's1',
+ * registerSegmentRenderer<AparteCustomSegment>({
  *   type: 'custom',
- *   subType: 'weather-widget',
- *   data: { city: 'Lille', celsius: 11 },
- *   fallback: 'Lille — 11°C, overcast.',
- * }
+ *   render(segment) {
+ *     const data = (segment.data ?? {}) as Record<string, unknown>;
+ *     const el = document.createElement('div');
+ *     switch (segment.subType) {
+ *       case 'weather':
+ *         el.className = 'weather';
+ *         el.textContent = `${data['city']} — ${data['celsius']}°C`;
+ *         break;
+ *       case 'poll':
+ *         el.className = 'poll';
+ *         el.textContent = String(data['question']);
+ *         break;
+ *       default:
+ *         // A subType this build does not know: the sentence, not nothing.
+ *         el.textContent = segment.fallback ?? '';
+ *     }
+ *     return el;
+ *   },
+ * });
+ *
+ * // The segments that renderer draws:
+ * { id: 's1', type: 'custom', subType: 'weather', data: { city: 'Lille', celsius: 11 } }
+ * { id: 's2', type: 'custom', subType: 'gantt', fallback: 'Three tasks, ending Friday.' }
  */
 export interface AparteCustomSegment extends AparteSegmentBase {
     type: 'custom';
-    /** Unique string structure to identify the view (e.g. 'onboarding', 'webcontainer', 'weather-widget') */
+    /** Which view inside the `custom` renderer draws this segment (e.g. 'weather', 'poll', 'onboarding'). */
     subType: string;
     /** Arbitrary data payload for the component */
     data?: unknown;
-    /** Optional fallback text representation */
-    fallback?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
