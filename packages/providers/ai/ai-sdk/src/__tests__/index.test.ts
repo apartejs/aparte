@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MockLanguageModelV3, simulateReadableStream } from 'ai/test';
-import type { AparteStreamEvent } from '@aparte/core';
+import type { AparteChatMessage, AparteStreamEvent } from '@aparte/core';
 import { createAiSdkProvider, toModelMessages, toToolChoice, fullStreamToAparteEvents } from '../index';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -312,6 +312,32 @@ describe('toModelMessages', () => {
             { role: 'tool', content: 'RESULT', toolCallId: 'c1' },
         ]);
         expect((out[1] as { content: Array<{ toolName: string }> }).content[0]!.toolName).toBe('search');
+    });
+
+    // The type forbids these roles, so a message wearing one is code compiled against an
+    // older aparté reaching a newer bridge — the one case a type cannot catch. Here it is
+    // the loudest: an unrecognised role used to fall through and be sent as a user turn.
+    describe('a message still carrying a legacy tool role', () => {
+        it('warns once per role and maps nothing for it', () => {
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const legacy = (role: string): AparteChatMessage =>
+                ({ role, content: 'x', toolCallId: 'c1' } as unknown as AparteChatMessage);
+
+            const out = toModelMessages([{ role: 'user', content: 'hi' }, legacy('tool_call'), legacy('tool_call')]);
+            expect(out, 'an unmapped role used to reach the model as something the user said')
+                .toEqual([{ role: 'user', content: 'hi' }]);
+            expect(warn, 'once per role, not once per message').toHaveBeenCalledTimes(1);
+            const message = String(warn.mock.calls[0]?.[0]);
+            expect(message, 'the warning names the shape to move to').toContain("role: 'assistant'");
+            expect(message).toContain('toolCalls');
+            expect(message).toContain("role: 'tool'");
+            expect(message).toContain('toolCallId');
+            expect(message, 'and says when it goes away').toContain('0.18');
+
+            expect(toModelMessages([legacy('tool_result')]), 'the other legacy role is skipped too').toEqual([]);
+            expect(warn, 'and is announced under its own key').toHaveBeenCalledTimes(2);
+            warn.mockRestore();
+        });
     });
 
     // The paired case: the same history, mapped for an OpenAI-compatible endpoint,

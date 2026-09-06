@@ -83,14 +83,40 @@ function toOpenAIContent(content: string | AparteContentPart[]): unknown {
         : { type: 'image_url', image_url: { url: p.image } }));
 }
 
+/**
+ * The two roles a tool turn used to wear. `AparteChatMessage` no longer allows either, so
+ * the comparison is on the role as a string: a message carrying one comes from code built
+ * against an older aparté, which no type here can catch. Warned once per role, then
+ * skipped — passing it on would put an unknown role on the wire and 400 the whole request.
+ */
+const LEGACY_TOOL_ROLES = new Set(['tool_call', 'tool_result']);
+const warnedLegacyRoles = new Set<string>();
+function warnLegacyToolRole(role: string): void {
+    if (warnedLegacyRoles.has(role)) return;
+    warnedLegacyRoles.add(role);
+    console.warn(
+        `[@aparte/provider-openai-compat] Skipping a message with the removed role "${role}".`
+        + " A tool turn is now an assistant message carrying its calls — { role: 'assistant',"
+        + " content: <what it said>, toolCalls } — followed by one { role: 'tool', content:"
+        + ' <result>, toolCallId, toolName } per call. This warning is removed in 0.18.',
+    );
+}
+
 /** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */
 function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
-    return messages.map(msg => {
+    const out: unknown[] = [];
+    for (const msg of messages) {
+        const role: string = msg.role;
+        if (LEGACY_TOOL_ROLES.has(role)) {
+            warnLegacyToolRole(role);
+            continue;
+        }
         if (msg.role === 'tool') {
-            return { role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) };
+            out.push({ role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) });
+            continue;
         }
         if (msg.role === 'assistant' && msg.toolCalls?.length) {
-            return {
+            out.push({
                 role: 'assistant',
                 // `||`, not `??`: this API takes null (or nothing) beside `tool_calls`, and
                 // an assistant that said nothing before its calls now carries '' — which
@@ -101,10 +127,12 @@ function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
                     type: 'function',
                     function: { name: tc.name, arguments: JSON.stringify(tc.input) },
                 })),
-            };
+            });
+            continue;
         }
-        return { role: msg.role, content: toOpenAIContent(msg.content) };
-    });
+        out.push({ role: msg.role, content: toOpenAIContent(msg.content) });
+    }
+    return out;
 }
 
 /** AparteTool[] → OpenAI function-tool declarations. */

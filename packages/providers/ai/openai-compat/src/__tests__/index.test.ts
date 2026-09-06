@@ -274,6 +274,31 @@ describe('createOpenAICompatProvider — factory', () => {
         });
     });
 
+    // The type forbids these roles, so a message wearing one is code compiled against an
+    // older aparté reaching a newer provider — the one case a type cannot catch.
+    describe('a message still carrying a legacy tool role', () => {
+        it('warns once per role and puts nothing on the wire for it', () => {
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const legacy = (role: string): AparteChatMessage =>
+                ({ role, content: 'x', toolCallId: 'c1' } as unknown as AparteChatMessage);
+
+            const wire = wireOf([{ role: 'user', content: 'hi' }, legacy('tool_call'), legacy('tool_call')]);
+            expect(wire, 'a role this API does not know is a 400 for the whole request')
+                .toEqual([{ role: 'user', content: 'hi' }]);
+            expect(warn, 'once per role, not once per message').toHaveBeenCalledTimes(1);
+            const message = String(warn.mock.calls[0]?.[0]);
+            expect(message, 'the warning names the shape to move to').toContain("role: 'assistant'");
+            expect(message).toContain('toolCalls');
+            expect(message).toContain("role: 'tool'");
+            expect(message).toContain('toolCallId');
+            expect(message, 'and says when it goes away').toContain('0.18');
+
+            expect(wireOf([legacy('tool_result')]), 'the other legacy role is skipped too').toEqual([]);
+            expect(warn, 'and is announced under its own key').toHaveBeenCalledTimes(2);
+            warn.mockRestore();
+        });
+    });
+
     it('parseText extracts the first choice message content', () => {
         const p = createOpenAICompatProvider({ id: 'x', baseURL: 'https://x.test/v1' });
         expect(p.parseText!({ choices: [{ message: { content: 'Hi!' } }] })).toBe('Hi!');

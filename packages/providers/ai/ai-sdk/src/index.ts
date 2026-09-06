@@ -88,6 +88,26 @@ export interface AiSdkProviderOptions {
 // ─── aparté ⇄ AI SDK shaping ─────────────────────────────────────────────────
 
 /**
+ * The two roles a tool turn used to wear. `AparteChatMessage` no longer allows either, so
+ * the comparison is on the role as a string: a message carrying one comes from code built
+ * against an older aparté, which no type here can catch. Warned once per role, then
+ * skipped — the fallthrough below maps anything unrecognised as a `user` turn, so without
+ * this the model would read a tool result as something the person typed.
+ */
+const LEGACY_TOOL_ROLES = new Set(['tool_call', 'tool_result']);
+const warnedLegacyRoles = new Set<string>();
+function warnLegacyToolRole(role: string): void {
+    if (warnedLegacyRoles.has(role)) return;
+    warnedLegacyRoles.add(role);
+    console.warn(
+        `[@aparte/provider-ai-sdk] Skipping a message with the removed role "${role}".`
+        + " A tool turn is now an assistant message carrying its calls — { role: 'assistant',"
+        + " content: <what it said>, toolCalls } — followed by one { role: 'tool', content:"
+        + ' <result>, toolCallId, toolName } per call. This warning is removed in 0.18.',
+    );
+}
+
+/**
  * AparteChatMessage[] → AI SDK ModelMessage[]. Handles a tool turn (an assistant
  * message carrying `toolCalls`, then the `tool` messages answering them); the tool
  * name for a result is the message's own `toolName`, else the call that declared it.
@@ -105,6 +125,11 @@ export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
 
     const out: ModelMessage[] = [];
     for (const msg of messages) {
+        const role: string = msg.role;
+        if (LEGACY_TOOL_ROLES.has(role)) {
+            warnLegacyToolRole(role);
+            continue;
+        }
         if (msg.role === 'tool') {
             out.push({
                 role: 'tool',
