@@ -154,6 +154,18 @@ describe('scenarios mode', () => {
         expect(text(second)).toBe('cloudy');
     });
 
+    it('routes a tool message that carries no name by the call it answers, in the assistant turn before', async () => {
+        // A history built by hand against the shape alone: the message names its call id and
+        // nothing else, so the name comes from the assistant turn that declared the call.
+        const provider = createScenarioProvider({ scenarios, pacing: 'instant' });
+        const second = await reply(provider, request(
+            user('weather please'),
+            { role: 'assistant', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: '14 °C', toolCallId: 'w1' },
+        ));
+        expect(text(second)).toBe('cloudy');
+    });
+
     it('lets a custom match override the rule, and falls back when it declines', async () => {
         const provider = createScenarioProvider({ scenarios, pacing: 'instant', match: (req) => (req.messages.length > 5 ? 'haiku' : undefined) });
         expect(text(await reply(provider, request(user('hello'))))).toBe('default reply');
