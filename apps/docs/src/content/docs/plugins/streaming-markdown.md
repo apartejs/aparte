@@ -23,12 +23,14 @@ setupStreamingMarkdownProvider();
 ```
 
 Call it once at startup. It fills the `aparteGlobalConfig.setStreamingMarkdownProvider` seam, which the chat
-bubble uses while a message is streaming. Pair it with [`marked`](/plugins/marked/) — the one-shot
-provider re-renders the finished message at full fidelity.
+bubble uses while a message is streaming. That is all you need: when the turn completes, what this
+plugin rendered stays on the page. Pairing it with a one-shot provider like
+[`marked`](/plugins/marked/) is optional — register one and the finished message is re-rendered
+through it, at that renderer's full fidelity.
 
 ## Security
 
 The streaming path writes DOM nodes directly, so it bypasses the one-shot HTML sanitiser. To keep the
 same URL policy **live**, the plugin drops any `href`/`src` whose scheme fails core's `isSafeUrl` as it
 streams — a `[x](javascript:…)` token never becomes a clickable `javascript:` link, even if the scheme
-is split across two chunks — and a link that resolves off-site (`https://…`, `//host`, a leading space, `http:/host`) gets `target="_blank" rel="noopener noreferrer"` live, the rule the sanitiser applies. The one-shot re-render at completion remains the full re-sanitisation.
+is split across two chunks — and a link that resolves off-site (`https://…`, `//host`, a leading space, `http:/host`) gets `target="_blank" rel="noopener noreferrer"` live, the rule the sanitiser applies. At completion the settled message goes through the sanitiser in full: re-rendered by the one-shot provider when one is registered, re-sanitised in place otherwise.

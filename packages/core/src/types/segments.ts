@@ -117,7 +117,14 @@ export interface AparteTextSegment extends AparteSegmentBase {
 export type AparteSegmentDefaults = Readonly<Record<string, unknown>>;
 
 /**
- * Thinking/reasoning segment - collapsible
+ * Thinking/reasoning segment - collapsible.
+ *
+ * A literal `<think>…</think>` in a reply is read as reasoning on every path — while
+ * it streams and when the reply is restored from storage — so a message that merely
+ * quotes the tag in its prose becomes this segment rather than text; and reasoning is
+ * deliberately not sent back to the model, so those words leave the wire history with
+ * it. Models whose reasoning is marked differently are handled by the parser's
+ * `thinkingDelimiters`.
  *
  * @example
  * // No `collapsed` key, so it renders CLOSED — see the field's own note below.

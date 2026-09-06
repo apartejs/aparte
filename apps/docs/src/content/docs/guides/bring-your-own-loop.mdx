@@ -428,7 +428,9 @@ void parser;
 ```
 
 Matched content becomes a `thinking` segment, which renders collapsed instead of as
-part of the reply.
+part of the reply. The delimiters are read on every path — while a reply streams and
+when a stored reply is loaded again — so a message that merely quotes `<think>` in its
+prose is read as reasoning too, and reasoning is not sent back to the model.
 
 :::note[Only on this path]
 `AparteClient` does not forward parser options today, so `thinkingDelimiters` is

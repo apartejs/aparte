@@ -1792,10 +1792,12 @@ export class AparteChatBubble extends HTMLElement {
      * Streaming just finished — the SETTLE pass.
      *
      * `_updateContent` is what runs it: on `isStreaming === false`
-     * `writeStreamedMarkdown` flushes the incremental parser and re-renders once
-     * through the one-shot provider, whose output goes through `sanitizeHtml`.
-     * That re-sanitisation is the reason the streaming provider is allowed to write
-     * DOM directly — and this branch never called it, so a streamed
+     * `writeStreamedMarkdown` flushes the incremental parser and then either
+     * re-renders once through the one-shot provider, whose output goes through
+     * `sanitizeHtml`, or — when no one-shot provider is registered — re-sanitises
+     * the flushed DOM in place. Either way the settled message is what
+     * `sanitizeHtml` produced, which is the reason the streaming provider is
+     * allowed to write DOM directly — and this branch never called it, so a streamed
      * `<code class="aparte-btn">` was permanent rather than transient. The live
      * end-of-turn call carries no content (`completeMessage` sends
      * `{ status: 'completed' }` alone), so re-applying `_content` here is the only
