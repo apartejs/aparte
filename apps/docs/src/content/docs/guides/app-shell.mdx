@@ -129,3 +129,34 @@ panel.
 
 The breakpoint is 48rem, written in the sheets rather than a token: a media query cannot
 read a custom property.
+
+## Route the links a model writes
+
+A reply is markdown, so it contains links, and a bare anchor navigates the frame the chat
+lives in — in an Electron window, the whole app. The bubble fires a **cancelable**
+`aparte-link-click` before the browser follows any link inside a reply, and it bubbles, so
+one listener on the chat covers every message. Call `preventDefault()` and the navigation
+is yours: hand it to your router, open it in a webview, ask the user first.
+
+```ts
+import '@aparte/core';
+
+// Your SPA router — react-router, vue-router, SvelteKit's `goto`, Angular's Router.
+declare const router: { push(path: string): void };
+
+const chat = document.querySelector('aparte-chat')!;
+
+chat.addEventListener('aparte-link-click', (event) => {
+  const url = new URL(event.detail.href, location.href);
+  if (url.origin !== location.origin) return;   // off-site: let the browser have it
+  event.preventDefault();                       // this is what stops the navigation
+  router.push(url.pathname + url.search);
+});
+```
+
+The detail is `{ href, anchor, messageId }` — `anchor` is the element itself, for a host
+that wants its text or its `rel`, and `messageId` is `null` on a bubble mounted without
+one. What the browser would have done otherwise is on
+[`setHtmlSanitizer`](/reference/config/#markdown-highlight--sanitizer): an off-site link
+gets its own tab, a same-site one is left as written. You do not need to intercept clicks
+in the DOM.

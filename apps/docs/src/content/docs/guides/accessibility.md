@@ -109,6 +109,14 @@ right, and guessing would be worse than saying so.
 yours. A menu that looks like a menu and reports as a group of buttons is worse than one
 that looks plain, so put the roles on.
 
+One exception, and it is the reference to copy: the per-row menu inside
+[`<aparte-conversation-list>`](/components/conversation/aparte-conversation-list/)
+implements the pattern in full — `role="menu"` and an `aria-label` on the container,
+`role="menuitem"` on each item, focus into the first item on open, `ArrowDown` / `ArrowUp`
+with wrap-around, `Home` / `End`, `Escape` to close, and `Tab` to leave the menu and land
+back on the button that opened it. Using that element, you inherit all of it — for the
+menu. The list of rows the menu opens from is the next item below.
+
 **Arrow-key navigation in the conversation list.** Rows are reachable and activatable, and
 `role="navigation"` says what the list is — but there is no roving `tabindex`, so a long
 history is a long tab sequence. If that matters for your app, it is yours to add.

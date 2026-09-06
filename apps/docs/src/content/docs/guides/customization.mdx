@@ -6,6 +6,7 @@ sidebar:
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import Demo from '../../../components/Demo.astro';
 
 [Theming](/guides/theming) covers the *look* through CSS variables. This page is the
 *structure and behaviour*: when a colour isn't enough — a custom typing indicator,
@@ -14,6 +15,8 @@ for **render hooks** and the **action registry**.
 
 Everything here goes through `aparteGlobalConfig` (or a scoped instance — see
 [Per-instance config](#per-instance-config)). Nothing requires forking a component.
+
+<Demo id="customization-bubble-shell" caption="The same message twice: the first is core's bubble, the second a shell of your own. One setBubbleShellRenderer, scoped to the second bubble with an instance config." />
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
@@ -191,12 +194,27 @@ say you're there:
 Two levers, one for the action bar and one for everything else:
 
 ```ts
-// You run an AparteClient, so retry and edit do something:
-aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+// You run an AparteClient, so retry and edit do something. Feedback and the details
+// button are yours to answer, and the two listeners below are what answering them is:
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true, feedback: true, info: true });
+
+document.addEventListener('aparte-feedback', (e) => {
+  const { messageId, value } = e.detail;          // value: 'positive' | 'negative'
+  void fetch('/api/feedback', { method: 'POST', body: JSON.stringify({ messageId, value }) });
+});
+
+document.addEventListener('aparte-message-info', (e) => {
+  openMyDetailsPopover(e.detail.messageId);       // e.detail.usage carries the numbers
+});
 
 // You handle this event yourself:
 aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 ```
+
+Both listeners sit on `document` because the events bubble and compose: one listener
+answers every chat on the page. The type behind the button names is
+`AparteBubbleActionName`, so a per-role list is checked at compile time —
+`setBubbleActions({ assistant: ['copy', 'retry', 'info'] satisfies AparteBubbleActionName[] })`.
 
 The download on a *binary* artifact used to be a third row here; it is
 [`@aparte/plugin-artifacts`](/plugins/artifacts/)'s now, and it follows the same rule in the
@@ -405,6 +423,18 @@ does on the native bubble.
 <my-bubble data-aparte-bubble message-id="m-42"></my-bubble>
 ```
 
+The methods the viewport will call on that element are optional, and the set is the one
+`SyncableBubble` declares — `getSegments` / `setSegments` / `updateSegment` /
+`setContent` / `setAttachments` / `setSiblings` / `setUsage`. Implement what you need.
+
+Two caveats the snippet cannot show. `clearAll()` removes `<aparte-chat-bubble>` nodes
+only, so an element of your own is left behind with nothing left to render. And any
+branch operation — `addBranch`, `addSiblingOf`, `navigateBranch`, `importTree` — empties
+the transcript and rebuilds it from the repository, so only what the repository holds
+comes back. In a framework, the custom-bubble hook the wrapper gives you — `renderBubble`
+in React, the `bubble` slot in Vue and Svelte, `[bubbleTemplate]` in Angular — is the
+supported path.
+
 ## Custom segment types
 
 Streamed replies are split into typed **segments** (text, code, thinking, tool_call, …).
@@ -423,6 +453,29 @@ registerSegmentRenderer({
   },
 });
 ```
+
+One renderer answers for **every** `custom` segment: the registry is keyed on
+`renderer.type`, not on `subType`. So a renderer for `custom` switches on `subType`
+itself, and two independent packs cannot each own one — pick a prefix if you ship a pack.
+
+```ts
+// registerSegmentRenderer, AparteSegmentRenderer and AparteCustomSegment come from '@aparte/core'.
+const custom: AparteSegmentRenderer<AparteCustomSegment> = {
+  type: 'custom',
+  render(segment) {
+    switch (segment.subType) {
+      case 'weather-widget': return renderWeather(segment.data);
+      case 'onboarding': return renderOnboarding(segment.data);
+      default: return segment.fallback ?? '';
+    }
+  },
+};
+
+registerSegmentRenderer(custom);
+```
+
+Writing a renderer in a module of its own — which is what a pack is — is what
+`AparteSegmentRenderer<T>` is for.
 
 ### Teach the parser a block
 
@@ -786,8 +839,19 @@ support.setStatusRenderer((t) => `<em>${t}</em>`);
 attachConfig(document.querySelector('#support-chat')!, support);
 ```
 
-:::note
-An instance config starts from the built-in defaults — it does **not** inherit
-providers registered on `aparteGlobalConfig`. Register what each instance needs on
-that instance.
+:::note[Providers do not inherit; renderers do]
+An instance config starts from the built-in defaults — it does **not** inherit the
+providers registered on `aparteGlobalConfig` (markdown, highlight, icons, locale,
+transport, AI providers). Register what each instance needs on that instance.
+
+The **segment-renderer registry is the exception, by design**: an instance config
+inherits every renderer registered globally, so a page-wide `registerSegmentRenderer`
+reaches a scoped chat too, and a config that declined the built-ins inherits nothing.
+:::
+
+:::caution[An instance cannot subtract]
+Inheritance is one-way. There is no tombstone, so an instance config **cannot suppress a
+type the global registry declares** — two chats on one page, one with a pack of renderers
+and one without, is not expressible if the pack registered globally. Register the pack on
+the instance that wants it instead.
 :::

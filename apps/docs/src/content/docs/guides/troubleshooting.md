@@ -132,7 +132,11 @@ The bubble found no renderer for that segment type.
   On **0.4.x and earlier** the built-ins only came with `new AparteClient()`, so a
   display-only app had to call `registerDefaultRenderers()` itself — that's the fix
   there.
-- **Your own type** — that's the expected fallback: register a renderer for it (see
+- **Your own type** — that's the expected fallback. Pass `registerSegmentRenderer` a
+  renderer whose `type` is that type, or give the segment a `fallback`: one sentence
+  core draws as text when no renderer claims the type. A `custom` segment's `subType`
+  is not a registry key — one renderer answers for every `custom` segment and switches on
+  `subType` itself (see
   [Custom segment types](/guides/customization/#custom-segment-types)).
 
 The symptom is easy to misread, because everything else works: bubbles, streaming,

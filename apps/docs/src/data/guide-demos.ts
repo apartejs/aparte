@@ -569,4 +569,67 @@ function toLine(item) {
 </script>`,
         plugins: ['artifacts'],
     },
+    {
+        id: 'getting-started-scripted',
+        title: 'A scripted reply, streaming',
+        plugins: ['scenario'],
+        html: `<!-- The model here is scripted: no key, no network, the same replies every time.
+     Everything else is the real thing - the loop, the transcript, the tool call. -->
+<aparte-chat center-empty placeholder="Ask for a haiku, a table, some code or the weather..." style="height: 22rem"></aparte-chat>`,
+    },
+    {
+        id: 'customization-bubble-shell',
+        title: 'The same message, in two shells',
+        html: `<!-- The same message twice. The first bubble is the one core draws; the second is a
+     shell of your own, scoped to that bubble alone by an instance config. A shell is markup:
+     the bubble finds the hooks it knows by class and fills them, so the name, the
+     content, the waiting dots and the action bar keep working. -->
+<div class="two-up">
+  <aparte-chat-bubble
+    message-id="a1"
+    data-role="assistant"
+    name="Assistant"
+    content="Retry does not overwrite a reply: it forks a sibling, and the picker walks them."
+  ></aparte-chat-bubble>
+  <div id="custom"></div>
+</div>
+
+<style>
+  .two-up { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .my-card {
+    border-inline-start: 3px solid var(--aparte-primary);
+    border-radius: var(--aparte-radius-md);
+    background: var(--aparte-surface-1);
+    padding: var(--aparte-space-3);
+  }
+  .my-card__who { margin-block-end: var(--aparte-space-2); font-size: var(--aparte-font-size-sm); color: var(--aparte-text-muted); }
+</style>
+
+<script>
+  const { AparteConfig, attachConfig } = window.aparte;
+
+  // One config for this column only; the first bubble keeps the global one.
+  const mine = new AparteConfig();
+  mine.setBubbleShellRenderer((ctx) => \`
+    <div class="aparte-message my-card" data-role="\${ctx.role}">
+      <header class="my-card__who"><span class="aparte-name"></span></header>
+      <div class="aparte-message-content">
+        <div class="aparte-segments"></div>
+        <div class="aparte-content"></div>
+        <div class="aparte-waiting" hidden><span class="aparte-sr-only"></span></div>
+      </div>
+      <div class="aparte-footer"><div class="aparte-action-bar"></div></div>
+    </div>\`);
+
+  const custom = document.querySelector('#custom');
+  attachConfig(custom, mine);
+
+  // Created AFTER the boundary: a bubble renders its shell once, when it connects.
+  const bubble = document.createElement('aparte-chat-bubble');
+  bubble.setAttribute('message-id', 'a2');
+  bubble.setAttribute('content', 'Retry does not overwrite a reply: it forks a sibling, and the picker walks them.');
+  custom.appendChild(bubble);
+  bubble.setAttribute('name', 'Assistant');   // the bubble writes it into .aparte-name
+</script>`,
+    },
 ];

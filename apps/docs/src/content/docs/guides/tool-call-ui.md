@@ -64,7 +64,8 @@ name replaces the default row with a surface of its own. aparté's
 [`ask_user` plugin](/plugins/ask-user/) is the in-repo example — its result is drawn as a
 receipt card of the question and the answer — and [`@aparte/plugin-artifacts`](/plugins/artifacts/)'
 `create_artifact` is the same shape: a call whose result is rendered richly, as a
-Code/Preview card. Register yours with `registerToolRenderer` — the worked example is in
+Code/Preview card. Register yours with `registerToolRenderer` — the worked example, with the
+`AparteToolRenderer` contract and the streaming `update` hook, is on
 [Tools & human-in-the-loop](/guides/tools/#custom-tool-renderer).
 
 ## 5. The approval, before the fact

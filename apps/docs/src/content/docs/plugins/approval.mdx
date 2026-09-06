@@ -77,6 +77,12 @@ applies to the **next tool call**, mid-run included. With no `setupApproval()` o
 it renders disabled and says so once in the console: an affordance that cannot act is not
 offered.
 
+Its options are `ApprovalSetupOptions` and what it hands back is an `ApprovalController`;
+`getApprovalController(config)` finds that controller again from anywhere — it is how
+`<aparte-approval-mode>` resolves its own, and it returns `undefined` when the policy has
+since been removed from the config. The element's class is exported as
+`AparteApprovalMode` for a host that needs the type of a `ref`.
+
 It ships **no framework binding yet**. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
 component that hosts the tag — core's own elements come with directives, this one does not.
 Svelte and Vue take it as it comes: `svelte/elements` types any hyphenated tag, and a Vue
@@ -116,6 +122,54 @@ host can persist the choice from any ancestor.
 Labels are English by default; a localised host sets `element.labels = { plan: 'Planifier', … }`.
 Nothing is remembered across a reload — read `getMode()` and write it wherever you keep
 preferences, the way the model selector's preference is yours to persist.
+
+The whole loop runs in this repository's example sites: `get_weather` is registered with
+`needsApproval: true`, `search_docs` / `read_file` / `write_file` / `run_command` are
+classified read / write / exec, and `<aparte-approval-mode>` sits in the composer's
+toolbar — [`apps/examples/_shared/site-setup.ts`](https://github.com/apartejs/aparte/tree/main/apps/examples/_shared/site-setup.ts).
+
+## Without the element, and without `setupApproval`
+
+`setupApproval` owns a mode for you. If the mode already lives somewhere else — a settings
+page, a URL parameter, a Redux slice — take the policy alone. It reads the current mode on
+**every call**, so a switch flipped mid-run applies to the next tool call.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import {
+  APPROVAL_MODES,
+  classifyTool,
+  createApprovalPolicy,
+  rulingFor,
+  type ApprovalClassification,
+  type ApprovalMode,
+} from '@aparte/plugin-approval';
+
+const classify: ApprovalClassification = {
+  read: ['read_file', 'search', /^list_/],
+  write: ['write_file', 'edit_file'],
+  exec: ['run_command'],
+};
+
+// Wherever your app already keeps it.
+let mode: ApprovalMode = 'ask';
+
+aparteGlobalConfig.setApprovalPolicy(createApprovalPolicy(() => mode, classify));
+
+// The table, readable without installing anything — for a settings screen that has to
+// explain what each mode will do:
+APPROVAL_MODES;                             // ['plan', 'ask', 'auto-edit', 'auto']
+classifyTool('run_command', classify);      // 'exec'
+rulingFor('plan', 'exec', { id: 'c1', name: 'run_command', input: {} });
+// → { verdict: 'deny', reason: 'Plan mode: `run_command` runs a command, …' }
+```
+
+`createApprovalPolicy(getMode, classification)` returns a plain `AparteApprovalPolicy` —
+`(call, tool) => AparteApprovalRuling | undefined`. The second argument is the registered
+declaration for that call, or `undefined` when the model named a tool nothing registered.
+`classifyTool` and `rulingFor` are the two halves it is built from, both pure, both usable
+on their own. `ApprovalMode`, `ToolClass` and `ToolMatcher` (a name, exactly, or a `RegExp`
+over names) are exported for the store that holds them.
 
 ## Under the hood — the seam in core
 

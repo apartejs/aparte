@@ -407,6 +407,30 @@ void trailing;
 void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
 ```
 
+### Structure a reply without rendering it
+
+`parseMarkdownToSegments` is core's zero-dependency markdown structurer: a complete reply
+in, typed segments out — text, fenced code with its language, thinking blocks, and the
+block grammars you hand it. It reads no config of its own, so a grammar you registered
+with `registerStreamBlock` reaches it only through the `blocks` option. No plugin, no
+`marked`, no DOM. It is what you want *around* the chat: the code blocks a reply
+contained, a reply stored as structure rather than as a string, two replies diffed
+segment by segment.
+
+```ts
+import { aparteGlobalConfig, parseMarkdownToSegments, type AparteStreamParserOptions } from '@aparte/core';
+
+// The same options the streaming parser takes.
+const options: AparteStreamParserOptions = {
+  thinkingDelimiters: { start: '<think>', end: '</think>' },
+  blocks: aparteGlobalConfig.getStreamBlocks(),   // the grammars registered on the config
+};
+
+const segments = parseMarkdownToSegments('Here is the fix:\n\n```ts\nexport const x = 1;\n```\n', options);
+const code = segments.filter((segment) => segment.type === 'code');
+void code;
+```
+
 ### Reasoning models: `thinkingDelimiters`
 
 By default the parser recognises `<think>…</think>` **and** `<thinking>…</thinking>`.
