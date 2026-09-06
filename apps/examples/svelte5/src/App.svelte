@@ -173,11 +173,11 @@
           <aparte-suggestions bind:this={suggestionsEl}></aparte-suggestions>
         </div>
       </div>
-      <!-- The toolbar row under the composer: empty, so it draws nothing (the model
-           selector lands there under `?selector=toolbar`). An empty fragment does not
-           count as a provided slot, so the row would not exist at all: one hidden
-           child makes the slot real, and the row ignores hidden children. -->
-      <span slot="toolbar" hidden></span>
+      <!-- The toolbar row under the composer: the approval switch, and the model
+           selector too under `?selector=toolbar`. A real child is also what makes the
+           slot exist at all — an empty fragment does not count as provided, and the row
+           would not be rendered. -->
+      <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
     </AparteChat>
   </main>
 </div>

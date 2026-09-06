@@ -124,9 +124,11 @@ function resolveOverlayComposer(): boolean {
                             <aparte-suggestions empty-only [attr.suggestions]="suggestionsJson"></aparte-suggestions>
                         </div>
                     </div>
-                    <!-- No [slot='toolbar'] content: the row stays empty, exactly like vanilla's
-                         bare <aparte-composer-toolbar></aparte-composer-toolbar> — the model
-                         selector lands there under ?selector=toolbar (ngAfterViewInit below). -->
+                    <!-- The toolbar row under the composer: the approval switch, exactly like
+                         vanilla's <aparte-composer-toolbar> child — the model selector lands
+                         there too under ?selector=toolbar (ngAfterViewInit below). The tag is
+                         unknown to Angular; CUSTOM_ELEMENTS_SCHEMA above is what allows it. -->
+                    <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
                 </aparte-chat>
             </main>
         </div>

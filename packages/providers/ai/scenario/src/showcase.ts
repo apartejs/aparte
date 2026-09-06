@@ -13,8 +13,9 @@ import type { Scenario } from './index.js';
  * aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
  * ```
  *
- * The tool names it calls — `get_weather`, `ask_user` — only do something if the app
- * registered a tool of that name; `@aparte/plugin-ask-user` provides the second.
+ * The tool names it calls — `get_weather`, `ask_user`, and the release chain's
+ * `search_docs` / `read_file` / `write_file` / `run_command` — only do something if the
+ * app registered a tool of that name; `@aparte/plugin-ask-user` provides the second.
  */
 export const showcase: Record<string, Scenario> = {
     default: {
@@ -45,6 +46,38 @@ export const showcase: Record<string, Scenario> = {
     forecast: {
         after: 'get_weather',
         turn: 'Cloudy, 14 °C, a little wind from the west — bring a jacket.',
+    },
+    // Four tools, in a chain: search, read, write, run. The multi-tool agent turn
+    // nothing in this repository could produce before — every other scenario calls one
+    // tool and answers its result. It is also what a decision about grouping consecutive
+    // tool calls needs before it can be taken: a real turn whose calls can be read on a
+    // page, rather than an imagined wall of them.
+    //
+    // Each tool needs its own `after:` route, or the tool RESULT falls back through the
+    // `when` that started the chain and the conversation eats its own tail —
+    // `createScenarioProvider` warns about exactly that at creation.
+    release: {
+        when: /ship it|release|checklist/i,
+        turn: [
+            { text: 'Running the release checklist.' },
+            { tool: 'search_docs', input: { query: 'release checklist' } },
+        ],
+    },
+    releaseRead: {
+        after: 'search_docs',
+        turn: [{ tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
+    },
+    releaseWrite: {
+        after: 'read_file',
+        turn: [{ tool: 'write_file', input: { path: 'CHANGELOG.md', contents: '## 0.17.0\n\n- the release\n' } }],
+    },
+    releaseRun: {
+        after: 'write_file',
+        turn: [{ tool: 'run_command', input: { cmd: 'pnpm build' } }],
+    },
+    releaseDone: {
+        after: 'run_command',
+        turn: 'Checklist done: docs searched, changelog read and updated, build green.',
     },
     // Several questions in one call: the panel becomes a stepper (1 2 …) with a
     // "Skip" per step. Nothing in the repository showed that mode until a consumer

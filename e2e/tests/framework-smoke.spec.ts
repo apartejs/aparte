@@ -29,6 +29,13 @@ test('mounts without runtime errors, and the idle status reserves no height', as
     await expect(chat.editor).toBeVisible();
     await expect(chat.viewport).toBeAttached();
 
+    // The composer toolbar's child reaches the row on EVERY wrapper. Each passes it a
+    // different way — a prop in React, a named slot in Vue/Svelte/Angular, a plain child
+    // in vanilla — and a slot that silently drops its child renders no switch while every
+    // geometry spec stays green. The approval-mode suite proves the mechanism on two apps;
+    // this line is the per-wrapper half, which only a suite that runs on all six can make.
+    await expect(chat.composerToolbar.locator('aparte-approval-mode')).toBeVisible();
+
     // The idle typing indicator must not reserve vertical space (an M6 regression
     // where aparte-chat-status stayed laid-out while invisible). Best-effort:
     // asserted wherever a status element is rendered.

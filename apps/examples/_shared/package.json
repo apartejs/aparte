@@ -7,6 +7,7 @@
   "dependencies": {
     "@aparte/core": "workspace:*",
     "@aparte/engine": "workspace:*",
+    "@aparte/plugin-approval": "workspace:*",
     "@aparte/plugin-artifacts": "workspace:*",
     "@aparte/plugin-ask-user": "workspace:*",
     "@aparte/plugin-compaction": "workspace:*",

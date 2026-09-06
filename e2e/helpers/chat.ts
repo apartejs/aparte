@@ -184,6 +184,42 @@ export class ChatPage {
         return group;
     }
 
+    // ── approval mode ───────────────────────────────────────────────────────
+
+    /**
+     * The approval-mode switch (`@aparte/plugin-approval`) in the composer's toolbar.
+     * The examples mount it there in all six sites — vanilla writes the tag, the four
+     * wrappers pass it through their `toolbar` slot.
+     */
+    get approvalMode(): Locator {
+        return this.scope.locator('aparte-approval-mode').first();
+    }
+
+    /**
+     * Switch the approval mode with the keyboard — the `selectModelByKeyboard` idiom,
+     * minus its label search: the four modes are a fixed, ordered list, so the option is
+     * addressed by INDEX rather than by walking the highlight until a label matches.
+     *
+     * `Home` first, and that is the part worth keeping: `ArrowDown` is CLAMPED (it does
+     * not wrap), so walking down from a selection already past the target never reaches
+     * it — going from `auto` back to `plan` would silently exhaust the loop. Home puts
+     * the highlight on the first option whatever was selected.
+     */
+    async setApprovalMode(mode: 'plan' | 'ask' | 'auto-edit' | 'auto'): Promise<void> {
+        const select = this.approvalMode.locator('aparte-select').first();
+        await expect(select, 'the switch needs an approval setup on the config').not.toHaveAttribute('disabled', '');
+        await select.locator('.aparte-select-trigger').first().click();
+        const dropdown = select.locator('.aparte-select-dropdown');
+        await expect(dropdown).toBeVisible();
+        await this.page.keyboard.press('Home');
+        for (let i = 0; i < ['plan', 'ask', 'auto-edit', 'auto'].indexOf(mode); i++) {
+            await this.page.keyboard.press('ArrowDown');
+        }
+        await this.page.keyboard.press('Enter');
+        await expect(dropdown).toBeHidden();
+        await expect(select, 'the switch holds the mode it was set to').toHaveAttribute('value', mode);
+    }
+
     // ── actions ─────────────────────────────────────────────────────────────
 
     /**

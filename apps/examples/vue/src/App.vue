@@ -148,9 +148,11 @@ function newChat(): void {
                 attachments
                 placeholder="Ask ChatClone"
             >
-                <!-- The toolbar row under the composer: empty, so it draws nothing; the
-                     model selector lands there under `?selector=toolbar`. -->
-                <template #toolbar></template>
+                <!-- The toolbar row under the composer: the approval switch, and the
+                     model selector too under `?selector=toolbar`. -->
+                <template #toolbar>
+                    <aparte-approval-mode></aparte-approval-mode>
+                </template>
                 <template #empty-state>
                     <div class="welcome" id="welcome">
                         <div class="welcome__body">

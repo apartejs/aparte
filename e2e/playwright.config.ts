@@ -213,6 +213,12 @@ const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
 // defect this covers is invisible in two of the three engines, and jsdom — which has
 // no layout and no scrolling at all — cannot host it in any of them.
 const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
+// The approval gate: a tool that must be approved, the four modes, and what the model is
+// told when a call does not run. A DEEP suite rather than a per-app one — the mechanism is
+// core's and the panel is core's DOM — but it runs on the two apps that mount the switch
+// through DIFFERENT mechanisms (vanilla writes the tag, react passes `<AparteUi>` through
+// the toolbar prop), which is the half a unit test cannot reach.
+const APPROVAL = /approval\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -226,7 +232,7 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL];
 const suiteFor = (k: AppKey): RegExp[] =>
     // vanilla-dist also runs THEMING: its page has no skin at all (a bare
     // `<aparte-chat>`, core's own default composition), which is exactly where the

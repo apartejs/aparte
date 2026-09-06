@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AparteChat, useAparteChat } from '@aparte/react';
+import { AparteChat, AparteUi, useAparteChat } from '@aparte/react';
 import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
 import { mountModelSelector } from '../../_shared/site-setup';
 import {
@@ -139,9 +139,12 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                         overlayComposer={overlay}
                         attachments
                         placeholder="Ask ChatClone"
-                        // The toolbar row under the composer: empty, so it draws nothing; the model
-                        // selector lands there under `?selector=toolbar`.
-                        toolbar={<></>}
+                        // The toolbar row under the composer: the approval switch, and the
+                        // model selector too under `?selector=toolbar`. `<AparteUi>` rather
+                        // than a raw `<aparte-approval-mode>` tag — the plugin ships no
+                        // React subpath, and this is the documented way to mount any
+                        // aparté element from React without one.
+                        toolbar={<AparteUi name="aparte-approval-mode" />}
                         emptyState={
                             <div className="welcome" id="welcome">
                                 <div className="welcome__body">

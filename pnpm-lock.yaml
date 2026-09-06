@@ -186,6 +186,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -243,6 +246,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -307,6 +313,9 @@ importers:
       '@aparte/locale-fr':
         specifier: workspace:*
         version: link:../../../packages/locales/fr
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -374,6 +383,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -438,6 +450,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -502,6 +517,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -564,6 +582,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts

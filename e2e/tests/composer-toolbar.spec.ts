@@ -40,6 +40,9 @@ test('the toolbar renders, and its control is pushed to the end of the row', asy
     await chat.waitUngated();
 
     await expect(chat.composerToolbar).toHaveCount(1);
+    // No example renders an empty toolbar any more (each puts the approval switch in it),
+    // so this line can no longer fail from here: the "no toolbar child ⇒ no row" mirror is
+    // the wrappers' unit tests. Kept because it still says what a non-empty row looks like.
     await expect(chat.composerToolbar).not.toHaveAttribute('data-empty', '');
 
     // The stylesheet REACHED the page. Checked first and named for what it is, because

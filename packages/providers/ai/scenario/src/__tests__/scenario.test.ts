@@ -178,6 +178,14 @@ describe('scenarios mode', () => {
         expect(showcase['forecast']!.after).toBe('get_weather');
         expect(showcase['answered']!.after).toBe('ask_user');
         expect(defaultMatch(request(user('Give me a markdown table')), showcase)).toBe('table');
+        // The four-tool chain: "ship it" starts it, and each tool it calls is routed —
+        // an unrouted one sends the result back through `release`'s own `when` and the
+        // conversation loops until maxTurns.
+        expect(defaultMatch(request(user('ship it')), showcase)).toBe('release');
+        const routed = new Set(Object.values(showcase).map((s) => s.after).filter(Boolean));
+        for (const tool of ['search_docs', 'read_file', 'write_file', 'run_command']) {
+            expect(routed, `${tool} needs an \`after\` route`).toContain(tool);
+        }
     });
 });
 

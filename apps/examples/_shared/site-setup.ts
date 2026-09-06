@@ -19,6 +19,7 @@ import {
     APARTE_DEFAULT_LOCALE,
     AparteClient,
     AparteDirectTransport,
+    contentToText,
 } from '@aparte/core';
 import type { AparteThinkingSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon } from '@aparte/core/icons';
@@ -39,12 +40,45 @@ import githubDark from '@shikijs/themes/github-dark';
 // guide — is undemonstrated: asking a local model to "use the question tool" gets a
 // truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
+// A STATIC import: it brings `<aparte-approval-mode>` with it, and the element defines
+// itself. The switch sits in the composer's toolbar of all six sites, so it has to be
+// defined before the first render — a dynamic import would leave the tag inert until it
+// landed, which is the right trade only for something the page can do without.
+import { setupApproval } from '@aparte/plugin-approval';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
 import { runStreamAgent } from '@aparte/engine';
 import { setupCompaction } from '@aparte/plugin-compaction';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
+
+/**
+ * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
+ * app's own results: the library never sees either. The results are canned, so the four
+ * work under any model — which is what lets the approval switch rule the same names
+ * whether the scripted provider or a local server is answering.
+ */
+const CHAIN_TOOLS = [
+    ['search_docs', 'Search the documentation.'],
+    ['read_file', 'Read a file from the workspace.'],
+    ['write_file', 'Write a file in the workspace.'],
+    ['run_command', 'Run a shell command in the workspace.'],
+] as const;
+
+const CANNED: Record<string, string> = {
+    search_docs: 'Found 3 pages: release checklist, versioning, the publish script.',
+    read_file: '## 0.16.11\n\n- the previous release',
+    write_file: 'Wrote 4 lines to CHANGELOG.md.',
+    run_command: 'Build finished in 12.4s. 0 errors.',
+};
+
+/**
+ * What a `tool` message says when the call did NOT run: the panel's Reject (with the
+ * user's own words, or without), and the approval policy's own refusal — in `plan` mode
+ * the sentence `@aparte/plugin-approval` writes. All three are the loop's, not ours; a
+ * canned result above says none of them.
+ */
+const REFUSAL = /rejected by the user|rejected this tool call|refused by the approval policy|Plan mode:/;
 
 export interface SiteSetup {
     /** The scripted model answers (no server, no key): the default, and `?scenario`. */
@@ -148,16 +182,37 @@ async function run(): Promise<SiteSetup> {
     const scenarioMode = resolveModelSource(loadSettings()) === 'scripted';
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
-            scenarios: showcase,
+            scenarios: {
+                ...showcase,
+                // Where a refusal lands, and it needs `match` below to get there: an
+                // `after:` route keys on WHICH tool ran, never on what its result said,
+                // and a refusal is a result like any other as far as the loop is
+                // concerned. Without this the model would go on to the next step of the
+                // chain as if the user had said yes.
+                refused: 'Understood — I have not run it. Tell me if you change your mind.',
+            },
+            // The one branch the default rule cannot express. Everything else falls
+            // through to it by returning `undefined`.
+            match: (request) => {
+                const last = request.messages[request.messages.length - 1];
+                if (last?.role !== 'tool') return undefined;
+                return REFUSAL.test(contentToText(last.content)) ? 'refused' : undefined;
+            },
             models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
         }));
         // The showcase's weather turn calls this tool. An app that never registered it
         // would see the call fail — also a scenario, but the round-trip is the point here.
+        //
+        // `needsApproval` and NO class in the classification below, on purpose: this is
+        // the tool that shows what an unclassified name does under each mode — plan, ask
+        // and auto-edit all put it to the user (its own flag decides), and `auto` lets it
+        // through, because auto is auto.
         aparteGlobalConfig.registerTool(
             {
                 name: 'get_weather',
                 description: 'Current weather for a city.',
                 inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+                needsApproval: true,
             },
             async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${String(call.input['city'] ?? 'Lille')}.` }),
         );
@@ -167,6 +222,45 @@ async function run(): Promise<SiteSetup> {
             createOpenAICompatProvider(presets.LMSTUDIO),
         );
     }
+
+    // 2a. The four tools the "ship it" chain calls, with canned results. The NAMES are
+    //     the app's — no library can know that `run_command` executes and `search_docs`
+    //     reads, which is exactly why the classification below is written here and not
+    //     shipped by the plugin.
+    //
+    //     Registered whichever model answers, and that placement is the point: the
+    //     classification below would otherwise name four tools that exist on the scripted
+    //     path only, so on `?local` every mode would rule the same nothing. The handlers
+    //     are canned and say so, which is what lets them serve both models.
+    for (const [name, description] of CHAIN_TOOLS) {
+        aparteGlobalConfig.registerTool(
+            { name, description, inputSchema: { type: 'object', properties: {}, additionalProperties: true } },
+            async (call) => ({ toolCallId: call.id, content: CANNED[name] ?? '' }),
+        );
+    }
+
+    // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
+    //     config, the gate in the loop, the panel at the composer, the refusal the model
+    //     reads; `@aparte/plugin-approval` is the piece between: which of THIS app's
+    //     names read, write or execute, and the switch in the composer's toolbar.
+    //
+    //     Installed whichever model answers, over the four names above. The switch is in
+    //     the toolbar of every site, and a control that cannot act is not a control
+    //     (ratified decision #8) — a local model asked to write a file gets the same gate
+    //     the scripted one gets.
+    //
+    //     `ask` to start, so a first visit actually sees the panel. `plan` refuses the
+    //     write and the command with a sentence the model reads and answers; `auto-edit`
+    //     lets the write through and still asks before the command; `auto` runs the
+    //     whole four-step chain without a question.
+    setupApproval({
+        classify: {
+            read: ['search_docs', 'read_file'],
+            write: ['write_file'],
+            exec: ['run_command'],
+        },
+        mode: 'ask',
+    });
 
     // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
     // With a local server the composer waits for the model selector to fetch and
