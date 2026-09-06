@@ -204,7 +204,7 @@ export default defineConfig({
         // the wrappers (41-47) are not a target, they are the truth: a wrapper's
         // functions are mostly framework-invoked template closures, and a floor set
         // where nobody stands is a floor that gets lowered.
-        'packages/core/src/**': { lines: 93, statements: 93, functions: 92, branches: 88 },
+        'packages/core/src/**': { lines: 93, statements: 93, functions: 92, branches: 90 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 93 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
