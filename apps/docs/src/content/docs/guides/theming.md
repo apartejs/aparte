@@ -146,7 +146,7 @@ a themed subtree, a `[data-aparte-host]` boundary, or one element:
 That single attribute moves this chat's send button, its user avatar, its focus ring, its
 input's focus border and its progress fill, and leaves every other chat on the page alone.
 A derived variable is still yours to set on its own — declare it where core does. Core
-re-declares its 245 derived tokens on `:root, :host, [data-aparte-theme],
+re-declares its 241 derived tokens on `:root, :host, [data-aparte-theme],
 [data-aparte-host], aparte-chat`, and a custom property declared on an element beats the
 one it would have inherited: a `:root` value for a derived token never reaches inside a
 chat. Set the master it reads (`--aparte-primary`, `--aparte-space-unit`,

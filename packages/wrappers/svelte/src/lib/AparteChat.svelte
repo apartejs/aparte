@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
   import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
-  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
+  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
 
   /**
    * The host element's `id`, and therefore the `targetId` every event this chat

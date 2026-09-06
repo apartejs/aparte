@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import { AparteClient, aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, aparteGlobalConfig, type AparteChatImperativeApi, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { useAparteChat } from '../hooks/useAparteChat';
 import { useAparteClient } from '../hooks/useAparteClient';
 import { useConversationManager } from '../hooks/useConversationManager';
@@ -76,7 +76,7 @@ describe('useAparteChat', () => {
     // it used to expose 17 of the 20 imperative members, and the four missing ones
     // were exactly the reads (`getMessages`, `getViewport`) and the two view acts
     // (`scrollToBottom`, `focusInput`) a consumer reaches for after a send.
-    it('exposes the same 20 members as the component handle', () => {
+    it('forwards the reads and the two view acts to the component handle', () => {
         const { result } = renderHook(() => useAparteChat());
         const getMessages = vi.fn(() => [{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
         const scrollToBottom = vi.fn();
@@ -98,6 +98,30 @@ describe('useAparteChat', () => {
         expect(scrollToBottom).toHaveBeenCalledOnce();
         expect(focusInput).toHaveBeenCalledOnce();
         expect(result.current.getViewport()).toBe(viewport);
+    });
+
+    /*
+     * The contract, spelled once and checked by the COMPILER: a member added to
+     * `AparteChatImperativeApi` and missing from this list is a type error right here,
+     * so the list cannot fall behind the surface the way a hand-counted assertion does.
+     * The test above exercises four of them for real; this one asks that none is absent.
+     */
+    const CONTRACT = {
+        appendMessage: true, updateMessage: true, updateLastMessage: true,
+        addSegment: true, updateSegment: true, removeSegment: true, appendToSegment: true,
+        getMessages: true, clearMessages: true,
+        addBranch: true, addSiblingOf: true, truncateFrom: true, truncateResponsesAfter: true,
+        injectTokenStream: true, stopTokenStream: true, setConversationId: true,
+        scrollToBottom: true, focusInput: true, isStreaming: true, getViewport: true,
+    } satisfies Record<keyof AparteChatImperativeApi, true>;
+
+    it('exposes every member of AparteChatImperativeApi', () => {
+        const { result } = renderHook(() => useAparteChat());
+        const surface = result.current as unknown as Record<string, unknown>;
+
+        const missing = Object.keys(CONTRACT).filter((m) => typeof surface[m] !== 'function');
+
+        expect(missing).toEqual([]);
     });
 });
 

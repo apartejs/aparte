@@ -86,6 +86,10 @@ export class AparteOptgroup extends HTMLElement {
         return this.hasAttribute('collapsible');
     }
 
+    set collapsible(val: boolean) {
+        this.toggleAttribute('collapsible', presenceOn(val));
+    }
+
     get collapsed(): boolean {
         return this.hasAttribute('collapsed');
     }

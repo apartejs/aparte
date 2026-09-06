@@ -96,8 +96,7 @@ test('the theme toggle flips the page between light and dark', async ({ page }) 
 });
 
 test('a conversation can be deleted from its row menu', async ({ page }) => {
-    // SAB-02 regression. Expected RED until the fix lands in core (in progress
-    // elsewhere): deleting from the row's `⋯` menu must remove the row and fire
+    // SAB-02 regression: deleting from the row's `⋯` menu must remove the row and fire
     // `aparte-conversation-delete` once the confirmation is accepted.
     await page.goto('/?scenario&fast');
     const rows = page.locator(`${LIST} [data-conv-id]`);
@@ -121,12 +120,10 @@ test('a conversation can be deleted from its row menu', async ({ page }) => {
 });
 
 test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
-    // SAB-12 regression. Expected RED until the fix lands in core (in progress
-    // elsewhere): selecting a row with the keyboard must not move the focus away
-    // from that row — a plausible cause is the sidebar's `manager.subscribe`
-    // callback reassigning `list.conversations` (a fresh array every notification)
-    // and the list fully re-rendering in response, which would replace the very
-    // button Enter just activated.
+    // SAB-12 regression: selecting a row with the keyboard must not move the focus away
+    // from that row. The cause was the sidebar's `manager.subscribe` callback reassigning
+    // `list.conversations` (a fresh array every notification) and the list fully
+    // re-rendering in response, which replaced the very button Enter had just activated.
     await page.goto('/?scenario&fast');
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 

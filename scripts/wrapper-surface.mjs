@@ -11,8 +11,12 @@
  * names AND their documentation live in the type system. This file reads EVERY prop off
  * it, mechanically, in three shapes — a slot (`?: React.ReactNode`), a callback
  * (`on…?: (…) => void`), and everything else (the ~17 data props plus the one render hook,
- * `renderBubble`) — so a prop of any of these three kinds added to React shows up here
- * (and in the docs, and in the parity check) with no second edit. The third reader,
+ * `renderBubble`) — so a prop of any of these three kinds added to React shows up here,
+ * and in the parity check, with no second edit. Not in the docs, for one of the three:
+ * `apps/docs/scripts/gen-wrapper-ref.mjs` reads {@link readWrapperSlots} and
+ * {@link readWrapperCallbacks} only, and hand-lists the one data prop its Props table
+ * carries — so a data prop or a render hook added to React is parity-checked and stays
+ * undocumented until someone writes it up. The third reader,
  * {@link readWrapperDataProps}, was the last one added: the first two closed the same hole
  * for slots and callbacks, and it grew back one column over — the data props and the
  * render hook were unchecked across the three non-React wrappers, so any of them could be

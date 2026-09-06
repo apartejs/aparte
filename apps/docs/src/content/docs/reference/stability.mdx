@@ -34,7 +34,7 @@ Adding is always allowed: a new optional attribute, a new optional field on an e
 
 ## The elements
 
-The tag name, the attributes and properties the manifest documents, and the `@cssprop` tokens each one reads. **{elements.length}** elements across {elementPackages.length} packages, **{attributeCount}** documented attributes between them — the figure after each tag is its own count:
+The tag name and the attributes the manifest documents — and a property that mirrors one of those attributes freezes with it, since the attribute is the frozen name. The `--aparte-*` tokens elements read are frozen as a family of their own, in [The tokens](#the-tokens) below. **{elements.length}** elements across {elementPackages.length} packages, **{attributeCount}** documented attributes between them — the figure after each tag is its own count:
 
 {elementPackages.map((pkg) => (
   <p key={pkg}>

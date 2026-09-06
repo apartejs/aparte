@@ -138,7 +138,8 @@ The `<aparte-elicitation>` presenter — what the built-in approval gate and `re
 ask through — renders inside the host **by default**, as in core's `<aparte-chat>`; bind
 `[elicitation]="false"` when you register a presenter of your own. `class` and `style` on the
 `<aparte-chat>` tag land on the component's host element, which is the sized box
-(`display: block; height: 100%`), so utilities size the chat column as on any element.
+(`display: block; height: 100%`), so utilities size the chat column as on any element; to reach
+the container inside it, bind `[containerClass]` / `[containerStyle]` (below).
 `provideAparte` wires the client, so switch the retry/edit buttons on with
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
@@ -153,6 +154,20 @@ is still answering — bind `[loading]`:
 
 See [the wrapper reference](/reference/wrappers/#props) for the same prop in React, Vue
 and Svelte.
+
+`[containerClass]` and `[containerStyle]` land on the **inner** `.aparte-chat-container` — the div
+that also carries `[overlay-composer]` and `[data-aparte-empty]`, the selectors core's shell recipe
+keys on. Angular is the only wrapper with a host element above that div, so these two inputs are
+its spelling of React's `className` / `style` and of Vue's and Svelte's `class` / `style`. Both are
+additive: the recipe's own classes stay, and `containerStyle` takes a string or a
+`{ prop: value }` map.
+
+```html
+<aparte-chat
+  [containerClass]="'rounded-2xl border'"
+  [containerStyle]="{ 'max-inline-size': '48rem' }"
+></aparte-chat>
+```
 
 ## Any aparté element: a typed directive
 
