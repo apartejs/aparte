@@ -185,6 +185,13 @@ aparte-chat-viewport {
 }
 
 .aparte-viewport-container {
+  /* The viewport pins the reader itself and reads a scrollTop decrease it did not write
+     as the reader walking away. The browser's scroll anchoring writes exactly such
+     decreases when a settling reply swaps its streamed DOM for the rendered one —
+     measured on WebKit: scrollHeight +30, scrollTop -82, follow disarmed, transcript
+     82px short for good. A chat appends BELOW the reader, so the browser's anchor
+     protects nothing here and only fights the one that does. */
+  overflow-anchor: none;
   /* Core ships no global border-box reset, so this box says it itself: the overlay
      clearance below is padding, and without this the padding was ADDED to the 100%
      height - the surface overran its host by the whole inset, clipped, with that much
@@ -281,6 +288,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    nothing in the DOM, so it can't collide with the framework's children. */
 aparte-chat-viewport.aparte-viewport--framework,
 aparte-chat-viewport[framework-managed] {
+  /* The viewport pins the reader itself and reads a scrollTop decrease it did not write
+     as the reader walking away. The browser's scroll anchoring writes exactly such
+     decreases when a settling reply swaps its streamed DOM for the rendered one —
+     measured on WebKit: scrollHeight +30, scrollTop -82, follow disarmed, transcript
+     82px short for good. A chat appends BELOW the reader, so the browser's anchor
+     protects nothing here and only fights the one that does. */
+  overflow-anchor: none;
   /* The base rule gives this element `width: 100%`, and core ships no global
      border-box reset — every `box-sizing` in these sheets is per-element, on purpose.
      So the padding below was ADDED to 100% and the host overflowed its own chat by

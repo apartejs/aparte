@@ -210,8 +210,6 @@ export class AparteChatViewport extends HTMLElement {
     private _isAutoScrollEnabled: boolean = true;
     /** The last scroll position we saw, so growth can be told from a gesture. */
     private _lastScrollTop = 0;
-    /** The scroll height at the last scroll event: how much it moved since bounds what churn can do. */
-    private _lastScrollHeight = 0;
     /** When this component last moved `scrollTop` itself — see `_handleScroll`. "Never" is
      *  -Infinity rather than 0: `performance.now()` can be under a second old. */
     private _ownScrollAt = Number.NEGATIVE_INFINITY;
@@ -1638,6 +1636,16 @@ export class AparteChatViewport extends HTMLElement {
      * 1 run in 6: the rebuild's height churn moved scrollTop within the second after
      * the click, and the click made that look like the reader's).
      */
+    /**
+     * Is a pointer pressed on the surface right now? A press on the TEXT is not a scroll
+     * gesture (`_noteReaderInput` counts only the gutter), but a hand that is down and
+     * dragging a selection past the edge scrolls the container all the same — and that
+     * decrease is the reader's. Held from the press to its release, wherever it lands.
+     */
+    private _pointerHeld = false;
+    private readonly _holdPointer = (): void => { this._pointerHeld = true; };
+    private readonly _releasePointer = (): void => { this._pointerHeld = false; };
+
     private readonly _noteReaderInput = (e: Event): void => {
         if (e.type === 'keydown' && !this._scrollKeys.has((e as KeyboardEvent).key)) return;
         if (e.type === 'pointerdown') {
@@ -1690,6 +1698,9 @@ export class AparteChatViewport extends HTMLElement {
         for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.addEventListener(type, this._noteReaderInput, { passive: true });
         }
+        this._container?.addEventListener('pointerdown', this._holdPointer, { passive: true });
+        document.addEventListener('pointerup', this._releasePointer, true);
+        document.addEventListener('pointercancel', this._releasePointer, true);
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
         this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
@@ -1942,33 +1953,42 @@ export class AparteChatViewport extends HTMLElement {
          * (find-in-page, a host's own `scrollTo`) still disarms, except in that
          * one-second shadow of our own scroll.
          *
-         * The size of the decrease is bounded by the EVIDENCE of churn — how much the
-         * scroll height moved since the last scroll event — rather than by a number: a
-         * first version capped it at 100px and a branch swap on React refuted that
-         * (the rebuild flickers the height by ~200px, measured in `navigateBranch`,
-         * and WebKit moves scrollTop by as much); a second version dropped the cap
-         * altogether, and during a stream — where every token refreshes
-         * `_ownScrollAt`, so the shadow never closes — a reader drag-selecting text
-         * upward, whose press lands on the text and not in the gutter, was snapped
-         * back to the bottom by the next token. Churn moves scrollTop by at most the
-         * height it changed; a reader, a find-in-page jump or a host's `scrollTo` move
-         * it with the height standing still.
+         * The size of the decrease is NOT what tells the two apart, and it took three
+         * versions to stop pretending it could: a 100px cap was refuted by a React branch
+         * swap (the rebuild flickers the height by ~200px and WebKit moves scrollTop by
+         * as much); no cap at all snapped a reader drag-selecting text upward back to the
+         * bottom on the next token, because during a stream every token refreshes
+         * `_ownScrollAt` and the shadow never closes; and bounding it by the churn — a
+         * decrease no larger than the height change seen at THIS event — was refuted by
+         * the settle on WebKit, which hands the event a decrease its regrown height no
+         * longer explains (−82 against +30, −27 against nothing, one frame after our own
+         * pin; the follow disarmed, the transcript 81px short for good). What tells them
+         * apart is the HAND: a scroll gesture leaves a trace in `_readerInputAt` (wheel,
+         * touch, a press in the gutter, a scroll key), and a press on the text that drags
+         * a selection past the edge holds the pointer down (`_pointerHeld`) while the
+         * container scrolls. No trace and no hand, inside the shadow, is the layout's.
          */
         const top = this._container.scrollTop;
-        const height = this._container.scrollHeight;
         const drop = this._lastScrollTop - top;
-        const churn = Math.abs(height - this._lastScrollHeight);
         const now = performance.now();
-        const settlingOurs = drop <= churn + 2
-            && now - this._ownScrollAt < this._ownScrollWindowMs
-            && now - this._readerInputAt >= this._ownScrollWindowMs;
+        // Ours when it falls in the shadow of our own scroll and no hand was on the surface
+        // in that window. It used to also require the decrease to be no larger than the
+        // height churn visible at THIS event — but an engine that clamps or re-anchors
+        // scrollTop between two layouts of a settling reply hands the event a decrease
+        // the regrown height no longer explains: measured on WebKit, −82 against a churn
+        // of +30, and −27 against none, one frame after our own pin, and the follow was
+        // disarmed as "the reader went up". The reader's hand is the evidence, and it is
+        // recorded (wheel, touch, gutter press, key on the container) or HELD (a press on
+        // the text, dragging a selection past the edge); the churn was a proxy for both.
+        const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
+            && now - this._readerInputAt >= this._ownScrollWindowMs
+            && !this._pointerHeld;
         const readerWentUp = drop > 1 && !settlingOurs;
         // The same decrease, asked of the reader's HAND rather than of its size. The
         // generosity below is for layout drift; a gesture we can see is not drift, however
         // few pixels it moved.
         const readerHandOnIt = drop > 1 && now - this._readerInputAt < this._ownScrollWindowMs;
         this._lastScrollTop = top;
-        this._lastScrollHeight = height;
 
         if (this._isAtBottom() && !readerHandOnIt) {
             // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a
@@ -2319,6 +2339,10 @@ export class AparteChatViewport extends HTMLElement {
         for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.removeEventListener(type, this._noteReaderInput);
         }
+        this._container?.removeEventListener('pointerdown', this._holdPointer);
+        document.removeEventListener('pointerup', this._releasePointer, true);
+        document.removeEventListener('pointercancel', this._releasePointer, true);
+        this._pointerHeld = false;
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
