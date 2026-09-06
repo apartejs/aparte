@@ -15,7 +15,9 @@
  *
  * This guard exists because that coverage is invisible: remove the option and
  * every test stays green while silently going back to testing the inline loop.
- * The type guard in `stream-events.contract.ts` covers the compile half.
+ * The compile half is covered by the types themselves: core's `AparteChatMessage`
+ * and engine's `StreamAgentMessage` are assignable both ways, so a drift between
+ * them fails `pnpm typecheck` rather than needing a guard of its own.
  *
  * Run by `pnpm gate`.
  */

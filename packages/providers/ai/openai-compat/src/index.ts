@@ -82,22 +82,25 @@ function toOpenAIContent(content: string | AparteContentPart[]): unknown {
     });
 }
 
-/** AparteChatMessage[] → OpenAI messages (incl. the tool_call / tool_result envelope). */
+/** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */
 function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
     return messages.map(msg => {
-        if (msg.role === 'tool_call') {
+        if (msg.role === 'tool') {
+            return { role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) };
+        }
+        if (msg.role === 'assistant' && msg.toolCalls?.length) {
             return {
                 role: 'assistant',
-                content: msg.precedingText ?? null,
-                tool_calls: (msg.toolCalls ?? []).map(tc => ({
+                // `||`, not `??`: this API takes null (or nothing) beside `tool_calls`, and
+                // an assistant that said nothing before its calls now carries '' — which
+                // some endpoints reject and the rest read as an empty reply.
+                content: contentToText(msg.content) || null,
+                tool_calls: msg.toolCalls.map(tc => ({
                     id: tc.id,
                     type: 'function',
                     function: { name: tc.name, arguments: JSON.stringify(tc.input) },
                 })),
             };
-        }
-        if (msg.role === 'tool_result') {
-            return { role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) };
         }
         return { role: msg.role, content: toOpenAIContent(msg.content) };
     });

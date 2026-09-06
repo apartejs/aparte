@@ -128,15 +128,15 @@ describe('runStreamAgent — tools & HITL', () => {
         ]);
         // The 2nd transport call sees the enriched history.
         const second = t.calls[1]!.messages;
-        const toolCallMsg = second.find(m => m.role === 'tool_call');
+        const toolCallMsg = second.find(m => m.role === 'assistant' && m.toolCalls);
         expect(toolCallMsg?.toolCalls?.[0]?.id).toBe('c1');
-        expect(toolCallMsg?.precedingText).toBe('Let me check.');
-        expect(second.some(m => m.role === 'tool_result' && m.content === 'RESULT' && m.toolCallId === 'c1')).toBe(true);
+        expect(toolCallMsg?.content).toBe('Let me check.');
+        expect(second.some(m => m.role === 'tool' && m.content === 'RESULT' && m.toolCallId === 'c1')).toBe(true);
         expect(handler).toHaveBeenCalledOnce();
         expect(usage).toEqual({ inputTokens: 9, outputTokens: 3 });
     });
 
-    it('runs a tool with no preceding text (precedingText undefined)', async () => {
+    it('runs a tool with no preceding text (the assistant said nothing before it)', async () => {
         const t = scriptedTransport([
             [{ type: 'tool_use', id: 'c1', name: 'x', input: {} }, { type: 'done' }],
             [{ type: 'text', delta: 'ok' }, { type: 'done' }],
@@ -145,8 +145,8 @@ describe('runStreamAgent — tools & HITL', () => {
             transportCall: t.transportCall,
             toolLookup: () => async () => ({ content: 'r' }),
         }));
-        const toolCallMsg = t.calls[1]!.messages.find(m => m.role === 'tool_call');
-        expect(toolCallMsg?.precedingText).toBeUndefined();
+        const toolCallMsg = t.calls[1]!.messages.find(m => m.role === 'assistant' && m.toolCalls);
+        expect(toolCallMsg?.content).toBe('');
     });
 
     it('merges an object approval payload into the tool input', async () => {
@@ -170,8 +170,8 @@ describe('runStreamAgent — tools & HITL', () => {
      * carry it: it ends this turn's REMAINING calls, and it hands the model a turn.
      *
      * This asserted the opposite until now — "stops on rejection", one transport call.
-     * The turn simply ended, so the "rejected by the user" tool_result appended just
-     * above was never sent to anybody, and telling the assistant what you actually
+     * The turn simply ended, so the "rejected by the user" `tool` message appended
+     * just above was never sent to anybody, and telling the assistant what you actually
      * wanted meant retyping it as a new message it then read out of order.
      */
     it('a refusal ends the turn and hands the model a turn to answer in', async () => {
@@ -206,7 +206,7 @@ describe('runStreamAgent — tools & HITL', () => {
         // And the refusal actually reached the model, which is the whole point.
         expect(t.calls).toHaveLength(2);
         expect(t.calls[1]!.messages.some(
-            m => m.role === 'tool_result' && typeof m.content === 'string'
+            m => m.role === 'tool' && typeof m.content === 'string'
                 && m.content.includes('rejected by the user'),
         ), 'the second turn carries the refusal').toBe(true);
     });
@@ -289,7 +289,7 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(rec.types()).not.toContain('tool-awaiting-approval');
         expect(rec.types()).toContain('tool-rejected');
         expect(handler).not.toHaveBeenCalled();
-        expect(t.calls[1]!.messages.find(m => m.role === 'tool_result')?.content).toBe('Plan mode.');
+        expect(t.calls[1]!.messages.find(m => m.role === 'tool')?.content).toBe('Plan mode.');
     });
 
     it('a refusal with a `reason` reaches the model verbatim — nobody said "the user rejected"', async () => {
@@ -310,7 +310,7 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(handler).not.toHaveBeenCalled();
         const rejected = rec.events.find(e => e.type === 'tool-rejected') as { reason: string } | undefined;
         expect(rejected?.reason).toBe(reason);
-        const result = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        const result = t.calls[1]!.messages.find(m => m.role === 'tool');
         expect(result?.content).toBe(reason);
         expect(String(result?.content)).not.toContain('user');
     });
@@ -330,7 +330,7 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(resolved.result).toBe('Colour? → blue');
         expect(resolved.structuredResult).toEqual(value);
         // The history carries the prose only: the value is for a renderer, not the model.
-        const toolResult = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        const toolResult = t.calls[1]!.messages.find(m => m.role === 'tool');
         expect(toolResult?.content).toBe('Colour? → blue');
         expect(JSON.stringify(toolResult)).not.toContain('structured');
     });
@@ -525,8 +525,8 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         expect(t.calls[0]!['toolChoice']).toBe('none');
         expect(t.calls[0]!['tools']).toBeUndefined();
         const msgs = t.calls[0]!.messages;
-        expect(msgs.some(m => m.role === 'tool_call' && m.toolCalls?.[0]?.id === 'synthetic-tool-0')).toBe(true);
-        expect(msgs.some(m => m.role === 'tool_result' && m.content === 'SAVED' && m.toolCallId === 'synthetic-tool-0')).toBe(true);
+        expect(msgs.some(m => m.role === 'assistant' && m.toolCalls?.[0]?.id === 'synthetic-tool-0')).toBe(true);
+        expect(msgs.some(m => m.role === 'tool' && m.content === 'SAVED' && m.toolCallId === 'synthetic-tool-0')).toBe(true);
     });
 
     it('aborts the synthetic tool and stops when no handler is registered (no transport call)', async () => {
@@ -629,9 +629,10 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
     // append-only prompt whose turn N+1 EXTENDS turn N byte for byte. It can
     // already build its own request in `transportCall` — what it could not do was
     // learn which turns the loop appended without reimplementing the loop's
-    // tool_call/tool_result bookkeeping. This hook is that missing half.
+    // bookkeeping of the assistant's calls and the messages answering them. This
+    // hook is that missing half.
 
-    it('notifies the tool_call envelope then the tool_result, before the next turn goes out', async () => {
+    it('notifies the assistant turn carrying the calls, then the tool message, before the next turn goes out', async () => {
         const t = scriptedTransport([
             [
                 { type: 'text', delta: 'let me look' },
@@ -654,14 +655,13 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
             onHistoryAppend: (m) => { log.push(`append:${m.role}`); appended.push(m); },
         }));
 
-        expect(log).toEqual(['call', 'append:tool_call', 'append:tool_result', 'call']);
+        expect(log).toEqual(['call', 'append:assistant', 'append:tool', 'call']);
         expect(appended[0]).toEqual({
-            role: 'tool_call',
-            content: '',
+            role: 'assistant',
+            content: 'let me look',
             toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }],
-            precedingText: 'let me look',
         });
-        expect(appended[1]).toEqual({ role: 'tool_result', content: 'result text', toolCallId: 'c1' });
+        expect(appended[1]).toEqual({ role: 'tool', content: 'result text', toolCallId: 'c1', toolName: 'search' });
     });
 
     it('never notifies the caller of its own baseRequest messages', async () => {
@@ -707,7 +707,7 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
             approvalResolver: async () => ({ approved: false }),
             onHistoryAppend: (m) => rejected.push(m),
         }));
-        expect(rejected.map(m => m.role)).toEqual(['tool_call', 'tool_result']);
+        expect(rejected.map(m => m.role)).toEqual(['assistant', 'tool']);
         expect(rejected[1]!.content).toContain('rejected by the user');
     });
 

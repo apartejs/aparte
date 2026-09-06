@@ -96,8 +96,8 @@ describe('a vendor that omits tool_calls[].index', () => {
 describe('a vendor that omits tool_calls[].id', () => {
     it('mints an id rather than emitting id: ""', async () => {
         // `id: ''` keys the transcript row (`tool-${id}`) and the history slot
-        // (`tool_result { toolCallId: '' }`): two such calls shared one row, so the
-        // second call's result was written onto the first call's line.
+        // (a `tool` message with `toolCallId: ''`): two such calls shared one row, so
+        // the second call's result was written onto the first call's line.
         const events = await collect(parseOpenAICompatStream(sse(
             JSON.stringify({
                 choices: [{

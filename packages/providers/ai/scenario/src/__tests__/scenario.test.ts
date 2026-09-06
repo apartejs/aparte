@@ -138,8 +138,18 @@ describe('scenarios mode', () => {
         expect(first.map((e) => e.type)).toEqual(['text', 'tool_use', 'done']);
         const second = await reply(provider, request(
             user('weather please'),
-            { role: 'tool_call', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
-            { role: 'tool_result', content: '14 °C', toolCallId: 'w1' },
+            { role: 'assistant', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: '14 °C', toolCallId: 'w1', toolName: 'get_weather' },
+        ));
+        expect(text(second)).toBe('cloudy');
+    });
+
+    it('routes on the tool message\'s own name when no assistant turn declares the call', async () => {
+        // The hand-built history: a host replaying its own log has no envelope to scan.
+        const provider = createScenarioProvider({ scenarios, pacing: 'instant' });
+        const second = await reply(provider, request(
+            user('weather please'),
+            { role: 'tool', content: '14 °C', toolCallId: 'w1', toolName: 'get_weather' },
         ));
         expect(text(second)).toBe('cloudy');
     });

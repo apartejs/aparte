@@ -112,6 +112,34 @@ describe('history reconstruction prefers what was RENDERED', () => {
         expect(history, 'a segment with only a fallback still says what it was').toContain('[chart: sales by month]');
     });
 
+    it('a completed tool turn leaves user and assistant turns on the wire, and nothing else', async () => {
+        // The transcript keeps a tool call as a SEGMENT of the assistant's turn, and
+        // the serialiser skips it: the call and its answer belong to the turn they were
+        // made in, which is over. Nothing here mints a `tool` message.
+        const { cfg, el, seen } = harness([
+            { id: 'u1', role: 'user', content: 'what is the weather', timestamp: 1 },
+            {
+                id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'completed',
+                segments: [
+                    { id: 's1', type: 'text', content: 'Checking.' } as never,
+                    {
+                        id: 's2', type: 'tool_call', status: 'resolved',
+                        toolCall: { id: 'c1', name: 'get_weather', input: {} }, result: '14 °C',
+                    } as never,
+                    { id: 's3', type: 'text', content: 'It is 14 °C.' } as never,
+                ],
+            },
+        ]);
+        const client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never });
+        await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+            new CustomEvent('aparte-send', { detail: { content: 'and tomorrow?' } }),
+        );
+        const roles = (seen[0]?.messages ?? []).map(m => m.role);
+        expect(roles, 'the serialiser does not put a tool turn on the wire').toEqual(['user', 'assistant', 'user']);
+        expect(JSON.stringify(seen[0]?.messages), 'nor a tool call id').not.toContain('toolCallId');
+        expect(historyOf(seen), 'what it said around the call is still what it said').toContain('It is 14 °C.');
+    });
+
     it('still falls back to `content` when there are no segments', async () => {
         // A non-streaming transport writes the whole reply to `content` and creates
         // no segments, so the fallback has to stay.

@@ -125,7 +125,10 @@ const normalize = (scenarios: Record<string, Scenario | ScenarioTurn>): Record<s
     return out;
 };
 
-/** The name of the tool a `tool_result` answers: the call with that id, in the turn before. */
+/**
+ * The name of the tool a `tool` message answers, when the message does not carry it:
+ * the call with that id, in the assistant turn before.
+ */
 const toolNameOf = (messages: AparteChatMessage[], toolCallId: string | undefined): string | undefined => {
     for (let i = messages.length - 1; i >= 0; i--) {
         const call = messages[i]!.toolCalls?.find((tc) => tc.id === toolCallId);
@@ -142,8 +145,8 @@ const toolNameOf = (messages: AparteChatMessage[], toolCallId: string | undefine
 export function defaultMatch(request: AparteChatRequest, scenarios: Record<string, Scenario>): string | undefined {
     const entries = Object.entries(scenarios);
     const last = request.messages[request.messages.length - 1];
-    if (last?.role === 'tool_result') {
-        const tool = toolNameOf(request.messages, last.toolCallId);
+    if (last?.role === 'tool') {
+        const tool = last.toolName ?? toolNameOf(request.messages, last.toolCallId);
         const hit = entries.find(([, s]) => s.after !== undefined && s.after === tool);
         if (hit) return hit[0];
     }

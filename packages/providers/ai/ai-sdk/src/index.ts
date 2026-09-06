@@ -88,43 +88,30 @@ export interface AiSdkProviderOptions {
 // ─── aparté ⇄ AI SDK shaping ─────────────────────────────────────────────────
 
 /**
- * AparteChatMessage[] → AI SDK ModelMessage[]. Handles aparté's `tool_call` /
- * `tool_result` envelope (assistant tool-call parts + tool-role results); the
- * tool name for a result is recovered from the preceding envelope.
+ * AparteChatMessage[] → AI SDK ModelMessage[]. Handles a tool turn (an assistant
+ * message carrying `toolCalls`, then the `tool` messages answering them); the tool
+ * name for a result is the message's own `toolName`, else the call that declared it.
  */
 export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
-    // toolCallId → toolName (results reference calls by id only).
+    // toolCallId → toolName, the FALLBACK for a `tool` message that names no tool of
+    // its own. A hand-built history need carry no assistant turn to scan, which is
+    // where the name used to become 'unknown'.
     const toolNames = new Map<string, string>();
     for (const msg of messages) {
-        if (msg.role === 'tool_call') {
+        if (msg.role === 'assistant') {
             for (const tc of msg.toolCalls ?? []) toolNames.set(tc.id, tc.name);
         }
     }
 
     const out: ModelMessage[] = [];
     for (const msg of messages) {
-        if (msg.role === 'tool_call') {
-            out.push({
-                role: 'assistant',
-                content: [
-                    ...(msg.precedingText ? [{ type: 'text' as const, text: msg.precedingText }] : []),
-                    ...(msg.toolCalls ?? []).map(tc => ({
-                        type: 'tool-call' as const,
-                        toolCallId: tc.id,
-                        toolName: tc.name,
-                        input: tc.input,
-                    })),
-                ],
-            });
-            continue;
-        }
-        if (msg.role === 'tool_result') {
+        if (msg.role === 'tool') {
             out.push({
                 role: 'tool',
                 content: [{
                     type: 'tool-result',
                     toolCallId: msg.toolCallId ?? '',
-                    toolName: toolNames.get(msg.toolCallId ?? '') ?? 'unknown',
+                    toolName: msg.toolName ?? toolNames.get(msg.toolCallId ?? '') ?? 'unknown',
                     output: { type: 'text', value: contentToText(msg.content) },
                 }],
             });
@@ -135,6 +122,25 @@ export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
             continue;
         }
         if (msg.role === 'assistant') {
+            if (msg.toolCalls?.length) {
+                const text = contentToText(msg.content);
+                out.push({
+                    role: 'assistant',
+                    content: [
+                        // No empty text part: '' is what an assistant that said nothing
+                        // before its calls now carries, and a part saying nothing is a
+                        // part the model still reads.
+                        ...(text ? [{ type: 'text' as const, text }] : []),
+                        ...msg.toolCalls.map(tc => ({
+                            type: 'tool-call' as const,
+                            toolCallId: tc.id,
+                            toolName: tc.name,
+                            input: tc.input,
+                        })),
+                    ],
+                });
+                continue;
+            }
             out.push({ role: 'assistant', content: contentToText(msg.content) });
             continue;
         }

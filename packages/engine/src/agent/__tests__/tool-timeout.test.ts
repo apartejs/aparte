@@ -189,6 +189,6 @@ describe('a Stop is raced as well', () => {
         await Promise.resolve();
 
         expect(events, 'no result was announced').not.toContain('tool-resolved');
-        expect(appended.some((m) => m.role === 'tool_result'), 'and none was appended to the history').toBe(false);
+        expect(appended.some((m) => m.role === 'tool'), 'and none was appended to the history').toBe(false);
     });
 });

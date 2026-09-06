@@ -158,7 +158,7 @@ describe('the built-in gate asks at the composer', () => {
 
         expect(handler, 'an instruction is a refusal, not a conditional approval').not.toHaveBeenCalled();
         const second = sent[1] as Array<{ role?: string; content?: string }>;
-        const result = second.find(m => m.role === 'tool_result');
+        const result = second.find(m => m.role === 'tool');
         expect(result?.content).toContain('use --dry-run first');
     });
 

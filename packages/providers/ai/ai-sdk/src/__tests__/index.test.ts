@@ -274,11 +274,11 @@ describe('toModelMessages', () => {
         });
     });
 
-    it('converts the tool_call/tool_result envelope, recovering toolName for results', () => {
+    it('converts an assistant turn carrying calls and the tool message answering it', () => {
         const out = toModelMessages([
             { role: 'user', content: 'go' },
-            { role: 'tool_call', content: '', precedingText: 'Let me check.', toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }] },
-            { role: 'tool_result', content: 'RESULT', toolCallId: 'c1' },
+            { role: 'assistant', content: 'Let me check.', toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }] },
+            { role: 'tool', content: 'RESULT', toolCallId: 'c1', toolName: 'search' },
         ]);
         expect(out[1]).toEqual({
             role: 'assistant',
@@ -290,6 +290,41 @@ describe('toModelMessages', () => {
         expect(out[2]).toEqual({
             role: 'tool',
             content: [{ type: 'tool-result', toolCallId: 'c1', toolName: 'search', output: { type: 'text', value: 'RESULT' } }],
+        });
+    });
+
+    it('takes the tool name off the message when no assistant turn declares the call', () => {
+        // A hand-built history — a `history:` function, a prefix-cache host replaying
+        // its own log — has no envelope to scan, and the name used to become 'unknown'.
+        const out = toModelMessages([
+            { role: 'user', content: 'go' },
+            { role: 'tool', content: 'RESULT', toolCallId: 'c1', toolName: 'search' },
+        ]);
+        expect(out[1]).toEqual({
+            role: 'tool',
+            content: [{ type: 'tool-result', toolCallId: 'c1', toolName: 'search', output: { type: 'text', value: 'RESULT' } }],
+        });
+    });
+
+    it('still recovers the tool name from the declaring assistant turn when the message omits it', () => {
+        const out = toModelMessages([
+            { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'search', input: {} }] },
+            { role: 'tool', content: 'RESULT', toolCallId: 'c1' },
+        ]);
+        expect((out[1] as { content: Array<{ toolName: string }> }).content[0]!.toolName).toBe('search');
+    });
+
+    // The paired case: the same history, mapped for an OpenAI-compatible endpoint,
+    // sends null rather than ''. Both suites carry this describe under this title.
+    describe('an assistant turn that said nothing before its calls', () => {
+        it('emits no empty text part, only the tool-call parts', () => {
+            const out = toModelMessages([
+                { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'search', input: {} }] },
+            ]);
+            expect(out[0]).toEqual({
+                role: 'assistant',
+                content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'search', input: {} }],
+            });
         });
     });
 });

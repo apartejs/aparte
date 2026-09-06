@@ -112,11 +112,32 @@ describe('image-text-to-text runner', () => {
         const ctx = ctxFor(module);
         await run([
             { role: 'user', content: 'weather?' },
-            { role: 'tool_call', content: '', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
-            { role: 'tool_result', content: 'Cloudy', toolCallId: 't1' },
+            { role: 'assistant', content: 'Checking.', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: 'Cloudy', toolCallId: 't1', toolName: 'get_weather' },
         ], ctx);
-        expect(calls.templateArgs?.[0]).toEqual([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
+        // What the assistant SAID is prompt; the call it made, and the answer to it, are not.
+        expect(calls.templateArgs?.[0]).toEqual([
+            { role: 'user', content: [{ type: 'text', text: 'weather?' }] },
+            { role: 'assistant', content: [{ type: 'text', text: 'Checking.' }] },
+        ]);
         expect(ctx.warn).toHaveBeenCalledTimes(1);
+        expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/tool/);
+    });
+
+    it('says so when the assistant asked for a tool and said nothing else', async () => {
+        // The call rides on an `assistant` message, which passes the role test — so a
+        // turn with no parts of its own is dropped by the emptiness check below it, with
+        // nothing said. Isolated on purpose: the `tool` answer that usually follows
+        // fires the same warning and would hide this.
+        const { module, calls } = fakeTransformers();
+        const ctx = ctxFor(module);
+        await run([
+            { role: 'user', content: 'weather?' },
+            { role: 'assistant', content: '', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
+        ], ctx);
+        expect(calls.templateArgs?.[0], 'the call left no trace in the prompt')
+            .toEqual([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
+        expect(ctx.warn, 'so the page has to be told it did not').toHaveBeenCalledTimes(1);
         expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/tool/);
     });
 

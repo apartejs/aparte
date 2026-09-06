@@ -53,7 +53,7 @@ export function contentToText(content: string | AparteContentPart[]): string {
 }
 
 export interface AparteChatMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     /**
      * Message content — either a plain string (backward compatible) or an array
      * of typed content parts for multimodal messages (text + images + files).
@@ -61,12 +61,21 @@ export interface AparteChatMessage {
      * Use `contentToText(content)` to extract the text-only representation.
      */
     content: string | AparteContentPart[];
-    /** For role='tool_call': tool calls made by the assistant in this turn */
+    /**
+     * On an `assistant` message: the tool calls the model made this turn, grouped.
+     * `content` is what it said before them — `''` when it said nothing.
+     */
     toolCalls?: AparteToolCall[];
-    /** For role='tool_result': id of the tool call this responds to */
+    /** On a `tool` message: the id of the call, in the preceding assistant message, that it answers. */
     toolCallId?: string;
-    /** For role='tool_call': text streamed before the tool call in the same turn */
-    precedingText?: string;
+    /**
+     * On a `tool` message: the name of the tool that ran.
+     *
+     * Optional, and worth setting: a wire format that names the tool on the result
+     * (the AI SDK does) otherwise has to scan back for the call that declared the id,
+     * which a hand-built history need not contain.
+     */
+    toolName?: string;
 }
 
 export interface AparteChatRequest {
@@ -97,7 +106,7 @@ export interface AparteChatRequest {
      * - { name, input }: synthetic call — the agent loop (`runStreamAgent`,
      *                    or the runner you injected) bypasses the LLM
      *                    entirely and runs the handler directly with the provided
-     *                    input, then re-calls the LLM with the tool_result in history.
+     *                    input, then re-calls the LLM with the tool message in history.
      */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
 

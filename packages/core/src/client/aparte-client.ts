@@ -65,7 +65,7 @@ export type AparteToolApprovalResolver = (
     /**
      * What the user said to do instead, on a refusal.
      *
-     * It becomes the tool_result the model reads, which is possible at all only
+     * It becomes the `tool` message the model reads, which is possible at all only
      * because a refusal now hands the model a turn. Optional and additive: a resolver
      * that returns a bare `{ approved }` behaves exactly as before.
      */
@@ -1300,7 +1300,8 @@ export class AparteClient {
      *
      * `thinking` and `tool_call` stay out on purpose — the first is the model's own
      * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second is already in the history as a call and a result.
+     * second was already carried, within the turn, as the assistant's calls and the
+     * `tool` messages answering them.
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';
@@ -1546,7 +1547,7 @@ export class AparteClient {
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
-                    // tool_result, or fall through to "the user rejected this" downstream.
+                    // `tool` message, or fall through to "the user rejected this" downstream.
                     return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
                 }
                 return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);

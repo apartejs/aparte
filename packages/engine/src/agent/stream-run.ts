@@ -64,10 +64,11 @@ export interface StreamRunOptions {
     /** Per-tool-call handler timeout in ms. @default 300000 */
     toolTimeoutMs?: number;
     /**
-     * Called for every turn the loop appends to the history — the grouped
-     * `tool_call` envelope, each `tool_result` (resolved or rejected), and a
-     * pipeline phase's reply — in order, and always before the transport call that
-     * would carry it. Never called for the messages you passed in `baseRequest`.
+     * Called for every turn the loop appends to the history — the assistant message
+     * carrying the turn's calls, each `tool` message answering one (resolved or
+     * rejected), and a pipeline phase's reply — in order, and always before the
+     * transport call that would carry it. Never called for the messages you passed
+     * in `baseRequest`.
      *
      * For hosts that own their own transcript. The loop re-sends its `messages`
      * array every turn, which suits stateless message APIs but not a **prefix
@@ -77,19 +78,23 @@ export interface StreamRunOptions {
      * log, instead of reimplementing the loop's tool bookkeeping. Synchronous and
      * ordered, like {@link emitter}.
      *
-     * One rule about the envelope: a turn's `tool_call` message is reported ONCE, when
+     * One rule about the envelope: a turn's assistant message is reported ONCE, when
      * its first call completes, and the calls that complete later in the same turn are
      * already in that same object's `toolCalls` — the array is shared by reference, not
      * copied. Hold the reference, not a snapshot, and every result you receive after it
      * is declared by it.
      *
      * Two of its fields are finalised after you are notified, then: `toolCalls` gains
-     * the turn's later calls, and `precedingText` is re-read at the turn's end (a
-     * provider that emits `[tool, text]` streams the rest of the sentence after the
-     * envelope is opened). A host that must write BYTES at receipt — an append-only
-     * log, which cannot hold a reference — should therefore treat the envelope as
-     * provisional and write it only once the turn's last `tool_result` has arrived,
-     * or re-read the object it holds before serialising.
+     * the turn's later calls, and `content` is re-read at the turn's end (a provider
+     * that emits `[tool, text]` streams the rest of the sentence after the envelope is
+     * opened — see `syncEnvelopeText`). A host that must write BYTES at receipt — an
+     * append-only log, which cannot hold a reference — should therefore treat the
+     * envelope as provisional and write it only once the turn's last `tool` message
+     * has arrived, or re-read the object it holds before serialising.
+     *
+     * `content` is the field that moved here, and the failure is louder than it was:
+     * a snapshot no longer loses a trailing clause, it loses the whole sentence the
+     * assistant said before it called anything.
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
@@ -149,7 +154,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     let idSeq = 0;
     const idGen = opts.idGen ?? ((prefix: string) => `${prefix}-${idSeq++}`);
 
-    // Mutable history the loop enriches with tool_call/tool_result turns. Every
+    // Mutable history the loop enriches with the assistant and `tool` turns of a tool round-trip. Every
     // enrichment goes through `append`, so a caller owning its own transcript sees
     // the same turns in the same order (see `onHistoryAppend`).
     const messages: StreamAgentMessage[] = [...baseRequest.messages];
@@ -179,7 +184,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
         // ── Synthetic toolChoice bypass (mirrors _streamLoop) ──────
         // toolChoice = { name, input } (orchestrator-forced): skip the LLM for
-        // turn 1, run the handler directly, inject its result as a tool_result,
+        // turn 1, run the handler directly, inject its result as a `tool` message,
         // then strip toolChoice/tools and fall through to the transport call in
         // the SAME turn so the model answers with the tool result already in
         // history. (The adapter's tool-start handler injects renderer CSS here
@@ -217,8 +222,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 throw outcome.error;
             }
             emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content, structuredResult: outcome.structuredContent });
-            append({ role: 'tool_call', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
-            append({ role: 'tool_result', content: outcome.content, toolCallId: syntheticId });
+            append({ role: 'assistant', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
+            append({ role: 'tool', content: outcome.content, toolCallId: syntheticId, toolName: tc.name });
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
         }
 
@@ -289,10 +294,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // declared" (`toolCallsThisTurn`, which now holds only committed ones).
         let sawToolUse = false;
         /**
-         * The turn's ONE `tool_call` envelope, held by reference. Created — and
+         * The turn's ONE assistant envelope, held by reference. Created — and
          * appended, so the host is notified once — the first time a call needs it;
          * every later call of the turn is already in the SAME `toolCalls` array, so a
-         * `tool_result` appended afterwards is always declared by it.
+         * `tool` message appended afterwards is always declared by it.
          *
          * This replaces an id scan over `messages` that guessed whether the envelope
          * was already there. The `create_artifact` fast path pushed a fresh envelope
@@ -304,17 +309,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         let envelope: StreamAgentMessage | null = null;
         /*
          * A call is DECLARED in the envelope only once it is committed to producing
-         * a `tool_result` — at the three sites that append one right after. It used
+         * a `tool` message — at the three sites that append one right after. It used
          * to be pushed the moment the `tool_use` event was read, into the same array
          * the envelope holds by reference, so a call halted before its result (no
          * handler, turn limit, missing resolver, an abort during the wait) still
-         * appeared in a history the host was told to hold by reference: a
-         * `tool_call` declaring a call that never gets a result.
+         * appeared in a history the host was told to hold by reference: an
+         * assistant message declaring a call that never gets a result.
          */
         const declareCall = (call: StreamToolCall): void => {
             toolCallsThisTurn.push(call);
             if (envelope) return;
-            envelope = { role: 'tool_call', content: '', toolCalls: toolCallsThisTurn, precedingText: precedingText.trim() || undefined };
+            envelope = { role: 'assistant', content: precedingText.trim(), toolCalls: toolCallsThisTurn };
             append(envelope);
         };
         /*
@@ -327,12 +332,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
          * exactly this reason, the way `toolCalls` is.
          */
         const syncEnvelopeText = (): void => {
-            if (envelope) envelope.precedingText = precedingText.trim() || undefined;
+            if (envelope) envelope.content = precedingText.trim();
         };
         /*
          * A call id must be unique WITHIN the turn: the transcript keys a row on it
          * (`tool-${id}`, and `updateSegment` takes the first match) and the history
-         * files a `tool_result` under it. A vendor that omits `id` used to give every
+         * files a `tool` message under it. A vendor that omits `id` used to give every
          * call of a turn the same one, so the second call's result was written onto the
          * first call's row and the pair could not be matched at all on the next turn.
          * A repeat is renamed rather than refused — the model asked for both.
@@ -476,7 +481,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                      * A stop is not a refusal either. Core's built-in channel resolves
                      * `{ approved: false }` on abort, indistinguishable by value from an
                      * explicit Reject — so the signal is what tells them apart. No
-                     * `tool_result`: an aborted call has nothing true to tell the model.
+                     * `tool` message: an aborted call has nothing true to tell the model.
                      *
                      * Checked on three sides of the wait, because the stop can land on
                      * any of them: while the gate was being shown (a host that reacts to
@@ -522,14 +527,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                          * a case neither exercised. It supplies one now.
                          */
                         // Truthiness, like `instruction` beside it: an empty `reason` is no
-                        // reason, not an empty tool_result.
+                        // reason, not an empty `tool` message.
                         const rejection = decision.reason?.trim()
                             || (decision.instruction
                                 ? `The user rejected this tool call and said: ${decision.instruction}`
                                 : 'Tool execution was rejected by the user.');
                         emitter({ type: 'tool-rejected', toolCallId: callId, reason: rejection });
                         declareCall({ id: callId, name: event.name, input: event.input });
-                        append({ role: 'tool_result', content: rejection, toolCallId: callId });
+                        append({ role: 'tool', content: rejection, toolCallId: callId, toolName: event.name });
                         /*
                          * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
                          * point. The remaining tool calls of this turn must not run — the
@@ -572,7 +577,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: callId, result: outcome.content, structuredResult: outcome.structuredContent });
                     declareCall({ id: callId, name: event.name, input: event.input });
-                    append({ role: 'tool_result', content: outcome.content, toolCallId: callId });
+                    append({ role: 'tool', content: outcome.content, toolCallId: callId, toolName: event.name });
                 }
             }
 

@@ -70,12 +70,12 @@ describe('two calls in one turn are two calls', () => {
         }));
 
         const history = t.calls[1]!.messages;
-        const declared = history.find(m => m.role === 'tool_call')!.toolCalls!;
+        const declared = history.find(m => m.role === 'assistant' && m.toolCalls)!.toolCalls!;
         expect(declared).toHaveLength(2);
         expect(declared[0]!.id).not.toBe(declared[1]!.id);
 
         // Every result names exactly one declared call.
-        const results = history.filter(m => m.role === 'tool_result');
+        const results = history.filter(m => m.role === 'tool');
         expect(results.map(r => r.toolCallId).sort()).toEqual(declared.map(c => c.id).sort());
 
         // And the transcript rows are addressed apart, from `tool-start` onward.
@@ -98,7 +98,7 @@ describe('two calls in one turn are two calls', () => {
             toolLookup: () => async (call) => { given.push(call.id); return { content: 'ok' }; },
         }));
         expect(new Set(given).size).toBe(2);
-        expect(t.calls[1]!.messages.filter(m => m.role === 'tool_result').map(m => m.toolCallId)).toEqual(given);
+        expect(t.calls[1]!.messages.filter(m => m.role === 'tool').map(m => m.toolCallId)).toEqual(given);
     });
 
     it('leaves distinct ids alone', async () => {
@@ -114,7 +114,7 @@ describe('two calls in one turn are two calls', () => {
             transportCall: t.transportCall,
             toolLookup: () => async () => ({ content: 'ok' }),
         }));
-        expect(t.calls[1]!.messages.find(m => m.role === 'tool_call')!.toolCalls!.map(c => c.id)).toEqual(['c1', 'c2']);
+        expect(t.calls[1]!.messages.find(m => m.role === 'assistant' && m.toolCalls)!.toolCalls!.map(c => c.id)).toEqual(['c1', 'c2']);
     });
 });
 
@@ -138,7 +138,7 @@ describe('the text of a turn that also called a tool', () => {
             transportCall: t.transportCall,
             toolLookup: () => async () => ({ content: 'r' }),
         }));
-        expect(t.calls[1]!.messages.find(m => m.role === 'tool_call')!.precedingText)
+        expect(t.calls[1]!.messages.find(m => m.role === 'assistant' && m.toolCalls)!.content)
             .toBe('Let me check. One moment.');
     });
 });
