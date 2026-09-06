@@ -18,14 +18,15 @@
  * none, so only this form is assignable to the extensions record that
  * `setLocale`/`extendLocale` accept and `getLocale` returns.
  *
- * Nine keys here are rendered by no core file — the artifact card's six, its two sandbox
- * lines, and the compaction summary's title, all drawn by a plugin. They belong in this
- * bag anyway: the locale is one flat object every package shares, so a translator fills
- * one record and `@aparte/locale-fr` needs no companion per plugin. They are the
+ * Eleven keys here are rendered by no core file — the artifact card's six, its two
+ * sandbox lines, the compaction summary's title, the approval mode picker's label and the
+ * model selector's placeholder, all drawn by a plugin. They belong in this bag anyway: the
+ * locale is one flat object every package shares, so a translator fills one record and
+ * `@aparte/locale-fr` needs no companion per plugin. They are the
  * exception rather than the pattern, though, and a closed one: a plugin of your own
  * reads its strings off `getLocale()` and defaults them at the call site (the
- * localization guide shows it), and `check:locale-keys` holds those nine in
- * `PLUGIN_OWNED` and refuses a tenth. The reason is that a key here is a published name
+ * localization guide shows it), and `check:locale-keys` holds those eleven in
+ * `PLUGIN_OWNED` and refuses a twelfth. The reason is that a key here is a published name
  * before it is a word: it ships in every locale package, and the frozen surface then
  * keeps it for two releases.
  */

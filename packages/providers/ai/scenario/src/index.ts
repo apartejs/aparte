@@ -260,9 +260,17 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
     // default match routes the tool RESULT back through the same `when` and the
     // conversation eats its own tail — identical rounds until the client's
     // maxTurns error. Plausible to write, silent to read; the hole is visible at
-    // creation, so it is said at creation. Ordered `turns` advance on their own,
-    // and a custom `match` replaces the default rule — both exempt.
-    if (options.scenarios && !options.match) {
+    // creation, so it is said at creation. Ordered `turns` advance on their own, so
+    // they are the one exemption.
+    //
+    // A custom `match` is NOT exempt, and used to be. It does not replace the default
+    // rule, it precedes it — `pick` reads `match(...) ?? defaultMatch(...)` — so a
+    // `match` that returns `undefined` for a tool result, the shape the docs and this
+    // repo's own examples write, falls straight into the loop this warning describes.
+    // The exemption silenced the one case most likely to need the line; a consumer who
+    // really owns the routing can ignore a single console line at creation — and the
+    // message tells them so, since for THEM the sentence about looping may be false.
+    if (options.scenarios) {
         // A record value is a Scenario OR a bare turn (string / steps) — a tool in a
         // BARE turn loops the same way, through the default/first-entry fallback.
         const values = Object.values(options.scenarios);
@@ -285,7 +293,16 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
                 `[scenario] No \`after\` route for: ${[...orphans].map((t) => `\`${t}\``).join(', ')}. `
                 + 'A scenario calls the tool, but nothing answers its result — the default match '
                 + 'sends it back through the same `when`, and the conversation loops until the '
-                + "client's maxTurns stops it. Declare a scenario with `after: '<tool>'` for each.",
+                + "client's maxTurns stops it. Declare a scenario with `after: '<tool>'` for each."
+                // Only said when there IS a `match`, because only then can the sentence above be
+                // false: routing the result by value is the documented "Branching on what the user
+                // answered" shape, and it does not loop. Without a `match` the loop is certain, and
+                // an escape hatch named there would only muddy the one instruction that helps.
+                + (options.match
+                    ? ' Your own `match` runs before that rule: if it already routes this result'
+                    + ' — routing by the value the tool returned is a documented shape — this line'
+                    + ' is the one to ignore.'
+                    : ''),
             );
         }
     }

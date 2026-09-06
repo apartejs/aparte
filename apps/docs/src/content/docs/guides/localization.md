@@ -71,10 +71,12 @@ core itself renders, and `t(key)` is deliberately narrow against it — that is 
 core key a compile error instead of an empty label nobody notices. Your key is not on that list, so
 it is read directly and defaulted at the call site, which is where its English belongs anyway.
 
-You will find nine exceptions if you read `AparteLocale` — the artifact card's labels and the
-compaction summary's title, declared in core and rendered by `@aparte/plugin-artifacts` and
-`@aparte/plugin-compaction`. They are a closed list, kept so a translator fills one object instead of
-one per plugin; the repo's own `check:locale-keys` refuses a tenth. Your plugin takes the route below:
+You will find eleven exceptions if you read `AparteLocale` — the artifact card's labels, the
+compaction summary's title, the approval switch's label and the model selector's placeholder,
+declared in core and rendered by `@aparte/plugin-artifacts`, `@aparte/plugin-compaction`,
+`@aparte/plugin-approval` and `@aparte/plugin-model-selector`. They are a closed list, kept so a
+translator fills one object instead of one per plugin; the repo's own `check:locale-keys` refuses a
+twelfth. Your plugin takes the route below:
 
 ```ts
 import { aparteGlobalConfig, subscribeConfigChange, APARTE_DEFAULT_LOCALE } from '@aparte/core';

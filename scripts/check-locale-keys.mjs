@@ -29,11 +29,12 @@
  *
  *   4. **Whose string it is.** `AparteLocale` is the closed list of what CORE renders,
  *      and `t()` is typed against it — so a plugin that wants a translatable label has
- *      exactly one place to put its key, and nine keys arrived that way: the artifact
- *      card's six, its two sandbox lines, and the compaction summary's title. They are
+ *      exactly one place to put its key, and eleven keys arrived that way: the artifact
+ *      card's six, its two sandbox lines, the compaction summary's title, the approval
+ *      mode picker's label and the model selector's placeholder. They are
  *      right where they are (a locale package translates ONE bag, not one per plugin),
  *      and they are also invisible: nothing distinguished them from core's own words,
- *      so a tenth would have been added by reflex — and every one of them is a name the
+ *      so a twelfth would have been added by reflex — and every one of them is a name the
  *      frozen surface then holds for two releases. `PLUGIN_OWNED` writes the exception
  *      down, and this guard reads it in both directions: a new plugin-only key has to
  *      join the list deliberately, and a listed key core has started rendering has to
@@ -116,6 +117,8 @@ const PLUGIN_OWNED = new Set([
     'previewPending', // @aparte/plugin-artifacts — the preview pane before anyone presses it
     'sandboxError', // @aparte/plugin-artifacts — a sandbox run that failed, and its hint
     'sandboxErrorHint',
+    'approvalModeLabel', // @aparte/plugin-approval — the mode picker's label
+    'modelSelectorPlaceholder', // @aparte/plugin-model-selector — the empty picker's placeholder
 ]);
 
 /**
@@ -233,9 +236,11 @@ if (!DOCTORED_LOCALE) {
 
 // ── 4. whose string it is: core renders it, or PLUGIN_OWNED names the plugin ──
 /**
- * Which declared keys a corpus renders. Three shapes reach a string — `cfg.t('x')`,
- * `getLocale().x`, and the `const locale = …getLocale()` alias core writes everywhere —
- * and all three count, because a key core reads only through the alias is still core's.
+ * Which declared keys a corpus renders. Four shapes reach a string — `cfg.t('x')`,
+ * `getLocale().x`, the `const locale = …getLocale()` alias core writes everywhere, and the
+ * same alias read through a bracket (`locale['x']`, which a plugin building its label from a
+ * mode name writes) — and all four count, because a key core reads only through the alias,
+ * dot or bracket, is still core's.
  * Tests are left out: asserting on a plugin's label is not core rendering it.
  */
 function rendered(files) {
@@ -246,6 +251,7 @@ function rendered(files) {
         const keys = [
             ...[...text.matchAll(/\.t\(\s*(['"])([a-zA-Z]\w*)\1\s*\)/g)].map((m) => m[2]),
             ...[...text.matchAll(/(?:getLocale\(\)|\blocale|\bloc)\s*\??\.\s*([a-zA-Z]\w*)/g)].map((m) => m[1]),
+            ...[...text.matchAll(/(?:getLocale\(\)|\blocale|\bloc)\s*\??\[\s*(['"])([a-zA-Z]\w*)\1\s*\]/g)].map((m) => m[2]),
         ];
         for (const key of keys) {
             if (!declared.has(key)) continue;

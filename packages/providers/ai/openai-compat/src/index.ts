@@ -102,6 +102,13 @@ function warnLegacyToolRole(role: string): void {
     );
 }
 
+// The other half of that legacy shape, and it is deliberately NOT warned: an assistant
+// message built by hand with both `toolCalls` and image parts loses the images here.
+// Chat Completions does not carry them — an assistant message's content parts are `text`
+// and `refusal`, never `image_url` — so the mapping that used to emit them was a 400
+// waiting to happen, and the loop cannot mint the shape (`stream-run.ts` builds an
+// assistant's content from a string). Images on a USER turn are carried, unchanged.
+
 /** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */
 function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
     const out: unknown[] = [];

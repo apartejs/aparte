@@ -194,6 +194,11 @@ export async function POST(req: Request): Promise<Response> {
 
   const { request } = (await req.json()) as { request: AparteChatRequest };
 
+  // Nothing constrains what the client sent: `modelId`, the whole `messages`
+  // array, `tools` and `maxTokens` are theirs. An allow-list is two lines.
+  const MODELS = ['claude-sonnet-4-5', 'claude-haiku-4-5'];
+  if (!MODELS.includes(request.modelId)) return new Response('Unknown model', { status: 400 });
+
   const result = streamText({
     model: createAnthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] })(request.modelId),
     messages: toModelMessages(request.messages),
@@ -203,8 +208,30 @@ export async function POST(req: Request): Promise<Response> {
       : {}),
   });
 
+  // `stream: false` expects a plain `{ text }` body, not NDJSON.
+  if (request.stream === false) {
+    try {
+      return Response.json({ text: await result.text });
+    } catch (err) {
+      console.error('[api/chat] vendor request failed', err);
+      return Response.json({ error: { message: 'Vendor request failed.' } }, { status: 502 });
+    }
+  }
+
   // One JSON event per line: aparté's own wire format, not the AI SDK Data Stream Protocol.
+  // The vendor's error prose is summarised on the way out and kept in the logs —
+  // an Anthropic/OpenAI 401 quotes your key's prefix, tail and format.
   const ndjson = fullStreamToAparteEvents(result.fullStream)
+    .pipeThrough(new TransformStream<AparteStreamEvent, AparteStreamEvent>({
+      transform: (event, controller) => {
+        if (event.type === 'error') {
+          console.error('[api/chat] vendor stream error', event.message);
+          controller.enqueue({ type: 'error', message: 'Vendor request failed.' });
+          return;
+        }
+        controller.enqueue(event);
+      },
+    }))
     .pipeThrough(new TransformStream<AparteStreamEvent, string>({
       transform: (event, controller) => controller.enqueue(`${JSON.stringify(event)}\n`),
     }))
@@ -217,6 +244,16 @@ export async function POST(req: Request): Promise<Response> {
 The browser half is unchanged — `AparteBackendTransport` and a `providerId`, section 2
 below. The tools stay **client-side**: the SDK gets declarations only, your handlers run in
 the browser, and the approval gate is where it always was.
+
+Three lines in that route do what `createAparteChatHandler` does for you, and they are the
+ones to keep when you adapt it. The `error` event is **rewritten to a fixed message** before
+it leaves the server, for the reason §1 gives above — a vendor 401 quotes your key's prefix,
+tail and format, so the original belongs in your logs, not in the browser. The
+`request.stream === false` branch answers a plain `{ text }` body, which is what
+`AparteBackendTransport` parses for a non-streaming request; without it the browser gets
+NDJSON and throws on the second line. And nothing constrains `modelId` or the `messages`
+array beyond the allow-list shown — as in §1, your session check decides *who* calls the
+route, never *what* they send.
 
 ## 2. Point the browser at it
 

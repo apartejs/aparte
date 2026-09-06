@@ -82,10 +82,11 @@ registerModel({
 
 Measured: SmolVLM-256M on WebGPU (Chromium, AMD Radeon 8060S): first load 7 s (download included), first token 3.7 s cold; Stop interrupts the model, not just the read.
 
-Each runner is its own chunk, loaded only when a model asks for it. Both drop tool turns — the
-calls on an assistant turn and the `tool` turns that answer them — with one warning (tool syntax is
-per model family), and the text runner **says so when it drops an image**: it never answers a photo
-it could not see as if it had.
+Each runner is its own chunk, loaded only when a model asks for it. Both drop a tool turn's call and
+its result — what the assistant said before the call stays in the prompt — with one warning (tool
+syntax is per model family), and the text runner **says so when it drops an image**: it never answers a photo
+it could not see as if it had. The vision runner counts a content part it cannot carry the same way,
+rather than handing the model an empty picture.
 
 ### A runner of your own
 

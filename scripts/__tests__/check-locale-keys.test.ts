@@ -2,16 +2,19 @@
  * The locale guard tells core's strings from a plugin's, and says so.
  *
  * `AparteLocale` is the closed list of what CORE renders, and `t()` is typed against it.
- * Nine of its keys are rendered by no core file at all — the artifact card's and the
- * compaction summary's — and they are legitimate: a locale package translates one bag,
- * not one per plugin. Legitimate, and invisible: nothing stopped a tenth from being added
- * by reflex, and every one of them is a name the frozen surface then holds for two
- * releases. So the exception is written down (`PLUGIN_OWNED`) and the guard reads it.
+ * Eleven of its keys are rendered by no core file at all — the artifact card's, the
+ * compaction summary's, the approval mode picker's and the model selector's — and they are
+ * legitimate: a locale package translates one bag, not one per plugin. Legitimate, and
+ * invisible: nothing stopped a twelfth from being added by reflex, and every one of them is
+ * a name the frozen surface then holds for two releases. So the exception is written down
+ * (`PLUGIN_OWNED`) and the guard reads it.
  *
  * The three behaviours, and why each is the one that matters:
  *
  *   • a declared key that only a plugin renders, absent from the list, FAILS — that is
- *     the tenth key, caught while it is still free to move;
+ *     the twelfth key, caught while it is still free to move, whether it is read with a
+ *     dot or with a bracket (`getLocale()['x']`, the shape two shipped plugins use and
+ *     the one the matcher was blind to);
  *   • the same key PASSES once it is on the list — the exception is an exception, not a
  *     hole;
  *   • a listed key that core has started rendering FAILS the other way, asking for the
@@ -75,6 +78,20 @@ function locale(name: string, keys: string[]): string {
     return file;
 }
 
+/**
+ * The same shape, but each file's body is written verbatim — the way a plugin that reaches
+ * its label through `getLocale()['key']` writes it. `sources()` can only emit `cfg.t('…')`,
+ * and a matcher blind to one access shape passes every fixture the other one produces.
+ */
+function bodies(name: string, core: string, plugin: string): string {
+    const root = join(dir, name);
+    mkdirSync(join(root, 'core', 'src'), { recursive: true });
+    mkdirSync(join(root, 'plugins', 'probe', 'src'), { recursive: true });
+    writeFileSync(join(root, 'core', 'src', 'renders.ts'), core, 'utf8');
+    writeFileSync(join(root, 'plugins', 'probe', 'src', 'renders.ts'), plugin, 'utf8');
+    return root;
+}
+
 function run(args: string[]): { code: number; out: string } {
     const r = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: REPO, encoding: 'utf8' });
     return { code: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
@@ -126,6 +143,25 @@ describe('check-locale-keys — core renders it, or a plugin owns it', () => {
         expect(r.out).toContain('remove it from PLUGIN_OWNED');
         // The two failures must not be confused: a reclaimed key is not a stray one.
         expect(r.out).not.toContain('no core file renders it');
+    });
+
+    it('sees a plugin that reads its label through a bracket, not a dot', () => {
+        // `getLocale()['newChat']` is how two shipped plugins read theirs; a matcher that
+        // only knows `.t('x')` and `getLocale().x` calls this corpus clean.
+        const tree = bodies('bracket', "cfg.t('copy');\n", "this._cfg?.getLocale()['newChat'];\n");
+        const r = run(['--sources', tree]);
+        expect(r.code).toBe(1);
+        expect(r.out).toContain('newChat');
+        expect(r.out).toContain('no core file renders it');
+    });
+
+    it('counts a bracket read as core rendering the key', () => {
+        // The other direction: a key core reaches through a bracket is core's, so a
+        // PLUGIN_OWNED line for it has outlived its reason.
+        const tree = bodies('bracket-core', "getLocale()['download'];\n", "cfg.t('download');\n");
+        const r = run(['--sources', tree]);
+        expect(r.code).toBe(1);
+        expect(r.out).toContain('remove it from PLUGIN_OWNED');
     });
 
     it('judges ownership against the list --locale names, not the one core ships', () => {

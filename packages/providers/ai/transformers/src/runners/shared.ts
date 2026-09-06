@@ -8,9 +8,24 @@ import type { AparteStreamEvent } from '@aparte/core';
 import type { RunnerContext, TransformersModule } from './types.js';
 
 export const TOOL_TURNS_DROPPED =
-    'Dropped tool turn(s) from the prompt: this runner does not support tool calling, so the '
-    + 'model sees neither the call the assistant made nor the result that answered it. Use an '
+    'Dropped the tool call(s) and their results from the prompt: this runner does not support '
+    + 'tool calling, so the model sees neither the call the assistant made nor the result that '
+    + 'answered it. What the assistant SAID before calling stays in the prompt. Use an '
     + 'OpenAI-compatible endpoint for tools, or a runner that renders them.';
+
+/**
+ * A content part neither built-in runner can carry. The union is text and image, so this
+ * is unreachable from typed code — and reachable all the same from an app built against an
+ * older aparte, which declared a third `file` part nothing ever filled. The wire mappers
+ * guard the same case on the ROLE axis (`openai-compat`'s removed `tool_call`/`tool_result`);
+ * the part axis had no guard, so the part was pushed into the image list as `undefined` and
+ * `load_image` threw at generate time instead of the part being counted and named.
+ */
+export const UNSUPPORTED_PARTS_DROPPED =
+    'Dropped content part(s) this runner cannot carry: it takes text and image parts only, so '
+    + 'anything else leaves the prompt with nothing in its place. A `file` part is the case to '
+    + 'expect — it was removed from `AparteContentPart`; inline what you want the model to read '
+    + 'as text, or send an image.';
 
 /**
  * The options a `from_pretrained` / `pipeline()` call takes from the context: download

@@ -45,3 +45,7 @@ The options object is `AiSdkProviderOptions`. The bridge also exports its four s
 functions on their own — `toModelMessages`, `toToolSet`, `toToolChoice`,
 `fullStreamToAparteEvents` — which is what turns a server you already have into an aparté
 backend: [Keep the key server-side](/guides/backend-transport/#1b-or-your-server-already-uses-the-ai-sdk).
+That route is yours to write, so the redaction is too: `fullStreamToAparteEvents` forwards the
+SDK's `error` part with the vendor's own prose, and a vendor 401 quotes your key's prefix, tail
+and format — rewrite the `error` event to a fixed message before it leaves your server, as the
+guide's route does.

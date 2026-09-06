@@ -7,8 +7,12 @@
  * maxTurns error. On a scripted provider that is confusing; pointed at a paid
  * model it burns money. The provider can SEE the hole at creation, so it says so.
  *
- * Ordered `turns` mode is exempt (every call advances, a tool round-trip
- * included), and a custom `match` replaces the default rule entirely.
+ * Ordered `turns` mode is exempt (every call advances, a tool round-trip included). A
+ * custom `match` is NOT: it does not replace the default rule, it precedes it —
+ * `match(...) ?? defaultMatch(...)` — so a `match` that returns `undefined` for the tool
+ * result, which is exactly what the docs' and the examples' own `match` functions do,
+ * falls straight into the loop this warning describes. The exemption used to be there and
+ * silenced the one shape most likely to hit it.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createScenarioProvider } from '../index.js';
@@ -46,7 +50,22 @@ describe('a tool-calling scenario without its after route warns at creation', ()
         expect(warn).not.toHaveBeenCalled();
     });
 
-    it('stays silent under a custom match — the default rule is not in play', () => {
+    it('still warns under a custom match — `match` precedes the default rule, it does not replace it', () => {
+        // `match(request, scenarios) ?? defaultMatch(request, scenarios)`: a `match` that
+        // returns undefined for the tool result — the shape the docs and the examples write —
+        // lands back on the rule the warning protects.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        createScenarioProvider({
+            match: () => undefined,
+            scenarios: {
+                weather: { when: 'weather', turn: [{ tool: 'get_weather', input: {} }] },
+            },
+        });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain('get_weather');
+    });
+
+    it('warns for a match that always returns a key too — one line a consumer who owns the routing can ignore', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         createScenarioProvider({
             match: () => 'weather',
@@ -54,6 +73,38 @@ describe('a tool-calling scenario without its after route warns at creation', ()
                 weather: { when: 'weather', turn: [{ tool: 'get_weather', input: {} }] },
             },
         });
-        expect(warn).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('tells a caller who passed a match that the line may be theirs to ignore', () => {
+        // The docs' own "Branching on what the user answered" example is this shape: no
+        // `after:` route, a `match` that reads the tool result and routes it by value. The
+        // sentence about looping is false FOR IT, so the warning has to name the escape it
+        // cannot see — otherwise the reader is told their working code is broken.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        createScenarioProvider({
+            match: (request, scenarios) => {
+                const last = [...request.messages].reverse().find((m) => m.role === 'tool');
+                if (!last) return 'start';
+                const picked = String(last.content).trim();
+                return picked in scenarios ? picked : undefined;
+            },
+            scenarios: {
+                start: { turn: [{ tool: 'ask_user', input: {} }] },
+                browser: { turn: 'In the browser, then.' },
+            },
+        });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain('this line is the one to ignore');
+    });
+
+    it('claims nothing about `match` when there is none — the loop is unconditional there', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        createScenarioProvider({
+            scenarios: {
+                weather: { when: 'weather', turn: [{ tool: 'get_weather', input: {} }] },
+            },
+        });
+        expect(String(warn.mock.calls[0]?.[0])).not.toContain('this line is the one to ignore');
     });
 });

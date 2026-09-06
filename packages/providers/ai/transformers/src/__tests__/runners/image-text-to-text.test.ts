@@ -13,7 +13,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRunner } from '../../runners/image-text-to-text.js';
 import type { RunnerContext, RunnerGenerateInput } from '../../runners/types.js';
-import type { AparteStreamEvent } from '@aparte/core';
+import type { AparteContentPart, AparteStreamEvent } from '@aparte/core';
 
 function fakeTransformers() {
     const calls: {
@@ -139,6 +139,22 @@ describe('image-text-to-text runner', () => {
             .toEqual([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
         expect(ctx.warn, 'so the page has to be told it did not').toHaveBeenCalledTimes(1);
         expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/tool/);
+    });
+
+    it('counts a content part it cannot carry and says so, instead of handing load_image an undefined', async () => {
+        // The removed `AparteFilePart` shape: type-impossible, and reachable all the same from
+        // code built against an older aparté — the same case the wire mappers guard on the ROLE
+        // axis. Unguarded, `images.push(p.image)` pushes `undefined` and `load_image(undefined)`
+        // fails at generate time instead of the part being counted and named.
+        const { module, calls } = fakeTransformers();
+        const ctx = ctxFor(module);
+        const legacyFilePart = { type: 'file', data: 'JVBERi0=', mimeType: 'application/pdf' } as unknown as AparteContentPart;
+        await run([{ role: 'user', content: [{ type: 'text', text: 'read this' }, legacyFilePart] }], ctx);
+        expect(calls.templateArgs?.[0], 'the part leaves no placeholder in the prompt')
+            .toEqual([{ role: 'user', content: [{ type: 'text', text: 'read this' }] }]);
+        expect(calls.loaded, 'and nothing undefined reaches load_image').toEqual([]);
+        expect(ctx.warn).toHaveBeenCalledTimes(1);
+        expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/part/);
     });
 
     it('generates from the processed inputs with the options, streaming tokens as text events', async () => {

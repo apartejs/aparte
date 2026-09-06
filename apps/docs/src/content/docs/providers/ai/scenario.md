@@ -122,6 +122,12 @@ value on the segment), so the handler needs no encoding for a single choice; a h
 your own can write whatever its `match` reads back — `content: 'mode=browser'` is a
 perfectly good contract between the two.
 
+This example calls a tool with no `after:` route, so `createScenarioProvider` warns once at
+creation that nothing answers `ask_user`'s result. Here that is a false alarm — your `match`
+answers it — and the warning says so when you pass a `match`: the line ends with *this line
+is the one to ignore*. The provider cannot read your `match`, only see that no `after:`
+route exists, so it says both halves and leaves the call to you.
+
 ## Pace, usage, the model picker
 
 `pacing: { chunk: 12, delay: 24 }` (the defaults, a `ScenarioPacing`) streams twelve
