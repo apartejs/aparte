@@ -43,7 +43,9 @@ export class AparteAiService implements OnDestroy {
     }
 
     /**
-     * Stop listening.
+     * Stop listening. The client also takes its `keyResolver` back off the config,
+     * so a paused bridge no longer answers for keys — a model list refreshed while
+     * disconnected sees the config's other key sources only.
      */
     disconnect(): void {
         this._client.stop();

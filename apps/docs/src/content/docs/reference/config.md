@@ -37,9 +37,29 @@ where the request is sent.
 - `getAIProvider(id: string): AparteAIProvider | undefined` — a single provider by id.
 - `refreshProviderModels(providerId: string): Promise<AparteAIModel[]>` — resolve the key then call the provider's `fetchModels`.
 - `setKeyProvider(provider: AparteKeyProvider): void` — register a function that resolves an API key for a given provider id.
-- `getKey(providerId: string): Promise<string | undefined>` — read the key for a provider via the registered key provider.
+- `registerKeyProvider(provider: AparteKeyProvider): () => void` — add a key source **without** replacing the one `setKeyProvider` holds, and get back the teardown that removes it. This is the channel `new AparteClient({ keyResolver })` registers on, which is how the model selector signs its request with the same credentials as the chat; `client.stop()` calls the teardown and `client.start()` registers again, so a stopped chat stops answering for keys. Each call is its own source, even when you hand in the same function twice: two panes sharing one resolver each get a teardown that removes only their own.
+- `getKey(providerId: string): Promise<string | Record<string, string> | undefined>` — the credentials for a provider: a key, or the whole `{ apiKey, endpoint }` record the transport and `fetchModels` both read. Sources added with `registerKeyProvider` answer first — the most recent registration before the older ones, so remounting a chat with a new `keyResolver` changes the key — then `setKeyProvider`.
 - `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `AparteDirectTransport`.
 - `getTransport(): AparteTransport` — the active transport.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+// The fallback source: one function for every provider id.
+aparteGlobalConfig.setKeyProvider((providerId) => localStorage.getItem(`aparte:key:${providerId}`) ?? undefined);
+
+// An extra source, consulted before it — here a self-hosted endpoint that
+// travels with its own key. Keep the teardown: it is how the source goes away.
+const release = aparteGlobalConfig.registerKeyProvider((providerId) =>
+    providerId === 'local'
+        ? { apiKey: 'sk-local', endpoint: 'https://llm.internal.example/v1' }
+        : undefined,
+);
+
+await aparteGlobalConfig.getKey('local');  // { apiKey: 'sk-local', endpoint: '…' }
+release();
+await aparteGlobalConfig.getKey('local');  // whatever setKeyProvider answers
+```
 
 ### Renderers & render hooks
 

@@ -1,0 +1,11 @@
+---
+"@aparte/core": patch
+---
+
+`client.stop()` now takes that client's `keyResolver` back off its config, and when a config holds several key sources the most recently registered one answers first. Remounting a chat with new options changes the key again. Two things may need a look on your side: code that relied on a stopped client still signing requests, and any annotation you copied from the config reference — `config.getKey(providerId)` resolves to `string | Record<string, string> | undefined`, not `string | undefined`, so widen yours if you typed it. The runtime type is unchanged; the page was wrong.
+
+`new AparteClient({ keyResolver })` registers the resolver on its config so the model list signs its request with the same credentials as the chat. That registration outlived the client that made it: nothing released it, and `getKey` answered in registration order, so the first resolver a page ever registered kept answering for every later one. Three consequences. A stopped client kept signing model-list requests. The remount the wrappers document as the way to swap options ("remount the component that owns the hook") added a source *behind* the one it meant to replace, so the new key never reached `refreshProviderModels`. And each mount left a retained closure on the config for the life of the page.
+
+The client now holds the teardown `registerKeyProvider` returns and calls it in `stop()` — before the early return, since the source is added in the constructor and a client that never started still holds one — and `start()` registers again, so a stop/start pair is symmetric. `getKey` walks the registered sources newest first, over a snapshot, so a source torn down while an earlier one is being awaited cannot shift the iteration underneath it. Each `registerKeyProvider` call is its own source too — the registry used to be keyed by the function itself, so two panes handed the same module-level resolver were one entry and the first to unmount took the second one's key with it.
+
+`AparteConfig.registerKeyProvider` is on the config reference page now, with an example and the resolution order, and `getKey`'s signature there says what it has actually returned since it learned to carry `{ apiKey, endpoint }`.

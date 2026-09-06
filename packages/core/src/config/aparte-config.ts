@@ -141,7 +141,10 @@ export class AparteConfig {
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
-    /** Sources added with `registerKeyProvider` — consulted before `_keyProvider`. */
+    /**
+     * Sources added with `registerKeyProvider` — consulted before `_keyProvider`,
+     * newest first (see `getKey`).
+     */
     private _extraKeyProviders: Set<AparteKeyProvider> = new Set();
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
@@ -355,8 +358,11 @@ export class AparteConfig {
      * Set an incremental (streaming) Markdown renderer provider. Optional —
      * when set, the chat bubble uses it to render the assistant message
      * token-by-token DURING streaming (incremental parse + DOM append, O(n)),
-     * instead of re-parsing the whole string on every token. The one-shot
-     * `setMarkdownProvider` is still used for finished / re-rendered messages.
+     * instead of re-parsing the whole string on every token. When the turn ends,
+     * a registered one-shot `setMarkdownProvider` re-renders the finished message
+     * at full fidelity; with no one-shot provider registered, what the streaming
+     * renderer drew is kept (sanitised), rather than replaced by the built-in
+     * escape-and-line-break fallback.
      */
     setStreamingMarkdownProvider(fn: AparteStreamingMarkdownProvider): void {
         this._streamingMarkdownProvider = fn;
@@ -673,10 +679,17 @@ export class AparteConfig {
      * config, so the capability is never hostage to the client — a page that only
      * ever calls `setKeyProvider` is unchanged, and a page that constructs no
      * client at all still lists models.
+     *
+     * Every call is its own source, even when the same function is handed in
+     * twice: two panes sharing one module-level resolver are two mounts, and the
+     * first one to unmount must not take the second one's key with it. A `Set`
+     * keyed by the function itself made them one entry, which either teardown
+     * removed.
      */
     registerKeyProvider(provider: AparteKeyProvider): () => void {
-        this._extraKeyProviders.add(provider);
-        return () => { this._extraKeyProviders.delete(provider); };
+        const entry: AparteKeyProvider = (providerId) => provider(providerId);
+        this._extraKeyProviders.add(entry);
+        return () => { this._extraKeyProviders.delete(entry); };
     }
 
     /**
@@ -687,9 +700,16 @@ export class AparteConfig {
      * what an endpoint is: a registered resolver (`AparteClient`'s `keyResolver`)
      * first — which is the precedence the client has always documented — then
      * `setKeyProvider`.
+     *
+     * Registered sources answer NEWEST first. A page that mounts a second chat, or
+     * remounts one to swap its options — the swap the wrappers document — leaves
+     * more than one source here, and insertion order made the first resolver the
+     * page ever registered answer for every later one, so the key could not be
+     * changed. The snapshot is deliberate too: a source torn down while an earlier
+     * one is being awaited must not shift the iteration underneath it.
      */
     async getKey(providerId: string): Promise<string | Record<string, string> | undefined> {
-        for (const provider of this._extraKeyProviders) {
+        for (const provider of [...this._extraKeyProviders].reverse()) {
             const resolved = await provider(providerId);
             if (resolved) return resolved;
         }

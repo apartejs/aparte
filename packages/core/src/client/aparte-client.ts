@@ -270,6 +270,7 @@ export class AparteClient {
     private _boundAbortHandler: (() => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
+    private _releaseKeyResolver: (() => void) | null = null;
     private _isAborted = false;
 
     /**
@@ -356,7 +357,7 @@ export class AparteClient {
          * Registered on the config rather than answered by the client, so the
          * capability stays reachable without one (decision #9).
          */
-        if (options.keyResolver) this._config.registerKeyProvider(options.keyResolver);
+        this._registerKeyResolver();
 
         // Both take THIS client's config, not the global one. Segment renderers are
         // registered per config as of 0.8.0, so a client constructed with
@@ -394,6 +395,21 @@ export class AparteClient {
     }
 
     /**
+     * Put this client's `keyResolver` on its config, and hold the teardown so
+     * `stop()` can take it back off.
+     *
+     * The registration used to be fire-and-forget, so it outlived the client that
+     * made it: a stopped client kept signing model-list requests, and a remount —
+     * the way the wrappers document swapping options — added a source behind the
+     * one it meant to replace instead of replacing it. Idempotent, so the usual
+     * `new AparteClient({…}).start()` registers once.
+     */
+    private _registerKeyResolver(): void {
+        if (this._releaseKeyResolver || !this.options.keyResolver) return;
+        this._releaseKeyResolver = this._config.registerKeyProvider(this.options.keyResolver);
+    }
+
+    /**
      * Sets up the event listeners.
      * This is called once in the constructor.
      */
@@ -415,6 +431,9 @@ export class AparteClient {
      * Start listening for aparte-send events on the window.
      */
     start(): void {
+        // A client that was stopped and started again signs requests with its own
+        // key again: `stop()` takes the resolver off the config.
+        this._registerKeyResolver();
         if (!this._boundHandler) {
             this._setupListeners();
         }
@@ -463,6 +482,11 @@ export class AparteClient {
         // Before the early return: a client that was never `start()`ed can still
         // have a stream, because `_handleSend` can be invoked directly.
         this.abort();
+        // Before the early return as well: the key source is put on the config in
+        // the CONSTRUCTOR, so a client that never started still holds one, and a
+        // resolver left behind keeps answering for whatever mounts next.
+        this._releaseKeyResolver?.();
+        this._releaseKeyResolver = null;
         if (!this._boundHandler) return;
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
