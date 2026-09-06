@@ -140,6 +140,43 @@ property, so it follows the reading direction. The worked example is in
 [The composer toolbar](/guides/customization/#the-composer-toolbar).
 `;
 
+/*
+ * `provideAparte` — the one thing three of the four wrappers do not have, spelled out
+ * with its equivalent rather than left as an absence a reader has to interpret. A
+ * capability cited in passing, with no example, is invisible; so is its opposite, and
+ * "Angular has a helper the others lack" reads as three wrappers falling behind until
+ * the five calls it replaces are on the page.
+ */
+md += `
+## \`provideAparte\` is Angular's, and only Angular's
+
+Angular alone needs an app initializer that runs before the first component, and a
+\`DestroyRef\` to release the theme listener it registers. That is what
+[\`provideAparte()\`](/frameworks/angular/) is. There is no \`provideAparte\` in the other
+three, and that is not a gap: everything it configures is a plain function call — bar
+\`theme: 'auto'\`, which is a \`matchMedia\` listener you own — so React, Vue and Svelte make
+the same calls at module scope, before the app mounts.
+
+\`\`\`ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { fr } from '@aparte/locale-fr';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setModelConfig({ defaultModel: 'openai/gpt-4o-mini' });
+aparteGlobalConfig.setLocale(fr);
+document.documentElement.setAttribute('data-aparte-theme', 'dark');
+// 'auto' is the one option with no one-liner: match prefers-color-scheme, rewrite the
+// attribute on change, and drop the listener when your app tears down.
+// The client stays the wrapper's own: useAparteClient() in React and Vue,
+// createAparteClient() in Svelte.
+\`\`\`
+
+The day a second wrapper needs that theme listener with a disposer of its own,
+\`applyThemeMode\` moves into \`@aparte/core\` and all four call it — one implementation, four
+idioms. Until then it lives where its one caller is.
+`;
+
 mkdirSync(dirname(OUT), { recursive: true });
 const wrote = writeIfChanged(OUT, md);
 console.log(`[gen-wrapper-ref] ${wroteOrNot(wrote)} ${slots.length} slots + ${callbacks.length} callbacks → ${OUT}`);

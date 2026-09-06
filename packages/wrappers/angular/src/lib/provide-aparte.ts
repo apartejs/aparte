@@ -154,8 +154,22 @@ function applyThemeMode(mode: 'light' | 'dark' | 'auto', doc: Document, destroyR
  * `AparteAiService.connect()` needed.
  *
  * The components (`AparteChatComponent`, `AparteUiComponent`) are standalone and
- * work WITHOUT this — it is config sugar. You can equally call `aparteGlobalConfig.*`
- * yourself, exactly like the React/Vue/Svelte wrappers do.
+ * work WITHOUT this — it is config sugar. Angular is the only wrapper that has it,
+ * and the other three lose nothing: what this provider exists for is an initializer
+ * that runs before the first component and a `DestroyRef` to release the theme
+ * listener. Everything it configures is a plain call — bar `theme: 'auto'`, which is a
+ * `matchMedia` listener you own — so React, Vue and Svelte make the same ones at module
+ * scope, before the app mounts:
+ *
+ * ```ts
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+ * aparteGlobalConfig.setModelConfig({ defaultModel: 'openai/gpt-4o-mini' });
+ * aparteGlobalConfig.setLocale(fr);
+ * document.documentElement.setAttribute('data-aparte-theme', 'dark');
+ * // 'auto' is the one option with no one-liner: match prefers-color-scheme, rewrite the
+ * // attribute on change, and drop the listener when your app tears down.
+ * // The client stays the wrapper's own: useAparteClient(), createAparteClient().
+ * ```
  *
  * @example
  * bootstrapApplication(App, {

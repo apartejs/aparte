@@ -23,14 +23,14 @@ Nothing below is typed by hand. Every list on this page is the snapshot in `apps
 
 ## The promise
 
-From the beta on, a **frozen** element, event, export or token does not change meaning, name or shape in one release. A change goes through two:
+From the beta on, a **frozen** element, event, export or token does not change meaning or name in one release. A change goes through two:
 
 1. **A notice release.** The old name still works and is marked deprecated, with the release it disappears in and the replacement, in the changelog and in the JSDoc.
 2. **A removal release**, at least one minor later.
 
 What is *not* listed here stays free to move, and that is the point of a list: a default colour, a spacing, an English label, the content of a docs page, the example apps, `@aparte/docs-mcp` (a tool, not an API), and anything whose JSDoc says `@experimental`.
 
-Adding is always allowed: a new optional attribute, a new optional field on an event's `detail`, a new export. Removing or renaming is what the two-release rule governs.
+Adding is always allowed: a new optional attribute, a new optional field on an event's `detail`, a new export. Removing or renaming is what the two-release rule governs. And read *name* strictly: what a list below holds is a name, so an exported interface's fields are not on it — see [The exports](#the-exports).
 
 ## The elements
 
@@ -49,7 +49,7 @@ The [components reference](/components/) is generated from the same manifests, p
 
 ## The events
 
-**{frozen.events.typed.length}** typed events, all kebab-case and prefixed `aparte-`. Frozen: the name, and the shape of `detail` (a field may be added if optional; none is removed or renamed).
+**{frozen.events.typed.length}** typed events, all kebab-case and prefixed `aparte-`. Frozen: the **name** — that is what the snapshot measures. The shape of `detail` follows the same rule by policy (a field may be added if optional; none is removed or renamed), but no guard reads it, so a change there is announced in the changeset, like any other member of an exported type — see [The exports](#the-exports).
 
 <p>{codeList(frozen.events.typed)}</p>
 
@@ -59,7 +59,9 @@ The [events reference](/reference/events/) carries each one's `detail` type and 
 
 ## The exports
 
-The values each package exports from its barrel — **{exportCount}** across **{exportRows.length}** packages — and the types their signatures name. `@aparte/core` publishes {frozen.exports['@aparte/core'].length} of them, from `AparteClient` and `AparteConversationManager` to `registerSegmentRenderer` and `registerDefaultRenderers`.
+The values each package exports from its barrel — **{exportCount}** across **{exportRows.length}** packages. `@aparte/core` publishes {frozen.exports['@aparte/core'].length} of them, from `AparteClient` and `AparteConversationManager` to `registerSegmentRenderer` and `registerDefaultRenderers`.
+
+What freezes here is the **name**. The guard reads the built barrels, where TypeScript has erased the types, so the members of an exported interface — the fields of a `setup*` options object, of a request, of an `AparteConversation` row — are not measured and not promised by this page. A field can still be added, renamed or removed; when one is, the changeset says so, and that is where to look before you implement one of these types yourself.
 
 <table>
   <thead><tr><th>Package</th><th>Frozen exports</th></tr></thead>
@@ -72,7 +74,7 @@ The values each package exports from its barrel — **{exportCount}** across **{
 
 Each package's README and the reference pages list them, and the gate holds it: no value export of `@aparte/core`'s runtime barrel may go unmentioned, and every other barrel's unmentioned count is pinned to a recorded ceiling that may fall but never rise (`scripts/check-export-mentions.mjs`).
 
-Each plugin and provider freezes the same way: its `setup*` entry, the options that entry takes, and the types it exports. `@aparte/engine` freezes `runStreamAgent`, its options and the stream event vocabulary.
+Each plugin and provider freezes the same way: its `setup*` entry, the options that entry takes, and the types it exports. `@aparte/engine` freezes `runStreamAgent`, its options and the stream event vocabulary. The fields of those option types carry the caveat above — the name is frozen, the members are not.
 
 ## The locale keys
 

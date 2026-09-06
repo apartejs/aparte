@@ -77,6 +77,32 @@ applies to the **next tool call**, mid-run included. With no `setupApproval()` o
 it renders disabled and says so once in the console: an affordance that cannot act is not
 offered.
 
+It ships **no framework binding yet**. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
+component that hosts the tag — core's own elements come with directives, this one does not.
+Svelte and Vue take it as it comes: `svelte/elements` types any hyphenated tag, and a Vue
+app that already marks `aparte-` tags as custom elements covers this one too. React with
+TypeScript is the exception — `@aparte/react` types core's tags and `JSX.IntrinsicElements`
+has no catch-all, so `<aparte-approval-mode>` in a `.tsx` is a **compile error**, not an
+untyped tag. Declare it once, in a `.d.ts` of your own:
+
+```ts
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+declare module 'react' {
+    namespace JSX {
+        interface IntrinsicElements {
+            'aparte-approval-mode': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>;
+        }
+    }
+}
+```
+
+The element declares no attributes, so plain HTML props are the whole contract — `labels` is
+a property, set through a `ref`. On React 18's types the same interface goes under
+`declare global` instead. Or keep the tag out of JSX entirely: create the element in an
+effect and append it to a `ref`'d container. The rule for any plugin's element, ours or
+yours, is [Your own element, or a plugin's](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package).
+
 ```ts
 approval.setMode('plan');                       // from your own UI
 approval.subscribe((mode, previous) => { … });  // from the element, or from setMode
