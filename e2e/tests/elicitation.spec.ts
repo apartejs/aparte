@@ -112,6 +112,11 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
         expect(mock.chatRequests.length, 'a second turn was sent').toBeGreaterThan(1);
         const messages = JSON.stringify(mock.chatRequests.at(-1)?.['messages'] ?? []);
         expect(messages, 'the tool result carries the chosen option').toContain(MOCK_ASK_OPTIONS[0]);
+        // …and it carries it in the SHAPE the wire expects: a `tool` message keyed to the
+        // call it answers, not a role of its own. The turn used to be minted as
+        // `tool_call` / `tool_result` pseudo-roles, which every provider had to translate.
+        expect(messages, 'the answer arrives as a tool message').toContain('"role":"tool"');
+        expect(messages, 'keyed to the call it answers').toContain('tool_call_id');
     }).toPass();
 
     expect(errors, 'no uncaught page errors').toEqual([]);
