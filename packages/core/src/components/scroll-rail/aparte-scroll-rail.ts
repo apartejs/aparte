@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { activeElementIn } from '../../utils/event-target.js';
 
 /** Detail of `aparte-scroll-rail-jump`: the message a tick points at. */
 export interface AparteScrollRailJumpDetail {
@@ -515,7 +516,10 @@ export class AparteScrollRail extends HTMLElement {
     private _onKeydown = (e: KeyboardEvent): void => {
         if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
         const ticks = Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick'));
-        const index = ticks.indexOf(document.activeElement as HTMLElement);
+        // The focus as the rail's own tree reports it: `document.activeElement` is the
+        // shadow HOST for a rail mounted in a consumer's root, so the index was -1 and
+        // every arrow bailed out silently.
+        const index = ticks.indexOf(activeElementIn(this) as HTMLElement);
         if (index === -1) return;
         e.preventDefault();
         const next = e.key === 'Home' ? 0

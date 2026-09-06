@@ -1,0 +1,9 @@
+---
+"@aparte/core": patch
+---
+
+`<aparte-conversation-list>` takes `manage` as a property, so binding `false` from a framework turns the writes off; and its delete confirmation reports as a dialog instead of two plain buttons inside a menu. Nothing to change on your side, unless a selector of yours pins that confirm step to `[role="menu"]`: while it asks, the popover is `[role="dialog"]`, so anchor on `[data-menu-action="confirm-delete"]` instead.
+
+**`manage={false}` used to mean on.** `manage` is the attribute that authorises the list to write — rename, pin, archive, delete, through the registered conversation manager — and it was attribute-only. Vue and both Sveltes stringify a bound boolean onto an element with no property of that name, so `manage={false}` wrote `manage="false"`, which `hasAttribute` reads as set: a gesture the host meant to handle itself was also finished by the list. The property is the fix, `presenceOn` like every other boolean in core (`''` is on, `false` and `undefined` are off) — the same protection `loading` already had. React 19 and Angular were never affected; they remove the attribute for `false` themselves.
+
+**The confirm step is a dialog.** A `role="menu"` may hold menu items and nothing else, and the delete question's two answers are ordinary buttons — axe reads that as a critical `aria-required-children` violation, in a state one click away, on the element the accessibility guide offers as the pattern to copy. While it asks, the popover now carries `role="dialog"` and the question as its accessible name; it is a menu again the next time it opens. `role="menuitem"` on a destructive confirm would have been the cheap answer, and a question with two answers is not a menu. The keyboard is unchanged: the arrows, `Escape` and `Tab` behave exactly as before, and Cancel still takes the focus.

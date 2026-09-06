@@ -149,3 +149,38 @@ describe('aparte-conversation-list — `manage`', () => {
         expect(String(warn.mock.calls[0]?.[0])).toContain('setConversationManager');
     });
 });
+
+/**
+ * `manage` is what authorises the list to WRITE, and it was attribute-only: a framework
+ * that binds `manage={false}` writes the string "false", which `hasAttribute` reads as
+ * on — so the one attribute that hands the element a destructive gesture was the one
+ * boolean in the file with no presence property (Vue and both Sveltes stringify; the
+ * `loading` property directly above it is what protects that one).
+ */
+describe('manage is a presence property, like every other boolean in core', () => {
+    it('false turns it OFF, and the documented empty string turns it ON', () => {
+        const el = mount([{ id: 'c1', title: 'One' }], true) as ListEl & { manage: boolean };
+
+        el.manage = false;
+        expect(el.hasAttribute('manage'), 'manage = false must remove the attribute').toBe(false);
+        (el as unknown as { manage: unknown }).manage = '';
+        expect(el.hasAttribute('manage'), "manage = '' is the ON the wrappers write").toBe(true);
+        el.manage = true;
+        expect(el.hasAttribute('manage')).toBe(true);
+        el.manage = undefined as unknown as boolean;
+        expect(el.hasAttribute('manage')).toBe(false);
+    });
+
+    it('and a list turned off writes nothing', () => {
+        const manager = fakeManager();
+        register(manager);
+        const el = mount([{ id: 'c1', title: 'One' }], true) as ListEl & { manage: boolean };
+        el.manage = false;
+
+        moreOf(el, 'c1').click();
+        choose(el, 'delete');
+        choose(el, 'confirm-delete');
+
+        expect(manager['delete']).not.toHaveBeenCalled();
+    });
+});

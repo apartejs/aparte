@@ -145,6 +145,24 @@ describe('aparte-conversation-list — the row menu', () => {
             expect(el.querySelector('[role="menu"]')).toBeNull();
         });
 
+        it('the question is a dialog, so no bare button sits under role="menu"', () => {
+            // axe: `aria-required-children` — a `role="menu"` may hold menuitems and
+            // nothing else, and the two answers are buttons. They are not menu items
+            // either: the confirm step is a question, so the popover says what it is
+            // for as long as it asks, and `_openMenu` makes it a menu again.
+            const el = mount([{ id: 'c1', title: 'Deploy checklist' }]);
+            const menu = openMenu(el, 'c1');
+            const bare = (): Element[] => Array.from(el.querySelectorAll('[role="menu"] button'))
+                .filter((b) => b.getAttribute('role') !== 'menuitem');
+            expect(bare(), 'the items are menuitems').toEqual([]);
+
+            choose(el, 'delete');
+
+            expect(menu.getAttribute('role'), 'the popover asks, so it announces a dialog').toBe('dialog');
+            expect(menu.getAttribute('aria-label'), 'named by the question it asks').toContain('Deploy checklist');
+            expect(bare(), 'the two answers are not menu items under a menu').toEqual([]);
+        });
+
         it('a hostile title cannot break out of the question', () => {
             const el = mount([{ id: 'c1', title: '<img src=x onerror="window.__pwned=1">' }]);
             openMenu(el, 'c1');

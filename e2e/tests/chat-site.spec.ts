@@ -112,7 +112,7 @@ test('a conversation can be deleted from its row menu', async ({ page }) => {
     const row = page.locator(`${LIST} [data-conv-id="c-weather"]`);
     await row.locator('.aparte-conv-item__more').click();
     await page.locator('[role="menu"] [data-menu-action="delete"]').click();
-    await page.locator('[role="menu"] [data-menu-action="confirm-delete"]').click();
+    await page.locator('[data-menu-action="confirm-delete"]').click();
 
     await expect(row).toHaveCount(0);
     await expect(rows).toHaveCount(9);

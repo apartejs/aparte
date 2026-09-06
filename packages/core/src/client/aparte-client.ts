@@ -13,6 +13,7 @@ import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } 
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
+import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
 import { requestUserInput } from '../elicitation/index.js';
 
@@ -252,6 +253,9 @@ export interface AparteClientOptions {
  */
 const warnedUninlinedFiles = new Set<string>();
 
+/** What a chat looks like from outside: the shell, the viewport, or a host that says so. */
+const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
+
 /**
  * AparteClient
  *
@@ -322,7 +326,7 @@ export class AparteClient {
          * that would be a silent break for the common case.
          */
         if (this._config === aparteGlobalConfig) return true;
-        const target = this._resolveTarget(detail?.targetId);
+        const target = this._resolveTarget(detail?.targetId, e);
         if (!target) return true;
         const owner = resolveConfig(target);
         /*
@@ -751,7 +755,7 @@ export class AparteClient {
 
         if (!messageId) return;
 
-        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId, event);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-retry — no target found');
             return;
@@ -833,7 +837,7 @@ export class AparteClient {
 
         if (!messageId || newContent === undefined) return;
 
-        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId, event);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-edit — no target found');
             return;
@@ -892,28 +896,88 @@ export class AparteClient {
     }
 
     /**
+     * The chain the gesture really came up, nearest node first.
+     *
+     * Read from a `window` listener, `event.target` is the shadow HOST when the event
+     * left a tree of the consumer's own, and `parentElement` stops at that tree's root —
+     * so a walk from either starts, or ends, outside the chat the person typed into.
+     * `composedPath()` is the one chain that crosses. The fallback is for an event
+     * dispatched by hand, which has no path.
+     */
+    private _originChain(event?: Event | null): EventTarget[] {
+        const path = event?.composedPath?.() ?? [];
+        if (path.length > 0) return path;
+        const chain: EventTarget[] = [];
+        let node = (event ? eventOrigin(event) : null) as HTMLElement | null;
+        while (node) { chain.push(node); node = node.parentElement; }
+        return chain;
+    }
+
+    /**
+     * The trees a lookup must search, the one the gesture came from FIRST.
+     *
+     * `document.getElementById` and `document.querySelectorAll` cannot see into a shadow
+     * root, so a chat mounted in one — the arrangement the theming guide endorses — was
+     * invisible to both: alone, the send was dropped with a warning; on a page that also
+     * holds a chat in the light DOM, the scan answered with the WRONG chat, so the
+     * person's message AND the model's reply landed in a transcript they never typed
+     * into. Nearest tree first is what keeps it from swapping the other way round.
+     */
+    private _rootsFor(event?: Event | null): ParentNode[] {
+        const roots: ParentNode[] = [];
+        for (const node of this._originChain(event)) {
+            if (typeof (node as Node).getRootNode !== 'function') continue;
+            const root = rootOf(node as Node);
+            if (!roots.includes(root)) roots.push(root);
+        }
+        if (!roots.includes(document)) roots.push(document);
+        return roots;
+    }
+
+    /** The element an id names, looked up in the gesture's own tree before the document. */
+    private _byId(targetId: string, event?: Event | null): HTMLElement | null {
+        for (const root of this._rootsFor(event)) {
+            const el = (root as Partial<NonElementParentNode>).getElementById?.(targetId) as HTMLElement | null | undefined;
+            if (el) return el;
+        }
+        return null;
+    }
+
+    /** The first chat that can render, own tree first — the path when nothing names one. */
+    private _scanForTarget<T extends HTMLElement>(event?: Event | null): T | null {
+        for (const root of this._rootsFor(event)) {
+            for (const candidate of root.querySelectorAll<HTMLElement>(CHAT_SELECTOR)) {
+                const target = this._asRenderTarget<T>(candidate);
+                if (target) return target;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve a target element by id (from event detail.targetId) or via targetResolver / DOM scan.
      */
-    private _resolveTarget<T extends HTMLElement>(targetId?: string): T | null {
+    private _resolveTarget<T extends HTMLElement>(targetId?: string, event?: Event | null): T | null {
         // An explicit id / resolver is TRUSTED as given (it may gain its render
         // methods later); only the implicit DOM scan must prefer a candidate that
         // can actually render — the <aparte-chat> shell matches the selector first
         // but delegates rendering to its viewport (see _asRenderTarget), so a blind
         // candidates[0] returned an unusable shell and retry/edit silently no-op'd.
         if (targetId) {
-            const el = document.getElementById(targetId) as HTMLElement | null;
+            const el = this._byId(targetId, event);
             if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
         if (this.options.targetResolver) {
             const el = this.options.targetResolver() as HTMLElement | null;
             if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
-        const candidates = document.querySelectorAll<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
-        for (const candidate of candidates) {
-            const target = this._asRenderTarget<T>(candidate);
-            if (target) return target;
+        const scanned = this._scanForTarget<T>(event);
+        if (scanned) return scanned;
+        for (const root of this._rootsFor(event)) {
+            const first = root.querySelector<HTMLElement>(CHAT_SELECTOR);
+            if (first) return first as unknown as T;
         }
-        return (candidates[0] as unknown as T | undefined) ?? null;
+        return null;
     }
 
     /**
@@ -1043,7 +1107,7 @@ export class AparteClient {
             // send fall through to the DOM scan below — which returns the FIRST
             // chat on the page. With two chats, one chat's reply landed in the
             // other. retry/edit already used this helper; send had drifted.
-            const byId = document.getElementById(targetId) as HTMLElement | null;
+            const byId = this._byId(targetId, event);
             const resolved = this._asRenderTarget<HTMLElement>(byId) as AparteChatTargetElement | null;
             if (resolved) {
                 targetElement = resolved;
@@ -1052,22 +1116,28 @@ export class AparteClient {
             }
         }
 
-        // 2. User-supplied resolver (e.g. provided via APARTE_CLIENT_OPTIONS)
+        // 2. User-supplied resolver (e.g. provided via APARTE_CLIENT_OPTIONS).
+        //    Through _asRenderTarget, like step 1: the documented answer to a chat in a
+        //    shadow root of your own is `targetResolver: () => root.querySelector('aparte-chat')`,
+        //    and requiring appendMessage ON the element rejected the shell that returns —
+        //    so the escape hatch out of a missed lookup missed in exactly the same way.
         if (!targetElement && this.options.targetResolver) {
-            const resolved = this.options.targetResolver() as AparteChatTargetElement | null;
-            if (resolved && typeof resolved.appendMessage === 'function') {
-                targetElement = resolved;
-            }
+            targetElement = this._asRenderTarget<HTMLElement>(
+                this.options.targetResolver(),
+            ) as AparteChatTargetElement | null;
         }
 
-        // 3. Walk up the event bubble chain as last resort
+        // 3. Walk the chain the event really came up, as last resort. `composedPath()`
+        //    and not `parentElement` from `event.target`: this listens on the window, so
+        //    a send that left a shadow tree is retargeted to the host and the walk would
+        //    start outside the chat it came from.
         if (!targetElement) {
-            let walker: AparteChatTargetElement | null = event.target as AparteChatTargetElement | null;
-            while (walker && typeof walker.appendMessage !== 'function') {
-                walker = walker.parentElement as AparteChatTargetElement | null;
-            }
-            if (walker) {
-                targetElement = walker;
+            for (const node of this._originChain(event)) {
+                const walker = node as AparteChatTargetElement;
+                if (typeof walker?.appendMessage === 'function') {
+                    targetElement = walker;
+                    break;
+                }
             }
         }
 
@@ -1083,16 +1153,7 @@ export class AparteClient {
             // appendMessage of its own), so a blind querySelector returned an
             // unusable shell and the send silently no-op'd. _asRenderTarget skips
             // to the shell's viewport (or the bare viewport) — see also _resolveTarget.
-            const candidates = document.querySelectorAll<HTMLElement>(
-                'aparte-chat, aparte-chat-viewport, [data-aparte-chat]',
-            );
-            for (const candidate of candidates) {
-                const resolved = this._asRenderTarget<AparteChatTargetElement>(candidate);
-                if (resolved) {
-                    targetElement = resolved;
-                    break;
-                }
-            }
+            targetElement = this._scanForTarget<AparteChatTargetElement>(event);
         }
 
         if (!targetElement) {

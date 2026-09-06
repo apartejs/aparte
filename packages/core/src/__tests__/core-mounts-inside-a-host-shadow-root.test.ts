@@ -15,13 +15,17 @@
  * `event.target` does — which the drawer's Tab trap and the select's filter field
  * both ask.
  */
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '../components/conversation-list/aparte-conversation-list.js';
 import '../components/sidebar/aparte-sidebar.js';
 import '../components/split/aparte-split.js';
 import '../primitives/select/aparte-select.js';
 import '../primitives/select/aparte-option.js';
 import type { AparteConversationListItem } from '../components/conversation-list/aparte-conversation-list.js';
+import { AparteClient } from '../client/aparte-client.js';
+import type { AparteClientOptions } from '../client/aparte-client.js';
+import { AparteConfig } from '../config/index.js';
+import type { AparteMessage } from '../types/index.js';
 
 /** A host element with an open shadow root, connected to the document. */
 function shadowHost(): ShadowRoot {
@@ -211,5 +215,182 @@ describe('the focus reads from the tree it is in', () => {
         const notPrevented = press(search, 'Home');
 
         expect(notPrevented, 'Home in the filter field moves the caret; it does not jump the list').toBe(true);
+    });
+});
+
+/**
+ * The send is the primary function, and it resolves its chat by LOOKUP: the id the
+ * composer names, then the walk up from the event, then a scan of the page. All three
+ * read the document, which cannot see into a shadow tree — so a chat mounted in one
+ * was answered by whatever chat the document happened to hold, and the person's own
+ * transcript stayed empty. Retry and edit share the resolver, so they went the same way.
+ */
+describe('a chat inside a host shadow root answers its own send', () => {
+    /** What the client renders into: the shell carries the id, its viewport renders. */
+    interface FakeChat {
+        chat: HTMLElement;
+        composer: HTMLElement;
+        messages: AparteMessage[];
+        siblings: string[];
+    }
+
+    function mountChat(root: ParentNode, id: string): FakeChat {
+        const messages: AparteMessage[] = [];
+        const siblings: string[] = [];
+        const viewport = document.createElement('aparte-chat-viewport');
+        Object.assign(viewport as unknown as Record<string, unknown>, {
+            appendMessage: (m: AparteMessage) => { messages.push(m); },
+            getMessages: () => [...messages],
+            updateMessage: (messageId: string, patch: Partial<AparteMessage>) => {
+                const found = messages.find((m) => m.id === messageId);
+                if (found) Object.assign(found, patch);
+            },
+            addSiblingOf: (of: string, m: AparteMessage) => { siblings.push(of); messages.push(m); return m.id; },
+            truncateResponsesAfter: () => {},
+            addSegment: () => {},
+            updateSegment: () => {},
+            setUsage: () => {},
+        });
+        const chat = document.createElement('aparte-chat');
+        chat.id = id;
+        Object.defineProperty(chat, 'viewport', { value: viewport });
+        chat.appendChild(viewport);
+        // Stands for the composer: the node the gesture starts from.
+        const composer = document.createElement('div');
+        chat.appendChild(composer);
+        root.appendChild(chat);
+        return { chat, composer, messages, siblings };
+    }
+
+    const started: AparteClient[] = [];
+    function startClient(options: Partial<AparteClientOptions> = {}): void {
+        const cfg = new AparteConfig();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }],
+        } as never);
+        cfg.setKeyProvider(() => 'k');
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setTransport({
+            chat: () => new ReadableStream({
+                start(controller) { controller.enqueue({ type: 'done' }); controller.close(); },
+            }),
+        } as never);
+        const client = new AparteClient({ config: cfg, autoRegister: false, ...options });
+        client.start();
+        started.push(client);
+    }
+
+    /** What `<aparte-composer>` dispatches: composed, so it reaches the window listener. */
+    const send = (from: Element, targetId: string | undefined, content: string): void => {
+        from.dispatchEvent(new CustomEvent('aparte-send', {
+            detail: { content, timestamp: 1, ...(targetId ? { targetId } : {}) },
+            bubbles: true, composed: true,
+        }));
+    };
+    const ask = (from: Element, type: string, detail: Record<string, unknown>): void => {
+        from.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+    };
+
+    afterEach(() => { for (const client of started.splice(0)) client.stop(); });
+
+    it('appends the user message and the reply in its own chat, not the one in the document', async () => {
+        const light = mountChat(document.body, 'light-chat');
+        const root = shadowHost();
+        const shadow = mountChat(root, 'shadow-chat');
+        startClient();
+
+        send(shadow.composer, 'shadow-chat', 'hello');
+
+        await vi.waitFor(() => expect(shadow.messages.length).toBeGreaterThanOrEqual(2));
+        expect(shadow.messages.map((m) => m.role)).toEqual(['user', 'assistant']);
+        expect(light.messages, 'a chat in the document must not answer a send from another tree').toEqual([]);
+    });
+
+    it('finds the chat it came from even when the send names no target', async () => {
+        const light = mountChat(document.body, 'light-chat');
+        const root = shadowHost();
+        const shadow = mountChat(root, 'shadow-chat');
+        startClient();
+
+        send(shadow.composer, undefined, 'hello');
+
+        await vi.waitFor(() => expect(shadow.messages.length).toBeGreaterThanOrEqual(2));
+        expect(light.messages, 'the scan must not answer with the chat in the document').toEqual([]);
+    });
+
+    it('takes a targetResolver that returns the <aparte-chat> shell in your root', async () => {
+        const light = mountChat(document.body, 'light-chat');
+        const root = shadowHost();
+        const shadow = mountChat(root, 'shadow-chat');
+        startClient({ targetResolver: () => root.querySelector<HTMLElement>('aparte-chat') });
+
+        send(shadow.composer, undefined, 'hello');
+
+        await vi.waitFor(() => expect(shadow.messages.length).toBeGreaterThanOrEqual(2));
+        expect(light.messages, 'the documented escape hatch must reach the shell it names').toEqual([]);
+    });
+
+    it('retries and edits in its own tree', async () => {
+        const light = mountChat(document.body, 'light-chat');
+        const root = shadowHost();
+        const shadow = mountChat(root, 'shadow-chat');
+        for (const chat of [light, shadow]) {
+            chat.messages.push({ id: 'u1', role: 'user', content: 'first', timestamp: 1 });
+            chat.messages.push({ id: 'a1', role: 'assistant', content: 'answer', timestamp: 2 });
+        }
+        startClient();
+
+        ask(shadow.composer, 'aparte-retry', { messageId: 'a1', targetId: 'shadow-chat' });
+        await vi.waitFor(() => expect(shadow.siblings).toEqual(['a1']));
+        expect(light.siblings, 'the retry must not regenerate the other chat').toEqual([]);
+
+        ask(shadow.composer, 'aparte-edit', { messageId: 'u1', content: 'reworded', targetId: 'shadow-chat' });
+        await vi.waitFor(() => expect(shadow.messages[0]?.content).toBe('reworded'));
+        expect(light.messages[0]?.content, 'the edit must not rewrite the other chat').toBe('first');
+    });
+});
+
+/**
+ * `document.activeElement` retargets to the shadow HOST exactly as `event.target` does,
+ * so "which item is focused?" answers -1 for every item in the menu. The arrows then
+ * walked from nowhere — `pin` was unreachable by keyboard — and the focus a re-render
+ * puts back was never held at all.
+ */
+describe('the keyboard keeps its place inside a shadow root', () => {
+    const listIn = (root: ParentNode, items: AparteConversationListItem[]): HTMLElement & {
+        conversations: AparteConversationListItem[];
+    } => {
+        const list = document.createElement('aparte-conversation-list') as HTMLElement & {
+            conversations: AparteConversationListItem[];
+        };
+        root.appendChild(list);
+        list.conversations = items;
+        return list;
+    };
+
+    it('walks the row menu with the arrows', () => {
+        const root = shadowHost();
+        const list = listIn(root, [{ id: 'c1', title: 'One' }]);
+        list.querySelector<HTMLElement>('.aparte-conv-item__more')!.click();
+        const items = Array.from(list.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+        expect(items.length).toBe(4);
+        expect(root.activeElement, 'the menu opens on its first item').toBe(items[0]);
+
+        press(root.activeElement!, 'ArrowDown');
+        expect(root.activeElement, 'ArrowDown moves to the next item').toBe(items[1]);
+        press(root.activeElement!, 'ArrowUp');
+        press(root.activeElement!, 'ArrowUp');
+        expect(root.activeElement, 'ArrowUp wraps from the first to the last').toBe(items[3]);
+    });
+
+    it('puts the keyboard back on the row after a re-render', () => {
+        const root = shadowHost();
+        const list = listIn(root, [{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }]);
+        list.querySelector<HTMLElement>('[data-select-id="c2"]')!.focus();
+
+        list.conversations = [{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }];
+
+        expect(root.activeElement, 'the row the reader was on comes back focused')
+            .toBe(list.querySelector('[data-select-id="c2"]'));
     });
 });

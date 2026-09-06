@@ -99,7 +99,7 @@ describe('the delete confirmation', () => {
             moreOf(el, 'c1').click();
             choose(el, 'delete');
 
-            expect(el.querySelector('[role="menu"]'), 'the menu is still open').not.toBeNull();
+            expect(el.querySelector('[role="dialog"]'), 'the popover is still open, asking').not.toBeNull();
             expect(el.querySelector('[data-menu-action="confirm-delete"]'), 'and the question is on screen').not.toBeNull();
 
             choose(el, 'confirm-delete');

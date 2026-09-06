@@ -115,7 +115,10 @@ implements the pattern in full — `role="menu"` and an `aria-label` on the cont
 `role="menuitem"` on each item, focus into the first item on open, `ArrowDown` / `ArrowUp`
 with wrap-around, `Home` / `End`, `Escape` to close, and `Tab` to leave the menu and land
 back on the button that opened it. Using that element, you inherit all of it — for the
-menu. The list of rows the menu opens from is the next item below.
+menu. The delete step is the one part that is not a menu: while it asks, the same popover
+becomes a `role="dialog"` named by the question, because a `role="menu"` may hold menu
+items and nothing else and the two answers are ordinary buttons. The keys are unchanged.
+The list of rows the menu opens from is the next item below.
 
 **Arrow-key navigation in the conversation list.** Rows are reachable and activatable, and
 `role="navigation"` says what the list is — but there is no roving `tabindex`, so a long

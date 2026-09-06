@@ -3,7 +3,7 @@ import { APARTE_DEFAULT_LOCALE } from '../../config/locale.js';
 import type { AparteConversationManager } from '../../conversations/conversation-manager.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
-import { eventOrigin } from '../../utils/event-target.js';
+import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
 
 export interface AparteConversationListItem {
@@ -204,6 +204,24 @@ export class AparteConversationList extends HTMLElement {
         this.toggleAttribute('loading', presenceOn(value));
     }
 
+    /**
+     * Let the list finish the gesture through the registered conversation manager.
+     * Reflected as the `manage` attribute.
+     *
+     * The property is not a nicety here: this is the attribute that authorises a WRITE,
+     * and Vue and both Sveltes stringify a bound `false` onto an element that has no
+     * property of that name — `manage="false"`, which `hasAttribute` reads as on. So
+     * turning management off turned it on, and a delete the host meant to handle itself
+     * was also done by the list. `presenceOn`, like `loading` above it.
+     */
+    get manage(): boolean {
+        return this.hasAttribute('manage');
+    }
+
+    set manage(value: boolean) {
+        this.toggleAttribute('manage', presenceOn(value));
+    }
+
     // ─── Lifecycle ────────────────────────────────────────────────────────
 
     connectedCallback(): void {
@@ -273,7 +291,10 @@ export class AparteConversationList extends HTMLElement {
         // active conversation and re-assigns the list). The button the reader was on is
         // gone by then and the focus lands on `<body>`, so the next Tab restarts at the
         // top of the page. Same rule the rename exit already follows.
-        const focused = document.activeElement as HTMLElement | null;
+        // `activeElementIn`, not `document.activeElement`: that retargets to the shadow
+        // HOST for a list mounted in a consumer's own root, so `contains` answered no and
+        // nothing was ever held.
+        const focused = activeElementIn(this) as HTMLElement | null;
         const held = focused && this.contains(focused)
             ? focused.closest<HTMLElement>('[data-select-id], [data-more-id]')
             : null;
@@ -456,12 +477,17 @@ export class AparteConversationList extends HTMLElement {
 <button type="button" class="aparte-menu__item aparte-conv-menu__item--danger" role="menuitem" data-menu-action="delete">${trashGlyph}<span>${remove}</span></button>`;
     }
 
+    /** The question the confirm step asks — the popover's accessible name while it asks it. */
+    private _confirmQuestion(conv: AparteConversationListItem): string {
+        return this._t('deleteConversationConfirm').replace('{title}', conv.title || this._t('newChat'));
+    }
+
     private _confirmMarkup(conv: AparteConversationListItem): string {
-        const question = escapeHtml(this._t('deleteConversationConfirm').replace('{title}', conv.title || this._t('newChat')));
+        const question = escapeHtml(this._confirmQuestion(conv));
         const cancel = escapeHtml(this._t('cancel'));
         const remove = escapeHtml(this._t('deleteConversation'));
         return `
-<div class="aparte-conv-menu__confirm" role="group" aria-label="${escapeAttr(question)}">
+<div class="aparte-conv-menu__confirm">
   <p class="aparte-conv-menu__question">${question}</p>
   <div class="aparte-conv-menu__actions">
     <button type="button" class="aparte-btn aparte-btn--sm aparte-btn--ghost" data-menu-action="cancel">${cancel}</button>
@@ -670,6 +696,18 @@ export class AparteConversationList extends HTMLElement {
                 const holder = document.createElement('div');
                 holder.innerHTML = this._confirmMarkup(conv);  // safe-text: _confirmMarkup escapes the title and every locale string.
                 open.menu.append(...holder.childNodes);
+                // While it asks, the popover IS the question: a `role="menu"` may hold
+                // menu items and nothing else, and the two answers are buttons — axe reads
+                // that as a critical `aria-required-children` violation, on a state one
+                // click away, in the element the accessibility guide offers as the pattern
+                // to copy. `role="menuitem"` on a destructive confirm would be the cheap
+                // lie; a question with two answers is a dialog. `_openMenu` builds the
+                // menu afresh, so the role comes back with the items. The row's more
+                // button keeps `aria-haspopup="menu"` on purpose: what it opens IS a
+                // menu, and the question is one step inside it, not what the button
+                // announces.
+                open.menu.setAttribute('role', 'dialog');
+                open.menu.setAttribute('aria-label', this._confirmQuestion(conv));
                 open.menu.querySelector<HTMLElement>('[data-menu-action="cancel"]')?.focus();
                 for (const node of previous) node.remove();
                 this._placeMenu(open.button, open.menu);
@@ -699,7 +737,9 @@ export class AparteConversationList extends HTMLElement {
 
     private _onMenuKeydown(e: KeyboardEvent): void {
         const items = this._menuFocusables();
-        const index = items.indexOf(document.activeElement as HTMLElement);
+        // The focus as this element's own tree reports it — retargeted to the shadow host
+        // in `document`, which made the index -1 and every arrow jump from the first item.
+        const index = items.indexOf(activeElementIn(this) as HTMLElement);
         const focusAt = (i: number): void => {
             e.preventDefault();
             items[(i + items.length) % items.length]?.focus();

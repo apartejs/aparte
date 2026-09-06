@@ -202,6 +202,30 @@ describe('aparte-scroll-rail', () => {
         expect(document.activeElement).toBe(list[1]);
     });
 
+    it('the arrows walk the ticks inside a host shadow root too', () => {
+        // `document.activeElement` retargets to the shadow HOST, so "which tick holds the
+        // focus?" answered -1 and the arrows were a silent no-op in the arrangement the
+        // theming guide endorses.
+        const wrapper = document.createElement('div');
+        document.body.appendChild(wrapper);
+        const root = wrapper.attachShadow({ mode: 'open' });
+        const host = document.createElement('aparte-chat');
+        host.id = 'c-shadow';
+        const viewport = document.createElement('aparte-chat-viewport');
+        for (const b of THREE_TURNS()) viewport.appendChild(b);
+        host.appendChild(viewport);
+        const rail = document.createElement('aparte-scroll-rail');
+        host.appendChild(rail);
+        root.appendChild(host);
+        const list = ticks(rail);
+        expect(list.length).toBe(3);
+
+        list[0]!.focus();
+        list[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
+
+        expect(root.activeElement, 'ArrowDown moves to the next tick').toBe(list[1]);
+    });
+
     it('target names a chat the rail is not inside', () => {
         const host = document.createElement('aparte-chat');
         host.id = 'elsewhere';

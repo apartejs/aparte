@@ -50,11 +50,17 @@ Core has **no shadow DOM** — every element renders light DOM, which is why a p
 `.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
 `:root` and, a second time, on `:host` — only so the same sheet keeps working if *you*
 mount a chat inside a shadow root of your own (a web component of yours, a micro-frontend):
-there, `:root` is outside and `:host` is the boundary. Behaviour crosses that boundary on its own — core's
-document-level handlers read the node a click really hit, and resolve the element a control drives in the tree that
-control lives in, so the row menus, the sidebar toggle, the split's pane buttons and the selects work inside your
-shadow root; a `:root` declaration is the one thing that does not, hence `:host`. Overriding
-from outside works the same in both cases — set the variable on any ancestor, or on the chat element itself.
+there, `:root` is outside and `:host` is the boundary. Behaviour crosses that boundary on
+its own — core's document-level handlers read the node a click really hit, they resolve the
+element a control drives in the tree that control lives in, and `AparteClient` resolves the
+chat a send, a retry or an edit belongs to in the tree the gesture came from, so the row
+menus, the keyboard, the sidebar toggle, the split's pane buttons, the selects and the send
+itself work inside your shadow root. Two things do not cross it. A `:root` declaration —
+hence `:host`. And an element that names its partner by id: `<aparte-suggestions target>`
+and `<aparte-scroll-rail target>` look that id up in the document, so nest those inside the
+chat and drop the attribute rather than naming an element they cannot see. Overriding from
+outside works the same in both cases — set the variable on any ancestor, or on the chat
+element itself.
 
 **Where you may set a token depends on which kind it is.** A **master** —
 `--aparte-primary`, `--aparte-space-unit`, `--aparte-radius-unit`,
