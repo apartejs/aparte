@@ -47,6 +47,7 @@
         "@aparte/titler-latin": "^1.1.0",
         "@aparte/titler-latin-mini": "^1.1.0",
         "@astrojs/check": "^0.9.10",
+        "@astrojs/sitemap": "^3.7.3",
         "astro-og-canvas": "^0.13.0",
         "canvaskit-wasm": "^0.42.0",
         "typedoc": "^0.28.20",

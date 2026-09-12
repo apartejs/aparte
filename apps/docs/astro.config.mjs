@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
@@ -76,6 +77,18 @@ export default defineConfig({
     '/reference/api': '/components/',
   },
   integrations: [
+    /*
+     * Ours rather than Starlight's: Starlight adds `@astrojs/sitemap` itself unless
+     * the integration is already in this array, and its copy takes no filter.
+     *
+     * What the filter removes: the 59 `/preview/*` routes, one per element and per
+     * kit family. Each is the document of an <iframe> — it carries
+     * `<meta name="robots" content="noindex, nofollow">` on purpose, because it
+     * would otherwise compete in search with the real page that frames it and say
+     * far less. Listing a noindex URL in a sitemap is a contradiction a crawler
+     * reports back: 227 URLs were submitted, 59 of them asking not to be indexed.
+     */
+    sitemap({ filter: (page) => !page.includes('/preview/') }),
     starlight({
       title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
