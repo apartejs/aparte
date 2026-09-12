@@ -1,5 +1,5 @@
 ---
-title: 'AI Chat Components for React, Vue, Svelte & Angular'
+title: 'Framework-agnostic AI chat components — React, Vue, Svelte & Angular'
 description: Use aparté from React, Vue, Svelte or Angular — thin wrappers over the framework-agnostic web components, with ergonomic components plus a generic escape hatch.
 sidebar:
   order: 1
