@@ -328,6 +328,27 @@ const FAMILIES = [
         operatingSystem: 'Any',
       },
     })} />
+
+    <!-- The node above describes the LIBRARY; this one describes the SITE, and exists
+         for one reason: `alternateName`. The brand is written "aparté" everywhere —
+         a dictionary word in three languages — while the string people actually type
+         is "apartejs", which appeared nowhere on the page as text, only inside URLs.
+         `WebSite` is also what lets a result show the site name on its own line, so
+         the title no longer has to spend its first nine characters on the brand. -->
+    <script is:inline type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'aparté',
+      alternateName: ['apartejs', 'aparte'],
+      url: 'https://apartejs.dev/',
+      description: LANDING_DESCRIPTION,
+      publisher: {
+        '@type': 'Organization',
+        name: 'aparté',
+        url: 'https://apartejs.dev/',
+        sameAs: ['https://github.com/apartejs', 'https://www.npmjs.com/org/aparte'],
+      },
+    })} />
   </Fragment>
 
       <section class="hero">
@@ -335,7 +356,7 @@ const FAMILIES = [
         <div class="hero-copy">
           <!-- The H1 carries the category words a search weighs; the signature line
                keeps the display type. The TAGS swapped, the visual roles did not. -->
-          <h1 class="eyebrow">AI chat Web Components, framework-agnostic &mdash; <b>with the agent loop inside</b></h1>
+          <h1 class="eyebrow">Open-source AI chat and agent UI, <b>built as Web Components</b></h1>
           <p class="thesis serif">Chat, spoken <em>aside.</em></p>
           <p class="lede">
             Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,

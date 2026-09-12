@@ -200,6 +200,12 @@ const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-'
         <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
         <div class="foot-links">
           <a href="/why/">Why apart&eacute;</a>
+          <!-- /compare/ was reachable only from the docs sidebar: the landing named
+               it in the meta description, as plain text, which is not a link and
+               which nobody clicks out of a search result. It goes in the footer
+               rather than the nav — the nav row already overflows a 390px screen by
+               41px with one more word, as the comment above it records. -->
+          <a href="/compare/">Compare</a>
           <a href="/guides/getting-started/">Docs</a>
           <a href="/changelog/">Changelog</a>
           <a href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">GitHub</a>

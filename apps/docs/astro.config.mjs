@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
@@ -43,6 +44,16 @@ function rehypeExternalLinksInOwnTab() {
 }
 
 // https://astro.build/config
+/*
+ * A RegExp rather than a quoted route, deliberately: `check:doc-links` reads
+ * every quoted absolute route in this file as a route the site PROMISES, and fails the
+ * build when no page is built there. That rule is right — the llms preamble once cited
+ * `/kit/` while nothing rendered it — and this prefix is not a promise: it is where the
+ * frames live, with no index of its own. Written as a path predicate rather than a
+ * quoted route, it cannot be mistaken for a link — by the guard or by a reader.
+ */
+const PREVIEW_FRAME = /^\/preview\//;
+
 export default defineConfig({
     /*
      * Astro's HTML compressor is on by default, and it strips the whitespace
@@ -76,6 +87,18 @@ export default defineConfig({
     '/reference/api': '/components/',
   },
   integrations: [
+    /*
+     * Ours rather than Starlight's: Starlight adds `@astrojs/sitemap` itself unless
+     * the integration is already in this array, and its copy takes no filter.
+     *
+     * What the filter removes: the 59 frame routes, one per element and per
+     * kit family. Each is the document of an <iframe> — it carries
+     * `<meta name="robots" content="noindex, nofollow">` on purpose, because it
+     * would otherwise compete in search with the real page that frames it and say
+     * far less. Listing a noindex URL in a sitemap is a contradiction a crawler
+     * reports back: 227 URLs were submitted, 59 of them asking not to be indexed.
+     */
+    sitemap({ filter: (page) => !PREVIEW_FRAME.test(new URL(page).pathname) }),
     starlight({
       title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
