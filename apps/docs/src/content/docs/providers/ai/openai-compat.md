@@ -1,5 +1,5 @@
 ---
-title: OpenAI-compatible
+title: 'OpenAI-compatible chat UI — OpenAI, Ollama, LM Studio, vLLM'
 description: One zero-dependency adapter for every OpenAI-compatible /chat/completions endpoint — OpenAI, Mistral, OpenRouter, Groq, LM Studio, Ollama and friends.
 sidebar:
   order: 2

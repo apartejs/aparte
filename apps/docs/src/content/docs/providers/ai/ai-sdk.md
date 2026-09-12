@@ -1,5 +1,5 @@
 ---
-title: Vercel AI SDK bridge
+title: Vercel AI SDK chat UI components
 description: Bridge any Vercel AI SDK model into aparté — bring your own @ai-sdk/* package (Anthropic, Google, 25+ vendors) and aparté renders it.
 sidebar:
   order: 3

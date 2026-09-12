@@ -1,8 +1,9 @@
 ---
-title: Placing elements, typed
+title: 'Any aparté element, typed in React, Vue, Svelte and Angular'
 description: Every aparté element has a typed surface in all four frameworks — real attributes, real events, checked by your compiler. Plus the escape hatch for an element aparté does not define.
 sidebar:
   order: 6
+  label: Placing elements, typed
 ---
 
 `<AparteChat>` gives you the whole turn in one tag. Everything else — the model selector, the

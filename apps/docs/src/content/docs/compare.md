@@ -1,5 +1,5 @@
 ---
-title: 'Compare aparté with Loquix, assistant-ui, AI Elements & more (2026)'
+title: 'Best AI Chat UI Libraries in 2026, Compared'
 description: A fair, dated comparison of AI chat UI libraries — Loquix, assistant-ui, Vercel AI Elements, deep-chat, kitn, OpenAI ChatKit — on framework lock-in, runtime, local/in-browser models, human-in-the-loop and theming.
 sidebar:
   label: Compare
