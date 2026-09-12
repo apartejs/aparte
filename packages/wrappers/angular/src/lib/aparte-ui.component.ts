@@ -12,15 +12,30 @@ import {
     Renderer2,
     inject
 } from '@angular/core';
-import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
+import { applyElementProps, APARTE_DEFAULT_UI_EVENTS, type AparteUiHandle } from '@aparte/core';
 
 /**
- * The imperative surface of the `AparteUi` proxy — the same
- * `getElement`/`callMethod` contract on all four wrappers.
+ * The imperative surface of the `AparteUi` proxy — one declaration in `@aparte/core`,
+ * re-exported by all four wrappers. It used to be four hand-written copies, each
+ * promising "the same contract on all four", and it had already drifted.
  */
-export interface AparteUiHandle {
-    getElement<T extends HTMLElement = HTMLElement>(): T | null;
-    callMethod<T = unknown>(methodName: string, ...args: unknown[]): T | undefined;
+export type { AparteUiHandle } from '@aparte/core';
+
+/**
+ * The proxy's inputs, named for parity with React/Vue/Svelte, which all export an
+ * `AparteUiProps`. Angular's are `@Input`s on the component rather than an object, so
+ * this is the shape a caller building `[props]` programmatically writes against.
+ */
+export interface AparteUiProps {
+    /** The custom element tag name (e.g. 'aparte-model-selector'). */
+    name: string;
+    /** Props to apply. Keys starting with `--` become CSS variables. */
+    props?: Record<string, unknown>;
+    /**
+     * Which custom events to forward through `elementEvent`. Defaults to the
+     * interactive aparté surface ({@link APARTE_DEFAULT_UI_EVENTS}).
+     */
+    events?: string[];
 }
 
 /**

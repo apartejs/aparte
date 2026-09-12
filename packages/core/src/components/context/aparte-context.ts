@@ -163,6 +163,18 @@ export class AparteContext extends HTMLElement {
         return this._window();
     }
 
+    /**
+     * Writes the `window` attribute; `null` gives the model's own window back.
+     *
+     * The setter has to exist: React 19 and Svelte assign the PROPERTY whenever the
+     * element has one of that name, so `<aparte-context window={8000}>` — a spelling
+     * both wrappers type as valid — hit a getter alone and threw.
+     */
+    set window(value: number | null) {
+        if (value === null || value === undefined) this.removeAttribute('window');
+        else this.setAttribute('window', String(value));
+    }
+
     /** The current level, or `null` while nothing is shown. */
     get level(): AparteContextLevel | null {
         return this._level;

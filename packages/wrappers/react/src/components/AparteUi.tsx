@@ -1,5 +1,5 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
+import { applyElementProps, APARTE_DEFAULT_UI_EVENTS, type AparteUiHandle } from '@aparte/core';
 
 export interface AparteUiProps {
     /** The custom element tag name (e.g. 'aparte-model-selector'). */
@@ -16,10 +16,11 @@ export interface AparteUiProps {
     events?: string[];
 }
 
-export interface AparteUiHandle {
-    getElement: <T extends HTMLElement = HTMLElement>() => T | null;
-    callMethod: <T = unknown>(methodName: string, ...args: unknown[]) => T | undefined;
-}
+// The handle is core's, not this wrapper's: the same two-method contract was
+// hand-copied into all four, each docblock promising "the same on all four", and it
+// had already drifted (two of them returned `HTMLElement | null` / `unknown` instead
+// of the generic form). One declaration in `@aparte/core`, four re-exports.
+export type { AparteUiHandle } from '@aparte/core';
 
 /**
  * Universal pass-through proxy: dynamically mounts any `aparte-*` Web Component so

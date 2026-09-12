@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
-  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
+  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
 
   /**
    * The host element's `id`, and therefore the `targetId` every event this chat
@@ -26,6 +26,17 @@
    * default — additive.
    */
   export let centerWhenEmpty = false;
+  /**
+   * The conversation is on its way: the viewport draws two skeleton turns, the empty
+   * state stays off and the composer is disabled until it lands. The conversation
+   * controller sets this itself while it fetches through your adapter's `loadFull()`;
+   * the prop is for a wait of your own. Off by default.
+   */
+  export let loading = false;
+  // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
+  let hostLoading = false;
+  $: waiting = loading || hostLoading;
+  $: loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
@@ -133,16 +144,22 @@
   // Reconcile bubbles after the rendered list changes (host queries the DOM).
   $: if (host && internalMessages) { void tick().then(() => host?.syncBubbles()); }
 
-  // Composer attributes set imperatively (like Angular's `[attr.x]`): Svelte's
-  // custom-element binding assigns to *properties*, but aparte-composer exposes
-  // some of these (e.g. `placeholder`) as getter-only — assigning throws.
+  // Composer attributes set imperatively (like Angular's `[attr.x]`), because the
+  // attribute IS the state core's composer parts read. Svelte's custom-element
+  // binding assigns to *properties*; core gained the matching setters in 0.16.12
+  // (before that `placeholder`/`disabled` were getter-only and assigning threw), so
+  // this is now a direct write rather than a way around a crash.
   function toggleAttr(el: HTMLElement, name: string, on: boolean, value: string) {
     if (on) el.setAttribute(name, value); else el.removeAttribute(name);
   }
+  // The viewport's `loading` too: Svelte 5 sets a template attribute as a PROPERTY when
+  // the element has one, and `''` through the setter reads as false — the attribute
+  // never appeared (Svelte 4 set the attribute; the svelte5 example caught the drift).
+  $: if (viewportRef) toggleAttr(viewportRef, 'loading', waiting, '');
   $: if (composerRef) {
     composerRef.setAttribute('target', hostId);
     composerRef.setAttribute('placeholder', placeholder);
-    toggleAttr(composerRef, 'disabled', disabled, '');
+    toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
   }
 
@@ -179,6 +196,7 @@
       onStreamingChange: () => { /* exposed via isStreaming() */ },
       afterRender: (cb) => { void tick().then(cb); },
       resetComposer: () => (composerRef as unknown as { reset?: () => void })?.reset?.(),
+      onLoadingChange: (on) => { hostLoading = on; },
     };
     host = new AparteChatHost(binding, {
       layoutTransitionMs,
@@ -213,7 +231,7 @@
     host?.appendToSegment(segmentId, content);
   }
   export function getMessages(): AparteMessage[] { return host?.getMessages() ?? internalMessages; }
-  export function clearMessages() { host?.clearMessages(); }
+  export function clearMessages(options?: { revokeAttachments?: boolean }) { host?.clearMessages(options); }
   export function addBranch(messageId: string): number { return host?.addBranch(messageId) ?? 0; }
   export function addSiblingOf(existingId: string, message: AparteMessage): string | null {
     return host?.addSiblingOf(existingId, message) ?? null;
@@ -263,13 +281,25 @@
   {style}
   data-aparte-chat
   {...(overlayComposer ? { 'overlay-composer': '' } : {})}
-  data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 ? '' : null}
+  data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null}
   id={hostId}
   bind:this={rootRef}
 >
   <aparte-chat-viewport bind:this={viewportRef} framework-managed="">
+    <!-- The wait, drawn here because this DOM is Svelte's: the kit's skeleton recipe,
+         and a line for a screen reader. -->
+    {#if waiting}
+      <div class="aparte-viewport-loading" aria-hidden="true">
+        <span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text"></span>
+        <span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>
+      </div>
+      <span class="aparte-viewport-loading-status aparte-sr-only" role="status">{loadingText}</span>
+    {/if}
     <!-- Welcome / placeholder shown inside the viewport while empty. -->
-    {#if internalMessages.length === 0}
+    {#if internalMessages.length === 0 && !waiting}
       <slot name="empty-state" />
     {/if}
     <!-- `bubble` slot renders your OWN element per message in place of

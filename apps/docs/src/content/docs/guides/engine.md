@@ -88,10 +88,10 @@ const client = new AparteClient({
 
 ## Owning the history yourself (prefix-cache hosts)
 
-By default the loop holds the message list and re-sends it each turn, enriched with the
-`tool_call` / `tool_result` turns it produced. That is what a stateless message API wants, and the
-opposite of what a **prefix cache** wants — llama.cpp slots, vLLM — where turn N+1 has to *extend*
-turn N byte for byte or the cache is thrown away.
+By default the loop holds the message list and re-sends it each turn, enriched with the assistant
+turn that carries the calls and the `tool` turn that answers each one. That is what a stateless
+message API wants, and the opposite of what a **prefix cache** wants — llama.cpp slots, vLLM —
+where turn N+1 has to *extend* turn N byte for byte or the cache is thrown away.
 
 Such a host owns its own transcript. Half of that already worked: `transportCall` receives the
 request the loop built and may ignore its `messages` entirely. The other half is
@@ -104,10 +104,17 @@ const log = new PromptLog();                       // your append-only transcrip
 await runStreamAgent({
   // …messageId, emitter, signal, toolLookup
   baseRequest: { messages: [], modelId: 'my-model' }, // your transport may ignore both
-  onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
+  onHistoryAppend: (turn) => log.append(turn),     // the calls · each result · each reply
   transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
 });
 ```
+
+One caveat the example glosses over: the assistant turn is reported the moment its **first** call
+completes, and both its `content` and its `toolCalls` are finalised later in the same turn. A log
+that writes bytes on receipt, like `PromptLog` above, must therefore hold the object and re-read it
+before serialising, or append the assistant turn only once the turn's last `tool` message has
+arrived. A snapshot taken on receipt loses the whole sentence the assistant said before it called
+anything.
 
 Through the `streamRunner` seam it needs no change in core — augment the options at injection:
 

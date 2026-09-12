@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import { nextPosition, keyDelta } from './geometry.js';
 import { presenceOn } from '../../utils/presence.js';
+import { eventOrigin, rootOf } from '../../utils/event-target.js';
 
 /** Detail of `aparte-split-resize`: the position that settled, and what settled it. */
 export interface AparteSplitResizeDetail {
@@ -934,15 +935,22 @@ export class AparteSplit extends HTMLElement {
      * first on the page. Same shape as `[data-aparte-sidebar-toggle]`.
      */
     private _onDocumentClick = (e: Event): void => {
-        const control = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-split-pane]');
+        // `eventOrigin`, not `e.target`: a click from inside a consumer's shadow root is
+        // retargeted to the shadow host by the time it reaches `document`.
+        const control = (eventOrigin(e) as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-split-pane]');
         if (!control) return;
         const value = (control.getAttribute('data-aparte-split-pane') ?? '').trim();
         const which = value === 'start' || value === 'end' ? value : null;
         const named = which ? '' : value;
         if (named) {
             if (named !== this.id) return;
-        } else if ((control.closest('aparte-split') ?? document.querySelector('aparte-split')) !== this) {
-            return;
+        } else {
+            // `rootOf` before `document`: a button that names no id must find the split
+            // beside it inside a consumer's shadow root, which `document` cannot see into.
+            const nearest = control.closest('aparte-split')
+                ?? rootOf(control).querySelector('aparte-split')
+                ?? document.querySelector('aparte-split');
+            if (nearest !== this) return;
         }
         this.showPane(which ?? (this.pane === 'start' ? 'end' : 'start'));
     };

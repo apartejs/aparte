@@ -27,18 +27,15 @@ export interface AparteImagePart {
 }
 
 /**
- * File content part — reserved for future PDF/audio support.
- * `data` must be a base64 data URL.
+ * Discriminated union of all content part types.
+ *
+ * There was a third, `AparteFilePart`, "reserved for future PDF/audio support" — nothing
+ * ever produced one: the client inlines images and text files and drops the rest, and both
+ * wire mappers answered it with an empty text part no message could reach. What it did do
+ * was promise a consumer that attaching a PDF sent it. That promise is now a warning at the
+ * one place the file is really dropped.
  */
-export interface AparteFilePart {
-    type: 'file';
-    data: string;
-    mimeType: string;
-    name?: string;
-}
-
-/** Discriminated union of all content part types */
-export type AparteContentPart = AparteTextPart | AparteImagePart | AparteFilePart;
+export type AparteContentPart = AparteTextPart | AparteImagePart;
 
 /**
  * Extract plain text from a `string | AparteContentPart[]` content value.
@@ -53,22 +50,41 @@ export function contentToText(content: string | AparteContentPart[]): string {
 }
 
 export interface AparteChatMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     /**
      * Message content — either a plain string (backward compatible) or an array
-     * of typed content parts for multimodal messages (text + images + files).
+     * of typed content parts: text and images. A binary the model cannot read is
+     * not a content part; see the note on {@link AparteContentPart}.
      *
      * Use `contentToText(content)` to extract the text-only representation.
      */
     content: string | AparteContentPart[];
-    /** For role='tool_call': tool calls made by the assistant in this turn */
+    /**
+     * On an `assistant` message: the tool calls the model made this turn, grouped.
+     * `content` is what it said before them — `''` when it said nothing.
+     */
     toolCalls?: AparteToolCall[];
-    /** For role='tool_result': id of the tool call this responds to */
+    /** On a `tool` message: the id of the call, in the preceding assistant message, that it answers. */
     toolCallId?: string;
-    /** For role='tool_call': text streamed before the tool call in the same turn */
-    precedingText?: string;
+    /**
+     * On a `tool` message: the name of the tool that ran.
+     *
+     * Optional, and worth setting: a wire format that names the tool on the result
+     * (the AI SDK does) otherwise has to scan back for the call that declared the id,
+     * which a hand-built history need not contain.
+     */
+    toolName?: string;
 }
 
+/**
+ * The request one turn sends to a provider.
+ *
+ * `prefill`, `systemOverride` and `fastStream` used to sit here, each documented "providers
+ * MAY ignore it" and read by none — one model family's raw-completion vocabulary flattened
+ * onto every provider's request. A provider reads its option off `_meta`, the namespaced bag,
+ * which reaches it untouched; the trigger to reconsider is a raw-completion provider in this
+ * repo (`provider-llamacpp`) that would actually read one.
+ */
 export interface AparteChatRequest {
     messages: AparteChatMessage[];
     modelId: string;
@@ -97,43 +113,18 @@ export interface AparteChatRequest {
      * - { name, input }: synthetic call — the agent loop (`runStreamAgent`,
      *                    or the runner you injected) bypasses the LLM
      *                    entirely and runs the handler directly with the provided
-     *                    input, then re-calls the LLM with the tool_result in history.
+     *                    input, then re-calls the LLM with the tool message in history.
      */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
 
     /**
-     * Optional prefill string applied after the chat template's generation
-     * prompt — the model continues from the end of this string. Provider- and
-     * model-specific; core prescribes no syntax (the consuming app/orchestrator
-     * decides what control tokens, if any, to inject). Providers that support a
-     * "continue final message" mode apply it; others MAY ignore this field.
-     */
-    prefill?: string;
-
-    /**
-     * Verbatim system message to use INSTEAD of the provider building its own
-     * (e.g. the transformers provider's tool-system-message). Generic transport
-     * field : when set, the provider uses this string as the system message
-     * as-is. `tools` may still be passed (for the tool-call parser/dispatch)
-     * but is NOT re-rendered into the system prompt. Used to feed a fine-tuned
-     * model its EXACT training system prompt (anti-OOD). Providers that build no
-     * system message MAY ignore it.
-     */
-    systemOverride?: string;
-
-    /**
-     * Hint : stream tokens AS THEY ARRIVE (bypass the provider's flush-throttle).
-     * Default throttling coalesces UI paints to protect WebGPU decode speed ;
-     * a short code-generation turn that drives a live preview opts in so the
-     * consumer can render progressively. Providers MAY ignore it.
-     */
-    fastStream?: boolean;
-
-    /**
-     * Opaque metadata bag threaded through the request pipeline (e.g. from a
-     * requestInterceptor to the loop's post-processing). Never sent to the
-     * AI provider — stripped before the network call. The well-known keys are
-     * typed; see {@link AparteRequestMeta}.
+     * Opaque, namespaced metadata bag threaded through the request pipeline (e.g.
+     * from a `requestInterceptor` to the loop's post-processing). Core neither
+     * filters nor rewrites it, which is what makes it the channel for an option
+     * only one provider understands: it reaches that provider verbatim, and
+     * `AparteBackendTransport`'s default body serialises it to your endpoint too.
+     * So it is not a place to hide a secret. The well-known keys are typed; see
+     * {@link AparteRequestMeta}.
      */
     _meta?: AparteRequestMeta;
 }

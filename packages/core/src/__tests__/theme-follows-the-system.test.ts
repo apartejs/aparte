@@ -25,6 +25,20 @@ import { readAparteStylesheet } from './read-stylesheet.js';
 // theme.css (no other sheet declares a palette or a prefers-color-scheme block).
 const theme = readAparteStylesheet();
 
+/**
+ * Each palette block names TWO anchors: the document selector and its `:host(...)`
+ * twin. The light literals are declared on `:root, :host`, so a sheet adopted into a
+ * shadow root put them ON THE HOST — where a local declaration beats the dark value
+ * the host would otherwise inherit, and neither dark block could reach it (`:root`
+ * does not match inside a shadow tree, and a bare `[data-aparte-theme="dark"]` does
+ * not match the host element). Measured before the fix: a chat in a shadow root under
+ * a dark page read `--aparte-bg: #f6f2ea`. Spelled out here rather than made optional,
+ * so dropping a twin is a red test and not a silent light island.
+ */
+const DARK_ATTR = /\[data-aparte-theme="dark"\],\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/;
+const DARK_MEDIA = /@media \(prefers-color-scheme: dark\)[^{]*\{\s*:root:not\(\[data-aparte-theme="light"\]\),\s*:host\(:not\(\[data-aparte-theme="light"\]\)\)\s*\{([^}]*)\}/;
+const LIGHT_VETO = /\[data-aparte-theme="light"\],\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/;
+
 /** The declarations of one block, comments stripped, matched from a selector. */
 function blockOf(selectorRe: RegExp): string {
     const m = theme.replace(/\/\*[\s\S]*?\*\//g, '').match(selectorRe);
@@ -38,11 +52,17 @@ describe('the theme follows the system by default', () => {
         expect(theme).toMatch(/:root:not\(\[data-aparte-theme=(?:"|')?light(?:"|')?\]\)/);
     });
 
+    it('every palette block reaches a shadow host as well as the document root', () => {
+        for (const [name, re] of [['dark attribute', DARK_ATTR], ['prefers-color-scheme copy', DARK_MEDIA], ['light veto', LIGHT_VETO]] as const) {
+            expect(blockOf(re), `${name}: no \`:host(...)\` twin — a chat inside a shadow root keeps the light literals the \`:root, :host\` block put on its host`).not.toBe('');
+        }
+    });
+
     it('the media block moves the same masters the dark attribute moves', () => {
         // Full byte-parity is check:derived-vars' job; here, the anchor tokens that
         // make a theme readable must be in BOTH dark blocks.
-        const attr = blockOf(/\[data-aparte-theme="dark"\]\s*\{([^}]*)\}/);
-        const media = blockOf(/@media \(prefers-color-scheme: dark\)[^{]*\{\s*:root:not\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/);
+        const attr = blockOf(DARK_ATTR);
+        const media = blockOf(DARK_MEDIA);
         for (const token of ['--aparte-bg:', '--aparte-text:', '--aparte-surface-1:', '--aparte-primary:', '--aparte-ink-l:']) {
             expect(attr, `attribute block lost ${token}`).toContain(token);
             expect(media, `media block must move ${token} exactly like the attribute does`).toContain(token);
@@ -50,7 +70,7 @@ describe('the theme follows the system by default', () => {
     });
 
     it('data-aparte-theme="light" exists and re-declares what dark overrides', () => {
-        const light = blockOf(/\[data-aparte-theme="light"\]\s*\{([^}]*)\}/);
+        const light = blockOf(LIGHT_VETO);
         expect(light, 'a light-forcing block must exist, or a subtree cannot go light under a dark OS').not.toBe('');
         for (const token of ['--aparte-bg:', '--aparte-text:', '--aparte-surface-1:', '--aparte-primary:']) {
             expect(light, `light block must reset ${token}`).toContain(token);
@@ -61,9 +81,9 @@ describe('the theme follows the system by default', () => {
         // `color-scheme` is not namespaced: declared by the MEDIA path on `:root`, a
         // library would flip the host page's native controls — invasive. It rides only
         // the host's explicit gestures, scoped to the subtree the host attributed.
-        const attrDark = blockOf(/\[data-aparte-theme="dark"\]\s*\{([^}]*)\}/);
-        const light = blockOf(/\[data-aparte-theme="light"\]\s*\{([^}]*)\}/);
-        const media = blockOf(/@media \(prefers-color-scheme: dark\)[^{]*\{\s*:root:not\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/);
+        const attrDark = blockOf(DARK_ATTR);
+        const light = blockOf(LIGHT_VETO);
+        const media = blockOf(DARK_MEDIA);
         expect(attrDark).toMatch(/color-scheme:\s*dark/);
         expect(light).toMatch(/color-scheme:\s*light/);
         expect(media, 'the media path must NOT set color-scheme on the host root').not.toMatch(/color-scheme/);

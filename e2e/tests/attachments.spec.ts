@@ -12,6 +12,25 @@ import { installLlmMock, MOCK_REPLY_MARK, type LlmMock } from '../helpers/mock-l
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 
+/**
+ * The transcript column's own inner edges for a message row — its padding box,
+ * after the row's own inline padding. A trailing-anchored bubble
+ * (`margin-inline-start: auto`, the chat site's skin) sits flush against the
+ * inner right edge; a leading-anchored one (core's own default) sits flush
+ * against the inner left edge instead. Reading this — rather than assuming
+ * either side — is what lets the test assert the ONE edge the bubble actually
+ * anchors to, instead of accepting whichever of the two happens to be close.
+ */
+async function transcriptColumnInnerEdges(row: import('@playwright/test').Locator): Promise<{ left: number; right: number }> {
+    const box = await row.boundingBox();
+    if (!box) throw new Error('the message row must be laid out');
+    const [padLeft, padRight] = await row.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return [parseFloat(s.paddingLeft), parseFloat(s.paddingRight)];
+    });
+    return { left: box.x + padLeft, right: box.x + box.width - padRight };
+}
+
 const textFile = (name = 'notes.md', body = 'aparte attachment fixture') => ({
     name,
     mimeType: 'text/markdown',
@@ -91,9 +110,24 @@ test('the attachment strip lines up with the bubble it belongs to', async ({ pag
     const contentBox = await userBubble.locator('.aparte-message-content').first().boundingBox();
     expect(tileBox).not.toBeNull();
     expect(contentBox).not.toBeNull();
+
+    // Which edge the bubble is actually anchored to: the leading one when it hugs
+    // its text on the start side (core's default), the trailing one when a skin
+    // anchors the user's turn to the end edge (the chat site's does, as the product
+    // it measures). Read from the CONTENT's own position in its row, not guessed —
+    // `min(leading, trailing) < 4` used to accept either edge blindly, which would
+    // also pass a strip anchored opposite to a bubble whose other edge happened to
+    // coincide.
+    const row = userBubble.locator('.aparte-message').first();
+    const { left, right } = await transcriptColumnInnerEdges(row);
+    const anchoredTrailing = Math.abs((contentBox!.x + contentBox!.width) - right) < Math.abs(contentBox!.x - left);
+    const diff = anchoredTrailing
+        ? Math.abs((tileBox!.x + tileBox!.width) - (contentBox!.x + contentBox!.width))
+        : Math.abs(tileBox!.x - contentBox!.x);
     expect(
-        Math.abs(tileBox!.x - contentBox!.x),
-        `attachment tile x=${tileBox!.x} vs bubble content x=${contentBox!.x}`,
+        diff,
+        `attachment tile x=${tileBox!.x}..${tileBox!.x + tileBox!.width} vs bubble content x=${contentBox!.x}..${contentBox!.x + contentBox!.width}`
+        + ` (anchored ${anchoredTrailing ? 'trailing' : 'leading'})`,
     ).toBeLessThan(4);
 });
 

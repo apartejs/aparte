@@ -148,17 +148,17 @@ importers:
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
       '@aparte/titler':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-efigsp':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-latin':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/titler-latin-mini':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.1.0
+        version: 1.1.0
       '@astrojs/check':
         specifier: ^0.9.10
         version: 0.9.10(prettier@3.9.6)(typescript@5.9.3)
@@ -177,6 +177,51 @@ importers:
       typedoc-plugin-markdown:
         specifier: ^4.12.0
         version: 4.12.0(typedoc@0.28.20(typescript@5.9.3))
+
+  apps/examples/_shared:
+    dependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
+      '@aparte/plugin-ask-user':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
+      '@aparte/plugin-marked':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/marked
+      '@aparte/plugin-model-selector':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
+      '@aparte/provider-openai-compat':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
 
   apps/examples/angular:
     dependencies:
@@ -198,18 +243,48 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
+      '@aparte/plugin-ask-user':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
       rxjs:
         specifier: ^7.8.0
         version: 7.8.2
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
       zone.js:
         specifier: ~0.15.0
         version: 0.15.1
@@ -232,33 +307,57 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
       '@aparte/locale-fr':
         specifier: workspace:*
         version: link:../../../packages/locales/fr
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
       '@aparte/plugin-ask-user':
         specifier: workspace:*
         version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
       '@aparte/react':
         specifier: workspace:*
         version: link:../../../packages/wrappers/react
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
       react:
         specifier: ^19.0.0
         version: 19.2.7
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
     devDependencies:
       '@types/react':
         specifier: ^19.0.0
@@ -281,18 +380,48 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
+      '@aparte/plugin-ask-user':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
       '@aparte/svelte':
         specifier: workspace:*
         version: link:../../../packages/wrappers/svelte
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
       svelte:
         specifier: ^4.2.0
         version: 4.2.20
@@ -318,18 +447,48 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
+      '@aparte/plugin-ask-user':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
       '@aparte/svelte':
         specifier: workspace:*
         version: link:../../../packages/wrappers/svelte
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
       svelte:
         specifier: ^5.0.0
         version: 5.56.10(@typescript-eslint/types@8.63.0)
@@ -358,6 +517,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
       '@aparte/plugin-artifacts':
         specifier: workspace:*
         version: link:../../../packages/plugins/artifacts
@@ -373,12 +535,24 @@ importers:
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
       '@aparte/provider-scenario':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/scenario
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -405,18 +579,48 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@aparte/plugin-approval':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
+      '@aparte/plugin-ask-user':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/ask-user
+      '@aparte/plugin-compaction':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/compaction
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
+      '@aparte/plugin-shiki':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/shiki
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
       '@aparte/vue':
         specifier: workspace:*
         version: link:../../../packages/wrappers/vue
+      '@shikijs/langs':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@shikijs/themes':
+        specifier: ^4.0.0
+        version: 4.3.1
+      shiki:
+        specifier: ^4.0.0
+        version: 4.3.1
       vue:
         specifier: ^3.5.0
         version: 3.5.39(typescript@5.7.3)
@@ -1126,20 +1330,20 @@ packages:
       '@angular/animations':
         optional: true
 
-  '@aparte/titler-efigsp@1.0.3':
-    resolution: {integrity: sha512-SJagoACTxPbE8hzAR00/JvbbtP+e/9iY0dy1fV60QHcsQ2uLlXke9dl3N4kyHNMnwW4e+lgz1r3ON2sKWUek5g==}
+  '@aparte/titler-efigsp@1.1.0':
+    resolution: {integrity: sha512-hlu3B/7D7SmfI5g9+uzWMHXj9MeDEnjOK+EdacU9wOm+x2OVP7YdDFUtS6k8AJi5NChJWbZhAWsVJWjg7PfeQA==}
     engines: {node: '>=18'}
 
-  '@aparte/titler-latin-mini@1.0.3':
-    resolution: {integrity: sha512-kQi3LU2f5DNU/OyGwvGQBir8v/i/jj31EK3PoHrI60PyaXL7m1EQy2UZo5aB+S540vSRBtHryNnIe9TFcogXpw==}
+  '@aparte/titler-latin-mini@1.1.0':
+    resolution: {integrity: sha512-7m+c85siTx5x/JFWR57FIHuvkxNqEZlksysQvGIufzASCd+zZFM+OfDEhVd7Xvzf+TsFa5KEApSzJD+SnTZoaA==}
     engines: {node: '>=18'}
 
-  '@aparte/titler-latin@1.0.3':
-    resolution: {integrity: sha512-c+OPIHF2cYY1mBIeEWr8QEWYqrSX6N7TsFTrcZ7IhsP2vwhMPBuNY5heufIU1A6aqyxmkxb/xCzPuUAnzYI2rA==}
+  '@aparte/titler-latin@1.1.0':
+    resolution: {integrity: sha512-IK+oxdemBT/ivLHAe+DrVphvNluzgRXCdE+6xcPUEqsSZUzX7IKe0Sywf1Q5nIboTc9jL/9ETB1EC95AMl3Crw==}
     engines: {node: '>=18'}
 
-  '@aparte/titler@1.0.3':
-    resolution: {integrity: sha512-8vgY2OVtkrZtRcmbvH5ejvEQHHOFkCmAwr1FnzRN3+nhLfzwv5HU/StUiofI43gk94EDYqv0SuLQRBAJjoDfuA==}
+  '@aparte/titler@1.1.0':
+    resolution: {integrity: sha512-bHlzY9gsZ+PwJCJ7ar0BdhzLHuug9lQzyIVReDprFx9xfkrp7S1eByKUune1lQNR8zdclkQr6/RIILlnZBz3Rg==}
     engines: {node: '>=18'}
 
   '@arethetypeswrong/cli@0.18.5':
@@ -11219,13 +11423,13 @@ snapshots:
       '@angular/core': 19.2.25(rxjs@7.8.2)(zone.js@0.15.1)
       tslib: 2.8.1
 
-  '@aparte/titler-efigsp@1.0.3': {}
+  '@aparte/titler-efigsp@1.1.0': {}
 
-  '@aparte/titler-latin-mini@1.0.3': {}
+  '@aparte/titler-latin-mini@1.1.0': {}
 
-  '@aparte/titler-latin@1.0.3': {}
+  '@aparte/titler-latin@1.1.0': {}
 
-  '@aparte/titler@1.0.3': {}
+  '@aparte/titler@1.1.0': {}
 
   '@arethetypeswrong/cli@0.18.5':
     dependencies:

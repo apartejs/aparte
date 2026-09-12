@@ -141,9 +141,26 @@ aparte-scroll-rail[data-empty] {
   background: var(--aparte-primary);
 }
 
+/* The ring goes on the ::before, because `outline` paints on the ELEMENT's border box
+   and this element is a 14×2 line: the indicator for a 24×24 target came out 16×4,
+   a hairline floating in the middle of the zone the pointer uses. The zone is already
+   computed above; drawing the ring on it costs nothing and marks the thing that is
+   actually pressable. Same width and same colour as every other ring — and INSET by
+   that width, because the zone is not merely near the rail's clip box, it IS the clip
+   box: the rail is exactly `--aparte-scroll-rail-width` wide with no inline padding,
+   the zone is anchored to both of its inline edges, and the block padding puts the clip
+   line exactly on the first and last zone's edge. `outline` paints OUTSIDE the border
+   box, so at the shared 0 offset both verticals fell 1px into what `overflow-x: hidden`
+   cuts — and a third side on the end ticks. Measured: two detached 16px hairlines, 24px
+   apart. Pulled in by the ring's own width, all four sides paint; same idiom as the
+   conversation row and the thumbnail, and for the same reason. */
 .aparte-scroll-rail__tick:focus-visible {
+  outline: none;
+}
+.aparte-scroll-rail__tick:focus-visible::before {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-focus-outline-offset);
+  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+  border-radius: var(--aparte-radius-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {

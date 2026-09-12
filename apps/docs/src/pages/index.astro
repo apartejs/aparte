@@ -7,6 +7,9 @@ import { SEGMENT_KINDS } from '../data/segment-kinds';
 // The same list `check:derived-vars` and the CSS-variables reference read, so this page
 // cannot count a corpus the rest of the repo has stopped using.
 import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
+// Same helper `models/titler.astro` measures its models with, so the two pages cannot
+// quote two different weights for the one file the site installs.
+import { bundled } from '../lib/bundled-model';
 
 /*
  * The landing page.
@@ -231,6 +234,10 @@ const PRIMARY_DERIVED = PRIMARY.derived;
  *  cards echo it, which is what makes ten boxes read as one enumeration. */
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
 
+/** The titler model's weight, read from the same file `models/titler.astro` measures —
+ *  one hand-typed "132 KB" here once disagreed with that page's own 133. */
+const TITLER = bundled('@aparte/titler-latin');
+
 /** The five demo tabs. `caption` is what the panel is showing; the source for
  *  each lives as a real <pre> in the markup, not a string built in JS. */
 const DEMOS = [
@@ -266,12 +273,16 @@ const FAMILIES = [
     ],
   },
   {
-    name: 'Plugins', count: 'five', items: [
+    name: 'Plugins', count: 'nine', items: [
       { pkg: '@aparte/plugin-marked', line: 'Markdown, rendered once at the end of a message.' },
       { pkg: '@aparte/plugin-streaming-markdown', line: 'Markdown while it streams — and it strips a javascript: href mid-stream, not only at the final render.' },
       { pkg: '@aparte/plugin-shiki', line: 'Syntax highlighting, with a second entry point for consumers who want to control what their bundler emits.' },
       { pkg: '@aparte/plugin-model-selector', line: 'A real ARIA combobox, grouped by provider, keyboard-operable.' },
       { pkg: '@aparte/plugin-ask-user', line: 'The ask_user tool: the model asks a structured question, the answer stays in the transcript.' },
+      { pkg: '@aparte/plugin-approval', line: 'Approval modes for tool calls — plan, ask, auto-edit, auto — from a classification of your own tool names.' },
+      { pkg: '@aparte/plugin-artifacts', line: 'A document the model writes, shown as a Code/Preview card; the preview runs in a sandboxed iframe.' },
+      { pkg: '@aparte/plugin-compaction', line: 'Context compaction: the transcript is summarised in place when the window fills, on request or automatically.' },
+      { pkg: '@aparte/plugin-titler', line: `A title for every conversation from its first message, in 17 languages, from a model that weighs ${TITLER.kb} KB and runs in the browser.` },
     ],
   },
   {
@@ -738,6 +749,12 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           The API reference on this site is generated from the components themselves at build
           time, so it cannot drift from the code.
           <a href="/components/">Read the reference &#8594;</a>
+        </p>
+        <p class="sec-note">
+          And it runs somewhere real: <a href="https://paulrichez.fr/" target="_blank" rel="noopener">paulrichez.fr</a>
+          is on the Angular wrapper, with the agent loop server-side over its own SSE events;
+          bonaparte, a local-AI harness on the React wrapper, is the first consumer and the source
+          of most of the frictions this library fixed &#8212; private, so no link.
         </p>
       </section>
 

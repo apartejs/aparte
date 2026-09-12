@@ -241,6 +241,12 @@ the request, via its `rawFileInject` option:
   retrieves relevant chunks (RAG) instead of flooding the context with whole files.
 - **`'none'`** — nothing is inlined; your `requestInterceptor` owns all file handling.
 
+A file that is neither an image nor a recognized text file — a PDF, a spreadsheet, an archive —
+is inlined in no mode: aparté sends nothing for it, while the chip stays on screen for your own
+upload or RAG layer to act on. In the default `'all'` mode it says so once with a `console.warn`
+naming the file; `'images-only'` and `'none'` stay silent, since dropping the file is what you
+asked for.
+
 :::caution[Text files are sent in full]
 In the default `'all'` mode a dropped text file — a `.env` or a log included — goes to the
 model verbatim. That's the intended batteries-included behavior for a user deliberately

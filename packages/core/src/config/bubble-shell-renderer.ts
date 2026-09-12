@@ -4,7 +4,7 @@
  * Replace the *structural skeleton* of `<aparte-chat-bubble>` — the markup the
  * bubble renders once and then populates — while keeping all of its behavior
  * (segments, streaming, action bar, avatar, branch picker). This is the
- * whole-structure override that {@link https://…} `renderBubble` (wrapper-level,
+ * whole-structure override that `renderBubble` (wrapper-level,
  * replaces the element entirely) is not: here the native bubble stays in charge.
  *
  * Return an HTML **string** or a ready **HTMLElement** (charter §6:
@@ -13,17 +13,55 @@
  *
  * - Root element **must** be `.aparte-message` (it carries `data-role` and receives
  *   `data-streaming` / `data-error`; the styles target it).
- * - Include the region hooks you want the bubble to populate. Any you omit simply
- *   stay empty (every lookup is null-guarded — graceful degradation):
- *   - `.aparte-avatar`         — filled by the avatar provider / initial
- *   - `.aparte-name`           — the display name (you set it from `ctx.name`)
- *   - `.aparte-timestamp`      — the formatted time
- *   - `.aparte-attachments`    — user-message attachment chips
- *   - `.aparte-segments`       — streamed/structured segments
- *   - `.aparte-content`        — simple markdown content
- *   - `.aparte-action-bar`     — copy/retry/edit/… + custom actions
- *   - `.aparte-branch-picker`  — with `.aparte-branch-prev` / `.aparte-branch-label` /
- *                              `.aparte-branch-next` for sibling navigation
+ * - Include the region hooks you want the bubble to populate, in the order the default
+ *   shell renders them. Any you omit simply stay empty (every lookup is null-guarded —
+ *   graceful degradation):
+ *   - `.aparte-avatar`          — filled by the avatar provider / initial
+ *   - `.aparte-name`            — the display name (you set it from `ctx.name`)
+ *   - `.aparte-timestamp`       — the formatted time
+ *   - `.aparte-attachments`     — user-message attachment chips
+ *   - `.aparte-message-content` — the painted content box, and it HOLDS the next three
+ *                               (`.aparte-segments`, `.aparte-content`, `.aparte-waiting`):
+ *                               the background, the radius and the padding of a user
+ *                               message are declared on this box, so rendering the three
+ *                               as its siblings leaves a message with no bubble — every
+ *                               behaviour intact, the look gone. The bubble hides the box
+ *                               when the turn has nothing to show, so an attachments-only
+ *                               message does not draw an empty coloured rectangle
+ *   - `.aparte-segments`        — streamed/structured segments
+ *   - `.aparte-content`         — simple markdown content
+ *   - `.aparte-waiting`         — the dots between "user sends" and the first token. The
+ *                               bubble only SHOWS and HIDES this region; the markup that
+ *                               paints is yours: a `.aparte-dots` span holding three
+ *                               `.aparte-dot` spans (the stylesheet animates them), and a
+ *                               `.aparte-sr-only` span for the label the screen reader
+ *                               hears. With the label alone the region has nothing to
+ *                               draw and the reader watches an empty box while the model
+ *                               composes
+ *   - `.aparte-footer`          — the row that holds the branch picker and the actions
+ *   - `.aparte-branch-picker`   — with `.aparte-branch-prev` / `.aparte-branch-label` /
+ *                               `.aparte-branch-next` for sibling navigation, and
+ *                               `.aparte-branch-status` (a `.aparte-sr-only` span with
+ *                               `aria-live="polite"`) for the announcement
+ *   - `.aparte-action-bar`      — copy/retry/edit/… + custom actions
+ *
+ * Omitting most of these costs you something you can see. **The two that fail silently
+ * are `.aparte-waiting` and `.aparte-branch-status`**: without the first there is no
+ * "thinking" state at all while the model composes, and without the second a
+ * screen-reader user gets no word that the branch moved — the arrows deliberately do
+ * not take focus, so nothing else announces it.
+ *
+ * ARIA is the one thing this list does NOT ask of you. A shell is markup, and a contract
+ * that also demanded a `role` and a name would lose both the first time an author forgot
+ * one, silently. So the bubble writes `role="article"` and the accessible name onto your
+ * root itself, after your shell renders — unless the root already carries a `role`, which
+ * is how you override it: the bubble then leaves the accessible name to you as well.
+ *
+ * Two more classes carry the DEFAULT LAYOUT and nothing else — the bubble never queries
+ * them, so a shell that lays itself out differently is free to drop both: `.aparte-body`
+ * (the column beside the avatar, and the containing block the footer floats in) and
+ * `.aparte-header` (the name and time row). Keep them and the default stylesheet lays
+ * your shell out like the native bubble.
  *
  * Prefer `renderBubble` (wrapper) when you want a fully custom element; use this
  * when you want to keep the native bubble's machinery but reshape its layout.

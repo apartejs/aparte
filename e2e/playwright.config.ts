@@ -148,6 +148,9 @@ const SCROLL_BTN = /scroll-button\.spec\.ts/;
 // survival and where a jump lands need an engine — three of them, since the loop measured
 // 61/s in Chromium and 146/s in Firefox.
 const SCROLL_RAIL = /scroll-rail\.spec\.ts/;
+// The chat SITE around the vanilla chat: the conversation list, the header title, the
+// new-chat button, the drawer, the theme toggle — the example's own glue.
+const CHAT_SITE = /chat-site\.spec\.ts/;
 // overlay-composer geometry: the full-column scroll surface, the floating stack's
 // clearance, and the pinned reader surviving a composer that grows.
 const OVERLAY = /overlay\.spec\.ts/;
@@ -210,6 +213,12 @@ const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
 // defect this covers is invisible in two of the three engines, and jsdom — which has
 // no layout and no scrolling at all — cannot host it in any of them.
 const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
+// The approval gate: a tool that must be approved, the four modes, and what the model is
+// told when a call does not run. A DEEP suite rather than a per-app one — the mechanism is
+// core's and the panel is core's DOM — but it runs on the two apps that mount the switch
+// through DIFFERENT mechanisms (vanilla writes the tag, react passes `<AparteUi>` through
+// the toolbar prop), which is the half a unit test cannot reach.
+const APPROVAL = /approval\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -223,20 +232,24 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL];
 const suiteFor = (k: AppKey): RegExp[] =>
-    k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
+    // vanilla-dist also runs THEMING: its page has no skin at all (a bare
+    // `<aparte-chat>`, core's own default composition), which is exactly where the
+    // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
+    // — see theming.spec.ts's own per-project branch (RA-14).
+    k === 'vanilla-dist' ? [DEMO, THEMING] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
     // behaviour suites (those are about core, which is major-agnostic).
-    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR] :
+    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR, CHAT_SITE] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    [SMOKE, REAL, AXE, TOOLBAR];
+    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

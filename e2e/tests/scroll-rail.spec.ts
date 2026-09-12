@@ -109,17 +109,30 @@ test('one tick per question, all of them in the rail, the current one visible �
     expect(g.aboveComposer, 'the rail spans the transcript, not the composer').toBe(true);
     expect(g.clearOfScrollbar, `the rail sits clear of a ${g.scrollbar}px scrollbar`).toBe(true);
 
-    // At rest, the rail is not rebuilt: not one mutation in most of a second.
+    // At rest, the rail is not rebuilt: not one mutation in most of a second. Each record
+    // is NAMED (what, on which element, from what to what), not counted: a bare "2" on a
+    // slow runner cannot say whether the current mark moved, a tick was replaced, or the
+    // rail followed a late resize — and each of those is a different verdict.
     const idle = await page.evaluate(async () => {
         const rail = document.querySelector('aparte-scroll-rail')!;
-        let n = 0;
-        const mo = new MutationObserver((records) => { n += records.length; });
-        mo.observe(rail, { childList: true, subtree: true, attributes: true });
+        const t0 = performance.now();
+        const seen: string[] = [];
+        const mo = new MutationObserver((records) => {
+            for (const r of records) {
+                const target = r.target as Element;
+                const at = `${Math.round(performance.now() - t0)}ms`;
+                const who = `<${target.tagName.toLowerCase()} class="${target.className}">`;
+                seen.push(r.type === 'attributes'
+                    ? `${at} ${r.attributeName} on ${who}: "${r.oldValue}" → "${target.getAttribute(r.attributeName!)}"`
+                    : `${at} ${r.type} on ${who}: +${r.addedNodes.length} −${r.removedNodes.length}`);
+            }
+        });
+        mo.observe(rail, { childList: true, subtree: true, attributes: true, attributeOldValue: true });
         await new Promise((r) => setTimeout(r, 700));
         mo.disconnect();
-        return n;
+        return seen;
     });
-    expect(idle, 'rail mutations at rest').toBe(0);
+    expect(idle, 'rail mutations at rest').toEqual([]);
 
     // Focus survives on a tick, and the arrows walk them.
     const third = rail.locator('.aparte-scroll-rail__tick').nth(2);

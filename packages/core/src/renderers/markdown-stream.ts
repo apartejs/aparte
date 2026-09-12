@@ -21,9 +21,16 @@
  * - On the settling update (`isStreaming === false`) it flushes the incremental
  *   parser with `end()` — that emits the buffered token lookahead, e.g. a trailing
  *   emoji — and then re-renders once with the one-shot provider for full fidelity.
+ *   That second render only happens when a one-shot provider is actually
+ *   registered: with the streaming plugin installed alone, the one-shot side is
+ *   the escape-plus-`<br>` default, and re-rendering through it would replace the
+ *   rendered DOM with the raw Markdown source at the exact moment the turn ends.
+ *   In that configuration the flushed DOM is kept and re-sanitised in place, so a
+ *   settled message is still what the sanitizer produced.
  */
 import { contextConfig } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
+import { escapeHtml } from '../utils/escape.js';
 
 /**
  * The element that carries the incremental state.
@@ -38,6 +45,24 @@ import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 export type AparteMarkdownStreamHost = HTMLElement & {
     _aparteSmd?: { renderer: AparteStreamingMarkdownRenderer; written: number } | null;
 };
+
+/** A probe with HTML in it, because escaping HTML is what the default renderer does. */
+const ONE_SHOT_PROBE = '<i>a</i>';
+
+/**
+ * Is `renderMarkdown` a registered provider, or core's zero-dependency default?
+ *
+ * Asked of the seam itself, because `renderMarkdown` is the only public shape the
+ * one-shot side has, and it is also what would run here. The default escapes HTML
+ * and nothing else, so it hands the probe back as `escapeHtml` wrote it; a
+ * registered provider answers differently even when it renders no Markdown at all
+ * (a pass-through one returns the markup, which the sanitizer then keeps). Reusing
+ * `escapeHtml` rather than re-typing the escaped string keeps the two sides of the
+ * comparison reading the same source.
+ */
+function hasOneShotMarkdownProvider(): boolean {
+    return contextConfig().renderMarkdown(ONE_SHOT_PROBE) !== escapeHtml(ONE_SHOT_PROBE);
+}
 
 /**
  * Render `content` into `contentEl`, incrementally while streaming.
@@ -75,11 +100,26 @@ export function writeStreamedMarkdown(
         }
         // smd === null → fall through to the one-shot render.
     } else if (host._aparteSmd) {
-        // Stream finished — flush the incremental parser (emits its buffered
-        // trailing characters), then re-render once below with the one-shot
-        // provider for full Markdown fidelity.
-        host._aparteSmd.renderer.end();
+        // Stream finished — feed whatever the last streaming update did not carry
+        // (a completion whose call brings the final content), then flush the
+        // incremental parser: `end()` emits its buffered trailing characters.
+        const smd = host._aparteSmd;
+        const tail = content.slice(smd.written);
+        if (tail) {
+            smd.renderer.write(tail);
+            smd.written = content.length;
+        }
+        smd.renderer.end();
         host._aparteSmd = undefined;
+        if (!hasOneShotMarkdownProvider()) {
+            // The incremental provider is the only Markdown renderer installed, so
+            // the one-shot render below would write the raw source over rendered
+            // DOM. Keep what the parser wrote — through the sanitizer, which is
+            // what makes writing DOM directly acceptable in the first place.
+            contentEl.innerHTML = contextConfig().sanitizeHtml(contentEl.innerHTML);
+            return;
+        }
+        // Otherwise fall through: the one-shot provider re-renders for full fidelity.
     }
 
     contentEl.innerHTML = contextConfig().renderMarkdown(content);

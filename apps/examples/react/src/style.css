@@ -1,4 +1,9 @@
-/* App shell only — the chat itself is styled by @aparte/core's theme variables. */
+/* Core first, then the ChatGPT skin, then the site's own rules — the same three
+   sheets as every example; the workbench rules below are this app's alone. */
+@import '@aparte/core/styles.css';
+@import '../../_shared/theme-chatgpt.css';
+@import '../../_shared/site.css';
+
 * {
     box-sizing: border-box;
 }

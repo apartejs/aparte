@@ -75,32 +75,71 @@ export interface OpenAICompatProviderOptions {
 /** Content → OpenAI multipart array when images are present. */
 function toOpenAIContent(content: string | AparteContentPart[]): unknown {
     if (typeof content === 'string') return content;
-    return content.map(p => {
-        if (p.type === 'text') return { type: 'text', text: p.text };
-        if (p.type === 'image') return { type: 'image_url', image_url: { url: p.image } };
-        return { type: 'text', text: '' }; // AparteFilePart — no inline-file support in the compat format
-    });
+    // Two arms, exhaustive: a part is text or an image. A third used to answer the
+    // removed `AparteFilePart` with an empty text part — a branch nothing could reach,
+    // standing in for inline-file support this format does not have.
+    return content.map(p => (p.type === 'text'
+        ? { type: 'text', text: p.text }
+        : { type: 'image_url', image_url: { url: p.image } }));
 }
 
-/** AparteChatMessage[] → OpenAI messages (incl. the tool_call / tool_result envelope). */
+/**
+ * The two roles a tool turn used to wear. `AparteChatMessage` no longer allows either, so
+ * the comparison is on the role as a string: a message carrying one comes from code built
+ * against an older aparté, which no type here can catch. Warned once per role, then
+ * skipped — passing it on would put an unknown role on the wire and 400 the whole request.
+ */
+const LEGACY_TOOL_ROLES = new Set(['tool_call', 'tool_result']);
+const warnedLegacyRoles = new Set<string>();
+function warnLegacyToolRole(role: string): void {
+    if (warnedLegacyRoles.has(role)) return;
+    warnedLegacyRoles.add(role);
+    console.warn(
+        `[@aparte/provider-openai-compat] Skipping a message with the removed role "${role}".`
+        + " A tool turn is now an assistant message carrying its calls — { role: 'assistant',"
+        + " content: <what it said>, toolCalls } — followed by one { role: 'tool', content:"
+        + ' <result>, toolCallId, toolName } per call. This warning is removed in 0.18.',
+    );
+}
+
+// The other half of that legacy shape, and it is deliberately NOT warned: an assistant
+// message built by hand with both `toolCalls` and image parts loses the images here.
+// Chat Completions does not carry them — an assistant message's content parts are `text`
+// and `refusal`, never `image_url` — so the mapping that used to emit them was a 400
+// waiting to happen, and the loop cannot mint the shape (`stream-run.ts` builds an
+// assistant's content from a string). Images on a USER turn are carried, unchanged.
+
+/** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */
 function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
-    return messages.map(msg => {
-        if (msg.role === 'tool_call') {
-            return {
+    const out: unknown[] = [];
+    for (const msg of messages) {
+        const role: string = msg.role;
+        if (LEGACY_TOOL_ROLES.has(role)) {
+            warnLegacyToolRole(role);
+            continue;
+        }
+        if (msg.role === 'tool') {
+            out.push({ role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) });
+            continue;
+        }
+        if (msg.role === 'assistant' && msg.toolCalls?.length) {
+            out.push({
                 role: 'assistant',
-                content: msg.precedingText ?? null,
-                tool_calls: (msg.toolCalls ?? []).map(tc => ({
+                // `||`, not `??`: this API takes null (or nothing) beside `tool_calls`, and
+                // an assistant that said nothing before its calls now carries '' — which
+                // some endpoints reject and the rest read as an empty reply.
+                content: contentToText(msg.content) || null,
+                tool_calls: msg.toolCalls.map(tc => ({
                     id: tc.id,
                     type: 'function',
                     function: { name: tc.name, arguments: JSON.stringify(tc.input) },
                 })),
-            };
+            });
+            continue;
         }
-        if (msg.role === 'tool_result') {
-            return { role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) };
-        }
-        return { role: msg.role, content: toOpenAIContent(msg.content) };
-    });
+        out.push({ role: msg.role, content: toOpenAIContent(msg.content) });
+    }
+    return out;
 }
 
 /** AparteTool[] → OpenAI function-tool declarations. */
@@ -246,7 +285,16 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             };
             if (request.tools?.length) {
                 body['tools'] = toOpenAITools(request.tools);
-                body['tool_choice'] = 'auto';
+                /*
+                 * A forced tool travels; `'auto'` is only the DEFAULT. It used to be
+                 * written unconditionally, so `toolChoice: { name }` — a shape the loop
+                 * passes straight through, since it intercepts only `{ name, input }`
+                 * (the synthetic call it runs itself) — was silently downgraded to
+                 * "the model decides", while the ai-sdk bridge honoured the same field.
+                 * `'none'` never reaches here: core strips the tools upstream.
+                 */
+                const forced = typeof request.toolChoice === 'object' ? request.toolChoice.name : undefined;
+                body['tool_choice'] = forced ? { type: 'function', function: { name: forced } } : 'auto';
             }
             return {
                 path: '/chat/completions',
@@ -288,10 +336,22 @@ export function parseOpenAICompatStream(
     const decoder = new TextDecoder();
     let buffer = '';
 
-    // Tool call accumulation state (keyed by the vendor's `index`). A null-prototype
-    // object: the key comes off the wire, and on a plain `{}` a chunk whose `index` is
-    // `"__proto__"` writes into Object.prototype for the whole page.
-    let toolCallsById: Record<number, { id: string; name: string; args: string }> = Object.create(null);
+    /*
+     * Tool call accumulation state, in wire order, keyed by `toolCallKey` below.
+     * A Map, not an object: the key comes off the wire, and on a plain `{}` a chunk
+     * whose `index` is `"__proto__"` writes into Object.prototype for the whole page.
+     */
+    const toolCalls = new Map<string, { id: string; name: string; args: string }>();
+    /** The call the last delta touched — what a bare argument fragment continues. */
+    let lastToolKey: string | null = null;
+    /**
+     * Every key a delta has addressed a call by → that call's slot in `toolCalls`.
+     * One call can be addressed both ways in one turn (by `index` in a chunk, by `id`
+     * in the next), so the identity is the alias, not the key of the moment.
+     */
+    const toolCallAliases = new Map<string, string>();
+    /** Ids minted for a vendor that sends none. Per stream, i.e. per turn. */
+    let mintedCallIds = 0;
     let capturedUsage: AparteUsage | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
@@ -308,7 +368,7 @@ export function parseOpenAICompatStream(
      * be worse than dropping it — so those are dropped, with a breadcrumb.
      */
     const flushToolCalls = (controller: ReadableStreamDefaultController<AparteStreamEvent>, complete: boolean): void => {
-        for (const entry of Object.values(toolCallsById)) {
+        for (const entry of toolCalls.values()) {
             let input: Record<string, unknown> = {};
             try {
                 input = entry.args.trim() ? JSON.parse(entry.args) : {};
@@ -325,7 +385,52 @@ export function parseOpenAICompatStream(
             const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
             controller.enqueue({ type: 'tool_use', ...toolCall });
         }
-        toolCallsById = Object.create(null);
+        toolCalls.clear();
+        toolCallAliases.clear();
+        lastToolKey = null;
+    };
+
+    /*
+     * Which accumulated call a `delta.tool_calls` entry belongs to.
+     *
+     * Both `index` and `id` address a call, and a vendor may use one in a chunk and
+     * the other in the next — so neither can BE the identity: a delta's keys are
+     * ALIASES that all resolve to the same slot. A key already resolved names the
+     * call, and every key a delta carries is recorded against the slot it lands on.
+     * Picking one key instead (`index` first, `id` next) split such a call in two,
+     * the second half nameless, and the turn ran the tool on `{}`.
+     *
+     * When no key of the delta is known yet, the function NAME decides — it appears
+     * only on a call's FIRST delta, so a nameless delta continues the call before it
+     * and a named one opens its own. That single rule covers the vendor whose deltas
+     * never carry both addresses at once (open by `id`, continue by `index`, or the
+     * reverse) and the vendor that carries neither: `index` is a streaming
+     * convenience, not part of the function-call payload, and keying on it alone
+     * (`Number(tc.index ?? 0)`) put every call of a server that omits it on slot 0.
+     *
+     * `null` means "skip this entry": an `index` the vendor sent that is not a
+     * non-negative integer is not a slot number, it is malformed (or hostile —
+     * `"__proto__"` was the shape that made this a Map).
+     */
+    const toolCallKey = (tc: { index?: unknown; id?: string; function?: { name?: string } }): string | null => {
+        let indexKey: string | undefined;
+        if (tc.index !== undefined && tc.index !== null) {
+            // Made a number, not annotated as one: `index` is whatever the vendor's JSON put there.
+            const idx = Number(tc.index);
+            if (!Number.isInteger(idx) || idx < 0) return null;
+            indexKey = `i${idx}`;
+        }
+        const idKey = tc.id ? `d${tc.id}` : undefined;
+        const known = (idKey ? toolCallAliases.get(idKey) : undefined) ?? (indexKey ? toolCallAliases.get(indexKey) : undefined);
+        // No key of this delta is known yet. A nameless delta never OPENS a call, so it
+        // continues the call before it — which is what keeps ONE call together when the
+        // vendor opens it with one address and continues it with the other, neither
+        // delta carrying both. A named delta still opens its own slot.
+        const key = known ?? ((!tc.function?.name && lastToolKey !== null) ? lastToolKey : (idKey ?? indexKey));
+        if (key === undefined) return `p${toolCalls.size}`;
+        if (idKey) toolCallAliases.set(idKey, key);
+        if (indexKey) toolCallAliases.set(indexKey, key);
+        return key;
     };
 
     return new ReadableStream<AparteStreamEvent>({
@@ -377,16 +482,30 @@ export function parseOpenAICompatStream(
                                 }
                                 if (delta.tool_calls) {
                                     for (const tc of delta.tool_calls) {
-                                        // Made a number, not annotated as one: `index` is whatever
-                                        // the vendor's JSON put there.
-                                        const idx = Number(tc.index ?? 0);
-                                        if (!Number.isInteger(idx) || idx < 0) continue;
-                                        if (!toolCallsById[idx]) {
-                                            toolCallsById[idx] = { id: tc.id ?? '', name: tc.function?.name ?? '', args: '' };
+                                        const key = toolCallKey(tc);
+                                        if (key === null) continue;
+                                        let entry = toolCalls.get(key);
+                                        if (!entry) {
+                                            /*
+                                             * An id is MINTED when the vendor sends none. `id: ''`
+                                             * used to travel: the transcript keys a row on
+                                             * `tool-${id}` and the history a result on
+                                             * `toolCallId`, so two id-less calls in one turn shared
+                                             * one row (the second call's result landed on the first
+                                             * call's line) and one history slot an OpenAI-shaped
+                                             * endpoint rejects on the next turn. A real id arriving
+                                             * in a later chunk still wins, below. The mint is
+                                             * namespaced because `call_1` is what an OpenAI-shaped
+                                             * server calls its own first call: a turn mixing an
+                                             * id-less call with a real `call_1` minted a duplicate.
+                                             */
+                                            entry = { id: tc.id ?? `aparte-call-${++mintedCallIds}`, name: tc.function?.name ?? '', args: '' };
+                                            toolCalls.set(key, entry);
                                         }
-                                        if (tc.id) toolCallsById[idx].id = tc.id;
-                                        if (tc.function?.name) toolCallsById[idx].name = tc.function.name;
-                                        if (tc.function?.arguments) toolCallsById[idx].args += tc.function.arguments;
+                                        lastToolKey = key;
+                                        if (tc.id) entry.id = tc.id;
+                                        if (tc.function?.name) entry.name = tc.function.name;
+                                        if (tc.function?.arguments) entry.args += tc.function.arguments;
                                     }
                                 }
                             }

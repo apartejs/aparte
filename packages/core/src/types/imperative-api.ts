@@ -73,3 +73,20 @@ export interface AparteChatImperativeApi {
     /** The `<aparte-chat-viewport>` element — same `getViewport()` on all four wrappers. */
     getViewport: () => HTMLElement | null;
 }
+
+/**
+ * The imperative surface every framework `<AparteUi>` proxy exposes — React's ref
+ * handle, Vue's template ref, Svelte's `bind:this`, Angular's `@ViewChild`.
+ *
+ * It lives here for the same reason {@link AparteChatImperativeApi} does: it was
+ * hand-copied into all four wrappers, each docblock promising "the same contract on
+ * all four", and it had already drifted once (two of them returned
+ * `HTMLElement | null` / `unknown` instead of the generic form). One declaration, four
+ * re-exports, and a divergence is a compile error rather than a promise in prose.
+ */
+export interface AparteUiHandle {
+    /** The proxied custom element, once mounted. */
+    getElement<T extends HTMLElement = HTMLElement>(): T | null;
+    /** Call a method on it — the escape hatch for an element-specific API. */
+    callMethod<T = unknown>(methodName: string, ...args: unknown[]): T | undefined;
+}

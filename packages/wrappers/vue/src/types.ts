@@ -28,10 +28,8 @@ export interface AparteUiProps {
 }
 
 /**
- * The imperative surface `<AparteUi>` exposes (template ref) — the same
- * `getElement`/`callMethod` contract on all four wrappers.
+ * The imperative surface `<AparteUi>` exposes (template ref) — one declaration in
+ * `@aparte/core`, re-exported by all four wrappers. It used to be four hand-written
+ * copies, each promising "the same contract on all four", and it had already drifted.
  */
-export interface AparteUiHandle {
-    getElement<T extends HTMLElement = HTMLElement>(): T | null;
-    callMethod<T = unknown>(methodName: string, ...args: unknown[]): T | undefined;
-}
+export type { AparteUiHandle } from '@aparte/core';

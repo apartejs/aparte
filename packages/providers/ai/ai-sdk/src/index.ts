@@ -88,43 +88,55 @@ export interface AiSdkProviderOptions {
 // ─── aparté ⇄ AI SDK shaping ─────────────────────────────────────────────────
 
 /**
- * AparteChatMessage[] → AI SDK ModelMessage[]. Handles aparté's `tool_call` /
- * `tool_result` envelope (assistant tool-call parts + tool-role results); the
- * tool name for a result is recovered from the preceding envelope.
+ * The two roles a tool turn used to wear. `AparteChatMessage` no longer allows either, so
+ * the comparison is on the role as a string: a message carrying one comes from code built
+ * against an older aparté, which no type here can catch. Warned once per role, then
+ * skipped — the fallthrough below maps anything unrecognised as a `user` turn, so without
+ * this the model would read a tool result as something the person typed.
+ */
+const LEGACY_TOOL_ROLES = new Set(['tool_call', 'tool_result']);
+const warnedLegacyRoles = new Set<string>();
+function warnLegacyToolRole(role: string): void {
+    if (warnedLegacyRoles.has(role)) return;
+    warnedLegacyRoles.add(role);
+    console.warn(
+        `[@aparte/provider-ai-sdk] Skipping a message with the removed role "${role}".`
+        + " A tool turn is now an assistant message carrying its calls — { role: 'assistant',"
+        + " content: <what it said>, toolCalls } — followed by one { role: 'tool', content:"
+        + ' <result>, toolCallId, toolName } per call. This warning is removed in 0.18.',
+    );
+}
+
+/**
+ * AparteChatMessage[] → AI SDK ModelMessage[]. Handles a tool turn (an assistant
+ * message carrying `toolCalls`, then the `tool` messages answering them); the tool
+ * name for a result is the message's own `toolName`, else the call that declared it.
  */
 export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
-    // toolCallId → toolName (results reference calls by id only).
+    // toolCallId → toolName, the FALLBACK for a `tool` message that names no tool of
+    // its own. A hand-built history need carry no assistant turn to scan, which is
+    // where the name used to become 'unknown'.
     const toolNames = new Map<string, string>();
     for (const msg of messages) {
-        if (msg.role === 'tool_call') {
+        if (msg.role === 'assistant') {
             for (const tc of msg.toolCalls ?? []) toolNames.set(tc.id, tc.name);
         }
     }
 
     const out: ModelMessage[] = [];
     for (const msg of messages) {
-        if (msg.role === 'tool_call') {
-            out.push({
-                role: 'assistant',
-                content: [
-                    ...(msg.precedingText ? [{ type: 'text' as const, text: msg.precedingText }] : []),
-                    ...(msg.toolCalls ?? []).map(tc => ({
-                        type: 'tool-call' as const,
-                        toolCallId: tc.id,
-                        toolName: tc.name,
-                        input: tc.input,
-                    })),
-                ],
-            });
+        const role: string = msg.role;
+        if (LEGACY_TOOL_ROLES.has(role)) {
+            warnLegacyToolRole(role);
             continue;
         }
-        if (msg.role === 'tool_result') {
+        if (msg.role === 'tool') {
             out.push({
                 role: 'tool',
                 content: [{
                     type: 'tool-result',
                     toolCallId: msg.toolCallId ?? '',
-                    toolName: toolNames.get(msg.toolCallId ?? '') ?? 'unknown',
+                    toolName: msg.toolName ?? toolNames.get(msg.toolCallId ?? '') ?? 'unknown',
                     output: { type: 'text', value: contentToText(msg.content) },
                 }],
             });
@@ -135,6 +147,25 @@ export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
             continue;
         }
         if (msg.role === 'assistant') {
+            if (msg.toolCalls?.length) {
+                const text = contentToText(msg.content);
+                out.push({
+                    role: 'assistant',
+                    content: [
+                        // No empty text part: '' is what an assistant that said nothing
+                        // before its calls now carries, and a part saying nothing is a
+                        // part the model still reads.
+                        ...(text ? [{ type: 'text' as const, text }] : []),
+                        ...msg.toolCalls.map(tc => ({
+                            type: 'tool-call' as const,
+                            toolCallId: tc.id,
+                            toolName: tc.name,
+                            input: tc.input,
+                        })),
+                    ],
+                });
+                continue;
+            }
             out.push({ role: 'assistant', content: contentToText(msg.content) });
             continue;
         }
@@ -144,11 +175,12 @@ export function toModelMessages(messages: AparteChatMessage[]): ModelMessage[] {
         } else {
             out.push({
                 role: 'user',
-                content: msg.content.map(p => {
-                    if (p.type === 'text') return { type: 'text' as const, text: p.text };
-                    if (p.type === 'image') return { type: 'image' as const, image: p.image };
-                    return { type: 'text' as const, text: '' }; // AparteFilePart — not bridged
-                }),
+                // Two arms, exhaustive: a part is text or an image. A third used to answer
+                // the removed `AparteFilePart` with an empty text part — a branch nothing
+                // could reach, standing in for a file bridge that was never written.
+                content: msg.content.map(p => (p.type === 'text'
+                    ? { type: 'text' as const, text: p.text }
+                    : { type: 'image' as const, image: p.image })),
             });
         }
     }
@@ -243,6 +275,16 @@ export function fullStreamToAparteEvents(
                     controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
                 }
             } finally {
+                /*
+                 * Told to stop on EVERY exit, not only when the consumer cancels: the
+                 * `finish` and `error` branches `return` straight out of the loop, so
+                 * they used to reach this `finally` having said nothing to the SDK —
+                 * after an error part the vendor call was left to drain on its own,
+                 * which is the very thing `cancel()` exists to prevent. Best effort:
+                 * an iterator that objects to being settled must not become the
+                 * stream's error.
+                 */
+                try { await iterator?.return?.(undefined); } catch { /* best effort */ }
                 controller.close();
             }
         },

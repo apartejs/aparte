@@ -1,0 +1,110 @@
+---
+title: Stability — what is frozen
+description: The frozen surface — every element, attribute, event, export, locale key and CSS token aparté does not rename without a notice release — measured on the tree and held by the gate.
+sidebar:
+  order: 9
+  label: Stability
+---
+
+import frozen from '../../../data/frozen-surface.json';
+
+export const elements = Object.entries(frozen.elements).map(([tag, e]) => ({ tag, ...e }));
+export const elementPackages = [...new Set(elements.map((e) => e.package))];
+export const attributeCount = elements.reduce((n, e) => n + e.attributes.length, 0);
+export const exportRows = Object.entries(frozen.exports);
+export const exportCount = exportRows.reduce((n, [, names]) => n + names.length, 0);
+export const eventCount = frozen.events.typed.length + frozen.events.names.length;
+export const codeList = (names) => names.map((name, i) => (<span key={name}>{i > 0 ? ', ' : ''}<code>{name}</code></span>));
+export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+Every `@aparte/*` package is a `0.x`, and the [roadmap](/roadmap/) names the beta as the moment a declared surface stops moving without notice. This page is that declaration, and the surface below is **frozen as of {frozen.frozenSince.version}** — the beta release re-stamps it, and nothing else about this page changes. Until then the alpha rule holds: a rename lands as a rename, without an alias, and the changeset says so.
+
+Nothing below is typed by hand. Every list on this page is the snapshot in `apps/docs/src/data/frozen-surface.json`, which `scripts/frozen-surface.mjs` takes from the tree itself — the custom-elements manifests, the typed event map, the built barrels, `AparteLocale`, the stylesheets. And `pnpm check:frozen-surface` runs in the gate and on every pull request: it re-measures the tree, and it fails on a name that left this snapshot without a notice. The figures on the [roadmap](/roadmap/) are counted the same way.
+
+## The promise
+
+From the beta on, a **frozen** element, event, export or token does not change meaning or name in one release. A change goes through two:
+
+1. **A notice release.** The old name still works and is marked deprecated, with the release it disappears in and the replacement, in the changelog and in the JSDoc.
+2. **A removal release**, at least one minor later.
+
+What is *not* listed here stays free to move, and that is the point of a list: a default colour, a spacing, an English label, the content of a docs page, the example apps, `@aparte/docs-mcp` (a tool, not an API), and anything whose JSDoc says `@experimental`.
+
+Adding is always allowed: a new optional attribute, a new optional field on an event's `detail`, a new export. Removing or renaming is what the two-release rule governs. And read *name* strictly: what a list below holds is a name, so an exported interface's fields are not on it — see [The exports](#the-exports).
+
+## The elements
+
+The tag name and the attributes the manifest documents — and a property that mirrors one of those attributes freezes with it, since the attribute is the frozen name. The `--aparte-*` tokens elements read are frozen as a family of their own, in [The tokens](#the-tokens) below. **{elements.length}** elements across {elementPackages.length} packages, **{attributeCount}** documented attributes between them — the figure after each tag is its own count:
+
+{elementPackages.map((pkg) => (
+  <p key={pkg}>
+    <strong>{pkg}</strong> — {count(elements.filter((e) => e.package === pkg).length, 'element')}:{' '}
+    {elements.filter((e) => e.package === pkg).map((e, i) => (
+      <span key={e.tag}>{i > 0 ? ', ' : ''}<code>{e.tag}</code> ({count(e.attributes.length, 'attribute')})</span>
+    ))}
+  </p>
+))}
+
+The [components reference](/components/) is generated from the same manifests, page by page.
+
+## The events
+
+**{frozen.events.typed.length}** typed events, all kebab-case and prefixed `aparte-`. Frozen: the **name** — that is what the snapshot measures. The shape of `detail` follows the same rule by policy (a field may be added if optional; none is removed or renamed), but no guard reads it, so a change there is announced in the changeset, like any other member of an exported type — see [The exports](#the-exports).
+
+<p>{codeList(frozen.events.typed)}</p>
+
+Another {frozen.events.names.length} carry no `detail` at all and are deliberately absent from `AparteEventMap` — {codeList(frozen.events.names)} — because an entry would type `e.detail` as `null` and gain nothing. Their **names** freeze the same way, which is what matters for `aparte-reset`, a command your app dispatches by name. That is {eventCount} event names in all.
+
+The [events reference](/reference/events/) carries each one's `detail` type and the element that fires it. The wrapper bindings (`onConversationSelect` in React, `(conversationSelect)` in Angular, and so on) follow from these names and freeze with them.
+
+## The exports
+
+The values each package exports from its barrel — **{exportCount}** across **{exportRows.length}** packages. `@aparte/core` publishes {frozen.exports['@aparte/core'].length} of them, from `AparteClient` and `AparteConversationManager` to `registerSegmentRenderer` and `registerDefaultRenderers`.
+
+What freezes here is the **name**. The guard reads the built barrels, where TypeScript has erased the types, so the members of an exported interface — the fields of a `setup*` options object, of a request, of an `AparteConversation` row — are not measured and not promised by this page. A field can still be added, renamed or removed; when one is, the changeset says so, and that is where to look before you implement one of these types yourself.
+
+<table>
+  <thead><tr><th>Package</th><th>Frozen exports</th></tr></thead>
+  <tbody>
+    {exportRows.map(([pkg, names]) => (
+      <tr key={pkg}><td><code>{pkg}</code></td><td>{names.length}</td></tr>
+    ))}
+  </tbody>
+</table>
+
+Each package's README and the reference pages list them, and the gate holds it: no value export of `@aparte/core`'s runtime barrel may go unmentioned, and every other barrel's unmentioned count is pinned to a recorded ceiling that may fall but never rise (`scripts/check-export-mentions.mjs`).
+
+Each plugin and provider freezes the same way: its `setup*` entry, the options that entry takes, and the types it exports. `@aparte/engine` freezes `runStreamAgent`, its options and the stream event vocabulary. The fields of those option types carry the caveat above — the name is frozen, the members are not.
+
+## The locale keys
+
+**{frozen.locale.length}** keys on `AparteLocale`. Frozen: the key names, which is what a translation bundle and every `t('…')` call are written against. The English *strings* behind them are not — a label can be reworded in a patch. [Localization](/guides/localization/) is the guide; a bundle that misses a key falls through to English, and the gate refuses that too.
+
+## The tokens
+
+**{frozen.tokens.length}** `--aparte-*` custom properties, every one of them on the [CSS variables reference](/reference/css-variables/), frozen by name and by what it controls. Its default *value* is not frozen: a palette can be retuned in a minor.
+
+CSS classes are not frozen. They all carry the `aparte-` prefix, and that prefix is the promise: nothing core emits will collide with a class of yours. Style them if you like, but a class is a rendering detail, and a rename there is a patch.
+
+## How this page stays true
+
+There is no list to maintain here — only a snapshot to re-take, and one guard that refuses the rest:
+
+```bash
+pnpm check:frozen-surface   # in the gate, and on every pull request
+pnpm frozen:update          # re-take the snapshot, then commit it with the change
+```
+
+An **addition** — a new element, attribute, event, export, locale key or token — is always allowed by the promise. The guard still fails on it, with a different sentence, because a snapshot that lags the tree stops describing anything: run `pnpm frozen:update` and commit the JSON alongside your change.
+
+A **removal or a rename** needs the notice release first. The guard looks for a changeset that names the exact name and deprecates it; it then prints *deprecated with notice* and lets the change through:
+
+```md
+---
+'@aparte/core': minor
+---
+
+`aparte-old-name` is deprecated and will be removed in 0.18 — use `aparte-new-name`.
+```
+
+Without one, `pnpm check:frozen-surface` fails, names what disappeared, and the pull request stays red. That is the whole mechanism: the promise is a file, and the gate reads it.

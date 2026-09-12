@@ -1,0 +1,23 @@
+{
+  "name": "@aparte-workspace/example-shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "What the five chat-site examples share: the setup, the skin, the sample data. Imported by relative path; a package only so pnpm links its dependencies here.",
+  "dependencies": {
+    "@aparte/core": "workspace:*",
+    "@aparte/engine": "workspace:*",
+    "@aparte/plugin-approval": "workspace:*",
+    "@aparte/plugin-artifacts": "workspace:*",
+    "@aparte/plugin-ask-user": "workspace:*",
+    "@aparte/plugin-compaction": "workspace:*",
+    "@aparte/plugin-marked": "workspace:*",
+    "@aparte/plugin-model-selector": "workspace:*",
+    "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/provider-openai-compat": "workspace:*",
+    "@aparte/provider-scenario": "workspace:*",
+    "shiki": "^4.0.0",
+    "@shikijs/langs": "^4.0.0",
+    "@shikijs/themes": "^4.0.0"
+  }
+}

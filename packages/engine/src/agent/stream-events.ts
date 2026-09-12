@@ -44,7 +44,7 @@ export interface StreamUsage {
      * has no index signature and `transportCall` needs the core -> engine
      * direction too.
      *
-     * The guard in stream-events.contract.ts normalized this exact field away
+     * The shape guard that used to stand here normalized this exact field away
      * before comparing, so it had been written AROUND the defect: every shape it
      * checked matched, while the composition both packages exist for did not
      * compile. Removing the signature costs nothing — the five named fields are
@@ -112,16 +112,15 @@ export interface StreamTool {
  */
 export interface StreamTextPart { type: 'text'; text: string }
 export interface StreamImagePart { type: 'image'; image: string; mimeType?: string }
-export interface StreamFilePart { type: 'file'; data: string; mimeType: string; name?: string }
-export type StreamContentPart = StreamTextPart | StreamImagePart | StreamFilePart;
+export type StreamContentPart = StreamTextPart | StreamImagePart;
 
 /**
  * A conversation message (mirrors `AparteChatMessage`).
  *
  * `role` used to be a bare `string`, justified by a comment saying the loop needed
- * to push the `'tool_call'` / `'tool_result'` envelope roles "without importing
- * core's union". But core's union already contains both — so the reason had not
- * been true for some time, and the looseness cost something real: `transportCall`
+ * to push the envelope roles of a tool turn "without importing core's union". But
+ * core's union already contained them — so the reason had not been true for some
+ * time, and the looseness cost something real: `transportCall`
  * is contravariant, so this message type must ALSO be assignable to core's, and a
  * `string` role is not assignable to a closed union. That was the last link in the
  * chain that stopped `streamRunner: runStreamAgent` from compiling.
@@ -130,7 +129,7 @@ export type StreamContentPart = StreamTextPart | StreamImagePart | StreamFilePar
  * runtime; core, which depends on this package, compiles the two against each other.
  */
 export interface StreamAgentMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     /**
      * Message content — carried, never inspected by this loop.
      *
@@ -141,12 +140,15 @@ export interface StreamAgentMessage {
      * the headline of five docs pages — did not typecheck.
      */
     content: string | StreamContentPart[];
-    /** Present on a `'tool_call'` envelope — the whole turn's calls, grouped. */
+    /**
+     * Present on an `'assistant'` message — the whole turn's calls, grouped. What it
+     * said before them is that message's own `content`, `''` when it said nothing.
+     */
     toolCalls?: StreamToolCall[];
-    /** Present on a `'tool_result'` message — which call it answers. */
+    /** Present on a `'tool'` message — which call it answers. */
     toolCallId?: string;
-    /** Assistant text that preceded the tool call(s) this turn. */
-    precedingText?: string;
+    /** Present on a `'tool'` message — the name of the tool that ran. */
+    toolName?: string;
     /*
      * No `[key: string]: unknown` here, deliberately.
      *
@@ -186,7 +188,12 @@ export interface StreamChatRequest {
     modelId: string;
     /** Per-turn hints carried through for the host (`prefixSegments`, and whatever the consumer puts there); the loop reads none. */
     _meta?: Record<string, unknown>;
-    /** `'none'` makes the loop drop the tool inventory for that turn. */
+    /**
+     * `'none'` makes the loop drop the tool inventory for that turn. An object forces
+     * a tool, and forcing is a turn-1 instruction: the loop sends it on the first
+     * transport call of the run and lifts it (to `'auto'`) for every turn after, so
+     * the model can answer once the tool has.
+     */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
     /** The inventory the loop sends, and clears when `toolChoice` is `'none'`. */
     tools?: StreamTool[];

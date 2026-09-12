@@ -1,24 +1,32 @@
 /*
- * Wrapper slot parity, mechanically.
+ * Wrapper prop parity, mechanically — slots, callbacks, data props and the one render hook.
  *
- * Ratified decision #4 promises the same slots on all four wrappers. It promised it in
- * prose, and prose drifts — that same line asserted for months that the parity was
+ * Ratified decision #4 promises one surface, one name, on all four wrappers. It promised
+ * it in prose, and prose drifts — that same line asserted for months that the parity was
  * "Angular-only", which was false and which nothing caught. The failure mode is silent by
  * nature: a slot name that no wrapper declares renders NOTHING, with no error, in Vue,
- * Svelte and Angular. A wrapper can lose a slot and every unit test stays green.
+ * Svelte and Angular; a data prop that no wrapper declares simply has no effect there. A
+ * wrapper can lose either and every unit test stays green.
  *
  * So: React's `AparteChatProps` is the source (see scripts/wrapper-surface.mjs), and every
- * slot it exposes must be declared by the other three. Wired into `pnpm gate`, next to
- * check-published-readmes and check-node-import — the two other cross-package contracts
- * that no single package's test suite can hold.
+ * prop it exposes — slot, callback, plain data prop, or the `renderBubble` render hook —
+ * must have a working counterpart on the other three. The data-prop/render-hook half is
+ * the newest: the first two readers (slots, callbacks) closed this exact hole for their
+ * own kind of prop, and it grew back one column over — the other ~17 props were read by
+ * neither, so any of them could be renamed or dropped on Vue, Svelte or Angular with
+ * nothing to notice. Wired into `pnpm gate`, next to check-published-readmes and
+ * check-node-import — the two other cross-package contracts that no single package's test
+ * suite can hold.
  */
 import { readFileSync } from 'node:fs';
 import {
     IMPLEMENTATIONS,
     CALLBACK_PROOFS,
+    DATA_PROP_PROOFS,
     SOURCES,
     readWrapperSlots,
     readWrapperCallbacks,
+    readWrapperDataProps,
 } from './wrapper-surface.mjs';
 
 const slots = readWrapperSlots();
@@ -48,6 +56,26 @@ for (const callback of callbacks) {
     for (const [key, proof] of Object.entries(CALLBACK_PROOFS)) {
         if (!proof.proves(sources[key], callback)) {
             missing.push({ slot: callback.name, wrapper: proof.label, expected: proof.usage(callback) });
+        }
+    }
+}
+
+/*
+ * The data props and the `renderBubble` render hook, by the same rule.
+ *
+ * `readWrapperSlots`/`readWrapperCallbacks` only ever read a prop typed `React.ReactNode`
+ * or `(…) => void` — so the other ~17 props on `AparteChatProps` (`placeholder`,
+ * `disabled`, `conversationId`, `config`, …) and `renderBubble` were never read at all,
+ * let alone checked against Vue, Svelte or Angular. `id` is excluded here on purpose: it
+ * already has a stronger, dedicated proof below (that the value is actually USED to seed
+ * the host id, not merely declared), and Angular's `id` is a native DOM attribute with no
+ * `@Input` a generic "declared under this name" check could find.
+ */
+const dataProps = readWrapperDataProps().filter((p) => p.react !== 'id');
+for (const prop of dataProps) {
+    for (const [key, proof] of Object.entries(DATA_PROP_PROOFS)) {
+        if (!proof.proves(sources[key], prop)) {
+            missing.push({ slot: prop.react, wrapper: proof.label, expected: proof.usage(prop) });
         }
     }
 }
@@ -107,5 +135,6 @@ if (idGaps.length) {
 
 console.log(
     `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} callbacks on all 4 wrappers — ${names}; `
+    + `${dataProps.length} data props/render hooks parity-checked (plus \`id\`, separately); `
     + 'and all 4 accept a caller-supplied host id.',
 );

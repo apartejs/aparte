@@ -17,6 +17,18 @@
  * meet: TypeScript gives a type alias an implicit index signature and an interface
  * none, so only this form is assignable to the extensions record that
  * `setLocale`/`extendLocale` accept and `getLocale` returns.
+ *
+ * Eleven keys here are rendered by no core file — the artifact card's six, its two
+ * sandbox lines, the compaction summary's title, the approval mode picker's label and the
+ * model selector's placeholder, all drawn by a plugin. They belong in this bag anyway: the
+ * locale is one flat object every package shares, so a translator fills one record and
+ * `@aparte/locale-fr` needs no companion per plugin. They are the
+ * exception rather than the pattern, though, and a closed one: a plugin of your own
+ * reads its strings off `getLocale()` and defaults them at the call site (the
+ * localization guide shows it), and `check:locale-keys` holds those eleven in
+ * `PLUGIN_OWNED` and refuses a twelfth. The reason is that a key here is a published name
+ * before it is a word: it ships in every locale package, and the frozen surface then
+ * keeps it for two releases.
  */
 export type AparteLocale = {
     // --- Input Area ---
@@ -69,6 +81,10 @@ export type AparteLocale = {
     // --- Conversation list ---
     /** Default title for a new conversation (default: "New Chat") */
     newChat: string;
+    /** Read by a screen reader while the conversation list is on its way (default: "Loading conversations") */
+    loadingConversations: string;
+    /** Read by a screen reader while a conversation's messages are on their way (default: "Loading the conversation") */
+    loadingConversation: string;
     /**
      * The "Delete" item of a row's menu (default: "Delete"). Used to be the aria-label
      * of a permanent ✕ on every row ("Delete conversation"); the menu is named after
@@ -394,7 +410,23 @@ export type AparteLocale = {
      * have chosen French strings, French formatting is what you meant.
      */
     tag?: string;
-    /** Direction of the text (ltr or rtl) - defaults to ltr */
+    /**
+     * Reading direction — `'ltr'` or `'rtl'`. Written as `dir` onto the viewport's
+     * scroll container and onto `<aparte-composer>`, so everything inside inherits it.
+     *
+     * Undefined on purpose in the English default, for the reason `tag` above is:
+     * `undefined` means "follow the host". The default used to be the literal
+     * `'ltr'`, which meant core wrote `dir="ltr"` on its own DOM — so a page that
+     * had said `<html dir="rtl">` got a mirrored app shell around a chat that was
+     * still left-to-right, and nothing said why. Not declaring it lets the host's
+     * direction inherit, which is what a library should do with a decision the page
+     * has already taken.
+     *
+     * A locale that wants the direction PINNED still declares it, and that is the
+     * case it exists for: `@aparte/locale-ar` would say `'rtl'` whatever the page
+     * around it does. `setLocale` replaces the object wholesale, so nothing merges a
+     * default back in.
+     */
     direction?: 'ltr' | 'rtl';
 };
 
@@ -491,6 +523,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     rejectTool: "Reject",
     messageInfo: "Details",
     newChat: "New Chat",
+    loadingConversations: "Loading conversations",
+    loadingConversation: "Loading the conversation",
     deleteConversation: "Delete",
     archiveConversation: "Archive",
     unarchiveConversation: "Unarchive",
@@ -509,6 +543,5 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Resize the panes",
-    transcript: "Transcript",
-    direction: 'ltr'
+    transcript: "Transcript"
 };

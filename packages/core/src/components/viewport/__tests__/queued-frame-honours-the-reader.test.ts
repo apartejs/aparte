@@ -172,6 +172,7 @@ describe('a decrease the browser made while settling our scroll', () => {
         vp.appendToken('a1', 'more');
         await frame();
         await frame();
+        box.dispatchEvent(new Event('pointerdown')); // the hand is on the text
         geometry(300, 1500);                        // -700px with the height standing still
         expect(vp._isAutoScrollEnabled, 'a selection dragged upward is the reader').toBe(false);
 
@@ -202,6 +203,8 @@ describe('what counts as the reader\'s hand', () => {
         await settleOurs();
         const bubble = vp.querySelector('aparte-chat-bubble')!;
         bubble.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 50 }));
+        // A click releases before the swap it triggers: the hand is off the surface.
+        document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
         geometry(940, 1560);                        // the swap's churn, a second after the click
         expect(vp._isAutoScrollEnabled, 'a click on a branch arrow must not disarm the follow').toBe(true);
     });
@@ -229,14 +232,17 @@ describe('what counts as the reader\'s hand', () => {
 
 describe('churn is bounded by the height it moved', () => {
     // During a stream every token refreshes the shadow, so the shadow alone cannot tell
-    // the browser's settling from a reader who moved without a recorded gesture — a
-    // drag-selection upward lands its press on the text, not in the gutter. What tells
-    // them apart is the evidence: churn moves scrollTop by at most the height it changed.
+    // the browser's settling from a reader who moved without a recorded SCROLL gesture —
+    // a drag-selection upward lands its press on the text, not in the gutter. What tells
+    // them apart is the hand: a pointer HELD on the surface while scrollTop decreases is
+    // the reader. (It used to be the churn — a decrease no larger than the height change
+    // — until WebKit handed the settle a decrease its regrown height no longer explained.)
     it('a decrease with the height standing still is the reader — a drag-selection upward', async () => {
         geometry(1000, 1500);
         vp.appendToken('a1', 'more');
         await frame();
         await frame();
+        box.dispatchEvent(new Event('pointerdown')); // the hand is on the text
         geometry(300, 1500);                        // -700px, no wheel, no height change
         expect(vp._isAutoScrollEnabled, 'a selection dragged upward must not be snapped back').toBe(false);
     });

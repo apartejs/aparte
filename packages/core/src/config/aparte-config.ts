@@ -41,7 +41,19 @@ export type AparteHighlightProvider =
     | ((code: string, lang: string) => Promise<string>);
 export type AparteSystemPromptVarsProvider = () => Record<string, string>;
 export type AparteLocaleProvider = AparteLocale;
-export type AparteKeyProvider = (providerId: string) => string | Promise<string | undefined> | undefined;
+/**
+ * How the page answers "what are this provider's credentials?".
+ *
+ * A bare key, or the same `{ apiKey, endpoint }` record the transport reads
+ * (`readAuth`) and `fetchModels` accepts. The record is not a nicety: a consumer
+ * who points a preset at their own host — a corporate proxy, a self-hosted vLLM,
+ * an LM Studio box — configures it as `endpoint`, and while this channel could
+ * only carry a string, `refreshProviderModels` sent `GET {vendor default}/models`
+ * with the key that host had been given.
+ */
+export type AparteKeyProvider = (providerId: string) =>
+    | string | Record<string, string> | undefined | null
+    | Promise<string | Record<string, string> | undefined | null>;
 
 /**
  * The bubble-action defaults — `copy` on, everything else off.
@@ -129,6 +141,11 @@ export class AparteConfig {
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
+    /**
+     * Sources added with `registerKeyProvider` — consulted before `_keyProvider`,
+     * newest first (see `getKey`).
+     */
+    private _extraKeyProviders: Set<AparteKeyProvider> = new Set();
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
@@ -206,7 +223,7 @@ export class AparteConfig {
      * (soon) the tool-approval gate. A custom presenter registered by a consumer gets
      * the same protection for free, which it previously had none of.
      */
-    private _elicitationQueue: Promise<void> | null = null;
+    private _elicitationQueue = new Map<HTMLElement | null, Promise<void>>();
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
@@ -227,9 +244,10 @@ export class AparteConfig {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register a custom action button. `zones` places it in the composer toolbar
-     * and/or the message (bubble) toolbar. Re-registering the same id overwrites
-     * it. Notifies mounted elements so they re-render.
+     * Register a custom action button. `zones` places it in the message (bubble)
+     * toolbar. Re-registering the same id overwrites it. Notifies mounted elements
+     * so they re-render. A button in the composer is an `<aparte-composer-action>`
+     * element you write in your markup, not a registry entry.
      */
     registerAction(action: AparteAction): void {
         const existing = this._actions.findIndex(a => a.id === action.id);
@@ -254,18 +272,6 @@ export class AparteConfig {
         const before = this._actions.length;
         this._actions = this._actions.filter(a => a.id !== id);
         if (this._actions.length !== before) this._notify();
-    }
-
-    /**
-     * Show or hide a composer action button by id.
-     * Triggers a config update so all mounted composer elements react immediately.
-     */
-    setActionHidden(id: string, hidden: boolean): void {
-        const action = this._actions.find(a => a.id === id);
-        if (action) {
-            action.composer = { ...action.composer, hidden };
-            this._notify();
-        }
     }
 
     /**
@@ -341,8 +347,11 @@ export class AparteConfig {
      * Set an incremental (streaming) Markdown renderer provider. Optional —
      * when set, the chat bubble uses it to render the assistant message
      * token-by-token DURING streaming (incremental parse + DOM append, O(n)),
-     * instead of re-parsing the whole string on every token. The one-shot
-     * `setMarkdownProvider` is still used for finished / re-rendered messages.
+     * instead of re-parsing the whole string on every token. When the turn ends,
+     * a registered one-shot `setMarkdownProvider` re-renders the finished message
+     * at full fidelity; with no one-shot provider registered, what the streaming
+     * renderer drew is kept (sanitised), rather than replaced by the built-in
+     * escape-and-line-break fallback.
      */
     setStreamingMarkdownProvider(fn: AparteStreamingMarkdownProvider): void {
         this._streamingMarkdownProvider = fn;
@@ -645,11 +654,56 @@ export class AparteConfig {
     }
 
     /**
-     * Get API key for a provider
+     * Add a key source, without replacing the one `setKeyProvider` holds. Returns a
+     * teardown.
+     *
+     * This is how `AparteClient({ keyResolver })` — the channel the docs teach as
+     * primary — reaches everything that needs a key rather than the chat alone. It
+     * used to reach the chat ONLY, so the model selector, whose one data path is
+     * `refreshProviderModels`, showed an empty list on every cloud provider while
+     * the chat worked: `fetchModels` returns `[]` without a key, so there was
+     * nothing to see and nothing said.
+     *
+     * The direction matters (decision #9): the client registers a source ON the
+     * config, so the capability is never hostage to the client — a page that only
+     * ever calls `setKeyProvider` is unchanged, and a page that constructs no
+     * client at all still lists models.
+     *
+     * Every call is its own source, even when the same function is handed in
+     * twice: two panes sharing one module-level resolver are two mounts, and the
+     * first one to unmount must not take the second one's key with it. A `Set`
+     * keyed by the function itself made them one entry, which either teardown
+     * removed.
      */
-    async getKey(providerId: string): Promise<string | undefined> {
+    registerKeyProvider(provider: AparteKeyProvider): () => void {
+        const entry: AparteKeyProvider = (providerId) => provider(providerId);
+        this._extraKeyProviders.add(entry);
+        return () => { this._extraKeyProviders.delete(entry); };
+    }
+
+    /**
+     * The credentials for a provider: a key, or the `{ apiKey, endpoint }` record
+     * the transport and `fetchModels` both read.
+     *
+     * ONE resolution order, so the chat and the model list cannot disagree about
+     * what an endpoint is: a registered resolver (`AparteClient`'s `keyResolver`)
+     * first — which is the precedence the client has always documented — then
+     * `setKeyProvider`.
+     *
+     * Registered sources answer NEWEST first. A page that mounts a second chat, or
+     * remounts one to swap its options — the swap the wrappers document — leaves
+     * more than one source here, and insertion order made the first resolver the
+     * page ever registered answer for every later one, so the key could not be
+     * changed. The snapshot is deliberate too: a source torn down while an earlier
+     * one is being awaited must not shift the iteration underneath it.
+     */
+    async getKey(providerId: string): Promise<string | Record<string, string> | undefined> {
+        for (const provider of [...this._extraKeyProviders].reverse()) {
+            const resolved = await provider(providerId);
+            if (resolved) return resolved;
+        }
         if (this._keyProvider) {
-            return await this._keyProvider(providerId);
+            return await this._keyProvider(providerId) || undefined;
         }
         return undefined;
     }
@@ -664,9 +718,12 @@ export class AparteConfig {
         if (!provider || !provider.fetchModels) return [];
 
         try {
-            const apiKey = await this.getKey(providerId);
-            // apiKey may be undefined for keyless local providers (e.g. LMStudio) — provider handles it
-            const models = await provider.fetchModels(apiKey);
+            // The whole answer, not just a key: `{ apiKey, endpoint }` is what a
+            // consumer pointing a preset at their own host configures, and
+            // `fetchModels` reads the endpoint off it. May be undefined for keyless
+            // local providers (e.g. LM Studio) — the provider handles that.
+            const auth = await this.getKey(providerId);
+            const models = await provider.fetchModels(auth);
             // Cached so `getCurrentModel()` can see it: a fetched list is the only
             // list a compat endpoint has, and capabilities are read off the model.
             this._fetchedModels.set(providerId, models);
@@ -1108,6 +1165,13 @@ export class AparteConfig {
      * Controls what appears in the chat bubble when the AI calls this tool.
      * Use this instead of the generic `tool_call` segment renderer for tool-specific UI.
      *
+     * A renderer that needs a popover (a `<aparte-select>`, a menu) cannot open one
+     * inside the row: the bubble is `content-visibility: auto`, which makes it the
+     * containing block for `position: fixed` descendants and clips a popover to its
+     * own box. Mount it on `document.body` and position it from the trigger's rect
+     * instead — see [Custom tool
+     * renderer](https://apartejs.dev/guides/tools/#custom-tool-renderer).
+     *
      * @example
      * // Hide the segment entirely (UI-only tool like ask_user)
      * aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
@@ -1324,7 +1388,8 @@ export class AparteConfig {
      * "installs itself — nothing to register", which is how that was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
-        const previous = this._elicitationQueue;
+        const queue = this._elicitationQueueKey(request);
+        const previous = this._elicitationQueue.get(queue);
         /*
          * Nothing waiting → present in THIS tick.
          *
@@ -1333,7 +1398,7 @@ export class AparteConfig {
          * request would be an observable change bought for nothing, so the queue only
          * costs a hop when there is actually something ahead.
          */
-        const settled = previous === null ? this._present(request) : previous.then(
+        const settled = previous === undefined ? this._present(request) : previous.then(
             () => this._present(request),
             () => this._present(request),
         );
@@ -1341,10 +1406,25 @@ export class AparteConfig {
             // Drained: back to "nothing waiting", so the next request is immediate
             // again. Guarded because a request enqueued behind this one owns the tail
             // now, and clearing it would drop that one on the floor.
-            if (this._elicitationQueue === mine) this._elicitationQueue = null;
+            if (this._elicitationQueue.get(queue) === mine) this._elicitationQueue.delete(queue);
         });
-        this._elicitationQueue = mine;
+        this._elicitationQueue.set(queue, mine);
         return settled;
+    }
+
+    /**
+     * Which queue a request waits in: its own chat's.
+     *
+     * The wait exists so a second question cannot take the panel away from the one on
+     * screen — a property of ONE panel, and `_present` routes by target, so a chat is
+     * the right unit. It used to be one queue for the whole config: two chats on the
+     * global config shared it, and an approval waiting for an answer in the first (which
+     * is all an approval does) held the second's question behind it for ever, with
+     * nothing on screen to answer. Requests that name no chat keep sharing the `null`
+     * queue, because they all reach the same presenter — the top of the stack.
+     */
+    private _elicitationQueueKey(request: AparteElicitationRequest): HTMLElement | null {
+        return chatBoundaryOf(request.target);
     }
 
     /** Hand ONE request to the presenter. Called only from the queue. */
@@ -1404,9 +1484,9 @@ export class AparteConfig {
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenters = [];
-        // The queue too: a request left waiting across a reset belongs to a chat that
-        // no longer exists, and holding the tail would make the next request wait on it.
-        this._elicitationQueue = null;
+        // The queues too: a request left waiting across a reset belongs to a chat that
+        // no longer exists, and holding a tail would make the next request wait on it.
+        this._elicitationQueue.clear();
         this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;

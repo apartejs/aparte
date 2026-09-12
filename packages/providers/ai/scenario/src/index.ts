@@ -82,6 +82,13 @@ export interface ScenarioProviderOptions {
      * Calls answered in order; the last one repeats. The simplest form — a demo that
      * always goes the same way, a test that needs three replies. Every call to the
      * model advances, a tool round-trip included.
+     *
+     * The cursor belongs to the PROVIDER, not to a chat: a request carries no
+     * conversation identity, so two chats registered against one provider take turns
+     * from the same script and interleave it (chat A gets `turns[0]`, chat B
+     * `turns[1]`). On a page with more than one chat, build a provider per chat —
+     * `createScenarioProvider` is cheap and takes an `id` — or use `scenarios`, which
+     * answers from the request itself and has no cursor at all.
      */
     turns?: ScenarioTurn[];
     /**
@@ -118,7 +125,10 @@ const normalize = (scenarios: Record<string, Scenario | ScenarioTurn>): Record<s
     return out;
 };
 
-/** The name of the tool a `tool_result` answers: the call with that id, in the turn before. */
+/**
+ * The name of the tool a `tool` message answers, when the message does not carry it:
+ * the call with that id, in the assistant turn before.
+ */
 const toolNameOf = (messages: AparteChatMessage[], toolCallId: string | undefined): string | undefined => {
     for (let i = messages.length - 1; i >= 0; i--) {
         const call = messages[i]!.toolCalls?.find((tc) => tc.id === toolCallId);
@@ -135,8 +145,8 @@ const toolNameOf = (messages: AparteChatMessage[], toolCallId: string | undefine
 export function defaultMatch(request: AparteChatRequest, scenarios: Record<string, Scenario>): string | undefined {
     const entries = Object.entries(scenarios);
     const last = request.messages[request.messages.length - 1];
-    if (last?.role === 'tool_result') {
-        const tool = toolNameOf(request.messages, last.toolCallId);
+    if (last?.role === 'tool') {
+        const tool = last.toolName ?? toolNameOf(request.messages, last.toolCallId);
         const hit = entries.find(([, s]) => s.after !== undefined && s.after === tool);
         if (hit) return hit[0];
     }
@@ -250,9 +260,17 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
     // default match routes the tool RESULT back through the same `when` and the
     // conversation eats its own tail — identical rounds until the client's
     // maxTurns error. Plausible to write, silent to read; the hole is visible at
-    // creation, so it is said at creation. Ordered `turns` advance on their own,
-    // and a custom `match` replaces the default rule — both exempt.
-    if (options.scenarios && !options.match) {
+    // creation, so it is said at creation. Ordered `turns` advance on their own, so
+    // they are the one exemption.
+    //
+    // A custom `match` is NOT exempt, and used to be. It does not replace the default
+    // rule, it precedes it — `pick` reads `match(...) ?? defaultMatch(...)` — so a
+    // `match` that returns `undefined` for a tool result, the shape the docs and this
+    // repo's own examples write, falls straight into the loop this warning describes.
+    // The exemption silenced the one case most likely to need the line; a consumer who
+    // really owns the routing can ignore a single console line at creation — and the
+    // message tells them so, since for THEM the sentence about looping may be false.
+    if (options.scenarios) {
         // A record value is a Scenario OR a bare turn (string / steps) — a tool in a
         // BARE turn loops the same way, through the default/first-entry fallback.
         const values = Object.values(options.scenarios);
@@ -275,7 +293,16 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
                 `[scenario] No \`after\` route for: ${[...orphans].map((t) => `\`${t}\``).join(', ')}. `
                 + 'A scenario calls the tool, but nothing answers its result — the default match '
                 + 'sends it back through the same `when`, and the conversation loops until the '
-                + "client's maxTurns stops it. Declare a scenario with `after: '<tool>'` for each.",
+                + "client's maxTurns stops it. Declare a scenario with `after: '<tool>'` for each."
+                // Only said when there IS a `match`, because only then can the sentence above be
+                // false: routing the result by value is the documented "Branching on what the user
+                // answered" shape, and it does not loop. Without a `match` the loop is certain, and
+                // an escape hatch named there would only muddy the one instruction that helps.
+                + (options.match
+                    ? ' Your own `match` runs before that rule: if it already routes this result'
+                    + ' — routing by the value the tool returned is a documented shape — this line'
+                    + ' is the one to ignore.'
+                    : ''),
             );
         }
     }
@@ -330,5 +357,3 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
         },
     };
 }
-
-export { showcase } from './presets.js';

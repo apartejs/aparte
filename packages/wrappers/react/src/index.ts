@@ -21,7 +21,10 @@ export type { UseAparteClient } from './hooks/useAparteClient.js';
 export { useConversationManager } from './hooks/useConversationManager.js';
 export type { UseConversationManager } from './hooks/useConversationManager.js';
 export { AparteUi } from './components/AparteUi.js';
-export type { AparteUiProps, AparteUiHandle } from './components/AparteUi.js';
+export type { AparteUiProps } from './components/AparteUi.js';
+// The proxy handle, re-exported straight from `@aparte/core` for the same reason as
+// `AparteChatImperativeApi`: one declaration, four wrappers.
+export type { AparteUiHandle } from '@aparte/core';
 
 export type {
     AparteMessage,

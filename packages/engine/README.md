@@ -32,10 +32,10 @@ Conversation compaction (the context budget, the selector, the summariser) is
 
 ## Owning the history (prefix-cache hosts)
 
-By default the loop keeps the message list and re-sends it every turn, enriched with the
-`tool_call` / `tool_result` turns it produced. That is right for a stateless message API, and
-wrong for a **prefix cache** — llama.cpp slots, vLLM — where turn N+1 must *extend* turn N
-byte for byte or the cache is thrown away.
+By default the loop keeps the message list and re-sends it every turn, enriched with the assistant
+turn that carries the calls and the `tool` turn that answers each one. That is right for a
+stateless message API, and wrong for a **prefix cache** — llama.cpp slots, vLLM — where turn N+1
+must *extend* turn N byte for byte or the cache is thrown away.
 
 Such a host owns its own transcript. It already controls the request (`transportCall` receives
 the built request and may ignore `request.messages`); `onHistoryAppend` is the other half —
@@ -48,10 +48,17 @@ const log = new PromptLog();                       // your append-only transcrip
 await runStreamAgent({
   // …messageId, emitter, signal, toolLookup
   baseRequest: { messages: [], modelId: 'my-model' }, // your transport may ignore both
-  onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
+  onHistoryAppend: (turn) => log.append(turn),     // the calls · each result · each reply
   transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
 });
 ```
+
+One caveat the example glosses over: the assistant turn is reported the moment its **first** call
+completes, and both its `content` and its `toolCalls` are finalised later in the same turn. A log
+that writes bytes on receipt, like `PromptLog` above, must therefore hold the object and re-read it
+before serialising, or append the assistant turn only once the turn's last `tool` message has
+arrived. A snapshot taken on receipt loses the whole sentence the assistant said before it called
+anything.
 
 Wiring it through core's seam needs no core change — augment the options at injection:
 

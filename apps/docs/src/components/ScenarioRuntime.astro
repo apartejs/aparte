@@ -19,7 +19,8 @@
 
 <script>
     import { aparteGlobalConfig, AparteClient, AparteDirectTransport, filesToAttachments } from '@aparte/core';
-    import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+    import { createScenarioProvider } from '@aparte/provider-scenario';
+    import { showcase } from '@aparte/provider-scenario/showcase';
 
     const scripted = createScenarioProvider({
         scenarios: showcase,
@@ -35,16 +36,33 @@
         },
         async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${String(call.input['city'] ?? 'Lille')}.` }),
     );
+    // The four tools the showcase's "ship it" chain calls, answered with fixtures — the
+    // same names and strings as the example sites, so a frame that hears "release" runs the
+    // chain instead of stalling on a tool nothing registered.
+    const canned: Record<string, [description: string, content: string]> = {
+        search_docs: ['Search the documentation.', 'Found 3 pages: release checklist, versioning, the publish script.'],
+        read_file: ['Read a file from the workspace.', '## 0.16.11\n\n- the previous release'],
+        write_file: ['Write a file in the workspace.', 'Wrote 4 lines to CHANGELOG.md.'],
+        run_command: ['Run a shell command in the workspace.', 'Build finished in 12.4s. 0 errors.'],
+    };
+    for (const [name, [description, content]] of Object.entries(canned)) {
+        aparteGlobalConfig.registerTool(
+            { name, description, inputSchema: { type: 'object', properties: {}, additionalProperties: true } },
+            async (call) => ({ toolCallId: call.id, content }),
+        );
+    }
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
     new AparteClient().start();
 
-    // The USER bubble is the host's to append - the client appends and streams the
-    // assistant's reply only (in an app, a wrapper's conversation controller does this;
-    // the vanilla example does it by hand, and so does this frame). Without it the
-    // question vanished and only the answer appeared - the first thing Paul typed.
+    // The USER bubble is appended here, on the element, so the frame owns the shape of
+    // the message it shows. Appending is only half of it: whoever appends marks
+    // `detail.echoed`, and the client yields when it sees the mark. This listener is on
+    // the element and the client's is on the window, so this one runs first — without the
+    // mark the client appends a second bubble and the question shows twice.
     for (const chat of document.querySelectorAll<HTMLElement & { viewport?: { appendMessage(m: Record<string, unknown>): void } | null }>('aparte-chat')) {
         chat.addEventListener('aparte-send', (e) => {
-            const detail = (e as CustomEvent<{ content: string; files?: File[] }>).detail;
+            const detail = (e as CustomEvent<{ content: string; files?: File[]; echoed?: boolean }>).detail;
+            if (detail.echoed === true) return;
             chat.viewport?.appendMessage({
                 id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 role: 'user',
@@ -52,6 +70,7 @@
                 timestamp: Date.now(),
                 ...(detail.files?.length ? { attachments: filesToAttachments(detail.files) } : {}),
             });
+            detail.echoed = true;
         });
     }
 </script>

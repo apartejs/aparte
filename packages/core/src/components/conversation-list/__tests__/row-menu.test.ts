@@ -89,10 +89,10 @@ describe('aparte-conversation-list — the row menu', () => {
         expect(moreOf(el, 'c1').getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('pin fires aparte-pin-conversation; on a pinned row the same item fires unpin', () => {
+    it('pin fires aparte-conversation-pin; on a pinned row the same item fires unpin', () => {
         const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two', pinnedAt: 1 }]);
-        const pinned = listen(el, 'aparte-pin-conversation');
-        const unpinned = listen(el, 'aparte-unpin-conversation');
+        const pinned = listen(el, 'aparte-conversation-pin');
+        const unpinned = listen(el, 'aparte-conversation-unpin');
 
         openMenu(el, 'c1');
         choose(el, 'pin');
@@ -105,10 +105,10 @@ describe('aparte-conversation-list — the row menu', () => {
         expect(el.querySelector('[role="menu"]'), 'the menu closes on a choice').toBeNull();
     });
 
-    it('archive fires aparte-archive-conversation; on an archived row it fires unarchive', () => {
+    it('archive fires aparte-conversation-archive; on an archived row it fires unarchive', () => {
         const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two', archivedAt: 1 }]);
-        const archived = listen(el, 'aparte-archive-conversation');
-        const unarchived = listen(el, 'aparte-unarchive-conversation');
+        const archived = listen(el, 'aparte-conversation-archive');
+        const unarchived = listen(el, 'aparte-conversation-unarchive');
 
         openMenu(el, 'c1');
         choose(el, 'archive');
@@ -122,7 +122,7 @@ describe('aparte-conversation-list — the row menu', () => {
     describe('delete asks first', () => {
         it('shows the question with the title, and Cancel fires nothing', () => {
             const el = mount([{ id: 'c1', title: 'Deploy checklist' }]);
-            const deleted = listen(el, 'aparte-delete-conversation');
+            const deleted = listen(el, 'aparte-conversation-delete');
             const menu = openMenu(el, 'c1');
             choose(el, 'delete');
 
@@ -134,15 +134,33 @@ describe('aparte-conversation-list — the row menu', () => {
             expect(el.querySelector('[role="menu"]')).toBeNull();
         });
 
-        it('confirming fires aparte-delete-conversation once and closes', () => {
+        it('confirming fires aparte-conversation-delete once and closes', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const deleted = listen(el, 'aparte-delete-conversation');
+            const deleted = listen(el, 'aparte-conversation-delete');
             openMenu(el, 'c1');
             choose(el, 'delete');
             choose(el, 'confirm-delete');
 
             expect(deleted).toEqual([{ id: 'c1' }]);
             expect(el.querySelector('[role="menu"]')).toBeNull();
+        });
+
+        it('the question is a dialog, so no bare button sits under role="menu"', () => {
+            // axe: `aria-required-children` — a `role="menu"` may hold menuitems and
+            // nothing else, and the two answers are buttons. They are not menu items
+            // either: the confirm step is a question, so the popover says what it is
+            // for as long as it asks, and `_openMenu` makes it a menu again.
+            const el = mount([{ id: 'c1', title: 'Deploy checklist' }]);
+            const menu = openMenu(el, 'c1');
+            const bare = (): Element[] => Array.from(el.querySelectorAll('[role="menu"] button'))
+                .filter((b) => b.getAttribute('role') !== 'menuitem');
+            expect(bare(), 'the items are menuitems').toEqual([]);
+
+            choose(el, 'delete');
+
+            expect(menu.getAttribute('role'), 'the popover asks, so it announces a dialog').toBe('dialog');
+            expect(menu.getAttribute('aria-label'), 'named by the question it asks').toContain('Deploy checklist');
+            expect(bare(), 'the two answers are not menu items under a menu').toEqual([]);
         });
 
         it('a hostile title cannot break out of the question', () => {
@@ -170,7 +188,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('Enter commits the trimmed title and puts the focus back on the row', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const renamed = listen(el, 'aparte-rename-conversation');
+            const renamed = listen(el, 'aparte-conversation-rename');
             openMenu(el, 'c1');
             choose(el, 'rename');
             const input = el.querySelector<HTMLInputElement>('input')!;
@@ -184,7 +202,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('Escape cancels: no event, the title button is back', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const renamed = listen(el, 'aparte-rename-conversation');
+            const renamed = listen(el, 'aparte-conversation-rename');
             openMenu(el, 'c1');
             choose(el, 'rename');
             const input = el.querySelector<HTMLInputElement>('input')!;
@@ -198,7 +216,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('an unchanged or emptied title fires nothing', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const renamed = listen(el, 'aparte-rename-conversation');
+            const renamed = listen(el, 'aparte-conversation-rename');
             openMenu(el, 'c1');
             choose(el, 'rename');
             key(el.querySelector('input')!, 'Enter');
@@ -212,7 +230,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('leaving the field commits once — the blur a removal causes does not commit again', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const renamed = listen(el, 'aparte-rename-conversation');
+            const renamed = listen(el, 'aparte-conversation-rename');
             openMenu(el, 'c1');
             choose(el, 'rename');
             const input = el.querySelector<HTMLInputElement>('input')!;
@@ -224,7 +242,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('typing Enter in the input does not select the row', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            const selected = listen(el, 'aparte-select-conversation');
+            const selected = listen(el, 'aparte-conversation-select');
             openMenu(el, 'c1');
             choose(el, 'rename');
             const input = el.querySelector<HTMLInputElement>('input')!;
@@ -257,7 +275,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('keeps the row focused when the host re-assigns conversations on the rename event', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            el.addEventListener('aparte-rename-conversation', (e) => {
+            el.addEventListener('aparte-conversation-rename', (e) => {
                 const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
                 el.conversations = [{ id, title }];
             });

@@ -71,11 +71,35 @@ describe('artifact card — the tablist pattern', () => {
         expect(first!.tabIndex).toBe(-1);
     });
 
-    it('ids are scoped to the segment, so two cards do not collide', () => {
+    it('ids are unique per card, so two cards do not collide', () => {
         const other = mount({ ...SEGMENT, id: 'seg-2' } as AparteArtifactSegment);
 
         const a = host.querySelector('[role="tab"]')!.id;
         const b = other.querySelector('[role="tab"]')!.id;
         expect(a).not.toBe(b);
+    });
+
+    /*
+     * The id used to be the SEGMENT's, and the segment's is the model's: a tool-call
+     * segment is `tool-${toolCallId}`, straight off the wire. So two calls answering
+     * to the same id put two cards on the page wearing the same `id` and the same
+     * `aria-controls` — and `getElementById` returns whichever parsed first, which is
+     * precisely the collision the scoping was introduced to prevent.
+     */
+    it('does not collide even when the model reuses one id for two cards', () => {
+        const twin = mount(SEGMENT);
+        artifactRenderer.setup?.(twin, SEGMENT);
+
+        const first = host.querySelector<HTMLElement>('[role="tab"]')!;
+        const second = twin.querySelector<HTMLElement>('[role="tab"]')!;
+        expect(first.id).not.toBe(second.id);
+        expect(first.getAttribute('aria-controls')).not.toBe(second.getAttribute('aria-controls'));
+
+        // And each tab reaches the panel in its OWN card, not the other's.
+        for (const [card, tab] of [[host, first], [twin, second]] as const) {
+            const panel = document.getElementById(tab.getAttribute('aria-controls')!);
+            expect(panel).not.toBeNull();
+            expect(card.contains(panel!), 'the panel a tab controls is inside its own card').toBe(true);
+        }
     });
 });

@@ -76,8 +76,8 @@ describe('AparteClient — a turn that stops, stops', () => {
 
     it('hands the model a turn to answer a refusal in', async () => {
         // The other half of a refusal, and the half that did not exist: the turn ended,
-        // so the "rejected by the user" tool_result the loop had just appended was never
-        // sent to anybody. Telling the assistant what you actually wanted meant retyping
+        // so the "rejected by the user" `tool` message the loop had just appended was
+        // never sent to anybody. Telling the assistant what you actually wanted meant retyping
         // it as a new message, which it then read out of order.
         const alpha = vi.fn();
         const { cfg, el, turns } = harness(

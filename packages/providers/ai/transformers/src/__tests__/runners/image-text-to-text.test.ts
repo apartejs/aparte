@@ -13,7 +13,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRunner } from '../../runners/image-text-to-text.js';
 import type { RunnerContext, RunnerGenerateInput } from '../../runners/types.js';
-import type { AparteStreamEvent } from '@aparte/core';
+import type { AparteContentPart, AparteStreamEvent } from '@aparte/core';
 
 function fakeTransformers() {
     const calls: {
@@ -112,12 +112,49 @@ describe('image-text-to-text runner', () => {
         const ctx = ctxFor(module);
         await run([
             { role: 'user', content: 'weather?' },
-            { role: 'tool_call', content: '', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
-            { role: 'tool_result', content: 'Cloudy', toolCallId: 't1' },
+            { role: 'assistant', content: 'Checking.', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: 'Cloudy', toolCallId: 't1', toolName: 'get_weather' },
         ], ctx);
-        expect(calls.templateArgs?.[0]).toEqual([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
+        // What the assistant SAID is prompt; the call it made, and the answer to it, are not.
+        expect(calls.templateArgs?.[0]).toEqual([
+            { role: 'user', content: [{ type: 'text', text: 'weather?' }] },
+            { role: 'assistant', content: [{ type: 'text', text: 'Checking.' }] },
+        ]);
         expect(ctx.warn).toHaveBeenCalledTimes(1);
         expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/tool/);
+    });
+
+    it('says so when the assistant asked for a tool and said nothing else', async () => {
+        // The call rides on an `assistant` message, which passes the role test — so a
+        // turn with no parts of its own is dropped by the emptiness check below it, with
+        // nothing said. Isolated on purpose: the `tool` answer that usually follows
+        // fires the same warning and would hide this.
+        const { module, calls } = fakeTransformers();
+        const ctx = ctxFor(module);
+        await run([
+            { role: 'user', content: 'weather?' },
+            { role: 'assistant', content: '', toolCalls: [{ id: 't1', name: 'get_weather', input: {} }] },
+        ], ctx);
+        expect(calls.templateArgs?.[0], 'the call left no trace in the prompt')
+            .toEqual([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
+        expect(ctx.warn, 'so the page has to be told it did not').toHaveBeenCalledTimes(1);
+        expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/tool/);
+    });
+
+    it('counts a content part it cannot carry and says so, instead of handing load_image an undefined', async () => {
+        // The removed `AparteFilePart` shape: type-impossible, and reachable all the same from
+        // code built against an older aparté — the same case the wire mappers guard on the ROLE
+        // axis. Unguarded, `images.push(p.image)` pushes `undefined` and `load_image(undefined)`
+        // fails at generate time instead of the part being counted and named.
+        const { module, calls } = fakeTransformers();
+        const ctx = ctxFor(module);
+        const legacyFilePart = { type: 'file', data: 'JVBERi0=', mimeType: 'application/pdf' } as unknown as AparteContentPart;
+        await run([{ role: 'user', content: [{ type: 'text', text: 'read this' }, legacyFilePart] }], ctx);
+        expect(calls.templateArgs?.[0], 'the part leaves no placeholder in the prompt')
+            .toEqual([{ role: 'user', content: [{ type: 'text', text: 'read this' }] }]);
+        expect(calls.loaded, 'and nothing undefined reaches load_image').toEqual([]);
+        expect(ctx.warn).toHaveBeenCalledTimes(1);
+        expect(ctx.warn.mock.calls[0]?.[0]).toMatch(/part/);
     });
 
     it('generates from the processed inputs with the options, streaming tokens as text events', async () => {

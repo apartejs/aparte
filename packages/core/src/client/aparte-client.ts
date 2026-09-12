@@ -13,6 +13,7 @@ import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } 
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
+import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
 import { requestUserInput } from '../elicitation/index.js';
 
@@ -65,7 +66,7 @@ export type AparteToolApprovalResolver = (
     /**
      * What the user said to do instead, on a refusal.
      *
-     * It becomes the tool_result the model reads, which is possible at all only
+     * It becomes the `tool` message the model reads, which is possible at all only
      * because a refusal now hands the model a turn. Optional and additive: a resolver
      * that returns a bare `{ approved }` behaves exactly as before.
      */
@@ -246,6 +247,16 @@ export interface AparteClientOptions {
 }
 
 /**
+ * Files `_filesToContentParts` has already announced — warn once per name, the idiom the
+ * stream loop uses for an event it cannot map. Repeating it on every send is how a
+ * warning gets muted, and the developer only needs to hear it once per attachment.
+ */
+const warnedUninlinedFiles = new Set<string>();
+
+/** What a chat looks like from outside: the shell, the viewport, or a host that says so. */
+const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
+
+/**
  * AparteClient
  *
  * The "Automatic Transmission" for Aparte.
@@ -270,6 +281,7 @@ export class AparteClient {
     private _boundAbortHandler: (() => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
+    private _releaseKeyResolver: (() => void) | null = null;
     private _isAborted = false;
 
     /**
@@ -314,7 +326,7 @@ export class AparteClient {
          * that would be a silent break for the common case.
          */
         if (this._config === aparteGlobalConfig) return true;
-        const target = this._resolveTarget(detail?.targetId);
+        const target = this._resolveTarget(detail?.targetId, e);
         if (!target) return true;
         const owner = resolveConfig(target);
         /*
@@ -342,6 +354,21 @@ export class AparteClient {
             ...options
         };
         this._config = options.config ?? aparteGlobalConfig;
+
+        /*
+         * The key channel this client was given becomes a key source on its CONFIG,
+         * so everything that needs a key can see it — not the chat alone.
+         *
+         * `refreshProviderModels`, the model selector's one data path, read
+         * `config.getKey` only: an app following the documented primary channel
+         * (`keyResolver`) therefore got an empty picker on every cloud provider,
+         * because `fetchModels` returns `[]` without a key. Nothing warned; the list
+         * simply read as "the vendor returned nothing".
+         *
+         * Registered on the config rather than answered by the client, so the
+         * capability stays reachable without one (decision #9).
+         */
+        this._registerKeyResolver();
 
         // Both take THIS client's config, not the global one. Segment renderers are
         // registered per config as of 0.8.0, so a client constructed with
@@ -379,6 +406,21 @@ export class AparteClient {
     }
 
     /**
+     * Put this client's `keyResolver` on its config, and hold the teardown so
+     * `stop()` can take it back off.
+     *
+     * The registration used to be fire-and-forget, so it outlived the client that
+     * made it: a stopped client kept signing model-list requests, and a remount —
+     * the way the wrappers document swapping options — added a source behind the
+     * one it meant to replace instead of replacing it. Idempotent, so the usual
+     * `new AparteClient({…}).start()` registers once.
+     */
+    private _registerKeyResolver(): void {
+        if (this._releaseKeyResolver || !this.options.keyResolver) return;
+        this._releaseKeyResolver = this._config.registerKeyProvider(this.options.keyResolver);
+    }
+
+    /**
      * Sets up the event listeners.
      * This is called once in the constructor.
      */
@@ -400,6 +442,9 @@ export class AparteClient {
      * Start listening for aparte-send events on the window.
      */
     start(): void {
+        // A client that was stopped and started again signs requests with its own
+        // key again: `stop()` takes the resolver off the config.
+        this._registerKeyResolver();
         if (!this._boundHandler) {
             this._setupListeners();
         }
@@ -448,6 +493,11 @@ export class AparteClient {
         // Before the early return: a client that was never `start()`ed can still
         // have a stream, because `_handleSend` can be invoked directly.
         this.abort();
+        // Before the early return as well: the key source is put on the config in
+        // the CONSTRUCTOR, so a client that never started still holds one, and a
+        // resolver left behind keeps answering for whatever mounts next.
+        this._releaseKeyResolver?.();
+        this._releaseKeyResolver = null;
         if (!this._boundHandler) return;
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
@@ -705,7 +755,7 @@ export class AparteClient {
 
         if (!messageId) return;
 
-        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId, event);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-retry — no target found');
             return;
@@ -787,7 +837,7 @@ export class AparteClient {
 
         if (!messageId || newContent === undefined) return;
 
-        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId, event);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-edit — no target found');
             return;
@@ -846,28 +896,88 @@ export class AparteClient {
     }
 
     /**
+     * The chain the gesture really came up, nearest node first.
+     *
+     * Read from a `window` listener, `event.target` is the shadow HOST when the event
+     * left a tree of the consumer's own, and `parentElement` stops at that tree's root —
+     * so a walk from either starts, or ends, outside the chat the person typed into.
+     * `composedPath()` is the one chain that crosses. The fallback is for an event
+     * dispatched by hand, which has no path.
+     */
+    private _originChain(event?: Event | null): EventTarget[] {
+        const path = event?.composedPath?.() ?? [];
+        if (path.length > 0) return path;
+        const chain: EventTarget[] = [];
+        let node = (event ? eventOrigin(event) : null) as HTMLElement | null;
+        while (node) { chain.push(node); node = node.parentElement; }
+        return chain;
+    }
+
+    /**
+     * The trees a lookup must search, the one the gesture came from FIRST.
+     *
+     * `document.getElementById` and `document.querySelectorAll` cannot see into a shadow
+     * root, so a chat mounted in one — the arrangement the theming guide endorses — was
+     * invisible to both: alone, the send was dropped with a warning; on a page that also
+     * holds a chat in the light DOM, the scan answered with the WRONG chat, so the
+     * person's message AND the model's reply landed in a transcript they never typed
+     * into. Nearest tree first is what keeps it from swapping the other way round.
+     */
+    private _rootsFor(event?: Event | null): ParentNode[] {
+        const roots: ParentNode[] = [];
+        for (const node of this._originChain(event)) {
+            if (typeof (node as Node).getRootNode !== 'function') continue;
+            const root = rootOf(node as Node);
+            if (!roots.includes(root)) roots.push(root);
+        }
+        if (!roots.includes(document)) roots.push(document);
+        return roots;
+    }
+
+    /** The element an id names, looked up in the gesture's own tree before the document. */
+    private _byId(targetId: string, event?: Event | null): HTMLElement | null {
+        for (const root of this._rootsFor(event)) {
+            const el = (root as Partial<NonElementParentNode>).getElementById?.(targetId) as HTMLElement | null | undefined;
+            if (el) return el;
+        }
+        return null;
+    }
+
+    /** The first chat that can render, own tree first — the path when nothing names one. */
+    private _scanForTarget<T extends HTMLElement>(event?: Event | null): T | null {
+        for (const root of this._rootsFor(event)) {
+            for (const candidate of root.querySelectorAll<HTMLElement>(CHAT_SELECTOR)) {
+                const target = this._asRenderTarget<T>(candidate);
+                if (target) return target;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve a target element by id (from event detail.targetId) or via targetResolver / DOM scan.
      */
-    private _resolveTarget<T extends HTMLElement>(targetId?: string): T | null {
+    private _resolveTarget<T extends HTMLElement>(targetId?: string, event?: Event | null): T | null {
         // An explicit id / resolver is TRUSTED as given (it may gain its render
         // methods later); only the implicit DOM scan must prefer a candidate that
         // can actually render — the <aparte-chat> shell matches the selector first
         // but delegates rendering to its viewport (see _asRenderTarget), so a blind
         // candidates[0] returned an unusable shell and retry/edit silently no-op'd.
         if (targetId) {
-            const el = document.getElementById(targetId) as HTMLElement | null;
+            const el = this._byId(targetId, event);
             if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
         if (this.options.targetResolver) {
             const el = this.options.targetResolver() as HTMLElement | null;
             if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
-        const candidates = document.querySelectorAll<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
-        for (const candidate of candidates) {
-            const target = this._asRenderTarget<T>(candidate);
-            if (target) return target;
+        const scanned = this._scanForTarget<T>(event);
+        if (scanned) return scanned;
+        for (const root of this._rootsFor(event)) {
+            const first = root.querySelector<HTMLElement>(CHAT_SELECTOR);
+            if (first) return first as unknown as T;
         }
-        return (candidates[0] as unknown as T | undefined) ?? null;
+        return null;
     }
 
     /**
@@ -997,7 +1107,7 @@ export class AparteClient {
             // send fall through to the DOM scan below — which returns the FIRST
             // chat on the page. With two chats, one chat's reply landed in the
             // other. retry/edit already used this helper; send had drifted.
-            const byId = document.getElementById(targetId) as HTMLElement | null;
+            const byId = this._byId(targetId, event);
             const resolved = this._asRenderTarget<HTMLElement>(byId) as AparteChatTargetElement | null;
             if (resolved) {
                 targetElement = resolved;
@@ -1006,22 +1116,28 @@ export class AparteClient {
             }
         }
 
-        // 2. User-supplied resolver (e.g. provided via APARTE_CLIENT_OPTIONS)
+        // 2. User-supplied resolver (e.g. provided via APARTE_CLIENT_OPTIONS).
+        //    Through _asRenderTarget, like step 1: the documented answer to a chat in a
+        //    shadow root of your own is `targetResolver: () => root.querySelector('aparte-chat')`,
+        //    and requiring appendMessage ON the element rejected the shell that returns —
+        //    so the escape hatch out of a missed lookup missed in exactly the same way.
         if (!targetElement && this.options.targetResolver) {
-            const resolved = this.options.targetResolver() as AparteChatTargetElement | null;
-            if (resolved && typeof resolved.appendMessage === 'function') {
-                targetElement = resolved;
-            }
+            targetElement = this._asRenderTarget<HTMLElement>(
+                this.options.targetResolver(),
+            ) as AparteChatTargetElement | null;
         }
 
-        // 3. Walk up the event bubble chain as last resort
+        // 3. Walk the chain the event really came up, as last resort. `composedPath()`
+        //    and not `parentElement` from `event.target`: this listens on the window, so
+        //    a send that left a shadow tree is retargeted to the host and the walk would
+        //    start outside the chat it came from.
         if (!targetElement) {
-            let walker: AparteChatTargetElement | null = event.target as AparteChatTargetElement | null;
-            while (walker && typeof walker.appendMessage !== 'function') {
-                walker = walker.parentElement as AparteChatTargetElement | null;
-            }
-            if (walker) {
-                targetElement = walker;
+            for (const node of this._originChain(event)) {
+                const walker = node as AparteChatTargetElement;
+                if (typeof walker?.appendMessage === 'function') {
+                    targetElement = walker;
+                    break;
+                }
             }
         }
 
@@ -1037,16 +1153,7 @@ export class AparteClient {
             // appendMessage of its own), so a blind querySelector returned an
             // unusable shell and the send silently no-op'd. _asRenderTarget skips
             // to the shell's viewport (or the bare viewport) — see also _resolveTarget.
-            const candidates = document.querySelectorAll<HTMLElement>(
-                'aparte-chat, aparte-chat-viewport, [data-aparte-chat]',
-            );
-            for (const candidate of candidates) {
-                const resolved = this._asRenderTarget<AparteChatTargetElement>(candidate);
-                if (resolved) {
-                    targetElement = resolved;
-                    break;
-                }
-            }
+            targetElement = this._scanForTarget<AparteChatTargetElement>(event);
         }
 
         if (!targetElement) {
@@ -1261,7 +1368,8 @@ export class AparteClient {
      *
      * `thinking` and `tool_call` stay out on purpose — the first is the model's own
      * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second is already in the history as a call and a result.
+     * second was already carried, within the turn, as the assistant's calls and the
+     * `tool` messages answering them.
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';
@@ -1308,7 +1416,8 @@ export class AparteClient {
      * - Images → AparteImagePart (base64 data URL)
      * - Text files (txt, md, json, csv, xml, html, css, js, ts, …) → AparteTextPart
      *   injected as a fenced block so all models (including local) can read them.
-     * - Other binary files → silently ignored.
+     * - Other binary files → no content part, and a one-time `console.warn` naming the
+     *   file (see the branch below for why it is not silent).
      */
     private async _filesToContentParts(files: File[]): Promise<AparteContentPart[]> {
         const TEXT_TYPES = /^(text\/|application\/(json|xml|javascript|typescript|x-yaml|yaml|toml|csv|markdown))/i;
@@ -1341,6 +1450,17 @@ export class AparteClient {
                     });
                 }
 
+                // Everything else — a PDF, a spreadsheet, an archive. The chip stays on
+                // screen, so silence here reads as the model ignoring the attachment
+                // rather than as aparté never having sent it.
+                if (!warnedUninlinedFiles.has(file.name)) {
+                    warnedUninlinedFiles.add(file.name);
+                    console.warn(
+                        `[aparte] ${file.name} (${file.type || 'unknown type'}) is attached to the message but is `
+                        + 'not sent to the model: aparté inlines images and text files only. Handle it in your app '
+                        + '(RAG, an upload) — the chip stays visible either way.',
+                    );
+                }
                 return Promise.resolve(null);
             })
         );
@@ -1507,7 +1627,7 @@ export class AparteClient {
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
-                    // tool_result, or fall through to "the user rejected this" downstream.
+                    // `tool` message, or fall through to "the user rejected this" downstream.
                     return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
                 }
                 return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);

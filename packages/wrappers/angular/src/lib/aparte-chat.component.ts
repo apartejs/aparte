@@ -29,7 +29,7 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@aparte/core';
 
 /**
  * AparteChatComponent — Angular 19 Wrapper
@@ -56,12 +56,26 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
     template: `
     <div
       class="aparte-chat-container"
+      [class]="containerClass()"
+      [style]="containerStyle()"
       [class.aparte-chat-container--auto-center]="centerWhenEmpty()"
       [attr.overlay-composer]="overlayComposer() ? '' : null"
-      [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 ? '' : null"
+      [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 && !waiting() ? '' : null"
     >
-      <aparte-chat-viewport #viewport framework-managed="">
-        @if (messages().length === 0) {
+      <aparte-chat-viewport #viewport framework-managed="" [attr.loading]="waiting() ? '' : null">
+        @if (waiting()) {
+          <!-- The wait, drawn here because this DOM is Angular's: the kit's skeleton
+               recipe, and a line for a screen reader. -->
+          <div class="aparte-viewport-loading" aria-hidden="true">
+            <span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text"></span>
+            <span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>
+          </div>
+          <span class="aparte-viewport-loading-status aparte-sr-only" role="status">{{ loadingText }}</span>
+        }
+        @if (messages().length === 0 && !waiting()) {
           <!-- Welcome / placeholder shown inside the viewport while empty. -->
           <ng-content select="[slot='empty-state']"></ng-content>
         }
@@ -102,7 +116,7 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
       <aparte-composer
         #input
         [attr.placeholder]="placeholder()"
-        [attr.disabled]="disabled() ? '' : null"
+        [attr.disabled]="disabled() || waiting() ? '' : null"
         [attr.submit-on-enter]="submitOnEnter() ? null : 'false'"
         (aparte-send)="onAparteSend($event)"
       >
@@ -169,14 +183,18 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
         // Debounced with requestAnimationFrame so rapid token bursts only trigger
         // one sync per paint frame instead of N syncs for N tokens.
         effect(() => {
-            const msgs = this.messages();
-            if (msgs.length > 0) {
-                if (this._syncRafId !== null) return;
-                this._syncRafId = requestAnimationFrame(() => {
-                    this._syncRafId = null;
-                    this._host?.syncBubbles();
-                });
-            }
+            // Read the signal so the effect tracks it — and react to EVERY value,
+            // the empty list included. React, Vue and Svelte all re-sync
+            // unconditionally, and emptying the transcript is exactly when the host
+            // has to let go of the bubbles that just went away. With the default
+            // bubbles `bubbleRefs.changes` hid the divergence; under a custom
+            // `[bubbleTemplate]` that query never fires and this was the only path.
+            this.messages();
+            if (this._syncRafId !== null) return;
+            this._syncRafId = requestAnimationFrame(() => {
+                this._syncRafId = null;
+                this._host?.syncBubbles();
+            });
         });
     }
 
@@ -223,6 +241,38 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
     readonly centerWhenEmpty = signal<boolean>(false);
+
+    /**
+     * The conversation is on its way: the viewport draws two skeleton turns, the empty
+     * state stays off and the composer is disabled until it lands. The conversation
+     * controller sets this itself while it fetches through your adapter's `loadFull()`;
+     * the input is for a wait of your own. Off by default.
+     */
+    @Input({ alias: 'loading', transform: booleanAttribute }) set loadingInput(val: boolean) { this.loading.set(val); }
+    readonly loading = signal<boolean>(false);
+    /** The controller's wait (a conversation fetched through the adapter). */
+    readonly hostLoading = signal<boolean>(false);
+    readonly waiting = computed(() => this.loading() || this.hostLoading());
+    get loadingText(): string { return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
+
+    /**
+     * Class(es) merged onto the INNER `.aparte-chat-container`, not onto this
+     * component's own `<aparte-chat>` host.
+     *
+     * The other three wrappers have no such host: their root IS the container, so a
+     * consumer's `className` / `class` lands on the div that carries
+     * `.aparte-chat-container`, `[overlay-composer]` and `[data-aparte-empty]` — the
+     * three selectors core's shell recipe keys on. Here a class written on the tag
+     * lands one level above them, so overriding the shell needed a descendant
+     * selector on Angular alone. This input is that parity. Additive: the recipe's
+     * own classes stay.
+     */
+    @Input('containerClass') set containerClassInput(val: string) { this.containerClass.set(val ?? ''); }
+    readonly containerClass = signal<string>('');
+
+    /** Inline style for the same div — a string or a `{ prop: value }` map. */
+    @Input('containerStyle') set containerStyleInput(val: string | Record<string, string> | null) { this.containerStyle.set(val ?? null); }
+    readonly containerStyle = signal<string | Record<string, string> | null>(null);
 
     /**
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
@@ -366,6 +416,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             onMessageAppended: (msg) => this.messageAppended.emit(msg as AparteMessage),
             onTypingChange: (typing) => { this.isTyping.set(typing); this.typingChange.emit(typing); },
             onStreamingChange: (id) => this._streamingId.set(id),
+            onLoadingChange: (on) => this.hostLoading.set(on),
             // Sibling-info / deferred work runs after Angular has re-rendered.
             afterRender: (cb) => { setTimeout(cb, 0); },
             resetComposer: () => {
@@ -439,8 +490,11 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     }
     /** Read the current message list. */
     getMessages(): AparteMessage[] { return this._host?.getMessages() ?? this.messages(); }
-    /** Clear all messages + reset state. */
-    clearMessages(): void { this._host?.clearMessages(); }
+    /**
+     * Clear all messages + reset state. `{ revokeAttachments: false }` keeps the
+     * attachments' object URLs alive — pass it when the same messages are going back.
+     */
+    clearMessages(options?: { revokeAttachments?: boolean }): void { this._host?.clearMessages(options); }
     /** Scroll the viewport to the latest message. */
     scrollToBottom(): void {
         (this.viewportRef?.nativeElement as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();

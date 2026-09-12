@@ -1,20 +1,24 @@
 # example · vue
 
-A minimal Vue example: `@aparte/vue`'s `<AparteChat>` driving a **real** model, plus the `model-selector`
-and `marked` plugins.
+The chat site in Vue: `@aparte/vue`'s `<AparteChat>` inside the application shell — the sidebar
+with the conversation list, the header, the settings dialog — over the library's own conversation
+chain, with the same skin and the same setup as the other examples.
 
 ```bash
 pnpm --filter @aparte-workspace/example-vue dev
 ```
 
-`setupAparte()` ([`src/aparte.ts`](./src/aparte.ts)) registers the providers + transport and starts the
-`AparteClient` once; `<AparteChat>` ([`src/App.vue`](./src/App.vue)) renders the UI — the client drives it
-through the host binding. `vite.config.ts` sets `isCustomElement` so Vue leaves the `<aparte-*>` tags alone.
+`setupSite()` ([`../_shared/site-setup.ts`](../_shared/site-setup.ts)) registers the renderers and
+plugins, the provider, the transport and starts the `AparteClient` once, before the first render;
+[`src/App.vue`](./src/App.vue) renders the site and feeds the list from the conversation manager —
+`<AparteChat>`'s host runs the controller (select, new chat, the wait while a conversation loads).
+`vite.config.ts` sets `isCustomElement` so Vue leaves the `<aparte-*>` tags alone.
 
 ## Talking to a model (BYOK / local)
 
-Pick a provider in the selector: **Ollama** / **LM Studio** run locally with **no key** (enable CORS on the
-local server); **OpenRouter** uses a key you paste in the top bar (stored in `localStorage` only). Never
-commit a key.
+The scripted model answers by default. The **Settings** dialog (top right) switches to a local
+server: **Ollama** / **LM Studio** run locally with **no key** (enable CORS on the local server); any
+OpenAI-compatible endpoint works with the endpoint and token fields (stored in `localStorage` only,
+sent straight to the endpoint). Never commit a key.
 
 Dev resolves `@aparte/*` from source (HMR); `pnpm build` consumes the published `dist`.

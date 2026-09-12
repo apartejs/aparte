@@ -78,7 +78,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   color: var(--aparte-thumb-remove-color);
   position: absolute;
   top: var(--aparte-thumb-remove-inset);
-  right: var(--aparte-thumb-remove-inset);
+  inset-inline-end: var(--aparte-thumb-remove-inset);
   width: var(--aparte-thumb-remove-size);
   height: var(--aparte-thumb-remove-size);
   border-radius: 50%;
@@ -116,61 +116,6 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 .aparte-message[data-editing] aparte-composer-input:focus-within {
   border-color: var(--aparte-input-focus-border);
-}
-
-/* =========================================
-   Legacy composer input utility classes
-   ========================================= */
-
-.aparte-input-wrapper {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--aparte-input-gap);
-  padding: var(--aparte-space-4) var(--aparte-space-6);
-  background: transparent;
-}
-
-.aparte-input-container {
-  flex: 1;
-  min-height: var(--aparte-input-container-min-height);
-  /* Matches _minHeight default */
-  display: flex;
-  flex-direction: column;
-  /* justify-content: center; Removed to fix cursor pos */
-
-}
-
-.aparte-editor {
-  box-sizing: border-box;
-  width: 100%;
-  max-height: var(--aparte-input-editor-max-height);
-  /* Matches _maxHeight default */
-  overflow-y: auto;
-  outline: none;
-  border: none;
-  font-family: var(--aparte-font-family);
-  font-size: var(--aparte-input-editor-font-size);
-  line-height: var(--aparte-line-height-normal);
-  color: var(--aparte-input-text);
-  background: transparent;
-  padding: var(--aparte-space-5) 0;
-  resize: none;
-  text-align: left;
-}
-
-/* Placeholder */
-.aparte-editor:empty:before {
-  content: attr(data-placeholder);
-  color: var(--aparte-input-placeholder);
-  pointer-events: none;
-  display: block;
-  /* Ensures proper rendering */
-}
-
-/* Disabled state */
-.aparte-editor[contenteditable="false"] {
-  color: var(--aparte-text-muted);
-  cursor: not-allowed;
 }
 
 /* The row's size first, this button's own second — see `.aparte-composer-row`. Inside
@@ -215,56 +160,6 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   color: var(--aparte-text-muted);
 }
 
-/* =========================================
-   Input Upper (for file chips, previews, etc.)
-   ========================================= */
-
-.aparte-input-upper {
-  display: none; /* shown by JS when chips are added */
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--aparte-space-4);
-  padding: var(--aparte-space-4) var(--aparte-space-6);
-  border-bottom: var(--aparte-border-width) solid var(--aparte-border);
-  font-size: var(--aparte-font-size-md);
-}
-
-.aparte-input-upper.aparte-has-content {
-  display: flex;
-}
-
-/* =========================================
-   Input Footer (for Model Selector, etc.)
-   ========================================= */
-
-.aparte-input-footer {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-6);
-  padding: var(--aparte-space-4) var(--aparte-space-6);
-  border-top: var(--aparte-border-width) solid var(--aparte-border);
-  font-size: var(--aparte-font-size-md);
-}
-
-.aparte-input-footer:empty {
-  display: none;
-}
-
-/* Slot areas */
-.aparte-input-footer slot[name="footer-left"] {
-  display: contents;
-}
-
-.aparte-input-footer slot[name="footer-center"] {
-  flex: 1;
-  display: contents;
-}
-
-.aparte-input-footer slot[name="footer-right"] {
-  display: contents;
-  margin-inline-start: auto;
-}
-
 /* Model Selector Component */
 /* The element and the class said the same three things in two rules. The class is
    the hook for an app that lays out its own selector; grouping them is what stops
@@ -279,47 +174,6 @@ aparte-model-selector,
 /* Respect native hidden attribute — overrides the display:flex above */
 aparte-model-selector[hidden],
 .aparte-model-selector[hidden] { display: none !important; }
-
-.aparte-provider-select,
-.aparte-model-select {
-  appearance: none;
-  background: var(--aparte-surface-1);
-  border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-select);
-  padding: var(--aparte-space-3) var(--aparte-model-select-chevron-room) var(--aparte-space-3) var(--aparte-space-5);
-  font-size: var(--aparte-font-size-md);
-  font-family: var(--aparte-font-family);
-  color: var(--aparte-text);
-  cursor: pointer;
-  min-width: var(--aparte-model-select-min-width);
-  /* Chevron: baked into a data-URI SVG (CSS vars can't interpolate into url()).
-     The stroke colour is theme-matched via the [data-aparte-theme] override
-     below rather than a single var — the one spot that needs two variants. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--aparte-space-4) center;
-  transition: border-color var(--aparte-duration-base), box-shadow var(--aparte-duration-base);
-}
-
-.aparte-provider-select:hover,
-.aparte-model-select:hover {
-  border-color: var(--aparte-primary);
-}
-
-.aparte-provider-select:focus-visible,
-.aparte-model-select:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-focus-outline-offset);
-}
-
-/* Dark mode overrides for selects */
-[data-aparte-theme="dark"] .aparte-provider-select,
-[data-aparte-theme="dark"] .aparte-model-select {
-  background-color: var(--aparte-surface-1);
-  border-color: var(--aparte-border);
-  color: var(--aparte-text);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Composer Primitives
@@ -360,6 +214,14 @@ aparte-composer {
      three left edges 12px apart on the reading-column demo. The fallback is for a
      composer with no viewport beside it. */
   padding-inline: var(--aparte-transcript-inset, var(--aparte-viewport-padding));
+}
+
+/* Before the element is defined the editor is not there yet, and the row was 16px on
+   the first frame and 52px after the upgrade. The editor's own minimum reserves the
+   room (Lighthouse on the chat site, 2026-09-05). */
+aparte-composer-input:not(:defined) {
+  display: block;
+  min-height: var(--aparte-composer-control-size);
 }
 
 aparte-composer-input {
@@ -477,7 +339,7 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
    </aparte-composer>
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Outer shell — visual border + radius. Mirrors .aparte-input-wrapper */
+/* Outer shell — visual border + radius. */
 .aparte-composer-shell {
   background: var(--aparte-input-bg);
   border: var(--aparte-border-width) solid var(--aparte-input-border);
@@ -489,8 +351,10 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
   transition: border-color var(--aparte-duration-slow);
 }
 
+/* The one focus colour every control reads (theme.css, --aparte-border-focus): the
+   shell follows the page, it does not pick its own. */
 .aparte-composer-shell:focus-within {
-  border-color: var(--aparte-primary);
+  border-color: var(--aparte-border-focus);
 }
 
 /* Inner row — flex container for input + buttons */
@@ -543,6 +407,13 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
 aparte-composer-toolbar,
 .aparte-composer-footer {
   display: flex;
+  /* It WRAPS. `aparte-select` sets `min-width` on its host, so a select in this row is a
+     hard 200px that cannot shrink; the documented arrangement puts two of them here (the
+     approval switch beside the model selector), and at a phone's 390px the second one was
+     pushed to x=449 and CLIPPED — the page did not scroll to it, so the model picker was
+     unreachable. Wrapping puts it on its own line; an end-aligned control keeps its
+     `margin-inline-start: auto` and lands at the end of the line it is on. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--aparte-space-4);
   padding: var(--aparte-space-3) var(--aparte-space-6);
@@ -555,6 +426,17 @@ aparte-composer-toolbar,
    `:empty`, which is all it ever had. */
 aparte-composer-toolbar[data-empty],
 .aparte-composer-footer:empty {
+  display: none;
+}
+
+/* Before the element is defined it has not reflected data-empty yet, and a row holding
+   only whitespace painted its 13px band on the first frame, then vanished at upgrade.
+
+   Its OWN rule, not a fourth selector in the list above: an invalid selector anywhere
+   in a comma list voids the whole rule, so on an engine that does not know `:has()`
+   the two selectors that need no `:has()` were dropped with it and an empty row drew
+   its separator forever. Split, that engine loses only the first frame. */
+aparte-composer-toolbar:not(:defined):not(:has(*)) {
   display: none;
 }
 

@@ -863,11 +863,15 @@ let proseNames = 0;
 {
     const themeCss = readFileSync('packages/core/src/styles/theme.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
     const decls = (block) => new Map([...(block ?? '').matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-    const darkAttr = themeCss.match(/\[data-aparte-theme="dark"\]\s*\{([^}]*)\}/)?.[1];
-    const darkMedia = themeCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/)?.[1];
-    const lightVeto = themeCss.match(/\[data-aparte-theme="light"\]\s*\{([^}]*)\}/)?.[1];
+    // Each block carries its `:host(...)` twin: the light palette is declared on
+    // `:root, :host`, so without one a sheet ADOPTED into a shadow root put the light
+    // hexes on the host, where a local declaration beats the inherited dark value.
+    // The selector lists are matched in full so that dropping a twin fails here.
+    const darkAttr = themeCss.match(/\[data-aparte-theme="dark"\],\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1];
+    const darkMedia = themeCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-aparte-theme="light"\]\),\s*:host\(:not\(\[data-aparte-theme="light"\]\)\)\s*\{([^}]*)\}/)?.[1];
+    const lightVeto = themeCss.match(/\[data-aparte-theme="light"\],\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/)?.[1];
     if (!darkAttr || !darkMedia || !lightVeto) {
-        problems.push('theme.css: the dark attribute block, its prefers-color-scheme copy or the light veto is missing — the system-default theme lost a leg.');
+        problems.push('theme.css: the dark attribute block, its prefers-color-scheme copy or the light veto is missing, or one of them lost its `:host(...)` twin — the system-default theme lost a leg, or a chat in a shadow root went light.');
     } else {
         const a = decls(darkAttr);
         const m = decls(darkMedia);

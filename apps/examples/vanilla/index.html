@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>aparté · vanilla example</title>
+    <title>aparté · vanilla</title>
     <!-- A real <link>, not a JS import.
          Importing CSS from main.ts means the dev server injects it AFTER the module
          graph loads, so this document — which ships its whole shell as static HTML —
@@ -13,126 +13,189 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="topbar">
-        <div class="brand">aparté <span>· vanilla</span></div>
-        <a class="viewswitch" href="?view=settings">Settings</a>
+    <!-- The whole site, assembled from what ships. The shell grid and the header are
+         RECIPES (classes); the sidebar and the conversation list are ELEMENTS, because
+         they have behaviour — the drawer under 48rem, the search, the selection; the
+         chat is the chat. Static HTML on purpose: the page has its shape before a
+         single line of script runs. shell.ts fills the list, wires the selection, the
+         new-chat button and the theme toggle. -->
+    <div class="aparte-app-shell" id="chat-view">
+      <aparte-sidebar>
+        <!-- The brand row, then the two rows every chat product opens with: a new
+             conversation and the search. Rows, not icon buttons — the product draws
+             them as 36px rows with an icon and a label. -->
+        <div class="aparte-sidebar__header">
+          <span class="aparte-sidebar__brand">(aparté)</span>
+          <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+            <aparte-icon name="menu"></aparte-icon>
+          </button>
+        </div>
+        <div class="site-rows">
+          <button class="site-row" type="button" id="new-chat">
+            <aparte-icon name="edit"></aparte-icon>
+            <span>New chat</span>
+          </button>
+          <label class="site-row site-row--search">
+            <span class="site-row__icon" id="search-icon" aria-hidden="true"></span>
+            <!-- `data-aparte-sidebar-search`: the sidebar filters the list itself. -->
+            <input class="site-search" type="search" placeholder="Search chats" aria-label="Search chats" data-aparte-sidebar-search />
+          </label>
+        </div>
+        <div class="aparte-sidebar__body">
+          <aparte-conversation-list></aparte-conversation-list>
+        </div>
+        <div class="aparte-sidebar__footer">
+          <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true">P</span>
+          <span class="who">Paul</span>
+        </div>
+      </aparte-sidebar>
+
+      <header class="aparte-app-header">
+        <!-- `data-aparte-sidebar-toggle`: the sidebar listens for it on its own. -->
+        <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
+                aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+          <aparte-icon name="menu"></aparte-icon>
+        </button>
+        <!-- The product's header names the MODEL, not the conversation: the picker on the
+             start edge (main.ts puts the real selector here with a local server; the
+             scripted model has one name), the actions on the end edge. The conversation's
+             name lives in the sidebar's active row and in the document title (shell.ts). -->
+        <div class="site-model" id="model-slot"><span class="site-model__name">ChatClone</span></div>
+        <div class="aparte-app-header__actions">
+          <!-- Its glyph comes from the extended icon set (`@aparte/core/icons`), so
+               shell.ts draws it; the label says what a press does. -->
+          <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" id="theme-toggle" aria-label="Switch to the light theme"></button>
+          <button class="aparte-btn aparte-btn--ghost aparte-btn--sm" type="button" data-aparte-dialog-open="settings">Settings</button>
+        </div>
       </header>
 
-      <aparte-chat center-empty>
-        <aparte-chat-viewport></aparte-chat-viewport>
-        <!-- The outline of the conversation: one tick per question, the current one
-             marked, a click jumps back. Nothing to wire — it reads the transcript. -->
-        <aparte-scroll-rail></aparte-scroll-rail>
+      <main class="aparte-app-shell__main">
+        <aparte-chat center-empty>
+          <aparte-chat-viewport></aparte-chat-viewport>
+          <!-- The outline of the conversation: one tick per question, the current one
+               marked, a click jumps back. Nothing to wire — it reads the transcript. -->
+          <aparte-scroll-rail></aparte-scroll-rail>
 
-        <aparte-composer>
-          <div class="welcome" id="welcome">
-            <h2>Start a conversation</h2>
-            <!-- The starters go through the composer's own submit(), so every gate it
-                 has (disabled, streaming, model not selected yet) applies to a click too.
-                 The last one triggers the ask_user tool: the model has to ask before it
-                 can answer, so it is the one-click way to see the question panel; the
-                 prompt is deliberately under-specified for that. -->
-            <aparte-suggestions empty-only suggestions='[
-              { "label": "What is aparté?", "prompt": "Explain what aparté is in one sentence." },
-              { "label": "Write a haiku", "prompt": "Write a haiku about web components." },
-              { "label": "Markdown table", "prompt": "Give me a markdown table comparing 3 JS frameworks." },
-              { "label": "Ask me a question", "prompt": "Design a colour scheme for my landing page. Ask me what you need to know first." }
-            ]'></aparte-suggestions>
-          </div>
-
-          <!-- The elicitation panel: where a tool that has to ASK the user appears.
-               It must be INSIDE <aparte-chat> and above the composer — the tool
-               suspends the turn until this answers, so it has to be where the user
-               is already looking. -->
-          <aparte-elicitation></aparte-elicitation>
-
-          <div class="aparte-composer-shell">
-            <aparte-composer-attachments></aparte-composer-attachments>
-            <div class="aparte-composer-row">
-              <aparte-composer-add-attachment></aparte-composer-add-attachment>
-              <aparte-composer-input placeholder="Ask anything…"></aparte-composer-input>
-              <aparte-composer-send></aparte-composer-send>
+          <aparte-composer>
+            <div class="welcome" id="welcome">
+              <div class="welcome__body">
+              <h2>Where should we begin?</h2>
+              <!-- The starters go through the composer's own submit(), so every gate it
+                   has (disabled, streaming, model not selected yet) applies to a click too.
+                   Each one matches a scripted scenario, so the reply is real markdown, a
+                   real table, a real tool round-trip. The last one triggers the ask_user
+                   tool: the model has to ask before it can answer, so it is the one-click
+                   way to see the question panel. -->
+              <aparte-suggestions empty-only suggestions='[
+                { "label": "What can you do?", "prompt": "Explain what aparté is in one sentence." },
+                { "label": "Write a haiku", "prompt": "Write a haiku about web components." },
+                { "label": "Markdown table", "prompt": "Give me a markdown table comparing 3 JS frameworks." },
+                { "label": "Ask me a question", "prompt": "Design a colour scheme for my landing page. Ask me what you need to know first." }
+              ]'></aparte-suggestions>
+              </div>
             </div>
-            <aparte-composer-toolbar>
-              <!-- The context gauge: how full the model's window is. Hidden until the
-                   first turn reports a usage and the model declares a window; with
-                   auto-compact it asks for a compaction on reaching 90 % — answered by
-                   `@aparte/plugin-compaction`, set up in main.ts. -->
-              <aparte-context auto-compact style="flex: 1"></aparte-context>
-              <aparte-model-selector style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
-            </aparte-composer-toolbar>
-          </div>
-        </aparte-composer>
-      </aparte-chat>
+
+            <!-- The elicitation panel: where a tool that has to ASK the user appears.
+                 It must be INSIDE <aparte-chat> and above the composer — the tool
+                 suspends the turn until this answers, so it has to be where the user
+                 is already looking. -->
+            <aparte-elicitation></aparte-elicitation>
+
+            <div class="aparte-composer-shell">
+              <aparte-composer-attachments></aparte-composer-attachments>
+              <div class="aparte-composer-row">
+                <aparte-composer-add-attachment></aparte-composer-add-attachment>
+                <aparte-composer-input placeholder="Ask ChatClone"></aparte-composer-input>
+                <aparte-composer-send></aparte-composer-send>
+              </div>
+              <!-- The toolbar row: the approval switch, and nothing else (the model
+                   selector sits in the header, as the product's does — under
+                   ?selector=toolbar it lands here too, at the end of the row). A context
+                   gauge is a code assistant's thing, not a chat's — <aparte-context
+                   auto-compact> goes here when you want one, and
+                   @aparte/plugin-compaction answers it.
+
+                   The row is EMPTY in the static shell and main() fills it: the
+                   approval switch is the one control here whose setup is async.
+                   @aparte/plugin-approval defines <aparte-approval-mode> as its module
+                   body runs, so a tag written here upgrades during the module graph —
+                   strictly before main() can call setupApproval() — and connects with
+                   no controller to bind to: it warns that the setup is missing and
+                   paints itself disabled until the setup lands. Every other element on
+                   this page is core's and needs nothing but its own definition, which
+                   is why only this one moved to JS. -->
+              <aparte-composer-toolbar></aparte-composer-toolbar>
+            </div>
+          </aparte-composer>
+        </aparte-chat>
+      </main>
     </div>
 
-    <!-- The settings a consumer changes first. Two of the three have no setter: an
-         endpoint and a token reach a provider only through the KEY RESOLVER, which
-         may return `{ apiKey, endpoint }` instead of a bare string. Reachable at
-         ?view=settings, so it is a link rather than a hidden mode. -->
-    <div class="app settings" id="settings-view" hidden>
-      <header class="topbar">
-        <div class="brand">aparté <span>· vanilla settings</span></div>
-        <a class="viewswitch" href="?">← back to the chat</a>
-      </header>
+    <!-- The settings a consumer changes first, in the kit's dialog: a native <dialog>
+         wearing the recipe, opened by the header button through data-aparte-dialog-open
+         (core installs the triggers). Two of the three text fields exist because they
+         have no setter: an endpoint and a token reach a provider only through the KEY
+         RESOLVER, which may return { apiKey, endpoint } instead of a bare string.
+         ?view=settings opens it on load, so it stays a link a reader can share. -->
+    <dialog class="aparte-dialog aparte-dialog--lg" id="settings" aria-labelledby="settings-title">
+      <div class="aparte-dialog__header">
+        <h2 class="aparte-dialog__title" id="settings-title">Settings</h2>
+        <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-aparte-dialog-close>
+          <aparte-icon name="close"></aparte-icon>
+        </button>
+      </div>
+      <div class="aparte-dialog__body settings-body">
+        <fieldset class="settings-group">
+          <legend class="aparte-field-label">Model</legend>
+          <label class="aparte-field-choice">
+            <input type="radio" class="aparte-radio" name="model-source" value="scripted" id="model-source-scripted" />
+            <span class="aparte-field-choice__body">Scripted model — no server, no key, the same replies every time</span>
+          </label>
+          <label class="aparte-field-choice">
+            <input type="radio" class="aparte-radio" name="model-source" value="local" id="model-source-local" />
+            <span class="aparte-field-choice__body">Local server — Ollama or LM Studio, reached with the two fields below</span>
+          </label>
+          <p class="aparte-field-hint">
+            The scripted model is <code>@aparte/provider-scenario</code>; the local one is
+            <code>@aparte/provider-openai-compat</code> with its Ollama and LM Studio presets.
+            <code>?scenario</code> and <code>?local</code> in the URL override this choice.
+          </p>
+        </fieldset>
 
-      <div class="fields">
-        <div class="field">
-          <label class="field-label" for="system-prompt">System prompt</label>
-          <textarea
-            id="system-prompt"
-            aria-describedby="system-prompt-hint"
-            class="field-input field-textarea"
-            rows="6"
-            spellcheck="false"
-            placeholder="Leave empty to send no system turn."
-          ></textarea>
-          <span class="field-hint" id="system-prompt-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="system-prompt">System prompt</label>
+          <textarea id="system-prompt" aria-describedby="system-prompt-hint" class="aparte-field settings-textarea" rows="5" spellcheck="false" placeholder="Leave empty to send no system turn."></textarea>
+          <p class="aparte-field-hint" id="system-prompt-hint">
             Sent as the <code>system</code> turn. Supports <code>{{key}}</code> placeholders — resolve
             them with <code>setSystemPromptVarsProvider()</code>.
-          </span>
+          </p>
         </div>
 
-        <div class="field">
-          <label class="field-label" for="endpoint">Endpoint</label>
-          <input
-            id="endpoint"
-            aria-describedby="endpoint-hint"
-            class="field-input"
-            type="url"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Empty = the selected provider's own default"
-          />
-          <span class="field-hint" id="endpoint-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="endpoint">Endpoint</label>
+          <input id="endpoint" aria-describedby="endpoint-hint" class="aparte-field" type="url" autocomplete="off" spellcheck="false" placeholder="Empty = the selected provider's own default" />
+          <p class="aparte-field-hint" id="endpoint-hint">
             Any OpenAI-compatible base URL — LM Studio, Ollama, vLLM, llama.cpp, a hosted API.
             Reaches the provider through the key resolver as <code>{ endpoint }</code>, which is the
             only runtime channel for it.
-          </span>
+          </p>
         </div>
 
-        <div class="field">
-          <label class="field-label" for="token">Token</label>
-          <input
-            id="token"
-            aria-describedby="token-hint"
-            class="field-input"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Empty is correct for a local server"
-          />
-          <span class="field-hint" id="token-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="token">Token</label>
+          <input id="token" aria-describedby="token-hint" class="aparte-field" type="password" autocomplete="off" spellcheck="false" placeholder="Empty is correct for a local server" />
+          <p class="aparte-field-hint" id="token-hint">
             Stays in this browser — it is sent straight to the endpoint above, which is what BYOK
             means. For a key that must not reach the browser, use <code>AparteBackendTransport</code>
             instead.
-          </span>
+          </p>
         </div>
-
-        <button class="chip" type="button" id="settings-reset">Reset to defaults</button>
       </div>
-    </div>
+      <div class="aparte-dialog__footer">
+        <button class="aparte-btn aparte-btn--ghost" type="button" id="settings-reset">Reset to defaults</button>
+        <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" data-aparte-dialog-close>Done</button>
+      </div>
+    </dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -54,7 +54,7 @@ aparteGlobalConfig.registerAIProvider(TransformersProvider);
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
-The provider owns its I/O (it runs inference locally), so `AparteDirectTransport` just delegates to it.
+The provider owns its I/O (it runs inference locally), so `AparteDirectTransport` just delegates to it. What `registerModel` takes is a `TransformersModelConfig`.
 
 ## Runners — what loads the model
 
@@ -82,9 +82,11 @@ registerModel({
 
 Measured: SmolVLM-256M on WebGPU (Chromium, AMD Radeon 8060S): first load 7 s (download included), first token 3.7 s cold; Stop interrupts the model, not just the read.
 
-Each runner is its own chunk, loaded only when a model asks for it. Both drop `tool_call` /
-`tool_result` turns with one warning (tool syntax is per model family), and the text runner
-**says so when it drops an image** — it never answers a photo it could not see as if it had.
+Each runner is its own chunk, loaded only when a model asks for it. Both drop a tool turn's call and
+its result — what the assistant said before the call stays in the prompt — with one warning (tool
+syntax is per model family), and the text runner **says so when it drops an image**: it never answers a photo
+it could not see as if it had. The vision runner counts a content part it cannot carry the same way,
+rather than handing the model an empty picture.
 
 ### A runner of your own
 
@@ -139,6 +141,9 @@ behind the generates in flight.
 Downloading and status are **methods on the provider** you registered:
 
 - `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
+  Issued while a reply streams, it waits for that reply: a prepare no longer disposes the runner a
+  generation is using. The other direction holds too — a Stop reaches a reply that is still queued
+  behind a model load, so that reply never starts.
 
   A first load is tens or hundreds of megabytes, so `onProgress` is the whole point of
   calling it. It receives a `ModelLoadProgress` (exported by `@aparte/core`):
@@ -156,20 +161,53 @@ Downloading and status are **methods on the provider** you registered:
   runtime is building the pipeline, `ready` last. `cached` means there was nothing to
   fetch. Drive a bar off `progress` and a caption off `file`.
 
-- `TransformersProvider.getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`.
+- `TransformersProvider.getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`, which is core's `ModelStatus`.
 
 Cache and hardware are **standalone helpers** — import them from `@aparte/provider-transformers`:
 
-- `listCachedModels()` / `deleteCachedModel(modelId)` — inspect and clear the on-disk cache.
+- `listCachedModels()` / `deleteCachedModel(modelId)` — inspect and clear the on-disk cache. The listing resolves to `CachedModelEntry[]`.
 - `setMaxCachedModels(n)` — cap how many models are kept (oldest evicted; `0` = unlimited).
-- `detectHardware()` / `setComputeDevice('auto' | 'webgpu' | 'wasm')` — pick a device / default model by tier.
+- `detectHardware()` / `setComputeDevice('auto' | 'webgpu' | 'wasm')` — pick a device / default model by tier. `detectHardware()` resolves to a `HardwareProfile`.
   Call `setHardwareTierModels({ low, mid?, high })` first — otherwise `detectHardware()`'s
   `recommendedModelId` is always `''`.
+
+## The lifecycle — load, read, release
+
+One shared worker holds one pipeline. Five functions describe its whole life, and the last
+one is the only way to give the memory back:
+
+```ts
+import {
+  getComputeDevice,
+  getLoadedModelId,
+  setComputeDevice,
+  terminateWorker,
+  TransformersProvider,
+} from '@aparte/provider-transformers';
+
+setComputeDevice('webgpu');          // 'auto' (the default), 'webgpu' or 'wasm'
+getComputeDevice();                  // the preference the next load resolves ('auto' by default)
+
+await TransformersProvider.prepareModel('onnx-community/Qwen3-0.6B-ONNX', (progress) => {
+  console.log(progress.status, progress.progress);   // 'downloading' … 'loading' … 'ready'
+});
+
+getLoadedModelId();                  // the model in the worker right now, or null
+
+// On route change, on "unload model", on unmount: the worker and its WebGPU buffers go
+// with it. Safe to call at any time; the next request starts a fresh worker.
+terminateWorker();
+```
+
+Leave a page without calling `terminateWorker()` and the worker stays alive with the
+weights and the WebGPU buffers still resident. Nothing else releases them — closing a
+chat, unmounting a component and switching models do not.
 
 :::note
 **Scope:** text and vision models through the built-in runners, anything else through a runner of
 your own (above). Tool-calling for local models is model-specific (each family has its own format):
-a conversation that already contains `tool_call` / `tool_result` turns still runs, those turns are
-**dropped** from what the model sees, with one `console.warn` so the omission isn't silent — and a
-text model attached an image says so the same way, instead of answering as if it had seen it.
+a conversation that already contains tool turns still runs, but the calls on an assistant turn and
+the `tool` turns that answer them are **dropped** from what the model sees, with one `console.warn`
+so the omission isn't silent — and a text model attached an image says so the same way, instead of
+answering as if it had seen it.
 :::

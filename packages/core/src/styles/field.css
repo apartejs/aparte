@@ -857,8 +857,10 @@
 .aparte-field-choice:has(:checked),
 .aparte-field-choice.aparte-field-choice--selected {
   position: relative;
-  border-color: var(--aparte-primary);
-  background: color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent);
+  /* The control shows the choice (a filled radio, a ticked box); the row only lifts a
+     step. An accent border plus an accent tint made every checked row a highlighted
+     block (the chat-site review, 2026-09-05). */
+  background: var(--aparte-surface-2);
 }
 
 .aparte-field-choice:has(:checked)::before,

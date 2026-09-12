@@ -6,7 +6,13 @@
     // that a future release will stop guessing the common source directory from the
     // input set, which would silently change the output layout. Every publishable
     // package here already pins it; this example was the one that didn't.
-    "rootDir": "./src",
+    //
+    // `..` (apps/examples), not `./src`: the chat site's shared helpers live in
+    // ../_shared, OUTSIDE src/ — main.ts and app.component.ts import them by
+    // relative path, the same way every other example does — so the common
+    // ancestor of every file actually compiled is the examples folder, not this
+    // app's own src/.
+    "rootDir": "..",
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
@@ -19,7 +25,11 @@
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",
-    "lib": ["ES2022", "dom"]
+    // "dom.iterable" added for the chat site: ../_shared/site-shell.ts spreads a
+    // `NodeListOf` (`[...view.querySelectorAll(...)]`), which needs it — every other
+    // example's tsconfig already carries it, this one just never had a caller that
+    // needed the iterable DOM types before.
+    "lib": ["ES2022", "dom", "dom.iterable"]
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

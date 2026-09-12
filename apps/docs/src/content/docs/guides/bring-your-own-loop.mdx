@@ -333,7 +333,7 @@ exported so you do not have to reimplement them:
 | Export | What it does | When you want it |
 | --- | --- | --- |
 | `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, and the tagged blocks you registered (`blocks` option / `registerStreamBlock`) | You are feeding raw deltas and want the same rendering the client produces |
-| `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You already have the whole answer (a non-streaming call, or replaying history) |
+| `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You want the segments in hand before they reach a bubble — to store them, inspect them, or edit them. Not to render: `appendMessage` and `setMessages` already split an assistant's markdown string this way |
 | `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
 | `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
 | `uuid` | An id that works on plain `http://` — `crypto.randomUUID` first, a cheap fallback where it does not exist | You generate message or host ids and your app also runs on a LAN address |
@@ -361,6 +361,8 @@ registerAllComponents();                       // safe to call more than once
 // The host takes its binding up front: you own the message list, it drives the DOM.
 const chat = document.querySelector('aparte-chat')!;
 let messages: AparteMessage[] = [];
+let waiting = false;                            // your own wait indicator, e.g. a spinner
+const setWaiting = (on: boolean) => { waiting = on; };
 
 const host = new AparteChatHost({
   hostId: uuid(),
@@ -372,6 +374,7 @@ const host = new AparteChatHost({
   // next frame is the honest answer — the host uses it to measure, not to poll.
   afterRender: (cb) => void requestAnimationFrame(() => cb()),
   onMessagesChange: (next) => void next,       // your framework's re-render
+  onLoadingChange: (on) => setWaiting(on),     // draw your own wait; the viewport's `loading` attribute is set either way
 });
 const release = host.bind();                   // returns its own unbind
 
@@ -404,6 +407,30 @@ void trailing;
 void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
 ```
 
+### Structure a reply without rendering it
+
+`parseMarkdownToSegments` is core's zero-dependency markdown structurer: a complete reply
+in, typed segments out — text, fenced code with its language, thinking blocks, and the
+block grammars you hand it. It reads no config of its own, so a grammar you registered
+with `registerStreamBlock` reaches it only through the `blocks` option. No plugin, no
+`marked`, no DOM. It is what you want *around* the chat: the code blocks a reply
+contained, a reply stored as structure rather than as a string, two replies diffed
+segment by segment.
+
+```ts
+import { aparteGlobalConfig, parseMarkdownToSegments, type AparteStreamParserOptions } from '@aparte/core';
+
+// The same options the streaming parser takes.
+const options: AparteStreamParserOptions = {
+  thinkingDelimiters: { start: '<think>', end: '</think>' },
+  blocks: aparteGlobalConfig.getStreamBlocks(),   // the grammars registered on the config
+};
+
+const segments = parseMarkdownToSegments('Here is the fix:\n\n```ts\nexport const x = 1;\n```\n', options);
+const code = segments.filter((segment) => segment.type === 'code');
+void code;
+```
+
 ### Reasoning models: `thinkingDelimiters`
 
 By default the parser recognises `<think>…</think>` **and** `<thinking>…</thinking>`.
@@ -425,7 +452,9 @@ void parser;
 ```
 
 Matched content becomes a `thinking` segment, which renders collapsed instead of as
-part of the reply.
+part of the reply. The delimiters are read on every path — while a reply streams and
+when a stored reply is loaded again — so a message that merely quotes `<think>` in its
+prose is read as reasoning too, and reasoning is not sent back to the model.
 
 :::note[Only on this path]
 `AparteClient` does not forward parser options today, so `thinkingDelimiters` is

@@ -151,6 +151,35 @@ describe('createWorkerHost — the generate round trip', () => {
         expect(aborted).toBe(true);
     });
 
+    it('cancel reaches a generate still queued behind a model load', async () => {
+        // The AbortController was created when the CHAIN reached the generate, so a
+        // cancel arriving while another model was still loading found nothing to
+        // abort: the load finished, the generate started, and the reply the user had
+        // stopped streamed its tokens anyway.
+        let release = (): void => { /* replaced below */ };
+        const gate = new Promise<void>((r) => { release = r; });
+        let firstLoad = true;
+        const { createRunner, seen } = scriptedRunner(({ emit }) => { emit({ type: 'text', delta: 'late' }); });
+        const { h, posted, flush } = host(createRunner, {
+            loadTransformers: vi.fn(async () => {
+                if (firstLoad) { firstLoad = false; await gate; }
+                return { env: {} } as never;
+            }),
+        });
+        h.onMessage({ type: 'prepare', id: 'p1', modelId: 'BIG' });
+        h.onMessage(gen('g1', { modelId: 'A' }));
+        await flush();
+        h.onMessage({ type: 'cancel', id: 'g1' });
+        release();
+        await flush();
+        await flush();
+
+        expect(seen.inputs).toHaveLength(0);
+        expect(posted.filter((m) => (m as { type: string }).type === 'gen-event')).toEqual([]);
+        // The main thread's queue slot is still released by the generate's own end.
+        expect(posted).toContainEqual({ type: 'gen-done', id: 'g1' });
+    });
+
     it('a warning travels to the main thread once per distinct message', async () => {
         const { createRunner } = scriptedRunner((_input, ctx) => {
             ctx.warn('images dropped');

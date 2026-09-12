@@ -18,8 +18,21 @@ export const APARTE_CONVERSATION_SCHEMA_VERSION = 2 as const;
  */
 export interface AparteConversation {
     id: string;
-    /** Auto-generated from the first user message (≤50 chars). */
+    /**
+     * The title. Decided by the manager from the first user message (the text as
+     * typed, or what the title provider returns), or typed by the user. Empty when
+     * the conversation has no text yet: the list shows its locale's `newChat` word,
+     * and the store never carries a UI string.
+     */
     title: string;
+    /**
+     * `true` while the title is the manager's decision. Editing the first user
+     * message then re-titles; a title typed by the user (`updateTitle`) clears it
+     * and is kept whatever happens to the messages. Absent on records written
+     * before this field existed, which reads as "typed": an old title is never
+     * overwritten.
+     */
+    autoTitle?: boolean;
     createdAt: number;
     updatedAt: number;
     messages: AparteMessage[];
@@ -36,8 +49,6 @@ export interface AparteConversation {
     archivedAt?: number;
     /** When truthy the conversation is pinned at the top of the list. */
     pinnedAt?: number;
-    /** Optional folder/tag id for organisation (V2+). */
-    folderId?: string;
     /**
      * Schema version of this record. Absent on legacy data (pre-versioning):
      * adapters should treat `undefined` as version 0 and migrate on read.
@@ -57,13 +68,6 @@ export interface AparteConversationMeta {
     updatedAt: number;
     archivedAt?: number;
     pinnedAt?: number;
-    folderId?: string;
-    /** Truncated last message body (≤200 chars) — for sidebar previews. */
-    lastMessagePreview?: string;
-    /** Cached message count for the sidebar badge / archive logic. */
-    messageCount?: number;
-    /** Sum of input+output tokens across messages, when available. */
-    totalTokens?: number;
     /** Persisted schema version of the row. */
     schemaVersion?: number;
 }
@@ -97,7 +101,10 @@ export interface AparteAttachmentRow {
  * artifact gallery index. Each is a product's own table — the shape of a "memory
  * fact" or of a settings entry is the app's decision — and a public contract
  * carrying one app's schema binds every other adapter to it. An app that needs
- * them extends this interface in its own code.
+ * them extends this interface in its own code. Nor is a row's own bookkeeping: a
+ * folder id, a cached last-message preview, a message count and a token total are
+ * things a store computes for itself, so they live on the adapter's own row shape
+ * rather than on `AparteConversation` / `AparteConversationMeta`.
  */
 export interface AparteStorageAdapter {
     /** Return all stored conversations (full payload), ordered by updatedAt desc. */

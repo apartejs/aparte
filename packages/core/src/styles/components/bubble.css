@@ -31,7 +31,27 @@ aparte-chat-bubble {
      token — that reclaimed GPU time goes back to the WebGPU decode.
      contain-intrinsic-size keeps the scrollbar stable: the `auto` keyword
      reuses a bubble's real height once it has been measured; the 320px is
-     only a fallback for bubbles that have never been rendered yet. */
+     only a fallback for bubbles that have never been rendered yet.
+
+     Consequence, measured rather than assumed (Chromium 149, 2026-09-05): a bubble
+     is the containing block for its `position: fixed` descendants and CLIPS them at
+     its own box. So a popover mounted inside a bubble — an `<aparte-select>` from a
+     `registerToolRenderer` renderer, say — opens with its lower half eaten. Core
+     puts no popover in a bubble (elicitation is a sibling of the viewport,
+     conversation.css's menu is in the sidebar), so this is a seam limit, not a live
+     bug; a renderer that needs one should mount it beside the viewport.
+
+     Do not try to fix it by trimming `contain`. `content-visibility: auto` turns on
+     layout, style AND paint containment on its own — unconditionally, the skipping
+     is what it adds when the element goes off-screen — so the four variants measure
+     identically: `layout style paint` 2/4 of the dropdown painted, `style` 2/4,
+     `none` 2/4, and only removing `content-visibility` itself reaches 4/4. That
+     trade is the streaming-performance win above, not a style cleanup.
+     And it would still not be enough: `aparte-chat-viewport` is a container-query
+     root with `contain: layout style` (shell.css:174-177), so a fixed popover
+     anywhere in the transcript resolves against the VIEWPORT, not the window — the
+     same shape split.css:154 warns about. Freeing both is what puts a dropdown back
+     under its own trigger. */
   contain: layout style paint;
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;

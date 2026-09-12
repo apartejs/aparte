@@ -30,7 +30,10 @@ export function useAparteChat(initial: AparteMessage[] = []) {
         updateSegment: (id: string, u: Partial<AparteSegment>) => c()?.updateSegment(id, u),
         removeSegment: (id: string) => c()?.removeSegment(id),
         appendToSegment: (id: string, content: string) => c()?.appendToSegment(id, content),
-        clearMessages: () => c()?.clearMessages(),
+        // The host's list — the authority, and mid-stream a frame ahead of the
+        // `messages` ref, which is synced once per paint rather than per token.
+        getMessages: (): AparteMessage[] => c()?.getMessages() ?? messages.value,
+        clearMessages: (options?: { revokeAttachments?: boolean }) => c()?.clearMessages(options),
         addBranch: (id: string) => c()?.addBranch(id) ?? 0,
         addSiblingOf: (id: string, m: AparteMessage) => c()?.addSiblingOf(id, m) ?? null,
         truncateFrom: (id: string) => c()?.truncateFrom(id),
@@ -40,5 +43,9 @@ export function useAparteChat(initial: AparteMessage[] = []) {
         stopTokenStream: () => c()?.stopTokenStream(),
         setConversationId: (id: string | null) => c()?.setConversationId(id) ?? Promise.resolve(),
         isStreaming: () => c()?.isStreaming() ?? false,
+        scrollToBottom: () => c()?.scrollToBottom(),
+        focusInput: () => c()?.focusInput(),
+        /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
+        getViewport: (): HTMLElement | null => c()?.getViewport() ?? null,
     };
 }

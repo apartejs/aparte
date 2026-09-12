@@ -1,0 +1,17 @@
+---
+"@aparte/core": patch
+---
+
+A new conversation is titled from the message that opened it even when two sends land together, a rename keeps the conversation's place in the list, a confirmed delete hands the keyboard to the row that took its place, and the composer comes back when a fetch is superseded by an id the store does not know. Nothing to change in your code, unless you relied on a rename floating a conversation to the top.
+
+**Two coalesced sends make one first message.** `addMessage()` suspends twice before it writes — for the messages, when they are not in memory, then for the title provider — so a suggestion and a quick type, released into it within a microtask of each other, both read a conversation with no user message in it yet: both counted as the first, and the second one's text became the title, in memory and in the store, permanently (the persist that follows the reply re-titles only an edited first message). Appends are now serialised per conversation: the next one reads what the previous one wrote. Message order was already right; only the title was wrong.
+
+**A rename leaves `updatedAt` alone.** Like pin, unpin, archive and unarchive, a rename is metadata, and the list sorts on the last message rather than the last edit. It also could not be otherwise: an adapter's `rename()` hook carries the title alone by contract, so the bump lived in memory only — the row re-grouped under "Today" and jumped back to its old date on the next reload. Memory and storage now agree in both branches, hook or `save()`.
+
+**A superseded fetch always ends its wait.** `setConversationId` clears the wait it superseded on every exit now, including the two that returned without it: an id the manager does not know (a deep link to a conversation another tab deleted) and the hydration retry. The in-flight fetch returns silently once the active id has moved, so nothing else was going to clear it — the viewport kept its skeleton and `aria-busy`, and the composer stayed disabled until a reload.
+
+**A second `init()` keeps the conversation on screen persisting.** It re-reads the list from the store, which for a split adapter is metadata alone; what the first `init()` had fetched was forgotten with the rows it lived on, so writes to the open conversation were refused — silently, since the refusal is the controller's own. A conversation whose messages are already in memory now keeps them and stays loaded; a row the store no longer lists is dropped with its messages. `init()`'s docblock says so.
+
+**The store gets the messages you sent.** `updateMessages()` saved the `segments` a viewport derived from a message's markdown on display — they were already excluded from the change comparison, but not from the record, on either half of it: the flat messages and the branch tree. Stored, they filled the store with core-generated ids and froze the parse as it stood the day it was saved, so a block grammar registered later never applied to that message. The tree is the half that mattered most, since that is the half a viewport reads back.
+
+**A confirmed delete keeps the keyboard in the list.** Delete is confirmed from the row's own menu, so the row holding the focus is the row that leaves: the focus landed on `<body>` and the next Tab restarted at the top of the page, right after the one action here that cannot be undone. It goes to the row that took its place (the next one, else the one above), and to the list itself when the last conversation goes.

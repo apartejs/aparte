@@ -39,13 +39,14 @@
  * what was missing was only ever the documentation.
  *
  * The pass also flags the reverse defect, which nothing could see before: tokens
- * DECLARED in `:root` that nothing in core reads. There are twenty — it was eighteen
- * until the derived layer was split into its own block, whose tokens this pass could
- * not see at all while it read only the first block. Some are
- * palette bases a consuming app applies itself (`--aparte-bg`, and core paints no
- * page background on purpose), some are unused steps of a documented scale, and
- * some are knobs that quietly do nothing. Marking them keeps the page from
- * promising a control that has no effect, without guessing which is which.
+ * DECLARED in `:root` that nothing aparté ships reads — core AND the plugins, because
+ * the "palette only" marker is a claim about the whole library and it was being made
+ * from core alone (see the `unread` docblock below for what that cost). Run the script
+ * to count them rather than trusting this line; it prints the figure. Some are palette
+ * bases a consuming app applies itself (`--aparte-bg`, and core paints no page
+ * background on purpose), some are unused steps of a documented scale, and some are
+ * knobs that quietly do nothing. Marking them keeps the page from promising a control
+ * that has no effect, without guessing which is which.
  *
  * A token core sets at runtime via `style.setProperty` is excluded: it is an
  * internal channel, not a knob. Exactly one qualifies (`--aparte-fw-spacer`), and
@@ -63,6 +64,27 @@ import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
+const PLUGINS = resolve(here, '../../../packages/plugins');
+
+/** Every `packages/plugins/<name>/src`, for the "palette only" pass only. */
+function pluginSourceDirs() {
+  const out = [];
+  for (const name of readdirSync(PLUGINS)) {
+    const src = join(PLUGINS, name, 'src');
+    try {
+      if (statSync(src).isDirectory()) out.push(src);
+    } catch {
+      // A plugin without a `src/` (or a stray file in the folder) simply contributes none.
+    }
+  }
+  /** A floor, like every other corpus here: a sweep that reads nothing is not a pass. */
+  if (out.length < 6) {
+    console.error(`[gen-css-vars] found only ${out.length} plugin source dir(s) under ${PLUGINS},`
+      + ' floor is 6. The layout moved and the "palette only" marker would go back to lying.');
+    process.exit(1);
+  }
+  return out;
+}
 /**
  * BOTH theme sheets, in the order `src/index.ts` imports them. Reading one was enough
  * until the tokens moved to `theme.css`: the generator kept pointing at `aparte.css`
@@ -82,7 +104,16 @@ const lines = css.split(/\r?\n/);
 // AND the derived layer split out of it. The dark block is correctly skipped: it holds
 // overrides, not the token list. Reading only the first block is what dropped ten
 // tokens off this page; see the header.
+//
+// One of these blocks is also the ANCHORED layer: its selector list ends
+// `..., aparte-chat` (theme.css's own comment calls it "re-anchored, on purpose") and
+// core re-declares every token inside it on `:root, :host, [data-aparte-theme],
+// [data-aparte-host], aparte-chat` — so a `:root`-only override of one of THESE never
+// reaches inside a chat (a local declaration always beats an inherited one). Its lines
+// are captured separately so the reference can tell a reader which is which, the same
+// way it already marks a token nothing reads.
 const body = [];
+const anchoredBody = [];
 for (let i = 0; i < lines.length; i++) {
   // Column ZERO, and that word is the fix. The pattern used to allow leading
   // whitespace, so the `:root` nested inside `responsive.css`'s
@@ -95,12 +126,41 @@ for (let i = 0; i < lines.length; i++) {
   if (!/^:root\b/.test(lines[i])) continue;
   let j = i;
   while (j < lines.length && !lines[j].includes('{')) j++;
+  const isAnchored = /\baparte-chat\b/.test(lines.slice(i, j + 1).join(' '));
   j++; // step past the opening `{`
-  for (; j < lines.length && !/^\}/.test(lines[j]); j++) body.push(lines[j]);
+  for (; j < lines.length && !/^\}/.test(lines[j]); j++) {
+    body.push(lines[j]);
+    if (isAnchored) anchoredBody.push(lines[j]);
+  }
   i = j;
 }
 
 const TOKEN = /^\s*(--aparte-[\w-]+)\s*:\s*(.+?);\s*(?:\/\*\s*(.*?)\s*\*\/)?\s*$/;
+
+/**
+ * The anchored block's own token NAMES, comments blanked first. Two lines inside it
+ * are prose that happens to look like a declaration — a note reading "`--aparte-primary`
+ * everywhere, e.g. `--aparte-space-unit:3px`" and a mention of `--aparte-scroll-btn-shadow`
+ * — and a naive per-line regex counts both, which is exactly the bug this audit's own
+ * harness shipped with once (two false positives, 247 instead of 245). Comments are
+ * full CSS comments here, possibly spanning several lines, so they are walked and
+ * skipped as a block rather than matched line by line.
+ */
+function declaredTokenNames(bodyLines) {
+  const names = new Set();
+  for (let i = 0; i < bodyLines.length; i++) {
+    if (/^\s*\/\*/.test(bodyLines[i])) {
+      let end = i;
+      while (end < bodyLines.length && !bodyLines[end].includes('*/')) end++;
+      i = end;
+      continue;
+    }
+    const tok = bodyLines[i].match(TOKEN);
+    if (tok) names.add(tok[1]);
+  }
+  return names;
+}
+const ANCHORED = declaredTokenNames(anchoredBody);
 
 /**
  * ## How a comment finds the variable it is about
@@ -322,14 +382,35 @@ if (declaredNames.size < DECLARED_FLOOR) {
   process.exit(1);
 }
 
-/** Read with a built-in default, never declared in `:root` — the missing half. */
+/**
+ * Read with a built-in default, never declared in `:root` — the missing half.
+ *
+ * Core only, and deliberately so. `scripts/frozen-surface.mjs` freezes the union of the
+ * same two passes, so a plugin's `var(--aparte-plugin-thing, …)` added here would enter
+ * the frozen token surface and a plugin's INTERNAL variable would become a name core
+ * cannot rename. The plugin sweep below therefore feeds `unread` and nothing else.
+ */
 const componentTokens = [...reads.keys()]
   .filter((n) => !declaredNames.has(n) && !runtimeManaged.has(n))
   .sort()
   .map((n) => ({ name: n, ...reads.get(n) }));
 
-/** Declared in `:root`, read by nothing in core — the reverse defect. */
-const unread = new Set([...declaredNames].filter((n) => !reads.has(n)));
+/**
+ * Declared in `:root`, read by nothing aparté ships — the reverse defect.
+ *
+ * "Nothing aparté ships" is core AND the plugins, because the marker is a claim about
+ * the whole library and it was being made from core alone. Three tokens carried it while
+ * `@aparte/plugin-artifacts` read all three (`--aparte-accent`, `--aparte-error-bg`,
+ * `--aparte-font-weight-bold`): the page told a reader that setting them changes nothing,
+ * and the card they style changed.
+ */
+const pluginReads = new Set();
+for (const dir of pluginSourceDirs()) {
+  for (const file of walk(dir)) {
+    for (const { name } of readsIn(readFileSync(file, 'utf8'))) pluginReads.add(name);
+  }
+}
+const unread = new Set([...declaredNames].filter((n) => !reads.has(n) && !pluginReads.has(n)));
 
 /**
  * `|` ends a table cell, and `<` opens an HTML tag in Markdown — the prose now
@@ -348,9 +429,11 @@ sidebar:
 <!-- AUTO-GENERATED from packages/core/src/styles/ (every sheet src/index.ts imports) by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
-in total: ${total} declared in the stylesheet's \`:root\` and ${componentTokens.length} read by a
-component with a built-in default. Override any of them as shown in
-[Theming](/guides/theming). Both halves are swept from the source on every build.
+in total: ${total - ANCHORED.size} declared once on \`:root\`, ${ANCHORED.size} declared on the
+**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat\`) and
+${componentTokens.length} read by a component with a built-in default. A row marked
+**anchored** must be overridden on \`aparte-chat\` or a theme boundary, not on \`:root\` — see
+[Theming](/guides/theming/). Both halves are swept from the source on every build.
 
 A row marked **palette only** is declared but read by nothing in aparté: it is there
 for your own CSS to reference (\`--aparte-bg\` is the page background *your app*
@@ -372,9 +455,10 @@ for (const g of groups) {
   if (!g.tokens.length) continue;
   md += `| Variable | Default | Notes |\n| --- | --- | --- |\n`;
   for (const t of g.tokens) {
-    const note = unread.has(t.name)
-      ? [t.note, '**palette only**'].filter(Boolean).join(' — ')
-      : t.note;
+    const markers = [];
+    if (unread.has(t.name)) markers.push('**palette only**');
+    if (ANCHORED.has(t.name)) markers.push('**anchored**');
+    const note = [t.note, ...markers].filter(Boolean).join(' — ');
     md += `| \`${esc(t.name)}\` | \`${esc(t.value)}\` | ${esc(note)} |\n`;
   }
 }

@@ -1,0 +1,139 @@
+/* The chat site's own rules, shared by the five examples — what the skin does not
+   say: the welcome's fold, the shell's height, the person in the footer, the
+   lightbox, the settings dialog's stacking. Load AFTER core's sheets and the skin. */
+
+* {
+    box-sizing: border-box;
+}
+
+/* `hidden` has to win: the UA stylesheet's `[hidden] { display: none }` loses to ANY
+   author rule, and a `display: flex` on the same element is one. */
+[hidden] {
+    display: none !important;
+}
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--aparte-surface, #16130f);
+    color: var(--aparte-text, #f5f0e6);
+}
+
+/* The welcome collapses instead of vanishing: a one-row grid whose row goes to 0fr
+   while the composer glides to the bottom, so the group does not jump before it
+   slides. Its body is the flex column. */
+.welcome {
+    display: grid;
+    grid-template-rows: 1fr;
+    padding: 12px 12px 16px;
+    text-align: center;
+    transition: grid-template-rows var(--aparte-duration-slower) var(--aparte-ease),
+        padding var(--aparte-duration-slower) var(--aparte-ease),
+        opacity var(--aparte-duration-slow) var(--aparte-ease);
+}
+.welcome__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-height: 0;
+    overflow: hidden;
+}
+.welcome h2 {
+    margin: 0;
+    font-weight: 600;
+}
+/* The starters are an <aparte-suggestions>; core draws them. Only their placement
+   under the heading is this page's. */
+.welcome .aparte-suggestions {
+    justify-content: center;
+}
+/* The welcome belongs to the empty state, and the chat says when it is empty: the
+   flag is off while messages are there OR on their way, so the welcome never shows
+   over a conversation that is loading. Three shell shapes: the element (`data-empty`
+   on itself), the container React and Vue render (`data-aparte-empty` on a
+   `[data-aparte-chat]` div), and Angular's — whose host IS an `<aparte-chat>` tag,
+   `framework-managed`, that core deliberately never marks; its inner
+   `.aparte-chat-container` carries the flag instead. Hence the `:not([framework-managed])`:
+   without it the first selector matched Angular's host unconditionally and kept the
+   welcome collapsed. */
+aparte-chat:not([framework-managed]):not([data-empty]) .welcome,
+.aparte-chat-container:not([data-aparte-empty]) .welcome,
+[data-aparte-chat]:not([data-aparte-empty]) .welcome {
+    grid-template-rows: 0fr;
+    padding-block: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* The site is the `.aparte-app-shell` recipe, given the viewport's height: the grid
+   fills it, the sidebar spans it, the main area takes what is left. Everything inside
+   is core's — the sidebar, the header, the list — and this file adds nothing to them. */
+#chat-view {
+    height: 100dvh;
+}
+
+/* The person in the sidebar's footer, beside the avatar. */
+.aparte-sidebar__footer .who {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* The chat fills the main area under the header: core's height:100% fights flex:1 in
+   a column with a header. Both shell shapes. */
+aparte-chat,
+.aparte-chat-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+}
+
+/* The attachment lightbox this site opens when core asks for a preview
+   (aparte-attachment-preview). Core owns no modal — this is ours. */
+.lightbox {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+.lightbox::backdrop {
+    background: rgb(0 0 0 / 0.72);
+}
+.lightbox img {
+    display: block;
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 10px;
+}
+
+/* The settings dialog: the kit's dialog, fields and radios; only the stacking is this
+   page's. A textarea is a field that grows downward, and the kit's field is one line. */
+.settings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+.settings-textarea {
+    resize: vertical;
+    min-height: 6rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+/* A group whose fields are disabled — the local server's, under the scripted model. */
+.settings-group[data-disabled] {
+    opacity: 0.55;
+}

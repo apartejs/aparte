@@ -31,13 +31,46 @@ scoped to a subtree, or per chat instance:
 Because they are plain CSS variables, they cascade and inherit like any other — no build
 step, no theme provider, no re-render.
 
+Typing a theme object in TypeScript? `AparteThemeVariables` is the record type —
+`` { [K in `--aparte-${string}`]?: string } `` — so a key that does not start with
+`--aparte-` is a compile error. The part after the prefix is not checked; the generated
+[CSS variables](/reference/css-variables/) reference is the discoverable list.
+
+```ts
+import type { AparteThemeVariables } from '@aparte/core';
+
+export const brand: AparteThemeVariables = {
+  '--aparte-primary': '#7c3aed',
+  '--aparte-surface-1': '#ffffff',
+};
+```
+
 :::note[`:host` in the stylesheet is defensive, not a shadow root]
 Core has **no shadow DOM** — every element renders light DOM, which is why a plain
 `.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
 `:root` and, a second time, on `:host` — only so the same sheet keeps working if *you*
 mount a chat inside a shadow root of your own (a web component of yours, a micro-frontend):
-there, `:root` is outside and `:host` is the boundary. Overriding from outside works the same in both cases — set
-the variable on any ancestor, or on the chat element itself.
+there, `:root` is outside and `:host` is the boundary. Behaviour crosses that boundary on
+its own — core's document-level handlers read the node a click really hit, they resolve the
+element a control drives in the tree that control lives in, and `AparteClient` resolves the
+chat a send, a retry or an edit belongs to in the tree the gesture came from, so the row
+menus, the keyboard, the sidebar toggle, the split's pane buttons, the selects and the send
+itself work inside your shadow root. Two things do not cross it. A `:root` declaration —
+hence `:host`. And an element that names its partner by id: `<aparte-suggestions target>`
+and `<aparte-scroll-rail target>` look that id up in the document, so nest those inside the
+chat and drop the attribute rather than naming an element they cannot see. Overriding from
+outside works the same in both cases — set the variable on any ancestor, or on the chat
+element itself.
+
+**Where you may set a token depends on which kind it is.** A **master** —
+`--aparte-primary`, `--aparte-space-unit`, `--aparte-radius-unit`,
+`--aparte-btn-size-md|lg`, `--aparte-font-scale` — can be set anywhere: `:root`, a
+subtree, or one `aparte-chat`. A **derived** token cannot: core re-declares its 239
+derived tokens on `:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat`, and
+a custom property declared on an element beats the one it would have inherited — so a
+`:root` value for a derived token never reaches inside a chat. Set the master it reads, or
+declare the derived token on `aparte-chat` or a theme boundary. The
+[CSS variables](/reference/css-variables/) reference marks which is which.
 :::
 
 ## Light and dark
@@ -86,7 +119,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **246 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **239 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -145,9 +178,8 @@ a themed subtree, a `[data-aparte-host]` boundary, or one element:
 
 That single attribute moves this chat's send button, its user avatar, its focus ring, its
 input's focus border and its progress fill, and leaves every other chat on the page alone.
-A derived variable is still yours to set on its own when you want one to break ranks — a
-value you declare always wins over the one it would have derived.
-:::
+A derived variable is yours to set too, but only where core declares it — the rule is under
+[How it works](#how-it-works).
 
 :::note[`--aparte-bg` is yours to paint]
 Core sets no background on the chat root — it inherits from your page on purpose, so a
@@ -175,7 +207,7 @@ and the whole UI re-spaces or re-sizes coherently.
 
 ```css
 /* A denser, squarer chat. */
-:root {
+aparte-chat, [data-aparte-theme] {
   --aparte-space-6: 8px;      /* pull the default 12px paddings/gaps in */
   --aparte-radius-lg: 4px;    /* squarer bubbles, inputs, cards */
 }
@@ -221,7 +253,7 @@ Variables are grouped by region. The most-reached-for ones:
 `--aparte-action-bar-btn-hover-bg` / `-hover-color`.
 
 **Composer / input** — `--aparte-input-bg`, `--aparte-input-border`,
-`--aparte-input-text`, `--aparte-input-placeholder`,
+`--aparte-input-placeholder`,
 `--aparte-composer-control-size` (sizes the whole composer control row at once).
 
 **Segments** — the rich blocks with a group of their own: `--aparte-code-*`,
@@ -242,7 +274,7 @@ By convention the assistant is plain full-width prose (like ChatGPT / Claude) an
 user message is a bubble. To make both sides bubbles:
 
 ```css
-:root {
+aparte-chat, [data-aparte-theme] {
   --aparte-message-content-bg-assistant: var(--aparte-surface-2);
   --aparte-message-content-text-assistant: var(--aparte-text);
 }
@@ -253,7 +285,7 @@ user message is a bubble. To make both sides bubbles:
 Every composer control (input height + buttons) derives from a single token:
 
 ```css
-:root { --aparte-composer-control-size: 52px; }  /* a chunkier composer */
+aparte-chat { --aparte-composer-control-size: 52px; }  /* a chunkier composer */
 ```
 
 ### Swap the code font

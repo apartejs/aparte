@@ -74,6 +74,30 @@ two row actions are real buttons in the tab order.
   activity keeps being conveyed through `aria-live` and `aria-busy`.
 - Under `pointer: coarse` the control set re-sizes to `--aparte-touch-target-size` (44px).
 
+The ring itself is `1px` at `0` offset, on purpose — flush against the control rather
+than a moat around it (2026-09-05; it used to sit one spacing step outside). That
+clears WCAG 2.2 AA: SC 2.4.7 Focus Visible and SC 1.4.11 Non-text Contrast. It falls
+short of one AAA criterion, SC 2.4.13 Focus Appearance, which asks for more area than a
+1px flush ring gives — the library targets AA, so that gap is the deliberate line, not
+an oversight. The composer follows the same restraint: its focus signal is the caret
+plus the shell's border tint (`.aparte-composer-shell:focus-within`), not a second ring
+drawn around the whole field.
+
+A site that wants AAA anyway widens the ring with the one token that draws it, everywhere
+it's read — the chat, the composer, the conversation list, the sidebar, the header:
+
+```css
+:root {
+  --aparte-focus-outline-width: 2px;
+}
+```
+
+`:root` is enough here because `--aparte-focus-outline-width` is a literal: core declares
+it exactly once, and inheritance carries it into every element that reads it. The
+`aparte-chat, [data-aparte-theme]` anchors belong to the *derived* tokens — core
+re-declares those on the chat itself, so a value inherited from `:root` never reaches
+them ([Theming](/guides/theming/) says which is which).
+
 ## What core leaves to you
 
 None of these is an oversight. Each is a place where the library cannot know enough to be
@@ -84,6 +108,17 @@ right, and guessing would be worse than saying so.
 `role="menuitem"`, `role="tooltip"`) and the arrow-key handling those patterns require are
 yours. A menu that looks like a menu and reports as a group of buttons is worse than one
 that looks plain, so put the roles on.
+
+One exception, and it is the reference to copy: the per-row menu inside
+[`<aparte-conversation-list>`](/components/conversation/aparte-conversation-list/)
+implements the pattern in full — `role="menu"` and an `aria-label` on the container,
+`role="menuitem"` on each item, focus into the first item on open, `ArrowDown` / `ArrowUp`
+with wrap-around, `Home` / `End`, `Escape` to close, and `Tab` to leave the menu and land
+back on the button that opened it. Using that element, you inherit all of it — for the
+menu. The delete step is the one part that is not a menu: while it asks, the same popover
+becomes a `role="dialog"` named by the question, because a `role="menu"` may hold menu
+items and nothing else and the two answers are ordinary buttons. The keys are unchanged.
+The list of rows the menu opens from is the next item below.
 
 **Arrow-key navigation in the conversation list.** Rows are reachable and activatable, and
 `role="navigation"` says what the list is — but there is no roving `tabindex`, so a long

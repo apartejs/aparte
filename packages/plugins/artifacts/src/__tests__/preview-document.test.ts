@@ -75,3 +75,47 @@ describe('the artifact card’s tab order', () => {
             .toBeLessThan(html.indexOf('data-tab-target="preview"'));
     });
 });
+
+/**
+ * The `css` kind wraps the model's body in a `<style>` element, and `<style>` is raw
+ * text: the parser ends it on `</style` plus a terminator, whatever the CSS
+ * tokenizer thinks. So a stylesheet artifact could close its own wrapper and open a
+ * `<script>` — the same break-out `escapeClosingScriptTag` has always closed on the
+ * `js` kind, on a kind whose whole promise is that it only styles.
+ *
+ * The sandbox still holds either way (opaque origin, `PREVIEW_CSP`), so this is the
+ * gap between what "preview this stylesheet" promises and what it does, not a
+ * containment failure.
+ */
+describe('the CSS preview document', () => {
+    /** The real HTML parser, which is the only one whose opinion counts here. */
+    const parse = (doc: string): Document => new DOMParser().parseFromString(doc, 'text/html');
+
+    it('cannot be closed early by a body that writes </style>', () => {
+        const doc = parse(buildSafePreviewDocument('css', '</style><script>parent.leak=1</script>', 'sheet'));
+        expect(doc.querySelector('script')).toBeNull();
+        // The text is still there — inert, inside the stylesheet, where it belongs.
+        expect(doc.querySelector('style')!.textContent).toContain('parent.leak=1');
+    });
+
+    it('catches every spelling the parser ends a raw-text element on', () => {
+        for (const body of ['</style >', '</style/', '</STYLE>', '</style>']) {
+            const doc = parse(buildSafePreviewDocument('css', `${body}<script>x</script>`, 'sheet'));
+            expect(doc.querySelector('script'), body).toBeNull();
+        }
+        // …including at the very end of the body, with no terminator to follow.
+        expect(parse(buildSafePreviewDocument('css', 'a{}</style', 'sheet')).querySelectorAll('style')).toHaveLength(1);
+    });
+
+    it('leaves ordinary CSS exactly as written', () => {
+        const css = '.demo h1 { color: #b91c1c; content: "a < b"; }';
+        expect(buildSafePreviewDocument('css', css, 'sheet')).toContain(css);
+    });
+
+    it('leaves a `</styles` that ends nothing alone', () => {
+        // The parser only ends the element on `</style` + whitespace / `/` / `>` / EOF,
+        // so neither does this — escaping it would corrupt legitimate CSS.
+        expect(buildSafePreviewDocument('css', 'a::after{content:"</styles"}', 'sheet'))
+            .toContain('content:"</styles"');
+    });
+});

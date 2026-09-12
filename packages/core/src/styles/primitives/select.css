@@ -31,7 +31,7 @@ aparte-select {
 }
 
 .aparte-select-trigger:hover {
-    border-color: var(--aparte-select-border-hover, var(--aparte-primary));
+    border-color: var(--aparte-select-border-hover, var(--aparte-border-control));
 }
 
 .aparte-select-trigger:focus-visible {
@@ -117,7 +117,11 @@ aparte-select[open] .aparte-select-chevron {
     display: none;
 }
 
-/* Search */
+/* Search: flush with the top of the panel, no box of its own, a hairline under it —
+   the shape shadcn's Command and Radix's combobox give it. The focus draws NOTHING
+   here: the caret is the focus, and a ring inside a rounded panel was a rectangle
+   (the chat-site review, 2026-09-05). The field keeps the panel's corners because it
+   IS the panel's top edge. */
 .aparte-select-search {
     box-sizing: border-box;
     display: block;
@@ -126,15 +130,10 @@ aparte-select[open] .aparte-select-chevron {
     border: none;
     border-bottom: var(--aparte-border-width) solid var(--aparte-border);
     background: transparent;
+    color: inherit;
     font-size: inherit;
     font-family: inherit;
-}
-
-/* Inside, not outside: the field sits at the top of a scrolling panel, and an outset
-   ring would be clipped by it. The one documented exception to the shared offset. */
-.aparte-select-search:focus-visible {
-    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+    outline: none;
 }
 
 /* Options container */
@@ -162,7 +161,7 @@ aparte-option:hover {
    Distinct from :hover so keyboard users get an unambiguous focus indicator. */
 aparte-option[data-active] {
     background: var(--aparte-select-option-hover, var(--aparte-surface-2));
-    box-shadow: inset 0 0 0 2px var(--aparte-primary);
+    box-shadow: inset 0 0 0 2px var(--aparte-border-focus);
 }
 
 /* Selected option: the mark (display/mark.css) — an accent TINT plus an accent bar
@@ -202,7 +201,7 @@ aparte-option[disabled] {
     height: var(--aparte-select-status-dot-size);
     border-radius: 50%;
     flex-shrink: 0;
-    margin-left: var(--aparte-space-4);
+    margin-inline-start: var(--aparte-space-4);
 }
 
 .aparte-status-dot[data-status="ready"] {

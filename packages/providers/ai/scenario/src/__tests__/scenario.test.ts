@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { AparteChatRequest, AparteStreamEvent } from '@aparte/core';
-import { createScenarioProvider, defaultMatch, playTurn, showcase } from '../index.js';
+import { createScenarioProvider, defaultMatch, playTurn } from '../index.js';
+import { showcase } from '../showcase.js';
 
 const request = (...messages: AparteChatRequest['messages']): AparteChatRequest => ({ modelId: 'scripted', messages });
 const user = (content: string): AparteChatRequest['messages'][number] => ({ role: 'user', content });
@@ -138,8 +139,30 @@ describe('scenarios mode', () => {
         expect(first.map((e) => e.type)).toEqual(['text', 'tool_use', 'done']);
         const second = await reply(provider, request(
             user('weather please'),
-            { role: 'tool_call', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
-            { role: 'tool_result', content: '14 °C', toolCallId: 'w1' },
+            { role: 'assistant', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: '14 °C', toolCallId: 'w1', toolName: 'get_weather' },
+        ));
+        expect(text(second)).toBe('cloudy');
+    });
+
+    it('routes on the tool message\'s own name when no assistant turn declares the call', async () => {
+        // The hand-built history: a host replaying its own log has no envelope to scan.
+        const provider = createScenarioProvider({ scenarios, pacing: 'instant' });
+        const second = await reply(provider, request(
+            user('weather please'),
+            { role: 'tool', content: '14 °C', toolCallId: 'w1', toolName: 'get_weather' },
+        ));
+        expect(text(second)).toBe('cloudy');
+    });
+
+    it('routes a tool message that carries no name by the call it answers, in the assistant turn before', async () => {
+        // A history built by hand against the shape alone: the message names its call id and
+        // nothing else, so the name comes from the assistant turn that declared the call.
+        const provider = createScenarioProvider({ scenarios, pacing: 'instant' });
+        const second = await reply(provider, request(
+            user('weather please'),
+            { role: 'assistant', content: '', toolCalls: [{ id: 'w1', name: 'get_weather', input: {} }] },
+            { role: 'tool', content: '14 °C', toolCallId: 'w1' },
         ));
         expect(text(second)).toBe('cloudy');
     });
@@ -155,6 +178,14 @@ describe('scenarios mode', () => {
         expect(showcase['forecast']!.after).toBe('get_weather');
         expect(showcase['answered']!.after).toBe('ask_user');
         expect(defaultMatch(request(user('Give me a markdown table')), showcase)).toBe('table');
+        // The four-tool chain: "ship it" starts it, and each tool it calls is routed —
+        // an unrouted one sends the result back through `release`'s own `when` and the
+        // conversation loops until maxTurns.
+        expect(defaultMatch(request(user('ship it')), showcase)).toBe('release');
+        const routed = new Set(Object.values(showcase).map((s) => s.after).filter(Boolean));
+        for (const tool of ['search_docs', 'read_file', 'write_file', 'run_command']) {
+            expect(routed, `${tool} needs an \`after\` route`).toContain(tool);
+        }
     });
 });
 

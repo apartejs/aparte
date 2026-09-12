@@ -18,6 +18,12 @@
     --aparte-art-paper-head-bg: #f3f4f6;
     --aparte-art-paper-head-text: #111827;
     --aparte-art-paper-border: rgba(0, 0, 0, 0.1);
+    /* The paper's OWN muted ink. The empty-preview line used to take
+       `--aparte-text-muted`, which is the THEME's — and the pane opts out of the
+       theme on purpose, so in the dark theme a #a89bb6 line landed on white paper at
+       2.62:1. Mixed from the paper's own pair instead: 5.5:1, and it follows a
+       consumer who re-declares the paper. */
+    --aparte-art-paper-text-muted: color-mix(in srgb, var(--aparte-art-paper-text) 70%, var(--aparte-art-paper-bg));
     /* File-type tiles. Brand colours, so they are literals on purpose — but named,
        because an app with its own file-type palette has nowhere else to put it. The
        lettering is fixed like the tiles: a themed ink would go near-black in dark
@@ -36,9 +42,19 @@
     --aparte-art-file-error-padding-inline: 18px;
 }
 /* Not the paper — that stays light on purpose. This is a code block inside the
-   error panel, which does follow the theme. */
+   error panel, which does follow the theme.
+
+   Twice, because CSS cannot share one block between an attribute selector and a
+   media query — the same duplication core's theme.css carries, for the same reason:
+   without the second one a system-dark reader who sets no attribute kept the LIGHT
+   wash (`rgba(0,0,0,0.04)`) on the already-dark `--aparte-error-bg`. Edit both. */
 [data-aparte-theme="dark"] .aparte-segment-artifact-file {
     --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-aparte-theme="light"]) .aparte-segment-artifact-file {
+        --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
+    }
 }
 /* Artifact card */
 /* The shell is `.aparte-card`; what stays here is what a card in a TRANSCRIPT needs
@@ -235,7 +251,7 @@
 .aparte-art-file__preview-pane td {
     border: var(--aparte-border-width) solid var(--aparte-art-paper-border);
     padding: var(--aparte-space-3) var(--aparte-space-5);
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
     color: var(--aparte-art-paper-text);
     background: var(--aparte-art-paper-bg);
@@ -249,7 +265,7 @@
 }
 .aparte-art-file__preview-empty {
     padding: var(--aparte-art-file-preview-padding); text-align: center;
-    color: var(--aparte-text-muted);
+    color: var(--aparte-art-paper-text-muted);
     font-size: var(--aparte-font-size-md); font-style: italic;
 }
 .aparte-segment-artifact-file[data-state="error"] .aparte-art-file__icon {
@@ -265,7 +281,11 @@
     font-weight: var(--aparte-font-weight-semibold);
     font-size: var(--aparte-font-size-base);
     margin-bottom: var(--aparte-space-3);
-    color: var(--aparte-error-title);
+    /* `--aparte-error-text`, not `--aparte-error-title`: core removed the second one
+       with the error renderer's private classes and nothing here followed, so this
+       read was invalid at computed-value time and the heading quietly took the
+       panel's body ink instead of the error ink. */
+    color: var(--aparte-error-text);
 }
 /* A computed value shown back, which is `.aparte-output`. What stays is that this
    one is an ERROR — tinted text on its own quiet ground — and that a raw message has

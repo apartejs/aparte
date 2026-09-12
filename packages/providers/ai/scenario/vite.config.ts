@@ -12,7 +12,12 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
+            // Two entries: the ready-made `showcase` set is a demo corpus, so a
+            // consumer who writes their own scenarios must not pay for it.
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                showcase: resolve(__dirname, 'src/showcase.ts'),
+            },
             name: 'AparteProviderScenario',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],

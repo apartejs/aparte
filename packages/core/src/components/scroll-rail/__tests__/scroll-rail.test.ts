@@ -202,6 +202,30 @@ describe('aparte-scroll-rail', () => {
         expect(document.activeElement).toBe(list[1]);
     });
 
+    it('the arrows walk the ticks inside a host shadow root too', () => {
+        // `document.activeElement` retargets to the shadow HOST, so "which tick holds the
+        // focus?" answered -1 and the arrows were a silent no-op in the arrangement the
+        // theming guide endorses.
+        const wrapper = document.createElement('div');
+        document.body.appendChild(wrapper);
+        const root = wrapper.attachShadow({ mode: 'open' });
+        const host = document.createElement('aparte-chat');
+        host.id = 'c-shadow';
+        const viewport = document.createElement('aparte-chat-viewport');
+        for (const b of THREE_TURNS()) viewport.appendChild(b);
+        host.appendChild(viewport);
+        const rail = document.createElement('aparte-scroll-rail');
+        host.appendChild(rail);
+        root.appendChild(host);
+        const list = ticks(rail);
+        expect(list.length).toBe(3);
+
+        list[0]!.focus();
+        list[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
+
+        expect(root.activeElement, 'ArrowDown moves to the next tick').toBe(list[1]);
+    });
+
     it('target names a chat the rail is not inside', () => {
         const host = document.createElement('aparte-chat');
         host.id = 'elsewhere';
@@ -276,6 +300,29 @@ describe('aparte-scroll-rail holds still', () => {
         }
         expect(ioConstructed).toBe(2);
         expect(ticks(rail)).toEqual(before);
+    });
+
+    it('a streaming reply writes no attribute either: a reconcile leaves an unchanged value alone', async () => {
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        await nextFrame();
+        // Named, not counted, so a red says what was rewritten. CI's WebKit measured the
+        // real thing: the rail's own aria-label and the current tick's aria-current, each
+        // rewritten to the value it already had, on a reconcile a late host mutation ran.
+        const seen: string[] = [];
+        const mo = new MutationObserver((records) => {
+            for (const r of records) {
+                const target = r.target as Element;
+                seen.push(r.type === 'attributes'
+                    ? `${r.attributeName} on <${target.tagName.toLowerCase()}>: "${r.oldValue}" → "${target.getAttribute(r.attributeName!)}"`
+                    : `${r.type} on <${target.tagName.toLowerCase()}>`);
+            }
+        });
+        mo.observe(rail, { childList: true, subtree: true, attributes: true, attributeOldValue: true });
+        turns[1]!.querySelector('.aparte-message-content')!.textContent += ' token';
+        await nextFrame(); await nextFrame();
+        mo.disconnect();
+        expect(seen, 'attributes rewritten on a reconcile that changed nothing').toEqual([]);
     });
 
     it('drops the tick of a bubble that left, and keeps the others in place', async () => {

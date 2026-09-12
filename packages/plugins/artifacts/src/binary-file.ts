@@ -13,7 +13,7 @@
  * a service that existed in no package. What is left is a function call and its two
  * outcomes: the bytes, or an error shown in the card.
  */
-import { escapeHtml, escapeAttr, contextConfig } from '@aparte/core';
+import { escapeHtml, escapeAttr, contextConfig, type AparteConfig } from '@aparte/core';
 import type { ArtifactSegment } from './segment.js';
 import { stripCodeFences, labelForKind } from './shared.js';
 import { streamHighlight } from './highlight.js';
@@ -61,7 +61,7 @@ export function renderBinaryFileArtifact(segment: ArtifactSegment, kind: string)
 
     // Already produced (a re-mount): the file, at once.
     if (done && !isStreaming) {
-        const preview = previewMarkup(done, kind);  // safe-text: the app's previewHtml through the config's sanitizer, or an escapeHtml'd sentence — markup on purpose, as swapToPreview() sets it
+        const preview = previewMarkup(done, kind, cfg);  // safe-text: the app's previewHtml through the config's sanitizer, or an escapeHtml'd sentence — markup on purpose, as swapToPreview() sets it
         return `
             <div class="aparte-segment aparte-card aparte-segment-artifact-file"
                  data-segment-id="${escapeHtml(segment.id)}"
@@ -186,10 +186,21 @@ function kind(element: HTMLElement): string {
     return (element.getAttribute('data-artifact-type') || '').toLowerCase();
 }
 
-function previewMarkup(bin: ArtifactBinary, kind: string): string {
+/**
+ * The config is passed IN, never resolved here.
+ *
+ * This is the one sink in the file that puts app-supplied HTML on the page, and it
+ * read the ambient config — which, from `swapToPreview`'s promise callback, is the
+ * global one long after the render that set it. A chat with its own `AparteConfig`
+ * therefore had its `setHtmlSanitizer` skipped at exactly this line, and its locale
+ * skipped at the sentence beside it. Both callers already hold the right answer:
+ * the render path is inside the bubble's `runWithConfig`, the swap path has the
+ * element.
+ */
+function previewMarkup(bin: ArtifactBinary, kind: string, cfg: AparteConfig): string {
     return bin.previewHtml
-        ? contextConfig().sanitizeHtml(bin.previewHtml)
-        : `<div class="aparte-art-file__preview-empty">${escapeHtml(contextConfig().t('previewPending'))} ${escapeHtml(kind)}</div>`;
+        ? cfg.sanitizeHtml(bin.previewHtml)
+        : `<div class="aparte-art-file__preview-empty">${escapeHtml(cfg.t('previewPending'))} ${escapeHtml(kind)}</div>`;
 }
 
 function swapToPreview(element: HTMLElement, bin: ArtifactBinary, kind: string): void {
@@ -200,7 +211,7 @@ function swapToPreview(element: HTMLElement, bin: ArtifactBinary, kind: string):
     if (preview) {
         // `previewHtml` comes from the app and is built from file bytes the model's code
         // produced, so it goes through the sanitizer like every other innerHTML here.
-        preview.innerHTML = previewMarkup(bin, kind);
+        preview.innerHTML = previewMarkup(bin, kind, contextConfig(element));
         preview.hidden = false;
     }
     const nameEl = element.querySelector<HTMLElement>('[data-role="file-name"]');

@@ -40,6 +40,10 @@ export function flattenForChatTemplate(messages: AparteChatMessage[], warn: Runn
     let droppedToolTurns = 0;
     for (const m of messages) {
         if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
+            // An assistant's calls ride on an `assistant` message, which passes the role test
+            // above and, when the model said nothing before them, carries no text either — so
+            // without this the whole turn leaves the prompt with nothing said.
+            if (m.toolCalls?.length) droppedToolTurns++;
             if (Array.isArray(m.content)) droppedImages += m.content.filter((p) => p.type === 'image').length;
             const text = textOf(m.content);
             if (text) result.push({ role: m.role, content: text });

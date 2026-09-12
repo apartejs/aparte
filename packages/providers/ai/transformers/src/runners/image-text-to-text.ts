@@ -12,13 +12,10 @@
 
 import type { AparteChatMessage } from '@aparte/core';
 import type { CreateRunner, RunnerGenerateInput } from './types.js';
-import { TOOL_TURNS_DROPPED, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
+import { TOOL_TURNS_DROPPED, UNSUPPORTED_PARTS_DROPPED, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
 
 type HFPart = { type: 'image' } | { type: 'text'; text: string };
 type HFMessage = { role: 'user' | 'assistant' | 'system'; content: HFPart[] };
-
-export const UNSUPPORTED_PARTS_DROPPED =
-    'Dropped content part(s) this vision runner cannot carry (only text and image parts reach the model).';
 
 /**
  * The conversation in the HF chat shape the processor's template expects — every turn's
@@ -32,6 +29,10 @@ export function toChatTemplate(messages: AparteChatMessage[], warn: (message: st
     let droppedParts = 0;
     for (const m of messages) {
         if (m.role !== 'user' && m.role !== 'assistant' && m.role !== 'system') { droppedToolTurns++; continue; }
+        // An assistant's calls ride on an `assistant` message, which passes the role test
+        // above and, when the model said nothing before them, carries no part either — so
+        // without this the whole turn leaves the prompt with nothing said.
+        if (m.toolCalls?.length) droppedToolTurns++;
         const parts: HFPart[] = [];
         if (typeof m.content === 'string') {
             if (m.content) parts.push({ type: 'text', text: m.content });
@@ -39,6 +40,9 @@ export function toChatTemplate(messages: AparteChatMessage[], warn: (message: st
             for (const p of m.content) {
                 if (p.type === 'text') { if (p.text) parts.push({ type: 'text', text: p.text }); }
                 else if (p.type === 'image') { images.push(p.image); parts.push({ type: 'image' }); }
+                // Not an arm the union can produce, and the mirror of the role-axis guard the
+                // wire mappers carry: an app built against an older aparte can still hand us a
+                // `file` part, and pushing its absent `image` gave `load_image(undefined)`.
                 else droppedParts++;
             }
         }

@@ -50,7 +50,7 @@ registerAllComponents();
 
         <aparte-conversation-list
             [activeId]="activeId"
-            (selectConversation)="picked = $event.id"
+            (conversationSelect)="picked = $event.id"
         ></aparte-conversation-list>
 
         @if (showViewport) {
@@ -183,7 +183,7 @@ describe('the element directives', () => {
         // <aparte-conversation-list> reported zero events until this lot: all four of
         // its dispatches happen in an arrow class field, invisible to the analyser.
         el('aparte-conversation-list').dispatchEvent(
-            new CustomEvent('aparte-select-conversation', { detail: { id: 'c2' } }),
+            new CustomEvent('aparte-conversation-select', { detail: { id: 'c2' } }),
         );
         expect(host.picked).toBe('c2');
     });
@@ -273,13 +273,13 @@ describe('the element directives', () => {
             (optgroupToggle)="seen['optgroupToggle'] = true"></aparte-optgroup>
 
         <aparte-conversation-list activeId="c1"
-            (selectConversation)="seen['selectConversation'] = true"
-            (deleteConversation)="seen['deleteConversation'] = true"
-            (archiveConversation)="seen['archiveConversation'] = true"
-            (unarchiveConversation)="seen['unarchiveConversation'] = true"
-            (renameConversation)="seen['renameConversation'] = true"
-            (pinConversation)="seen['pinConversation'] = true"
-            (unpinConversation)="seen['unpinConversation'] = true"></aparte-conversation-list>
+            (conversationSelect)="seen['conversationSelect'] = true"
+            (conversationDelete)="seen['conversationDelete'] = true"
+            (conversationArchive)="seen['conversationArchive'] = true"
+            (conversationUnarchive)="seen['conversationUnarchive'] = true"
+            (conversationRename)="seen['conversationRename'] = true"
+            (conversationPin)="seen['conversationPin'] = true"
+            (conversationUnpin)="seen['conversationUnpin'] = true"></aparte-conversation-list>
 
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
     `,
@@ -367,13 +367,13 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-select', 'aparte-select-open', 'selectOpen'],
         ['aparte-select', 'aparte-select-close', 'selectClose'],
         ['aparte-optgroup', 'aparte-optgroup-toggle', 'optgroupToggle'],
-        ['aparte-conversation-list', 'aparte-select-conversation', 'selectConversation'],
-        ['aparte-conversation-list', 'aparte-delete-conversation', 'deleteConversation'],
-        ['aparte-conversation-list', 'aparte-archive-conversation', 'archiveConversation'],
-        ['aparte-conversation-list', 'aparte-unarchive-conversation', 'unarchiveConversation'],
-        ['aparte-conversation-list', 'aparte-rename-conversation', 'renameConversation'],
-        ['aparte-conversation-list', 'aparte-pin-conversation', 'pinConversation'],
-        ['aparte-conversation-list', 'aparte-unpin-conversation', 'unpinConversation'],
+        ['aparte-conversation-list', 'aparte-conversation-select', 'conversationSelect'],
+        ['aparte-conversation-list', 'aparte-conversation-delete', 'conversationDelete'],
+        ['aparte-conversation-list', 'aparte-conversation-archive', 'conversationArchive'],
+        ['aparte-conversation-list', 'aparte-conversation-unarchive', 'conversationUnarchive'],
+        ['aparte-conversation-list', 'aparte-conversation-rename', 'conversationRename'],
+        ['aparte-conversation-list', 'aparte-conversation-pin', 'conversationPin'],
+        ['aparte-conversation-list', 'aparte-conversation-unpin', 'conversationUnpin'],
     ];
 
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {

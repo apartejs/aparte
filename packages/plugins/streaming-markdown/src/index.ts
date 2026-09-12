@@ -1,5 +1,5 @@
 import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
-import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 'streaming-markdown';
+import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG } from 'streaming-markdown';
 
 /*
  * The external-link rule, copied — deliberately and minimally — from its OWNER,
@@ -22,6 +22,24 @@ import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 's
 const EXTERNAL_URL = /^(?:https?:)?[/\\]{2}|^https?:[/\\]/i;
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
+
+/*
+ * The leading run of a fence's info string that may become a language name.
+ *
+ * `smd` maps its LANG attribute to `class` and hands the info string over
+ * VERBATIM — everything after the three backticks up to the newline, spaces
+ * included. So a legal fence dressed model text in core's own recipes
+ * (```aparte-approval-option aparte-btn aparte-btn--solid), which is the forgery
+ * core's sanitizer comment was written for, and a `position: fixed` one
+ * (`.aparte-select-dropdown`, `.aparte-sidebar__scrim`) repainted the page around
+ * the chat.
+ *
+ * Truncated rather than filtered: the first character a language name cannot hold
+ * ends the token, so `py<script>` is `py` and never `pyscript`. `+`, `#` and `.`
+ * stay because `c++`, `f#` and `asp.net` are languages a highlighter knows. Spelled
+ * as the TAIL to remove, so the token is one expression with no branch to miss.
+ */
+const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
 
 /**
  * Register `streaming-markdown` as aparté's incremental (streaming) Markdown
@@ -55,6 +73,16 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
         renderer.set_attr = (data, type, value) => {
             if (type === HREF && !isSafeUrl(value, 'a')) return;
             if (type === SRC && !isSafeUrl(value, 'img')) return;
+            if (type === LANG) {
+                // `language-<token>` is what every one-shot renderer emits for a
+                // fence, so this is not merely a filter: the streamed DOM and the
+                // settled DOM stop diverging, `language-*` is the one prefix the
+                // sanitizer's class policy deliberately exempts, and
+                // `highlightMarkdownFences` can read a streamed fence's language.
+                const token = value.trim().replace(LANG_TAIL, '');
+                if (token) originalSetAttr(data, type, `language-${token}`);
+                return;
+            }
             originalSetAttr(data, type, value);
             if (type === HREF && EXTERNAL_URL.test(value.replace(CONTROL_WS, ''))) {
                 const node = data.nodes[data.index];

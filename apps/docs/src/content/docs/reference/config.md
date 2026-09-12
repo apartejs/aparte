@@ -37,9 +37,29 @@ where the request is sent.
 - `getAIProvider(id: string): AparteAIProvider | undefined` — a single provider by id.
 - `refreshProviderModels(providerId: string): Promise<AparteAIModel[]>` — resolve the key then call the provider's `fetchModels`.
 - `setKeyProvider(provider: AparteKeyProvider): void` — register a function that resolves an API key for a given provider id.
-- `getKey(providerId: string): Promise<string | undefined>` — read the key for a provider via the registered key provider.
+- `registerKeyProvider(provider: AparteKeyProvider): () => void` — add a key source **without** replacing the one `setKeyProvider` holds, and get back the teardown that removes it. This is the channel `new AparteClient({ keyResolver })` registers on, which is how the model selector signs its request with the same credentials as the chat; `client.stop()` calls the teardown and `client.start()` registers again, so a stopped chat stops answering for keys. Each call is its own source, even when you hand in the same function twice: two panes sharing one resolver each get a teardown that removes only their own.
+- `getKey(providerId: string): Promise<string | Record<string, string> | undefined>` — the credentials for a provider: a key, or the whole `{ apiKey, endpoint }` record the transport and `fetchModels` both read. Sources added with `registerKeyProvider` answer first — the most recent registration before the older ones, so remounting a chat with a new `keyResolver` changes the key — then `setKeyProvider`.
 - `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `AparteDirectTransport`.
 - `getTransport(): AparteTransport` — the active transport.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+// The fallback source: one function for every provider id.
+aparteGlobalConfig.setKeyProvider((providerId) => localStorage.getItem(`aparte:key:${providerId}`) ?? undefined);
+
+// An extra source, consulted before it — here a self-hosted endpoint that
+// travels with its own key. Keep the teardown: it is how the source goes away.
+const release = aparteGlobalConfig.registerKeyProvider((providerId) =>
+    providerId === 'local'
+        ? { apiKey: 'sk-local', endpoint: 'https://llm.internal.example/v1' }
+        : undefined,
+);
+
+await aparteGlobalConfig.getKey('local');  // { apiKey: 'sk-local', endpoint: '…' }
+release();
+await aparteGlobalConfig.getKey('local');  // whatever setKeyProvider answers
+```
 
 ### Renderers & render hooks
 
@@ -66,7 +86,7 @@ HTML before it is injected via `innerHTML`.
 - `setHighlightProvider(fn: AparteHighlightProvider): void` — a syntax highlighter, sync or async: `(code, lang) => string | Promise<string>`.
 - `hasHighlightProvider(): boolean` — whether a highlighter is registered.
 - `highlightCode(code: string, lang: string): Promise<string>` — highlight via the registered provider (sanitized), falling back to a plain `<pre><code>`.
-- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer sends every link that resolves off-site to its own tab (`target="_blank" rel="noopener noreferrer"`) — `https://…`, `http://…`, and the spellings that resolve off-site just the same: the scheme-relative `//host`, a value written with leading whitespace, a backslash where a slash is expected (`/\host`), and a single slash after a scheme (`http:/host`). The link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. A `target` in the model's own markup is a wish, not a decision: `_self` is honoured only on a link that was staying here anyway, anything else (`_top`, `_parent`, a named frame — and `_self` on an off-site link, where it would be a downgrade of the default rather than a preference) becomes that same new tab, and a model-written `rel` never survives. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; no DOM interception needed.
+- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer sends every link that resolves off-site to its own tab (`target="_blank" rel="noopener noreferrer"`) — `https://…`, `http://…`, and the spellings that resolve off-site just the same: the scheme-relative `//host`, a value written with leading whitespace, a backslash where a slash is expected (`/\host`), and a single slash after a scheme (`http:/host`). The link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. A `target` in the model's own markup is a wish, not a decision: `_self` is honoured only on a link that was staying here anyway, anything else (`_top`, `_parent`, a named frame — and `_self` on an off-site link, where it would be a downgrade of the default rather than a preference) becomes that same new tab, and a model-written `rel` never survives. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; there is a worked example on [the app shell](/guides/app-shell/#route-the-links-a-model-writes).
 - `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML. **Off the browser** (SSR, Node, a test runner with no `DOMParser`), the built-in degrades to a regex net: it drops the same dangerous tags — content and all, except the three document-structure tags (`html`, `head`, `body`), whose tags go but whose content stays, as a real parser would — and the same inline handlers and executable URL schemes, but a regex is not a parser and has known evasions. It is a safety net, not a security boundary; on a non-browser runtime rendering untrusted HTML, register a real sanitizer (DOMPurify + jsdom) here.
 
 ### System prompt
@@ -96,17 +116,17 @@ See the [Localization](/guides/localization/) guide.
 - `getIconProvider(): Required<AparteIconProvider>` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`. `Required<>` is the point: every key resolves, so a caller never null-checks a glyph.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 
-A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with `--text`, `--circle`, `--rect`) in the [classes reference](/reference/classes/#skeleton). Core never asks for one — nothing it renders has a loading state that is not the message itself — so there is no `setSkeletonProvider` to call.
+A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with `--text`, `--circle`, `--rect`) in the [classes reference](/reference/classes/#skeleton). Core draws it itself where it has a wait — `<aparte-chat-viewport loading>` puts up two skeleton turns, `<aparte-conversation-list loading>` six rows — and asks no provider for it, so there is no `setSkeletonProvider` to call. Restyle the class to change both.
 
 ### Actions
 
-Custom buttons placed in the composer toolbar and/or the message (bubble) toolbar — one
-merged registry, a `zones` parameter picks where each appears.
+Custom buttons placed in the message (bubble) toolbar. A button in the composer is an
+element you write in your own markup — `<aparte-composer-action>`, listened for with
+`aparte-action-click` — so the registry has the one zone.
 
 - `registerAction(action: AparteAction): void` — register (or overwrite, by `id`) a custom action button.
-- `getActions(zone: AparteActionZone): AparteAction[]` — actions for a zone (`'composer' | 'bubble'`), sorted by `order`.
-- `unregisterAction(id: string): void` — remove an action from every zone.
-- `setActionHidden(id: string, hidden: boolean): void` — show/hide a composer action button at runtime.
+- `getActions(zone: AparteActionZone): AparteAction[]` — actions for a zone (`'bubble'`), sorted by `order`.
+- `unregisterAction(id: string): void` — remove a registered action.
 - `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`/`info`) appear in bubbles, or set explicit per-role ordered lists. Only `copy` is on by default; the others need a host to honour them (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 - `getBubbleActions(): { copy, retry, edit, feedback, info, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
 - `APARTE_DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
@@ -162,11 +182,11 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
 ### Elicitation (human-in-the-loop)
 
-- `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
+- `setElicitationPresenter(presenter: AparteElicitationPresenter | null, owner?: HTMLElement): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default. `owner` ties the registration to one element, which is what lets `removeElicitationPresenter` withdraw a single mounted chat's presenter.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
 - `removeElicitationPresenter(presenter: AparteElicitationPresenter): void` — withdraw ONE presenter by identity, leaving the others registered. This is what an unmounting `<aparte-elicitation>` needs: `setElicitationPresenter(null)` clears the slot and takes every other mounted chat's presenter with it. Removing one that is not registered is a no-op.
 - `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked'; answerOnClick?: boolean }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, whether questions come one at a time or all at once, and whether a single choice answers on the click (buttons, the default) or keeps its radios and the composer's button.
-- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' }` — the options in force, both resolved.
+- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked'; answerOnClick: boolean }` — the options in force, all three resolved.
 - `setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void` — draw one field of the panel yourself; `null` restores the built-in.
 - `getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined` — the registered field renderer, if any.
 - `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline', ... }`, or **rejects** with `AparteElicitationAbortError` when the request ends without an answer (a stopped turn, a fired signal, the question taken away, or no presenter mounted — `err.reason` tells the last one apart from the others). One request reaches the presenter at a time; a second one waits.
@@ -219,6 +239,7 @@ Constructor options (all optional):
 | `scopeToTargetId` | `string` | Scope this client instance to one target id, for multiple independent conversations on one page. |
 | `maxTurns` | `number` (default `10`) | Max agentic tool-call loop turns before the loop is forcibly stopped. |
 | `toolTimeoutMs` | `number` (default `300000` — 5 min) | Per-call ceiling for a tool handler to resolve before its `AbortSignal` fires. Same name and same default as `runStreamAgent`, so the value means one thing whichever loop runs. |
+| `echoUserMessage` | `boolean` (default `true`) | Whether a send appends the optimistic USER bubble before the reply streams. Pass `false` when your host owns its transcript and appends the user message itself — the four framework wrappers do. The wire cannot double either way: the history builder already excludes trailing unanswered user messages. |
 | `rawFileInject` | `'all' \| 'images-only' \| 'none'` (default `'all'`) | Which attached files are injected as raw content parts vs. left to the app layer (e.g. a RAG pipeline). |
 | `config` | `AparteConfig` | The config instance this client reads. Defaults to `aparteGlobalConfig`. |
 

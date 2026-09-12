@@ -56,9 +56,25 @@ test('the transcript is reachable by Tab and scrolls from the keyboard', async (
     // `tabindex="0"` on a node the browser never reaches (hidden, `display: none`,
     // inside an `inert` subtree) is not a tab stop, and the attribute alone cannot
     // tell those apart.
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    // Walked from the TOP: the focus is parked on a throwaway node prepended to <body>
+    // and blurred, so the first Tab moves to the document's first control in every
+    // engine. A bare blur() left WebKit's sequential-focus starting point on the
+    // composer's editor — the last thing focused — and with nothing focusable after
+    // the composer, the next Tab left the page for the browser chrome and never came
+    // back: sixty Tabs, activeElement <body> at every one. Chromium restarts from the
+    // top after a blur, which is why the walk only failed on WebKit.
+    await page.evaluate(() => {
+        const start = document.createElement('span');
+        start.tabIndex = -1;
+        document.body.prepend(start);
+        start.focus();
+        start.blur();
+    });
     let reached = false;
-    for (let i = 0; i < 20 && !reached; i++) {
+    // Forty, not twenty: the site's sidebar sits before the chat in the tab order —
+    // eleven conversations, each a row and its menu, plus the search, the new-chat
+    // button and the header's controls — and the walk may wrap around the composer.
+    for (let i = 0; i < 40 && !reached; i++) {
         await page.keyboard.press('Tab');
         reached = await page.evaluate(
             (sel) => document.activeElement === document.querySelector(sel),

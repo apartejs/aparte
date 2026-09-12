@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
+import { activeElementIn, eventOrigin, rootOf } from '../../utils/event-target.js';
 
 /** Detail of `aparte-sidebar-toggle`: the state just entered. */
 export interface AparteSidebarToggleDetail {
@@ -289,7 +290,15 @@ export class AparteSidebar extends HTMLElement {
      * lies. The row's own `⋯` button already did this; the sidebar's toggle did not.
      */
     private _syncToggles(): void {
-        for (const control of document.querySelectorAll<HTMLElement>('[data-aparte-sidebar-toggle]')) {
+        // Both trees: they are the same one in the ordinary case, and differ when a
+        // consumer mounts the chat inside a shadow root of their own — where a control
+        // can sit on either side of the boundary and still drive this sidebar.
+        const selector = '[data-aparte-sidebar-toggle]';
+        const root = rootOf(this);
+        const controls = root === document
+            ? Array.from(document.querySelectorAll<HTMLElement>(selector))
+            : [...root.querySelectorAll<HTMLElement>(selector), ...document.querySelectorAll<HTMLElement>(selector)];
+        for (const control of controls) {
             if (!this._drives(control)) continue;
             control.setAttribute('aria-expanded', String(!this.collapsed));
             control.setAttribute('aria-controls', this.id);
@@ -373,7 +382,10 @@ export class AparteSidebar extends HTMLElement {
             if (focusable.length === 0) return;
             const first = focusable[0]!;
             const last = focusable[focusable.length - 1]!;
-            const active = document.activeElement;
+            // `activeElementIn`, not `document.activeElement`: inside a consumer's shadow
+            // root the latter reads as the shadow host, and the trap then fires on every
+            // Tab as if the focus had already left the drawer.
+            const active = activeElementIn(this);
             if (!this.contains(active)) {
                 e.preventDefault();
                 first.focus();
@@ -389,7 +401,9 @@ export class AparteSidebar extends HTMLElement {
 
     /** A `[data-aparte-sidebar-toggle]` anywhere toggles this sidebar — no script in the host. */
     private _onDocumentClick = (e: Event): void => {
-        const control = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-sidebar-toggle]');
+        // `eventOrigin`, not `e.target`: a click from inside a consumer's shadow root is
+        // retargeted to the shadow host by the time it reaches `document`.
+        const control = (eventOrigin(e) as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-sidebar-toggle]');
         if (!control) return;
         if (!this._drives(control)) return;
         this.toggle(control);
@@ -456,9 +470,16 @@ function visibleFocusable(root: ParentNode): HTMLElement[] {
         .filter((el) => !el.closest('[hidden]') && el.checkVisibility?.() !== false);
 }
 
-/** The sidebar a toggle belongs to: the closest ancestor, else the first on the page. */
+/**
+ * The sidebar a toggle belongs to: the closest ancestor, else the first in the toggle's
+ * own tree, else the first in the document. `rootOf` before `document` is what makes a
+ * control that names no id work inside a consumer's shadow root — and what stops a
+ * sidebar in the light DOM from answering it.
+ */
 function nearestSidebar(control: HTMLElement): Element | null {
-    return control.closest('aparte-sidebar') ?? document.querySelector('aparte-sidebar');
+    return control.closest('aparte-sidebar')
+        ?? rootOf(control).querySelector('aparte-sidebar')
+        ?? document.querySelector('aparte-sidebar');
 }
 
 /** Lower-case, accents stripped: "Épingler" matches "epingler". */

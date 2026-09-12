@@ -21,6 +21,7 @@ import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
+import { isSafeUrl } from '../../config/sanitize.js';
 
 /**
  * Warn ONCE when a segment has no renderer — now only for types core has never
@@ -151,6 +152,13 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * arrow class field, and the auto-detection visits `ts.isMethodDeclaration` only —
  * so the one event belonging to the branch picker was the one missing from the
  * manifest, and from the generated reference, for as long as both existed.
+ *
+ * The bubble element is `content-visibility: auto` for its streaming/scroll performance
+ * (measured, not assumed — see `bubble.css`), and that containment makes the bubble
+ * the containing block for `position: fixed` descendants: a popover mounted inside it
+ * (an `<aparte-select>` from a `registerToolRenderer` renderer, say) is clipped to the
+ * bubble's own box, not the window. Mount it outside instead — [Custom tool
+ * renderer](https://apartejs.dev/guides/tools/#custom-tool-renderer) shows the pattern.
  *
  * @element aparte-chat-bubble
  *
@@ -772,6 +780,18 @@ export class AparteChatBubble extends HTMLElement {
     `;
     }
 
+    // The shell contract lists CLASS hooks, so a shell written from it carries no ARIA
+    // and the transcript loses one article and one accessible name per custom bubble —
+    // measured on this repo's own documented shell. Re-applied here rather than asked of
+    // the author: a markup contract that also demanded a `role` fails the first time
+    // somebody forgets one, silently (decision #8 — honoured end to end). A root that
+    // already declares a `role` keeps it, which is how a shell overrides the default.
+    const messageEl = this.querySelector('.aparte-message');
+    if (messageEl && !messageEl.hasAttribute('role')) {
+      messageEl.setAttribute('role', 'article');
+      messageEl.setAttribute('aria-label', this._getAriaLabel());
+    }
+
     this._contentEl = this.querySelector('.aparte-content');
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
@@ -880,7 +900,13 @@ export class AparteChatBubble extends HTMLElement {
 
     if (message) {
       message.setAttribute('data-role', this._role);
-      message.setAttribute('aria-label', this._getAriaLabel());
+      // The accessible name follows the role only on a root whose role the bubble wrote.
+      // A shell that declares its own `role` overrides the default (the shell contract
+      // says so), and an override that kept the role and lost the name would be half
+      // of one.
+      if (message.getAttribute('role') === 'article') {
+        message.setAttribute('aria-label', this._getAriaLabel());
+      }
     }
     if (avatar) {
       avatar.setAttribute('data-role', this._role);
@@ -1094,7 +1120,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._attachmentsEl.innerHTML = this._attachments.map(a => {
       const name = escapeHtml(a.name);
-      if (a.type.startsWith('image/')) {
+      if (a.type.startsWith('image/') && this._isShowableUrl(a.url)) {
         // `aparte-thumbnail` is the RECIPE (the box, the size, the ground); `aparte-thumb`
         // only maps the strip's measurements onto it. The bubble emitted the mapping
         // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
@@ -1134,6 +1160,25 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Uppercased file extension (≤4 chars), or 'FILE' when there is none. */
+  /**
+   * The same answer `copyAttributes` gives before it writes an `src`, plus `blob:`.
+   *
+   * An attachment's `url` is documented as "URL or data URI" and a storage adapter
+   * re-mints it when a conversation is restored, so it is the app's value, not the
+   * composer's — it was escaped and written, where every other URL core emits is
+   * asked whether its SCHEME is allowed at all. A picture whose URL is refused is
+   * not half-rendered: it falls back to the file chip, which still names the file.
+   *
+   * `blob:` is added because it is the shape core itself mints — `filesToAttachments`
+   * calls `URL.createObjectURL`, and `AparteMessage.attachments` documents the same
+   * on hydration. `isSafeUrl` refuses it, and rightly: that list governs MODEL
+   * markup, which has no way to make a blob URL resolve.
+   */
+  private _isShowableUrl(url: string | undefined): boolean {
+    if (!url) return false;
+    return isSafeUrl(url, 'img') || /^blob:/i.test(url.trim());
+  }
+
   private _fileExt(filename: string): string {
     const dot = filename.lastIndexOf('.');
     return dot > 0 ? filename.slice(dot + 1).toUpperCase().slice(0, 4) : 'FILE';
@@ -1761,9 +1806,27 @@ export class AparteChatBubble extends HTMLElement {
       }
     }
     this._updateWaiting();
-    // Streaming just finished: highlight the final content once (skipped during
-    // streaming to avoid re-highlighting on every token).
-    if (wasStreaming && !streaming) this._highlightContentCode();
+    /*
+     * Streaming just finished — the SETTLE pass.
+     *
+     * `_updateContent` is what runs it: on `isStreaming === false`
+     * `writeStreamedMarkdown` flushes the incremental parser and then either
+     * re-renders once through the one-shot provider, whose output goes through
+     * `sanitizeHtml`, or — when no one-shot provider is registered — re-sanitises
+     * the flushed DOM in place. Either way the settled message is what
+     * `sanitizeHtml` produced, which is the reason the streaming provider is
+     * allowed to write DOM directly — and this branch never called it, so a streamed
+     * `<code class="aparte-btn">` was permanent rather than transient. The live
+     * end-of-turn call carries no content (`completeMessage` sends
+     * `{ status: 'completed' }` alone), so re-applying `_content` here is the only
+     * place it can happen.
+     *
+     * It also highlights on its way out (it is no longer streaming), which is what
+     * this line used to do on its own. A segment-bearing bubble is a no-op there —
+     * the content element is hidden and empty — which is what it was for the
+     * highlight too.
+     */
+    if (wasStreaming && !streaming) this._updateContent();
   }
 }
 

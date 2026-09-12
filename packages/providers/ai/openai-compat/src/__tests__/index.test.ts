@@ -3,7 +3,7 @@
 // core exposes only from its browser entry.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AparteDirectTransport } from '@aparte/core';
-import type { AparteStreamEvent } from '@aparte/core';
+import type { AparteChatMessage, AparteStreamEvent } from '@aparte/core';
 import { createOpenAICompatProvider, parseOpenAICompatStream, presets } from '../index';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -226,22 +226,77 @@ describe('createOpenAICompatProvider — factory', () => {
         expect(init.headers).toMatchObject({ 'X-Title': 'aparté', Authorization: 'Bearer k' });
     });
 
-    it('converts the tool_call / tool_result envelope to the OpenAI wire shape', () => {
+    /** The messages the provider puts on the wire for a given history. */
+    const wireOf = (messages: AparteChatMessage[]): Array<Record<string, unknown>> => {
         const p = createOpenAICompatProvider({ id: 'x', baseURL: 'https://x.test/v1' });
-        const { body } = p.buildRequest!({
-            modelId: 'm',
-            messages: [
-                { role: 'user', content: 'hi' },
-                { role: 'tool_call', content: '', precedingText: 'Let me check.', toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }] },
-                { role: 'tool_result', content: 'RESULT', toolCallId: 'c1' },
-            ],
-        }) as { body: { messages: Array<Record<string, unknown>> } };
-        expect(body.messages[1]).toEqual({
+        const { body } = p.buildRequest!({ modelId: 'm', messages }) as {
+            body: { messages: Array<Record<string, unknown>> };
+        };
+        return body.messages;
+    };
+
+    it('converts an assistant turn carrying calls, and the tool message answering it, to the OpenAI wire shape', () => {
+        const wire = wireOf([
+            { role: 'user', content: 'hi' },
+            { role: 'assistant', content: 'Let me check.', toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }] },
+            { role: 'tool', content: 'RESULT', toolCallId: 'c1', toolName: 'search' },
+        ]);
+        expect(wire[1]).toEqual({
             role: 'assistant',
             content: 'Let me check.',
             tool_calls: [{ id: 'c1', type: 'function', function: { name: 'search', arguments: '{"q":"x"}' } }],
         });
-        expect(body.messages[2]).toEqual({ role: 'tool', tool_call_id: 'c1', content: 'RESULT' });
+        expect(wire[2]).toEqual({ role: 'tool', tool_call_id: 'c1', content: 'RESULT' });
+    });
+
+    // The paired case: the same history, mapped by the AI SDK bridge, must drop the
+    // empty text rather than send it. Both suites carry this describe under this title.
+    describe('an assistant turn that said nothing before its calls', () => {
+        it('sends null content, never the empty string', () => {
+            const wire = wireOf([
+                { role: 'user', content: 'hi' },
+                { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'search', input: {} }] },
+            ]);
+            expect(wire[1]!['content'], 'the empty string is not what this API takes beside tool_calls').toBeNull();
+        });
+    });
+
+    it('an assistant turn with no calls keeps its multimodal parts', () => {
+        const wire = wireOf([
+            { role: 'assistant', content: [{ type: 'text', text: 'look' }, { type: 'image', image: 'data:image/png;base64,AAA' }] },
+        ]);
+        expect(wire[0]).toEqual({
+            role: 'assistant',
+            content: [
+                { type: 'text', text: 'look' },
+                { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } },
+            ],
+        });
+    });
+
+    // The type forbids these roles, so a message wearing one is code compiled against an
+    // older aparté reaching a newer provider — the one case a type cannot catch.
+    describe('a message still carrying a legacy tool role', () => {
+        it('warns once per role and puts nothing on the wire for it', () => {
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const legacy = (role: string): AparteChatMessage =>
+                ({ role, content: 'x', toolCallId: 'c1' } as unknown as AparteChatMessage);
+
+            const wire = wireOf([{ role: 'user', content: 'hi' }, legacy('tool_call'), legacy('tool_call')]);
+            expect(wire, 'a role this API does not know is a 400 for the whole request')
+                .toEqual([{ role: 'user', content: 'hi' }]);
+            expect(warn, 'once per role, not once per message').toHaveBeenCalledTimes(1);
+            const message = String(warn.mock.calls[0]?.[0]);
+            expect(message, 'the warning names the shape to move to').toContain("role: 'assistant'");
+            expect(message).toContain('toolCalls');
+            expect(message).toContain("role: 'tool'");
+            expect(message).toContain('toolCallId');
+            expect(message, 'and says when it goes away').toContain('0.18');
+
+            expect(wireOf([legacy('tool_result')]), 'the other legacy role is skipped too').toEqual([]);
+            expect(warn, 'and is announced under its own key').toHaveBeenCalledTimes(2);
+            warn.mockRestore();
+        });
     });
 
     it('parseText extracts the first choice message content', () => {

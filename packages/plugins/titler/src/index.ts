@@ -43,7 +43,13 @@ export interface TitlerOptions {
 export function createTitleProvider(options: TitlerOptions): AparteConversationTitleProvider {
     let loaded: Promise<TitlerLike> | undefined;
     const model = (): Promise<TitlerLike> => {
-        loaded ??= Promise.resolve(typeof options.titler === 'function' ? options.titler() : options.titler);
+        loaded ??= Promise.resolve(typeof options.titler === 'function' ? options.titler() : options.titler)
+            // A REJECTED promise must not be the cache: one transient failure (the
+            // model fetch, a CSP hiccup on the dynamic import) would otherwise leave
+            // every later conversation with its default title, for the life of the
+            // page and with nothing said. The next title retries; the throw still
+            // reaches the caller. Same rule, same reason, as `@aparte/plugin-shiki`.
+            .catch((err: unknown) => { loaded = undefined; throw err; });
         return loaded;
     };
     return async (text) => {

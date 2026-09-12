@@ -21,7 +21,9 @@
  *     honoured by Firefox or Safari, so the meta tag is the one that actually applies
  *     there.
  *   • `escapeClosingScriptTag` is listed by NAME in `scripts/escaping-names.mjs`, so
- *     both escaping guards keep recognising it from its new home.
+ *     both escaping guards keep recognising it from its new home. Its `<style>`
+ *     sibling is not — a positional escaper is only ever right in one position, and
+ *     that one is declared at its use site instead.
  */
 import { escapeHtml, escapeAttr } from '@aparte/core';
 
@@ -135,9 +137,10 @@ try { ${safeBody}
 } catch (e) { document.getElementById('root').innerHTML = '<pre style="color:#b91c1c">' + (e && e.stack || e) + '</pre>'; }
 </script></body></html>`;
         }
-        case 'css':
+        case 'css': {
+            const safeSheet = escapeClosingStyleTag(body);  // safe-text: the model's stylesheet with its `</style>` neutralised — HTML-escaping CSS would render the sheet as text, which is the bug the wrapper exists to avoid
             return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeAttr(title)}</title>
-<style>${body}</style></head><body>
+<style>${safeSheet}</style></head><body>
 <div class="demo">
   <h1>Heading</h1>
   <p>Paragraph with a <a href="#">link</a> and <strong>strong</strong> text.</p>
@@ -145,6 +148,7 @@ try { ${safeBody}
   <input placeholder="Input"/>
   <ul><li>One</li><li>Two</li><li>Three</li></ul>
 </div></body></html>`;
+        }
         default:
             // react / unknown — no live preview offline; show the code read-only.
             return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeAttr(title)}</title>
@@ -162,21 +166,54 @@ function startsWithDoctype(s: string): boolean {
     return probe === '<!doctype';
 }
 
-/** Escape any literal `</script` inside the body so it cannot terminate the
- *  outer <script> tag we wrap user code in. The HTML spec closes a script on
- *  `</script` followed by whitespace, `/` or `>` (not only the exact `</script>`),
- *  so match the 8-char prefix + a terminator. Char-based. */
+/**
+ * Escape every literal `</script` inside the body so it cannot terminate the outer
+ * `<script>` we wrap the model's code in. Listed by NAME in
+ * `scripts/escaping-names.mjs`, so both escaping guards recognise it.
+ */
 function escapeClosingScriptTag(body: string): string {
+    // `<\/script` — neutralise the `<` so the browser sees no tag, and the sequence
+    // is still a valid JS escape inside a string or a regex.
+    return escapeClosingTag(body, 'script', '<\\/script');
+}
+
+/**
+ * The same, for the `<style>` the `css` kind wraps a stylesheet in. NOT listed in
+ * `scripts/escaping-names.mjs` — a positional escaper is blessed by name only where
+ * it is right in EVERY position, and this one is right in exactly one; its single
+ * use site carries a `// safe-text:` marker instead. That marker blesses an
+ * identifier name for the whole file, which is why the local it names is
+ * `safeSheet` and not the `safeBody` of the `js` case above.
+ *
+ * `<style>` is raw text exactly like `<script>`: the PARSER ends it on `</style` and
+ * never asks the CSS tokenizer, so a stylesheet artifact could close its own wrapper
+ * and open a `<script>` — on the one kind whose whole promise is that it only
+ * styles. `\3c` is CSS's own escape for `<`, so a `</style>` written inside a string
+ * (`content: "</style>"`) still reads as one; anywhere else it was a parse error
+ * before this ran and stays one after.
+ */
+function escapeClosingStyleTag(body: string): string {
+    return escapeClosingTag(body, 'style', '\\3c /style');
+}
+
+/**
+ * Replace every `</tag` that would END a raw-text element with `escaped`.
+ *
+ * The HTML spec closes one on `</tag` followed by whitespace, `/`, `>` or
+ * end-of-input — not only on the exact `</tag>`, which is the spelling a naive
+ * `replaceAll('</style>')` would miss. Char-based, so no regex has to be built from
+ * a tag name.
+ */
+function escapeClosingTag(body: string, tag: string, escaped: string): string {
+    const close = `</${tag}`;
     let out = '';
     let i = 0;
     while (i < body.length) {
-        if (body[i] === '<' && body.slice(i, i + 8).toLowerCase() === '</script') {
-            const next = body[i + 8];
-            // A real closing tag needs a terminator after `</script` (space/tab/
-            // newline/form-feed, `/`, `>`) or end-of-input.
+        if (body[i] === '<' && body.slice(i, i + close.length).toLowerCase() === close) {
+            const next = body[i + close.length];
             if (next === undefined || next === '/' || next === '>' || /\s/.test(next)) {
-                out += '<\\/script'; // neutralise the `<` so the browser sees no tag
-                i += 8;
+                out += escaped;
+                i += close.length;
                 continue;
             }
         }

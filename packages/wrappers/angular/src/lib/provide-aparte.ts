@@ -20,8 +20,9 @@ import { APARTE_CLIENT_OPTIONS, AparteAiService } from './aparte-ai.service';
 
 /**
  * Any function that initialises a plugin — sync or async, so it can wrap a
- * dynamic `import()` of a package YOU choose:
- * `() => import('@aparte/plugin-model-selector')`.
+ * dynamic `import()` of a package YOU choose. It resolves to nothing, so `await`
+ * the import rather than returning it:
+ * `async () => { await import('@aparte/plugin-model-selector'); }`.
  */
 export type ApartePluginLoader = () => void | Promise<void>;
 
@@ -37,7 +38,11 @@ export interface ProvideAparteOptions {
 
     /** Optional plugin wiring — objects or loaders, never package-name strings. */
     plugins?: {
-        /** Action plugins, as loaders: `[() => import('@aparte/plugin-model-selector')]`. */
+        /**
+         * Action plugins, as loaders. A loader resolves to nothing, so `await` the
+         * import rather than returning it:
+         * `[async () => { await import('@aparte/plugin-model-selector'); }]`.
+         */
         actions?: ApartePluginLoader[];
         /** An icon provider object, or a loader that registers one. */
         icons?: AparteIconProvider | ApartePluginLoader;
@@ -154,8 +159,22 @@ function applyThemeMode(mode: 'light' | 'dark' | 'auto', doc: Document, destroyR
  * `AparteAiService.connect()` needed.
  *
  * The components (`AparteChatComponent`, `AparteUiComponent`) are standalone and
- * work WITHOUT this — it is config sugar. You can equally call `aparteGlobalConfig.*`
- * yourself, exactly like the React/Vue/Svelte wrappers do.
+ * work WITHOUT this — it is config sugar. Angular is the only wrapper that has it,
+ * and the other three lose nothing: what this provider exists for is an initializer
+ * that runs before the first component and a `DestroyRef` to release the theme
+ * listener. Everything it configures is a plain call — bar `theme: 'auto'`, which is a
+ * `matchMedia` listener you own — so React, Vue and Svelte make the same ones at module
+ * scope, before the app mounts:
+ *
+ * ```ts
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+ * aparteGlobalConfig.setModelConfig({ defaultModel: 'openai/gpt-4o-mini' });
+ * aparteGlobalConfig.setLocale(fr);
+ * document.documentElement.setAttribute('data-aparte-theme', 'dark');
+ * // 'auto' is the one option with no one-liner: match prefers-color-scheme, rewrite the
+ * // attribute on change, and drop the listener when your app tears down.
+ * // The client stays the wrapper's own: useAparteClient(), createAparteClient().
+ * ```
  *
  * @example
  * bootstrapApplication(App, {

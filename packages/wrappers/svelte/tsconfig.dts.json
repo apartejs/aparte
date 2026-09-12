@@ -1,0 +1,47 @@
+{
+  // Config for `svelte-package --tsconfig` ONLY (see the "build" script). It exists
+  // because svelte-package's own `.svelte.d.ts` emission (svelte2tsx's `emitDts`, run
+  // through a throwaway "shadow" TypeScript program over the transformed `.svelte`
+  // sources) silently emits NOTHING under this package's real `tsconfig.json` — no
+  // error, no output file, no message — and two settings are involved, verified by
+  // toggling each alone against the real `svelte-package -i src/lib -o <dir>
+  // --tsconfig <probe>` invocation:
+  //
+  // 1. `noEmitOnError: true` (inherited from the repo base tsconfig) is the actual
+  //    cause: with ONLY this relaxed to `false` (composite left at its inherited
+  //    `true`), `svelte-package` emits the full set — AparteChat.svelte.d.ts,
+  //    AparteUi.svelte.d.ts, index.d.ts, types.d.ts, stores/*.d.ts — byte-identical
+  //    to this package's committed dist (bar the sourcemap URL). The block is
+  //    diagnostics that are EXPECTED in svelte2tsx's `dts` transform mode: the
+  //    generated code references helper identifiers (`svelteHTML`,
+  //    `__sveltets_createSlot`) that this shadow program's ambient shim does not
+  //    declare, and a `.svelte` file with an unread top-level const reads as unused.
+  //    svelte2tsx's OWN "likely failed" filter (the diagnostic codes it treats as
+  //    real generation failures — 2527, 5088, 2742, 9005-9039, 4000-4108) already
+  //    excludes exactly these codes (2304 "cannot find name", 2454 "used before
+  //    being assigned", 6133 "declared but never read") as known noise for this
+  //    mode. `noEmitOnError: false` here matches that upstream judgment: the .d.ts
+  //    SHAPE still comes out correct (verified against a consumer `tsc --noEmit`),
+  //    only the shadow program's internal diagnostics are irrelevant.
+  // 2. `composite` is NOT a cause, in either direction — verified the same way: with
+  //    ONLY `composite: false` (noEmitOnError left at its inherited `true`),
+  //    `svelte-package` still emits nothing. It is left at its inherited `true`
+  //    here; there is nothing to override.
+  //
+  // `declarationMap: false`: svelte2tsx's own sourcemap-source rewrite (mapping the
+  // virtual `AparteChat.svelte.ts` back to the real `.svelte` file) did not fire for
+  // this program shape — the emitted `.d.ts.map`'s `sources` field names
+  // `AparteChat.svelte.ts`, a file that does not exist on disk (the real file is
+  // `AparteChat.svelte`), confirmed by reading the emitted map directly. That is
+  // worse for an IDE's "go to definition" than no map at all. Off until that
+  // resolves upstream.
+  //
+  // Neither override reaches the real build: `tsc -b --emitDeclarationOnly` for this
+  // package's own `.ts` sources still runs against `tsconfig.json` unmodified, with
+  // both `composite` and `noEmitOnError` at their strict repo defaults.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declarationMap": false,
+    "noEmitOnError": false
+  }
+}

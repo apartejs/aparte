@@ -49,10 +49,11 @@
 
 /* Text */
 .aparte-segment-thinking {
-  /* Understated disclosure: a muted left rail, not a filled card. */
-  border-left: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
+  /* Understated disclosure: a muted left rail, not a filled card — which is what the
+     token defaults to. A theme that wants the card sets the two names. */
+  border-inline-start: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
   margin: var(--aparte-space-5) 0;
-  background: transparent;
+  background: var(--aparte-thinking-bg);
 }
 
 /* WHAT IS LEFT is only what belongs to REASONING, not to disclosure.

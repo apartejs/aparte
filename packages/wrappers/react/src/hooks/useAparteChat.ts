@@ -35,7 +35,12 @@ export interface UseAparteChat {
     updateSegment: (segmentId: string, updates: Partial<AparteSegment>) => void;
     removeSegment: (segmentId: string) => void;
     appendToSegment: (segmentId: string, content: string) => void;
-    clearMessages: () => void;
+    /**
+     * The host's list — the authority, and mid-stream a frame ahead of the
+     * `messages` state, which is synced once per paint rather than per token.
+     */
+    getMessages: () => AparteMessage[];
+    clearMessages: (options?: { revokeAttachments?: boolean }) => void;
     addBranch: (messageId: string) => number;
     addSiblingOf: (existingId: string, message: AparteMessage) => string | null;
     truncateFrom: (messageId: string) => void;
@@ -44,6 +49,10 @@ export interface UseAparteChat {
     stopTokenStream: () => void;
     setConversationId: (id: string | null) => Promise<void>;
     isStreaming: () => boolean;
+    scrollToBottom: () => void;
+    focusInput: () => void;
+    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
+    getViewport: () => HTMLElement | null;
 }
 
 export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
@@ -61,7 +70,8 @@ export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
         updateSegment: (id, u) => h()?.updateSegment(id, u),
         removeSegment: (id) => h()?.removeSegment(id),
         appendToSegment: (id, c) => h()?.appendToSegment(id, c),
-        clearMessages: () => h()?.clearMessages(),
+        getMessages: () => h()?.getMessages() ?? messages,
+        clearMessages: (o) => h()?.clearMessages(o),
         addBranch: (id) => h()?.addBranch(id) ?? 0,
         addSiblingOf: (id, m) => h()?.addSiblingOf(id, m) ?? null,
         truncateFrom: (id) => h()?.truncateFrom(id),
@@ -70,5 +80,8 @@ export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
         stopTokenStream: () => h()?.stopTokenStream(),
         setConversationId: (id) => h()?.setConversationId(id) ?? Promise.resolve(),
         isStreaming: () => h()?.isStreaming() ?? false,
+        scrollToBottom: () => h()?.scrollToBottom(),
+        focusInput: () => h()?.focusInput(),
+        getViewport: () => h()?.getViewport() ?? null,
     };
 }

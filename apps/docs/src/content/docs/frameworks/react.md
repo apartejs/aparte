@@ -11,6 +11,7 @@ for state and the client, typed JSX for every element, and a generic `<AparteUi>
 
 ```bash
 npm install @aparte/react @aparte/core react react-dom
+npm install @aparte/provider-scenario   # the scripted model, for the first run below, with no key
 ```
 
 `@aparte/core`, `react` and `react-dom` are **peer dependencies**.
@@ -53,6 +54,11 @@ Slots are plain props: `emptyState`, `composer`, `aboveComposer`,
 from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
 The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
 
+The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
+discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
+For full control of the input row, fill the `composer` slot; for the primitives as
+children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+
 The other five callbacks — `onAction`, `onMessagesChange`, `onMessageAppended`, `onTypingChange`, `onConversationCreated` — take the same payloads as everywhere else; the table with all four frameworks side by side is generated from this wrapper's own props: [Wrapper surface](/reference/wrappers/#callbacks).
 
 
@@ -60,7 +66,27 @@ The other five callbacks — `onAction`, `onMessagesChange`, `onMessageAppended`
 
 The wrapper is **provider-agnostic**. Register a provider + transport once (see
 [Providers](/providers/)) and mount an `AparteClient` with `useAparteClient` — it bridges composer
-sends to the model:
+sends to the model.
+
+Start with the scripted model: it needs no key and no network, and every line below is the
+same for a real one.
+
+```tsx
+import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+import { useAparteClient } from '@aparte/react';
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+
+function Chat() {
+  useAparteClient();           // streams the scripted reply — no key, no network
+  // …<AparteChat /> as above
+}
+```
+
+Swap the provider for a real one and nothing else changes:
 
 ```tsx
 import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
@@ -80,15 +106,26 @@ Pass a per-instance `config` prop to scope providers/transport to a single `<Apa
 `aparteGlobalConfig`.
 
 :::note
-`useAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
-agent loop** instead of core's inline one, inject it:
-`useAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
-optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
+`useAparteClient` accepts the full `AparteClientOptions`. The loop is already
+`@aparte/engine`'s `runStreamAgent` — there is nothing to inject to get it. `streamRunner`
+is the seam for wrapping its options or replacing it with a loop of your own:
+`useAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
+see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
+
+For a wait of your own — independent of what the client is doing, e.g. while your own store
+is still answering — pass `loading`:
+
+```tsx
+<AparteChat loading={isFetchingHistory} />
+```
+
+See [the wrapper reference](/reference/wrappers/#props) for the same prop in Vue, Svelte
+and Angular.
 
 The `<aparte-elicitation>` presenter — what the built-in approval gate and `requestUserInput()`
 ask through — renders inside the host **by default**, as it does in `<aparte-chat>`; pass
@@ -153,3 +190,13 @@ entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
 `HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
 specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
 entry with the elements in it.
+
+## The whole thing, running
+
+A complete chat site in React — the conversation sidebar, the header, the settings dialog,
+markdown, highlighting, tools, and the scripted model — is in this repository:
+[`apps/examples/react`](https://github.com/apartejs/aparte/tree/main/apps/examples/react). It
+shares its setup with the vanilla, Vue, Svelte and Angular sites through
+[`apps/examples/_shared`](https://github.com/apartejs/aparte/tree/main/apps/examples/_shared), so
+the framework-specific part is `App.tsx` and the `main.tsx` that mounts it — everything
+else is what an app writes in any framework.

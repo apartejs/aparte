@@ -57,11 +57,18 @@ export function ensureThemePairStyles(): void {
     if (typeof document === 'undefined' || document.getElementById(PAIR_STYLE_ID)) return;
     const style = document.createElement('style');
     style.id = PAIR_STYLE_ID;
+    // Three states, the same three core's theme.css answers: an explicit `dark`, an
+    // explicit `light`, and no attribute at all — where the OS decides. The dark half
+    // used to key on the attribute alone, so a page in system dark (the default of every
+    // page that sets nothing) rendered the LIGHT theme's white block on a dark bubble.
+    const dark = '.shiki{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}'
+        + '.shiki span{color:var(--shiki-dark)}';
     style.textContent =
         '.shiki{color:var(--shiki-light);background-color:var(--shiki-light-bg)}'
         + '.shiki span{color:var(--shiki-light)}'
-        + '[data-aparte-theme="dark"] .shiki{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}'
-        + '[data-aparte-theme="dark"] .shiki span{color:var(--shiki-dark)}';
+        + '[data-aparte-theme="dark"] ' + dark.replace('.shiki span', '[data-aparte-theme="dark"] .shiki span')
+        + '@media (prefers-color-scheme: dark){:root:not([data-aparte-theme="light"]) '
+        + dark.replace('.shiki span', ':root:not([data-aparte-theme="light"]) .shiki span') + '}';
     document.head.appendChild(style);
 }
 

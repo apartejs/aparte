@@ -1,48 +1,247 @@
 <script lang="ts">
-  // Runes mode, on purpose. This example exists to prove the wrapper on Svelte 5, and
-  // it used to be Svelte 4 syntax compiled in legacy mode — `export let`, `$:`, `on:` —
-  // so nothing in it exercised what defines Svelte 5. A single `$state` switches the
-  // file to runes mode; the rest follows: `$effect` for the store connection, callback
-  // props instead of `on:` on the component, `onclick` instead of `on:click`.
-  import { AparteChat, AparteUi, createAparteChat } from '@aparte/svelte';
-  import type { AparteMessage } from '@aparte/core';
-  import { sendPrompt } from './aparte';
+  /**
+   * The chat site, in Svelte 5: the same page as the vanilla, React and Svelte 4
+   * examples — the sidebar with the conversation list, the header, the chat, the
+   * settings dialog — over the library's own conversation chain.
+   *
+   * Runes mode, on purpose: `$props`/`$state`/`$effect`, callback props
+   * (`onmessagesChange`) instead of `on:`, and `onclick` instead of `on:click` on
+   * native elements. The wrapper's `<AparteChat>` is shipped as SOURCE and still
+   * written in legacy Svelte 4 syntax — it compiles and runs unchanged here, which is
+   * the whole point of this example existing beside its Svelte 4 twin.
+   *
+   * The sidebar, the list and the header are core's elements and recipes, used as
+   * they are; the chat is `<AparteChat>`, whose host runs the conversation controller
+   * (it hears the list's select, creates a conversation on the first message, fetches
+   * one on demand and shows the wait). What this component adds: feed the list from
+   * the manager, forward the list's intents, and hand the header's controls to the
+   * shared helpers.
+   */
+  import { onMount } from 'svelte';
+  import { AparteChat, createAparteChat } from '@aparte/svelte';
+  import type { AparteConversationList, AparteConversationListItem, AparteMessage } from '@aparte/core';
+  import { mountModelSelector } from '../../_shared/site-setup';
+  import {
+    WELCOME_SUGGESTIONS,
+    createSiteManager,
+    documentTitleFor,
+    drawSearchIcon,
+    listItemsOf,
+    wireSettingsDialog,
+    wireThemeToggle,
+  } from '../../_shared/site-shell';
+
+  let { scenarioMode }: { scenarioMode: boolean } = $props();
+
+  const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
   const chat = createAparteChat();
   const { messages } = chat;
   let comp: AparteChat | null = $state(null);
   $effect(() => { chat.connect(comp); });
 
-  const chips = [
-    { label: 'What is aparté?', prompt: 'Explain what aparté is in one sentence.' },
-    { label: 'Write a haiku', prompt: 'Write a haiku about web components.' },
-    { label: 'Markdown table', prompt: 'Give me a markdown table comparing 3 JS frameworks.' },
-  ];
+  let listEl: AparteConversationList | null = $state(null);
+  let dialogEl: HTMLDialogElement | null = $state(null);
+  let themeEl: HTMLButtonElement | null = $state(null);
+  let searchIconEl: HTMLSpanElement | null = $state(null);
+  let modelSlotEl: HTMLDivElement | null = $state(null);
+  let suggestionsEl: HTMLElement | null = $state(null);
+
+  let items = $state<AparteConversationListItem[]>([]);
+  let activeId = $state<string | null>(null);
+  let listLoading = $state(true);
+
+  // `conversations` and `loading` have no plain-string attribute form (an array, and
+  // a boolean with no HTML-boolean equivalent svelte-check will accept on a custom
+  // element) — set as PROPERTIES, imperatively, the same way the React example does
+  // through a ref effect.
+  $effect(() => {
+    if (!listEl) return;
+    listEl.conversations = items;
+    listEl.loading = listLoading;
+  });
+
+  // `?view=overlay` (this example's name) or `?layout=page` (the vanilla example's)
+  // — the overlay-composer anatomy, read once: the mode is wired when the viewport mounts.
+  const params = new URLSearchParams(window.location.search);
+  const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
+
+  // The site's wiring, once: the manager registered for every element on the page,
+  // the list fed from it, the header's controls.
+  onMount(() => {
+    const manager = createSiteManager();
+    const unsubscribe = manager.subscribe(() => {
+      items = listItemsOf(manager);
+      activeId = manager.active?.id ?? null;
+      document.title = documentTitleFor(manager);
+    });
+    // The row menu's writes need no listener: `manage` on the element lets the list
+    // carry them out on the manager `createSiteManager()` registered. Select is not one
+    // of them — the chat's controller hears `aparte-conversation-select` on the window
+    // and loads the conversation.
+    wireThemeToggle(themeEl);
+    drawSearchIcon(searchIconEl);
+    wireSettingsDialog(dialogEl);
+    // `suggestions` must reach the element as an ATTRIBUTE (its JSON form): Svelte
+    // would otherwise hand the raw string to the element's `suggestions` PROPERTY,
+    // whose setter expects the parsed array. `empty-only` is set the same way rather
+    // than as a bare template attribute, which svelte-check types as a literal `''`.
+    suggestionsEl?.setAttribute('suggestions', SUGGESTIONS_JSON);
+    suggestionsEl?.setAttribute('empty-only', '');
+    // The model selector, only with a local server, in the header where the
+    // product keeps its picker.
+    if (!scenarioMode) mountModelSelector(modelSlotEl, document.querySelector('aparte-composer-toolbar'));
+    // The list says it is on its way until the adapter's first answer. A rejecting
+    // `loadMeta` must still clear the wait — the library has no error state for it,
+    // so a `console.warn` is what tells the developer their adapter failed instead
+    // of leaving the skeleton up forever.
+    void manager.init()
+      .then(() => { listLoading = false; })
+      .catch((err: unknown) => {
+        listLoading = false;
+        console.warn('[chat-site] failed to load conversations', err);
+      });
+    comp?.focusInput();
+    return () => { unsubscribe(); };
+  });
+
+  function newChat() {
+    void comp?.setConversationId(null);
+    comp?.focusInput();
+  }
 </script>
 
-<div class="app">
-  <header class="topbar">
-    <div class="brand">aparté <span>· svelte 5</span></div>
+<div class="aparte-app-shell" id="chat-view">
+  <aparte-sidebar>
+    <div class="aparte-sidebar__header">
+      <span class="aparte-sidebar__brand">(aparté)</span>
+      <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+        <aparte-icon name="menu"></aparte-icon>
+      </button>
+    </div>
+    <div class="site-rows">
+      <button class="site-row" type="button" id="new-chat" onclick={newChat}>
+        <aparte-icon name="edit"></aparte-icon>
+        <span>New chat</span>
+      </button>
+      <label class="site-row site-row--search">
+        <span class="site-row__icon" bind:this={searchIconEl} aria-hidden="true"></span>
+        <!-- `data-aparte-sidebar-search`: the sidebar filters the list itself. -->
+        <input class="site-search" type="search" placeholder="Search chats" aria-label="Search chats" data-aparte-sidebar-search />
+      </label>
+    </div>
+    <div class="aparte-sidebar__body">
+      <aparte-conversation-list bind:this={listEl} manage="" active-id={activeId ?? undefined}></aparte-conversation-list>
+    </div>
+    <div class="aparte-sidebar__footer">
+      <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true">P</span>
+      <span class="who">Paul</span>
+    </div>
+  </aparte-sidebar>
+
+  <header class="aparte-app-header">
+    <!-- `data-aparte-sidebar-toggle`: the sidebar listens for it on its own. -->
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+      <aparte-icon name="menu"></aparte-icon>
+    </button>
+    <!-- The product's header names the MODEL, not the conversation: the picker on the
+         start edge, the actions on the end edge. The conversation's name lives in the
+         sidebar's active row and in the document title. -->
+    <div class="site-model" id="model-slot" bind:this={modelSlotEl}><span class="site-model__name">ChatClone</span></div>
+    <div class="aparte-app-header__actions">
+      <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" id="theme-toggle" bind:this={themeEl} aria-label="Switch to the light theme"></button>
+      <button class="aparte-btn aparte-btn--ghost aparte-btn--sm" type="button" data-aparte-dialog-open="settings">Settings</button>
+    </div>
   </header>
 
-  <AparteChat
-    bind:this={comp}
-    messages={$messages}
-    onmessagesChange={(m: AparteMessage[]) => chat.onMessagesChange(m)}
-    centerWhenEmpty
-    attachments
-    placeholder="Ask anything…"
-  >
-    <div slot="empty-state" class="welcome">
-      <h2>Start a conversation</h2>
-      <div class="suggestions">
-        {#each chips as c (c.label)}
-          <button type="button" class="chip" onclick={() => sendPrompt(c.prompt)}>{c.label}</button>
-        {/each}
+  <main class="aparte-app-shell__main">
+    <AparteChat
+      bind:this={comp}
+      messages={$messages}
+      onmessagesChange={(m: AparteMessage[]) => chat.onMessagesChange(m)}
+      centerWhenEmpty
+      overlayComposer={overlay}
+      attachments
+      placeholder="Ask ChatClone"
+    >
+      <div slot="empty-state" class="welcome" id="welcome">
+        <div class="welcome__body">
+          <h2>Where should we begin?</h2>
+          <!-- The starters go through the composer's own submit(), so every gate it
+               has (disabled, streaming, model not selected yet) applies to a click
+               too. Each one matches a scripted scenario. -->
+          <aparte-suggestions bind:this={suggestionsEl}></aparte-suggestions>
+        </div>
       </div>
-    </div>
-    <svelte:fragment slot="toolbar">
-      <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }} />
-    </svelte:fragment>
-  </AparteChat>
+      <!-- The toolbar row under the composer: the approval switch, and the model
+           selector too under `?selector=toolbar`. A real child is also what makes the
+           slot exist at all — an empty fragment does not count as provided, and the row
+           would not be rendered. -->
+      <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
+    </AparteChat>
+  </main>
 </div>
+
+<!-- The settings a consumer changes first, in the kit's dialog: a native <dialog>
+     wearing the recipe, opened by the header button through data-aparte-dialog-open
+     (core installs the triggers). The fields are read and written by the shared
+     wiring, not by Svelte state: what they hold is the page's stored settings. -->
+<dialog class="aparte-dialog aparte-dialog--lg" id="settings" aria-labelledby="settings-title" bind:this={dialogEl}>
+  <div class="aparte-dialog__header">
+    <h2 class="aparte-dialog__title" id="settings-title">Settings</h2>
+    <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-aparte-dialog-close>
+      <aparte-icon name="close"></aparte-icon>
+    </button>
+  </div>
+  <div class="aparte-dialog__body settings-body">
+    <fieldset class="settings-group">
+      <legend class="aparte-field-label">Model</legend>
+      <label class="aparte-field-choice">
+        <input type="radio" class="aparte-radio" name="model-source" value="scripted" id="model-source-scripted" />
+        <span class="aparte-field-choice__body">Scripted model — no server, no key, the same replies every time</span>
+      </label>
+      <label class="aparte-field-choice">
+        <input type="radio" class="aparte-radio" name="model-source" value="local" id="model-source-local" />
+        <span class="aparte-field-choice__body">Local server — Ollama or LM Studio, reached with the two fields below</span>
+      </label>
+      <p class="aparte-field-hint">
+        The scripted model is <code>@aparte/provider-scenario</code>; the local one is
+        <code>@aparte/provider-openai-compat</code> with its Ollama and LM Studio presets.
+        <code>?scenario</code> and <code>?local</code> in the URL override this choice.
+      </p>
+    </fieldset>
+
+    <div class="settings-group">
+      <label class="aparte-field-label" for="system-prompt">System prompt</label>
+      <textarea id="system-prompt" aria-describedby="system-prompt-hint" class="aparte-field settings-textarea" rows="5" spellcheck="false" placeholder="Leave empty to send no system turn."></textarea>
+      <p class="aparte-field-hint" id="system-prompt-hint">
+        Sent as the <code>system</code> turn. Supports <code>{'{{key}}'}</code> placeholders — resolve
+        them with <code>setSystemPromptVarsProvider()</code>.
+      </p>
+    </div>
+
+    <div class="settings-group">
+      <label class="aparte-field-label" for="endpoint">Endpoint</label>
+      <input id="endpoint" aria-describedby="endpoint-hint" class="aparte-field" type="url" autocomplete="off" spellcheck="false" placeholder="Empty = the selected provider's own default" />
+      <p class="aparte-field-hint" id="endpoint-hint">
+        Any OpenAI-compatible base URL — LM Studio, Ollama, vLLM, llama.cpp, a hosted API.
+        Reaches the provider through the key resolver as <code>{'{ endpoint }'}</code>, which is the
+        only runtime channel for it.
+      </p>
+    </div>
+
+    <div class="settings-group">
+      <label class="aparte-field-label" for="token">Token</label>
+      <input id="token" aria-describedby="token-hint" class="aparte-field" type="password" autocomplete="off" spellcheck="false" placeholder="Empty is correct for a local server" />
+      <p class="aparte-field-hint" id="token-hint">
+        Stays in this browser — it is sent straight to the endpoint above, which is what BYOK
+        means. For a key that must not reach the browser, use <code>AparteBackendTransport</code>
+        instead.
+      </p>
+    </div>
+  </div>
+  <div class="aparte-dialog__footer">
+    <button class="aparte-btn aparte-btn--ghost" type="button" id="settings-reset">Reset to defaults</button>
+    <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" data-aparte-dialog-close>Done</button>
+  </div>
+</dialog>

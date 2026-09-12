@@ -8,7 +8,7 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -48,6 +48,13 @@ export interface AparteChatProps {
      * keys off. No effect unless you also render an `emptyState`.
      */
     centerWhenEmpty?: boolean;
+    /**
+     * The conversation is on its way: the viewport draws two skeleton turns, the empty
+     * state stays off and the composer is disabled until it lands. The conversation
+     * controller sets this itself while it fetches through your adapter's `loadFull()`;
+     * the prop is for a wait of your own. Off by default.
+     */
+    loading?: boolean;
     /**
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
      * surface spans the whole column, the scrollbar runs edge to edge, and the
@@ -195,6 +202,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         submitOnEnter = true,
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
+        loading = false,
         overlayComposer = false,
         attachments = false,
         elicitation = true,
@@ -231,6 +239,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const messagesRef = useRef<AparteMessage[]>(messages);
     const [renderMessages, setRenderMessages] = useState<AparteMessage[]>(messages);
     const [typingActive, setTypingActive] = useState(isTyping);
+    // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
+    const [hostLoading, setHostLoading] = useState(false);
+    const waiting = loading || hostLoading;
+    const loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);
@@ -262,6 +274,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             onStreamingChange: (id) => setIsStreaming(id !== null),
             afterRender: (cb) => { requestAnimationFrame(() => cb()); },
             resetComposer: () => (composerRef.current as unknown as { reset?: () => void })?.reset?.(),
+            onLoadingChange: (on) => setHostLoading(on),
         };
         const h = new AparteChatHost(binding, {
             layoutTransitionMs,
@@ -312,17 +325,24 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         return () => composer.removeEventListener('aparte-send', onSend);
     }, []);
 
-    // aparte-composer exposes `placeholder`/`disabled` as GETTER-ONLY accessors.
-    // React 19 sets matching props as PROPERTIES on custom elements, which throws
-    // ("Cannot set property placeholder ... which has only a getter"). Set them as
-    // attributes imperatively instead (the getter reads the attribute).
+    // Set as ATTRIBUTES, because the attribute IS the state core's composer parts
+    // read. React 19 assigns a matching prop as a PROPERTY on a custom element; core
+    // gained the matching setters in 0.16.12 (before that these were getter-only and
+    // the assignment threw, taking the render down), so this is now a direct write
+    // rather than a way around a crash — and it is the only writer, since the JSX
+    // below declares neither.
     useEffect(() => {
         const composer = composerRef.current;
         if (!composer) return;
         composer.setAttribute('placeholder', placeholder);
-        if (disabled) composer.setAttribute('disabled', '');
+        if (disabled || waiting) composer.setAttribute('disabled', '');
         else composer.removeAttribute('disabled');
-    }, [placeholder, disabled]);
+    }, [placeholder, disabled, waiting]);
+    // Same story for the viewport's `loading`: React 19 would set it as a PROPERTY, and
+    // `''` through the setter reads as false. The attribute is what the element reads.
+    useEffect(() => {
+        viewportRef.current?.toggleAttribute('loading', waiting);
+    }, [waiting]);
 
     // Custom bubble actions bubble to the host root as `aparte-action`; surface them
     // as a typed prop.
@@ -343,7 +363,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         removeSegment: (id) => hostRef.current?.removeSegment(id),
         appendToSegment: (id, c) => hostRef.current?.appendToSegment(id, c),
         getMessages: () => hostRef.current?.getMessages() ?? messagesRef.current,
-        clearMessages: () => hostRef.current?.clearMessages(),
+        clearMessages: (o) => hostRef.current?.clearMessages(o),
         addBranch: (id) => hostRef.current?.addBranch(id) ?? 0,
         addSiblingOf: (id, m) => hostRef.current?.addSiblingOf(id, m) ?? null,
         truncateFrom: (id) => hostRef.current?.truncateFrom(id),
@@ -363,12 +383,23 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             style={style}
             data-aparte-chat=""
             {...(overlayComposer ? { 'overlay-composer': '' } : {})}
-            data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 ? '' : undefined}
+            data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 && !waiting ? '' : undefined}
             id={hostId}
             ref={hostElRef}
         >
             <aparte-chat-viewport ref={viewportRef as React.Ref<HTMLElement>} framework-managed="">
-                {renderMessages.length === 0 && emptyState}
+                {/* The wait, drawn here because this DOM is React's: the kit's skeleton recipe, and a line for a screen reader. */}
+                {waiting && (
+                    <div className="aparte-viewport-loading" aria-hidden="true">
+                        <span className="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user" />
+                        <span className="aparte-skeleton aparte-skeleton--text" />
+                        <span className="aparte-skeleton aparte-skeleton--text" />
+                        <span className="aparte-skeleton aparte-skeleton--text" />
+                        <span className="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last" />
+                    </div>
+                )}
+                {waiting && <span className="aparte-viewport-loading-status aparte-sr-only" role="status">{loadingText}</span>}
+                {renderMessages.length === 0 && !waiting && emptyState}
                 {renderMessages.map((m) => (
                     renderBubble
                         ? <React.Fragment key={m.id}>{renderBubble(m)}</React.Fragment>

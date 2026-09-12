@@ -33,7 +33,7 @@ interface AparteStorageAdapter {
 An `AparteConversation` carries `id`, `title`, `createdAt`, `updatedAt`, a flat `messages`
 array (the active path — always kept for sidebar previews and compat), an optional `tree`
 (full branch topology, see [Conversations & branching](/guides/conversations-branching/)),
-and optional `archivedAt` / `pinnedAt` / `folderId` / `schemaVersion` (current version is
+and optional `archivedAt` / `pinnedAt` / `schemaVersion` (current version is
 `2`; treat `undefined` as legacy data).
 
 The current value is exported as `APARTE_CONVERSATION_SCHEMA_VERSION`, so an adapter
@@ -181,7 +181,7 @@ it's exactly what the wrappers use internally:
 import { AparteConversationController } from '@aparte/core';
 
 const chat = document.querySelector('aparte-chat')!;
-const viewport = (chat as any).viewport;
+const viewport = chat.viewport!;
 
 const controller = new AparteConversationController({
   hostId: 'main-chat',
@@ -190,6 +190,7 @@ const controller = new AparteConversationController({
   setMessages: (m) => viewport.setMessages(m),
   appendMessage: (m) => viewport.appendMessage(m),
   clearMessages: () => viewport.clearMessages(),
+  setLoading: (on) => viewport.setLoading(on), // optional — the viewport draws the wait
   exportTree: () => viewport.exportTree(),   // optional — enables branch persistence
   importTree: (t) => viewport.importTree(t), // optional
 });
@@ -197,32 +198,75 @@ controller.bind();
 void controller.setConversationId('abc-123'); // or null to deselect
 ```
 
+### A conversation on its way
+
+A store takes its time. When your adapter implements `loadMeta()` and `loadFull(id)`,
+the manager reads the list through the first and fetches a conversation's messages
+through the second the first time it is opened (`manager.ensureFull(id)`, and
+`manager.isLoaded(id)` says whether it has). While that fetch runs, the controller calls
+the binding's `setLoading(true)`: `<aparte-chat-viewport>` draws two skeleton turns,
+marks its scroll surface `aria-busy` and names the wait for a screen reader, and
+`aparte-chat[center-empty]` does not count it as empty — the welcome never shows over a
+conversation that is loading. The composer is disabled for the duration — a message sent
+into a transcript that has not arrived would be overwritten by it — and comes back as
+it was (a `disabled` you set stays). Two quick clicks are safe: a reply that lands for a
+conversation the user has already left is dropped. `ensureFull()` resolves `false` when the store
+has no such record — the row then does not count as loaded, and the controller goes home rather
+than keep an empty transcript active. A metadata change (`updateTitle`, `pin`, `archive`) on a
+conversation whose messages are not in memory goes through the adapter's own hook when it has one
+(`rename()`, `pin()`, `archive()`…) and otherwise fetches the messages first, so a row the list came
+with is never written back without them; `updateMessages()` on such a row is refused with a warning.
+A metadata change leaves `updatedAt` alone — a rename, a pin and an archive keep the conversation's
+place in the list, which sorts on the last message rather than on the last edit.
+
+The list has the same word for its own wait: set `loading` on
+`<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign
+`conversations`.
+
+The framework wrappers draw the same wait themselves — the controller sets it while it
+fetches — and each has a `loading` prop (an input in Angular) for a wait of your own.
+
 ## 4. Render a sidebar
 
 `<aparte-conversation-list>` is a display primitive: set its `conversations` property and
-`active-id` attribute, and handle the events it emits (all bubble, `detail: { id }` —
-rename adds `title`). Each row is its title plus a `⋯` menu: rename, pin/unpin,
+`active-id` attribute. Each row is its title plus a `⋯` menu: rename, pin/unpin,
 archive/unarchive, delete (which asks first). The rows are grouped by date as soon as any
-item carries `updatedAt`; set `no-groups` to render them flat.
+item carries `updatedAt`; set `flat` to render them flat.
+
+Add `manage` and the menu writes through to the manager you registered in step 2 — those
+gestures need no code of yours at all:
 
 ```ts
 const list = document.querySelector('aparte-conversation-list')!;
 
 function render() {
-  (list as any).conversations = manager.activeConversations;
+  list.conversations = manager.activeConversations;
   list.setAttribute('active-id', manager.activeId ?? '');
 }
 manager.subscribe(render);
 render();
 
-list.addEventListener('aparte-rename-conversation', (e) => manager.updateTitle(e.detail.id, e.detail.title));
-list.addEventListener('aparte-pin-conversation', (e) => manager.pin(e.detail.id));
-list.addEventListener('aparte-unpin-conversation', (e) => manager.unpin(e.detail.id));
-list.addEventListener('aparte-archive-conversation', (e) => manager.archive(e.detail.id));
-list.addEventListener('aparte-unarchive-conversation', (e) => manager.unarchive(e.detail.id));
-list.addEventListener('aparte-delete-conversation', (e) => manager.delete(e.detail.id));
+// The two lines that finish the row menu — the first is step 2's, repeated here so the
+// pair is visible together.
+aparteGlobalConfig.setConversationManager(manager);
+list.setAttribute('manage', '');
 // Selecting a conversation is owned by the `conversationId` binding (or a window-level
-// `aparte-select-conversation` event that every bound controller listens for), not the list.
+// `aparte-conversation-select` event that every bound controller listens for), not the list.
+```
+
+**When you own the persistence**, leave `manage` off: the list then only announces the
+intent, and every gesture is yours to carry out. The events all bubble, with
+`detail: { id }` — rename adds `title`. They fire under `manage` too, first and
+cancelable, so `preventDefault()` on one takes that single gesture back and leaves the
+rest to the list.
+
+```ts
+list.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
+list.addEventListener('aparte-conversation-pin', (e) => manager.pin(e.detail.id));
+list.addEventListener('aparte-conversation-unpin', (e) => manager.unpin(e.detail.id));
+list.addEventListener('aparte-conversation-archive', (e) => manager.archive(e.detail.id));
+list.addEventListener('aparte-conversation-unarchive', (e) => manager.unarchive(e.detail.id));
+list.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
 ```
 
 Each wrapper ships a reactive helper around the same manager — call its `init(adapter)`
@@ -244,7 +288,12 @@ deliberately don't expose a `select()`.
 ## 5. What survives a round trip
 
 Your adapter stores `AparteMessage` objects verbatim, segments included, and hands them
-back. Core then **adopts** them rather than treating them as new — and the difference is
+back. One exception, and it is core's own: the `segments` core derived by splitting a
+markdown reply on display are not written back — neither in `messages` nor in the branch
+tree. They are core's reading of your `content`, so they are read again on the next open
+and a block grammar you register later applies to conversations already saved.
+
+Core then **adopts** the segments you did store rather than treating them as new — and the difference is
 worth knowing, because two of the fields on a segment are facts and two are measurements.
 
 | on a restored segment | what happens | why |

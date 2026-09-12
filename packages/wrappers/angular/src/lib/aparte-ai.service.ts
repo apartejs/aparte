@@ -18,7 +18,17 @@ export const APARTE_CLIENT_OPTIONS = new InjectionToken<AparteClientOptions>('AP
 })
 export class AparteAiService implements OnDestroy {
     private readonly _clientOptions = inject(APARTE_CLIENT_OPTIONS, { optional: true });
-    private _client: AparteClient = new AparteClient(this._clientOptions ?? {});
+    private readonly _client: AparteClient = new AparteClient(this._clientOptions ?? {});
+
+    /**
+     * The `AparteClient` this service drives — the same object React's
+     * `useAparteClient`, Vue's and Svelte's `createAparteClient` return as
+     * `{ client, abort }`. Angular alone kept it private, so the instance was
+     * unreachable while each service's docblock called itself the others' equivalent.
+     */
+    get client(): AparteClient {
+        return this._client;
+    }
 
     /**
      * Start listening to `aparte-send` events globally.
@@ -33,7 +43,9 @@ export class AparteAiService implements OnDestroy {
     }
 
     /**
-     * Stop listening.
+     * Stop listening. The client also takes its `keyResolver` back off the config,
+     * so a paused bridge no longer answers for keys — a model list refreshed while
+     * disconnected sees the config's other key sources only.
      */
     disconnect(): void {
         this._client.stop();

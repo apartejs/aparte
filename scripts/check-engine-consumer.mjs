@@ -15,13 +15,15 @@
  *
  * This guard exists because that coverage is invisible: remove the option and
  * every test stays green while silently going back to testing the inline loop.
- * The type guard in `stream-events.contract.ts` covers the compile half.
+ * The compile half is covered by the types themselves: core's `AparteChatMessage`
+ * and engine's `StreamAgentMessage` are assignable both ways, so a drift between
+ * them fails `pnpm typecheck` rather than needing a guard of its own.
  *
  * Run by `pnpm gate`.
  */
 import { readFileSync } from 'node:fs';
 
-const FILE = 'apps/examples/vanilla/src/main.ts';
+const FILE = 'apps/examples/_shared/site-setup.ts';
 const raw = readFileSync(FILE, 'utf8');
 
 /**
@@ -57,4 +59,4 @@ if (!importsRunner || !wiresRunner) {
     process.exit(1);
 }
 
-console.log('[engine-consumer] OK: the vanilla example drives runStreamAgent through the streamRunner seam.');
+console.log('[engine-consumer] OK: the shared site setup (every example) drives runStreamAgent through the streamRunner seam.');

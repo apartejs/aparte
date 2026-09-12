@@ -188,12 +188,19 @@ export function getComputeDevice(): ComputeDevice {
     return _computeDevice;
 }
 
-/** Evict models from cache until count <= _maxCachedModels; `keepModelId` is never evicted. */
+/**
+ * Evict models from cache until count <= _maxCachedModels. `keepModelId` is never
+ * evicted, and neither is a model a generate is queued or running on: the budget
+ * fires from `pipeline-ready`, i.e. when ANOTHER model finishes loading, so it
+ * used to delete the weights of the model that was answering — and
+ * `deleteCachedModel` terminates the worker when that model is the loaded one.
+ */
 async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
     if (_maxCachedModels === 0) return; // unlimited
     try {
         const cached = await listCachedModels();
-        const others = cached.filter(e => e.modelId !== keepModelId);
+        const inUse = new Set(_queuedModelIds.values());
+        const others = cached.filter(e => e.modelId !== keepModelId && !inUse.has(e.modelId));
         const excess = cached.length - _maxCachedModels;
         if (excess <= 0) return;
         // Delete the excess models (oldest first — they appear first in cache scan order).
@@ -627,12 +634,19 @@ export const TransformersProvider: AparteAIProvider
             if (stopped) return;
             stopped = true;
             signal?.removeEventListener('abort', stop);
-            if (posted) {
-                _getWorker().postMessage({ type: 'cancel', id: requestId });
-                return;
-            }
             const ctrl = _pendingGenerates.get(requestId);
             _pendingGenerates.delete(requestId);
+            if (posted) {
+                _getWorker().postMessage({ type: 'cancel', id: requestId });
+                // The reply ends HERE, not when the worker gets round to answering:
+                // a token already in flight was otherwise enqueued into a stream the
+                // user had stopped. `done` and not an error — a stop is not a failure,
+                // and it is what settles the non-streaming path too. The worker's own
+                // `gen-done` still releases the queue slot: that happens before it
+                // looks the controller up.
+                try { ctrl?.enqueue({ type: 'done' as const }); ctrl?.close(); } catch { /* already closed */ }
+                return;
+            }
             if (!ctrl) return;
             try { ctrl.enqueue({ type: 'error' as const, message: 'Generation cancelled before it started' }); ctrl.close(); }
             catch { /* already closed */ }

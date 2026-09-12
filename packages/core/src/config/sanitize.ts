@@ -41,7 +41,7 @@ const ALLOWED_TAGS = new Set([
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
     'img', 'figure', 'figcaption', 'picture', 'source',
-    'input', // GFM task-list checkboxes only (attributes locked down below)
+    'input', // GFM task-list checkboxes only — `copyAttributes` refuses every other `type`
     'abbr', 'details', 'summary', 'time', 'wbr', 'address',
 ]);
 
@@ -274,6 +274,14 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         // markdown/highlight tooling — allowed, matching DOMPurify's default.
         if (!name.startsWith('data-') && !GLOBAL_ATTRS.has(name) && !(extra && extra.has(name))) continue;
         if (URL_ATTRS.has(name) && !isSafeUrl(value, tag)) continue;
+        // `input` is allowlisted for ONE thing — a GFM task-list checkbox — and the
+        // tag's own comment said so while `type` came through unexamined, so
+        // `<input type="password" title="API key">` rendered a credential prompt
+        // inside a reply. Nothing here reads what is typed (`form`, `button` and
+        // `name` are refused, `on*` never copied, and the style allowlist has no
+        // `position`, so it cannot be lifted out of the bubble either) — the ASK is
+        // the attack, and the checkbox is the only type the allowlist was for.
+        if (tag === 'input' && name === 'type' && value.toLowerCase() !== 'checkbox') continue;
         if (name === 'srcset' && !isSafeSrcset(value, tag)) continue;
         if (name === 'style') {
             const scrubbed = scrubStyle(value);

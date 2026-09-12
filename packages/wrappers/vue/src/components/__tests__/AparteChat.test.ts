@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import AparteChat from '../AparteChat.vue';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
@@ -35,6 +35,18 @@ if (typeof window !== 'undefined' && typeof HTMLElement !== 'undefined' && !Obje
         configurable: true
     });
 }
+
+/**
+ * jsdom implements no `URL.revokeObjectURL`, and core's revoker is written to skip
+ * when there is none — so the attachment tests have to install one, and take it back
+ * out afterwards rather than leave the page half-implemented for the next test.
+ */
+function stubRevokeObjectURL() {
+    const revoke = vi.fn();
+    (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL = revoke;
+    return revoke;
+}
+afterEach(() => { delete (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL; });
 
 describe('AparteChat.vue', () => {
     const mockMessages: AparteMessage[] = [
@@ -331,6 +343,38 @@ describe('AparteChat.vue', () => {
         wrapper.vm.scrollToBottom();
     });
 
+    // `clearMessages(options)` — the bridge used to be zero-arity, so the caller's
+    // explicit "don't revoke" arrived as `undefined` and the viewport revoked anyway:
+    // every attachment still on screen came back broken. TypeScript cannot see it (a
+    // 0-arg function is assignable to a 1-optional-arg signature), so only a run can.
+    it('forwards clearMessages options — `revokeAttachments: false` keeps the object URLs', async () => {
+        const revoke = stubRevokeObjectURL();
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        wrapper.vm.appendMessage({
+            id: 'att-1', role: 'user', content: 'look', timestamp: 1,
+            attachments: [{ id: 'f1', name: 'a.png', type: 'image/png', url: 'blob:fake-url' }],
+        });
+        wrapper.vm.clearMessages({ revokeAttachments: false });
+
+        expect(revoke).not.toHaveBeenCalled();
+    });
+
+    it('clearMessages() with no options still revokes (the documented default)', async () => {
+        const revoke = stubRevokeObjectURL();
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        wrapper.vm.appendMessage({
+            id: 'att-2', role: 'user', content: 'look', timestamp: 1,
+            attachments: [{ id: 'f2', name: 'b.png', type: 'image/png', url: 'blob:fake-url-2' }],
+        });
+        wrapper.vm.clearMessages();
+
+        expect(revoke).toHaveBeenCalledWith('blob:fake-url-2');
+    });
+
     it('forwards a per-instance config so components inside resolve it', async () => {
         const cfg = new AparteConfig();
         const wrapper = mount(AparteChat, { props: { messages: [], config: cfg } });
@@ -405,5 +449,29 @@ describe('AparteChat.vue', () => {
         // Creation is async (the adapter is): wait for the event, not for a delay.
         await vi.waitFor(() => expect(wrapper.emitted('conversationCreated')).toHaveLength(1));
         expect(typeof wrapper.emitted('conversationCreated')![0][0]).toBe('string');
+    });
+});
+
+describe('AparteChat while a conversation is on its way', () => {
+    it('draws the wait, is not empty, and disables the composer while `loading`', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], centerWhenEmpty: true, loading: true } });
+        const box = wrapper.element as HTMLElement;
+        expect(box.getAttribute('data-aparte-empty')).toBeNull();
+        expect(box.querySelector('aparte-chat-viewport')?.getAttribute('loading')).toBe('');
+        expect(box.querySelector('.aparte-viewport-loading')).not.toBeNull();
+        expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+
+        await wrapper.setProps({ loading: false });
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
+        expect(box.querySelector('.aparte-viewport-loading')).toBeNull();
+        expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('keeps a disabled the consumer set once the wait ends', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], disabled: true, loading: true } });
+        await wrapper.setProps({ loading: false });
+        expect((wrapper.element as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });
 });

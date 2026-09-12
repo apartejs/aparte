@@ -118,35 +118,48 @@ aparte-chat[overlay-composer] .aparte-composer-shell,
 
 /* center-empty: the shell centers the composer as a welcome state until the first
    message, then slides to the normal layout. The component toggles [data-empty]
-   on itself by watching its viewport — only `flex-grow` animates, so the composer
-   glides to the bottom instead of snapping. */
+   on itself by watching its viewport.
+
+   The centring is a SPACER after the composer (`::after`), not `justify-content`:
+   while the chat is empty the viewport and the spacer both grow, so the welcome and
+   the composer sit between two equal halves; when a message lands (or is on its
+   way) the spacer's `flex-grow` goes to 0 and the viewport takes the room. Only the
+   spacer animates, in both directions. It used to be the viewport's `flex-grow`
+   that animated, and that glided one way only: the viewport also carries
+   `height: 100%` for the scroll chain, and the moment [data-empty] dropped that
+   height applied at once — 494 → 816px in one frame, measured on the chat site
+   (2026-09-05), where a new chat glided back over ~300ms. So under this mode the
+   viewport keeps one size rule, a zero basis with no height, and the scroll chain is
+   the definite flex size instead.
+
+   ELEMENT ONLY, where `overlay-composer` above enumerates three shapes: this mode is
+   documented as `<aparte-chat>`'s (guides/layout.mdx), and the wrappers reach the same
+   idea through `.aparte-chat-container--auto-center` (one rule, in composer.css). The
+   two answers differ on purpose — do not add the other two selectors here expecting
+   parity. */
 aparte-chat[center-empty] > aparte-chat-viewport {
-  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
-}
-
-aparte-chat[center-empty][data-empty] {
-  justify-content: center;
-}
-
-aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
-  flex-grow: 0;
-  /* Release the standalone `height: 100%` (set on the viewport element for the
-     scroll chain): an explicit height ignores `flex-grow: 0`, so the empty viewport
-     would still fill the shell and leave `justify-content: center` no room to center
-     the composer. Empty = nothing to scroll, so auto height is safe here; the moment
-     a message lands, [data-empty] drops and height: 100% (scroll chain) is back. */
+  flex: 1 1 0%;
   height: auto;
 }
 
-/* And no block room at all: at `auto` the empty viewport still stood 32px tall — the
-   rows' wrapper keeps its block padding with no row in it — so `center` centred three
-   items of which the first was invisible, and the welcome group landed 16px low,
-   measured. The padding goes, not the box: capping the viewport itself left a 32px
-   scroll surface inside a 0px box, and "an empty transcript must not overflow" is a
-   browser test every example runs. Inline geometry is kept — the composer's inset is
-   measured from this element. */
-aparte-chat[center-empty][data-empty] > aparte-chat-viewport .aparte-messages-wrapper {
-  padding-block: 0;
+aparte-chat[center-empty]::after {
+  content: '';
+  display: block;
+  flex: 0 1 0%;
+  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+aparte-chat[center-empty][data-empty]::after {
+  flex-grow: 1;
+}
+
+/* BEFORE the element is defined nobody has written data-empty, so the first paint laid
+   the composer at the bottom and the upgrade moved it to the centre — 360px on a phone,
+   the whole of a 0.23 layout shift (Lighthouse on the chat site, 2026-09-05). A chat
+   whose markup holds no bubble is empty, and the centring can start on the first
+   paint; a markup that ships bubbles keeps the bottom layout it will get. */
+aparte-chat[center-empty]:not(:defined):not(:has(aparte-chat-bubble))::after {
+  flex-grow: 1;
 }
 
 /* =========================================
@@ -162,10 +175,23 @@ aparte-chat-viewport {
   /* Container-query root: children adapt to the WIDGET's width, not the
      viewport's — an embedded chat can be narrow inside a wide page. */
   container-type: inline-size;
-  text-align: left;
+  /* The transcript's baseline alignment, against a host that centres its page. `start`,
+     never `left`: this is inherited by every message, segment and paragraph below it,
+     so it is the widest blast radius in the sheets — and it was `left` while core still
+     wrote `dir="ltr"` onto its own DOM, where it could not lie. Now that the direction
+     follows the host, an Arabic transcript with correctly flipped lists and blockquote
+     rail was still left-aligned line by line. */
+  text-align: start;
 }
 
 .aparte-viewport-container {
+  /* The viewport pins the reader itself and reads a scrollTop decrease it did not write
+     as the reader walking away. The browser's scroll anchoring writes exactly such
+     decreases when a settling reply swaps its streamed DOM for the rendered one —
+     measured on WebKit: scrollHeight +30, scrollTop -82, follow disarmed, transcript
+     82px short for good. A chat appends BELOW the reader, so the browser's anchor
+     protects nothing here and only fights the one that does. */
+  overflow-anchor: none;
   /* Core ships no global border-box reset, so this box says it itself: the overlay
      clearance below is padding, and without this the padding was ADDED to the 100%
      height - the surface overran its host by the whole inset, clipped, with that much
@@ -262,6 +288,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    nothing in the DOM, so it can't collide with the framework's children. */
 aparte-chat-viewport.aparte-viewport--framework,
 aparte-chat-viewport[framework-managed] {
+  /* The viewport pins the reader itself and reads a scrollTop decrease it did not write
+     as the reader walking away. The browser's scroll anchoring writes exactly such
+     decreases when a settling reply swaps its streamed DOM for the rendered one —
+     measured on WebKit: scrollHeight +30, scrollTop -82, follow disarmed, transcript
+     82px short for good. A chat appends BELOW the reader, so the browser's anchor
+     protects nothing here and only fights the one that does. */
+  overflow-anchor: none;
   /* The base rule gives this element `width: 100%`, and core ships no global
      border-box reset — every `box-sizing` in these sheets is per-element, on purpose.
      So the padding below was ADDED to 100% and the host overflowed its own chat by
@@ -406,10 +439,12 @@ aparte-chat-status:not([visible]) {
 
    Empty  → the [welcome + composer] group sits vertically centered.
    Active → on the first message the list grows and the composer slides to the
-            bottom (~0.3s). Only `flex-grow` toggles between the two states
-            (flex-basis/height stay constant) so the transition slides instead
-            of snapping. Scoped to `.aparte-viewport--framework` so the native
-            (vanilla) viewport is never touched.
+            bottom (~0.3s). The same spacer shape as `center-empty` above: the
+            viewport keeps one size rule (a zero basis, no height — a content basis
+            jumped to the messages' height the instant they landed) and a spacer
+            after the composer animates its `flex-grow`, both ways. Scoped to
+            `.aparte-viewport--framework` so the native (vanilla) viewport is never
+            touched.
    ───────────────────────────────────────────────────────────────────────────── */
 
 .aparte-chat-container--auto-center {
@@ -420,22 +455,22 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   height: auto;
-  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease); /* the "slide to bottom" on first message */
+}
+
+.aparte-chat-container--auto-center::after {
+  content: '';
+  display: block;
+  flex: 0 1 0%;
+  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
 }
 
 /* Empty delta — a wrapper sets [data-aparte-empty] only while centerWhenEmpty is
-   on AND the message list is empty. `justify-content` flips instantly (not an
-   animatable property) — fine, it only differs between the two steady states. */
-.aparte-chat-container--auto-center[data-aparte-empty] {
-  justify-content: center;
-}
-
-.aparte-chat-container--auto-center[data-aparte-empty]
-  aparte-chat-viewport.aparte-viewport--framework {
-  flex-grow: 0;
+   on AND the message list is empty. */
+.aparte-chat-container--auto-center[data-aparte-empty]::after {
+  flex-grow: 1;
 }
 
 /* overlay-composer × center-empty: while the welcome state centres the composer,
@@ -448,4 +483,39 @@ aparte-chat[overlay-composer][center-empty][data-empty] > aparte-chat-viewport,
 [data-aparte-chat][overlay-composer][data-aparte-empty] > aparte-chat-viewport,
 .aparte-chat-container[overlay-composer][data-aparte-empty] > aparte-chat-viewport {
   position: static;
+}
+
+/* And the spacer does not glide under the overlay: the first message takes the viewport
+   out of the flow, and a spacer still shrinking from its half would push the composer
+   to the TOP of the column and let it fall from there — the viewport measured its
+   bottom inset on that frame (676px for a 104px composer, React, 2026-09-05). The
+   overlay's composer has always snapped to the bottom; it keeps doing so. */
+aparte-chat[overlay-composer][center-empty]::after,
+.aparte-chat-container--auto-center[overlay-composer]::after {
+  transition: none;
+}
+
+/* The transcript on its way (`aparte-chat-viewport[loading]`): two turns of the kit's
+   skeleton in the reading column — a short bubble on the end edge for the person, a
+   few lines for the reply — drawn by the viewport itself, ahead of its messages
+   wrapper, and gone when the messages land. */
+.aparte-viewport-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  max-width: var(--aparte-message-max-width);
+  margin-inline: auto;
+  padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
+  box-sizing: border-box;
+}
+.aparte-viewport-loading__user {
+  align-self: flex-end;
+  width: 40%;
+  height: calc(var(--aparte-skeleton-text-height) * 2.6);
+  border-radius: var(--aparte-radius-bubble);
+  margin-block-end: var(--aparte-space-6);
+}
+.aparte-viewport-loading__last {
+  max-inline-size: 60%;
 }

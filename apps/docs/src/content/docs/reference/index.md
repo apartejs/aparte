@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Seven pages generated from the source at build time — so what they list is what the
-version you installed ships — and one declared by hand and measured against it. Each
+version you installed ships — and two declared by hand and measured against it. Each
 answers one question:
 
 | Page | The question it answers |
@@ -19,9 +19,10 @@ answers one question:
 | [Wrappers](/reference/wrappers/) | *What is the same on React, Vue, Svelte and Angular?* The one imperative contract and how each framework spells it. |
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
 | [Support matrix](/reference/support/) | *Does it run where my users are?* The browser, Node, framework, bundler and TypeScript floors — each derived from what the code uses — beside the versions CI runs. |
+| [Stability](/reference/stability/) | *What can I build on without a rename landing on me?* The frozen surface — elements, attributes, events, exports, locale keys, tokens — rendered from a snapshot the gate re-measures against the tree, and the two-release rule a change follows. |
 
 :::note[Reading the repository instead of this site?]
-Seven of the eight pages above do not exist as files in the repository: they are written
+Seven of the nine pages above do not exist as files in the repository: they are written
 at build time from the source, which is what makes them impossible to leave stale. If you
 are working from a checkout — offline, a vendored copy, an agent with a clone — the source
 each one is generated FROM is the thing to read:

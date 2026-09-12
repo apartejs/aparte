@@ -30,6 +30,11 @@ export interface AparteChatBinding {
     /** Clear all messages (e.g. when starting a new conversation). */
     clearMessages(options?: { revokeAttachments?: boolean }): void;
     /**
+     * The transcript is on its way, or no longer: a conversation was chosen and its
+     * messages are being fetched. The DOM binding sets the viewport's `loading`.
+     */
+    setLoading?(loading: boolean): void;
+    /**
      * Export the full conversation tree for persistence.
      * Optional: only available when the binding wraps a `AparteMessageRepository`
      * (e.g. the vanilla viewport). Returns `undefined` when not supported.
@@ -95,6 +100,8 @@ export class AparteConversationController {
     private _subscribedTo: AparteConversationManager | null = null;
     /** Between bind() and unbind(): the only time a manager subscription may be installed. */
     private _bound = false;
+    /** The binding shows the wait this controller asked for — see `_showWait`. */
+    private _waitShown = false;
 
     /**
      * React to an external mutation of the manager (another component deleting or
@@ -120,6 +127,9 @@ export class AparteConversationController {
             }
             this._activeId = null;
             this._binding.clearMessages();
+            // Deleted while its messages were on their way: the fetch sees the id gone
+            // and does nothing, so the wait it showed ends here.
+            this._showWait(false);
         }
     };
 
@@ -280,7 +290,7 @@ export class AparteConversationController {
             void this.setConversationId(evt.detail?.id ?? null);
         };
         if (typeof window !== 'undefined') {
-            window.addEventListener('aparte-select-conversation', this._onSelectConversation);
+            window.addEventListener('aparte-conversation-select', this._onSelectConversation);
         }
 
         // The manager subscription is installed by `_manager()` — the single lazy
@@ -340,7 +350,7 @@ export class AparteConversationController {
             this._onMessageAborted = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
-            window.removeEventListener('aparte-select-conversation', this._onSelectConversation);
+            window.removeEventListener('aparte-conversation-select', this._onSelectConversation);
             this._onSelectConversation = null;
         }
         if (this._unsubscribeManager) {
@@ -400,6 +410,9 @@ export class AparteConversationController {
             this._activeId = null;
             manager?.clearActive();
             if (isSwitch) this._binding.clearMessages();
+            // A new chat is not a conversation on its way: a wait shown for a fetch the
+            // user just left ends here (that call sees the id moved and does nothing).
+            this._showWait(false);
             return;
         }
 
@@ -442,9 +455,15 @@ export class AparteConversationController {
                         console.warn('[ConversationController] id still unknown after hydration — clearing. id:', id);
                         manager.clearActive();
                         this._binding.clearMessages();
+                        this._showWait(false);
                     }
                 });
                 this._stopHydrationRetry = stop;
+                // This call supersedes whatever was on its way: a wait shown for that
+                // fetch ends here, or it would outlive the call it belongs to (the fetch
+                // itself returns silently once the id has moved) and leave the composer
+                // disabled until a reload. The retry shows its own.
+                this._showWait(false);
                 return;
             }
             console.warn('[ConversationController] unknown id or no manager — clearing. manager:', !!manager, 'conv:', !!conv);
@@ -452,12 +471,15 @@ export class AparteConversationController {
             this._activeId = null;
             manager?.clearActive();
             this._binding.clearMessages();
+            // Same rule as the new-chat branch above: an id nobody knows — a deep link to
+            // a deleted conversation — still ends the wait it superseded.
+            this._showWait(false);
             return;
         }
 
         this._activeId = id;
         // The controller is the sole writer of `manager._activeId`. Other
-        // components must dispatch `aparte-select-conversation` rather than
+        // components must dispatch `aparte-conversation-select` rather than
         // calling `manager.select()` directly.
         manager.select(id);
         // setMessages always runs first: it handles cleanup (stop streaming,
@@ -465,18 +487,67 @@ export class AparteConversationController {
         // importTree (below) may dispatch aparte-path-changed synchronously — flag
         // the load to prevent _onPathChanged from calling _persistActive() and
         // touching updatedAt (which would cause the conv to float to the top).
+        // The messages may not be in memory yet — split storage lists through loadMeta()
+        // and fetches a conversation through loadFull(). The binding shows the wait, and
+        // a reply that lands after the user moved on is dropped: the active id is read
+        // again after the await, which is the whole race guard.
+        let record = conv;
+        const fetching = !manager.isLoaded(id);
+        if (fetching) {
+            this._showWait(true);
+            this._binding.clearMessages();
+            let loaded = false;
+            try {
+                loaded = await manager.ensureFull(id);
+            } catch (err) {
+                console.warn('[ConversationController] the conversation could not be loaded:', id, err);
+            }
+            // The user moved on while this was on its way: the newer call owns the
+            // binding now, loading flag included. Nothing of this reply may land.
+            if (this._activeId !== id) return;
+            if (!loaded) {
+                // The store failed, or has no such record: home, the wait over, and
+                // nothing written — an emptied binding left active would be persisted
+                // over the stored messages by the next send.
+                if (manager.conversations.some((c: AparteConversation) => c.id === id)) {
+                    console.warn('[ConversationController] no messages came back for', id, '— leaving it.');
+                }
+                this._activeId = null;
+                manager.clearActive();
+                this._binding.clearMessages();
+                this._showWait(false);
+                return;
+            }
+            record = manager.conversations.find((c: AparteConversation) => c.id === id) ?? conv;
+        }
         this._isLoadingConversation = true;
         try {
-            this._binding.setMessages([...conv.messages]);
+            this._binding.setMessages([...(record.messages ?? [])]);
             // If the conversation has a full tree snapshot and the binding supports
             // importing it, restore the branch topology on top. This is a no-op
             // for bindings that don't implement importTree.
-            if (conv.tree && this._binding.importTree) {
-                this._binding.importTree(conv.tree);
+            if (record.tree && this._binding.importTree) {
+                this._binding.importTree(record.tree);
             }
         } finally {
             this._isLoadingConversation = false;
+            // AFTER the messages, never before: a frame with the wait gone and the
+            // transcript still empty reads as "no messages", and center-empty centres
+            // the composer for that frame.
+            this._showWait(false);
         }
+    }
+
+    /**
+     * The binding's wait, owned here: whoever runs `setConversationId` last clears it
+     * — a loaded conversation or a new chat that replaces a fetch, a delete of the
+     * one being fetched — so a wait shown for one call never outlives the call that
+     * superseded it.
+     */
+    private _showWait(on: boolean): void {
+        if (this._waitShown === on) return;
+        this._waitShown = on;
+        this._binding.setLoading?.(on);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -497,6 +568,10 @@ export class AparteConversationController {
         if (!this._activeId) return;
         const manager = this._manager();
         if (!manager) return;
+        // Not while the messages are on their way: the binding shows an empty
+        // transcript then, and a persist — an abort landing after a switch, a path
+        // change, a send — would write that emptiness over the stored ones.
+        if (!manager.isLoaded(this._activeId)) return;
         const msgs = this._binding.getMessages().map(m =>
             (m.status === 'streaming' || m.status === 'pending')
                 ? { ...m, status: 'completed' as const }
@@ -552,9 +627,9 @@ export class AparteConversationController {
             // conversation creation.
             if (!this._ensureInFlight) {
                 // Title kept full-length; UI surfaces handle visual truncation
-                // via CSS (`min-w-0` + `truncate`). See conversation-manager
-                // updateTitle() / _autoTitle() comments.
-                const text = (userMsg.content ?? '').toString().trim() || 'New Chat';
+                // via CSS (`min-w-0` + `truncate`). The manager decides the final
+                // title when the message is added (title provider, empty text).
+                const text = (userMsg.content ?? '').toString().trim();
                 this._ensureInFlight = manager.createNew(text).then(conv => conv.id);
             }
             convId = await this._ensureInFlight;
@@ -565,7 +640,10 @@ export class AparteConversationController {
             // in the binding by setConversationId(). The freshly-created
             // conversation is an orphan; drop it and bail rather than
             // persisting a ghost message into a conv the user can't see.
-            if (this._activeId !== wasActiveId) {
+            // The first of two coalesced sends setting the active id to THIS
+            // conversation is not a switch — the second used to read it as one,
+            // delete the conversation both had joined, and empty the transcript.
+            if (this._activeId !== wasActiveId && this._activeId !== convId) {
                 void manager.delete(convId).catch(() => { /* best effort */ });
                 return;
             }

@@ -13,13 +13,18 @@
     "dependencies": {
         "@aparte/core": "workspace:*",
         "@aparte/engine": "workspace:*",
+        "@aparte/plugin-approval": "workspace:*",
         "@aparte/plugin-artifacts": "workspace:*",
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-compaction": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
+        "@aparte/plugin-shiki": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",
-        "@aparte/provider-scenario": "workspace:*"
+        "@aparte/provider-scenario": "workspace:*",
+        "@shikijs/langs": "^4.0.0",
+        "@shikijs/themes": "^4.0.0",
+        "shiki": "^4.0.0"
     },
     "devDependencies": {
         "typescript": "^5.4.0",

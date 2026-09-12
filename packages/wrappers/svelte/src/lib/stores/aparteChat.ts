@@ -1,4 +1,4 @@
-import { writable, type Writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import type { AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 
@@ -16,7 +16,12 @@ export interface AparteChatStore {
     updateSegment(segmentId: string, updates: Partial<AparteSegment>): void;
     removeSegment(segmentId: string): void;
     appendToSegment(segmentId: string, content: string): void;
-    clearMessages(): void;
+    /**
+     * The host's list — the authority, and mid-stream a frame ahead of the
+     * `messages` store, which is synced once per paint rather than per token.
+     */
+    getMessages(): AparteMessage[];
+    clearMessages(options?: { revokeAttachments?: boolean }): void;
     addBranch(messageId: string): number;
     addSiblingOf(existingId: string, message: AparteMessage): string | null;
     truncateFrom(messageId: string): void;
@@ -25,6 +30,10 @@ export interface AparteChatStore {
     stopTokenStream(): void;
     setConversationId(id: string | null): Promise<void>;
     isStreaming(): boolean;
+    scrollToBottom(): void;
+    focusInput(): void;
+    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
+    getViewport(): HTMLElement | null;
 }
 
 /**
@@ -53,7 +62,8 @@ export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore
         updateSegment: (id, u) => comp?.updateSegment(id, u),
         removeSegment: (id) => comp?.removeSegment(id),
         appendToSegment: (id, c) => comp?.appendToSegment(id, c),
-        clearMessages: () => comp?.clearMessages(),
+        getMessages: () => comp?.getMessages() ?? get(messages),
+        clearMessages: (o) => comp?.clearMessages(o),
         addBranch: (id) => comp?.addBranch(id) ?? 0,
         addSiblingOf: (id, m) => comp?.addSiblingOf(id, m) ?? null,
         truncateFrom: (id) => comp?.truncateFrom(id),
@@ -62,5 +72,8 @@ export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore
         stopTokenStream: () => comp?.stopTokenStream(),
         setConversationId: (id) => comp?.setConversationId(id) ?? Promise.resolve(),
         isStreaming: () => comp?.isStreaming() ?? false,
+        scrollToBottom: () => comp?.scrollToBottom(),
+        focusInput: () => comp?.focusInput(),
+        getViewport: () => comp?.getViewport() ?? null,
     };
 }

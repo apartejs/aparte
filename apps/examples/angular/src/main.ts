@@ -1,31 +1,23 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideAparte, aparteGlobalConfig } from '@aparte/angular';
-import { setupMarkedProvider } from '@aparte/plugin-marked';
-import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
-import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { setupSite } from '../../_shared/site-setup';
 import { AppComponent } from './app/app.component';
+import { SCENARIO_MODE } from './app/scenario-mode';
 
-// provideAparte registers the providers + plugins, wires the AparteClient
-// options and auto-connects the client on app init — no manual
-// AparteAiService.connect() anywhere.
-// Gate the composer until a model is selected.
-setupMarkedProvider();
-aparteGlobalConfig.setRequireModelSelection(true);
-// Retry and edit need a host to re-send and rewrite - provideAparte wires exactly
-// that client below, so this app opts in. Anything it does not handle (the details
-// popover, the image-tile preview) stays hidden.
-aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
-
-bootstrapApplication(AppComponent, {
-    providers: [
-        provideAparte({
-            // Both LOCAL and keyless: zero setup, zero account, and therefore no
-            // keyResolver. One is needed the moment you point at something that
-            // wants a token or a different endpoint.
-            providers: [
-                createOpenAICompatProvider(presets.OLLAMA),
-                createOpenAICompatProvider(presets.LMSTUDIO),
-            ],
+// The setup every example shares — the locale, the renderers and the markdown, the
+// highlighter, the tool plugins, the "Thought for 1.4s" line, the model (scripted by
+// default), the transport, the client that drives the turns. See ../../_shared.
+// Chained rather than a top-level `await`: the Angular CLI's esbuild target does not
+// allow top-level await ("Top-level await is not available in the configured target
+// environment") even though every browser it lists supports it, so `setupSite()` is
+// awaited via `.then()` instead. The highlighter and the providers still have to be
+// there before `bootstrapApplication` renders the first conversation, and this also
+// imports `@aparte/core` transitively (through `@aparte/angular`, which
+// `app.component.ts` imports), registering every <aparte-*> custom element as a side
+// effect — this file needs no import of its own for that.
+setupSite()
+    .then(({ scenarioMode }) =>
+        bootstrapApplication(AppComponent, {
+            providers: [{ provide: SCENARIO_MODE, useValue: scenarioMode }],
         }),
-    ],
-}).catch((err) => console.error(err));
+    )
+    .catch((err: unknown) => console.error(err));

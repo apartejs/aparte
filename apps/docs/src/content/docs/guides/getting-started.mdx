@@ -7,6 +7,7 @@ sidebar:
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import Demo from '../../../components/Demo.astro';
 import { CORE_VERSION } from '../../../data/core-version';
 
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You
@@ -100,6 +101,16 @@ import { registerDefaultRenderers } from '@aparte/core';
 registerDefaultRenderers();          // turns raw text/markdown into rendered bubbles
 ```
 
+:::note[A static shell wants the stylesheet in the head]
+Importing the stylesheet from JavaScript is fine when the framework renders your page:
+the markup and the styles arrive together. If your page ships its shell as **static
+HTML** — a sidebar, a header, the chat's tags in `index.html` — load the stylesheet
+from the head instead, with a `<link>` or an `@import` at the top of your own CSS:
+in development, Vite injects a JavaScript-imported sheet only after the module graph
+has loaded, and the shell paints bare for a moment on every reload. A production build
+extracts it into a `<link>` either way; the difference is what you see while you work.
+:::
+
 :::note[It's optional now]
 Core installs its built-in renderers the first time a segment needs one, so a chat
 renders out of the box whichever path you take. Calling `registerDefaultRenderers()`
@@ -152,11 +163,42 @@ slot. See [The composer toolbar](/guides/customization/#the-composer-toolbar).
 
 ## Make it stream
 
-The composer fires an **`aparte-send`** event when the user submits — it bubbles, so
-you can listen on `<aparte-chat>`. Reach the message list via `chat.viewport`, add
-the user's message, then stream an assistant reply in.
+The fastest way to see a reply stream is a model that needs no key and no network.
+`@aparte/provider-scenario` is a real `AparteAIProvider` that replays turns you wrote —
+text at a typing pace, thinking, tool calls, errors. Install it, register it, start the
+client:
 
-Three viewport methods are all you need:
+```bash
+npm install @aparte/provider-scenario
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+
+// `showcase` is a ready-made set of turns: a haiku, a table, some code, the weather
+// (a real tool round-trip), an artifact.
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+new AparteClient().start();   // .start() attaches the listeners — without it nothing streams
+```
+
+<Demo
+    id="getting-started-scripted"
+    caption="A real reply, streaming, with no key and no backend: the scripted model. Ask it for a haiku, a table, some code or the weather."
+/>
+
+Swap `createScenarioProvider` for a provider that talks to a real model and the rest of
+this page is unchanged — that is [Wire a real model](#wire-a-real-model), below.
+
+### Streaming it yourself, with no provider
+
+If the reply comes from something aparté does not talk to — your own SSE endpoint, a
+worker, a websocket — drive the viewport by hand. The composer fires an
+**`aparte-send`** event when the user submits. It bubbles, so you can listen on
+`<aparte-chat>`, and `chat.viewport` is the message list. Three methods are all you
+need:
 
 - `appendMessage({ id, role, content, timestamp })` — create a bubble
 - `appendToken(id, chunk)` — stream text into it, token by token
@@ -206,14 +248,14 @@ chat.addEventListener('aparte-send', (e) => {
 *(Using the primitives instead? Same code — just `document.querySelector('aparte-chat-viewport')`
 for the viewport and listen on the composer.)*
 
-That's a complete, working chat — no backend, no keys. Type a message and watch
-the reply stream in.
-
 :::note
 Streamed replies land in `message.segments` (typed text / code / thinking
 blocks), not `message.content`. You only need to know this if you render your own
 bubbles — the default renderers handle it for you.
 :::
+
+That is the shape [Bring your own loop](/guides/bring-your-own-loop/) develops. The rest
+of this page assumes the client above.
 
 ## Wire a real model
 
@@ -237,9 +279,10 @@ new AparteClient().start();   // .start() attaches the listeners — without it 
 ```
 
 The client owns the **whole** exchange: it echoes your **user** message too, files
-included — so once it runs, drop the `aparte-send` handler from
-[above](#make-it-stream) (that handler is the bring-your-own-loop path's job). A host
-that keeps its own transcript passes `echoUserMessage: false`.
+included. If you wrote the `aparte-send` handler from
+[Streaming it yourself](#streaming-it-yourself-with-no-provider), drop it — the two would
+both answer the same send. A host that keeps its own transcript passes
+`echoUserMessage: false`.
 
 Now that something can honour them, switch the retry and edit buttons on — core ships them
 off precisely because without a client they would do nothing:

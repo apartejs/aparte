@@ -165,7 +165,7 @@ export default defineConfig({
           // outside Starlight's collection, and the plugin reports a link to one as
           // "invalid link to custom page" although the route is built. `check:doc-links`
           // walks the BUILT pages, so a link into /models/ is still verified, by that guard.
-          exclude: ['/changelog/**', '/models/**'],
+          exclude: ['/changelog/**', '/models/**', '/roadmap/'],
         }),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather
@@ -191,7 +191,7 @@ export default defineConfig({
             + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
             + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
             + 'server-side. Providers and plugins are opt-in packages. How it compares to '
-            + + 'assistant-ui, AI Elements, deep-chat and Loquix: /compare/.',
+            + 'assistant-ui, AI Elements, deep-chat and Loquix: /compare/.',
           details: [
             'Three families, three places. **Components** are custom elements (`<aparte-chat>`, '
             + '`<aparte-composer>`, `<aparte-select>`…) under /components/. **Segments** are the '

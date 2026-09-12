@@ -1,0 +1,399 @@
+/*
+ * A ChatGPT skin for the vanilla site — the look and the behaviours, over @aparte/core's
+ * tokens and light DOM. Nothing here changes core; a consumer could ship this file as is.
+ *
+ * Every value below was MEASURED on chatgpt.com (2026-09-05, the logged-out app shell,
+ * light and dark), not copied from a clone: the design tokens its stylesheet declares
+ * (`--theme-surface-*`, `--text-color-*`, `--border-color-*`, `--radius-*`,
+ * `--control-size-*`, `--message-user-surface`, `--composer-*`) and the computed styles of
+ * the composer, the sidebar rows, the heading and the send button. Where the logged-out
+ * shell has no element to measure (the code card, the reasoning line, the message
+ * actions), the value follows the product as it is used, and says so.
+ *
+ * Two halves: the TOKENS, which core reads (colours, radii, sizes, type), then the
+ * RULES for what a token cannot say — no avatar and no name row above a message, the
+ * user's bubble on the end edge, the composer's pill and its black send button, the
+ * reasoning line without a box. Both are light-first, with the dark half under the
+ * same three states core's own theme answers.
+ */
+
+/* ── Tokens, light ─────────────────────────────────────────────────────────── */
+/* `:root:root`, not `:root`: in development Vite injects core's own sheets from the JS
+   import AFTER this file (each as an inline <style>), so a plain `:root` here lost to
+   core's later `:root` and the page kept the brand palette. Doubling the pseudo-class
+   gives these declarations one step more specificity than core's, whatever the order;
+   the dark halves below do the same, one step above core's dark rules.
+   And the same declarations on core's ANCHORS ([data-aparte-theme], [data-aparte-host],
+   aparte-chat): core re-derives most tokens on each of them, so a value set on the root
+   alone is beaten by the chat element's own — the code card kept the surface colour
+   until these selectors carried the skin's values too. */
+:root:root,
+:root:root [data-aparte-theme],
+:root:root [data-aparte-host],
+:root:root aparte-chat {
+  /* Surfaces: primary #fff, secondary #f3f3f3, tertiary #e8e8e8, navigation #fff. */
+  --aparte-bg: #ffffff;
+  --aparte-surface-1: #ffffff;
+  --aparte-surface-2: #f3f3f3;
+  --aparte-surface-3: #e8e8e8;
+  --aparte-sidebar-bg: #ffffff;
+  /* Text: primary #0d0d0d, secondary #5d5d5d, tertiary #8f8f8f. */
+  --aparte-text: #0d0d0d;
+  --aparte-text-muted: #5d5d5d;
+  /* Borders: default 10 %, emphasis 20 %, subtle 5 % of black. */
+  --aparte-border: rgba(0, 0, 0, 0.1);
+  --aparte-border-control: rgba(0, 0, 0, 0.2);
+  /* The one accent is the inverse surface: black on light. It is the send button. */
+  --aparte-primary: #0d0d0d;
+  --aparte-primary-hover: #2f2f2f;
+  --aparte-neutral: #5d5d5d;
+  --aparte-link-color: #0d0d0d;
+  --aparte-link-color-hover: #0d0d0d;
+
+  /* Type: the system stack ChatGPT declares, 16px on a 24px line. */
+  --aparte-font-family: -apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  --aparte-font-size-base: 16px;
+  --aparte-code-font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Radii: xs 4, sm 6, md 10, lg 14, xl 20, 2xl 28. */
+  --aparte-radius-xs: 4px;
+  --aparte-radius-sm: 6px;
+  --aparte-radius-md: 10px;
+  --aparte-radius-lg: 14px;
+  --aparte-radius-xl: 20px;
+  --aparte-radius-input: 28px;
+  --aparte-radius-bubble: 18px;
+  --aparte-radius-code: 10px;
+
+  /* Layout: a 260px sidebar, a 768px reading column, rows of 36px. */
+  --aparte-sidebar-width: 260px;
+  --aparte-message-max-width: 768px;
+  --aparte-app-header-height: 52px;
+  --aparte-conv-item-radius: 10px;
+  --aparte-conv-item-padding: 6px 10px;
+  --aparte-conv-item-font-size: 14px;
+  --aparte-conv-item-bg-hover: rgba(0, 0, 0, 0.05);
+  --aparte-conv-item-bg-active: #e8e8e8;
+  --aparte-conv-item-color: #0d0d0d;
+
+  /* The composer: a 52px pill, 7px 10px inside, 36px controls, a black round send. */
+  --aparte-input-bg: #ffffff;
+  --aparte-input-border: rgba(0, 0, 0, 0.2);
+  --aparte-input-placeholder: #8f8f8f;
+  --aparte-composer-control-size: 36px;
+  --aparte-send-btn-size: 36px;
+  --aparte-radius-send-btn: 999px;
+  --aparte-scroll-btn-size: 32px;
+
+  /* The user's bubble: the message surface (#e8e8e8), no bubble for the assistant. */
+  --aparte-message-content-bg-user: #e8e8e8;
+  --aparte-message-content-text-user: #0d0d0d;
+  --aparte-message-content-bg-assistant: transparent;
+  --aparte-message-content-padding: 10px 20px;
+
+  /* Code: a dark card in both themes, as the product draws it since 2025. */
+  --aparte-code-bg: #0d0d0d;
+  --aparte-code-header-bg: #2f2f2f;
+  --aparte-code-header-text: #b4b4b4;
+  --aparte-code-border: transparent;
+
+  /* Reasoning: a line of secondary text, no box. */
+  --aparte-thinking-bg: transparent;
+  --aparte-thinking-border: transparent;
+  --aparte-thinking-text: #5d5d5d;
+  --aparte-thinking-content: #5d5d5d;
+  --aparte-thinking-content-bg: transparent;
+  --aparte-radius-thinking: 0;
+  --aparte-thinking-rail-width: 0px;
+
+  /* No shell hairline between sidebar and page: the surfaces meet. */
+  --aparte-sidebar-inset: 8px;
+}
+
+/* ── Tokens, dark — the same three states core's theme answers ─────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:root:not([data-aparte-theme="light"]),
+  :root:root:not([data-aparte-theme="light"]) [data-aparte-theme],
+  :root:root:not([data-aparte-theme="light"]) [data-aparte-host],
+  :root:root:not([data-aparte-theme="light"]) aparte-chat {
+    --aparte-bg: #212121;
+    --aparte-surface-1: #212121;
+    --aparte-surface-2: #303030;
+    --aparte-surface-3: #414141;
+    --aparte-sidebar-bg: #181818;
+    --aparte-text: #ffffff;
+    --aparte-text-muted: #cdcdcd;
+    --aparte-border: rgba(255, 255, 255, 0.15);
+    --aparte-border-control: rgba(255, 255, 255, 0.2);
+    --aparte-primary: #ffffff;
+    --aparte-primary-hover: #e8e8e8;
+    --aparte-neutral: #cdcdcd;
+    --aparte-link-color: #ffffff;
+    --aparte-link-color-hover: #ffffff;
+    --aparte-conv-item-bg-hover: rgba(255, 255, 255, 0.1);
+    --aparte-conv-item-bg-active: #414141;
+    --aparte-conv-item-color: #ffffff;
+    --aparte-input-bg: #303030;
+    --aparte-input-border: rgba(255, 255, 255, 0.2);
+    --aparte-input-placeholder: #afafaf;
+    --aparte-message-content-bg-user: #414141;
+    --aparte-message-content-text-user: #ffffff;
+    --aparte-thinking-text: #cdcdcd;
+    --aparte-thinking-content: #cdcdcd;
+  }
+}
+/* And an element set dark under a light root — `data-aparte-theme="dark"` on one chat or
+   on a boundary — takes the same tokens: core answers that case on its own anchors, so
+   the skin has to as well, one step above them. */
+:root:root[data-aparte-theme="dark"],
+:root:root[data-aparte-theme="dark"] [data-aparte-theme],
+:root:root[data-aparte-theme="dark"] [data-aparte-host],
+:root:root[data-aparte-theme="dark"] aparte-chat,
+:root:root [data-aparte-theme="dark"],
+:root:root [data-aparte-theme="dark"] [data-aparte-host],
+:root:root [data-aparte-theme="dark"] aparte-chat {
+  --aparte-bg: #212121;
+  --aparte-surface-1: #212121;
+  --aparte-surface-2: #303030;
+  --aparte-surface-3: #414141;
+  --aparte-sidebar-bg: #181818;
+  --aparte-text: #ffffff;
+  --aparte-text-muted: #cdcdcd;
+  --aparte-border: rgba(255, 255, 255, 0.15);
+  --aparte-border-control: rgba(255, 255, 255, 0.2);
+  --aparte-primary: #ffffff;
+  --aparte-primary-hover: #e8e8e8;
+  --aparte-neutral: #cdcdcd;
+  --aparte-link-color: #ffffff;
+  --aparte-link-color-hover: #ffffff;
+  --aparte-conv-item-bg-hover: rgba(255, 255, 255, 0.1);
+  --aparte-conv-item-bg-active: #414141;
+  --aparte-conv-item-color: #ffffff;
+  --aparte-input-bg: #303030;
+  --aparte-input-border: rgba(255, 255, 255, 0.2);
+  --aparte-input-placeholder: #afafaf;
+  --aparte-message-content-bg-user: #414141;
+  --aparte-message-content-text-user: #ffffff;
+  --aparte-thinking-text: #cdcdcd;
+  --aparte-thinking-content: #cdcdcd;
+}
+
+/* ── Rules: what a token cannot say ────────────────────────────────────────── */
+
+/* A turn is the text, nothing above it: no avatar, no name, no time. The product has
+   no assistant avatar since 2025 and never had a name row; the actions sit UNDER the
+   message and show on hover. */
+.aparte-message .aparte-avatar,
+.aparte-message .aparte-header {
+  display: none;
+}
+
+/* The user's bubble sits on the end edge, hugging its text, at most 70 % of the column —
+   and its attachment strip is anchored to the same edge, above it. */
+.aparte-message[data-role="user"] .aparte-message-content {
+  margin-inline-start: auto;
+  max-width: 70%;
+}
+.aparte-message[data-role="user"] .aparte-attachments {
+  justify-content: flex-end;
+}
+
+/* The composer pill: measured 768 × 52, 1px emphasis border, a soft double shadow in
+   light and a 1px inset highlight in dark, 7px 10px inside. */
+.aparte-composer-shell {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 7px 10px;
+}
+:root:root[data-aparte-theme="dark"] .aparte-composer-shell {
+  box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:root:not([data-aparte-theme="light"]) .aparte-composer-shell {
+    box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+}
+/* Focus changes nothing on the pill — the caret is the focus (GPT, and the review). */
+.aparte-composer-shell:focus-within {
+  border-color: var(--aparte-input-border);
+}
+
+/* The send button: a filled disc in the inverse surface with the on-emphasis glyph;
+   while there is nothing to send, the control's disabled surface with a muted glyph. */
+.aparte-send-button {
+  --aparte-btn-intent: var(--aparte-primary);
+  --aparte-btn-on-intent: var(--aparte-bg);
+}
+.aparte-send-button:disabled {
+  --aparte-btn-intent: var(--aparte-surface-3);
+  --aparte-btn-on-intent: var(--aparte-text-muted);
+  opacity: 1;
+}
+
+/* The empty state: a 24px regular heading on a 28px line, the composer under it, one
+   chip. Measured: "Where should we begin?" at 24/28, weight 400. */
+.welcome h2 {
+  font-size: 24px;
+  line-height: 28px;
+  font-weight: 400;
+}
+.welcome .aparte-suggestions .aparte-btn {
+  --aparte-btn-size: 44px;
+  border: 1px solid var(--aparte-border-control);
+  background: var(--aparte-surface-1);
+  font-weight: 600;
+  font-size: 14px;
+  padding-inline: 14px;
+  border-radius: 999px;
+}
+
+/* Sidebar rows: 36px, 10px radius, 6px 10px padding, 14/20 text — the "New chat"
+   row measured. The brand row carries the logo and the collapse toggle. */
+.aparte-sidebar__header {
+  min-height: 52px;
+}
+.aparte-sidebar .site-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--aparte-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: start;
+  cursor: pointer;
+}
+.aparte-sidebar .site-row:hover {
+  background: var(--aparte-conv-item-bg-hover);
+}
+.aparte-sidebar .site-row aparte-icon,
+.aparte-sidebar .site-row svg {
+  --aparte-icon-size: 20px;
+  flex: 0 0 auto;
+}
+.aparte-sidebar__body {
+  padding-block-start: 8px;
+}
+
+/* The header: the model picker on the start edge, the actions on the end edge; no
+   conversation title (the product keeps it in the sidebar's active row). */
+.aparte-app-header {
+  border-block-end: 0;
+}
+.aparte-app-header__title {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+/* Reasoning: a line, no box. The label reads as secondary text with its chevron; the
+   expanded content is the same tone, indented by a hairline rail. */
+.aparte-segment-thinking {
+  padding-inline: 0;
+}
+
+/* The code card: dark in both themes, a 10px radius, the header bar holding the
+   language and the copy button. */
+.aparte-segment-code {
+  overflow: hidden;
+}
+.aparte-code-copy {
+  --aparte-btn-intent-ink: #b4b4b4;
+}
+
+/* The rows under the brand: "New chat" and the search, stacked, 4px apart. The search
+   is a row too — its field has no box of its own; the row is the box. */
+.site-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 var(--aparte-sidebar-inset);
+}
+.site-row--search {
+  cursor: text;
+}
+.site-row__icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  color: var(--aparte-text);
+}
+.site-search {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.site-search::placeholder {
+  color: var(--aparte-text);
+}
+.site-search::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* The model name in the header: the product's "ChatGPT ▾" — 18px semibold, the
+   picker's trigger when a local server brings one. */
+.site-model {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.site-model aparte-model-selector {
+  min-width: 12rem;
+}
+/* On a phone the picker yields: the actions on the end edge (the theme toggle, the
+   settings, a split's pane buttons) do not shrink, so the picker takes what is left. */
+.site-model {
+  flex: 1 1 0;
+}
+@media (max-width: 48rem) {
+  .site-model aparte-model-selector,
+  .site-model aparte-select,
+  .site-model .aparte-select-trigger {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+}
+.aparte-app-header__actions {
+  flex-shrink: 0;
+}
+
+/* The person in the sidebar's footer. */
+.aparte-sidebar__footer {
+  padding-inline: calc(var(--aparte-sidebar-inset) + 10px);
+}
+
+/* Group headings in the sidebar read "Today", not "TODAY": sentence case, 12px, muted. */
+/* Two classes, so this out-specifies the menu recipe the label also wears — core's
+   sheets are injected after this file in development. */
+.aparte-sidebar .aparte-conv-group__label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--aparte-text-muted);
+}
+
+/* The header has no hairline under it: the surfaces meet, as on the product. */
+.aparte-app-shell > .aparte-app-header {
+  border-bottom: 0;
+}
+
+/* The code card is dark in both themes, at the product's near-black, whatever theme the
+   highlighter carries: the plugin paints the block in the highlighter's own background
+   (an inline sheet, so this rule out-specifies it rather than following it). */
+:root:root .aparte-code-content-wrapper .shiki,
+:root:root .aparte-code-content-wrapper pre {
+  background-color: var(--aparte-code-bg);
+}
+

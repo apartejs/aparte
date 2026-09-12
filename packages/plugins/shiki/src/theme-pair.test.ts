@@ -44,6 +44,9 @@ describe('a light/dark theme pair', () => {
         expect(sheets[0]!.textContent).toContain('[data-aparte-theme="dark"] .shiki');
         expect(sheets[0]!.textContent).toContain('var(--shiki-dark)');
         expect(sheets[0]!.textContent).toContain('var(--shiki-light-bg)');
+        // The third state: no attribute, the OS dark — core's own theme answers it with the
+        // same media query and the same veto, and a page that sets nothing is in it.
+        expect(sheets[0]!.textContent).toContain('@media (prefers-color-scheme: dark){:root:not([data-aparte-theme="light"]) .shiki{');
     });
 
     it('adds no stylesheet for a single theme — nothing to switch', () => {

@@ -110,11 +110,21 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
     }
 
     async function handleGenerate(msg: Extract<InMessage, { type: 'generate' }>): Promise<void> {
-        const controller = new AbortController();
+        // `onMessage` registered the controller when the message arrived; this is the
+        // same one, so a `cancel` that landed while the generate waited its turn is
+        // already recorded on it.
+        const controller = generates.get(msg.id) ?? new AbortController();
         generates.set(msg.id, controller);
         let usage: AparteUsage | undefined;
         let closed = false;
         try {
+            if (controller.signal.aborted) {
+                // Cancelled before it started: do not load a model in order to
+                // interrupt it a moment later. `gen-done` still goes out — it is what
+                // releases the main thread's queue slot.
+                deps.post({ type: 'gen-done', id: msg.id });
+                return;
+            }
             const runner = await ensureRunner(msg, msg.id);
             await runner.generate({
                 messages: msg.messages,
@@ -151,14 +161,45 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
         }
     }
 
+    /*
+     * ONE chain for every message that touches the resident runner.
+     *
+     * `prepare`, `generate` and `command` all go through `ensureRunner`, which on a
+     * key change disposes the previous runner — and they used to run concurrently,
+     * so a `prepare` for another model disposed the pipeline an in-flight
+     * `generate` was executing (with the real runner, `pipe.dispose()` on the ONNX
+     * session mid-token), and two `prepare`s in one tick each saw `current === null`
+     * across three awaits and left two multi-GB models resident, the first
+     * unreachable for cleanup. The main thread already chains its generates for the
+     * same reason; `prepare` was on no chain at all.
+     *
+     * `cancel` is deliberately NOT chained: its whole job is to reach the generate
+     * that is running now.
+     *
+     * Every handler settles its own errors (each posts a `*-error` message), so the
+     * chain cannot be poisoned; the trailing catch is belt and braces.
+     */
+    let chain: Promise<void> = Promise.resolve();
+    const serialize = (work: () => Promise<void>): void => {
+        chain = chain.then(work).catch(() => { /* handlers report their own failures */ });
+    };
+
     return {
         onMessage(msg: InMessage): void {
             switch (msg.type) {
                 case 'init': moduleUrl = msg.transformersUrl; break;
-                case 'prepare': void handlePrepare(msg); break;
-                case 'generate': void handleGenerate(msg); break;
+                case 'prepare': serialize(() => handlePrepare(msg)); break;
+                /*
+                 * The abort intent is registered HERE, when the message arrives, not
+                 * where the generate runs: a generate is chained, so it can wait for
+                 * as long as a model load takes, and a `cancel` reaching the worker in
+                 * that window found no controller to abort. The generate then started
+                 * as if nothing had happened and streamed tokens into a reply the user
+                 * had already stopped.
+                 */
+                case 'generate': generates.set(msg.id, new AbortController()); serialize(() => handleGenerate(msg)); break;
                 case 'cancel': generates.get(msg.id)?.abort(); break;
-                case 'command': void handleCommand(msg); break;
+                case 'command': serialize(() => handleCommand(msg)); break;
             }
         },
     };

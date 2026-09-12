@@ -310,7 +310,17 @@ abstract class AparteElementBase {
         if (attrs.length && events.length) out += '\n';
         for (const ev of events) {
             const m = /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
-            out += doc(ev.description, '    ');
+            // An `@Output()` carries the event's DETAIL, so a description that offers
+            // `preventDefault()` offers something this binding cannot hand you. The file
+            // header says so once, at the top, which is where nobody reads it — the clause
+            // goes on the member that makes the promise. Core's own JSDoc stays as it is:
+            // it documents the DOM event, where the sentence is exact.
+            const described = /cancelable/i.test(ev.description ?? '')
+                ? (ev.description ?? '').trim() + ' Angular: this Output emits the detail, so '
+                    + 'preventDefault() is not on it — bind the DOM event for that: ('
+                    + ev.name + ')="$event.preventDefault()".'
+                : ev.description;
+            out += doc(described, '    ');
             out += `    @Output() readonly ${outputName(ev.name)} = new EventEmitter<${m ? m[1] : 'void'}>();\n`;
         }
         for (const ev of events) {

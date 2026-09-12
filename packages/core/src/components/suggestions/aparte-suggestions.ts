@@ -19,6 +19,21 @@ const isSuggestion = (value: unknown): value is AparteSuggestion =>
     typeof value === 'string'
     || (typeof value === 'object' && value !== null && typeof (value as { label?: unknown }).label === 'string');
 
+/**
+ * The `suggestions` JSON, from wherever it came: the attribute, or the property when a
+ * framework hands the same string to the setter. One parse, so the two channels the
+ * docblock calls equivalent actually are.
+ */
+const parseSuggestions = (raw: string): AparteSuggestion[] => {
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(isSuggestion) : [];
+    } catch {
+        console.warn('[aparte-suggestions] `suggestions` is not a JSON array. Use ["…"] or [{"label": "…", "prompt": "…"}].');
+        return [];
+    }
+};
+
 const labelOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : s.label);
 const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (s.prompt ?? s.label));
 
@@ -98,8 +113,19 @@ export class AparteSuggestions extends HTMLElement {
         return this._suggestions;
     }
 
-    set suggestions(value: AparteSuggestion[]) {
-        this._suggestions = Array.isArray(value) ? value.filter(isSuggestion) : [];
+    /**
+     * Takes the array, or the JSON string the attribute documents.
+     *
+     * Both, because both arrive: React 19 and Svelte assign the PROPERTY whenever the
+     * element has one of that name, so `<aparte-suggestions suggestions='[…]'>` — the
+     * documented spelling, typed valid by both wrappers — reached this setter as a
+     * string, `Array.isArray` said no, and the row rendered nothing while the attribute
+     * (and so `attributeChangedCallback`) was never written.
+     */
+    set suggestions(value: AparteSuggestion[] | string) {
+        this._suggestions = typeof value === 'string'
+            ? parseSuggestions(value)
+            : Array.isArray(value) ? value.filter(isSuggestion) : [];
         if (this.isConnected) this._render();
     }
 
@@ -141,13 +167,7 @@ export class AparteSuggestions extends HTMLElement {
         const raw = this.getAttribute('suggestions');
         if (raw === null || raw === this._parsed) return;
         this._parsed = raw;
-        try {
-            const parsed: unknown = JSON.parse(raw);
-            this._suggestions = Array.isArray(parsed) ? parsed.filter(isSuggestion) : [];
-        } catch {
-            console.warn('[aparte-suggestions] `suggestions` is not a JSON array. Use ["…"] or [{"label": "…", "prompt": "…"}].');
-            this._suggestions = [];
-        }
+        this._suggestions = parseSuggestions(raw);
     }
 
     /**

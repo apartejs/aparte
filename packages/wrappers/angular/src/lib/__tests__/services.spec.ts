@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@angular/compiler';
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { provideAparte, APARTE_CONFIG_TOKEN } from '../provide-aparte';
 import { APARTE_CLIENT_OPTIONS, AparteAiService } from '../aparte-ai.service';
 import { ConversationManagerService } from '../conversation-manager.service';
@@ -62,6 +62,33 @@ describe('provideAparte — injection tokens', () => {
         await TestBed.inject(ApplicationInitStatus).donePromise;
 
         expect(TestBed.inject(APARTE_CLIENT_OPTIONS)).toEqual({});
+    });
+});
+
+describe('AparteAiService', () => {
+    // Parity with `useAparteClient` / `createAparteClient`, which all return
+    // `{ client, abort }`: the service kept the instance private, so the one object
+    // the other three hand back was unreachable from Angular.
+    it('exposes the AparteClient instance the other three wrappers return', () => {
+        vi.spyOn(AparteClient.prototype, 'start').mockImplementation(() => undefined);
+        vi.spyOn(AparteClient.prototype, 'stop').mockImplementation(() => undefined);
+        TestBed.configureTestingModule({});
+        const svc = TestBed.inject(AparteAiService);
+
+        expect(svc.client).toBeInstanceOf(AparteClient);
+        // Same instance across reads — connect/disconnect/abort drive that one.
+        expect(svc.client).toBe(svc.client);
+    });
+
+    it('abort() goes to that same client', () => {
+        vi.spyOn(AparteClient.prototype, 'start').mockImplementation(() => undefined);
+        vi.spyOn(AparteClient.prototype, 'stop').mockImplementation(() => undefined);
+        const abort = vi.spyOn(AparteClient.prototype, 'abort').mockImplementation(() => undefined);
+        TestBed.configureTestingModule({});
+        const svc = TestBed.inject(AparteAiService);
+
+        svc.abort();
+        expect(abort).toHaveBeenCalledOnce();
     });
 });
 
