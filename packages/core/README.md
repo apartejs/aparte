@@ -5,10 +5,11 @@
 Framework-agnostic AI chat UI as **vanilla Web Components, with the agent loop inside** —
 zero third-party dependencies, ESM-only, usable in any framework or none.
 
-> **Alpha.** On npm, released in lockstep with every other `@aparte/*` package — the
-> version number is a plain `0.x` and the API can still change before the first stable
-> cut. Part of the [aparté](https://github.com/apartejs/aparte) monorepo; what changed
-> when is at [apartejs.dev/changelog](https://apartejs.dev/changelog/).
+> **Beta.** On npm, released in lockstep with every other `@aparte/*` package — the
+> version number is a plain `0.x`, and the declared surface is
+> [frozen as of 0.17.0](https://apartejs.dev/reference/stability/): it leaves only
+> through a notice release. Part of the [aparté](https://github.com/apartejs/aparte)
+> monorepo; what changed when is at [apartejs.dev/changelog](https://apartejs.dev/changelog/).
 
 ## Install
 

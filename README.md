@@ -7,14 +7,15 @@ variables. **Zero third-party dependencies** at the core.
 See [how it compares](https://apartejs.dev/compare/) with assistant-ui, Deep Chat and Loquix.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
-[![npm (alpha)](https://img.shields.io/npm/v/@aparte/core/alpha?label=npm%20alpha&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/alpha)
+[![npm (beta)](https://img.shields.io/npm/v/@aparte/core/beta?label=npm%20beta&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/beta)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> 🚀 **Alpha on npm.** Every `@aparte/*` package ships **together at one version**
-> under the `alpha` tag — `npm i @aparte/core@alpha` (the badge above is the live
-> number). The number itself is a plain `0.x`: what says *alpha* is the npm tag, the
-> leading zero and this notice — not a `-alpha` suffix. The API is still stabilising
-> before the first stable cut; what changed when is at
+> 🚀 **Beta on npm.** Every `@aparte/*` package ships **together at one version**
+> under the `beta` tag — `npm i @aparte/core@beta` (the badge above is the live
+> number). The number itself is a plain `0.x`: what says *beta* is the npm tag, the
+> leading zero and this notice — not a `-beta` suffix. The declared surface is
+> [frozen as of 0.17.0](https://apartejs.dev/reference/stability/) and leaves only
+> through a notice release; what changed when is at
 > **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
 > [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.
@@ -148,10 +149,11 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 ## Status
 
-Alpha, built in the open. The core, engine, four wrappers, providers, plugins and
+Beta, built in the open. The core, engine, four wrappers, providers, plugins and
 six runnable examples are **on npm**, green across the unit suite and a browser
-E2E suite (Chromium + WebKit, accessibility gated with axe-core). The API may still
-move before the first stable release.
+E2E suite (Chromium, WebKit and Firefox, accessibility gated with axe-core). The
+declared surface is frozen; what is still open before the first stable release is
+on the [roadmap](https://apartejs.dev/roadmap/).
 
 Every `@aparte/*` package is released **together, at one version** — install any of
 them at the same number. What shipped when: **[CHANGELOG.md](./CHANGELOG.md)** (the
