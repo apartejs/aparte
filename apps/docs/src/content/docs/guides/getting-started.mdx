@@ -27,10 +27,12 @@ they leave alone — providers, transports and the client, which are the same in
 framework.
 :::
 
-:::caution[Alpha]
-Every `@aparte/*` package is a plain `0.x` and the API can still change before the first
-stable cut. A rename lands as a rename rather than behind a deprecated alias, so a minor
-can ask you to change a line — pin an exact version if that matters to you, and read
+:::caution[Beta]
+Every `@aparte/*` package is a plain `0.x`. Since 0.17.0 the declared surface — elements,
+attributes, events, exports, locale keys, tokens — is [frozen](/reference/stability/): a
+name leaves it only through a notice release. Below that surface a rename still lands as a
+rename rather than behind a deprecated alias, so a minor can ask you to change a line — pin
+an exact version if that matters to you, and read
 [where it is in its life](/why/#where-it-is-in-its-life) before you commit to it.
 :::
 
@@ -83,7 +85,7 @@ what it points to.
 
 **Pin the same exact version on every URL.** A provider's bundle imports core at the exact
 version jsDelivr resolved for it (<code>/npm/@aparte/core@{CORE_VERSION}/+esm</code>); a different string on
-your side — `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
+your side — `@beta`, `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
 second copy of core with a registry of its own, so the provider you register lands in the
 wrong one. Every package ships at the same version, which makes this one number to keep.
 :::

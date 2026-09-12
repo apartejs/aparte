@@ -187,22 +187,12 @@ const ROADMAP_IMAGE_ALT =
             <h2 class="serif">Where we <span class="paren">(</span>are<span class="paren">)</span></h2>
             <div class="now-card">
               <p class="st-lede">
-                The <code>next</code> branch carries the <b>pre-beta</b>, and it publishes as the
-                next minor. The library grew a shell, a layout vocabulary and a UI kit &#8212; and
-                core gave up the one thing that was never its own: compaction, now a plugin.
+                <b>0.17.0</b> is out as the beta, and <code>next</code> is aligned on <code>main</code>
+                again. What is in progress now is the soak &#8212; a beta that stays quiet &#8212; and
+                the first 0.17.x series: the four wrappers audited as a first consumer would use
+                them, and what that audit found made right.
               </p>
 
-              <div class="cluster">
-                <h3>In the library</h3>
-                <ul>
-                  <li>The <b>comfortable</b> default density.</li>
-                  <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
-                  <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
-                  <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
-                  <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a {TITLER.kb} KB model that runs in the browser</a>, in 17 languages.</li>
-                  <li>The scroll rail measured against the market and reworked: a list of ticks capped at a share of the transcript, centred on it, and a jump that lands where it aimed.</li>
-                </ul>
-              </div>
 
               <div class="cluster">
                 <h3>Dogfooding</h3>
@@ -212,30 +202,7 @@ const ROADMAP_IMAGE_ALT =
                 </ul>
               </div>
 
-              <div class="cluster">
-                <h3>New elements and recipes</h3>
-                <ul>
-                  <li>The application shell: <code>&lt;aparte-sidebar&gt;</code>, plus the app-shell and app-header recipes.</li>
-                  <li><code>&lt;aparte-split&gt;</code> &#8212; two panes and a seam you can drag, arrow or collapse.</li>
-                  <li><code>&lt;aparte-scroll-rail&gt;</code>.</li>
-                  <li><code>&lt;aparte-context&gt;</code>, as a bar or as a ring.</li>
-                  <li><code>&lt;aparte-suggestions&gt;</code>.</li>
-                  <li><code>&lt;aparte-elicitation&gt;</code>, the typed-question panel.</li>
-                  <li>The kit dialog, on a native <code>&lt;dialog&gt;</code>.</li>
-                  <li>Markdown tables, styled like the prose around them.</li>
-                </ul>
-              </div>
 
-              <div class="cluster">
-                <h3>On the site, and on the project</h3>
-                <ul>
-                  <li>A live demo per <a href="/guides/layout/">layout family</a>: reading column, feed, builder split, side panel, empty state, an artifact in a pane.</li>
-                  <li>A <a href="/kit/button/">UI kit</a> section &#8212; twenty-five families, live preview first.</li>
-                  <li>The <a href="/components/">components</a> grouped by purpose: conversation, input, shell, utility.</li>
-                  <li>The <a href="/compare/">compare</a> page, and the <a href="/reference/support/">support matrix</a>.</li>
-                  <li><code>SECURITY.md</code>, and <code>main</code> protected.</li>
-                </ul>
-              </div>
 
               <p class="fig-head">Counted on the tree</p>
               <div class="figures">
@@ -251,23 +218,20 @@ const ROADMAP_IMAGE_ALT =
                 <div class="fig"><b>0</b><span>third-party deps<em>core&#8217;s one dependency is @aparte/engine, first-party</em></span></div>
               </div>
 
-              <p class="st-note">
-                Before the pre-beta ships: a <b>cold audit</b> &#8212; read-only auditors, then an
-                adversarial verifier per finding &#8212; and its fixes. <em>In progress.</em>
-              </p>
             </div>
           </li>
 
           <!-- ── station: beta ────────────────────────────────────────────── -->
           <li class="station st-beta">
-            <span class="mark g-open" aria-hidden="true">(<b>&#160;</b>)</span>
-            <p class="state is-open">Open</p>
+            <span class="mark g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+            <p class="state is-done">Shipped</p>
             <h2 class="serif"><span class="paren">(</span>Beta<span class="paren">)</span></h2>
             <p class="st-lede">
-              The beta is a dist-tag and a promise. A <b>declared surface</b> &#8212; elements,
-              attributes, events and their detail, barrel exports, CSS tokens and contract classes,
-              locale keys &#8212; stops changing without a notice release. The alpha broke cleanly;
-              the beta warns.
+              The beta is a dist-tag and a promise, and both are out: <code>npm i @aparte/core@beta</code>
+              installs <b>0.17.0</b>, and the <b>declared surface</b> &#8212; elements, attributes,
+              events and their detail, barrel exports, CSS tokens and contract classes, locale keys
+              &#8212; is <a href="/reference/stability/">frozen as of that version</a>: it stops changing
+              without a notice release. The alpha broke cleanly; the beta warns.
             </p>
             <p class="st-sub">The barrier, item by item</p>
             <ol class="barrier">
@@ -312,7 +276,44 @@ const ROADMAP_IMAGE_ALT =
                 <em class="b-state">in progress &#183; the first signs are in</em>
               </li>
             </ol>
-            <p class="st-note">And then the two things a checklist cannot hold: the cold audit, and soak time.</p>
+            <p class="st-note">The beta shipped on the seven conditions this list can measure. The two it cannot hold: the cold audit ran on the final tree before the cut, and soak time is what the barrier below is for.</p>
+            <p class="st-sub">What 0.17.0 carries</p>
+              <div class="cluster">
+                <h3>In the library</h3>
+                <ul>
+                  <li>The <b>comfortable</b> default density.</li>
+                  <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
+                  <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
+                  <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
+                  <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a {TITLER.kb} KB model that runs in the browser</a>, in 17 languages.</li>
+                  <li>The scroll rail measured against the market and reworked: a list of ticks capped at a share of the transcript, centred on it, and a jump that lands where it aimed.</li>
+                </ul>
+              </div>
+
+              <div class="cluster">
+                <h3>New elements and recipes</h3>
+                <ul>
+                  <li>The application shell: <code>&lt;aparte-sidebar&gt;</code>, plus the app-shell and app-header recipes.</li>
+                  <li><code>&lt;aparte-split&gt;</code> &#8212; two panes and a seam you can drag, arrow or collapse.</li>
+                  <li><code>&lt;aparte-scroll-rail&gt;</code>.</li>
+                  <li><code>&lt;aparte-context&gt;</code>, as a bar or as a ring.</li>
+                  <li><code>&lt;aparte-suggestions&gt;</code>.</li>
+                  <li><code>&lt;aparte-elicitation&gt;</code>, the typed-question panel.</li>
+                  <li>The kit dialog, on a native <code>&lt;dialog&gt;</code>.</li>
+                  <li>Markdown tables, styled like the prose around them.</li>
+                </ul>
+              </div>
+
+              <div class="cluster">
+                <h3>On the site, and on the project</h3>
+                <ul>
+                  <li>A live demo per <a href="/guides/layout/">layout family</a>: reading column, feed, builder split, side panel, empty state, an artifact in a pane.</li>
+                  <li>A <a href="/kit/button/">UI kit</a> section &#8212; twenty-five families, live preview first.</li>
+                  <li>The <a href="/components/">components</a> grouped by purpose: conversation, input, shell, utility.</li>
+                  <li>The <a href="/compare/">compare</a> page, and the <a href="/reference/support/">support matrix</a>.</li>
+                  <li><code>SECURITY.md</code>, and <code>main</code> protected.</li>
+                </ul>
+              </div>
           </li>
 
           <!-- ── station: 1.0 ─────────────────────────────────────────────── -->
@@ -322,7 +323,7 @@ const ROADMAP_IMAGE_ALT =
             <h2 class="serif"><span class="paren">(</span>1.0<span class="paren">)</span></h2>
             <p class="st-lede">The barrier from beta to 1.0.</p>
             <ul class="checks">
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span></li>
+              <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span><em class="b-state">in progress &#183; since 0.17.0</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span></li>

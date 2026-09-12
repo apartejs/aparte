@@ -17,7 +17,7 @@ export const eventCount = frozen.events.typed.length + frozen.events.names.lengt
 export const codeList = (names) => names.map((name, i) => (<span key={name}>{i > 0 ? ', ' : ''}<code>{name}</code></span>));
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-Every `@aparte/*` package is a `0.x`, and the [roadmap](/roadmap/) names the beta as the moment a declared surface stops moving without notice. This page is that declaration, and the surface below is **frozen as of {frozen.frozenSince.version}** — the beta release re-stamps it, and nothing else about this page changes. Until then the alpha rule holds: a rename lands as a rename, without an alias, and the changeset says so.
+Every `@aparte/*` package is a `0.x`, and the [roadmap](/roadmap/) names the beta as the moment a declared surface stops moving without notice. This page is that declaration, and the surface below is **frozen as of {frozen.frozenSince.version}**, the beta. From that version on, a name listed here leaves only through a notice release: a changeset that says it is deprecated and names it, one release before the removal. Below this surface the alpha rule still holds: a rename lands as a rename, without an alias, and the changeset says so.
 
 Nothing below is typed by hand. Every list on this page is the snapshot in `apps/docs/src/data/frozen-surface.json`, which `scripts/frozen-surface.mjs` takes from the tree itself — the custom-elements manifests, the typed event map, the built barrels, `AparteLocale`, the stylesheets. And `pnpm check:frozen-surface` runs in the gate and on every pull request: it re-measures the tree, and it fails on a name that left this snapshot without a notice. The figures on the [roadmap](/roadmap/) are counted the same way.
 
