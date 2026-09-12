@@ -1,5 +1,53 @@
 # @aparte/provider-openai-compat
 
+## 0.17.0
+
+### Minor Changes
+
+- edd2f06: A tool turn is now an `assistant` message carrying `toolCalls` and a `tool` message carrying `toolCallId`; the `'tool_call'` and `'tool_result'` roles are gone.
+
+  **Who has to change something.** Only code that BUILDS an `AparteChatMessage[]` by hand: a `history` function, a `requestInterceptor` that inspects roles, or a host mirroring `onHistoryAppend` into a log of its own. Nothing that uses `AparteClient` normally, and no provider you did not write yourself.
+
+  **The mapping**, as two lines:
+
+  ```diff
+  - { role: 'tool_call',   content: '', precedingText: T, toolCalls: C }
+  + { role: 'assistant',   content: T,                    toolCalls: C }
+
+  - { role: 'tool_result', content: R, toolCallId: I }
+  + { role: 'tool',        content: R, toolCallId: I, toolName: N }
+  ```
+
+  `precedingText` is **removed, not deprecated** — no alias, no compatibility shim: before 1.0 a rename is a rename, and the type error is the migration. What it carried is the assistant message's own `content`; an assistant that said nothing before its calls carries `''`.
+
+  `toolName` is new and optional, on a `tool` message. Set it and the AI SDK bridge stops guessing `'unknown'` for a result whose call it cannot find, and `@aparte/provider-scenario` routes on the name without scanning back. Both still fall back to the declaring assistant message when it is absent.
+
+  **Your stored conversations need nothing.** Persistence holds `AparteMessage`, whose role is always `user` or `assistant`; no tool turn was ever written to IndexedDB. The conversation schema version is unchanged.
+
+  **If you hold the envelope by reference** — the rule `onHistoryAppend` already stated for `toolCalls` — note that `content` is now the field that is finalised after you are notified: a provider that streams text after its first call re-reads it at the turn's end. Hold the reference, not a snapshot, or serialise only once the turn's last `tool` message has arrived. A snapshot used to lose a trailing clause; it now loses the whole sentence.
+
+  Why the shape changed: every message API in use — OpenAI-compatible, Anthropic, the AI SDK — expresses a tool round-trip as an assistant turn that declares its calls plus one message per result. Two roles of our own meant every provider translated on the way out, every consumer learned a vocabulary that matched no documentation they had read, and the assistant's own sentence lived in a field (`precedingText`) that only this library had a name for. This is the last known structural breaking change to the message type before the beta.
+
+### Patch Changes
+
+- 6e57533: A tool call a server addresses by `index` in one chunk and by `id` in the next is one call again, and a minted id can no longer collide with the server's own. Nothing to change on your side.
+
+  The parser picked ONE key per delta — `index` when it was there, `id` otherwise — so a vendor that used both, one at a time, produced two calls: the first with the name and no arguments, the second with the arguments and an empty name. The turn ran the tool on `{}` and then held a call it could not answer, so the reply came back blank. Both are addresses, not identities: a delta's keys are now aliases that resolve to the same accumulated call, and whichever key is already known names it. When a delta carries only addresses the parser has not seen yet, its function name decides — a name appears only on a call's first delta, so a nameless delta continues the call before it and a named one opens its own. That covers the vendor whose chunks never carry both addresses at once, in either order.
+
+  The id minted for a call a vendor sends without one reads `aparte-call-1` rather than `call_1`, which is what an OpenAI-shaped server calls its own first call: a turn mixing an id-less call with a real `call_1` used to mint a duplicate of it.
+
+- 7802512: Parallel tool calls survive a server that omits `tool_calls[].index`, a call with no `id` gets one, and a forced `toolChoice: { name }` reaches the endpoint instead of being downgraded to `auto`. Nothing to change on your side.
+
+  `index` was the accumulation map's only key, and it is a streaming convenience rather than part of the function-call payload — plenty of compat servers leave it out. Every call of such a turn landed on slot 0: the second `id` and `name` overwrote the first, the two argument strings concatenated into non-JSON, and the turn ran ONE tool on `{}` while the model was told it had two answers. The only trace was a console warning naming "malformed arguments JSON", which reads as the model's fault. The key is now `index`, else `id`, else the function name — which in this format appears only on a call's first delta, so a nameless chunk still continues the call before it.
+
+  An id is minted (`call_1`, `call_2`, …) when the vendor sends none; a real id arriving in a later chunk still wins. `id: ''` used to travel, and downstream it is an identity: the transcript keys a row on `tool-${id}` and the history files a result under `toolCallId`, so two id-less calls in one turn shared one row — the second call's result was written onto the first call's line — and one history slot an OpenAI-shaped endpoint rejects on the next turn.
+
+  `tool_choice` was written as `'auto'` unconditionally whenever tools were present. `{ name }` is a shape the agent loop passes straight through (it intercepts only `{ name, input }`, the synthetic call it runs itself), and the ai-sdk bridge has always honoured it, so the same request forced a tool on one provider and not on this one.
+
+- b5b103d: A message still carrying the old `'tool_call'` or `'tool_result'` role is skipped with one console warning that names the new shape; the warning goes away in 0.18. Only code that builds an `AparteChatMessage[]` by hand — a `history:` function, a `requestInterceptor`, a mirror of `onHistoryAppend` — can be affected, and the warning tells it exactly what to write.
+
+  `AparteChatMessage.role` no longer allows either value, so this is code compiled against an older aparté reaching a newer provider — the one case a type cannot catch. The two mappers used to fail differently and both badly: the OpenAI-compatible adapter put the unknown role on the wire, where it is a 400 for the whole request, and the AI SDK bridge let it fall through to a `user` turn, so the model read a tool result as something the person had typed. Each mapper now warns once per role and skips the message. A warning is not an alias: it does not make the old shape work, it names the new one.
+
 ## 0.16.11
 
 ## 0.16.10

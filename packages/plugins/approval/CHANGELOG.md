@@ -1,5 +1,7 @@
 # @aparte/plugin-approval
 
+## 0.17.0
+
 ## 0.16.11
 
 ### Patch Changes

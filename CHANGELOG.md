@@ -4,6 +4,601 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.17.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [7d009cf](https://github.com/apartejs/aparte/commit/7d009cf): A binary attachment now warns instead of vanishing; `AparteFilePart` is removed — aparté inlines images and text files only. If you referenced `AparteFilePart` (or engine's `StreamFilePart`) in your own types, drop it: `AparteContentPart` is text or image.
+
+  Nothing ever produced a file part. The client inlines images and recognized text files and returned `null` for everything else, and both wire mappers answered the type with an empty text part — a branch no message could reach. What the type did do was promise a consumer that attaching a PDF sent it, while the chip stayed on screen and the model answered as if nothing had come with the message. That promise is now a warning at the one place the file is really dropped, once per file, naming the file and its type; the chip is untouched, so your own upload or RAG layer still sees it on the `aparte-send` event.
+
+  The two-arm union also empties the third mapper's fallback: the vision runner counted "content parts this runner cannot carry" and warned about them, over a branch no message could reach. The count and its warning are gone, the same way they went from the two wire mappers.
+  <sub>`@aparte/core`, `@aparte/engine`</sub>
+
+- [ba9baa1](https://github.com/apartejs/aparte/commit/ba9baa1): Add `manage` to `<aparte-conversation-list>`: with a conversation manager registered, the `⋯` menu now performs delete/archive/pin/rename itself. Nothing changes without the attribute.
+
+  Registering the manager is the one line you already write for the rest of the persistence (`setConversationManager(manager)`); `manage` on the element is the second. The six listeners that forwarded rename, pin, unpin, archive, unarchive and delete to that same manager can go: each of our six example apps deleted its whole forwarding block for one attribute.
+
+  The events still fire, first, and they are now cancelable: `preventDefault()` on one takes that single gesture back and leaves the rest to the list. So a host that owns its persistence leaves `manage` off and keeps exactly the behaviour it has today, and a host that owns only one of the six can set `manage` and cancel that one. `manage` with no manager registered warns on the first gesture, naming the call to make.
+
+  Selecting a conversation is untouched: it is a load, not a write, and stays the host's — the `conversationId` binding, or the window-level `aparte-conversation-select` a bound controller hears.
+  <sub>`@aparte/core`</sub>
+
+- [edd2f06](https://github.com/apartejs/aparte/commit/edd2f06): A tool turn is now an `assistant` message carrying `toolCalls` and a `tool` message carrying `toolCallId`; the `'tool_call'` and `'tool_result'` roles are gone.
+
+  **Who has to change something.** Only code that BUILDS an `AparteChatMessage[]` by hand: a `history` function, a `requestInterceptor` that inspects roles, or a host mirroring `onHistoryAppend` into a log of its own. Nothing that uses `AparteClient` normally, and no provider you did not write yourself.
+
+  **The mapping**, as two lines:
+
+  ```diff
+  - { role: 'tool_call',   content: '', precedingText: T, toolCalls: C }
+  + { role: 'assistant',   content: T,                    toolCalls: C }
+
+  - { role: 'tool_result', content: R, toolCallId: I }
+  + { role: 'tool',        content: R, toolCallId: I, toolName: N }
+  ```
+
+  `precedingText` is **removed, not deprecated** — no alias, no compatibility shim: before 1.0 a rename is a rename, and the type error is the migration. What it carried is the assistant message's own `content`; an assistant that said nothing before its calls carries `''`.
+
+  `toolName` is new and optional, on a `tool` message. Set it and the AI SDK bridge stops guessing `'unknown'` for a result whose call it cannot find, and `@aparte/provider-scenario` routes on the name without scanning back. Both still fall back to the declaring assistant message when it is absent.
+
+  **Your stored conversations need nothing.** Persistence holds `AparteMessage`, whose role is always `user` or `assistant`; no tool turn was ever written to IndexedDB. The conversation schema version is unchanged.
+
+  **If you hold the envelope by reference** — the rule `onHistoryAppend` already stated for `toolCalls` — note that `content` is now the field that is finalised after you are notified: a provider that streams text after its first call re-reads it at the turn's end. Hold the reference, not a snapshot, or serialise only once the turn's last `tool` message has arrived. A snapshot used to lose a trailing clause; it now loses the whole sentence.
+
+  Why the shape changed: every message API in use — OpenAI-compatible, Anthropic, the AI SDK — expresses a tool round-trip as an assistant turn that declares its calls plus one message per result. Two roles of our own meant every provider translated on the way out, every consumer learned a vocabulary that matched no documentation they had read, and the assistant's own sentence lived in a field (`precedingText`) that only this library had a name for. This is the last known structural breaking change to the message type before the beta.
+  <sub>`@aparte/core`, `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`</sub>
+
+- [d86c28a](https://github.com/apartejs/aparte/commit/d86c28a): A conversation can be on its way: `<aparte-chat-viewport loading>` and `<aparte-conversation-list loading>` draw skeletons, the manager fetches a conversation's messages on demand through your adapter's `loadFull()`, and the controller sets `loading` while it waits and drops a reply for a conversation the user has already left.
+
+  Nothing to change unless your adapter implements `loadMeta()` and `loadFull()`: it is now used — `init()` reads the list through `loadMeta()` and `setConversationId(id)` fetches the messages through `loadFull(id)` the first time. `manager.isLoaded(id)` and `manager.ensureFull(id)` are public. An adapter with `loadAll()` alone behaves exactly as before.
+
+  What was wrong: `loadMeta()` and `loadFull()` were in the storage contract from the start and nothing called them, so between a click on a conversation and its messages there was no moment at all — and a page wired to a real store had to invent one, with a skeleton of its own over the components. Worse, `aparte-chat[center-empty]` decided it was empty by looking at the DOM: a transcript whose messages had not arrived yet has no bubble, so the welcome screen and the centred composer showed while a conversation loaded. Now:
+
+  - `<aparte-chat-viewport loading>` (reflected; `viewport.loading = true` or `setLoading(true)`) draws two skeleton turns with the kit's recipe, marks the scroll surface `aria-busy` and names the wait for a screen reader (locale key `loadingConversation`). `data-busy` is still a reply streaming; this is the transcript itself arriving.
+  - `aparte-chat[center-empty]` counts a loading viewport as not empty.
+  - `<aparte-chat>` disables its composer while its viewport is loading, and gives it back as it found it (a `disabled` you set stays). A send in that window raced the fetch: the message went into a history the arriving one overwrote.
+  - `<aparte-conversation-list loading>` draws six skeleton rows, `aria-busy`, with its own status line (locale key `loadingConversations`). Set it while your store answers, clear it when you assign `conversations`.
+  - `AparteChatBinding.setLoading?(on)` is the controller's way to say it; the default DOM binding sets the viewport's attribute.
+  - Two quick clicks: the controller re-reads the active id after the fetch and drops the stale reply, so A never paints over B.
+  <sub>`@aparte/core`, `@aparte/locale-fr`</sub>
+
+- [d67148b](https://github.com/apartejs/aparte/commit/d67148b): Composer buttons are `<aparte-composer-action>` elements, not registry entries: `zones: ['composer']`, `composer.position` and `setActionHidden` are removed. If you registered an action with `zones: ['composer']`, write the element in your composer markup instead and listen for `aparte-action-click`; `zones: ['bubble']` is untouched. The `aparte-action` event detail's `zone` is typed `AparteActionZone` now, so a listener that narrows on `'composer'` no longer compiles.
+
+  The registry never placed a composer button. `getActions` was only ever called with `'bubble'`, by the message bubble; nothing in core asked it for the composer zone, so an action registered there rendered nowhere, `composer.position` decided nothing and `setActionHidden` toggled a flag no element read. `AparteActionZone` is now `'bubble'`, which is what the code always meant.
+
+  `composer.position: 'left' | 'right'` was also the one place left that named a side. Placement in the composer is the order you write the elements in, plus `margin-inline-start: auto` — a name a right-to-left locale contradicts is a name that will lie.
+
+  The customization guide now shows the composer button it used to mention in passing: the element, where it goes in the row, and the `action-id` that tells two of them apart.
+  <sub>`@aparte/core`</sub>
+
+- [23044a5](https://github.com/apartejs/aparte/commit/23044a5): The conversation list's seven events are renamed subject-first, with no alias: `aparte-conversation-select`, `-delete`, `-archive`, `-unarchive`, `-rename`, `-pin`, `-unpin` (were `aparte-select-conversation`, `aparte-delete-conversation`, …). Wrapper bindings follow: `onConversationSelect` in React, `@conversation-select` in Vue, `on:aparte-conversation-select` in Svelte, `(conversationSelect)` in Angular. The `no-groups` attribute is `flat` (`[flat]` in Angular).
+
+  Every other event of the library reads subject then verb — `aparte-select-change`, `aparte-message-start`, `aparte-split-resize` — and the conversation list's detail types were already subject-first (`AparteConversationSelectDetail`), so one `addEventListener` line carried both orders. `no-groups` was the only negative boolean attribute; `flat` says what the rows are, and covers the "pinned first" order the same flag also removes. Pre-1.0, a rename is a rename: this lands before the beta freezes the surface, and the old names are gone rather than kept as aliases.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [bd91b89](https://github.com/apartejs/aparte/commit/bd91b89): `AparteConversation` and `AparteConversationMeta` drop `folderId`, `lastMessagePreview`, `messageCount` and `totalTokens` — nothing in the library read them.
+
+  **Who has to change something.** Only a storage adapter that WRITES one of the four onto the object it hands back, and only if it types that object as `AparteConversation` / `AparteConversationMeta`. Records already in your store are untouched: the schema version is unchanged, nothing migrates, and an extra key on a stored row is still an extra key that reads back fine.
+
+  If your store computes any of them, keep them — on your own row type:
+
+  ```ts
+  interface MyRow extends AparteConversationMeta {
+    folderId?: string;
+    messageCount?: number;
+  }
+  ```
+
+  Why they leave. `folderId` was "optional folder/tag id for organisation", a column for a folders feature this library does not have; `lastMessagePreview` was a cached preview the sidebar never asked for (it renders the conversation it already holds); `messageCount` was "for the sidebar badge", and there is no badge; `totalTokens` was a per-conversation sum nothing added up. Four fields an adapter author had to decide about, on a contract that never read one of them. The token totals that DO exist stay where they are earned, in `AparteUsage` on a message.
+  <sub>`@aparte/core`</sub>
+
+- [937b062](https://github.com/apartejs/aparte/commit/937b062): `AparteChatRequest` drops `prefill`, `systemOverride` and `fastStream` — no provider read them; pass provider-specific options in `_meta`. If you set one, move it under a key of your own: `_meta: { llamacpp: { prefill: 'x' } }`, which reaches your provider untouched.
+
+  All three were documented "providers MAY ignore it", and every provider did: they were one model family's raw-completion vocabulary flattened onto every request, so a third-party provider implementing the type inherited three fields it could not honour. `_meta` is the channel that already works — an open, namespaced bag core neither filters nor rewrites. The trigger to reconsider is a raw-completion provider in this repo that would actually read one; the JSDoc on the interface now says so, and a test drives an option through the client and `AparteDirectTransport` to prove the path stays open.
+
+  One correction comes with it: `_meta`'s own documentation claimed it was "never sent to the AI provider — stripped before the network call". Nothing strips it, and `AparteBackendTransport` serialises it to your endpoint inside the default `{ providerId, request }` body. Both halves were false, and the field now says what it does — including that it is not a place to hide a secret.
+  <sub>`@aparte/core`</sub>
+
+- [333b5a3](https://github.com/apartejs/aparte/commit/333b5a3): A conversation with no text yet has an empty `title` (it used to be the English string `New Chat`), and editing the first user message re-titles the conversation unless you named it yourself.
+
+  Two things for a consumer that reads `AparteConversation.title`:
+
+  - `createNew()` with no argument, and a first message with no text, now leave `title` empty. `<aparte-conversation-list>` already showed its locale's `newChat` word for an empty title, so a French UI no longer displays "New Chat" from the store. Render `title || yourLocale.newChat` where you show a title of your own.
+  - A new optional field, `autoTitle`, is `true` while the title is the manager's decision (the first message as typed, or the title provider's answer). Editing the first user message then re-titles through the same path. `updateTitle()` sets it to `false`, and a title you typed is kept whatever happens to the messages. Records written before this field existed have no flag and read as typed: an old title is never overwritten.
+  <sub>`@aparte/core`</sub>
+
+- [33bf7bd](https://github.com/apartejs/aparte/commit/33bf7bd): Import `showcase` from `@aparte/provider-scenario/showcase`; the root export is deprecated and removed in this release. One line changes: `import { createScenarioProvider, showcase } from '@aparte/provider-scenario'` becomes an import of `createScenarioProvider` from the root and one of `showcase` from `@aparte/provider-scenario/showcase`. Nothing else moves — the scenario format, `createScenarioProvider`, `defaultMatch` and `playTurn` are untouched.
+
+  `showcase` is a demo corpus, not a capability: twelve scripted turns with their markdown, their code block, their reasoning and their artifact, about 4 kB of the package. It sat on the root barrel, so a consumer who wrote their own scenarios shipped it anyway — runtime laziness is not distribution weight, and the lever for weight is a separate entry point, not a flag.
+
+  The provider and the corpus now build as two entries, and the scenario page, the README and the docs' live frames all import it from the subpath.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [595ec0b](https://github.com/apartejs/aparte/commit/595ec0b): The four wrappers show a conversation on its way: a `loading` prop (an input in Angular) draws two skeleton turns in the transcript, keeps the empty state off and disables the composer until the messages land — and the conversation controller sets it by itself while it fetches through your adapter's `loadFull()`. Nothing to change unless you want a wait of your own: pass `loading`.
+
+  Core's host binding gained `onLoadingChange?(on)`: the controller's wait, forwarded beside the viewport's `loading` attribute, so a wrapper that renders its own DOM can draw it. Under `framework-managed` the viewport itself draws no skeleton any more (a `<div>` prepended into a host React reconciles is one React did not render); it still sets the attribute and `aria-busy`. And the viewport's status line for a screen reader is now a sibling of the skeleton, not a child of it — inside an `aria-hidden` box it was hidden too.
+
+  Svelte sets the viewport's `loading` attribute imperatively too: under Svelte 5 a template attribute on an element that has a property of that name is set as the property, and `''` through the setter read as false — the attribute never appeared, which the Svelte 5 example caught (Svelte 4 set the attribute).
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+### Patch Changes
+
+- [56cc153](https://github.com/apartejs/aparte/commit/56cc153): The application header's sidebar toggle shows at every width while the sidebar is collapsed, so a sidebar closed on a desktop can be opened again. Nothing to change on your side if your header carries `.aparte-app-header__toggle` with `data-aparte-sidebar-toggle`, the shape the recipe documents.
+
+  On the chat site at 1440px, collapsing the sidebar with its own toggle took it to 0px, `inert` and `aria-hidden`, its toggle with it, while the header's toggle was `display: none` outside the phone media query: nothing on the page reopened it. The sidebar keeps `aria-expanded` on every `[data-aparte-sidebar-toggle]`, so the recipe shows the header's control exactly when the sidebar is closed (`.aparte-app-header__toggle[aria-expanded="false"]`), on top of the drawer case it already had.
+  <sub>`@aparte/core`</sub>
+
+- [f474a95](https://github.com/apartejs/aparte/commit/f474a95): A new conversation is titled from the message that opened it even when two sends land together, a rename keeps the conversation's place in the list, a confirmed delete hands the keyboard to the row that took its place, and the composer comes back when a fetch is superseded by an id the store does not know. Nothing to change in your code, unless you relied on a rename floating a conversation to the top.
+
+  **Two coalesced sends make one first message.** `addMessage()` suspends twice before it writes — for the messages, when they are not in memory, then for the title provider — so a suggestion and a quick type, released into it within a microtask of each other, both read a conversation with no user message in it yet: both counted as the first, and the second one's text became the title, in memory and in the store, permanently (the persist that follows the reply re-titles only an edited first message). Appends are now serialised per conversation: the next one reads what the previous one wrote. Message order was already right; only the title was wrong.
+
+  **A rename leaves `updatedAt` alone.** Like pin, unpin, archive and unarchive, a rename is metadata, and the list sorts on the last message rather than the last edit. It also could not be otherwise: an adapter's `rename()` hook carries the title alone by contract, so the bump lived in memory only — the row re-grouped under "Today" and jumped back to its old date on the next reload. Memory and storage now agree in both branches, hook or `save()`.
+
+  **A superseded fetch always ends its wait.** `setConversationId` clears the wait it superseded on every exit now, including the two that returned without it: an id the manager does not know (a deep link to a conversation another tab deleted) and the hydration retry. The in-flight fetch returns silently once the active id has moved, so nothing else was going to clear it — the viewport kept its skeleton and `aria-busy`, and the composer stayed disabled until a reload.
+
+  **A second `init()` keeps the conversation on screen persisting.** It re-reads the list from the store, which for a split adapter is metadata alone; what the first `init()` had fetched was forgotten with the rows it lived on, so writes to the open conversation were refused — silently, since the refusal is the controller's own. A conversation whose messages are already in memory now keeps them and stays loaded; a row the store no longer lists is dropped with its messages. `init()`'s docblock says so.
+
+  **The store gets the messages you sent.** `updateMessages()` saved the `segments` a viewport derived from a message's markdown on display — they were already excluded from the change comparison, but not from the record, on either half of it: the flat messages and the branch tree. Stored, they filled the store with core-generated ids and froze the parse as it stood the day it was saved, so a block grammar registered later never applied to that message. The tree is the half that mattered most, since that is the half a viewport reads back.
+
+  **A confirmed delete keeps the keyboard in the list.** Delete is confirmed from the row's own menu, so the row holding the focus is the row that leaves: the focus landed on `<body>` and the next Tab restarted at the top of the page, right after the one action here that cannot be undone. It goes to the row that took its place (the next one, else the one above), and to the list itself when the last conversation goes.
+  <sub>`@aparte/core`</sub>
+
+- [c60a806](https://github.com/apartejs/aparte/commit/c60a806): With `@aparte/plugin-streaming-markdown` installed as your only Markdown renderer, a reply now stays rendered when the turn ends instead of collapsing to raw Markdown source. Nothing to change on your side; a one-shot provider is now genuinely optional.
+
+  The settling update flushes the incremental parser and then re-renders the message once through the one-shot provider, for full fidelity. That trade only pays when a one-shot provider exists: with the streaming plugin alone, the one-shot side is core's zero-dependency default — escape plus `<br>` — so the re-render replaced `<strong>`, `<pre>` and `<ul>` with the Markdown that produced them, at the exact moment the reader stopped waiting. The message read richly for the whole stream and turned back into source on the last token.
+
+  `writeStreamedMarkdown` now asks the seam which renderer it is about to use. When `renderMarkdown` is core's built-in default, the flushed DOM is kept and passed through `sanitizeHtml` in place; when a provider is registered — including one that hands prose back untouched, since that is still the caller's renderer and not ours — the settle re-renders through it exactly as before. Either way a settled message is what the sanitizer produced, which is what allows an incremental provider to write DOM directly in the first place. The flush also feeds the parser any content the last streaming update did not carry, so what is kept is the whole message.
+  <sub>`@aparte/core`</sub>
+
+- [913969b](https://github.com/apartejs/aparte/commit/913969b): A keyboard-focused conversation row now draws a focus ring; a chat in a shadow root follows the dark theme; the English locale no longer writes `dir="ltr"` on the chat, so a page that sets `dir="rtl"` is honoured. Removed: ten CSS classes and seven CSS variables nothing read (`.aparte-input-wrapper`, `.aparte-input-container`, `.aparte-editor`, `.aparte-has-content`, `.aparte-input-upper`, `.aparte-input-footer`, `.aparte-provider-select`, `.aparte-model-select`, `.aparte-actions-left`, `.aparte-actions-right`, and `--aparte-input-gap`, `--aparte-input-container-min-height`, `--aparte-input-editor-max-height`, `--aparte-input-editor-font-size`, `--aparte-input-text`, `--aparte-model-select-chevron-room`, `--aparte-model-select-min-width`). If your markup or theme uses one of those names, it was already doing nothing to the live composer — the live editor is `.aparte-ci-editor` and reads `--aparte-input-font-size` / `--aparte-composer-control-size`.
+
+  **The row's ring.** It was removed on 2026-09-05 for good reasons — it drew the title BUTTON's box, so the ⋯ sat outside it with the ring's end hidden underneath, and a rectangle inside a rounded row read as a mistake — and the whole indication was left to the hover lift. Measured with core's own tokens: the lift is `--aparte-surface-3`, a 6% tint, so a focused row read **1.12:1** against its neighbour in light and 1.18:1 in dark, where SC 1.4.11 asks 3:1 of the state that says which row Enter opens. It is the primary navigation of every chat product this library is meant to build, thirteen tab stops into the page. The ring is back keeping every one of those reasons: drawn on the ROW so the ⋯ is inside it and it follows the row's 9px radius, INSET by its own width so the list's horizontal clip cannot cut it, and the kit's own ring — same token, same colour, same 1px. Measured after: 4.22:1 against the focused row's fill, 4.72:1 against the sidebar in light, 5.79:1 in dark. The button keeps `outline: none`: dropping it gives two rings, the inner one Chromium's black `auto 1px` on a box 34px narrower than the row.
+
+  **A dark host.** The light palette is declared on `:root, :host`, so a stylesheet adopted into a shadow root put the light hexes ON THE HOST, where a local declaration beats the dark value the host would otherwise inherit — and neither dark block could reach it, because `:root` does not match inside a shadow tree and a bare `[data-aparte-theme="dark"]` does not match the host element. Measured before: a chat in a shadow root under a dark page read `--aparte-bg: #f6f2ea`, a light card on a dark page, silently — which is exactly the arrangement `guides/theming.md` promises works. Each of the three palette blocks now names its `:host(...)` twin. One honest limit, worth stating: the media query is fully fixed, but the ATTRIBUTE path only sees `data-aparte-theme` set on the host element itself. An attribute on an ancestor outside the shadow root stays invisible from inside — only `:host-context()` could see it, and its support is partial.
+
+  **The reading direction.** `APARTE_DEFAULT_LOCALE` declared `direction: 'ltr'` as a literal, and both writers stamped it, so core OVERWROTE the host's direction: with `<html dir="rtl">` the app shell mirrored and the chat inside it did not — bubbles, branch picker, composer order and every line of text stayed left-to-right. The field is now undefined by default, the way `tag` next to it already was, and `undefined` means "follow the host". A locale that wants the direction pinned still declares it, which is the case the field exists for; `setLocale` replaces the object wholesale, so no default merges back in. Six physical declarations that only mattered once RTL was reachable went logical with it: the prose list indent, the blockquote rail and gutter, the reasoning rail, the pending attachment's ✕ and the status dot's gap.
+
+  **The dead block.** 201 lines of `components/composer.css` under its own "Legacy composer input utility classes" banner styled markup no source in the repo emits — verified against the running page, where all nine classes count zero. Dead CSS here is not inert: `reference/classes.mdx` is generated from these sheets, so the whole set shipped as public API; the block was where the abandoned Tailwind ramp survived, two data-URI chevrons on `#6b7280` / `#94a3b8` against a palette that had moved to `#a89bb6`; and it held the last three `slot[name="footer-left|center|right"]` rules, the positional names decision #4 retired. The seven variables had that block as their ONE reader — `check:derived-vars` asks whether a stylesheet reads a token, which an ORPHANED reader still satisfies — so they were published as knobs that moved nothing. `.aparte-send-button` and the `aparte-model-selector` / `.aparte-model-selector` pair sat inside the range and stay.
+
+  **Two smaller ones.** The scroll rail's focus ring moved onto the `::before` that already draws the tick's 24×24 pressable zone: `outline` paints on the element's border box, and the tick's box is the 14×2 line it draws, so the indicator came out 16×4 floating in the middle of the target a keyboard user follows down the whole transcript. And the composer toolbar's empty-row rule was split in two, so an engine without `:has()` still hides an empty row: an unsupported selector anywhere in a comma list voids the whole rule, and the first-paint reservation was taking the two plain selectors down with it.
+
+  **Measured and deliberately not changed.** A `position: fixed` popover inside a bubble is clipped at the bubble's edges. `contain: layout style paint` on `aparte-chat-bubble` looked like the cause and is not: `content-visibility: auto` turns on layout, style and paint containment on its own, so `layout style paint`, `style` alone and `none` all paint the same 2 of 4 sampled rows of an `<aparte-select>` opened inside a bubble, and only removing `content-visibility` reaches 4 of 4 — which is the streaming-performance win, not a style cleanup. It would not be enough either: `aparte-chat-viewport` is a container-query root with `contain: layout style`, so a fixed popover anywhere in the transcript resolves against the viewport rather than the window. Core puts no popover in a bubble; a tool renderer that needs one should mount it beside the viewport. The numbers are in `bubble.css` so the next reader does not re-derive them.
+  <sub>`@aparte/core`</sub>
+
+- [acc33dc](https://github.com/apartejs/aparte/commit/acc33dc): Nothing changes in your code. `AparteLocale` now documents the eleven keys a plugin renders and core does not — the artifact card's, the compaction summary's, the approval mode picker's and the model selector's — as a closed exception, the localization guide shows a plugin of your own the route that needs no room in that list, and `check:locale-keys` holds the eleven inside this repo.
+
+  `AparteLocale` is the closed list of the strings core itself draws, and `t()` is typed against it — which leaves a plugin author exactly one place to put a translatable key. Eleven arrived that way: the artifact card's labels and its two sandbox lines (`@aparte/plugin-artifacts`), the summary title (`@aparte/plugin-compaction`), the mode picker's label (`@aparte/plugin-approval`) and the empty picker's placeholder (`@aparte/plugin-model-selector`). They stay, and they are right where they are: a locale package translates one flat object rather than one per plugin, and a key that ships in every bundle costs a release notice to withdraw. What was missing is that nothing told them apart from core's own words, so a twelfth would have followed by reflex.
+
+  The guard reads core and the plugins as two corpora now, and holds the eleven in `PLUGIN_OWNED`. A declared key that only a plugin renders and is absent from that list fails, naming the plugin and the three ways out; a listed key that core has started rendering fails the other way, asking for the line back — a list that outlives its reason is how a guard goes quietly decorative. Both directions run in `scripts/__tests__/check-locale-keys.test.ts` over a doctored locale and a doctored corpus (`--locale`, `--sources`), instead of being described.
+
+  It shipped first as nine, because the matcher knew `cfg.t('x')` and `getLocale().x` and not `getLocale()['x']` — the shape `@aparte/plugin-approval` and `@aparte/plugin-model-selector` both use, so their two keys read as nobody's and the guard called the tree clean. The bracket shape counts now, and the suite carries a fixture written that way in both directions. The counts are unchanged: 91 keys, 82 `t('…')` reads.
+
+  For a plugin of your own nothing moves: read your string off `getLocale()` and default it at the call site. Your key is yours, and it needs no room in core's list.
+  <sub>`@aparte/core`</sub>
+
+- [9e44756](https://github.com/apartejs/aparte/commit/9e44756): A conversation row's `⋯` menu can be used with a mouse in Safari and every other WebKit browser: a press inside the menu no longer closes it before the click reaches the item. Nothing to change on your side.
+
+  WebKit does not move the focus to a button on mousedown. It blurs the element that held it instead — a `focusout` with no `relatedTarget` — before the click is delivered. The menu read that as the focus leaving and closed on the press itself, so with a mouse the confirmation never appeared and no item could be chosen; the keyboard path was unaffected. The menu now holds a press inside it from `pointerdown` to its release and ignores that one blur.
+  <sub>`@aparte/core`</sub>
+
+- [4a73996](https://github.com/apartejs/aparte/commit/4a73996): Three sanitising gaps close, none of which asks you to touch your code: a message that finishes streaming is re-rendered through the sanitizer, an `<input>` in model markup keeps only `type="checkbox"`, and an attachment thumbnail's URL is checked before it becomes an `<img src>`.
+
+  **The settle pass now runs.** `writeStreamedMarkdown` documents two states — while streaming, an incremental provider writes DOM directly and bypasses `sanitizeHtml`; on the settling update it flushes that provider and re-renders once through the one-shot provider, whose output _is_ sanitised. The second half is what makes the first acceptable, and on the simple-content path (`appendMessage` / `appendToken` / `completeMessage`, the first thing the getting-started guide teaches) it never happened: `_updateStreaming(false)` toggled `data-streaming`, `aria-busy` and a class, and never re-rendered the content. The live end-of-turn call carries no content of its own (`completeMessage` sends `{ status: 'completed' }` alone), so whatever the streaming provider wrote stayed on the page for good. The segment path was never affected.
+
+  **`<input>` is what its allowlist entry always said it was.** The tag is allowed for one thing, a GFM task-list checkbox, and `type` was copied through unexamined — so `<input type="password" title="API key">` rendered a credential prompt inside a reply. Nothing could read what was typed (`form`, `button` and `name` are refused, `on*` is never copied, and the inline-style allowlist has no `position`, so the control could not be lifted out of the bubble either), but the ask is the attack. Every `type` other than `checkbox` is now dropped.
+
+  **An attachment tile applies the same URL policy as everything else core writes.** `AparteAttachment.url` is documented as "URL or data URI" and a storage adapter re-mints it when a conversation is restored, so it is the app's value; it was escaped and written, where every other URL core emits is first asked whether its scheme is allowed at all. It now goes through `isSafeUrl`, and an image whose URL is refused falls back to the file chip — which still names the file — rather than rendering a broken picture. `blob:` is kept, because that is the shape core itself mints for a file the user just picked.
+  <sub>`@aparte/core`</sub>
+
+- [c73636b](https://github.com/apartejs/aparte/commit/c73636b): `client.stop()` now takes that client's `keyResolver` back off its config, and when a config holds several key sources the most recently registered one answers first. Remounting a chat with new options changes the key again. Two things may need a look on your side: code that relied on a stopped client still signing requests, and any annotation you copied from the config reference — `config.getKey(providerId)` resolves to `string | Record<string, string> | undefined`, not `string | undefined`, so widen yours if you typed it. The runtime type is unchanged; the page was wrong.
+
+  `new AparteClient({ keyResolver })` registers the resolver on its config so the model list signs its request with the same credentials as the chat. That registration outlived the client that made it: nothing released it, and `getKey` answered in registration order, so the first resolver a page ever registered kept answering for every later one. Three consequences. A stopped client kept signing model-list requests. The remount the wrappers document as the way to swap options ("remount the component that owns the hook") added a source _behind_ the one it meant to replace, so the new key never reached `refreshProviderModels`. And each mount left a retained closure on the config for the life of the page.
+
+  The client now holds the teardown `registerKeyProvider` returns and calls it in `stop()` — before the early return, since the source is added in the constructor and a client that never started still holds one — and `start()` registers again, so a stop/start pair is symmetric. `getKey` walks the registered sources newest first, over a snapshot, so a source torn down while an earlier one is being awaited cannot shift the iteration underneath it. Each `registerKeyProvider` call is its own source too — the registry used to be keyed by the function itself, so two panes handed the same module-level resolver were one entry and the first to unmount took the second one's key with it.
+
+  `AparteConfig.registerKeyProvider` is on the config reference page now, with an example and the resolution order, and `getKey`'s signature there says what it has actually returned since it learned to carry `{ apiKey, endpoint }`.
+  <sub>`@aparte/core`</sub>
+
+- [dbd64b2](https://github.com/apartejs/aparte/commit/dbd64b2): `<aparte-composer placeholder="…">`, `<aparte-composer disabled>` and `<aparte-context window={8000}>` no longer throw under React 19 and Svelte, and `<aparte-suggestions suggestions='[…]'>` renders its chips. `AparteUiHandle` is now exported from `@aparte/core` — the contract each wrapper's `<AparteUi>` handle re-exports.
+
+  React 19 and Svelte assign the PROPERTY whenever the element has one of that name, and only fall back to the attribute when it does not. `placeholder`, `disabled` and `window` were getter-only, so the assignment threw `Cannot set property … which has only a getter` and took the render down — on a spelling both wrappers' typed template surfaces declare valid. They have setters now, `disabled` through `presenceOn` so the documented `''` means ON (#62).
+
+  `<aparte-suggestions>`'s setter took an array only, while the attribute it mirrors carries the JSON string form and its own docblock calls the two channels equivalent. A React or Svelte template handing it that string failed `Array.isArray`, the list became `[]`, the attribute was never written and `attributeChangedCallback` never ran: no chips, no warning. The setter takes `AparteSuggestion[] | string` and routes a string through the same parse the attribute uses.
+
+  `AparteUiHandle` moves here for the reason `AparteChatImperativeApi` did: it was four hand-written copies, each docblock promising "the same contract on all four wrappers", and it had already drifted once.
+  <sub>`@aparte/core`</sub>
+
+- [43297ea](https://github.com/apartejs/aparte/commit/43297ea): `<aparte-optgroup collapsible>` no longer throws under React 19 and Svelte 5: the property has a setter, and assigning it toggles the attribute.
+
+  React 19 and Svelte 5 write the PROPERTY whenever the element has one of that name, and fall back to the attribute only when it does not. `collapsible` was a getter with no setter beside `collapsed`, which has one — so the assignment threw `Cannot set property collapsible of #<AparteOptgroup> which has only a getter` and took the whole render down, on a spelling the typed JSX/Svelte surfaces declare valid and the element's own `@example` shows. The in-repo emitter was safe by accident: `@aparte/plugin-model-selector` builds its groups as an HTML string.
+
+  The same shape is now asserted for the select family as a whole rather than for the one case: an attribute those elements declare is either absent as a property or writable as one — never getter-only.
+  <sub>`@aparte/core`</sub>
+
+- [af3edf5](https://github.com/apartejs/aparte/commit/af3edf5): `aparte-btn` on an `<a>` no longer shows the browser's underline; nothing to change unless you relied on it.
+
+  The recipe is documented as classes for your own elements, and a settings page reached by a link is the first thing a site puts it on. The UA stylesheet underlines an anchor and no rule of the recipe said otherwise, so the link rendered as underlined text beside an icon button. The reset now lives in the recipe.
+  <sub>`@aparte/core`</sub>
+
+- [5805be2](https://github.com/apartejs/aparte/commit/5805be2): The focus ring, the selected-row mark and the composer's focus border are neutral now, not brass; a theme that wants the accent back sets `--aparte-border-focus`, `--aparte-mark-bar` and `--aparte-select-border-hover`.
+
+  What changed on screen, measured on the chat-site example:
+
+  - `--aparte-border-focus` is `var(--aparte-neutral)`: every focused control drew a 2px accent ring, which turned a page of controls into a frame gallery. The ring is still 2px, outside the box, on `:focus-visible` only.
+  - `--aparte-mark-bar` is `0px`: the accent bar on the start edge of a chosen row (the active conversation, the selected option, a checked choice) is gone; the tint and the text weight carry the mark.
+  - A checked `.aparte-field-choice` lifts a step (`--aparte-surface-2`) instead of taking an accent border and tint: the radio or the box shows the choice.
+  - The composer shell's `:focus-within` border is `--aparte-text-muted`, a contrast step on the hairline rather than the accent.
+  - The select trigger's hover border is `--aparte-text-muted`; a keyboard-active option wears the focus ring's colour rather than the accent.
+  - Conversation rows read in `--aparte-text`, the group headings stay muted: the two no longer looked alike.
+  <sub>`@aparte/core`</sub>
+
+- [71a535d](https://github.com/apartejs/aparte/commit/71a535d): An assistant message handed over as a markdown string (`appendMessage`, `setMessages`, `importTree`) now renders like the same words streamed: a fence becomes the code card with its filename, language and copy button, a `<think>` block becomes a reasoning block. You no longer call `parseMarkdownToSegments` yourself before appending.
+
+  The stream went through the parser and a string went through the prose renderer, so the same reply looked different once it came back from a store or a non-streaming call: a bare `<pre>` where the live turn had the card. `appendMessage` now runs the same parser, with the same registered stream blocks, on an assistant's `content` when it carries no `segments` and there is something to split. A user's message is not parsed, plain prose keeps the content path, and a message that already has segments is untouched.
+  <sub>`@aparte/core`</sub>
+
+- [5581be9](https://github.com/apartejs/aparte/commit/5581be9): `fallback` is declared on every segment, not only on `type: 'custom'` — the renderer already read it that way.
+
+  **Nothing to change.** The field moves up from `AparteCustomSegment` to `AparteSegmentBase`, so the six built-in segment types declare it, and so does any type of your own written as `AparteSegmentBase & { type: '…' }`. Anything that already set it on a custom segment still compiles.
+
+  What it buys you: a segment whose renderer is not registered draws its `fallback` sentence instead of `[Unknown segment type: …]`, and that has always been true for EVERY type, because the bubble reads the field structurally. Only the declaration was narrow — a built-in segment could not type the sentence it was about to be rendered from:
+
+  ```ts
+  import type { AparteSegmentBase, AparteTextSegment } from "@aparte/core";
+
+  // A built-in type, carrying what a client with no markdown renderer will draw.
+  const text: AparteTextSegment = {
+    id: "s1",
+    type: "text",
+    content: "**A transport** is the object that talks to the model.",
+    fallback: "A transport is the object that talks to the model.",
+  };
+
+  // Your own type is the same base plus a `type` of yours — no cast, and `fallback`
+  // is declared for you.
+  type CitationSegment = AparteSegmentBase & { type: "citation"; url: string };
+  const citation: CitationSegment = {
+    id: "s2",
+    type: "citation",
+    url: "https://example.org/weather",
+    fallback: "Weather report, 6 September.",
+  };
+  ```
+
+  One clause of the field's documentation was wrong and is corrected. In the HISTORY sent back to the model, `fallback` stands in for the segment only where core does not serialise the type itself — `custom`, and any type core does not know (a registered block grammar's, a plugin's). A `text` or a `code` segment contributes its `content` and nothing else, and `thinking` / `tool_call` / `error` are kept out of the history on purpose. The docblock used to promise the substitution for every type; the behaviour is unchanged, the sentence is.
+
+  Supplying a fallback also silences the "no renderer for segment" developer warning: an author who wrote one has already said this can happen.
+  <sub>`@aparte/core`</sub>
+
+- [7e7200c](https://github.com/apartejs/aparte/commit/7e7200c): `dist/index.css` is minified (138 kB instead of 368, 20 kB gzip instead of 98), and a page that ships the chat as static HTML no longer jumps when the elements upgrade.
+
+  Measured with Lighthouse on the vanilla example built for production: the cumulative layout shift went from 0.226 to 0.011 and the performance score from 88 to 100. Four rules apply before an element is defined, so the first paint already has the final shape:
+
+  - `aparte-chat[center-empty]` with no bubble in its markup centres its composer from the first frame; the viewport releases its height the way it does once `data-empty` is written.
+  - `aparte-composer-input` reserves the editor's height (`--aparte-composer-control-size`).
+  - `aparte-suggestions` reserves one row of chips while the chat is empty.
+  - `aparte-composer-toolbar` holding only whitespace draws nothing, as it will once it reflects `data-empty`.
+
+  The minified stylesheet is what a page that links `dist/index.css` directly (a CDN, no bundler) downloads; a bundler minified it already and sees no change.
+  <sub>`@aparte/core`</sub>
+
+- [141e0a3](https://github.com/apartejs/aparte/commit/141e0a3): A fenced code block rendered from markdown no longer paints an inline-code background on every line; nothing to change on your side.
+
+  The prose rule for inline `code` matched the `<code>` inside a `<pre>` too, and with `white-space: pre-wrap` its background and padding paint per line box: every line of a markdown block wore its own stripe, with a notch at its start. The rule is scoped to `:not(pre) > code` now, so inline code keeps its chip and a block keeps one surface.
+  <sub>`@aparte/core`</sub>
+
+- [db15e77](https://github.com/apartejs/aparte/commit/db15e77): `<aparte-conversation-list>` takes `manage` as a property, so binding `false` from a framework turns the writes off; and its delete confirmation reports as a dialog instead of two plain buttons inside a menu. Nothing to change on your side, unless a selector of yours pins that confirm step to `[role="menu"]`: while it asks, the popover is `[role="dialog"]`, so anchor on `[data-menu-action="confirm-delete"]` instead.
+
+  **`manage={false}` used to mean on.** `manage` is the attribute that authorises the list to write — rename, pin, archive, delete, through the registered conversation manager — and it was attribute-only. Vue and both Sveltes stringify a bound boolean onto an element with no property of that name, so `manage={false}` wrote `manage="false"`, which `hasAttribute` reads as set: a gesture the host meant to handle itself was also finished by the list. The property is the fix, `presenceOn` like every other boolean in core (`''` is on, `false` and `undefined` are off) — the same protection `loading` already had. React 19 and Angular were never affected; they remove the attribute for `false` themselves.
+
+  **The confirm step is a dialog.** A `role="menu"` may hold menu items and nothing else, and the delete question's two answers are ordinary buttons — axe reads that as a critical `aria-required-children` violation, in a state one click away, on the element the accessibility guide offers as the pattern to copy. While it asks, the popover now carries `role="dialog"` and the question as its accessible name; it is a menu again the next time it opens. `role="menuitem"` on a destructive confirm would have been the cheap answer, and a question with two answers is not a menu. The keyboard is unchanged: the arrows, `Escape` and `Tab` behave exactly as before, and Cancel still takes the focus.
+  <sub>`@aparte/core`</sub>
+
+- [ba9baa1](https://github.com/apartejs/aparte/commit/ba9baa1): Sending, retrying and editing, the menus and their keyboard, the sidebar toggle, the split panes and the selects now work when you mount a chat inside your own shadow root. Nothing to change on your side.
+
+  **The send.** `AparteClient` resolves the chat a send belongs to by lookup — the id the composer names, then a walk up from the event, then a scan of the page — and all three read the document, which cannot see into a shadow tree. A chat mounted in one therefore had its send dropped with a warning; and on a page that also holds a chat in the light DOM, the scan answered with that one, so the person's message AND the model's reply appeared in a transcript they never typed into. The lookup now searches the tree the gesture came from first (`composedPath()`), then the document, and the walk crosses the boundary instead of stopping at the shadow host. `aparte-retry` and `aparte-edit` share that resolver, so they went the same way and are fixed with it. If you worked around this with `targetResolver`, it also takes the `<aparte-chat>` shell now — it used to require the element itself to expose `appendMessage`, so `targetResolver: () => root.querySelector('aparte-chat')`, the obvious call, was rejected.
+
+  **Four handlers listen on `document`** — the conversation row menu's outside-press, `[data-aparte-sidebar-toggle]`, `[data-aparte-split-pane]` and the select's close-on-outside-click. An event that leaves a shadow tree is retargeted, so `event.target` read as the shadow HOST, and each of the four asked "was this inside me?" of the wrong element and got no. The row menu closed on the press, so no item could be chosen; the sidebar toggle and the pane buttons did nothing; a select shut its own dropdown on the click that opened it. All four now read `composedPath()`, which names the node that was actually hit.
+
+  **Two lookups went the same way.** A toggle or a pane button that names no element resolves the one beside it, and it did that through `document.querySelector`, which cannot see into a shadow tree: it found nothing, or found the sidebar you also have in the light DOM. Both now look in the control's own tree first.
+
+  **`document.activeElement` retargets for the same reason**, so "which item holds the focus?" answered nothing for every element in the tree. The drawer's Tab trap and the select's "is the caret in the filter field?" already read the focus from the tree they are in; the conversation row menu's arrow keys, the focus a re-render of the rows puts back, and the scroll rail's arrow keys now do too — `pin` was unreachable by keyboard, the keyboard landed on `<body>` after a rename or a delete, and the rail's arrows were a silent no-op.
+
+  Only the behaviour crossed badly. The stylesheet already declared its tokens on `:host` for this arrangement, and that half worked.
+  <sub>`@aparte/core`</sub>
+
+- [dbd64b2](https://github.com/apartejs/aparte/commit/dbd64b2): A retry no longer writes the superseded reply's tail into the new bubble, a stored conversation continued under React/Vue/Svelte/Angular comes back in the order it was written, and `⋯ → Delete` on a conversation row can be confirmed again. Two things to know: `loading` set as a PROPERTY now follows core's presence convention (`el.loading = ''` turns the wait ON, as `loading=""` always did in markup — it used to turn it off), and a binding that provides `onLoadingChange` now owns the viewport's `loading` attribute outright, because the host writing it too made a wrapper draw a skeleton over a transcript the attribute said had arrived.
+
+  What was wrong, all reproduced by the audit of 2026-09-05.
+
+  **Turns crossing.** The viewport resolved the 1-argument streaming convention (`addSegment(segment)`) by scanning the ACTIVE PATH for the streaming message, and a retry on an earlier bubble takes the reply being written off that path — so the rest of it was appended to the message that had just replaced it. The scan reads the whole tree now (`resetHead` also stopped moving the head out of a branch it did not touch). The same trigger from the other side: `aparte-message-aborted` for the superseded turn carries ITS message id, and neither the chat host nor the composer compared it — one turn's unwind turned Stop back into Send mid-stream, evicted the open approval panel, and put retry, edit and the branch arrows back on every bubble while a reply was still streaming. Both compare the id now.
+
+  **Conversations under a framework.** The controller handed a stored list to the framework's own message list and nothing else, so the viewport's tree — what `exportTree()` saves — never held the history: the follow-up became the root of a fresh tree and the history was appended after it, so the saved conversation read [new turn, old history] and the next open restored exactly that. And a segment streamed before the framework had painted its bubble went into the PREVIOUS reply's bubble (the host wrote to "the last bubble on the page"), which then showed the same `data-segment-id` twice; it waits for its own bubble now, and `syncBubbles` paints it.
+
+  **A conversation restored from a tree** now gets the same markdown grammar as one restored from a flat list: `importTree` skipped the parser, so on every conversation that had ever persisted a tree, a fence came back as bare prose instead of a code card. The segments core derives that way are marked (`APARTE_DERIVED_SEGMENTS`, a non-enumerable symbol) so merely opening a conversation does not count as changing it.
+
+  **The conversation row.** `⋯ → Delete` was unreachable: replacing the menu with the confirmation removed the item holding the focus, the browser blurred it, and the list read that as "focus left the menu" and closed it — so nothing could be deleted, by mouse or keyboard. The question now takes the focus before the items it replaces are removed. Enter on a row also left the focus on `<body>` (the re-render replaces every row); it lands back on the row.
+
+  **Smaller.** `<aparte-select>` opens on one click after a framework has moved it — each re-parent used to add another trigger listener, so a click toggled twice and the control looked dead, and a mutation observer leaked per connect. Two chats sharing one config no longer share one elicitation queue, where an unanswered approval in the first held the second's question for ever. `<aparte-chat>` installs its loading gate when the viewport ARRIVES, not only when it was there at connect (a framework renders its children after the host). `clearAll()` releases the attachment URLs on every branch, not just the active path. And the two `role="status"` waits are inserted empty and named a frame later, so a screen reader hears a change rather than a new node.
+  <sub>`@aparte/core`</sub>
+
+- [54bac2c](https://github.com/apartejs/aparte/commit/54bac2c): Split storage (`loadMeta()` + `loadFull()`) no longer loses messages, and the controller's wait always ends. Two things to know: `manager.ensureFull(id)` now resolves a boolean (`false` when the store has no such record, and the row then does NOT count as loaded), and `updateMessages()` on a conversation whose messages are not in memory is refused with a warning instead of writing an empty transcript over the stored one.
+
+  What was wrong, all reproduced by the audit of 2026-09-05: a rename, pin or archive of a conversation the user had not opened wrote the row back with the `messages: []` the list came with — the stored messages gone (the adapter's `rename()` hook was never called; it is now, and without a hook the messages are fetched first); a message sent to such a row did the same; switching conversations while a reply streamed persisted the emptied binding into the conversation being fetched; `addMessage()` and `updateMessages()` read a snapshot, awaited the title provider, and wrote the snapshot back, destroying a reply that had landed meanwhile (with `@aparte/plugin-titler` the await is a model load, exactly while the first reply streams); "New chat" during a fetch, or a switch to an already-loaded conversation, left the viewport `loading` and the composer disabled for good; deleting the conversation being fetched did the same; a failing or empty `loadFull()` left an emptied binding active, which the next send wrote back; `loadFull()` answering with another conversation's id showed its messages under the wrong title; a second `init()` remembered what the first had fetched and opened it empty; a conversation created while the list was on its way vanished from it; a list repeating an id made every write hit twins; a `save()` that threw on the first send left the session with no active conversation; a title auto-derived after retention trimmed the history came from the wrong message; and a conversation merely opened and left was re-saved and floated to the top of the list, because the segments the viewport derives from a reply's markdown counted as a change — they are marked now (`APARTE_DERIVED_SEGMENTS`, a non-enumerable symbol) and ignored by the comparison.
+  <sub>`@aparte/core`</sub>
+
+- [5581be9](https://github.com/apartejs/aparte/commit/5581be9): The bubble-shell contract lists the five hooks it was missing, and a custom shell now gets `role="article"` and its accessible name from the bubble itself.
+
+  **Nothing to change.** A shell you already wrote gains the role and the name with no edit. If you wrote one from the old list you are probably missing something, and the new list says what — including the three spans the waiting region needs to draw anything.
+
+  `AparteBubbleShellRenderer` enumerated eight class hooks; the bubble looks for more than that. A shell copied from it dropped `.aparte-message-content` (the painted content box, which the bubble hides when the turn has nothing to show), `.aparte-waiting` with its `.aparte-sr-only` label, `.aparte-footer`, and `.aparte-branch-status`.
+
+  Two of those fail with nothing on screen to say so, and the contract now names them: without `.aparte-waiting` there is no "thinking" state at all between the send and the first token, and without `.aparte-branch-status` a screen-reader user gets no word that the branch moved — the arrows deliberately do not take focus, so nothing else announces it. The list is also in render order now, and a test builds a shell out of it, so a hook that leaves the documentation goes red.
+
+  `.aparte-waiting` needed a second clause, because listing it was not enough: the bubble only SHOWS and HIDES that region — the markup that paints is the shell's. A `.aparte-dots` span holding three `.aparte-dot` spans is what the stylesheet animates, so a shell built from the old bullet had a thinking state only a screen reader could perceive, and the region was literally not visible. The contract says so, this repo's own documented shell renders the spans, and the test counts them.
+
+  ARIA is the one thing the list does NOT ask of you. The bubble writes `role="article"` and the accessible name onto your root after your shell renders — so every shell that exists gains an article and a name with no author action — unless the root already declares a `role`, which is how you override it. A markup contract that also demanded a `role` would lose it the first time somebody forgot one, silently, which is exactly what had happened.
+
+  One containment is load-bearing and is now stated: `.aparte-message-content` HOLDS `.aparte-segments`, `.aparte-content` and `.aparte-waiting`. The background, radius and padding of a user message are declared on that box, so a shell that renders the three as its siblings keeps every behaviour and loses the bubble. The contract also names the two classes that carry the default layout and nothing else — `.aparte-body` and `.aparte-header` — which the bubble never queries, so a shell laid out differently can drop both.
+  <sub>`@aparte/core`</sub>
+
+- [a9784fa](https://github.com/apartejs/aparte/commit/a9784fa): The centred composer glides to the bottom when a conversation opens, the way it already glided back up when a new one started. Nothing to change on your side; if you styled `aparte-chat[center-empty][data-empty]` or `.aparte-chat-container--auto-center[data-aparte-empty]` for their `justify-content`, that declaration is gone — the centring is a spacer now.
+
+  Measured on the chat site, the top of the composer sampled every 40 ms: a new chat glided 816 → 494 px over about 300 ms, opening a conversation snapped 494 → 816 in one frame. `center-empty` animated the viewport's `flex-grow`, but the viewport also carries `height: 100%` for the scroll chain, and the moment the empty state dropped that height applied at once, leaving `flex-grow` nothing to animate. The other direction removed the height, so `flex-grow` did the sliding.
+
+  Under both centring modes (`center-empty` on `<aparte-chat>`, `centerWhenEmpty` on the wrappers) the viewport now keeps one size rule, `flex: 1 1 0%` and no height, and the centring is a `::after` spacer after the composer whose `flex-grow` is 1 while the chat is empty. Only the spacer animates, in both directions. The empty group sits between two equal halves, so the 32 px the empty viewport used to add no longer shifts it, and the first-paint reservation (`:not(:defined)`) grows the same spacer. Under `overlay-composer` the spacer does not animate: the first message takes the viewport out of the flow, and a spacer still shrinking would drop the composer from the top of the column — the overlay's composer snaps to the bottom, as it always did.
+  <sub>`@aparte/core`</sub>
+
+- [3f01fb4](https://github.com/apartejs/aparte/commit/3f01fb4): The composer toolbar wraps, so a second control is no longer pushed off the composer on a phone.
+
+  **Nothing to change.** A row that already fits looks the same; one that does not now puts the overflowing control on a second line instead of past the edge.
+
+  `aparte-select` sets a `min-width` on its host — a hard floor, so a select in a flex row cannot shrink — and the arrangement we document puts two of them in this row: the approval switch (`@aparte/plugin-approval`'s own example says "beside the model selector, in the composer's toolbar") and the model selector. That is 400px of controls in a row the toolbar did not wrap.
+
+  Measured in Chromium at 390px, the width our responsive suite calls a phone: the model selector's right edge sat at 449 against a 390px viewport, and the page did not scroll to it — an ancestor clipped it. The model picker was unreachable, not merely ugly, and RTL mirrored it exactly at x=-59. The row is the fix rather than the example markup: a documented arrangement that needs an inline `style` to work is a missing knob.
+
+  An end-aligned control keeps its `margin-inline-start: auto` and lands at the end of the line it is on.
+  <sub>`@aparte/core`</sub>
+
+- [5581be9](https://github.com/apartejs/aparte/commit/5581be9): The custom-segment example now shows what actually happens: one renderer for `type: 'custom'` that switches on `subType`.
+
+  **Nothing to change** — this is the documentation catching up with the code.
+
+  The old `@example` on `AparteCustomSegment` sat under the sentence "with no renderer registered for `subType`, core draws `fallback`", which reads as if the registry looked `subType` up. It does not: `registerSegmentRenderer` keys on `type` and only on `type`. An author who registered a renderer for `'weather-widget'` saw nothing render, with no error to explain it.
+
+  So the example is now the whole shape — one renderer for `custom`, a `switch` on `subType`, and `fallback` as the default branch — and it says the other half out loud: an independent view takes its own `type` (register a `chart` renderer for a chart), and `custom` is for a family of small views an app would rather keep behind one key. The example is executed by a test, so the two cannot drift.
+  <sub>`@aparte/core`</sub>
+
+- [dbd64b2](https://github.com/apartejs/aparte/commit/dbd64b2): The model picker now works with `new AparteClient({ keyResolver })` alone, and a key provider may return `{ apiKey, endpoint }` so the model list follows your endpoint. Nothing to change on your side; `aparteGlobalConfig.setKeyProvider()` behaves as before, and `AparteConfig.registerKeyProvider(provider)` is new if you want to add a key source of your own.
+
+  Two channels carry a provider's credentials, and `refreshProviderModels` — the model selector's only data path — could see neither properly.
+
+  `keyResolver` is what the providers guide teaches ("you hand it to each request via `keyResolver` on `AparteClient`"), with `setKeyProvider` called an alternative, and nothing told you to call both. But the resolver reached the chat only: `refreshProviderModels` read `config.getKey` alone, so `fetchModels` was called with `undefined` and returns `[]` for every cloud provider. An empty picker, a working chat, and no warning — it read as "the vendor returned nothing". The client now registers its resolver ON the config, so the capability is not hostage to the client (a page that constructs none still lists models), and one resolution order answers both questions: a registered resolver first, then `setKeyProvider` — the precedence the client already documented.
+
+  `AparteKeyProvider` was typed as returning a string, so the `{ apiKey, endpoint }` record the transport reads and `fetchModels` accepts could not travel on it. A consumer who points a preset at their own host — a corporate proxy, a self-hosted vLLM, an LM Studio box on another port — configures it as `endpoint`, and the chat honoured it while the model refresh sent `GET {vendor default}/models` carrying the key that host had been given. It travels now, on both channels.
+  <sub>`@aparte/core`</sub>
+
+- [d873d93](https://github.com/apartejs/aparte/commit/d873d93): `<aparte-scroll-rail>` no longer rewrites its `aria-label` and the current tick's `aria-current` on a reconcile when their values did not change. Nothing to change on your side.
+
+  A reconcile runs on every mutation of the transcript, and an attribute written to the value it already has is still a DOM mutation: a mutation observer on the rail sees it, and so does an assistive technology watching the tree. CI's WebKit measured it — a late host mutation after the last reply settled ran a reconcile that rewrote both attributes, unchanged, inside the window where the rail is meant to hold still. Both writes are now conditional, the way the ticks' labels already were.
+  <sub>`@aparte/core`</sub>
+
+- [e9c910c](https://github.com/apartejs/aparte/commit/e9c910c): A focused scroll-rail tick draws its keyboard ring on all four sides, inset by the ring's own width. Nothing to change on your side; if you had re-declared `outline-offset` on `.aparte-scroll-rail__tick:focus-visible::before` to work around the clipping, drop it.
+
+  The ring is drawn on the `::before` that computes the tick's 24x24 pressable zone, and that zone is not merely near the rail's clip box — it is the clip box: the rail is exactly `--aparte-scroll-rail-width` wide with no inline padding, the zone is anchored to both of its inline edges, and the rail's block padding puts the clip line on the first and last zone's edge. `outline` paints outside the border box, so at the shared `0` offset both verticals fell into what `overflow-x: hidden` cuts, and the end ticks lost a third side. Measured on a page with the ring colour forced: 44 painted pixels on a middle tick, two detached 16px hairlines 24px apart with nothing marking the tick itself, and 26 on the last one. Offsetting inward by `--aparte-focus-outline-width` — the same idiom the conversation row and the image thumbnail already use, each for a clip of its own — paints 64, both verticals included.
+  <sub>`@aparte/core`</sub>
+
+- [5581be9](https://github.com/apartejs/aparte/commit/5581be9): The thinking block reads `--aparte-thinking-bg` and `--aparte-thinking-content-bg`; both default to `transparent`, so nothing changes on screen.
+
+  **Nothing to change.** If you set either token, it now does what its name says.
+
+  Both were declared and read by nothing: the reasoning block hard-coded `background: transparent` on the rail and on the panel, so a theme that set either one was setting a decoration. Wiring them without moving a pixel is the whole point — the default is exactly the value the two rules used to hard-code, which is also why the two declarations move from the derived layer to the literal palette (`transparent` is a literal, not something derived from a master).
+
+  ```css
+  aparte-chat {
+    --aparte-thinking-bg: var(--aparte-surface-2);
+    --aparte-thinking-content-bg: var(--aparte-surface-1);
+  }
+  ```
+
+  That turns the understated left rail into a filled card, which is a look, not a default.
+
+  The panel's token is read on ONE class, and that matters if you style the panel yourself. It first shipped as a two-class rule (`.aparte-segment-thinking .aparte-thinking-content`) so it would beat `prose.css`, which is imported last — and it beat the one-class `.aparte-thinking-content { background: … }` a consumer may already have written just as well, with nothing on screen to explain it. `prose.css` reads the token itself now: same pixels, one specificity, your own rule wins again.
+  <sub>`@aparte/core`</sub>
+
+- [1200563](https://github.com/apartejs/aparte/commit/1200563): In Safari and every other WebKit browser, a framework-rendered transcript stays anchored at the bottom when a streamed reply finishes; it used to end up 80px short with the follow switched off. Nothing to change on your side, unless you had set `overflow-anchor` on the transcript yourself.
+
+  The viewport pins the reader to the bottom itself and reads a `scrollTop` decrease it did not write as the reader walking away. Whether a decrease was the reader's used to be decided by its size alone — no larger than the height change seen at that scroll event — and WebKit's settle refutes that: between two layouts of a finishing reply it moves `scrollTop` by more than the regrown height explains (82px against 30, once 27px against nothing), one frame after the viewport's own pin. Three signals decide now. The reader's hand: a scroll gesture leaves a trace (wheel, touch, a press in the scrollbar gutter, a scroll key), and a press on the text that drags a selection past the edge holds the pointer while the container scrolls. The churn, as before: a decrease no larger than the height change is the layout's. And the settle: a decrease of at most 100px within 100ms of a transcript mutation the viewport observed is the engine finishing that layout, and the follow stays armed and re-anchors. A host's own `scrollTo`, or a tool's scroll-into-view before a click, comes with no mutation or moves by far more, and still disarms the way a reader does. The browser's own scroll anchoring is also off on both scroll surfaces: a chat appends below the reader, so it protected nothing there and only fought the pin.
+  <sub>`@aparte/core`</sub>
+
+- [e9c910c](https://github.com/apartejs/aparte/commit/e9c910c): Transcript text aligns to the reading direction instead of the left edge, so an RTL page gets right-aligned messages. Nothing to change on your side unless you had overridden `aparte-chat-viewport { text-align }` to get this.
+
+  `aparte-chat-viewport` declared `text-align: left`, and `text-align` inherits: that one declaration reached every message, segment and paragraph below it. It could not lie while core wrote `dir="ltr"` onto its own DOM; now that the direction follows the host, an Arabic transcript came out mirrored with every line still hugging the left edge — lists indented on the right, the blockquote rail on the right, the prose left-aligned between them. It is `text-align: start` now. The suite that swept the sheets for physical edges reads `text-align: left|right` as physical too, across the whole corpus rather than the four sheets it had named.
+  <sub>`@aparte/core`</sub>
+
+- [595ec0b](https://github.com/apartejs/aparte/commit/595ec0b): The four wrappers show a conversation on its way: a `loading` prop (an input in Angular) draws two skeleton turns in the transcript, keeps the empty state off and disables the composer until the messages land — and the conversation controller sets it by itself while it fetches through your adapter's `loadFull()`. Nothing to change unless you want a wait of your own: pass `loading`.
+
+  Core's host binding gained `onLoadingChange?(on)`: the controller's wait, forwarded beside the viewport's `loading` attribute, so a wrapper that renders its own DOM can draw it. Under `framework-managed` the viewport itself draws no skeleton any more (a `<div>` prepended into a host React reconciles is one React did not render); it still sets the attribute and `aria-busy`. And the viewport's status line for a screen reader is now a sibling of the skeleton, not a child of it — inside an `aria-hidden` box it was hidden too.
+
+  Svelte sets the viewport's `loading` attribute imperatively too: under Svelte 5 a template attribute on an element that has a property of that name is set as the property, and `''` through the setter read as false — the attribute never appeared, which the Svelte 5 example caught (Svelte 4 set the attribute).
+  <sub>`@aparte/core`</sub>
+
+- [6e57533](https://github.com/apartejs/aparte/commit/6e57533): A forced `toolChoice` is now sent on the first turn only; the turns after it go out as `'auto'`, so the run ends with an answer instead of the turn limit. Nothing to change on your side.
+
+  The request is rebuilt from `baseRequest` every turn, and only the synthetic `{ name, input }` shape stripped itself. A plain `{ name }` — the shape a consumer sets to force a tool — therefore travelled again after the tool had already answered: the model was made to call it once per turn until `maxTurns`, so a forced tool ran ten times and the run reported `turn-limit-exceeded` rather than replying.
+
+  Forcing a tool is a turn-1 instruction and the loop is the only thing that can lift it, so the loop lifts it: any object `toolChoice` is dropped from the base request after the first transport call.
+  <sub>`@aparte/engine`</sub>
+
+- [6e57533](https://github.com/apartejs/aparte/commit/6e57533): A Stop stays a Stop when the transport's iterator throws on the way out, however it throws. Nothing to change on your side.
+
+  Settling the iterator was guarded with `.catch()`, which only ever sees a rejected promise. A hand-written iterator — the likely shape when a host drives `runStreamAgent` with a transport of its own — throws synchronously, before there is a promise to reject, and one whose `return()` gives a plain object has no `.catch` at all. Either way the deliberate stop came back to the caller as a thrown run error, and core paints an error card over the reply the user had just stopped.
+
+  Both settle sites (the abort bail and the per-turn `finally`) now use `try`/`catch`, which covers all three shapes.
+  <sub>`@aparte/engine`</sub>
+
+- [6e57533](https://github.com/apartejs/aparte/commit/6e57533): `onHistoryAppend`'s documentation now says which fields of the assistant turn carrying a tool call are filled in after you are notified, and what a host that writes bytes at receipt should do about it. Documentation only.
+
+  The option exists for a host that owns its own transcript — a prefix cache, an append-only log — and the docblock said to hold the reference rather than a snapshot, justifying it with the turn's later `toolCalls`. Since the loop re-reads that turn's text at the turn's end (a provider that emits a tool call before the rest of its sentence), an append-only log, which by definition serialises at receipt and cannot hold a reference, was told to do the one thing it cannot.
+
+  The paragraph now names both late fields and says to treat that turn as provisional until the last `tool` message of the turn.
+  <sub>`@aparte/engine`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): Two tool calls that arrive with the same id in one turn get one row and one history slot each; text streamed after a tool call reaches the history; and a Stop stays a Stop when the transport's iterator throws on the way out. Nothing to change on your side.
+
+  A call id is an identity downstream — the transcript keys a segment on `tool-${id}` and `updateSegment` takes the first match, and the history files a `tool` message under `toolCallId`. A provider that repeats one (a vendor omitting `id` produced `''` for every call) therefore wrote the second call's result onto the first call's row, and left a pair no OpenAI-shaped endpoint can match on the next turn. A repeat is renamed rather than refused — the model asked for both — and the rename happens once, before the first emit, so the row, the handler, the approval and the history slot all name the same call.
+
+  The assistant turn that carries the calls snapshotted its own text when the first call was declared, and a turn can go on streaming afterwards. A provider that emits `[tool, text]` in that order (`@aparte/provider-scenario` does; `openai-compat` flushes its calls at the end of the stream and so cannot) showed the user a sentence the model never saw again. The envelope is re-read at the turn's end, the way its `toolCalls` array already was.
+
+  The abort path settled the transport's iterator without the `.catch(() => {})` the `finally` uses, so a host driving the loop with an iterator of its own turned a deliberate Stop into a thrown run error — and core paints an error card over the reply that was just stopped.
+  <sub>`@aparte/engine`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): The AI SDK stream is told to stop on every exit, not only when the consumer cancels. Nothing to change on your side.
+
+  `cancel()` calls `iterator.return()` precisely so the vendor call stops instead of draining to its natural end after the consumer has walked away. The two in-band terminals, `finish` and `error`, returned straight out of the loop and skipped it — so after an error part the call was left running exactly where the bridge was written to end it.
+  <sub>`@aparte/provider-ai-sdk`</sub>
+
+- [b5b103d](https://github.com/apartejs/aparte/commit/b5b103d): A message still carrying the old `'tool_call'` or `'tool_result'` role is skipped with one console warning that names the new shape; the warning goes away in 0.18. Only code that builds an `AparteChatMessage[]` by hand — a `history:` function, a `requestInterceptor`, a mirror of `onHistoryAppend` — can be affected, and the warning tells it exactly what to write.
+
+  `AparteChatMessage.role` no longer allows either value, so this is code compiled against an older aparté reaching a newer provider — the one case a type cannot catch. The two mappers used to fail differently and both badly: the OpenAI-compatible adapter put the unknown role on the wire, where it is a 400 for the whole request, and the AI SDK bridge let it fall through to a `user` turn, so the model read a tool result as something the person had typed. Each mapper now warns once per role and skips the message. A warning is not an alias: it does not make the old shape work, it names the new one.
+  <sub>`@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`</sub>
+
+- [6e57533](https://github.com/apartejs/aparte/commit/6e57533): A tool call a server addresses by `index` in one chunk and by `id` in the next is one call again, and a minted id can no longer collide with the server's own. Nothing to change on your side.
+
+  The parser picked ONE key per delta — `index` when it was there, `id` otherwise — so a vendor that used both, one at a time, produced two calls: the first with the name and no arguments, the second with the arguments and an empty name. The turn ran the tool on `{}` and then held a call it could not answer, so the reply came back blank. Both are addresses, not identities: a delta's keys are now aliases that resolve to the same accumulated call, and whichever key is already known names it. When a delta carries only addresses the parser has not seen yet, its function name decides — a name appears only on a call's first delta, so a nameless delta continues the call before it and a named one opens its own. That covers the vendor whose chunks never carry both addresses at once, in either order.
+
+  The id minted for a call a vendor sends without one reads `aparte-call-1` rather than `call_1`, which is what an OpenAI-shaped server calls its own first call: a turn mixing an id-less call with a real `call_1` used to mint a duplicate of it.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): Parallel tool calls survive a server that omits `tool_calls[].index`, a call with no `id` gets one, and a forced `toolChoice: { name }` reaches the endpoint instead of being downgraded to `auto`. Nothing to change on your side.
+
+  `index` was the accumulation map's only key, and it is a streaming convenience rather than part of the function-call payload — plenty of compat servers leave it out. Every call of such a turn landed on slot 0: the second `id` and `name` overwrote the first, the two argument strings concatenated into non-JSON, and the turn ran ONE tool on `{}` while the model was told it had two answers. The only trace was a console warning naming "malformed arguments JSON", which reads as the model's fault. The key is now `index`, else `id`, else the function name — which in this format appears only on a call's first delta, so a nameless chunk still continues the call before it.
+
+  An id is minted (`call_1`, `call_2`, …) when the vendor sends none; a real id arriving in a later chunk still wins. `id: ''` used to travel, and downstream it is an identity: the transcript keys a row on `tool-${id}` and the history files a result under `toolCallId`, so two id-less calls in one turn shared one row — the second call's result was written onto the first call's line — and one history slot an OpenAI-shaped endpoint rejects on the next turn.
+
+  `tool_choice` was written as `'auto'` unconditionally whenever tools were present. `{ name }` is a shape the agent loop passes straight through (it intercepts only `{ name, input }`, the synthetic call it runs itself), and the ai-sdk bridge has always honoured it, so the same request forced a tool on one provider and not on this one.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+- [e573758](https://github.com/apartejs/aparte/commit/e573758): `createScenarioProvider` now warns about a tool with no `after` route even when you pass a `match` of your own. Nothing to change in your code — when a `match` is present the warning ends with _this line is the one to ignore_, because a `match` that routes the tool result by value (the documented branching shape) does not loop.
+
+  The warning exists because a `when` scenario that calls a tool, with nothing answering the result, loops: the default rule sends the tool result back through the same `when`, round after identical round, until the client's `maxTurns` stops it.
+
+  Passing `match` used to switch that warning off, on the premise that a custom rule replaces the default one. It does not replace it, it precedes it — the pick reads `match(request, scenarios) ?? defaultMatch(request, scenarios)` — so a `match` that returns `undefined` for a tool result, which is exactly what the documented and in-repo examples write, lands right back on the rule the warning protects. The exemption was silencing the shape most likely to need it.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): `turns` documents that its cursor belongs to the provider, not to a chat. No behaviour change.
+
+  Two chats registered against one provider take turns from the same script and interleave it — chat A gets `turns[0]`, chat B `turns[1]` — because a request carries no conversation identity to key a cursor on. The JSDoc now says so and names the two ways out: a provider per chat (`createScenarioProvider` is cheap and takes an `id`), or `scenarios`, which answers from the request itself and has no cursor at all.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [029c44b](https://github.com/apartejs/aparte/commit/029c44b): The showcase scenario answers "ship it" with a four-step tool chain — search, read, write, run — so a multi-tool turn can be seen. Register `search_docs`, `read_file`, `write_file` and `run_command` if you want the chain to resolve; unregistered tool names abort the call, exactly as `get_weather` and `ask_user` already did.
+
+  Every other scenario calls ONE tool and answers its result, so the turn a real agent produces — several calls in a row, each feeding the next — was the one shape nothing in this repository could show. It is what a transcript has to survive: five rows stacked in one bubble, an approval decision landing in the middle of them, a refusal cutting the rest of the turn.
+
+  Each tool in the chain carries its own `after:` route (`releaseRead`, `releaseWrite`, `releaseRun`, `releaseDone`), because a tool whose result is not routed falls back through the `when` that started the chain and the conversation eats its own tail — the warning `createScenarioProvider` prints at creation.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [7d009cf](https://github.com/apartejs/aparte/commit/7d009cf): A binary attachment now warns instead of vanishing; `AparteFilePart` is removed — aparté inlines images and text files only. If you referenced `AparteFilePart` (or engine's `StreamFilePart`) in your own types, drop it: `AparteContentPart` is text or image.
+
+  Nothing ever produced a file part. The client inlines images and recognized text files and returned `null` for everything else, and both wire mappers answered the type with an empty text part — a branch no message could reach. What the type did do was promise a consumer that attaching a PDF sent it, while the chip stayed on screen and the model answered as if nothing had come with the message. That promise is now a warning at the one place the file is really dropped, once per file, naming the file and its type; the chip is untouched, so your own upload or RAG layer still sees it on the `aparte-send` event.
+
+  The two-arm union also empties the third mapper's fallback: the vision runner counted "content parts this runner cannot carry" and warned about them, over a branch no message could reach. The count and its warning are gone, the same way they went from the two wire mappers.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [c0f362b](https://github.com/apartejs/aparte/commit/c0f362b): A local runner now says when it dropped a tool call the assistant made, not only the tool result that answered it, and the vision runner counts a content part it cannot carry instead of failing at generate time. Nothing to change on your side; you get one warning where you used to get none.
+
+  Neither built-in runner can carry a tool turn — the wire syntax for one is model-specific — and both have always said so. Now that a call rides on an `assistant` message rather than a role of its own, the call passes the runner's role test: a turn where the model said nothing before calling was then dropped by the emptiness check below it, in silence, which is the exact defect the warning exists to prevent. Both runners count such a turn, and the shared message names both halves — the call the assistant made, and the result that answered it.
+
+  The message says one thing more precisely than it did. What is dropped is the CALL and its result; what the assistant said before calling is still in the prompt, because that sentence rides on the same `assistant` message and passes the role test. "Dropped tool turn(s) from the prompt" read as if the whole turn left, which had stopped being true.
+
+  On the parts axis the vision runner had no guard at all. Its content loop was `text` or _else an image_, so a `file` part — removed from `AparteContentPart`, and still reachable from an app built against an older aparté — was pushed into the image list as `undefined` and reached `load_image(undefined)`, failing the turn at generate time. It is counted and named now, the way the wire mappers already guard the removed tool ROLES: same class, same treatment.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): Preparing a second model no longer disposes the pipeline a reply is streaming from, two `prepareModel` calls in the same tick no longer leave two models resident, and the cache budget will not evict weights a generation is reading. Nothing to change on your side — a `prepare` issued during a stream now waits for it instead of interrupting it.
+
+  `prepare`, `generate` and `command` all go through `ensureRunner`, which disposes the previous runner when the model or runner key changes, and the worker ran them concurrently. Picking another model while a reply streamed — the documented `TransformersProvider.prepareModel`, which was on no chain at all where `runnerCommand` is explicitly queued — therefore called `dispose()` on the ONNX session the running `pipe(...)` was executing. And two prepares issued before the first resolved both observed no resident runner across the three awaits, so the second orphaned the first: two multi-GB models in one tab, the older one unreachable for cleanup, which is the exact failure the "one pipeline per tab" rule exists to prevent. All three now share one promise chain in the worker, the way the main thread already chains its generates; `cancel` stays immediate, since its whole job is to reach the generate running now.
+
+  The cache budget fires on `pipeline-ready`, i.e. when ANOTHER model finishes loading, and kept only that model — so it deleted the files of the model that was answering, and `deleteCachedModel` terminates the worker when that model is the loaded one. A model with a generate queued or running counts as in use.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [6e57533](https://github.com/apartejs/aparte/commit/6e57533): Stop now reaches a reply that is still queued behind a model load, and a token the worker emits after a Stop no longer lands in the stream. Nothing to change on your side.
+
+  The worker created a generate's `AbortController` when the queue reached that generate. A `cancel` arriving earlier — while `prepareModel` was still downloading another model, which can take minutes — found nothing to abort, so once the load finished the stopped reply started anyway and streamed to the end. The controller is now registered when the message arrives, and a generate cancelled before it starts never loads a model; it answers `gen-done`, which is what releases the queue slot.
+
+  The main thread kept the stream open after posting the `cancel`, waiting for the worker to answer, so a token already in flight was enqueued into a reply the user had ended. The stream is closed at the Stop instead — with `done`, since a stop is not a failure — and the worker's own `gen-done` still releases the slot. On the non-streaming path (`chat({ stream: false })`) that means a Stop after the request has reached the worker resolves with the text produced so far, where a Stop before it still rejects with `Generation cancelled before it started`.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [4a73996](https://github.com/apartejs/aparte/commit/4a73996): A CSS artifact can no longer close its own `<style>` and run a script, the binary preview is sanitised by the config of the chat it is mounted in, and a card's tab ids are unique per card. Nothing to change in your code.
+
+  **The `css` preview only styles.** `<style>` is raw text to the HTML parser exactly like `<script>` — it ends on `</style` followed by whitespace, `/`, `>` or end-of-input, whatever the CSS tokenizer thinks — and the `css` kind interpolated the model's body into it unescaped while the sibling `js` kind ran its body through `escapeClosingScriptTag`. So a stylesheet artifact could break out of its wrapper and open a `<script>`, on the one previewable kind whose whole promise is that it only styles. The containment always held (opaque origin, no `allow-same-origin`, and `PREVIEW_CSP` applied both as the `csp` attribute and as a `<meta http-equiv>`), so this was the gap between what "preview this stylesheet" promises and what it does. A closing-`</style>` escaper now mirrors the script one.
+
+  **The binary preview reads the element's config.** `previewMarkup` resolved the _ambient_ config, which from the promise callback that swaps the preview in is the global one long after the render — so a chat with its own `AparteConfig` that registered DOMPurify through `setHtmlSanitizer` had that policy silently skipped at the one sink that puts app-supplied HTML on the page, and its locale skipped at the sentence beside it. Both callers already held the right config; it is passed in now. It failed safe before (the global default is core's own allowlist), which is why nothing showed it.
+
+  **A card's tab ids come from a counter, not from the model.** They were built from `segment.id`, and for a tool-call segment that is `tool-${toolCallId}` — the id the model chose. Two calls answering to the same id put two cards on the page wearing the same `id` and the same `aria-controls`, so `getElementById` returned whichever parsed first: exactly the collision the scoping was introduced to prevent, and the DOM-clobbering shape core's sanitizer already refuses on model markup.
+  <sub>`@aparte/plugin-artifacts`</sub>
+
+- [913969b](https://github.com/apartejs/aparte/commit/913969b): The empty-preview line is readable on the artifact card's paper in the dark theme, the error panel's dark wash now also reaches a system-dark reader who sets no attribute, and the error heading takes the error ink again. Nothing to change on your side. New knob if you re-skin the paper: `--aparte-art-paper-text-muted`, declared beside `--aparte-art-paper-bg` / `-text` and mixed from them.
+
+  The preview pane forces the light paper on purpose — an artifact preview is a DOCUMENT shown inside the chat, the way a PDF viewer shows a white page in a dark editor — and the empty-state line inside it reached back into the theme for `--aparte-text-muted`. In the dark theme that is `#a89bb6`, on `#fff`: **2.62:1**, under 4.5 and under 3. It takes the paper's own muted ink now, so a consumer who re-declares the paper moves it too. (`.aparte-art-file__error-hint` was checked and is not the same case: it sits on `--aparte-error-bg`, where the same colour measures 6.14:1.)
+
+  The sheet's one dark rule was `[data-aparte-theme="dark"] .aparte-segment-artifact-file` with no `prefers-color-scheme` sibling, so a system-dark reader with no attribute kept the LIGHT wash (`rgba(0,0,0,0.04)`) on the already-dark `--aparte-error-bg`. It is duplicated now, the way core's `theme.css` duplicates its dark block for the same reason. And `.aparte-art-file__error-title` was still reading `--aparte-error-title`, a token core removed with the error renderer's private classes: invalid at computed-value time, so the heading quietly took the panel's body ink. It reads `--aparte-error-text`.
+
+  Why all three survived: this is the only plugin stylesheet in the repo and it is read by no guard. `check:derived-vars` reads `coreStylesheets()`, which is the import block of `packages/core/src/index.ts`, so the prefix rule, the single-owner rule, the dead-keyframe rule and "a documented `@cssprop` has a reader" all stop at core's edge. A unit suite reading this sheet stands in for now; widening the guard's corpus is a change to the guard, not to its input — its "a token is read only under its declarer" rule reports 18 false positives here, because the tokens are declared on `.aparte-segment-artifact-*` and read on descendants named `.aparte-art-*`, a relationship its BEM heuristic cannot see.
+  <sub>`@aparte/plugin-artifacts`</sub>
+
+- [f91584f](https://github.com/apartejs/aparte/commit/f91584f): A light/dark theme pair now follows the OS colour scheme when the page sets no `data-aparte-theme`, the way core's own theme does; nothing to change on your side.
+
+  The pair's stylesheet keyed its dark half on `[data-aparte-theme="dark"]` alone, so a page in system dark — every page that sets no attribute — rendered the light theme's white block on a dark bubble. The dark half now also applies under `prefers-color-scheme: dark` unless the root says `light`, the same three states core answers.
+  <sub>`@aparte/plugin-shiki`</sub>
+
+- [4a73996](https://github.com/apartejs/aparte/commit/4a73996): A streamed code fence now gets `class="language-<name>"`, the same class a one-shot renderer writes — so model text can no longer wear core's own `aparte-*` names while a message streams. Nothing to change in your code.
+
+  `streaming-markdown` maps its `LANG` attribute to `class` and passes the fence's info string through verbatim, and the wrapper this package installs filtered only `href` and `src`. So three backticks followed by `aparte-approval-option aparte-btn aparte-btn--solid` painted a pixel-perfect approval button inside the transcript — the exact forgery core's sanitizer drops on the one-shot path — and a fence naming a `position: fixed` recipe (`.aparte-select-dropdown`, `.aparte-sidebar__scrim`) repainted the page around the chat. It stayed until the message settled, and on the simple-content path it did not go away even then.
+
+  The class is prefixed rather than filtered, which fixes three things at once: the streamed DOM and the settled DOM now agree (both say `language-…`), `language-*` is the one prefix core's class policy deliberately exempts, and `highlightMarkdownFences` can finally read a streamed fence's language. The token is the first word of the info string, truncated at the first character a language name cannot hold — `c++` and `f#` survive, `py<script>` becomes `py`, and an info string with nothing nameable in it writes no class at all.
+  <sub>`@aparte/plugin-streaming-markdown`</sub>
+
+- [7802512](https://github.com/apartejs/aparte/commit/7802512): A failed model load is retried on the next title instead of disabling auto-titling for the life of the page. Nothing to change on your side.
+
+  The model is resolved once and cached, and the cache kept a REJECTED promise: one transient failure — the model fetch, a CSP hiccup on the dynamic import — and every conversation from then on quietly kept its default title. `@aparte/plugin-shiki` clears its cached promise on failure for the same reason. The error still reaches the caller; only the caching of it is gone.
+  <sub>`@aparte/plugin-titler`</sub>
+
+- [19d708d](https://github.com/apartejs/aparte/commit/19d708d): `clearMessages({ revokeAttachments: false })` now reaches the host on all four wrappers, so the attachments in the transcript keep their object URLs. The helpers (`useAparteChat`, `createAparteChat`) forward the option too, and React's exported `UseAparteChat` type declares it.
+
+  The bridge was `clearMessages: () => host?.clearMessages()` at seven sites, so an explicit "don't revoke" arrived as `undefined` and the viewport revoked by default — the exact inversion of what the caller asked for, and every image and file chip still on screen came back broken. TypeScript could not see it: a zero-parameter function is assignable to a one-optional-parameter signature, so `satisfies`, `implements` and Svelte's `_assertImperativeParity` all passed. Each wrapper's suite now asserts it against a spied `URL.revokeObjectURL` — the option kept, and the default (revoke) kept too.
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [0e0814e](https://github.com/apartejs/aparte/commit/0e0814e): `provideAparte`'s documentation now shows the calls React, Vue and Svelte make instead of it, so its absence in the other three wrappers is not read as a missing feature. Nothing to change in your code: the docblock ships in the published types.
+
+  The docblock said only that you "can equally call `aparteGlobalConfig.*` yourself" — a capability named in passing, with no example, which is the shape a reader skips. It now carries the four calls that replace the provider (register a provider, set the model config, set the locale, set `data-aparte-theme`) and says what Angular alone needs it for: an initializer that runs before the first component, and a `DestroyRef` to release the theme listener it registers. The one option that is not a plain call is named as such: `theme: 'auto'` is a `prefers-color-scheme` listener you write and dispose of yourself.
+
+  The same block, and the trigger that would end the asymmetry — a second wrapper needing that listener with a disposer of its own, at which point `applyThemeMode` moves into `@aparte/core` and all four call it — are on the Wrapper surface reference page.
+  <sub>`@aparte/angular`</sub>
+
+- [19d708d](https://github.com/apartejs/aparte/commit/19d708d): The ergonomics helpers gain the four members they were missing — `getMessages`, `scrollToBottom`, `focusInput`, `getViewport` — so `useAparteChat` (React, Vue) and `createAparteChat` (Svelte) expose the whole imperative surface. On Angular: `AparteAiService` exposes `client` (the `AparteClient` the other three return as `{ client, abort }`), two new inputs `containerClass` / `containerStyle` land on the inner `.aparte-chat-container`, and `AparteUiProps` is exported. All four now re-export `AparteUiHandle` from `@aparte/core` rather than declaring their own copy.
+
+  The helper is the documented entry point, and it exposed 17 of the 20 members — silently narrowing the contract at exactly the reads and view acts a consumer reaches for after a send. `getMessages()` is not the `messages` state: the host's list is the authority and, mid-stream, a frame ahead of what the framework has rendered.
+
+  Angular's `containerClass` / `containerStyle` are the parity the other three get for free. Their root IS the container, so a consumer's `className` / `class` lands on the div carrying `.aparte-chat-container`, `[overlay-composer]` and `[data-aparte-empty]` — the selectors core's shell recipe keys on. Angular's own `<aparte-chat>` host sits one level above them, so overriding the shell needed a descendant selector there and nowhere else.
+
+  Also on Angular: the bubble-reconcile effect no longer skips an empty list (React, Vue and Svelte all sync unconditionally). With the default bubbles the `#bubble` query hid it by re-syncing on its own; under a custom `[bubbleTemplate]` that query never fires and the effect was the only path left.
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [7ccfa5c](https://github.com/apartejs/aparte/commit/7ccfa5c): `AparteChat` and `AparteUi` now ship real, compiler-checked prop, event and slot types — a wrong prop on either component is a `tsc`/`svelte-check` error in your own project, not just a mismatch you'd only catch at runtime.
+
+  The package always re-exported `./AparteChat.svelte`, but no `AparteChat.svelte.d.ts` was ever emitted next to it, so every import resolved to an untyped component and the props were documentation only. The cause: `svelte-package`'s own `.d.ts` emission (`svelte2tsx`'s `emitDts`) silently emits nothing under this package's real `tsconfig.json`, which inherits `noEmitOnError: true` from the repo base — that setting blocks emission on diagnostics that are expected noise in svelte2tsx's `dts` transform mode (svelte2tsx's own diagnostic filter already treats those exact codes as non-fatal). A dedicated `tsconfig.dts.json`, passed via `--tsconfig` and used only for this one step, relaxes it; the package's real `tsc -b` build is untouched by it. Verified with a standalone consumer project: importing the built package and assigning a wrong-typed prop to `AparteChat` now fails `tsc --noEmit`.
+  <sub>`@aparte/svelte`</sub>
+
+- [43297ea](https://github.com/apartejs/aparte/commit/43297ea): The emitted `AparteChat.svelte.d.ts` imports `./types.js` with its extension, so the package's types compile for a consumer on `moduleResolution: nodenext` with `skipLibCheck: false`.
+
+  `svelte-package` copies the component's `<script>` imports into the declaration it emits, and that one import was written without an extension while every sibling `.ts` file in the package already carried `.js`. Under `nodenext` TypeScript reported `TS2835` on the shipped file. The realistic Svelte consumer (`bundler` resolution, `skipLibCheck: true`) never saw it; the fix is the import in the component, not a post-process on `dist/`.
+  <sub>`@aparte/svelte`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/plugin-approval`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.11
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
