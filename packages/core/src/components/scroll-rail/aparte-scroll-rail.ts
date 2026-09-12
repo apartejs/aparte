@@ -262,7 +262,11 @@ export class AparteScrollRail extends HTMLElement {
     private _rebuild(): void {
         const bubbles = this._bubbles();
         const locale = resolveConfig(this).getLocale();
-        this.setAttribute('aria-label', locale.scrollRailLabel ?? 'Conversation outline');
+        // Written only when the value changes: a reconcile runs on every host mutation, and
+        // an attribute rewritten to the value it already has is still a DOM mutation —
+        // measured on CI's WebKit, where a late one landed inside the rail's rest window.
+        const railLabel = locale.scrollRailLabel ?? 'Conversation outline';
+        if (this.getAttribute('aria-label') !== railLabel) this.setAttribute('aria-label', railLabel);
 
         if (bubbles.length < 2) {
             this.setAttribute('data-empty', '');
@@ -307,8 +311,11 @@ export class AparteScrollRail extends HTMLElement {
                 tick.setAttribute('aria-label', label);
                 tick.title = label;
             }
-            if (id === this._currentId) tick.setAttribute('aria-current', 'true');
-            else tick.removeAttribute('aria-current');
+            if (id === this._currentId) {
+                if (tick.getAttribute('aria-current') !== 'true') tick.setAttribute('aria-current', 'true');
+            } else {
+                tick.removeAttribute('aria-current');
+            }
             const at = list.children[index] ?? null;
             if (at !== item) list.insertBefore(item, at);
             index++;
