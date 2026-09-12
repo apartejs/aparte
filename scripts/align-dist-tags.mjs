@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /*
- * Point the `alpha` dist-tag at the version that was just published.
+ * Point the `beta` dist-tag at the version that was just published.
  *
  * Why this exists: the dist-tags drifted on three releases in a row (0.3.0, 0.4.0,
- * 0.5.0) — `changeset publish` was moving `latest` and leaving `alpha` on the version
- * before, so `npm i @aparte/core@alpha` served stale bits. `pnpm release` now passes
- * `--tag alpha` (possible again since the repo left changesets' pre mode), and this
- * script is the check that both tags actually ended up on the version just built.
+ * 0.5.0) — `changeset publish` was moving `latest` and leaving the channel tag on the
+ * version before, so `npm i @aparte/core@alpha` served stale bits. `pnpm release` now
+ * passes `--tag beta` (possible since the repo left changesets' pre mode), and this
+ * script is the check that every tag actually ended up on the version just built.
  *
- * BOTH tags are aligned, on purpose. There is no stable line yet: `latest` already
- * pointed at an alpha, so freezing it protects nobody and only serves older bits to
- * a bare `npm i @aparte/core`. The day a stable line exists, `latest` stops following
- * the alpha channel — and that is the day to change this script.
+ * The tags are aligned, on purpose. There is no stable line yet: `latest` already
+ * pointed at a pre-release, so freezing it protects nobody and only serves older bits
+ * to a bare `npm i @aparte/core`. The day a stable line exists, `latest` stops
+ * following the beta channel — and that is the day to change this script. `alpha` is
+ * kept aligned for this release only, a bridge for the READMEs and pins that said
+ * `@alpha` for months; it leaves the list at the next release.
  *
  * Usage (part of `pnpm release`):
  *   node scripts/align-dist-tags.mjs [--dry]
@@ -37,11 +39,12 @@ const dry = process.argv.includes('--dry');
 const npm = (args) => execSync(`npm ${args.join(' ')}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 
 /**
- * The channel this repo publishes under, and the tags that must both point at it.
- * `alpha` is the channel (`package.json`'s `release` script passes it to
- * `changeset publish`); `latest` follows while no stable line exists — see above.
+ * The channel this repo publishes under, and the tags that must all point at it.
+ * `beta` is the channel (`package.json`'s `release` script passes it to
+ * `changeset publish`); `latest` follows while no stable line exists — see above;
+ * `alpha` is the bridge, for this release only.
  */
-const TAGS = ['alpha', 'latest'];
+const TAGS = ['beta', 'latest', 'alpha'];
 
 /** Every publishable package in the workspace, at its current version. */
 function publishable() {

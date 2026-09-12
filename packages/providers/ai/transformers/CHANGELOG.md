@@ -1,5 +1,61 @@
 # @aparte/provider-transformers
 
+## 0.17.0
+
+### Minor Changes
+
+- edd2f06: A tool turn is now an `assistant` message carrying `toolCalls` and a `tool` message carrying `toolCallId`; the `'tool_call'` and `'tool_result'` roles are gone.
+
+  **Who has to change something.** Only code that BUILDS an `AparteChatMessage[]` by hand: a `history` function, a `requestInterceptor` that inspects roles, or a host mirroring `onHistoryAppend` into a log of its own. Nothing that uses `AparteClient` normally, and no provider you did not write yourself.
+
+  **The mapping**, as two lines:
+
+  ```diff
+  - { role: 'tool_call',   content: '', precedingText: T, toolCalls: C }
+  + { role: 'assistant',   content: T,                    toolCalls: C }
+
+  - { role: 'tool_result', content: R, toolCallId: I }
+  + { role: 'tool',        content: R, toolCallId: I, toolName: N }
+  ```
+
+  `precedingText` is **removed, not deprecated** — no alias, no compatibility shim: before 1.0 a rename is a rename, and the type error is the migration. What it carried is the assistant message's own `content`; an assistant that said nothing before its calls carries `''`.
+
+  `toolName` is new and optional, on a `tool` message. Set it and the AI SDK bridge stops guessing `'unknown'` for a result whose call it cannot find, and `@aparte/provider-scenario` routes on the name without scanning back. Both still fall back to the declaring assistant message when it is absent.
+
+  **Your stored conversations need nothing.** Persistence holds `AparteMessage`, whose role is always `user` or `assistant`; no tool turn was ever written to IndexedDB. The conversation schema version is unchanged.
+
+  **If you hold the envelope by reference** — the rule `onHistoryAppend` already stated for `toolCalls` — note that `content` is now the field that is finalised after you are notified: a provider that streams text after its first call re-reads it at the turn's end. Hold the reference, not a snapshot, or serialise only once the turn's last `tool` message has arrived. A snapshot used to lose a trailing clause; it now loses the whole sentence.
+
+  Why the shape changed: every message API in use — OpenAI-compatible, Anthropic, the AI SDK — expresses a tool round-trip as an assistant turn that declares its calls plus one message per result. Two roles of our own meant every provider translated on the way out, every consumer learned a vocabulary that matched no documentation they had read, and the assistant's own sentence lived in a field (`precedingText`) that only this library had a name for. This is the last known structural breaking change to the message type before the beta.
+
+### Patch Changes
+
+- 7d009cf: A binary attachment now warns instead of vanishing; `AparteFilePart` is removed — aparté inlines images and text files only. If you referenced `AparteFilePart` (or engine's `StreamFilePart`) in your own types, drop it: `AparteContentPart` is text or image.
+
+  Nothing ever produced a file part. The client inlines images and recognized text files and returned `null` for everything else, and both wire mappers answered the type with an empty text part — a branch no message could reach. What the type did do was promise a consumer that attaching a PDF sent it, while the chip stayed on screen and the model answered as if nothing had come with the message. That promise is now a warning at the one place the file is really dropped, once per file, naming the file and its type; the chip is untouched, so your own upload or RAG layer still sees it on the `aparte-send` event.
+
+  The two-arm union also empties the third mapper's fallback: the vision runner counted "content parts this runner cannot carry" and warned about them, over a branch no message could reach. The count and its warning are gone, the same way they went from the two wire mappers.
+
+- c0f362b: A local runner now says when it dropped a tool call the assistant made, not only the tool result that answered it, and the vision runner counts a content part it cannot carry instead of failing at generate time. Nothing to change on your side; you get one warning where you used to get none.
+
+  Neither built-in runner can carry a tool turn — the wire syntax for one is model-specific — and both have always said so. Now that a call rides on an `assistant` message rather than a role of its own, the call passes the runner's role test: a turn where the model said nothing before calling was then dropped by the emptiness check below it, in silence, which is the exact defect the warning exists to prevent. Both runners count such a turn, and the shared message names both halves — the call the assistant made, and the result that answered it.
+
+  The message says one thing more precisely than it did. What is dropped is the CALL and its result; what the assistant said before calling is still in the prompt, because that sentence rides on the same `assistant` message and passes the role test. "Dropped tool turn(s) from the prompt" read as if the whole turn left, which had stopped being true.
+
+  On the parts axis the vision runner had no guard at all. Its content loop was `text` or _else an image_, so a `file` part — removed from `AparteContentPart`, and still reachable from an app built against an older aparté — was pushed into the image list as `undefined` and reached `load_image(undefined)`, failing the turn at generate time. It is counted and named now, the way the wire mappers already guard the removed tool ROLES: same class, same treatment.
+
+- 7802512: Preparing a second model no longer disposes the pipeline a reply is streaming from, two `prepareModel` calls in the same tick no longer leave two models resident, and the cache budget will not evict weights a generation is reading. Nothing to change on your side — a `prepare` issued during a stream now waits for it instead of interrupting it.
+
+  `prepare`, `generate` and `command` all go through `ensureRunner`, which disposes the previous runner when the model or runner key changes, and the worker ran them concurrently. Picking another model while a reply streamed — the documented `TransformersProvider.prepareModel`, which was on no chain at all where `runnerCommand` is explicitly queued — therefore called `dispose()` on the ONNX session the running `pipe(...)` was executing. And two prepares issued before the first resolved both observed no resident runner across the three awaits, so the second orphaned the first: two multi-GB models in one tab, the older one unreachable for cleanup, which is the exact failure the "one pipeline per tab" rule exists to prevent. All three now share one promise chain in the worker, the way the main thread already chains its generates; `cancel` stays immediate, since its whole job is to reach the generate running now.
+
+  The cache budget fires on `pipeline-ready`, i.e. when ANOTHER model finishes loading, and kept only that model — so it deleted the files of the model that was answering, and `deleteCachedModel` terminates the worker when that model is the loaded one. A model with a generate queued or running counts as in use.
+
+- 6e57533: Stop now reaches a reply that is still queued behind a model load, and a token the worker emits after a Stop no longer lands in the stream. Nothing to change on your side.
+
+  The worker created a generate's `AbortController` when the queue reached that generate. A `cancel` arriving earlier — while `prepareModel` was still downloading another model, which can take minutes — found nothing to abort, so once the load finished the stopped reply started anyway and streamed to the end. The controller is now registered when the message arrives, and a generate cancelled before it starts never loads a model; it answers `gen-done`, which is what releases the queue slot.
+
+  The main thread kept the stream open after posting the `cancel`, waiting for the worker to answer, so a token already in flight was enqueued into a reply the user had ended. The stream is closed at the Stop instead — with `done`, since a stop is not a failure — and the worker's own `gen-done` still releases the slot. On the non-streaming path (`chat({ stream: false })`) that means a Stop after the request has reached the worker resolves with the text produced so far, where a Stop before it still rejects with `Generation cancelled before it started`.
+
 ## 0.16.11
 
 ## 0.16.10

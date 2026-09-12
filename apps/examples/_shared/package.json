@@ -1,7 +1,7 @@
 {
   "name": "@aparte-workspace/example-shared",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "description": "What the five chat-site examples share: the setup, the skin, the sample data. Imported by relative path; a package only so pnpm links its dependencies here.",
   "dependencies": {

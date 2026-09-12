@@ -1,5 +1,51 @@
 # @aparte-workspace/demo-vanilla
 
+## 0.0.28
+
+### Patch Changes
+
+- Updated dependencies [7d009cf]
+- Updated dependencies [56cc153]
+- Updated dependencies [f474a95]
+- Updated dependencies [c60a806]
+- Updated dependencies [913969b]
+- Updated dependencies [ba9baa1]
+- Updated dependencies [acc33dc]
+- Updated dependencies [9e44756]
+- Updated dependencies [4a73996]
+- Updated dependencies [c73636b]
+- Updated dependencies [edd2f06]
+- Updated dependencies [d86c28a]
+- Updated dependencies [dbd64b2]
+- Updated dependencies [43297ea]
+- Updated dependencies [af3edf5]
+- Updated dependencies [5805be2]
+- Updated dependencies [d67148b]
+- Updated dependencies [71a535d]
+- Updated dependencies [23044a5]
+- Updated dependencies [5581be9]
+- Updated dependencies [7e7200c]
+- Updated dependencies [141e0a3]
+- Updated dependencies [db15e77]
+- Updated dependencies [ba9baa1]
+- Updated dependencies [dbd64b2]
+- Updated dependencies [54bac2c]
+- Updated dependencies [5581be9]
+- Updated dependencies [a9784fa]
+- Updated dependencies [3f01fb4]
+- Updated dependencies [bd91b89]
+- Updated dependencies [5581be9]
+- Updated dependencies [dbd64b2]
+- Updated dependencies [d873d93]
+- Updated dependencies [e9c910c]
+- Updated dependencies [937b062]
+- Updated dependencies [5581be9]
+- Updated dependencies [1200563]
+- Updated dependencies [e9c910c]
+- Updated dependencies [595ec0b]
+- Updated dependencies [333b5a3]
+  - @aparte/core@0.17.0
+
 ## 0.0.27
 
 ### Patch Changes

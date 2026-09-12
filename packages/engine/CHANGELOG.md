@@ -1,5 +1,67 @@
 # @aparte/engine
 
+## 0.17.0
+
+### Minor Changes
+
+- 7d009cf: A binary attachment now warns instead of vanishing; `AparteFilePart` is removed — aparté inlines images and text files only. If you referenced `AparteFilePart` (or engine's `StreamFilePart`) in your own types, drop it: `AparteContentPart` is text or image.
+
+  Nothing ever produced a file part. The client inlines images and recognized text files and returned `null` for everything else, and both wire mappers answered the type with an empty text part — a branch no message could reach. What the type did do was promise a consumer that attaching a PDF sent it, while the chip stayed on screen and the model answered as if nothing had come with the message. That promise is now a warning at the one place the file is really dropped, once per file, naming the file and its type; the chip is untouched, so your own upload or RAG layer still sees it on the `aparte-send` event.
+
+  The two-arm union also empties the third mapper's fallback: the vision runner counted "content parts this runner cannot carry" and warned about them, over a branch no message could reach. The count and its warning are gone, the same way they went from the two wire mappers.
+
+- edd2f06: A tool turn is now an `assistant` message carrying `toolCalls` and a `tool` message carrying `toolCallId`; the `'tool_call'` and `'tool_result'` roles are gone.
+
+  **Who has to change something.** Only code that BUILDS an `AparteChatMessage[]` by hand: a `history` function, a `requestInterceptor` that inspects roles, or a host mirroring `onHistoryAppend` into a log of its own. Nothing that uses `AparteClient` normally, and no provider you did not write yourself.
+
+  **The mapping**, as two lines:
+
+  ```diff
+  - { role: 'tool_call',   content: '', precedingText: T, toolCalls: C }
+  + { role: 'assistant',   content: T,                    toolCalls: C }
+
+  - { role: 'tool_result', content: R, toolCallId: I }
+  + { role: 'tool',        content: R, toolCallId: I, toolName: N }
+  ```
+
+  `precedingText` is **removed, not deprecated** — no alias, no compatibility shim: before 1.0 a rename is a rename, and the type error is the migration. What it carried is the assistant message's own `content`; an assistant that said nothing before its calls carries `''`.
+
+  `toolName` is new and optional, on a `tool` message. Set it and the AI SDK bridge stops guessing `'unknown'` for a result whose call it cannot find, and `@aparte/provider-scenario` routes on the name without scanning back. Both still fall back to the declaring assistant message when it is absent.
+
+  **Your stored conversations need nothing.** Persistence holds `AparteMessage`, whose role is always `user` or `assistant`; no tool turn was ever written to IndexedDB. The conversation schema version is unchanged.
+
+  **If you hold the envelope by reference** — the rule `onHistoryAppend` already stated for `toolCalls` — note that `content` is now the field that is finalised after you are notified: a provider that streams text after its first call re-reads it at the turn's end. Hold the reference, not a snapshot, or serialise only once the turn's last `tool` message has arrived. A snapshot used to lose a trailing clause; it now loses the whole sentence.
+
+  Why the shape changed: every message API in use — OpenAI-compatible, Anthropic, the AI SDK — expresses a tool round-trip as an assistant turn that declares its calls plus one message per result. Two roles of our own meant every provider translated on the way out, every consumer learned a vocabulary that matched no documentation they had read, and the assistant's own sentence lived in a field (`precedingText`) that only this library had a name for. This is the last known structural breaking change to the message type before the beta.
+
+### Patch Changes
+
+- 6e57533: A forced `toolChoice` is now sent on the first turn only; the turns after it go out as `'auto'`, so the run ends with an answer instead of the turn limit. Nothing to change on your side.
+
+  The request is rebuilt from `baseRequest` every turn, and only the synthetic `{ name, input }` shape stripped itself. A plain `{ name }` — the shape a consumer sets to force a tool — therefore travelled again after the tool had already answered: the model was made to call it once per turn until `maxTurns`, so a forced tool ran ten times and the run reported `turn-limit-exceeded` rather than replying.
+
+  Forcing a tool is a turn-1 instruction and the loop is the only thing that can lift it, so the loop lifts it: any object `toolChoice` is dropped from the base request after the first transport call.
+
+- 6e57533: A Stop stays a Stop when the transport's iterator throws on the way out, however it throws. Nothing to change on your side.
+
+  Settling the iterator was guarded with `.catch()`, which only ever sees a rejected promise. A hand-written iterator — the likely shape when a host drives `runStreamAgent` with a transport of its own — throws synchronously, before there is a promise to reject, and one whose `return()` gives a plain object has no `.catch` at all. Either way the deliberate stop came back to the caller as a thrown run error, and core paints an error card over the reply the user had just stopped.
+
+  Both settle sites (the abort bail and the per-turn `finally`) now use `try`/`catch`, which covers all three shapes.
+
+- 6e57533: `onHistoryAppend`'s documentation now says which fields of the assistant turn carrying a tool call are filled in after you are notified, and what a host that writes bytes at receipt should do about it. Documentation only.
+
+  The option exists for a host that owns its own transcript — a prefix cache, an append-only log — and the docblock said to hold the reference rather than a snapshot, justifying it with the turn's later `toolCalls`. Since the loop re-reads that turn's text at the turn's end (a provider that emits a tool call before the rest of its sentence), an append-only log, which by definition serialises at receipt and cannot hold a reference, was told to do the one thing it cannot.
+
+  The paragraph now names both late fields and says to treat that turn as provisional until the last `tool` message of the turn.
+
+- 7802512: Two tool calls that arrive with the same id in one turn get one row and one history slot each; text streamed after a tool call reaches the history; and a Stop stays a Stop when the transport's iterator throws on the way out. Nothing to change on your side.
+
+  A call id is an identity downstream — the transcript keys a segment on `tool-${id}` and `updateSegment` takes the first match, and the history files a `tool` message under `toolCallId`. A provider that repeats one (a vendor omitting `id` produced `''` for every call) therefore wrote the second call's result onto the first call's row, and left a pair no OpenAI-shaped endpoint can match on the next turn. A repeat is renamed rather than refused — the model asked for both — and the rename happens once, before the first emit, so the row, the handler, the approval and the history slot all name the same call.
+
+  The assistant turn that carries the calls snapshotted its own text when the first call was declared, and a turn can go on streaming afterwards. A provider that emits `[tool, text]` in that order (`@aparte/provider-scenario` does; `openai-compat` flushes its calls at the end of the stream and so cannot) showed the user a sentence the model never saw again. The envelope is re-read at the turn's end, the way its `toolCalls` array already was.
+
+  The abort path settled the transport's iterator without the `.catch(() => {})` the `finally` uses, so a host driving the loop with an iterator of its own turned a deliberate Stop into a thrown run error — and core paints an error card over the reply that was just stopped.
+
 ## 0.16.11
 
 ## 0.16.10

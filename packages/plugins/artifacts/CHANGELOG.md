@@ -1,5 +1,25 @@
 # @aparte/plugin-artifacts
 
+## 0.17.0
+
+### Patch Changes
+
+- 4a73996: A CSS artifact can no longer close its own `<style>` and run a script, the binary preview is sanitised by the config of the chat it is mounted in, and a card's tab ids are unique per card. Nothing to change in your code.
+
+  **The `css` preview only styles.** `<style>` is raw text to the HTML parser exactly like `<script>` — it ends on `</style` followed by whitespace, `/`, `>` or end-of-input, whatever the CSS tokenizer thinks — and the `css` kind interpolated the model's body into it unescaped while the sibling `js` kind ran its body through `escapeClosingScriptTag`. So a stylesheet artifact could break out of its wrapper and open a `<script>`, on the one previewable kind whose whole promise is that it only styles. The containment always held (opaque origin, no `allow-same-origin`, and `PREVIEW_CSP` applied both as the `csp` attribute and as a `<meta http-equiv>`), so this was the gap between what "preview this stylesheet" promises and what it does. A closing-`</style>` escaper now mirrors the script one.
+
+  **The binary preview reads the element's config.** `previewMarkup` resolved the _ambient_ config, which from the promise callback that swaps the preview in is the global one long after the render — so a chat with its own `AparteConfig` that registered DOMPurify through `setHtmlSanitizer` had that policy silently skipped at the one sink that puts app-supplied HTML on the page, and its locale skipped at the sentence beside it. Both callers already held the right config; it is passed in now. It failed safe before (the global default is core's own allowlist), which is why nothing showed it.
+
+  **A card's tab ids come from a counter, not from the model.** They were built from `segment.id`, and for a tool-call segment that is `tool-${toolCallId}` — the id the model chose. Two calls answering to the same id put two cards on the page wearing the same `id` and the same `aria-controls`, so `getElementById` returned whichever parsed first: exactly the collision the scoping was introduced to prevent, and the DOM-clobbering shape core's sanitizer already refuses on model markup.
+
+- 913969b: The empty-preview line is readable on the artifact card's paper in the dark theme, the error panel's dark wash now also reaches a system-dark reader who sets no attribute, and the error heading takes the error ink again. Nothing to change on your side. New knob if you re-skin the paper: `--aparte-art-paper-text-muted`, declared beside `--aparte-art-paper-bg` / `-text` and mixed from them.
+
+  The preview pane forces the light paper on purpose — an artifact preview is a DOCUMENT shown inside the chat, the way a PDF viewer shows a white page in a dark editor — and the empty-state line inside it reached back into the theme for `--aparte-text-muted`. In the dark theme that is `#a89bb6`, on `#fff`: **2.62:1**, under 4.5 and under 3. It takes the paper's own muted ink now, so a consumer who re-declares the paper moves it too. (`.aparte-art-file__error-hint` was checked and is not the same case: it sits on `--aparte-error-bg`, where the same colour measures 6.14:1.)
+
+  The sheet's one dark rule was `[data-aparte-theme="dark"] .aparte-segment-artifact-file` with no `prefers-color-scheme` sibling, so a system-dark reader with no attribute kept the LIGHT wash (`rgba(0,0,0,0.04)`) on the already-dark `--aparte-error-bg`. It is duplicated now, the way core's `theme.css` duplicates its dark block for the same reason. And `.aparte-art-file__error-title` was still reading `--aparte-error-title`, a token core removed with the error renderer's private classes: invalid at computed-value time, so the heading quietly took the panel's body ink. It reads `--aparte-error-text`.
+
+  Why all three survived: this is the only plugin stylesheet in the repo and it is read by no guard. `check:derived-vars` reads `coreStylesheets()`, which is the import block of `packages/core/src/index.ts`, so the prefix rule, the single-owner rule, the dead-keyframe rule and "a documented `@cssprop` has a reader" all stop at core's edge. A unit suite reading this sheet stands in for now; widening the guard's corpus is a change to the guard, not to its input — its "a token is read only under its declarer" rule reports 18 false positives here, because the tokens are declared on `.aparte-segment-artifact-*` and read on descendants named `.aparte-art-*`, a relationship its BEM heuristic cannot see.
+
 ## 0.16.11
 
 ### Patch Changes

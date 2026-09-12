@@ -1,5 +1,33 @@
 # @aparte/vue
 
+## 0.17.0
+
+### Minor Changes
+
+- 23044a5: The conversation list's seven events are renamed subject-first, with no alias: `aparte-conversation-select`, `-delete`, `-archive`, `-unarchive`, `-rename`, `-pin`, `-unpin` (were `aparte-select-conversation`, `aparte-delete-conversation`, …). Wrapper bindings follow: `onConversationSelect` in React, `@conversation-select` in Vue, `on:aparte-conversation-select` in Svelte, `(conversationSelect)` in Angular. The `no-groups` attribute is `flat` (`[flat]` in Angular).
+
+  Every other event of the library reads subject then verb — `aparte-select-change`, `aparte-message-start`, `aparte-split-resize` — and the conversation list's detail types were already subject-first (`AparteConversationSelectDetail`), so one `addEventListener` line carried both orders. `no-groups` was the only negative boolean attribute; `flat` says what the rows are, and covers the "pinned first" order the same flag also removes. Pre-1.0, a rename is a rename: this lands before the beta freezes the surface, and the old names are gone rather than kept as aliases.
+
+- 595ec0b: The four wrappers show a conversation on its way: a `loading` prop (an input in Angular) draws two skeleton turns in the transcript, keeps the empty state off and disables the composer until the messages land — and the conversation controller sets it by itself while it fetches through your adapter's `loadFull()`. Nothing to change unless you want a wait of your own: pass `loading`.
+
+  Core's host binding gained `onLoadingChange?(on)`: the controller's wait, forwarded beside the viewport's `loading` attribute, so a wrapper that renders its own DOM can draw it. Under `framework-managed` the viewport itself draws no skeleton any more (a `<div>` prepended into a host React reconciles is one React did not render); it still sets the attribute and `aria-busy`. And the viewport's status line for a screen reader is now a sibling of the skeleton, not a child of it — inside an `aria-hidden` box it was hidden too.
+
+  Svelte sets the viewport's `loading` attribute imperatively too: under Svelte 5 a template attribute on an element that has a property of that name is set as the property, and `''` through the setter read as false — the attribute never appeared, which the Svelte 5 example caught (Svelte 4 set the attribute).
+
+### Patch Changes
+
+- 19d708d: `clearMessages({ revokeAttachments: false })` now reaches the host on all four wrappers, so the attachments in the transcript keep their object URLs. The helpers (`useAparteChat`, `createAparteChat`) forward the option too, and React's exported `UseAparteChat` type declares it.
+
+  The bridge was `clearMessages: () => host?.clearMessages()` at seven sites, so an explicit "don't revoke" arrived as `undefined` and the viewport revoked by default — the exact inversion of what the caller asked for, and every image and file chip still on screen came back broken. TypeScript could not see it: a zero-parameter function is assignable to a one-optional-parameter signature, so `satisfies`, `implements` and Svelte's `_assertImperativeParity` all passed. Each wrapper's suite now asserts it against a spied `URL.revokeObjectURL` — the option kept, and the default (revoke) kept too.
+
+- 19d708d: The ergonomics helpers gain the four members they were missing — `getMessages`, `scrollToBottom`, `focusInput`, `getViewport` — so `useAparteChat` (React, Vue) and `createAparteChat` (Svelte) expose the whole imperative surface. On Angular: `AparteAiService` exposes `client` (the `AparteClient` the other three return as `{ client, abort }`), two new inputs `containerClass` / `containerStyle` land on the inner `.aparte-chat-container`, and `AparteUiProps` is exported. All four now re-export `AparteUiHandle` from `@aparte/core` rather than declaring their own copy.
+
+  The helper is the documented entry point, and it exposed 17 of the 20 members — silently narrowing the contract at exactly the reads and view acts a consumer reaches for after a send. `getMessages()` is not the `messages` state: the host's list is the authority and, mid-stream, a frame ahead of what the framework has rendered.
+
+  Angular's `containerClass` / `containerStyle` are the parity the other three get for free. Their root IS the container, so a consumer's `className` / `class` lands on the div carrying `.aparte-chat-container`, `[overlay-composer]` and `[data-aparte-empty]` — the selectors core's shell recipe keys on. Angular's own `<aparte-chat>` host sits one level above them, so overriding the shell needed a descendant selector there and nowhere else.
+
+  Also on Angular: the bubble-reconcile effect no longer skips an empty list (React, Vue and Svelte all sync unconditionally). With the default bubbles the `#bubble` query hid it by re-syncing on its own; under a custom `[bubbleTemplate]` that query never fires and the effect was the only path left.
+
 ## 0.16.11
 
 ## 0.16.10
