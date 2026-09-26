@@ -195,15 +195,11 @@ const uiEvents = new Set([...uiEventsBody.matchAll(/'(aparte-[a-z0-9-]+)'/g)].ma
 /**
  * Element-dispatched events deliberately absent from the proxy list.
  *
- * It exists so that leaving one out is a DECISION with a reason beside it rather than an
- * omission — the failure mode this whole guard was written for.
+ * Empty today, and that is the honest state: every one of core's element dispatches
+ * is forwarded. It exists so that leaving one out is a DECISION with a reason beside it
+ * rather than an omission — the failure mode this whole guard was written for.
  */
-const UI_EVENTS_EXEMPT = new Map([
-    ['aparte-conversation-loaded',
-        'dispatched by the conversation CONTROLLER on the chat host, not by an element <AparteUi> '
-        + 'renders; it bubbles to window, where AparteClient listens to resume a paused turn, and '
-        + 'where a wrapper consumer listens too'],
-]);
+const UI_EVENTS_EXEMPT = new Map([]);
 
 if (uiEvents.size === 0) {
     problems.push(
