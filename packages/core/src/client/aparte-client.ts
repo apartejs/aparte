@@ -744,9 +744,11 @@ export class AparteClient {
                     outcomes,
                     ...(result.suspended.ticket ? { token: result.suspended.ticket } : {}),
                 };
+                const messages = this._resumeMessages(targetElement, messageId, baseRequest.messages);
+                this._spendPause(targetElement, messageId);
                 result = await this._streamLoop(
                     targetElement, messageId, provider,
-                    { ...baseRequest, messages: this._resumeMessages(targetElement, messageId, baseRequest.messages) },
+                    { ...baseRequest, messages },
                     authConfig, streamController, deferral,
                 );
             }
@@ -1815,6 +1817,27 @@ export class AparteClient {
             }
         }
         return signal.aborted ? undefined : outcomes;
+    }
+
+    /**
+     * The ticket is spent the moment the resume leaves: the server answers these calls
+     * now, so a pause saved from here on — the conversation manager saves before it cuts a
+     * switch — would be resumed a second time, against a server that has moved on. The
+     * history that resumes them is built first; a new pause marks what still waits.
+     */
+    private _spendPause(targetElement: AparteChatTargetElement, messageId: string): void {
+        const segments = targetElement.getMessage?.(messageId)?.segments
+            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const paused = (segment: AparteSegment): segment is AparteToolCallSegment =>
+            segment.type === 'tool_call' && Boolean((segment as AparteToolCallSegment).deferred);
+        if (!segments?.some(paused)) return;
+        targetElement.updateMessage?.(messageId, {
+            segments: segments.map((segment) => {
+                if (!paused(segment)) return segment;
+                const { deferred: _spent, ...rest } = segment;
+                return rest;
+            }),
+        });
     }
 
     /**

@@ -282,7 +282,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 for (const p of e.pending) {
                     const id = `tool-${p.toolCallId}`;
                     const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
-                    if (addedTools.has(id)) {
+                    // A call this run never started is a resumed one: its row exists, from
+                    // the run that paused first, and it pauses again with this ticket.
+                    if (addedTools.has(id) || !toolSegments.has(id)) {
                         target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
                     } else {
                         // Its renderer drew nothing at `tool-start`, so the call never became a

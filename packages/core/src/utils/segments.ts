@@ -108,7 +108,9 @@ export function stampSegmentOnInsert(
  *    with `isStreaming: true` would render a caret forever, and — through
  *    `openSegmentIds`, which reads exactly this flag — would have the next turn-close
  *    stamp it a brand-new `endedAt`.
- *  - a `tool_call` persisted as `awaiting-approval` becomes `'aborted'`, for the same
+ *  - a `tool_call` persisted as `awaiting-approval` — or `pending` in a message that is
+ *    no longer in flight, a call saved while it ran, which a server loop's cut connection
+ *    leaves behind — becomes `'aborted'`, for the same
  *    reason and through a hole the line above cannot reach: `isSegmentSettled` reads
  *    STATUS for a tool call, not `isStreaming`, so a restored gate stayed OPEN. The loop
  *    that awaited the decision is gone and the promise it would have settled went with
@@ -124,13 +126,17 @@ export function adoptSegment(
     segments: readonly AparteSegment[],
     segment: AparteSegment,
     messageId: string,
+    /** The message arrives in flight (`streaming`/`pending`): its running calls are live. */
+    live = false,
 ): AparteSegment {
     return {
         ...segment,
         messageId,
         index: segments.length,
         isStreaming: false,
-        ...(segment.type === 'tool_call' && segment.status === 'awaiting-approval' && !segment.deferred?.ticket
+        ...(segment.type === 'tool_call'
+            && (segment.status === 'awaiting-approval' || (segment.status === 'pending' && !live))
+            && !segment.deferred?.ticket
             ? { status: 'aborted' as const }
             : {}),
     } as AparteSegment;
@@ -418,12 +424,15 @@ export function openSegmentIds(segments: readonly AparteSegment[]): string[] {
  * caller's message here doubled every streamed reply — caught by the suite that exists
  * for exactly that bug, within minutes of my writing the shortcut.
  */
-export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[] }>(message: T): T {
+export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[]; status?: string }>(message: T): T {
     if (!message.segments?.length) return { ...message };
+    // A reply handed over while it streams (a host writing into it) keeps its running
+    // calls; a finished one — every saved reply, which the save normalises — does not.
+    const live = message.status === 'streaming' || message.status === 'pending';
     return {
         ...message,
         segments: message.segments.reduce<AparteSegment[]>((acc, segment) => {
-            acc.push(adoptSegment(acc, segment, message.id));
+            acc.push(adoptSegment(acc, segment, message.id, live));
             return acc;
         }, []),
     };

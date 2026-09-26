@@ -11,7 +11,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createStreamAdapter } from '../stream-adapter.js';
 import { aparteGlobalConfig } from '../../config/index.js';
-import { adoptSegment } from '../../utils/segments.js';
+import { adoptSegment, adoptMessageSegments } from '../../utils/segments.js';
 import type { AparteSegment, AparteMessage } from '../../types/index.js';
 
 function target() {
@@ -58,6 +58,17 @@ describe('the adapter on run-suspended', () => {
             deferred: { reason: 'external', ticket: 'T' },
         }]);
     });
+
+    it('marks a call a RESUME pauses again — its row is from the run that paused first', () => {
+        // A resume replays no `tool-start`, so this run's adapter had neither drawn nor
+        // added the call, and the second pause was written nowhere: the row kept no ticket.
+        const t = target();
+        const emit = createStreamAdapter({ target: t, config: aparteGlobalConfig, messageId: 'm1' });
+        emit({ type: 'run-start' });
+        emit({ type: 'tool-awaiting-approval', toolCallId: 'c2', name: 'delete_file', input: {} });
+        emit({ type: 'run-suspended', pending: [{ toolCallId: 'c2', name: 'delete_file', input: {}, reason: 'approval' }], ticket: 'T2' } as never);
+        expect(t.updates).toContainEqual(['tool-c2', { deferred: { reason: 'approval', ticket: 'T2' } }]);
+    });
 });
 
 describe('adoptSegment on reload', () => {
@@ -72,5 +83,20 @@ describe('adoptSegment on reload', () => {
 
     it('stops a waiting call without one, as before: nothing can answer it', () => {
         expect(adoptSegment([], call({ status: 'awaiting-approval' }), 'm1')).toMatchObject({ status: 'aborted' });
+    });
+
+    it('stops a call saved while it ran, and keeps a queued one that carries a ticket', () => {
+        // Nothing runs a loaded call: a row saved mid-run spun for good after a reload.
+        expect(adoptSegment([], call({ status: 'pending' }), 'm1')).toMatchObject({ status: 'aborted' });
+        expect(adoptSegment([], call({ status: 'pending', deferred: { reason: 'queued', ticket: 'T' } }), 'm1'))
+            .toMatchObject({ status: 'pending', deferred: { ticket: 'T' } });
+    });
+
+    it('leaves the running calls of a reply handed over WHILE it streams alone', () => {
+        // A host driving its own loop records the reply in flight: its call is running.
+        const live = adoptMessageSegments({ id: 'm1', status: 'streaming', segments: [call({ status: 'pending' })] });
+        expect(live.segments![0]).toMatchObject({ status: 'pending' });
+        const saved = adoptMessageSegments({ id: 'm1', status: 'completed', segments: [call({ status: 'pending' })] });
+        expect(saved.segments![0]).toMatchObject({ status: 'aborted' });
     });
 });

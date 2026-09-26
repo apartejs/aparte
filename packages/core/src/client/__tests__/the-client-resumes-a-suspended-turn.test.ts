@@ -344,6 +344,22 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(events.filter((e) => e === 'aparte-message-aborted')).toHaveLength(1);
     });
 
+    it('spends the ticket as the resume leaves: a save during the resume keeps no pause', async () => {
+        // The conversation manager saves before it cuts a switch. A row saved with the old
+        // ticket was resumed on the next load against a server that had moved on.
+        const { el, messages } = chat();
+        let seen: { deferred?: unknown } | undefined;
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), (opts, call) => {
+            seen = structuredClone(rowOf(messages, 'c1'));
+            return finish(opts, call);
+        });
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        await send(c);
+        // The history still left the call open for the server: it was built first.
+        expect(r.calls[1]!.baseRequest.messages.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }] });
+        expect(seen!.deferred).toBeUndefined();
+    });
+
     it('closes the paused rows by the reply\'s id — a retry during the wait moves the head', async () => {
         const { el, messages } = chat();
         const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
