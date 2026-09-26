@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { runStreamAgent, type StreamRunOptions } from '../stream-run.js';
-import type { StreamChatEvent, StreamRunEvent, StreamChatRequest, StreamAgentMessage } from '../stream-events.js';
+import type { StreamChatEvent, StreamRunEvent, StreamChatRequest, StreamAgentMessage, StreamToolCall } from '../stream-events.js';
 
 /** A transport that answers each call with the next scripted stream. */
 function scripted(...turns: StreamChatEvent[][]) {
@@ -48,7 +48,7 @@ function run(opts: Partial<StreamRunOptions> & Pick<StreamRunOptions, 'transport
 
 const types = (events: StreamRunEvent[]) => events.map((e) => e.type);
 const suspension = (events: StreamRunEvent[]) => events.at(-1) as Extract<StreamRunEvent, { type: 'run-suspended' }>;
-const envelope = (calls: { id: string; name: string; input: unknown }[]): StreamAgentMessage =>
+const envelope = (calls: StreamToolCall[]): StreamAgentMessage =>
     ({ role: 'assistant', content: '', toolCalls: calls });
 
 describe('deferral: the pause', () => {
