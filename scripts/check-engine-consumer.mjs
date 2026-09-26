@@ -45,7 +45,11 @@ const src = raw
     .join('\n');
 
 const importsRunner = /import\s*\{[^}]*\brunStreamAgent\b[^}]*\}\s*from\s*'@aparte\/engine'/.test(src);
-const wiresRunner = /streamRunner:\s*runStreamAgent/.test(src);
+// `runStreamAgent` as the value, or as the DEFAULT branch of a conditional: the
+// `?agent=` mode swaps in the server's loop (`createAgentStreamRunner`), and every
+// other run of the suite still goes through the engine here. As the other branch it
+// would be the exception, not the default, so that form does not pass.
+const wiresRunner = /streamRunner:\s*(?:[^,\n]*:\s*)?runStreamAgent\b/.test(src);
 
 if (!importsRunner || !wiresRunner) {
     console.error(
