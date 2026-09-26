@@ -171,17 +171,32 @@ describe('AparteChat', () => {
     el.remove();
   });
 
-  it('does not set data-empty without center-empty', () => {
+  // `data-empty` says whether the conversation is empty, which is not a layout option:
+  // an app that wants starters or a welcome of its own reads it without `center-empty`.
+  it('marks itself empty without center-empty too', () => {
     const el = mount();
-    expect(el.hasAttribute('data-empty')).toBe(false);
+    expect(el.hasAttribute('data-empty')).toBe(true);
     el.remove();
   });
 
-  it('clears empty when center-empty is removed', () => {
+  it('keeps saying it is empty when center-empty is removed', () => {
     const el = mount({ 'center-empty': '' });
-    expect(el.hasAttribute('data-empty')).toBe(true);
     el.removeAttribute('center-empty');
+    expect(el.hasAttribute('data-empty')).toBe(true);
+    el.remove();
+  });
+
+  it('follows the conversation without center-empty: a message, then a cleared thread', async () => {
+    const el = mount();
+    const viewport = el.querySelector('aparte-chat-viewport')!;
+    const bubble = document.createElement('aparte-chat-bubble');
+    viewport.appendChild(bubble);
+    await Promise.resolve();
     expect(el.hasAttribute('data-empty')).toBe(false);
+
+    bubble.remove();
+    await Promise.resolve();
+    expect(el.hasAttribute('data-empty')).toBe(true);
     el.remove();
   });
 });
