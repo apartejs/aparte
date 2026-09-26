@@ -23,10 +23,11 @@ setupStreamingMarkdownProvider();
 ```
 
 Call it once at startup. It fills the `aparteGlobalConfig.setStreamingMarkdownProvider` seam, which the chat
-bubble uses while a message is streaming. That is all you need: when the turn completes, what this
-plugin rendered stays on the page. Pairing it with a one-shot provider like
-[`marked`](/plugins/marked/) is optional — register one and the finished message is re-rendered
-through it, at that renderer's full fidelity.
+bubble uses while a message is streaming. That is all you need: a reply renders the same whether it
+streams or arrives complete — a conversation restored after a reload, a non-streaming provider's
+answer — because with no one-shot provider registered, core runs the whole string through this parser
+too. Pairing it with a one-shot provider like [`marked`](/plugins/marked/) is optional — register one
+and finished and restored messages are rendered through it, at that renderer's full fidelity.
 
 ## Security
 

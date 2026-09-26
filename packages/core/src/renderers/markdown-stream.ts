@@ -20,13 +20,13 @@
  *   also what the zero-dependency default gives you (escape + `<br>`).
  * - On the settling update (`isStreaming === false`) it flushes the incremental
  *   parser with `end()` — that emits the buffered token lookahead, e.g. a trailing
- *   emoji — and then re-renders once with the one-shot provider for full fidelity.
- *   That second render only happens when a one-shot provider is actually
- *   registered: with the streaming plugin installed alone, the one-shot side is
- *   the escape-plus-`<br>` default, and re-rendering through it would replace the
- *   rendered DOM with the raw Markdown source at the exact moment the turn ends.
- *   In that configuration the flushed DOM is kept and re-sanitised in place, so a
- *   settled message is still what the sanitizer produced — and a later settle on
+ *   emoji — and then re-renders once through `renderMarkdown` for full fidelity:
+ *   the one-shot provider when one is registered, else the incremental provider run
+ *   over the complete string, so the streaming plugin installed alone settles on its
+ *   own output. When `renderMarkdown` can only answer with core's escape-and-`<br>`
+ *   default (the incremental provider failed on the whole string), re-rendering
+ *   would write the raw source over rendered DOM at the moment the turn ends; the
+ *   flushed DOM is kept and re-sanitised in place instead — and a later settle on
  *   the same content (a framework re-syncing the finished message) leaves it there.
  */
 import { contextConfig } from '../config/index.js';
@@ -66,7 +66,9 @@ const settledFromParser = new WeakMap<Element, string>();
 const ONE_SHOT_PROBE = '<i>a</i>';
 
 /**
- * Is `renderMarkdown` a registered provider, or core's zero-dependency default?
+ * Does `renderMarkdown` render Markdown here, or answer with core's zero-dependency
+ * default? A registered one-shot provider renders, and so does the incremental provider
+ * run over the whole string; the default is what is left when neither can.
  *
  * Asked of the seam itself, because `renderMarkdown` is the only public shape the
  * one-shot side has, and it is also what would run here. The default escapes HTML
@@ -129,9 +131,9 @@ export function writeStreamedMarkdown(
         smd.renderer.end();
         host._aparteSmd = undefined;
         if (!hasOneShotMarkdownProvider()) {
-            // The incremental provider is the only Markdown renderer installed, so
-            // the one-shot render below would write the raw source over rendered
-            // DOM. Keep what the parser wrote — through the sanitizer, which is
+            // `renderMarkdown` can only escape here (the incremental provider failed on
+            // the complete string), so the render below would write the raw source over
+            // rendered DOM. Keep what the parser wrote — through the sanitizer, which is
             // what makes writing DOM directly acceptable in the first place.
             contentEl.innerHTML = contextConfig().sanitizeHtml(contentEl.innerHTML);
             settledFromParser.set(contentEl, content);

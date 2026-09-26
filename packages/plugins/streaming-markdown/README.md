@@ -16,9 +16,11 @@ setupStreamingMarkdownProvider();
 
 `@aparte/core` and `streaming-markdown` are **peer dependencies**.
 
-This plugin is enough on its own: when a turn completes, what it rendered stays on the page. A one-shot
-provider (e.g. `@aparte/plugin-marked`) is optional — register one and the finished message is
-re-rendered through it, at that renderer's full fidelity.
+This plugin is enough on its own: a reply renders the same whether it streams or arrives complete — a
+conversation restored after a reload, a non-streaming provider's answer — because with no one-shot
+provider registered, core runs the whole string through this parser too. A one-shot provider (e.g.
+`@aparte/plugin-marked`) is optional — register one and finished and restored messages are rendered
+through it, at that renderer's full fidelity.
 
 **Security**: the streaming path writes DOM directly, bypassing the one-shot sanitizer, so it enforces
 the URL policy live — a streamed `[x](javascript:…)` never produces a clickable `javascript:` link — and

@@ -348,11 +348,12 @@ export class AparteConfig {
      * Set an incremental (streaming) Markdown renderer provider. Optional —
      * when set, the chat bubble uses it to render the assistant message
      * token-by-token DURING streaming (incremental parse + DOM append, O(n)),
-     * instead of re-parsing the whole string on every token. When the turn ends,
-     * a registered one-shot `setMarkdownProvider` re-renders the finished message
-     * at full fidelity; with no one-shot provider registered, what the streaming
-     * renderer drew is kept (sanitised), rather than replaced by the built-in
-     * escape-and-line-break fallback.
+     * instead of re-parsing the whole string on every token. With no one-shot
+     * `setMarkdownProvider` registered, it also renders a COMPLETE string
+     * (`renderMarkdown`): a restored reply, a non-streaming provider's answer, a
+     * stored segment — so a reply renders the same however it arrived. A registered
+     * one-shot provider takes over for those, and re-renders the finished message
+     * at full fidelity.
      */
     setStreamingMarkdownProvider(fn: AparteStreamingMarkdownProvider): void {
         this._streamingMarkdownProvider = fn;
@@ -1076,8 +1077,16 @@ export class AparteConfig {
     }
 
     /**
-     * Render Markdown to HTML
-     * Fallback: Escapes HTML and converts newlines to <br>
+     * Render a complete Markdown string to HTML: the one-shot provider when one is
+     * registered, else the incremental provider run over the whole string, else core's
+     * default (escape + `<br>`).
+     *
+     * The middle step is what makes the incremental provider enough on its own. Without
+     * it a reply rendered two ways depending on how it arrived: rich while it streamed,
+     * escaped source once it came back complete — a restored conversation, a
+     * non-streaming provider, a stored segment. Same parser, same sanitizer, so the two
+     * cannot disagree. It needs a `document` to write into; without one (a server render)
+     * the default answers, as before.
      */
     renderMarkdown(raw: string): string {
         if (this._markdownProvider) {
@@ -1086,6 +1095,17 @@ export class AparteConfig {
                 return this.sanitizeHtml(this._markdownProvider(raw));
             } catch (error) {
                 console.warn('[AparteConfig] Markdown provider failed, using fallback:', error);
+            }
+        } else if (this._streamingMarkdownProvider && typeof document !== 'undefined') {
+            try {
+                const target = document.createElement('div');
+                const renderer = this._streamingMarkdownProvider(target);
+                renderer.write(raw);
+                renderer.end();
+                // It writes DOM directly, which is why the sanitizer runs over the result.
+                return this.sanitizeHtml(target.innerHTML);
+            } catch (error) {
+                console.warn('[AparteConfig] Streaming Markdown provider failed on a complete string, using fallback:', error);
             }
         }
         // The default renderer already HTML-escapes — no sanitization needed.

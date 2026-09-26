@@ -240,3 +240,30 @@ describe('@aparte/plugin-streaming-markdown — a finished reply keeps its rende
         bubble.remove();
     });
 });
+
+/**
+ * A reply that never streamed — a restored conversation, a non-streaming provider —
+ * renders through this plugin too when it is the only Markdown renderer. It used to go
+ * through core's escape-and-`<br>` default, so a reply was rich while it streamed and
+ * raw once a reload restored it.
+ */
+describe('@aparte/plugin-streaming-markdown — a restored reply renders too', () => {
+    beforeEach(() => {
+        aparteGlobalConfig.reset();
+        setupStreamingMarkdownProvider();
+    });
+
+    it('when a finished message is set on a bubble', () => {
+        const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & { setContent(c: string): void };
+        bubble.setAttribute('data-role', 'assistant');
+        document.body.appendChild(bubble);
+        bubble.setContent('- **one**\n- [two](/two)');
+
+        const content = bubble.querySelector('.aparte-content')!;
+        expect(content.querySelectorAll('li')).toHaveLength(2);
+        expect(content.querySelector('li strong')?.textContent).toBe('one');
+        expect(content.querySelector('a')?.getAttribute('href')).toBe('/two');
+        expect(content.innerHTML).not.toContain('**one**');
+        bubble.remove();
+    });
+});
