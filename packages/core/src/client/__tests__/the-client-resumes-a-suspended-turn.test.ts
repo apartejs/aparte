@@ -162,6 +162,16 @@ describe('the client resumes a paused server run', () => {
         });
     });
 
+    it('forgets the pause once the call is answered: no ticket stays in the saved row', async () => {
+        const { el, messages } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), resumeApproved('c1'));
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        await send(c);
+        const row = messages.flatMap((m) => m.segments ?? []).find((s) => s.id === 'tool-c1') as { status: string; deferred?: unknown };
+        expect(row.status).toBe('resolved');
+        expect(row.deferred).toBeUndefined();
+    });
+
     it('runs a browser tool in the page and sends its result', async () => {
         const { el } = chat();
         const r = runner(pauseOn({ id: 'q1', name: 'ask_user', reason: 'external' }), finish);

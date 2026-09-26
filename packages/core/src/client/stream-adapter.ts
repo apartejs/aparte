@@ -114,6 +114,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     // message anyway (see `run-suspended`).
     const toolSegments = new Map<string, AparteToolCallSegment>();
     const addedTools = new Set<string>();
+    // A call this run never started is one a paused run left — a resume replays no
+    // `tool-start`. Settling it ends the pause, so its row drops `deferred`, and the
+    // server's ticket with it: a saved conversation keeps no answered call "paused".
+    const settle = (toolCallId: string, update: Partial<AparteToolCallSegment>): void => {
+        const id = `tool-${toolCallId}`;
+        target.updateSegment?.(id, (toolSegments.has(id) ? update : { ...update, deferred: undefined }) as Partial<AparteSegment>);
+    };
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
@@ -224,15 +231,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-approved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'pending' });
+                settle(e.toolCallId, { status: 'pending' });
                 break;
 
             case 'tool-rejected':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'rejected', result: e.reason });
+                settle(e.toolCallId, { status: 'rejected', result: e.reason });
                 break;
 
             case 'tool-resolved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, {
+                settle(e.toolCallId, {
                     status: 'resolved',
                     result: e.result,
                     ...(e.structuredResult !== undefined ? { structuredResult: e.structuredResult } : {}),
@@ -240,13 +247,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-aborted':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
+                settle(e.toolCallId, { status: 'aborted' });
                 break;
 
             case 'tool-failed':
                 // The handler threw: the row settles on the crash's one line, and the run
                 // ends on the same error (the message's error card follows).
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'failed', result: e.error });
+                settle(e.toolCallId, { status: 'failed', result: e.error });
                 break;
 
             case 'turn-limit-exceeded':
@@ -258,7 +265,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         details: 'MAX_TURNS_EXCEEDED',
                     });
                 } else if (e.toolCallId) {
-                    target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
+                    settle(e.toolCallId, { status: 'aborted' });
                 }
                 break;
 
