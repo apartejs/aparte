@@ -5,10 +5,10 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
-import { wireTurns } from './wire-history.js';
+import { isOpenDeferred, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
-import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
+import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
@@ -32,12 +32,6 @@ interface AparteRunResult {
     /** A server loop suspended on calls the page must answer, with its signed continuation. */
     suspended?: { pending: StreamDeferredCall[]; ticket?: string };
 }
-
-/** A pending call's row, as the transcript keeps it. */
-const isOpenDeferred = (segment: AparteSegment): segment is AparteToolCallSegment =>
-    segment.type === 'tool_call'
-    && !!(segment as AparteToolCallSegment).deferred
-    && ((segment as AparteToolCallSegment).status === 'awaiting-approval' || (segment as AparteToolCallSegment).status === 'pending');
 
 interface AparteChatTargetElement extends HTMLElement {
     appendMessage?(message: AparteMessage): void;

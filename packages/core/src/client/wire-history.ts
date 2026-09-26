@@ -16,12 +16,22 @@ import type { AparteChatMessage, AparteMessage, AparteSegment, AparteToolCallSeg
 /** The answer a call that never finished gives the model. */
 export const STOPPED_TOOL_TEXT = 'The tool call was stopped before it ran.';
 
+/** The answer a call that ran and returned nothing gives the model — not "stopped", or it tries again. */
+export const EMPTY_TOOL_TEXT = 'The tool returned no output.';
+
 function answerOf(segment: AparteToolCallSegment): string {
-    if (segment.status === 'resolved' || segment.status === 'rejected' || segment.status === 'failed') {
-        return segment.result?.trim() || STOPPED_TOOL_TEXT;
-    }
+    const result = segment.result?.trim();
+    if (segment.status === 'resolved') return result || EMPTY_TOOL_TEXT;
+    if (segment.status === 'failed') return result || 'The tool failed.';
+    if (segment.status === 'rejected') return result || STOPPED_TOOL_TEXT;
     return STOPPED_TOOL_TEXT;
 }
+
+/** A paused call still waiting for its answer — the one a resume leaves open for the server. */
+export const isOpenDeferred = (segment: AparteSegment): segment is AparteToolCallSegment =>
+    segment.type === 'tool_call'
+    && Boolean((segment as AparteToolCallSegment).deferred)
+    && ((segment as AparteToolCallSegment).status === 'awaiting-approval' || (segment as AparteToolCallSegment).status === 'pending');
 
 /**
  * `textOf` turns a run of non-call segments into the text a model reads back — the
@@ -58,18 +68,24 @@ export function wireTurns(
                 toolCalls: calls.map((c) => ({ id: c.toolCall.id, name: c.toolCall.name, input: c.toolCall.input })),
             });
             for (const c of calls) {
-                if (options.openDeferred && c.deferred && (c.status === 'awaiting-approval' || c.status === 'pending')) continue;
+                if (options.openDeferred && isOpenDeferred(c)) continue;
                 out.push({ role: 'tool', content: answerOf(c), toolCallId: c.toolCall.id, toolName: c.toolCall.name });
             }
         }
         texts = [];
         calls = [];
     };
+    // Once a call is left open, the rest of the reply joins its envelope. The paused run
+    // wrote ONE envelope for its turn, text after the calls included, and the server
+    // resumes the calls that END the history: a second envelope after an open call is a
+    // call left unanswered, and trailing text ends the history on no call at all.
+    let open = false;
     for (const segment of segments) {
         if (segment.type === 'tool_call') {
             calls.push(segment as AparteToolCallSegment);
+            if (options.openDeferred && isOpenDeferred(segment)) open = true;
         } else {
-            if (calls.length > 0) flush();
+            if (calls.length > 0 && !open) flush();
             texts.push(segment);
         }
     }

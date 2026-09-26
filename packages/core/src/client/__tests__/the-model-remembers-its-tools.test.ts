@@ -8,7 +8,7 @@
  * `tool` answer, in the order the reply showed them.
  */
 import { describe, it, expect } from 'vitest';
-import { wireTurns, STOPPED_TOOL_TEXT } from '../wire-history.js';
+import { wireTurns, STOPPED_TOOL_TEXT, EMPTY_TOOL_TEXT } from '../wire-history.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 
 const text = (id: string, content: string) => ({ id, type: 'text', content }) as AparteSegment;
@@ -46,7 +46,34 @@ describe('wireTurns', () => {
             call('a', 'aborted'), call('p', 'awaiting-approval'), call('e', 'resolved'),
         ]), textOf);
         expect(out.filter((m) => m.role === 'tool').map((m) => m.content)).toEqual([
-            'Not that one.', 'ENOENT', STOPPED_TOOL_TEXT, STOPPED_TOOL_TEXT, STOPPED_TOOL_TEXT,
+            'Not that one.', 'ENOENT', STOPPED_TOOL_TEXT, STOPPED_TOOL_TEXT, EMPTY_TOOL_TEXT,
+        ]);
+    });
+
+    it('says a call that ran and returned nothing returned nothing — it was not stopped', () => {
+        // It used to share the stopped sentence, so the model read "stopped before it
+        // ran" about a call that had run, and could try it again.
+        const out = wireTurns(msg([call('e', 'resolved'), call('f', 'failed')]), textOf);
+        expect(out.filter((m) => m.role === 'tool').map((m) => m.content)).toEqual([EMPTY_TOOL_TEXT, 'The tool failed.']);
+    });
+
+    it('ends a resumed history on ONE envelope holding every paused call, however text and calls interleave', () => {
+        // The paused run wrote one envelope for its turn, text after the calls included,
+        // and the server resumes the calls that END the history. Split in two, the
+        // first paused call sat in an envelope the second one followed — unanswered, so
+        // a provider refuses it — and trailing text left the history ending on no call.
+        const paused = (id: string, status: string) => ({ ...call(id, status), deferred: { reason: 'approval', ticket: 'T' } }) as AparteSegment;
+        const out = wireTurns(msg([
+            text('t1', 'First. '), call('r1', 'resolved', 'A'),
+            text('t2', 'Then. '), paused('d1', 'awaiting-approval'),
+            text('t3', 'And. '), paused('d2', 'pending'), text('t4', 'Waiting.'),
+        ]), textOf, { openDeferred: true });
+        expect(out).toEqual([
+            { role: 'assistant', content: 'First. ', toolCalls: [{ id: 'r1', name: 'read_file', input: { path: 'r1' } }] },
+            { role: 'tool', content: 'A', toolCallId: 'r1', toolName: 'read_file' },
+            { role: 'assistant', content: 'Then. And. Waiting.', toolCalls: [
+                { id: 'd1', name: 'read_file', input: { path: 'd1' } }, { id: 'd2', name: 'read_file', input: { path: 'd2' } },
+            ] },
         ]);
     });
 
