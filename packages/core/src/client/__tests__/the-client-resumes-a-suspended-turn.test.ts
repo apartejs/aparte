@@ -35,7 +35,7 @@ function chat(initial: AparteMessage[] = []) {
         updateLastMessage: () => {}, typeName: () => {}, setUsage: () => {},
         getMessages: () => messages,
     });
-    for (const type of ['aparte-message-start', 'aparte-message-done', 'aparte-message-aborted']) {
+    for (const type of ['aparte-message-start', 'aparte-message-done', 'aparte-message-aborted', 'aparte-message-error']) {
         el.addEventListener(type, () => events.push(type));
     }
     document.body.appendChild(el);
@@ -96,6 +96,17 @@ function client(el: HTMLElement, streamRunner: ReturnType<typeof runner>['run'],
     const c = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never, streamRunner, ...extra } as never);
     return { c, cfg };
 }
+
+/** A saved conversation whose last reply paused on c1, as a reload finds it. */
+const pausedTranscript = (): AparteMessage[] => [
+    { id: 'u1', role: 'user', content: 'delete a', timestamp: 1 },
+    { id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'completed', segments: [
+        { id: 'tool-c1', type: 'tool_call', status: 'awaiting-approval', toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a' } }, deferred: { reason: 'approval', ticket: 'T' } } as AparteSegment,
+    ] },
+];
+
+const rowOf = (messages: AparteMessage[], id: string) =>
+    messages.flatMap((m) => m.segments ?? []).find((s) => s.id === `tool-${id}`) as { status: string; deferred?: unknown };
 
 const send = (c: AparteClient, content = 'delete a') =>
     (c as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(new CustomEvent('aparte-send', { detail: { content } }));
@@ -208,6 +219,9 @@ describe('the client resumes a paused server run', () => {
         expect(call.status).toBe('aborted');
         expect(call.deferred).toBeUndefined();
         expect(events).not.toContain('aparte-message-done');
+        // No run was left to say the turn stopped, so the client says it: the composer
+        // and the conversation manager both wait for this event.
+        expect(events).toContain('aparte-message-aborted');
     });
 
     it('closes a paused call when a new message is sent instead of an answer', async () => {
@@ -269,5 +283,50 @@ describe('the client resumes a paused server run', () => {
         } finally {
             c.stop();
         }
+    });
+});
+
+describe('a paused turn stops, fails and ends like any other', () => {
+    it('lets Stop reach a panel waiting in a RESTORED conversation', async () => {
+        // The turn's controller was registered by its first run, and a restored turn has
+        // none before the panel: Stop aborted an old controller and the wait never heard.
+        const { el, messages, events } = chat(pausedTranscript());
+        const r = runner(resumeApproved('c1'));
+        const { c } = client(el, r.run, {
+            approvalResolver: (_call: unknown, signal: AbortSignal) => new Promise((resolve) => {
+                signal.addEventListener('abort', () => resolve({ approved: false }));
+                // A fallback answer, so a Stop that never arrives fails the assertions below
+                // rather than the test's timeout.
+                setTimeout(() => resolve({ approved: true }), 50);
+                c.abort();
+            }),
+        });
+        await c.resumeDeferred(el);
+        expect(r.calls).toHaveLength(0);
+        expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
+        expect(rowOf(messages, 'c1').deferred).toBeUndefined();
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-aborted']);
+    });
+
+    it('still resumes a loaded conversation after an earlier Stop', async () => {
+        // The Stop flag was cleared only by a send, so the next load found it set and
+        // gave the paused turn up before asking anything.
+        const { el } = chat(pausedTranscript());
+        const r = runner(resumeApproved('c1'));
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        c.abort();
+        expect(await c.resumeDeferred(el)).toBe(true);
+        expect(r.calls).toHaveLength(1);
+    });
+
+    it('fails the turn when the approval channel crashes, instead of resuming without the answer', async () => {
+        const { el, messages, events } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+        const { c } = client(el, r.run, { approvalResolver: async () => { throw new Error('The panel crashed.'); } });
+        await send(c);
+        expect(r.calls).toHaveLength(1);
+        expect(events).toContain('aparte-message-error');
+        expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
+        expect(rowOf(messages, 'c1').deferred).toBeUndefined();
     });
 });

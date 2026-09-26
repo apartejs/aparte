@@ -704,6 +704,10 @@ export class AparteClient {
         // from the client-wide `_isAborted`, which the next send resets before the
         // superseded turn has returned.
         const streamController = new AbortController();
+        // Registered now rather than by the first run: a turn that resumes a reload waits
+        // on a panel before any run starts, and Stop has to reach that wait.
+        if (this._streamController !== streamController) this._streamController?.abort();
+        this._streamController = streamController;
         try {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
@@ -712,9 +716,18 @@ export class AparteClient {
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
             // bracket every pause, so the button stays Stop while a panel waits.
-            while (result.suspended && !this._isAborted && !streamController.signal.aborted) {
-                const outcomes = await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
-                if (!outcomes) break;
+            while (result.suspended) {
+                const stopped = this._isAborted || streamController.signal.aborted;
+                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
+                if (!outcomes) {
+                    // Nobody will answer them — a Stop, or a channel that gave up: the calls
+                    // do not run. And no run is left to say the turn stopped, so say it here.
+                    this._stopDeferred(targetElement, result.suspended.pending);
+                    if (this._isAborted || streamController.signal.aborted) {
+                        dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
+                    }
+                    break;
+                }
                 const deferral: StreamDeferral = {
                     outcomes,
                     ...(result.suspended.ticket ? { token: result.suspended.ticket } : {}),
@@ -1746,8 +1759,9 @@ export class AparteClient {
      * The answers a paused server run waits for, asked HERE because only the page can: an
      * approval through the same channel a run in the page uses (the panel, the policy, a
      * host's own resolver), a browser tool through the handler `registerTool` gave it.
-     * A `queued` call needs nothing — the server runs it on resume. `undefined` when the
-     * turn was stopped meanwhile: the calls are marked stopped, and there is no resume.
+     * A `queued` call needs nothing — the server runs it on resume. `undefined` when
+     * nobody answered — the turn was stopped, or the channel gave up — and there is no
+     * resume. A channel that CRASHES fails the turn, as it does for a run in the page.
      */
     private async _answerDeferred(
         targetElement: AparteChatTargetElement,
@@ -1761,8 +1775,16 @@ export class AparteClient {
             const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };
             if (p.reason === 'approval') {
                 let decision: Awaited<ReturnType<StreamApprovalResolver>> | undefined;
-                try { decision = await resolver(call, signal); } catch { decision = undefined; }
-                if (!decision || signal.aborted) break;
+                try {
+                    decision = await resolver(call, signal);
+                } catch (error: unknown) {
+                    // Resuming without the answer only paused the same call again.
+                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') {
+                        this._stopDeferred(targetElement, pending);
+                        throw error;
+                    }
+                }
+                if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
             } else if (p.reason === 'external') {
                 const handler = this._config.getToolHandler(p.name);
@@ -1780,13 +1802,14 @@ export class AparteClient {
                 }
             }
         }
-        if (signal.aborted) {
-            for (const p of pending) {
-                targetElement.updateSegment?.(`tool-${p.toolCallId}`, { status: 'aborted', deferred: undefined } as Partial<AparteSegment>);
-            }
-            return undefined;
+        return signal.aborted ? undefined : outcomes;
+    }
+
+    /** Paused calls that will not run: each row says it stopped, and forgets the pause. */
+    private _stopDeferred(targetElement: AparteChatTargetElement, pending: StreamDeferredCall[]): void {
+        for (const p of pending) {
+            targetElement.updateSegment?.(`tool-${p.toolCallId}`, { status: 'aborted', deferred: undefined } as Partial<AparteSegment>);
         }
-        return outcomes;
     }
 
     /** The history a resume sends: the conversation up to this message, its paused calls left open. */
@@ -1843,6 +1866,8 @@ export class AparteClient {
             console.warn('[AparteClient] Cannot resume the paused turn: no provider is selected.');
             return false;
         }
+        // A fresh turn, like a send: a Stop pressed on an earlier one does not cancel it.
+        this._beginUserTurn();
         this._resuming.add(last.id);
         try {
             const authConfig = await this._resolveAuth(provider.id);
