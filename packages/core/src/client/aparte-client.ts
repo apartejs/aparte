@@ -1878,7 +1878,9 @@ export class AparteClient {
     /**
      * What the send of a reloaded turn put before its reply, rebuilt the way
      * `_buildMessages` builds it: the system prompts, the history `options.history`
-     * asks for — given the transcript as the send saw it — and the message that asked.
+     * asks for — given the transcript before the reply, where the send also saw the
+     * reply's empty shell; handing over the paused reply would send it twice — and the
+     * message that asked.
      * That message goes as its text: the files a send read are not in a transcript.
      */
     private _resumeBase(all: AparteMessage[], replyIndex: number): AparteChatMessage[] {
