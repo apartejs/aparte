@@ -13,7 +13,8 @@
  *
  * A reload DURING the wait is pinned in core's in-memory end-to-end test: the examples
  * keep their conversations in memory, so a reload here would lose the conversation, not
- * test the resume.
+ * test the resume. Leaving for another conversation and coming back is tested here: it
+ * is the same promise — the pause lives in the conversation — without a reload.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -27,6 +28,7 @@ const APPROVE = '.aparte-approval-option--affirm';
 const REJECT = '.aparte-approval-option--deny';
 const QUESTION_PANEL = '.aparte-elic-panel';
 const TOOL_ROW = '.aparte-segment-tool-call';
+const LIST = 'aparte-conversation-list';
 const rows = (chat: ChatPage, status: string) => chat.lastReply.locator(`${TOOL_ROW}[data-status="${status}"]`);
 
 async function openSite(page: Page): Promise<ChatPage> {
@@ -90,5 +92,34 @@ test('a browser tool runs in the page while the loop runs on the server', async 
     const receipt = chat.lastReply.locator('.aparte-question-receipt');
     await expect(receipt).toHaveCount(1);
     await expect(receipt).toContainText('Dark and quiet');
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('leaving during the wait keeps the question: it comes back with the conversation', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = await openSite(page);
+
+    await chat.send('what is the weather?');
+    const panel = page.locator(APPROVAL_PANEL);
+    await expect(panel).toBeVisible();
+
+    // Another conversation instead of an answer: the question goes with the one it asks about.
+    await page.locator(LIST).getByText('Weather in Lille').click();
+    await expect(panel).toHaveCount(0);
+    // Seen, as a person sees it before going back. Clicked earlier, the row lands while
+    // the list still settles from the switch (the paused conversation was just saved, which
+    // moves it): one WebKit run in fifty lost that click, none in forty after this wait.
+    await expect(page.locator('aparte-chat-bubble[data-role="user"]').first()).toContainText('weather in Lille');
+
+    // Back: the paused call is still there, the question is put again, and the answer
+    // resumes the run on the server, in the same reply.
+    await page.locator(LIST).getByText('what is the weather?').click();
+    await expect(panel).toBeVisible();
+    await expect(rows(chat, 'awaiting-approval')).toHaveCount(1);
+    await panel.locator(APPROVE).click();
+
+    await expect(panel).toHaveCount(0);
+    await expect(rows(chat, 'resolved')).toHaveCount(1);
+    await expect(chat.lastReply).toContainText('Cloudy');
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
