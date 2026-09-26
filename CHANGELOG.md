@@ -4,6 +4,22 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.17.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [2e4f9ee](https://github.com/apartejs/aparte/commit/2e4f9ee): With `@aparte/plugin-streaming-markdown` as your only Markdown renderer, a reply that arrives complete — a conversation restored after a reload, a non-streaming provider's answer — now renders as Markdown instead of its raw source. Nothing to change on your side; a one-shot provider registered as a workaround can go (#93).
+
+  The plugin rendered a reply while it streamed, and a reply that never streamed went through `renderMarkdown`, which knew only the one-shot provider and fell back to core's escape-and-`<br>` default. So the same text rendered two ways depending on how it arrived, and the plugin page's "that is all you need" held for half of them. `renderMarkdown` now runs a complete string through the incremental provider when no one-shot provider is registered — into a detached element, then through the sanitizer, the same two steps a streamed reply takes. A registered one-shot provider still takes precedence, a server render with no `document` still gets the escaping default, and a provider that throws on the whole string falls back to it too.
+  <sub>`@aparte/core`, `@aparte/plugin-streaming-markdown`</sub>
+
+- [7513253](https://github.com/apartejs/aparte/commit/7513253): The README follows `@aparte/titler` 1.2: a single-language model file is 41 KB. No code change — the plugin accepts any titler, and 1.2 keeps the same `title(message, budget?)` API.
+  <sub>`@aparte/plugin-titler`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.17.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

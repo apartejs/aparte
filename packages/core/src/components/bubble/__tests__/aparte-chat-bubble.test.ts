@@ -477,19 +477,23 @@ describe('AparteChatBubble', () => {
         });
 
         it('flushes the parser and re-renders once when the stream settles', () => {
-            const written: string[] = [];
-            let ended = 0;
-            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
-                write: (delta: string) => { written.push(delta); },
-                end: () => { ended++; },
-            }));
+            // Per instance: with no one-shot provider, `renderMarkdown` runs the whole
+            // string through a FRESH renderer of this provider (the settle's re-render,
+            // and the render after it), so a shared counter would count those too. The
+            // claim is about the incremental parser — the first instance.
+            const instances: { ended: number }[] = [];
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => {
+                const instance = { ended: 0 };
+                instances.push(instance);
+                return { write: () => {}, end: () => { instance.ended++; } };
+            });
 
             bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'smd-end', streaming: '' });
             bubble.appendToken('**hi**');
             bubble.setAttribute('streaming', 'false');
             bubble.appendToken('!');
 
-            expect(ended).toBe(1);
+            expect(instances[0]!.ended).toBe(1);
         });
 
         it('falls back to the one-shot render when no streaming provider is registered', () => {
