@@ -227,6 +227,45 @@ export interface StreamToolConfig {
      * sentence back), but nothing is announced, since nobody is being asked.
      */
     needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny');
+    /**
+     * Known to the model, executed elsewhere — a browser tool behind a server loop.
+     * The loop never looks up a handler for it: with `deferral` the call waits for its
+     * result in `deferral.outcomes`; without it, the call is aborted like a missing
+     * handler.
+     */
+    external?: boolean;
+}
+
+/**
+ * Why a deferred call waits. `approval`: a person must decide. `external`: the tool
+ * runs elsewhere and its result must come back. `queued`: nothing — it came after the
+ * pause point in the same reply, and runs when the run resumes.
+ */
+export type StreamDeferredReason = 'approval' | 'external' | 'queued';
+
+/** A call a suspended run left without an answer. */
+export interface StreamDeferredCall {
+    toolCallId: string;
+    name: string;
+    input: unknown;
+    reason: StreamDeferredReason;
+}
+
+/** The answer to a deferred call, handed to the run that resumes it. */
+export type StreamDeferredOutcome =
+    | { kind: 'decision'; approved: boolean; reason?: string; instruction?: string; payload?: unknown }
+    | { kind: 'result'; content: string; structuredContent?: unknown }
+    | { kind: 'failed'; error: string };
+
+/**
+ * Defer instead of block — see `StreamRunOptions.deferral`. Data only, so a run it
+ * answers can be days old and on another machine.
+ */
+export interface StreamDeferral {
+    /** Answers for calls a previous run left pending, by tool call id. */
+    outcomes?: Record<string, StreamDeferredOutcome>;
+    /** Opaque to the loop, which never reads it: a remote runner carries its continuation ticket here. */
+    token?: string;
 }
 
 /**
@@ -275,6 +314,9 @@ export type StreamApprovalResolver = (
  *                         scope:'tool'   → updateSegment('aborted')
  * - `run-aborted`     → dispatch `aparte-message-aborted` (from the inner-loop abort check or the outer turn-boundary abort check)
  * - `run-done`        → updateMessage(status:'completed') always + setUsage if usage
+ * - `run-suspended`   → (with `deferral`) the run ends with calls left pending; the
+ *                        adapter marks them and completes the message — the TURN goes on
+ *                        through the run that resumes them
  */
 export type StreamRunEvent =
     | { type: 'run-start' }
@@ -292,7 +334,9 @@ export type StreamRunEvent =
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     | { type: 'run-aborted' }
-    | { type: 'run-done'; usage?: StreamUsage };
+    | { type: 'run-done'; usage?: StreamUsage }
+    /** Ends a run in place of `run-done` when calls are left for someone else to answer. */
+    | { type: 'run-suspended'; pending: StreamDeferredCall[]; usage?: StreamUsage };
 
 /**
  * Synchronous event sink — mirrors `AGUIEmitter`. Synchronous by contract: the
