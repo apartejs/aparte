@@ -1,5 +1,31 @@
 # @aparte/core
 
+## 0.17.1
+
+### Patch Changes
+
+- 8b7ccb4: With `@aparte/plugin-streaming-markdown` as your only Markdown renderer, a finished reply now stays rendered when your framework re-renders the chat, instead of turning back into raw Markdown a frame after the turn ends. Nothing to change on your side; the one-shot provider registered as a workaround can go (#89).
+
+  0.17.0 kept what the incremental parser drew on the settling update, but that update is not the last one a finished message receives. After every render the wrappers reconcile the last message, and for a finished one that sends each text segment `{ content, isStreaming: false }` again. The parser was gone by then, so the second settle fell through to core's escape-and-`<br>` default. The same happened to a reply streamed as plain `content` rather than segments, through `setContent`.
+
+  `writeStreamedMarkdown` now remembers, per content element, the content it settled on from the parser's DOM. A later non-streaming update carrying that same content leaves the element alone. Changed content, a one-shot provider registered since, or a new stream into the same element render as before.
+
+- a8776d2: `<aparte-suggestions empty-only>` now shows its starters while the conversation is empty, instead of hiding them for good on the first send: they stay hidden over a restored thread and come back after a new chat. `<aparte-chat>` now reflects `data-empty` whether or not `center-empty` is set (#90).
+
+  If you counted messages to hide or re-show the starters yourself, you can drop that code. If you relied on `aparte-chat[data-empty]` only appearing with `center-empty`, add `[center-empty]` to your selector — core's own rules already carry it, so no built-in layout moves.
+
+  `empty-only` used to read the composer's `aparte-send` alone. It did not look at the conversation, so a thread loaded through `setMessages`, a wrapper's `messages` or a conversation manager showed the starters on top of its transcript (nothing had been sent yet), and after a new chat cleared the thread they never came back. The row now follows the transcript of the chat it serves — found around its composer, around itself, or by `target` — with the same test `<aparte-chat>` uses: no `<aparte-chat-bubble>`, and not `loading`, so a thread being fetched counts as not empty. The send is kept as the other half. It hides the row on the click rather than a frame later when the bubble lands, and it is all there is to read when the messages are not `<aparte-chat-bubble>`s (React's `renderBubble`) or when the composer sits outside any chat. In both of those cases the row behaves exactly as before. The element lifts only a `hidden` it set itself, and removing `empty-only` shows the row again.
+
+  `data-empty` on `<aparte-chat>` was a by-product of `center-empty`, so the chat's one statement of "this conversation is empty" was only available to apps that also wanted a centred composer. It now follows the conversation on every `<aparte-chat>`, including Angular's `framework-managed` host once its viewport renders. React, Vue and Svelte render a `[data-aparte-chat]` div rather than the element and are unchanged.
+
+- a3350fc: The README says beta where it said alpha: the package installs with `@aparte/core@beta`, and its declared surface is frozen as of 0.17.0. No code change.
+- 1f7107f: New: `aparteGlobalConfig.registerToolSummary(toolName, (segment) => string)` shows what a call targets after the tool's name in the default row — `read_file skills.json` instead of `read_file` — and keeps the row's states, spinner and disclosure (#91).
+
+  Until now the only way to add that line was `registerToolRenderer`, which replaces the whole row: its six states, the spinner, the disclosure and the relabel contract, re-implemented and kept in step with core for one line of text. The summary is keyed by the tool's name, like a renderer, so a display-only chat that registers no `AparteTool` gets it too.
+
+  The text is written as text, never parsed as HTML; `''` shows nothing, and a summary that throws shows nothing rather than breaking the row. It is read again on every update of the call, so it follows arguments that are still arriving, and on a config change, so one registered after a row is on screen reaches it. A tool with its own renderer draws its own row and its summary is not read. `unregisterToolSummary` and `getToolSummary` complete the pair, `reset()` clears them, and the `AparteToolSummary` type is exported. The new `.aparte-tool-target` element is muted, in the code font, and cut with an ellipsis, so a long path gives way before the state word does.
+  - @aparte/engine@0.17.1
+
 ## 0.17.0
 
 ### Minor Changes
