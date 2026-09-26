@@ -402,10 +402,12 @@ const summary = `${Object.keys(surface.elements).length} elements, ${attributeCo
 // ── --write: re-take the snapshot ───────────────────────────────────────────
 if (WRITE) {
     const previous = existsSync(SNAPSHOT) ? JSON.parse(readFileSync(SNAPSHOT, 'utf8')) : null;
-    // The stamp moves when the VERSION does. Re-dating an unchanged version on every
-    // addition would churn the file and lie about when the surface froze; the beta
-    // release is what re-stamps it.
-    const frozenSince = previous?.frozenSince?.version === version && previous.frozenSince.date
+    // The stamp says when the surface FROZE — the beta — and an addition does not move
+    // that: the stability page prints it as "frozen as of <version>, the beta". It used to
+    // move with the package version, so the first addition after 0.17.0 re-stamped it
+    // 0.17.2 and the page would have named the wrong release. A stamp that exists stays;
+    // to re-freeze on purpose, delete `frozenSince` from the snapshot and re-run this.
+    const frozenSince = previous?.frozenSince?.version && previous.frozenSince.date
         ? previous.frozenSince
         : { version, date: new Date().toISOString().slice(0, 10) };
     const out = { frozenSince, ...surface };
