@@ -10,7 +10,7 @@ import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteToolCall, AparteTool } from '../types/tools.js';
+import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
@@ -1724,11 +1724,19 @@ export class AparteClient {
     /**
      * The approval channel a run asks through — and the one a paused server run's calls
      * are answered through, so the page asks the same way whichever loop paused.
+     *
+     * `gatedElsewhere`: a server already decided this call needs a person. The page's
+     * policy may still answer it when it has an opinion (`auto` mode allows, a plan
+     * refuses), but with none the person is asked. `ruleOnToolCall`'s own fallback —
+     * the tool's `needsApproval` — reads a tool the page does not have, and said
+     * "allow": the page approved, silently, what the server wanted a person to decide.
      */
-    private _approvalResolverFor(targetElement: AparteChatTargetElement): StreamApprovalResolver {
+    private _approvalResolverFor(targetElement: AparteChatTargetElement, gatedElsewhere = false): StreamApprovalResolver {
         return this.options.approvalResolver
             ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
-                const ruling = this._config.ruleOnToolCall(call);
+                const ruling: AparteApprovalRuling = gatedElsewhere
+                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name)) ?? { verdict: 'ask' })
+                    : this._config.ruleOnToolCall(call);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
@@ -1753,7 +1761,7 @@ export class AparteClient {
         signal: AbortSignal,
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
-        const resolver = this._approvalResolverFor(targetElement);
+        const resolver = this._approvalResolverFor(targetElement, true);
         for (const p of pending) {
             if (signal.aborted) break;
             const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };

@@ -119,6 +119,34 @@ describe('the client resumes a paused server run', () => {
         expect(reply.segments?.some((s) => s.type === 'text' && (s as { content: string }).content === 'Done.')).toBe(true);
     });
 
+    it('puts a call the SERVER gated to the person, even for a tool the page does not know', async () => {
+        // The page's default channel falls back to the tool's own `needsApproval` — and a
+        // server tool is unknown here, so that fallback said "allow" and the page approved,
+        // silently, a call the server wanted a person to decide. The server gated it: with
+        // no opinion from the page's policy, the person is asked.
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+        const { c, cfg } = client(el, r.run);
+        const asked: string[] = [];
+        (c as unknown as { _askForApproval: (call: { id: string }) => Promise<unknown> })._askForApproval =
+            async (call) => { asked.push(call.id); return { approved: true }; };
+        await send(c);
+        expect(asked).toEqual(['c1']);
+
+        // A policy that HAS an opinion still answers alone (plugin-approval's `auto` mode).
+        cfg.setApprovalPolicy(() => ({ verdict: 'allow' }));
+        const r2 = runner(pauseOn({ id: 'c2', name: 'delete_file', reason: 'approval' }), finish);
+        const { el: el2 } = chat();
+        const { c: c2, cfg: cfg2 } = client(el2, r2.run);
+        cfg2.setApprovalPolicy(() => ({ verdict: 'allow' }));
+        const asked2: string[] = [];
+        (c2 as unknown as { _askForApproval: (call: { id: string }) => Promise<unknown> })._askForApproval =
+            async (call) => { asked2.push(call.id); return { approved: true }; };
+        await send(c2);
+        expect(asked2).toEqual([]);
+        expect(r2.calls[1]!.deferral!.outcomes).toEqual({ c2: { kind: 'decision', approved: true } });
+    });
+
     it('answers two approvals of one reply in ONE resume', async () => {
         const { el } = chat();
         const r = runner(pauseOn({ id: 'd1', name: 'delete_file', reason: 'approval' }, { id: 'd2', name: 'delete_file', reason: 'approval' }), finish);
