@@ -8,7 +8,7 @@ import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.j
 import { isOpenDeferred, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
-import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
+import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
@@ -724,7 +724,7 @@ export class AparteClient {
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
                 if (!stopped && ++resumes > maxResumes) {
-                    this._stopDeferred(targetElement, result.suspended.pending);
+                    this._closeOpenCalls(targetElement, messageId);
                     createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) })(
                         { type: 'turn-limit-exceeded', scope: 'global', limit: maxResumes },
                     );
@@ -734,7 +734,7 @@ export class AparteClient {
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
                     // do not run. And no run is left to say the turn stopped, so say it here.
-                    this._stopDeferred(targetElement, result.suspended.pending);
+                    this._closeOpenCalls(targetElement, messageId);
                     if (this._isAborted || streamController.signal.aborted) {
                         dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
                     }
@@ -761,6 +761,7 @@ export class AparteClient {
                 //
                 // Not `done`, though: announcing a normal completion on top of an
                 // abort is what a provider that ends quietly used to produce.
+                this._closeOpenCalls(targetElement, messageId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage }, chatId);
@@ -773,6 +774,7 @@ export class AparteClient {
             // `reader.read()` nor the one on the `error` event can see it — and
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
+            this._closeOpenCalls(targetElement, messageId);
             if (this._isAborted || streamController.signal.aborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
@@ -1790,11 +1792,9 @@ export class AparteClient {
                 try {
                     decision = await resolver(call, signal);
                 } catch (error: unknown) {
-                    // Resuming without the answer only paused the same call again.
-                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') {
-                        this._stopDeferred(targetElement, pending);
-                        throw error;
-                    }
+                    // Resuming without the answer only paused the same call again. The
+                    // turn's error exit closes the calls.
+                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
                 }
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
@@ -1817,11 +1817,28 @@ export class AparteClient {
         return signal.aborted ? undefined : outcomes;
     }
 
-    /** Paused calls that will not run: each row says it stopped, and forgets the pause. */
-    private _stopDeferred(targetElement: AparteChatTargetElement, pending: StreamDeferredCall[]): void {
-        for (const p of pending) {
-            targetElement.updateSegment?.(`tool-${p.toolCallId}`, { status: 'aborted', deferred: undefined } as Partial<AparteSegment>);
-        }
+    /**
+     * Close the reply's calls that can no longer finish — paused, queued, or running on a
+     * server the page stopped listening to: each says it stopped, and forgets the pause.
+     * A cut connection carries none of their last events, so nothing else would: the rows
+     * spun, and a queued call kept its ticket, which a reload then resumed against a
+     * server that had moved on. By the reply's id, not the chat's head — a retry during
+     * the wait moves the head. A run in the page ends every call itself: nothing to do.
+     */
+    private _closeOpenCalls(targetElement: AparteChatTargetElement, messageId: string): void {
+        const segments = targetElement.getMessage?.(messageId)?.segments
+            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const unfinished = (segment: AparteSegment): segment is AparteToolCallSegment =>
+            segment.type === 'tool_call'
+            && ((segment as AparteToolCallSegment).status === 'pending' || (segment as AparteToolCallSegment).status === 'awaiting-approval');
+        if (!segments?.some(unfinished)) return;
+        targetElement.updateMessage?.(messageId, {
+            segments: segments.map((segment) => {
+                if (!unfinished(segment)) return segment;
+                const { deferred: _spent, ...rest } = segment;
+                return { ...rest, status: 'aborted' as const };
+            }),
+        });
     }
 
     /**

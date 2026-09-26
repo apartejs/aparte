@@ -20,7 +20,6 @@ function chat(initial: AparteMessage[] = []) {
     const events: string[] = [];
     const el = document.createElement('div');
     const last = () => messages[messages.length - 1]!;
-    const owner = (segmentId: string) => [...messages].reverse().find((m) => m.segments?.some((s) => s.id === segmentId));
     Object.assign(el, {
         appendMessage: (m: AparteMessage) => { messages.push({ ...m }); },
         updateMessage: (id: string, u: Partial<AparteMessage>) => {
@@ -28,9 +27,10 @@ function chat(initial: AparteMessage[] = []) {
             if (m) Object.assign(m, u);
         },
         addSegment: (s: AparteSegment) => { const m = last(); m.segments = [...(m.segments ?? []), s]; },
+        // The viewport's one-argument form: the CURRENT message, which a retry moves.
         updateSegment: (id: string, u: Partial<AparteSegment>) => {
-            const m = owner(id);
-            if (m) m.segments = m.segments!.map((s) => (s.id === id ? { ...s, ...u } as AparteSegment : s));
+            const m = last();
+            if (m.segments) m.segments = m.segments.map((s) => (s.id === id ? { ...s, ...u } as AparteSegment : s));
         },
         updateLastMessage: () => {}, typeName: () => {}, setUsage: () => {},
         getMessages: () => messages,
@@ -307,6 +307,58 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
         expect(rowOf(messages, 'c1').deferred).toBeUndefined();
         expect(events).toEqual(['aparte-message-start', 'aparte-message-aborted']);
+    });
+
+    it('closes the calls a Stop cuts in the middle of a resume, instead of saving them open', async () => {
+        // The server ran d1 and had r1 queued when the page stopped listening: neither
+        // event reached it. r1 kept the old ticket — a reload resumed it, the server
+        // refused the mismatch, and the error came back on every load — and d1 spun.
+        const { el, messages, events } = chat();
+        let stop = (): void => {};
+        const pauseTwo: Script = (opts) => {
+            opts.emitter({ type: 'run-start' });
+            opts.emitter({ type: 'tool-start', toolCallId: 'd1', name: 'delete_file', input: {} });
+            opts.emitter({ type: 'tool-awaiting-approval', toolCallId: 'd1', name: 'delete_file', input: {} });
+            opts.emitter({ type: 'tool-start', toolCallId: 'r1', name: 'read_file', input: {} });
+            opts.emitter({ type: 'run-suspended', pending: [
+                { toolCallId: 'd1', name: 'delete_file', input: {}, reason: 'approval' },
+                { toolCallId: 'r1', name: 'read_file', input: {}, reason: 'queued' },
+            ], ticket: 'T' } as never);
+        };
+        const cutMidResume: Script = (opts) => {
+            opts.emitter({ type: 'run-start' });
+            opts.emitter({ type: 'tool-approved', toolCallId: 'd1' });
+            stop();
+            // What a real fetch does to the body when its signal aborts.
+            throw new DOMException('The operation was aborted.', 'AbortError');
+        };
+        const r = runner(pauseTwo, cutMidResume);
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        stop = () => c.abort();
+        await send(c);
+        expect(r.calls).toHaveLength(2);
+        for (const id of ['d1', 'r1']) {
+            expect(rowOf(messages, id)).toMatchObject({ status: 'aborted' });
+            expect(rowOf(messages, id).deferred).toBeUndefined();
+        }
+        expect(events.filter((e) => e === 'aparte-message-aborted')).toHaveLength(1);
+    });
+
+    it('closes the paused rows by the reply\'s id — a retry during the wait moves the head', async () => {
+        const { el, messages } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+        const { c } = client(el, r.run, {
+            approvalResolver: (_call: unknown, signal: AbortSignal) => new Promise((resolve) => {
+                signal.addEventListener('abort', () => resolve({ approved: false }));
+                // A retry on the paused reply: its sibling becomes the head, the old turn is cut.
+                (el as unknown as { appendMessage: (m: AparteMessage) => void })
+                    .appendMessage({ id: 'a2', role: 'assistant', content: '', timestamp: 3 });
+                c.abort();
+            }),
+        });
+        await send(c);
+        expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
+        expect(rowOf(messages, 'c1').deferred).toBeUndefined();
     });
 
     it('still resumes a loaded conversation after an earlier Stop', async () => {
