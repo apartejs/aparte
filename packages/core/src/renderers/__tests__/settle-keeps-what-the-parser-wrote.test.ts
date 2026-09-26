@@ -123,6 +123,55 @@ describe('the settling update', () => {
         expect(contentEl.querySelector('strong')?.textContent).toBe('goodbye');
     });
 
+    it('keeps what the parser wrote when a settled segment is settled again', () => {
+        // A framework's reconcile re-sends `{ content, isStreaming: false }` to a
+        // finished message on every render. The parser is gone after the first
+        // settle, so the second must not fall through to the one-shot default.
+        installIncrementalProvider();
+        const host = document.createElement('div') as AparteMarkdownStreamHost;
+        const contentEl = document.createElement('div');
+        host.appendChild(contentEl);
+        document.body.appendChild(host);
+
+        writeStreamedMarkdown(host, contentEl, SRC, true);
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+
+        expect(contentEl.querySelector('strong')?.textContent).toBe('world');
+        expect(contentEl.innerHTML).not.toContain('**world**');
+    });
+
+    it('renders a settled segment whose content changed through the one-shot side', () => {
+        // Nothing parsed the new content, so the DOM kept from the stream would be
+        // stale; the one-shot render is the only one that shows what the text says.
+        installIncrementalProvider();
+        const host = document.createElement('div') as AparteMarkdownStreamHost;
+        const contentEl = document.createElement('div');
+        host.appendChild(contentEl);
+        document.body.appendChild(host);
+
+        writeStreamedMarkdown(host, contentEl, 'Hello **world**', true);
+        writeStreamedMarkdown(host, contentEl, 'Hello **world**', false);
+        writeStreamedMarkdown(host, contentEl, 'edited', false);
+
+        expect(contentEl.innerHTML).toBe('edited');
+    });
+
+    it('re-renders a settled segment again once a one-shot provider is registered', () => {
+        installIncrementalProvider();
+        const host = document.createElement('div') as AparteMarkdownStreamHost;
+        const contentEl = document.createElement('div');
+        host.appendChild(contentEl);
+        document.body.appendChild(host);
+
+        writeStreamedMarkdown(host, contentEl, SRC, true);
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+        installOneShotProvider();
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+
+        expect(contentEl.querySelector('.one-shot')).not.toBeNull();
+    });
+
     it('escapes the raw Markdown when neither provider is registered', () => {
         const contentEl = streamThenSettle('a < b\n**bold**');
 

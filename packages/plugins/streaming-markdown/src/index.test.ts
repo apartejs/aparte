@@ -202,3 +202,41 @@ describe('@aparte/plugin-streaming-markdown — a code fence cannot wear core’
         expect(fence('').hasAttribute('class')).toBe(false);
     });
 });
+
+/**
+ * Installed alone, this plugin is the only Markdown renderer, and a finished reply
+ * keeps what it drew. That held for the settling update and broke on the one after
+ * it: a framework's reconcile re-sends `{ content, isStreaming: false }` to the last
+ * message on every render, the parser was gone by then, and core fell back to its
+ * escape-and-`<br>` default — the reply turned back into its raw source one render
+ * after the turn ended. Driven through a real bubble, with this plugin's real parser.
+ */
+describe('@aparte/plugin-streaming-markdown — a finished reply keeps its render', () => {
+    type Bubble = HTMLElement & {
+        setSegments(segments: unknown[]): void;
+        appendToSegment(id: string, chunk: string): void;
+        updateSegment(id: string, updates: Record<string, unknown>): void;
+    };
+
+    beforeEach(() => {
+        aparteGlobalConfig.reset();
+        setupStreamingMarkdownProvider();
+    });
+
+    it('when a settled segment is settled again with the same content', () => {
+        const bubble = document.createElement('aparte-chat-bubble') as Bubble;
+        bubble.setAttribute('data-role', 'assistant');
+        document.body.appendChild(bubble);
+        const source = 'A list:\n\n- **one**\n- **two**\n';
+
+        bubble.setSegments([{ id: 't1', type: 'text', content: '' }]);
+        bubble.appendToSegment('t1', source);
+        bubble.updateSegment('t1', { isStreaming: false });
+        bubble.updateSegment('t1', { content: source, isStreaming: false });
+
+        const content = bubble.querySelector('[data-segment-id="t1"] .aparte-segment-content')!;
+        expect(content.querySelectorAll('li strong')).toHaveLength(2);
+        expect(content.innerHTML).not.toContain('**one**');
+        bubble.remove();
+    });
+});
