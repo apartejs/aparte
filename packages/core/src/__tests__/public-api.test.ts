@@ -73,6 +73,8 @@ describe('@aparte/core public API', () => {
             "contentToText",
             "contextConfig",
             "copyText",
+            "createAgentStreamRunner",
+            "createAparteAgentHandler",
             "createAparteChatHandler",
             "createStreamAdapter",
             "cssEscape",
