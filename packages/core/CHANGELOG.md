@@ -1,5 +1,11 @@
 # @aparte/core
 
+## 0.17.3
+
+### Patch Changes
+
+- @aparte/engine@0.17.3
+
 ## 0.17.2
 
 ### Patch Changes
