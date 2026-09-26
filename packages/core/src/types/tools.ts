@@ -146,6 +146,11 @@ export type AparteToolHandler = (
  */
 export interface AparteToolContext {
     /**
+     * On the server (`createAparteAgentHandler`): the request that started the run, for a
+     * tool that checks who is calling — the model chose the arguments, not the caller.
+     */
+    request?: Request;
+    /**
      * The chat element this turn belongs to. Pass it as `target` to
      * `requestUserInput` (or to anything else that resolves a config from the DOM)
      * and the right instance answers.

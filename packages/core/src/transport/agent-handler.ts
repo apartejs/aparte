@@ -135,6 +135,18 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
         if (typeof body.providerId !== 'string' || typeof body.messageId !== 'string' || !Array.isArray(body.request?.messages)) {
             return jsonError(400, 'Body must be { v: 1, providerId, messageId, request: { messages } }.');
         }
+        // A forced call (`toolChoice: { name, input }`) runs its handler before the model
+        // speaks, with no gate and no policy — from a browser, that is a direct call to a
+        // server tool. The string forms (`auto`, `none`, `required`) stay allowed.
+        if (body.request.toolChoice && typeof body.request.toolChoice === 'object') {
+            return jsonError(400, 'A forced tool call cannot come from the browser.');
+        }
+        // A history that ends on unanswered calls is a RESUME: only a ticket this server
+        // signed may start one. Without that check a forged envelope ran an ungated call,
+        // or came back signed as if the model had made it.
+        if (!body.resume && unansweredTail(body.request.messages as StreamChatRequest['messages']).length > 0) {
+            return jsonError(400, 'The history ends on unanswered tool calls: a resume needs its ticket.');
+        }
         const provider = Object.hasOwn(options.providers, body.providerId) ? options.providers[body.providerId] : undefined;
         if (!provider) {
             return jsonError(400, `Unknown providerId "${body.providerId}". Register it in the handler's providers map.`);
@@ -204,6 +216,13 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     try { controller.close(); } catch { /* already closed by a cancel */ }
                 };
                 const emitter = (event: StreamRunEvent): void => {
+                    if (event.type === 'tool-failed') {
+                        // A server tool's error can name a path, a host, a connection
+                        // string: the page hears that it failed, the log hears why.
+                        console.error(`[aparte] tool call ${event.toolCallId} failed:`, event.error);
+                        write({ ...event, error: 'The tool failed.' });
+                        return;
+                    }
                     if (event.type !== 'run-suspended') {
                         write(event);
                         return;
@@ -224,7 +243,9 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     },
                     toolLookup: (name) => {
                         const t = tools.get(name);
-                        return t ? (call, signal) => t.handler(call as AparteToolCall, signal, {}) : undefined;
+                        // The request rides along: a tool checks the caller's rights itself,
+                        // since the model — not the caller — chose the arguments.
+                        return t ? (call, signal) => t.handler(call as AparteToolCall, signal, { request: req }) : undefined;
                     },
                     toolConfigLookup: (name) => {
                         if (external.has(name)) return { external: true };
