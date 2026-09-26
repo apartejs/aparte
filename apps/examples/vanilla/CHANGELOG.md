@@ -1,5 +1,22 @@
 # @aparte-workspace/playground-vanilla
 
+## 0.0.30
+
+### Patch Changes
+
+- Updated dependencies [2e4f9ee]
+  - @aparte/core@0.17.2
+  - @aparte/plugin-approval@0.17.2
+  - @aparte/plugin-artifacts@0.17.2
+  - @aparte/plugin-ask-user@0.17.2
+  - @aparte/plugin-compaction@0.17.2
+  - @aparte/plugin-marked@0.17.2
+  - @aparte/plugin-model-selector@0.17.2
+  - @aparte/plugin-shiki@0.17.2
+  - @aparte/provider-openai-compat@0.17.2
+  - @aparte/provider-scenario@0.17.2
+  - @aparte/engine@0.17.2
+
 ## 0.0.29
 
 ### Patch Changes
