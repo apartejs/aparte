@@ -251,6 +251,7 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 export { AparteClient } from './client/aparte-client.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
+export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
