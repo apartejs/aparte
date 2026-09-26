@@ -20,6 +20,7 @@ import {
     AparteClient,
     AparteDirectTransport,
     contentToText,
+    createAgentStreamRunner,
 } from '@aparte/core';
 import type { AparteThinkingSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon } from '@aparte/core/icons';
@@ -180,6 +181,10 @@ async function run(): Promise<SiteSetup> {
     //    provider uses). `?scenario` and `?local` in the URL override the setting: a
     //    link a reader or a test can share.
     const scenarioMode = resolveModelSource(loadSettings()) === 'scripted';
+    //    `?agent=<url>`: the LOOP runs on a server (`_shared/agent-server.mjs`, the browser
+    //    suite starts one), with `get_weather` there as a server tool that needs a person.
+    //    The page keeps its panel, its policy and its browser tools; only the loop moves.
+    const agentUrl = new URLSearchParams(location.search).get('agent');
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {
@@ -207,7 +212,9 @@ async function run(): Promise<SiteSetup> {
         // the tool that shows what an unclassified name does under each mode — plan, ask
         // and auto-edit all put it to the user (its own flag decides), and `auto` lets it
         // through, because auto is auto.
-        aparteGlobalConfig.registerTool(
+        // Under `?agent` the weather tool is the SERVER's: a page tool of the same name
+        // would be sent as a browser tool, and the server refuses the clash.
+        if (!agentUrl) aparteGlobalConfig.registerTool(
             {
                 name: 'get_weather',
                 description: 'Current weather for a city.',
@@ -282,7 +289,7 @@ async function run(): Promise<SiteSetup> {
     //    asserts. Wired here because a capability with no in-repo consumer is a
     //    contract maintained for nobody (ratified decision #7).
     const client = new AparteClient({
-        streamRunner: runStreamAgent,
+        streamRunner: agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent,
         // The endpoint + token the settings hold, for ANY provider. The record form
         // (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint, and it
         // is honoured on both the chat and the /models path.

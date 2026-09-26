@@ -92,6 +92,20 @@ function viteServer(app: AppKey) {
 
 // The apps under test. `E2E_ONLY=react,vanilla` narrows the boot set (and the
 // started servers) during local iteration; unset → all six.
+/** The loop on a server, for `agent-loop.spec.ts`: `apps/examples/_shared/agent-server.mjs`. */
+const AGENT_PORT = 5399;
+const AGENT_SERVER = {
+    command: 'node agent-server.mjs',
+    cwd: resolve(rootDir, 'apps/examples/_shared'),
+    // Any 2xx answers this: the server says hello to a GET.
+    url: `http://localhost:${AGENT_PORT}/api/agent`,
+    env: { AGENT_PORT: String(AGENT_PORT) },
+    reuseExistingServer: reuseServers,
+    timeout: 60_000,
+    stdout: 'pipe' as const,
+    stderr: 'pipe' as const,
+};
+
 const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
     react: { server: viteServer('react') },
     vue: { server: viteServer('vue') },
@@ -157,6 +171,9 @@ const OVERLAY = /overlay\.spec\.ts/;
 // #57 — the send glides to the top of the view and nothing cuts it: the writes and the
 // per-frame curve, against a real layout.
 const SEND_GLIDE = /send-glide\.spec\.ts/;
+// The loop on a SERVER: the site under `?agent=` sends its turns to the agent server
+// below, and an approval travels across the network — pause, panel, resume, reload.
+const AGENT_LOOP = /agent-loop\.spec\.ts/;
 // #56 — an older message's action bar hangs under its text, in the gap, and reserves no row.
 const ACTION_BAR_BELOW = /action-bar-below\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
@@ -239,17 +256,17 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
     // behaviour suites (those are about core, which is major-agnostic).
-    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR, CHAT_SITE] :
+    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE];
+    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
@@ -317,7 +334,8 @@ export default defineConfig({
     },
 
     // Boot only the selected apps' servers.
-    webServer: selected.map((k) => APPS[k].server),
+    // The sites, and the agent server the `?agent` spec talks to (one for all of them).
+    webServer: [...selected.map((k) => APPS[k].server), AGENT_SERVER],
 
     // One project per app; the five framework apps share the smoke suite,
     // vanilla-dist runs its human-in-the-loop suite.
