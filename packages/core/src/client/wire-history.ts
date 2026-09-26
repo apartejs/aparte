@@ -31,6 +31,13 @@ function answerOf(segment: AparteToolCallSegment): string {
 export function wireTurns(
     message: AparteMessage,
     textOf: (segments: AparteSegment[]) => string,
+    options: {
+        /**
+         * Leave this message's paused calls unanswered: the request that RESUMES them
+         * sends the envelope with those calls open, for the server to answer them.
+         */
+        openDeferred?: boolean;
+    } = {},
 ): AparteChatMessage[] {
     const segments = message.segments ?? [];
     if (message.role !== 'assistant' || !segments.some((s) => s.type === 'tool_call')) {
@@ -51,6 +58,7 @@ export function wireTurns(
                 toolCalls: calls.map((c) => ({ id: c.toolCall.id, name: c.toolCall.name, input: c.toolCall.input })),
             });
             for (const c of calls) {
+                if (options.openDeferred && c.deferred && (c.status === 'awaiting-approval' || c.status === 'pending')) continue;
                 out.push({ role: 'tool', content: answerOf(c), toolCallId: c.toolCall.id, toolName: c.toolCall.name });
             }
         }

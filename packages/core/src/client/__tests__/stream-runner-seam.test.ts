@@ -34,7 +34,8 @@ const REQ = { messages: [{ role: 'user', content: 'hi' }], modelId: 'm', stream:
 
 const runLoop = (client: AparteClient, target: HTMLElement, cfg: AparteConfig, req: unknown = REQ) =>
     (client as unknown as { _streamLoop: (t: unknown, id: string, p: unknown, r: unknown, a: unknown) => Promise<unknown> })
-        ._streamLoop(target, 'assistant-1', cfg.getAIProvider('mock'), req, 'k');
+        ._streamLoop(target, 'assistant-1', cfg.getAIProvider('mock'), req, 'k')
+        .then((result) => (result as { usage?: unknown }).usage);
 
 describe('AparteClient — streamRunner seam', () => {
     it('delegates the loop to the injected runner and renders its events', async () => {

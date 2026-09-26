@@ -253,7 +253,9 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     });
     const oldRun = settle(() =>
         (oldClient as unknown as { _streamLoop: (t: unknown, id: string, p: unknown, r: unknown, a: unknown) => Promise<unknown> })
-            ._streamLoop(oldRec.el, 'assistant-1', oldCfg.getAIProvider('mock'), { messages: [{ role: 'user', content: 'hi' }], modelId: 'm', stream: true, ...baseReqExtras }, 'k'));
+            ._streamLoop(oldRec.el, 'assistant-1', oldCfg.getAIProvider('mock'), { messages: [{ role: 'user', content: 'hi' }], modelId: 'm', stream: true, ...baseReqExtras }, 'k')
+            // The run's usage; the result also says whether a server loop paused (never, here).
+            .then((result) => (result as { usage?: unknown }).usage));
     if (opts.abortAfter !== undefined) {
         await oldGate.reached;
         oldClient.abort();
