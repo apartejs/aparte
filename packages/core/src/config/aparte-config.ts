@@ -22,7 +22,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
 import type {
-    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolCall,
+    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolCall,
     AparteApprovalPolicy, AparteApprovalRuling,
 } from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
@@ -228,6 +228,7 @@ export class AparteConfig {
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
+    private _toolSummaries: Map<string, AparteToolSummary> = new Map();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -1238,6 +1239,40 @@ export class AparteConfig {
     }
 
     /**
+     * Say what a call targets, in the default row, after the tool's name.
+     *
+     * The default row names the tool and keeps its arguments behind a disclosure, so a
+     * reader saw that a file was read, not which one. Replacing the row with
+     * `registerToolRenderer` for that one line meant re-implementing its six states,
+     * the spinner, the disclosure and the relabel contract. This keeps all of them and
+     * adds the line. A tool with its own renderer draws its own row, so its summary is
+     * never read.
+     *
+     * The text is written as text, never parsed as HTML. It is read when the row
+     * renders, on every update to the call (its arguments may still be arriving), and
+     * on every config change — so registering one after a row is on screen shows up on
+     * that row's next update.
+     *
+     * @example
+     * // read_file skills.json
+     * aparteGlobalConfig.registerToolSummary('read_file', (segment) =>
+     *     String(segment.toolCall.input['path'] ?? ''));
+     */
+    registerToolSummary(toolName: string, summary: AparteToolSummary): void {
+        this._toolSummaries.set(toolName, summary);
+    }
+
+    /** Unregister a per-tool summary. */
+    unregisterToolSummary(toolName: string): void {
+        this._toolSummaries.delete(toolName);
+    }
+
+    /** Get the summary for a specific tool name. Returns undefined if none registered. */
+    getToolSummary(toolName: string): AparteToolSummary | undefined {
+        return this._toolSummaries.get(toolName);
+    }
+
+    /**
      * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
      * prose becomes the segment `toSegment` builds, streamed delta by delta.
      *
@@ -1495,6 +1530,7 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
+        this._toolSummaries.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;

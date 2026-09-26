@@ -119,6 +119,36 @@ function highlightParts(element: HTMLElement): void {
 }
 
 /**
+ * What the call targets, from the summary registered for its tool — `''` when there is
+ * none, or when it throws: a summary reads model-chosen input, and a bad one must cost
+ * the row its one line, not the bubble its render.
+ */
+function toolTarget(segment: AparteToolCallSegment): string {
+    const summary = contextConfig().getToolSummary(segment.toolCall?.name ?? '');
+    if (!summary) return '';
+    try {
+        const text = summary(segment);
+        return typeof text === 'string' ? text.trim() : '';
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * Write the target into its container, which is always in the pill for the same reason
+ * the spinner is: `update` patches in place, and the arguments a summary reads can still
+ * be arriving when the row is first drawn. `relabel` calls it too, so a summary
+ * registered after the row was drawn reaches it on the next config change.
+ */
+function setTarget(element: Element, segment: AparteToolCallSegment): void {
+    const el = element.querySelector('.aparte-tool-target');
+    if (!el) return;
+    const text = toolTarget(segment);
+    if (el.textContent !== text) el.textContent = text;
+    el.toggleAttribute('hidden', !text);
+}
+
+/**
  * The pill, as markup.
  *
  * A function and not an inline template, so its escaping exemption can sit on a
@@ -128,10 +158,12 @@ function highlightParts(element: HTMLElement): void {
  */
 function pillMarkup(segment: AparteToolCallSegment, name: string, status: string): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
+    const target = toolTarget(segment);
     return `
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="aparte-tool-name">${escapeHtml(name)}</span>
+                    <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state">${badge}</span>`;
@@ -254,6 +286,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         }
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
+        setTarget(element, segment);
         // Through `stateBadge`, which is the whole point of it existing.
         //
         // This used to rebuild the badge by hand as the ICON ALONE, so any config change
@@ -330,6 +363,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can
         // read, and jsdom has no layout to ask. Same treatment as the cancel button.
         element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
+        setTarget(element, segment);
 
         setPart(element, 'input', input);
         setPart(element, 'output', segment.result ?? '');

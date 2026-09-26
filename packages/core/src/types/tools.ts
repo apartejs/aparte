@@ -159,6 +159,21 @@ export interface AparteToolContext {
 }
 
 /**
+ * What a call targets, in one line: the text the DEFAULT tool row shows after the
+ * tool's name — `read_file skills.json` rather than `read_file` alone.
+ * Registered via aparteGlobalConfig.registerToolSummary(toolName, summary).
+ *
+ * The name says which tool ran; this says to what, without opening the disclosure.
+ * The row, its states and its disclosure stay core's, so a host that only wants that
+ * one line does not re-implement them in an `AparteToolRenderer`.
+ *
+ * Return plain text: it is written as text, never parsed as HTML. Return `''` to show
+ * nothing. `segment.toolCall.input` is whatever the model chose, so read it
+ * defensively — a summary that throws shows nothing rather than breaking the row.
+ */
+export type AparteToolSummary = (segment: AparteToolCallSegment) => string;
+
+/**
  * Per-tool segment renderer.
  * Registered via aparteGlobalConfig.registerToolRenderer(toolName, renderer).
  * When the AI calls a tool, this renderer controls what appears in the bubble
