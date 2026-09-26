@@ -201,7 +201,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     if (tail.length > 0) {
         const stillPending: StreamDeferredCall[] = [];
         const ctx: CallContext = { turns: 1, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall: () => {}, append, deferral };
-        for (const call of tail) {
+        for (const [i, call] of tail.entries()) {
             if (stillPending.length > 0) {
                 stillPending.push({ toolCallId: call.id, name: call.name, input: call.input, reason: queuedReason(call, toolConfigLookup) });
                 continue;
@@ -214,7 +214,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             // Unlike a streamed turn, a refusal does not skip the calls after it: each of
             // them is declared by the envelope, and a call left without a `tool` answer
             // makes the provider reject the next request. Each has its own outcome.
-            if (verdict === 'stop-run') { continueLoop = false; break; }
+            if (verdict === 'stop-run') {
+                // Unlike a streamed turn too, the calls after it have rows already, from
+                // the run that paused: each is told it will not run, not left waiting.
+                for (const rest of tail.slice(i + 1)) emitter({ type: 'tool-aborted', toolCallId: rest.id });
+                continueLoop = false;
+                break;
+            }
         }
         if (stillPending.length > 0 && !signal.aborted) {
             emitter({ type: 'run-suspended', pending: stillPending });

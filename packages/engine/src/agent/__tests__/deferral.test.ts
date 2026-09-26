@@ -281,6 +281,23 @@ describe('deferral: the resume', () => {
         expect(t.requests[0]!.messages.at(-1)).toMatchObject({ role: 'tool', content: 'Refused by policy.', toolCallId: 'd2' });
     });
 
+    it('tells every call after one that ends the run that it will not run, instead of leaving its row waiting', async () => {
+        // x1 has no handler here, so it ends the run; d1 has a row from the paused run.
+        const t = scripted();
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([
+                { id: 'x1', name: 'gone_tool', input: {} },
+                { id: 'd1', name: 'delete_file', input: {} },
+            ])] } as StreamChatRequest,
+            deferral: { outcomes: { d1: { kind: 'decision', approved: true } } },
+        });
+        await done;
+        expect(events.filter((e) => e.type === 'tool-aborted').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['x1', 'd1']);
+        expect(types(events)).not.toContain('tool-resolved');
+        expect(t.requests).toHaveLength(0);
+    });
+
     it('aborts an external tool when the run was not given `deferral` — nothing could answer it', async () => {
         const t = scripted([{ type: 'tool_use', id: 'q1', name: 'ask_user', input: {} }, { type: 'done' }] as StreamChatEvent[]);
         const { done, events } = run({ transportCall: t.call });
