@@ -284,7 +284,13 @@ export function readableToAsyncIterable(
     return {
         [Symbol.asyncIterator](): AsyncIterator<AparteStreamEvent> {
             const reader = stream.getReader();
-            const onAbort = () => { try { void reader.cancel(); } catch { /* best effort */ } };
+            // `cancel()` returns a promise, which REJECTS when the abort already errored
+            // the stream (an aborted fetch errors its body first). `try` catches only a
+            // synchronous throw — a released reader — so the rejection is caught too, or
+            // every Stop at that moment printed an uncaught AbortError.
+            const onAbort = () => {
+                try { reader.cancel().catch(() => { /* best effort */ }); } catch { /* best effort */ }
+            };
             if (signal.aborted) onAbort();
             else signal.addEventListener('abort', onAbort, { once: true });
             return {
