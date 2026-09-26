@@ -1666,7 +1666,8 @@ export class AparteClient {
                 const ticket = (event as { ticket?: unknown }).ticket;
                 suspended = { pending: event.pending, ...(typeof ticket === 'string' ? { ticket } : {}) };
             }
-            if (event.type === 'run-start' && prefixSegments?.length) {
+            // Once per turn: a resume starts a run too, into a reply that has them already.
+            if (event.type === 'run-start' && prefixSegments?.length && !deferral) {
                 for (const seg of prefixSegments) targetElement.addSegment?.(seg);
             }
         };

@@ -452,3 +452,19 @@ describe('a resume sends the history its turn was sent with', () => {
         }
     });
 });
+
+describe('a resume adds nothing the turn already has', () => {
+    it('seeds the prefix segments once, not once per run', async () => {
+        // Every run of the turn starts with `run-start`, and the resumes carry the turn's
+        // `_meta`: the host's prefix landed in the reply again on each of them.
+        const { el, messages } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+        const { c } = client(el, r.run, {
+            approvalResolver: async () => ({ approved: true }),
+            requestInterceptor: (req: object) => ({ ...req, _meta: { prefixSegments: [{ id: 'pre-1', type: 'text', content: 'Context.' }] } }),
+        });
+        await send(c);
+        const reply = messages.find((m) => m.id === r.calls[0]!.messageId)!;
+        expect(reply.segments!.filter((s) => s.id === 'pre-1')).toHaveLength(1);
+    });
+});
