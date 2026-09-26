@@ -25,6 +25,10 @@ If your app pays for the API key, use `AparteBackendTransport`. If the *user* su
 key (or the model runs locally, keyless), `AparteDirectTransport` is simpler and there's no
 server hop.
 
+Both move one **model call**; the agent loop and its tools stay in the page. When the tools
+live on your server — files, a database, secrets — move the whole **loop** there instead:
+[Run the agent loop on your server](/guides/server-loop/).
+
 ### Writing your own transport
 
 `AparteAIProvider` is a union of two arms: a provider either **shapes payloads** (a format

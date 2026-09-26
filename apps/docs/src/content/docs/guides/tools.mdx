@@ -274,6 +274,11 @@ valid? If you proxy through `createAparteChatHandler`, its
 [`authorize()` hook](/guides/backend-transport/) is the place for that check.
 :::
 
+When the loop runs on your **server** (`createAparteAgentHandler`), the gate moves there: a
+server tool's `needsApproval` suspends the run, this same panel answers it, and the answer
+crosses the network with a ticket the server signed — the user can even leave and answer
+later. See [Run the agent loop on your server](/guides/server-loop/#approvals-across-the-network).
+
 ## Custom tool renderer
 
 Replace the generic row for a specific tool name with `registerToolRenderer`. `render`

@@ -126,6 +126,37 @@ new AparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAp
 Serializing a tool inventory, its calls and their results into a raw prompt is still yours to
 write: the providers that do it target message-based APIs.
 
+## Deferred calls: suspend and resume
+
+A loop that runs where nobody can be asked — a server — cannot await an approval. Pass
+`deferral` and a call the gate puts to a person, or a tool marked `external` (it runs
+elsewhere, in a browser), is not awaited: the run reads the model's reply to its end, leaves
+every call of it pending, and ends on `run-suspended` instead of `run-done`. A later run whose
+history ends on those calls, with their answers in `deferral.outcomes`, resumes where it
+stopped — through the same code a streamed call takes.
+
+<!-- doc-check: skip excerpt — `run`, `savePending`, `historyEndingOnTheCall` and `callId` are the ones of your run -->
+```ts
+import { runStreamAgent, unansweredTail } from '@aparte/engine';
+
+// First run: pauses on the call that needs a person.
+await runStreamAgent({ ...run, deferral: {}, emitter: (e) => {
+  if (e.type === 'run-suspended') savePending(e.pending); // [{ toolCallId, name, input, reason }]
+} });
+
+// Later, with the answer: the history ends on the paused call, which runs first.
+await runStreamAgent({
+  ...run,
+  baseRequest: { ...run.baseRequest, messages: historyEndingOnTheCall },
+  deferral: { outcomes: { [callId]: { kind: 'decision', approved: true } } },
+});
+unansweredTail(historyEndingOnTheCall); // the calls a history leaves open
+```
+
+Without `deferral` nothing changes: the approval resolver still answers in place, and a call
+the gate denies is refused either way. `@aparte/core` builds the server half on this —
+[Run the agent loop on your server](/guides/server-loop/).
+
 ## Pinned call sequences
 
 The loop's behaviour isn't "meant" to be stable — it's recorded. Core's **`stream-parity`** suite
