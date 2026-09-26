@@ -47,7 +47,9 @@ export const POST = createAparteAgentHandler({
 });
 ```
 
-On Node's own `http` server, hand it a `Request` and stream the `Response` back:
+On Node's own `http` server, hand it a `Request` and stream the `Response` back. The
+signal matters: Stop in the browser closes the connection, and the handler stops the run
+— the model call and any tool still running — when its request is aborted:
 
 {/* doc-check: skip excerpt — `handler` is the one built above */}
 ```ts
@@ -56,8 +58,11 @@ import { createServer } from 'node:http';
 createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk);
+  const closed = new AbortController();
+  res.on('close', () => closed.abort());
   const response = await handler(new Request(`http://localhost${req.url}`, {
     method: req.method, headers: req.headers as HeadersInit, body: Buffer.concat(chunks),
+    signal: closed.signal,
   }));
   res.writeHead(response.status, Object.fromEntries(response.headers));
   if (response.body) for await (const chunk of response.body) res.write(chunk);
@@ -144,7 +149,8 @@ emitted, for the reply it paused, and a client cannot name a call of its own. Tw
 does **not** do:
 
 - **It does not make a tool's input safe.** The model chose the arguments; a tool still
-  checks the caller's rights itself, as it would without any approval.
+  checks the caller's rights itself, as it would without any approval. Its handler gets the
+  request that started the run as `context.request` — the cookie or token is there.
 - **It is not single-use.** A server that stores nothing cannot tell a replay from a first
   use. If yours can, `onTicket` is the hook — return `false` to refuse a ticket seen before:
 
@@ -152,7 +158,35 @@ does **not** do:
 ```ts
 createAparteAgentHandler({
   // …
-  onTicket: async (id) => seen.add(id),
+  onTicket: async (id) => {
+    if (await seen.has(id)) return false; // replayed: refused with a 409
+    await seen.add(id);
+    return true;
+  },
+});
+```
+
+And the check a tool makes on its caller, with the request in hand:
+
+{/* doc-check: skip excerpt — `userOf` and `removeFile` are your own */}
+```ts
+createAparteAgentHandler({
+  // …
+  tools: [{
+    tool: {
+      name: 'delete_file',
+      description: 'Delete a file.',
+      inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      needsApproval: true,
+    },
+    handler: async (call, signal, context) => {
+      const user = await userOf(context?.request); // the request that started the run
+      const path = String(call.input.path);
+      if (!user?.canWrite(path)) return { toolCallId: call.id, content: 'You cannot delete this file.' };
+      await removeFile(path, { signal });
+      return { toolCallId: call.id, content: `Deleted ${path}.` };
+    },
+  }],
 });
 ```
 
@@ -179,6 +213,12 @@ createAparteAgentHandler({
 
 NDJSON, one event per line: the [engine's run events](/guides/engine/) as they are, a
 `run-suspended` line carrying the `ticket`, and a `run-error` line (sanitised — never the
-vendor's own words) when the run fails after the stream began. An error before the stream
-is plain JSON with an HTTP status. The request body is `{ v: 1, providerId, messageId,
-request, clientTools, resume? }`; the runner builds it.
+vendor's own words) when the run fails after the stream began. A server tool that throws
+reaches the page as `The tool failed.`; its own message, which can name a path or a host,
+goes to your server's log. An error before the stream is plain JSON with an HTTP status.
+The request body is `{ v: 1, providerId, messageId, request, clientTools, resume? }`; the
+runner builds it.
+
+Two requests are refused with a 400, because each would run a tool no gate saw: a
+`toolChoice` that names a tool (it runs the call before the model speaks), and a history
+that ends on unanswered calls without a `resume` ticket.
