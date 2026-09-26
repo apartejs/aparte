@@ -716,8 +716,20 @@ export class AparteClient {
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
             // bracket every pause, so the button stays Stop while a panel waits.
+            //
+            // Capped like the loop's own turns: a server that pauses on every run would
+            // otherwise ask forever, and a policy that answers alone would not even pause.
+            const maxResumes = this.options.maxTurns ?? 10; // the engine's default
+            let resumes = 0;
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
+                if (!stopped && ++resumes > maxResumes) {
+                    this._stopDeferred(targetElement, result.suspended.pending);
+                    createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) })(
+                        { type: 'turn-limit-exceeded', scope: 'global', limit: maxResumes },
+                    );
+                    break;
+                }
                 const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls

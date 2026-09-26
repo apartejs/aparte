@@ -329,4 +329,22 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
         expect(rowOf(messages, 'c1').deferred).toBeUndefined();
     });
+
+    it('stops asking after maxTurns resumes: a server that pauses on every run cannot ask forever', async () => {
+        const { el, messages, events } = chat();
+        let runs = 0;
+        const run = async (opts: AparteStreamRunOptions) => {
+            runs++;
+            if (runs <= 50) await pauseOn({ id: `c${runs}`, name: 'delete_file', reason: 'approval' })(opts, runs);
+            return undefined;
+        };
+        const asked: string[] = [];
+        const { c } = client(el, run, { maxTurns: 3, approvalResolver: async (call: { id: string }) => { asked.push(call.id); return { approved: true }; } });
+        await send(c);
+        expect(asked).toEqual(['c1', 'c2', 'c3']);
+        expect(runs).toBe(4);
+        expect(rowOf(messages, 'c4')).toMatchObject({ status: 'aborted' });
+        expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { details?: string }).details === 'MAX_TURNS_EXCEEDED')).toBe(true);
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
+    });
 });
