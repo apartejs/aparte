@@ -662,7 +662,9 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         : cfg?.needsApproval;
     if (gated) {
         // A decision a resumed run was handed answers the gate: nobody is asked again.
-        const provided = answer?.kind === 'decision' ? answer : undefined;
+        // Never a `'deny'`: that one is decided here, and an answer that came back with
+        // the resume — the page's, for a call queued behind a pause — cannot overrule it.
+        const provided = answer?.kind === 'decision' && gated !== 'deny' ? answer : undefined;
         // Announced only when someone is actually being asked: a `'deny'` is a
         // decision already made, and announcing a pause for it painted
         // `awaiting-approval` on the row and raised `aparte-tool-approval-request`

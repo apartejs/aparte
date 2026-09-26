@@ -258,6 +258,29 @@ describe('deferral: the resume', () => {
         ]);
     });
 
+    it('refuses a call the gate denies even when the answer approves it: the page does not overrule the server', async () => {
+        // d2 was queued behind d1, so the page answered it too — and approved it. The
+        // gate says `deny` for it: that is the server's decision, not the page's.
+        const t = scripted([{ type: 'text', delta: 'OK.' }, { type: 'done' }] as StreamChatEvent[]);
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([
+                { id: 'd1', name: 'delete_file', input: { path: 'a' } },
+                { id: 'd2', name: 'delete_file', input: { path: '/etc' } },
+            ])] } as StreamChatRequest,
+            toolConfigLookup: () => ({ needsApproval: (call: { input: Record<string, unknown> }) => (call.input['path'] === '/etc' ? 'deny' as const : 'ask' as const) }),
+            approvalResolver: async () => ({ approved: false, reason: 'Refused by policy.' }),
+            deferral: { outcomes: {
+                d1: { kind: 'decision', approved: true },
+                d2: { kind: 'decision', approved: true },
+            } },
+        });
+        await done;
+        expect(events.find((e) => e.type === 'tool-rejected')).toMatchObject({ toolCallId: 'd2', reason: 'Refused by policy.' });
+        expect(events.filter((e) => e.type === 'tool-resolved').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['d1']);
+        expect(t.requests[0]!.messages.at(-1)).toMatchObject({ role: 'tool', content: 'Refused by policy.', toolCallId: 'd2' });
+    });
+
     it('aborts an external tool when the run was not given `deferral` — nothing could answer it', async () => {
         const t = scripted([{ type: 'tool_use', id: 'q1', name: 'ask_user', input: {} }, { type: 'done' }] as StreamChatEvent[]);
         const { done, events } = run({ transportCall: t.call });
