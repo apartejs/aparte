@@ -42,7 +42,7 @@ fails never loses the message from the sidebar.
 
 Pick the model for your languages — `@aparte/titler-latin` (17 languages, 133 KB),
 `@aparte/titler-latin-mini` (the same 17, 96 KB), `@aparte/titler-efigsp` (en, fr, es, de, pt,
-it, 77 KB), or `@aparte/titler` with a single-language file (40 KB) from the
+it, 77 KB), or `@aparte/titler` with a single-language file (41 KB) from the
 [model repository](https://huggingface.co/apartejs/aparte-titler).
 
 > ESM-only. Part of the aparté monorepo. Try the model at [apartejs.dev/models/titler/#demo](https://apartejs.dev/models/titler/#demo).
