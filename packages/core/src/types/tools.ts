@@ -146,8 +146,9 @@ export type AparteToolHandler = (
  */
 export interface AparteToolContext {
     /**
-     * On the server (`createAparteAgentHandler`): the request that started the run, for a
-     * tool that checks who is calling — the model chose the arguments, not the caller.
+     * On the server (`createAparteAgentHandler`): the request being served — the one that
+     * started the run, or, for a call answered after a pause, the one that resumed it — for
+     * a tool that checks who is calling. The model chose the arguments, not the caller.
      */
     request?: Request;
     /**

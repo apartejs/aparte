@@ -150,7 +150,8 @@ does **not** do:
 
 - **It does not make a tool's input safe.** The model chose the arguments; a tool still
   checks the caller's rights itself, as it would without any approval. Its handler gets the
-  request that started the run as `context.request` — the cookie or token is there.
+  request being served as `context.request` — the cookie or token is there. For a call
+  answered after a pause, that is the request that resumed the run, not the first one.
 - **It is not single-use.** A server that stores nothing cannot tell a replay from a first
   use. If yours can, `onTicket` is the hook — return `false` to refuse a ticket seen before:
 
@@ -180,7 +181,7 @@ createAparteAgentHandler({
       needsApproval: true,
     },
     handler: async (call, signal, context) => {
-      const user = await userOf(context?.request); // the request that started the run
+      const user = await userOf(context?.request); // the request being served
       const path = String(call.input.path);
       if (!user?.canWrite(path)) return { toolCallId: call.id, content: 'You cannot delete this file.' };
       await removeFile(path, { signal });
