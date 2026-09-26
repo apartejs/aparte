@@ -139,3 +139,18 @@ export interface AparteStorageAdapter {
     /** Persisted attachment blobs for a single message. */
     loadAttachments?(msgId: string): Promise<AparteAttachmentRow[]>;
 }
+
+/**
+ * Detail payload for `aparte-conversation-loaded`.
+ * Dispatched by the conversation controller on the chat's host, bubbling, once a
+ * conversation's messages are on screen — after a load that succeeded and that the user
+ * did not leave meanwhile. The moment to resume a turn a server loop paused (`AparteClient`
+ * does it on its own), to scroll or to measure.
+ *
+ * @event aparte-conversation-loaded
+ */
+export interface AparteConversationLoadedDetail {
+    /** The chat's host id — the `targetId` every scoped event carries. */
+    targetId: string;
+    conversationId: string;
+}

@@ -294,6 +294,7 @@ const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
+    private _boundLoadedHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _releaseKeyResolver: (() => void) | null = null;
@@ -491,6 +492,16 @@ export class AparteClient {
             };
         }
         window.addEventListener('aparte-edit', this._boundEditHandler);
+
+        // A conversation came back with a turn a server loop paused: answer it now.
+        if (!this._boundLoadedHandler) {
+            this._boundLoadedHandler = (e: Event) => {
+                if (!this._isForThisInstance(e)) return;
+                const host = e.target instanceof HTMLElement ? e.target : undefined;
+                void this.resumeDeferred(host ?? (e as CustomEvent<{ targetId?: string }>).detail?.targetId);
+            };
+        }
+        window.addEventListener('aparte-conversation-loaded', this._boundLoadedHandler);
     }
 
     /**
@@ -519,6 +530,10 @@ export class AparteClient {
         if (this._boundAbortHandler) {
             window.removeEventListener('aparte-abort', this._boundAbortHandler);
             this._boundAbortHandler = null;
+        }
+        if (this._boundLoadedHandler) {
+            window.removeEventListener('aparte-conversation-loaded', this._boundLoadedHandler);
+            this._boundLoadedHandler = null;
         }
         if (this._boundRetryHandler) {
             window.removeEventListener('aparte-retry', this._boundRetryHandler);

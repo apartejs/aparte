@@ -172,6 +172,7 @@ export type {
     AparteConversationMeta,
     AparteStorageAdapter,
     AparteAttachmentRow,
+    AparteConversationLoadedDetail,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
 export {

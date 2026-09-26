@@ -8,7 +8,7 @@
  * same bubble, under one pair of lifecycle events. A conversation reloaded with a paused
  * call resumes through the same path (`resumeDeferred`).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfig } from '../../config/index.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
@@ -210,5 +210,26 @@ describe('the client resumes a paused server run', () => {
         expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
         // Nothing left to resume.
         expect(await c.resumeDeferred(el)).toBe(false);
+    });
+
+    it('resumes on its own when a conversation manager loads one with a paused call', async () => {
+        const paused: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'delete a', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'completed', segments: [
+                { id: 'tool-c1', type: 'tool_call', status: 'awaiting-approval', toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a' } }, deferred: { reason: 'approval', ticket: 'T' } } as AparteSegment,
+            ] },
+        ];
+        const { el } = chat(paused);
+        const r = runner(resumeApproved('c1'));
+        const asked: string[] = [];
+        const { c } = client(el, r.run, { approvalResolver: async (call: { id: string }) => { asked.push(call.id); return { approved: true }; } });
+        c.start();
+        try {
+            el.dispatchEvent(new CustomEvent('aparte-conversation-loaded', { bubbles: true, composed: true, detail: { targetId: '', conversationId: 'x' } }));
+            await vi.waitFor(() => expect(r.calls).toHaveLength(1));
+            expect(asked).toEqual(['c1']);
+        } finally {
+            c.stop();
+        }
     });
 });

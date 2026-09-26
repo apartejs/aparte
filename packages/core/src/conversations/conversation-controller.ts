@@ -1,6 +1,6 @@
 import type { AparteMessage, AparteAttachment } from '../types/index.js';
 import type { AparteConversationManager } from './conversation-manager.js';
-import type { AparteConversation } from './types.js';
+import type { AparteConversation, AparteConversationLoadedDetail } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
 import { aparteGlobalConfig } from '../config/aparte-config.js';
@@ -536,6 +536,14 @@ export class AparteConversationController {
             // the composer for that frame.
             this._showWait(false);
         }
+        // The messages are on screen: the moment to resume a turn a server loop paused
+        // (`AparteClient` listens), to scroll, to measure. A load that failed or that the
+        // user left returned above, so this says only what is true.
+        this._binding.host.dispatchEvent(new CustomEvent<AparteConversationLoadedDetail>('aparte-conversation-loaded', {
+            bubbles: true,
+            composed: true,
+            detail: { targetId: this._binding.hostId, conversationId: id },
+        }));
     }
 
     /**

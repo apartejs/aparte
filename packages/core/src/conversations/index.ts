@@ -3,6 +3,7 @@ export type {
     AparteConversationMeta,
     AparteStorageAdapter,
     AparteAttachmentRow,
+    AparteConversationLoadedDetail,
 } from './types.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
 export {

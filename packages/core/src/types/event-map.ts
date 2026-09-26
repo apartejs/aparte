@@ -63,6 +63,7 @@ import type { AparteOptgroupToggleEventDetail } from '../primitives/select/apart
 import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
 import type { AparteToolApprovalRequestDetail } from './tools.js';
 import type { AparteSegmentUpdateEventDetail } from './segments.js';
+import type { AparteConversationLoadedDetail } from '../conversations/types.js';
 import type { AparteSelectChangeDetail } from '../primitives/select/aparte-select.js';
 import type {
     AparteConversationSelectDetail,
@@ -127,6 +128,8 @@ interface AparteEventMap {
     'aparte-conversation-unarchive': CustomEvent<AparteConversationArchiveDetail>;
     'aparte-conversation-rename': CustomEvent<AparteConversationRenameDetail>;
     'aparte-conversation-pin': CustomEvent<AparteConversationPinDetail>;
+    // The controller's, not the list's: a conversation's messages are on screen.
+    'aparte-conversation-loaded': CustomEvent<AparteConversationLoadedDetail>;
     'aparte-conversation-unpin': CustomEvent<AparteConversationPinDetail>;
 
     // ── The turn lifecycle, minus the one entry it used to have ────────────────
