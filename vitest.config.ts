@@ -138,7 +138,9 @@ export default defineConfig({
         // (the echo modes, the superseded reply, the two-chats scoping) moved the
         // measurement to 94.24%, and 4.2 points of slack is a floor that cannot fail.
         // The two-sided ratchet asked; that is what it is for.
-        'packages/core/src/client/**': { lines: 93, statements: 93, functions: 97, branches: 93 },
+        // Branches 93 -> 95 with the server-loop lot (2026-09-26): the resume suites
+        // (pause, Stop in the wait, the cap, the resume history) measured 96.93%.
+        'packages/core/src/client/**': { lines: 93, statements: 93, functions: 97, branches: 95 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -204,8 +206,10 @@ export default defineConfig({
         // the wrappers (41-47) are not a target, they are the truth: a wrapper's
         // functions are mostly framework-invoked template closures, and a floor set
         // where nobody stands is a floor that gets lowered.
+        // Engine branches 93 -> 95 with the server-loop lot (2026-09-26): the deferral
+        // suite measured 96.64%, and the ratchet asked.
         'packages/core/src/**': { lines: 93, statements: 93, functions: 92, branches: 90 },
-        'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 93 },
+        'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 79, statements: 79, functions: 83, branches: 71 },
