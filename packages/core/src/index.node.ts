@@ -200,7 +200,7 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 // server-side `/api/chat` handler AND both client transports live here; a browser
 // never runs the handler, and the transports touch no DOM at import. Mirrored in
 // full so a wrapper barrel re-exporting a transport can't crash under SSR.
-export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, createAparteAgentHandler, isFormatAdapter } from './transport/index.js';
 export type {
     AparteTransport,
     AparteTransportContext,
@@ -209,6 +209,9 @@ export type {
     BackendTransportOptions,
     DirectTransportOptions,
     AparteChatHandlerOptions,
+    AparteAgentHandlerOptions,
+    AparteAgentTool,
+    AparteAgentRequestBody,
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────

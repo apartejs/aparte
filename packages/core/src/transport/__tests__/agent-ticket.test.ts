@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The continuation ticket of a suspended agent run.
  *

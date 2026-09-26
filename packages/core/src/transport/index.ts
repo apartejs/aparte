@@ -8,3 +8,4 @@ export { isFormatAdapter, readAuth } from './types.js';
 export { AparteDirectTransport, type DirectTransportOptions } from './direct-transport.js';
 export { AparteBackendTransport, type BackendTransportOptions } from './backend-transport.js';
 export { createAparteChatHandler, type AparteChatHandlerOptions } from './backend-handler.js';
+export { createAparteAgentHandler, type AparteAgentHandlerOptions, type AparteAgentTool, type AparteAgentRequestBody } from './agent-handler.js';

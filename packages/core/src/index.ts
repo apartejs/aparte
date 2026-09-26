@@ -328,8 +328,8 @@ export { createStreamAdapter, readableToAsyncIterable } from './client/stream-ad
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 
 // Export transport seam (where chat requests go + how auth is handled)
-export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
-export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, createAparteAgentHandler, isFormatAdapter } from './transport/index.js';
+export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions, AparteAgentHandlerOptions, AparteAgentTool, AparteAgentRequestBody } from './transport/index.js';
 
 // Export runtime utilities
 export { AparteMessageRepository } from './runtime/message-repository.js';
