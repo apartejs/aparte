@@ -220,6 +220,53 @@ describe('deferral: the resume', () => {
         expect(suspension(events).pending.map((p) => p.toolCallId)).toEqual(['d2']);
     });
 
+    it('keeps the calls after one that is still pending pending too, with what each waits for', async () => {
+        const t = scripted();
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([
+                { id: 'd1', name: 'delete_file', input: {} },
+                { id: 'r1', name: 'read_file', input: {} },
+                { id: 'q1', name: 'ask_user', input: {} },
+            ])] } as StreamChatRequest,
+            deferral: { outcomes: {} },
+        });
+        await done;
+        expect(suspension(events).pending.map((p) => [p.toolCallId, p.reason])).toEqual([
+            ['d1', 'approval'], ['r1', 'queued'], ['q1', 'external'],
+        ]);
+        // Nothing ran: the first call is still waiting for its person.
+        expect(types(events)).not.toContain('tool-resolved');
+    });
+
+    it('asks the per-call gate for a call past the pause point, too', async () => {
+        const t = scripted([
+            { type: 'tool_use', id: 'd1', name: 'delete_file', input: { path: 'a' } },
+            { type: 'tool_use', id: 'w1', name: 'write_file', input: { path: 'b' } },
+            { type: 'tool_use', id: 'w2', name: 'write_file', input: { path: 'safe' } },
+            { type: 'done' },
+        ] as StreamChatEvent[]);
+        const { done, events } = run({
+            transportCall: t.call,
+            deferral: {},
+            toolConfigLookup: (name) => (name === 'delete_file' ? { needsApproval: true }
+                : name === 'write_file' ? { needsApproval: (call: { input: Record<string, unknown> }) => call.input['path'] !== 'safe' } : {}),
+        });
+        await done;
+        expect(suspension(events).pending.map((p) => [p.toolCallId, p.reason])).toEqual([
+            ['d1', 'approval'], ['w1', 'approval'], ['w2', 'queued'],
+        ]);
+    });
+
+    it('aborts an external tool when the run was not given `deferral` — nothing could answer it', async () => {
+        const t = scripted([{ type: 'tool_use', id: 'q1', name: 'ask_user', input: {} }, { type: 'done' }] as StreamChatEvent[]);
+        const { done, events } = run({ transportCall: t.call });
+        await done;
+        expect(events.find((e) => e.type === 'tool-aborted')).toMatchObject({ toolCallId: 'q1' });
+        expect(types(events)).not.toContain('run-suspended');
+        expect(events.at(-1)?.type).toBe('run-done');
+    });
+
     it('ignores a trailing envelope when `deferral` is absent (today\'s callers are unaffected)', async () => {
         const t = scripted([{ type: 'text', delta: 'Hi.' }, { type: 'done' }] as StreamChatEvent[]);
         const { done, events } = run({ transportCall: t.call });
