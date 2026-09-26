@@ -48,6 +48,28 @@ function stubRevokeObjectURL() {
 }
 afterEach(() => { delete (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL; });
 
+describe('AparteChat.vue in controlled mode', () => {
+    it('ignores a stale echo of its own list: an older emit coming back does not undo a newer one', async () => {
+        // See the React twin: a parent that lands late hands back an EARLIER emit.
+        const emitted: AparteMessage[][] = [];
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const wrapper = mount(AparteChat, { props: { messages: initial, onMessagesChange: (m: AparteMessage[]) => { emitted.push(m); } } });
+        const api = wrapper.vm as unknown as { updateMessage: (id: string, u: Partial<AparteMessage>) => void; getMessages: () => AparteMessage[] };
+        await new Promise((r) => setTimeout(r, 0));
+        api.updateMessage('u1', { content: 'v1' });
+        api.updateMessage('u1', { content: 'v2' });
+        expect(emitted).toHaveLength(2);
+
+        await wrapper.setProps({ messages: emitted[0]! });
+        expect(api.getMessages()[0]!.content).toBe('v2');
+
+        const own: AparteMessage[] = [{ id: 'p1', role: 'user', content: 'from the parent', timestamp: 2 }];
+        await wrapper.setProps({ messages: own });
+        expect(api.getMessages().map((m) => m.id)).toEqual(['p1']);
+        wrapper.unmount();
+    });
+});
+
 describe('AparteChat.vue', () => {
     const mockMessages: AparteMessage[] = [
         { id: '1', role: 'user', content: 'Hello', timestamp: Date.now() },

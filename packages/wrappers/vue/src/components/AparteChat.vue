@@ -111,6 +111,9 @@ const rootRef = ref<HTMLElement>();
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();
 const internalMessages = ref<AparteMessage[]>([...props.messages]);
+// Every list the host emitted: the prop comes back as one of them, possibly an EARLIER
+// one when the parent lands late, and an echo is not the parent's word (see the watch).
+const emitted = new WeakSet<AparteMessage[]>();
 const typingActive = ref(props.isTyping);
 
 let host: AparteChatHost | null = null;
@@ -138,7 +141,11 @@ onMounted(() => {
     viewport: viewportRef.value ?? null,
     getMessages: () => internalMessages.value,
     setMessages: (m) => { internalMessages.value = m as AparteMessage[]; },
-    onMessagesChange: (m) => { emit('messagesChange', m as AparteMessage[]); emit('update:messages', m as AparteMessage[]); },
+    onMessagesChange: (m) => {
+      emitted.add(m as AparteMessage[]);
+      emit('messagesChange', m as AparteMessage[]);
+      emit('update:messages', m as AparteMessage[]);
+    },
     onMessageAppended: (m) => emit('messageAppended', m as AparteMessage),
     onTypingChange: (t) => { typingActive.value = t; emit('typingChange', t); },
     onStreamingChange: () => { /* exposed via isStreaming() */ },
@@ -169,9 +176,12 @@ onBeforeUnmount(() => {
   host = null;
 });
 
-// Parent push → internal list (guarded against the host's own emit round-trip).
+// Parent push → internal list, unless it is the host's own emit coming back, current or
+// stale — applying a stale one rolled the list back under the host's next write. Raw, as
+// a parent's `ref` hands the emitted array back wrapped in a reactive proxy.
 watch(() => props.messages, (m) => {
-  if (m === internalMessages.value) return;
+  const raw = toRaw(m);
+  if (raw === toRaw(internalMessages.value) || emitted.has(raw)) return;
   internalMessages.value = [...m];
   if (m.length === 0) host?.clearRenderCache();
 });

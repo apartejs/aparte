@@ -122,12 +122,17 @@
   let host: AparteChatHost | null = null;
   let teardown: (() => void) | null = null;
 
-  // Parent push → internal list (guarded against the host's own emit round-trip).
+  // Parent push → internal list, unless it is the host's own emit coming back, current or
+  // stale: a parent that lands late hands back an EARLIER emit, and applying it rolled the
+  // list back under the host's next write.
+  const emitted = new WeakSet<AparteMessage[]>();
   let lastProp = messages;
   $: if (messages !== lastProp) {
     lastProp = messages;
-    internalMessages = [...messages];
-    if (messages.length === 0) host?.clearRenderCache();
+    if (!emitted.has(messages)) {
+      internalMessages = [...messages];
+      if (messages.length === 0) host?.clearRenderCache();
+    }
   }
 
   // Controlled typing indicator (host may flip it off on the first token).
@@ -190,7 +195,11 @@
       viewport: viewportRef,
       getMessages: () => internalMessages,
       setMessages: (m) => { internalMessages = m as AparteMessage[]; },
-      onMessagesChange: (m) => { onmessagesChange?.(m as AparteMessage[]); dispatch('messagesChange', m as AparteMessage[]); },
+      onMessagesChange: (m) => {
+        emitted.add(m as AparteMessage[]);
+        onmessagesChange?.(m as AparteMessage[]);
+        dispatch('messagesChange', m as AparteMessage[]);
+      },
       onMessageAppended: (m) => { onmessageAppended?.(m as AparteMessage); dispatch('messageAppended', m as AparteMessage); },
       onTypingChange: (t) => { typingActive = t; ontypingChange?.(t); dispatch('typingChange', t); },
       onStreamingChange: () => { /* exposed via isStreaming() */ },

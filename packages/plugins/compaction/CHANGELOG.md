@@ -1,5 +1,7 @@
 # @aparte/plugin-compaction
 
+## 0.17.3
+
 ## 0.17.2
 
 ## 0.17.1

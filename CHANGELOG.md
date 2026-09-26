@@ -4,6 +4,22 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.17.3
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- @aparte/engine@0.17.3
+  <sub>`@aparte/core`</sub>
+
+- [5ec1e8a](https://github.com/apartejs/aparte/commit/5ec1e8a): Fixed: in controlled mode (`messages` with `onMessagesChange`), a finished reply could roll back to an earlier state — its text cut mid-word, its tool rows gone. It happened when the parent re-rendered late, which React does in Safari.
+
+  The chat emits its list as it streams, the parent stores it, and the prop comes back. When the parent's render lands after the chat's next write, the prop that arrives is an EARLIER emit, and the wrapper took it for the parent's word: it rolled the list back, the chat built its next writes on the stale copy, and the reply stayed broken. Measured in the examples' browser suite at about one run in five on React + WebKit. The wrappers now recognise their own emits when they come back — current or stale — and ignore them; a list the parent builds itself is still applied. Angular is unaffected: its list is one `model()` signal both sides write in step.
+  <sub>`@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.17.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

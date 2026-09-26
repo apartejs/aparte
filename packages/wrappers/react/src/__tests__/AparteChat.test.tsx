@@ -525,6 +525,30 @@ describe('AparteChat React Wrapper', () => {
         expect(last[0]!.content).toBe('edited');
     });
 
+    it('ignores a stale echo of its own list: an older emit coming back does not undo a newer one', async () => {
+        // Controlled mode: the chat emits, the parent stores, the prop comes back. When the
+        // parent's render lands late — WebKit commits React after the host's next frame — the
+        // prop that arrives is an EARLIER emit, and applying it rolled the reply back: the
+        // host then built its next writes on the stale list, and a finished reply lost its
+        // text and its tool rows for good.
+        const emitted: AparteMessage[][] = [];
+        const onMessagesChange = (m: AparteMessage[]) => { emitted.push(m); };
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const { rerender } = render(<AparteChat ref={ref} messages={initial} onMessagesChange={onMessagesChange} />);
+        await act(async () => { ref.current?.updateMessage('u1', { content: 'v1' }); });
+        await act(async () => { ref.current?.updateMessage('u1', { content: 'v2' }); });
+        expect(emitted).toHaveLength(2);
+
+        await act(async () => { rerender(<AparteChat ref={ref} messages={emitted[0]!} onMessagesChange={onMessagesChange} />); });
+        expect(ref.current!.getMessages()[0]!.content).toBe('v2');
+
+        // A list the PARENT made is still the parent's word.
+        const own: AparteMessage[] = [{ id: 'p1', role: 'user', content: 'from the parent', timestamp: 2 }];
+        await act(async () => { rerender(<AparteChat ref={ref} messages={own} onMessagesChange={onMessagesChange} />); });
+        expect(ref.current!.getMessages().map((m) => m.id)).toEqual(['p1']);
+    });
+
     it('calls onConversationCreated on the first send once a manager is registered', async () => {
         const cfg = new AparteConfig();
         cfg.setConversationManager(await memoryManager());

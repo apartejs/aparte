@@ -44,6 +44,31 @@ function stubRevokeObjectURL() {
 }
 afterEach(() => { delete (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL; });
 
+describe('AparteChat.svelte in controlled mode', () => {
+    it('ignores a stale echo of its own list: an older emit coming back does not undo a newer one', async () => {
+        // See the React twin: a parent that lands late hands back an EARLIER emit.
+        const emitted: AparteMessage[][] = [];
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const { component } = render(AparteChat, { messages: initial, onmessagesChange: (m: AparteMessage[]) => { emitted.push(m); } });
+        const api = component as unknown as AparteChatImperativeApi & { $set: (p: object) => void };
+        await tick();
+        api.updateMessage('u1', { content: 'v1' });
+        await tick();
+        api.updateMessage('u1', { content: 'v2' });
+        await tick();
+        expect(emitted).toHaveLength(2);
+
+        api.$set({ messages: emitted[0]! });
+        await tick();
+        expect(api.getMessages()[0]!.content).toBe('v2');
+
+        const own: AparteMessage[] = [{ id: 'p1', role: 'user', content: 'from the parent', timestamp: 2 }];
+        api.$set({ messages: own });
+        await tick();
+        expect(api.getMessages().map((m) => m.id)).toEqual(['p1']);
+    });
+});
+
 describe('AparteChat.svelte', () => {
     const mockMessages: AparteMessage[] = [
         { id: '1', role: 'user', content: 'Hello', timestamp: Date.now() },

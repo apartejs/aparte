@@ -253,6 +253,13 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const cbRef = useRef({ onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated });
     cbRef.current = { onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated };
 
+    // Every list the host emitted. In controlled mode the prop comes back as one of them
+    // — and, when the parent's render lands after the host's next write (WebKit commits
+    // React after the host's frame), as an EARLIER one. An echo is not the parent's word:
+    // applying it rolled the list back, the host built its next writes on it, and a
+    // finished reply lost its text and its tool rows.
+    const emittedRef = useRef(new WeakSet<AparteMessage[]>());
+
     const applyMessages = (m: AparteMessage[]) => {
         messagesRef.current = m;
         setRenderMessages(m);
@@ -268,7 +275,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             viewport: viewportRef.current,
             getMessages: () => messagesRef.current,
             setMessages: (m) => applyMessages(m as AparteMessage[]),
-            onMessagesChange: (m) => cbRef.current.onMessagesChange?.(m as AparteMessage[]),
+            onMessagesChange: (m) => {
+                emittedRef.current.add(m as AparteMessage[]);
+                cbRef.current.onMessagesChange?.(m as AparteMessage[]);
+            },
             onMessageAppended: (m) => cbRef.current.onMessageAppended?.(m as AparteMessage),
             onTypingChange: (t) => { setTypingActive(t); cbRef.current.onTypingChange?.(t); },
             onStreamingChange: (id) => setIsStreaming(id !== null),
@@ -289,10 +299,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         // changes flow through cbRef / dedicated effects, not by recreating it.
     }, [hostId]);
 
-    // Parent push: sync the prop into the authoritative list. Guarded by ref
-    // identity so the host's own emit→parent→prop round-trip doesn't loop.
+    // Parent push: sync the prop into the authoritative list — unless it is the host's
+    // own emit coming back, current or stale (see `emittedRef`).
     useEffect(() => {
-        if (messages === messagesRef.current) return;
+        if (messages === messagesRef.current || emittedRef.current.has(messages)) return;
         applyMessages(messages);
         if (messages.length === 0) hostRef.current?.clearRenderCache();
     }, [messages]);
