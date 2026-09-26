@@ -206,7 +206,15 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 stillPending.push({ toolCallId: call.id, name: call.name, input: call.input, reason: queuedReason(call, toolConfigLookup) });
                 continue;
             }
-            const verdict = await processCall(call, ctx);
+            let verdict: CallVerdict;
+            try {
+                verdict = await processCall(call, ctx);
+            } catch (error) {
+                // A crash ends the run like a `stop-run` below, and the calls after it
+                // have rows too: each is told, then the run fails on the crash.
+                for (const rest of tail.slice(i + 1)) emitter({ type: 'tool-aborted', toolCallId: rest.id });
+                throw error;
+            }
             if (typeof verdict === 'object') {
                 stillPending.push({ toolCallId: call.id, name: call.name, input: call.input, reason: verdict.defer });
                 continue;

@@ -298,6 +298,21 @@ describe('deferral: the resume', () => {
         expect(t.requests).toHaveLength(0);
     });
 
+    it('tells the calls after one that CRASHES the run, too — the run fails, their rows do not wait', async () => {
+        const t = scripted();
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([
+                { id: 'q1', name: 'ask_user', input: {} },
+                { id: 'd1', name: 'delete_file', input: {} },
+            ])] } as StreamChatRequest,
+            deferral: { outcomes: { q1: { kind: 'failed', error: 'boom' }, d1: { kind: 'decision', approved: true } } },
+        });
+        await expect(done).rejects.toThrow('boom');
+        expect(events.filter((e) => e.type === 'tool-aborted').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['d1']);
+        expect(types(events)).not.toContain('tool-resolved');
+    });
+
     it('aborts an external tool when the run was not given `deferral` — nothing could answer it', async () => {
         const t = scripted([{ type: 'tool_use', id: 'q1', name: 'ask_user', input: {} }, { type: 'done' }] as StreamChatEvent[]);
         const { done, events } = run({ transportCall: t.call });
