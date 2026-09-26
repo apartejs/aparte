@@ -4,6 +4,7 @@ import { runStreamAgent } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
+import { wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
@@ -1056,11 +1057,16 @@ export class AparteClient {
                 if (m.role !== 'user' && m.role !== 'assistant') return false;
                 return m.status !== 'error' && !AparteClient._inFlight(m);
             })
-            .map(m => ({
-                role: m.role as 'user' | 'assistant',
-                content: this._wireText(m)
-            }))
-            .filter(m => m.content.length > 0);
+            .flatMap((m): import('../types/chat.js').AparteChatMessage[] => {
+                // A reply that called tools goes out as the calls and their answers, in
+                // the order it showed them — see `wire-history.ts`. Every other message
+                // keeps its one text, compaction preamble included.
+                if (m.role === 'assistant' && m.segments?.some(s => s.type === 'tool_call')) {
+                    return wireTurns(m, (segments) => this._segmentsToText(segments));
+                }
+                const content = this._wireText(m);
+                return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
+            });
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1368,8 +1374,8 @@ export class AparteClient {
      *
      * `thinking` and `tool_call` stay out on purpose — the first is the model's own
      * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second was already carried, within the turn, as the assistant's calls and the
-     * `tool` messages answering them.
+     * second is not text: `_wireHistory` sends a reply's calls as the assistant's
+     * `toolCalls` and the `tool` messages answering them (`wire-history.ts`).
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';

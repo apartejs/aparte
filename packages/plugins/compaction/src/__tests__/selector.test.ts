@@ -22,6 +22,20 @@ const message = (i: number, chars = 200): Message => ({
 });
 
 describe('createCompactionSelector', () => {
+    it('counts what a tool call sends the model: its arguments and its result', () => {
+        // A reply's calls go on the wire (the call's input and a `tool` message with its
+        // result), so a message whose only segment is a call with a 400-character result
+        // is not free: it costs about what 400 characters of text do.
+        // 150: the two text messages (53 tokens each) fit with room to spare, the call does not.
+        const select = createCompactionSelector({ contextWindow: 150, config: BARE });
+        const call = {
+            id: 'm0', role: 'assistant' as const, timestamp: 0,
+            segments: [{ id: 's', type: 'tool_call', toolCall: { id: 'c', name: 'read_file', input: { path: 'a' } }, result: 'y'.repeat(400) }],
+        } as unknown as Message;
+        const { drop } = select([call, message(1), message(2)]);
+        expect(drop.map((m) => m.id)).toEqual(['m0']);
+    });
+
     it('keeps the newest messages that fit the window and drops the older ones', () => {
         const select = createCompactionSelector({ contextWindow: 100, config: BARE });
         const messages = Array.from({ length: 6 }, (_, i) => message(i));
