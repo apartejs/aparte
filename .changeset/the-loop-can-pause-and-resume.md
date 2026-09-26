@@ -1,5 +1,5 @@
 ---
-"@aparte/engine": patch
+"@aparte/engine": minor
 ---
 
 New: `runStreamAgent` can pause on a tool call it cannot finish and resume it later. Pass `deferral` and a call that needs a person's decision, or a tool marked `external`, ends the run on `run-suspended` instead of waiting; a later run whose history ends on those calls, with their answers in `deferral.outcomes`, picks up where it stopped.

@@ -1,6 +1,6 @@
 ---
-"@aparte/core": patch
-"@aparte/plugin-compaction": patch
+"@aparte/core": minor
+"@aparte/plugin-compaction": minor
 ---
 
 The model now remembers what its tools returned: each turn's history carries the tool calls and their results, not only the text. Requests grow on tool-heavy conversations; `@aparte/plugin-compaction` now counts those calls when it measures a conversation, and summarises long ones as before.
