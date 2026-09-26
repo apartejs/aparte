@@ -296,6 +296,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 if (e.usage) {
                     try { target.setUsage?.(messageId, e.usage); } catch { /* target may not implement setUsage */ }
                 }
+                // Said once the paused calls are on the reply, so whoever saves the
+                // conversation saves them: a reload answers a pause only if it was kept.
+                dispatchLifecycleEvent(target, 'aparte-message-paused', { messageId }, targetId);
                 break;
             }
 

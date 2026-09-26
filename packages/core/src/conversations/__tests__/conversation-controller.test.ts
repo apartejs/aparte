@@ -331,6 +331,26 @@ describe('AparteConversationController', () => {
             await flush(); await flush();
             expect(manager.conversations[0].messages).toHaveLength(2);
         });
+
+        it('persists a turn a server paused, so a reload can still answer it', async () => {
+            // The turn is not over — it ends after the resume — but a person who closes the
+            // tab while a panel waits comes back to the saved conversation, and the paused
+            // call (with the server's ticket) has to be in it.
+            const conv = await manager.createNew();
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+
+            binding.appendMessage(userMsg('delete a'));
+            binding.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: Date.now(), status: 'completed', segments: [
+                { id: 'tool-c1', type: 'tool_call', status: 'awaiting-approval', toolCall: { id: 'c1', name: 'delete_file', input: {} }, deferred: { reason: 'approval', ticket: 'T' } },
+            ] } as AparteMessage);
+            host.dispatchEvent(new CustomEvent('aparte-message-paused', { detail: { messageId: 'a1' } }));
+            await flush(); await flush();
+            const saved = manager.conversations[0].messages[1]!;
+            expect(saved.segments![0]).toMatchObject({ status: 'awaiting-approval', deferred: { ticket: 'T' } });
+        });
     });
 
     // ─── Global aparte-conversation-select listener ─────────────────────────

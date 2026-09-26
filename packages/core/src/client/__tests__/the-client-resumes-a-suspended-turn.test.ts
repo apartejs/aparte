@@ -35,7 +35,7 @@ function chat(initial: AparteMessage[] = []) {
         updateLastMessage: () => {}, typeName: () => {}, setUsage: () => {},
         getMessages: () => messages,
     });
-    for (const type of ['aparte-message-start', 'aparte-message-done', 'aparte-message-aborted', 'aparte-message-error']) {
+    for (const type of ['aparte-message-start', 'aparte-message-paused', 'aparte-message-done', 'aparte-message-aborted', 'aparte-message-error']) {
         el.addEventListener(type, () => events.push(type));
     }
     document.body.appendChild(el);
@@ -200,7 +200,8 @@ describe('the client resumes a paused server run', () => {
         const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
         const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
         await send(c);
-        expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
+        // The pause is said in between, for whoever saves the conversation.
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-paused', 'aparte-message-done']);
     });
 
     it('marks the calls stopped and does not resume when Stop lands while a panel waits', async () => {
@@ -345,7 +346,7 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(runs).toBe(4);
         expect(rowOf(messages, 'c4')).toMatchObject({ status: 'aborted' });
         expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { details?: string }).details === 'MAX_TURNS_EXCEEDED')).toBe(true);
-        expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
+        expect(events.filter((e) => e !== 'aparte-message-paused')).toEqual(['aparte-message-start', 'aparte-message-done']);
     });
 });
 

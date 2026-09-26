@@ -112,10 +112,12 @@ createAparteAgentHandler({
 ```
 
 The person can **leave and come back**. Nothing is stored on the server: the paused call
-lives in the conversation you already save. When a [conversation manager](/guides/conversation-persistence/)
-loads a conversation whose last reply is paused, the panel comes back on its own. If you
-load conversations another way, call `client.resumeDeferred()` after `setMessages`. A new
-message sent instead of an answer closes the paused call.
+lives in the conversation you already save. A [conversation manager](/guides/conversation-persistence/)
+saves the reply the moment the run pauses — the chat dispatches `aparte-message-paused` —
+and when it loads a conversation whose last reply is paused, the panel comes back on its
+own. If you save and load conversations another way, save on `aparte-message-paused` too,
+and call `client.resumeDeferred()` after `setMessages`. A new message sent instead of an
+answer closes the paused call.
 
 ## Browser tools
 

@@ -257,6 +257,7 @@
       "aparte-message-done",
       "aparte-message-error",
       "aparte-message-info",
+      "aparte-message-paused",
       "aparte-message-start",
       "aparte-model-change",
       "aparte-optgroup-toggle",

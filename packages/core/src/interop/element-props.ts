@@ -84,6 +84,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-message-done',
     'aparte-message-error',
     'aparte-message-aborted',
+    'aparte-message-paused',
     'aparte-tool-approval-request',
 ] as const satisfies readonly string[];
 
