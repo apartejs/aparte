@@ -429,156 +429,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // envelope like every other.
                 emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
 
-                const cfg = toolConfigLookup?.(event.name);
-
-                // Per-tool maxTurns — the same arithmetic as the global cap (`>`), so one
-                // number means one thing on both knobs. It was `>=`: `maxTurns: 1` on a
-                // tool made it un-callable on the very first turn, and `maxTurns: N`
-                // allowed N-1 calls against the global option's N.
-                const effectiveMaxTurns = cfg?.maxTurns ?? maxTurns;
-                if (turns > effectiveMaxTurns) {
-                    emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: callId });
-                    continueLoop = false;
-                    break;
-                }
-
-                const handler = toolLookup(event.name);
-                if (!handler) {
-                    emitter({ type: 'tool-aborted', toolCallId: callId });
-                    continueLoop = false;
-                    break;
-                }
-
-                let effectiveInput = event.input;
-
-                // ── HITL approval gate ────────────────────────────────────────
-                const gated = typeof cfg?.needsApproval === 'function'
-                    ? cfg.needsApproval({ id: callId, name: event.name, input: event.input as Record<string, unknown> })
-                    : cfg?.needsApproval;
-                if (gated) {
-                    // Announced only when someone is actually being asked: a `'deny'` is a
-                    // decision already made, and announcing a pause for it painted
-                    // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
-                    // for a call nobody was ever going to be asked about.
-                    if (gated !== 'deny') {
-                        emitter({ type: 'tool-awaiting-approval', toolCallId: callId, name: event.name, input: event.input });
-                    }
-                    /*
-                     * Nothing can ask, so nothing may answer.
-                     *
-                     * The default was `async () => ({ approved: false })`, which sent the
-                     * loop into the refusal branch and appended "rejected by the user" —
-                     * a host that forgot to wire a resolver had not refused anything, and
-                     * the model was told a person had. A misconfiguration is an aborted
-                     * call, not a decision.
-                     */
-                    if (!approvalResolver) {
-                        emitter({ type: 'tool-aborted', toolCallId: callId });
-                        continueLoop = false;
-                        break;
-                    }
-                    /*
-                     * A stop is not a refusal either. Core's built-in channel resolves
-                     * `{ approved: false }` on abort, indistinguishable by value from an
-                     * explicit Reject — so the signal is what tells them apart. No
-                     * `tool` message: an aborted call has nothing true to tell the model.
-                     *
-                     * Checked on three sides of the wait, because the stop can land on
-                     * any of them: while the gate was being shown (a host that reacts to
-                     * `awaiting-approval` synchronously — the panel's own Stop button),
-                     * inside the resolver (a channel that rejects with an AbortError
-                     * rather than resolving), or after it resolved. The first and second
-                     * used to fall through to the run-level abort, which never marked the
-                     * call: the segment stayed `awaiting-approval` for good.
-                     */
-                    let decision: Awaited<ReturnType<typeof approvalResolver>> | undefined;
-                    if (!signal.aborted) {
-                        try {
-                            decision = await approvalResolver(
-                                { id: callId, name: event.name, input: event.input as Record<string, unknown> },
-                                signal,
-                            );
-                        } catch (err) {
-                            if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
-                        }
-                    }
-                    if (signal.aborted || !decision) {
-                        emitter({ type: 'tool-aborted', toolCallId: callId });
-                        continueLoop = false;
-                        break;
-                    }
-
-                    if (!decision.approved) {
-                        /*
-                         * The user's own words when they gave them, and the fixed sentence
-                         * otherwise — byte-identical to core's twin, because this is the
-                         * only thing the model gets to read about the refusal.
-                         *
-                         * This branch used to hardcode the generic sentence. The resolver
-                         * type declared `instruction` and the whole loop never referenced
-                         * it, so on the engine path — the recommended one — a user who
-                         * refused and typed "use the staging bucket instead" had those
-                         * words dropped before the model saw them. Handing the model a
-                         * turn after a refusal exists SO THAT it reads the refusal; here
-                         * there was nothing to read.
-                         *
-                         * The parity suite could not see it: its resolver returned
-                         * `{ approved }` and never an instruction, so both loops agreed on
-                         * a case neither exercised. It supplies one now.
-                         */
-                        // Truthiness, like `instruction` beside it: an empty `reason` is no
-                        // reason, not an empty `tool` message.
-                        const rejection = decision.reason?.trim()
-                            || (decision.instruction
-                                ? `The user rejected this tool call and said: ${decision.instruction}`
-                                : 'Tool execution was rejected by the user.');
-                        emitter({ type: 'tool-rejected', toolCallId: callId, reason: rejection });
-                        declareCall({ id: callId, name: event.name, input: event.input });
-                        append({ role: 'tool', content: rejection, toolCallId: callId, toolName: event.name });
-                        /*
-                         * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
-                         * point. The remaining tool calls of this turn must not run — the
-                         * model asked for several and refusing one cannot license the
-                         * others — but the loop takes another turn, so the sentence just
-                         * appended actually reaches the model. It never did: the turn
-                         * ended here, and telling the assistant what you wanted instead
-                         * meant retyping it as a new message it read out of order.
-                         *
-                         * Core's twin returns `'respond'` for exactly this, and the parity
-                         * suite asserts the two agree.
-                         */
-                        break;
-                    }
-                    if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
-                        effectiveInput = { ...(event.input as Record<string, unknown>), ...(decision.payload as Record<string, unknown>) };
-                    }
-                    emitter({ type: 'tool-approved', toolCallId: callId });
-                }
-
-                // ── handler invocation with per-call timeout ──────────────────
-                const outcome = await invokeToolHandler(
-                    handler,
-                    { id: callId, name: event.name, input: effectiveInput },
-                    signal,
-                    toolTimeoutMs,
+                const verdict = await processCall(
+                    { id: callId, name: event.name, input: event.input },
+                    { turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append },
                 );
-                if (outcome.status === 'aborted') {
-                    // Same rule as the rejection / turn-limit / missing-handler
-                    // exits above, which this branch was missing: a stopped turn
-                    // must not go on running the tool calls that follow it.
-                    emitter({ type: 'tool-aborted', toolCallId: callId });
-                    continueLoop = false;
-                    break;
-                } else if (outcome.status === 'failed') {
-                    // A crash is the handler's, and the run ends on it as before —
-                    // but the row hears about it first, instead of spinning for good.
-                    emitter({ type: 'tool-failed', toolCallId: callId, error: errorText(outcome.error) });
-                    throw outcome.error;
-                } else {
-                    emitter({ type: 'tool-resolved', toolCallId: callId, result: outcome.content, structuredResult: outcome.structuredContent });
-                    declareCall({ id: callId, name: event.name, input: event.input });
-                    append({ role: 'tool', content: outcome.content, toolCallId: callId, toolName: event.name });
-                }
+                if (verdict === 'stop-run') { continueLoop = false; break; }
+                // A refusal ends this turn's calls but not the run: see `processCall`.
+                if (verdict === 'stop-turn') break;
             }
 
             // Turn boundary: finalize the parser (flush residual text). Mirrors
@@ -624,6 +481,179 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
  * by the generic tool path and the synthetic-toolChoice bypass (mirrors the
  * AbortController + `TOOL_HANDLER_TIMEOUT_MS` dance both use in `_streamLoop`).
  */
+/** What the caller does after a call: next event, end this turn's stream, end the run. */
+type CallVerdict = 'continue' | 'stop-turn' | 'stop-run';
+
+interface CallContext {
+    turns: number;
+    maxTurns: number;
+    toolLookup: StreamRunOptions['toolLookup'];
+    toolConfigLookup: StreamRunOptions['toolConfigLookup'];
+    approvalResolver: StreamRunOptions['approvalResolver'];
+    emitter: StreamRunEmitter;
+    signal: AbortSignal;
+    toolTimeoutMs: number;
+    /** Declares the call on the turn's envelope. */
+    declareCall: (call: StreamToolCall) => void;
+    append: (message: StreamAgentMessage) => void;
+}
+
+/**
+ * One call, from its gate to its `tool` message: the ONLY place the loop decides what a
+ * call does. The stream reader calls it for each `tool_use` as it arrives; one function,
+ * so no second path can drift from it the way core's two loops did before D1.
+ */
+async function processCall(call: StreamToolCall, ctx: CallContext): Promise<CallVerdict> {
+    const { signal } = ctx;
+    const input = call.input as Record<string, unknown>;
+    const cfg = ctx.toolConfigLookup?.(call.name);
+
+    // Per-tool maxTurns — the same arithmetic as the global cap (`>`), so one
+    // number means one thing on both knobs. It was `>=`: `maxTurns: 1` on a
+    // tool made it un-callable on the very first turn, and `maxTurns: N`
+    // allowed N-1 calls against the global option's N.
+    const effectiveMaxTurns = cfg?.maxTurns ?? ctx.maxTurns;
+    if (ctx.turns > effectiveMaxTurns) {
+        ctx.emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: call.id });
+        return 'stop-run';
+    }
+
+    const handler = ctx.toolLookup(call.name);
+    if (!handler) {
+        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        return 'stop-run';
+    }
+
+    let effectiveInput = call.input;
+
+    // ── HITL approval gate ────────────────────────────────────────
+    const gated = typeof cfg?.needsApproval === 'function'
+        ? cfg.needsApproval({ id: call.id, name: call.name, input })
+        : cfg?.needsApproval;
+    if (gated) {
+        // Announced only when someone is actually being asked: a `'deny'` is a
+        // decision already made, and announcing a pause for it painted
+        // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
+        // for a call nobody was ever going to be asked about.
+        if (gated !== 'deny') {
+            ctx.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+        }
+        /*
+         * Nothing can ask, so nothing may answer.
+         *
+         * The default was `async () => ({ approved: false })`, which sent the
+         * loop into the refusal branch and appended "rejected by the user" —
+         * a host that forgot to wire a resolver had not refused anything, and
+         * the model was told a person had. A misconfiguration is an aborted
+         * call, not a decision.
+         */
+        if (!ctx.approvalResolver) {
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            return 'stop-run';
+        }
+        /*
+         * A stop is not a refusal either. Core's built-in channel resolves
+         * `{ approved: false }` on abort, indistinguishable by value from an
+         * explicit Reject — so the signal is what tells them apart. No
+         * `tool` message: an aborted call has nothing true to tell the model.
+         *
+         * Checked on three sides of the wait, because the stop can land on
+         * any of them: while the gate was being shown (a host that reacts to
+         * `awaiting-approval` synchronously — the panel's own Stop button),
+         * inside the resolver (a channel that rejects with an AbortError
+         * rather than resolving), or after it resolved. The first and second
+         * used to fall through to the run-level abort, which never marked the
+         * call: the segment stayed `awaiting-approval` for good.
+         */
+        let decision: Awaited<ReturnType<StreamApprovalResolver>> | undefined;
+        if (!signal.aborted) {
+            try {
+                decision = await ctx.approvalResolver(
+                    { id: call.id, name: call.name, input },
+                    signal,
+                );
+            } catch (err) {
+                if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
+            }
+        }
+        if (signal.aborted || !decision) {
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            return 'stop-run';
+        }
+
+        if (!decision.approved) {
+            /*
+             * The user's own words when they gave them, and the fixed sentence
+             * otherwise — byte-identical to core's twin, because this is the
+             * only thing the model gets to read about the refusal.
+             *
+             * This branch used to hardcode the generic sentence. The resolver
+             * type declared `instruction` and the whole loop never referenced
+             * it, so on the engine path — the recommended one — a user who
+             * refused and typed "use the staging bucket instead" had those
+             * words dropped before the model saw them. Handing the model a
+             * turn after a refusal exists SO THAT it reads the refusal; here
+             * there was nothing to read.
+             *
+             * The parity suite could not see it: its resolver returned
+             * `{ approved }` and never an instruction, so both loops agreed on
+             * a case neither exercised. It supplies one now.
+             */
+            // Truthiness, like `instruction` beside it: an empty `reason` is no
+            // reason, not an empty `tool` message.
+            const rejection = decision.reason?.trim()
+                || (decision.instruction
+                    ? `The user rejected this tool call and said: ${decision.instruction}`
+                    : 'Tool execution was rejected by the user.');
+            ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
+            ctx.declareCall(call);
+            ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+            /*
+             * `'stop-turn'`, not `'stop-run'`, and the asymmetry is the point.
+             * The remaining tool calls of this turn must not run — the
+             * model asked for several and refusing one cannot license the
+             * others — but the loop takes another turn, so the sentence just
+             * appended actually reaches the model. It never did: the turn
+             * ended here, and telling the assistant what you wanted instead
+             * meant retyping it as a new message it read out of order.
+             *
+             * Core's twin returns `'respond'` for exactly this, and the parity
+             * suite asserts the two agree.
+             */
+            return 'stop-turn';
+        }
+        if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
+            effectiveInput = { ...input, ...(decision.payload as Record<string, unknown>) };
+        }
+        ctx.emitter({ type: 'tool-approved', toolCallId: call.id });
+    }
+
+    // ── handler invocation with per-call timeout ──────────────────
+    const outcome = await invokeToolHandler(
+        handler,
+        { id: call.id, name: call.name, input: effectiveInput },
+        signal,
+        ctx.toolTimeoutMs,
+    );
+    if (outcome.status === 'aborted') {
+        // Same rule as the rejection / turn-limit / missing-handler
+        // exits above, which this branch was missing: a stopped turn
+        // must not go on running the tool calls that follow it.
+        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        return 'stop-run';
+    } else if (outcome.status === 'failed') {
+        // A crash is the handler's, and the run ends on it as before —
+        // but the row hears about it first, instead of spinning for good.
+        ctx.emitter({ type: 'tool-failed', toolCallId: call.id, error: errorText(outcome.error) });
+        throw outcome.error;
+    } else {
+        ctx.emitter({ type: 'tool-resolved', toolCallId: call.id, result: outcome.content, structuredResult: outcome.structuredContent });
+        ctx.declareCall(call);
+        ctx.append({ role: 'tool', content: outcome.content, toolCallId: call.id, toolName: call.name });
+    }
+    return 'continue';
+}
+
 async function invokeToolHandler(
     handler: StreamToolHandler,
     call: StreamToolCall,
