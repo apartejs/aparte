@@ -65,6 +65,34 @@ test('a new chat empties the transcript, and a send creates the conversation at 
     await expect(page.locator('aparte-chat-bubble')).toHaveCount(2);
 });
 
+test('the starters follow the conversation: none over a stored thread, back after a new chat', async ({ page }) => {
+    // `empty-only` used to read the composer's send alone: after the first one the
+    // starters were hidden for good, so a new chat showed the welcome without them.
+    const starters = page.locator('aparte-suggestions');
+    await page.goto('/?scenario&fast');
+    await expect(starters).toBeVisible();
+
+    await page.locator(LIST).getByText('Weather in Lille').click();
+    await expect(page.locator('aparte-chat-bubble')).toHaveCount(2);
+    // React unmounts its empty state; the other four keep the element and hide it.
+    await expect(page.locator('aparte-suggestions:not([hidden])')).toHaveCount(0);
+
+    await page.locator('#new-chat').click();
+    await expect(page.locator('aparte-chat-bubble')).toHaveCount(0);
+    await expect(starters).toBeVisible();
+
+    const editor = page.locator('aparte-composer-input [contenteditable], aparte-composer-input textarea').first();
+    await editor.fill('Write a haiku about web components.');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('aparte-chat-bubble')).toHaveCount(2);
+    // The reply finished: the subject here is the starters, not a new chat mid-stream.
+    await expect(page.locator('.aparte-message[aria-busy="true"]')).toHaveCount(0);
+
+    await page.locator('#new-chat').click();
+    await expect(page.locator('aparte-chat-bubble')).toHaveCount(0);
+    await expect(starters).toBeVisible();
+});
+
 test('the sidebar is a drawer on a phone, opened by the header toggle', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto('/?scenario&fast');

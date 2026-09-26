@@ -1,5 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
+import { chatBoundaryOf } from '../../utils/chat-boundary.js';
+import { isTranscriptEmpty } from '../../utils/transcript.js';
 
 /**
  * One prompt starter: the text sent, or a visible label over a longer prompt.
@@ -66,8 +68,13 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  *     The `suggestions` PROPERTY takes the same shape without the JSON.
  * @attr {string} mode - `send` (default): the click fills the composer and submits.
  *     `fill`: the click fills the composer and focuses it, so the reader edits first.
- * @attr {boolean} empty-only - Hides the row (`hidden`) once its composer has sent
- *     something. Remove the attribute, or `hidden`, to show it again.
+ * @attr {boolean} empty-only - Shows the row only while the conversation it serves is
+ *     empty: hidden (`hidden`) once a message is in its transcript or on its way — a
+ *     thread being loaded counts — and shown again when the transcript is cleared, by a
+ *     new chat for instance. The composer's send hides it at once, before its message
+ *     lands. The element sets and lifts `hidden` itself and never lifts one you set.
+ *     With no transcript to read — a composer outside any chat — the first send hides it
+ *     until the attribute is removed.
  * @attr {string} target - The id of the `<aparte-chat>` whose composer should receive
  *     the click, when the element is not inside that composer.
  * @attr {boolean} data-empty - Reflected BY the element while it has no suggestion to
@@ -93,14 +100,44 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  */
 export class AparteSuggestions extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['suggestions', 'target'];
+        return ['suggestions', 'target', 'empty-only'];
     }
 
     private _suggestions: AparteSuggestion[] = [];
     private _composer: AparteComposer | null = null;
 
+    /** The viewport of the chat this row serves, while `empty-only` follows it. */
+    private _transcript: Element | null = null;
+    private _transcriptObserver: MutationObserver | null = null;
+    /** The composer sent since the transcript was last seen empty. */
+    private _sent = false;
+    private _wasEmpty = true;
+    /** `hidden` was written by this element, so it is this element's to lift. */
+    private _hidOwn = false;
+
+    /*
+     * `empty-only` used to read the send alone: hidden on the first one, and never shown
+     * again. Over a restored thread (nothing sent yet) the starters sat on top of the
+     * transcript, and after a new chat they never came back. The transcript is the
+     * signal now; the send stays as the other half, because it comes first — the row
+     * hides on the click rather than a frame later when the bubble lands — and because
+     * it is all there is to read when the messages are not `<aparte-chat-bubble>`s
+     * (a wrapper's `renderBubble`) or there is no transcript at all. A transcript seen
+     * going from full to empty is a new conversation, which forgets the send.
+     */
     private _onSend = (): void => {
-        if (this.hasAttribute('empty-only')) this.hidden = true;
+        if (!this.hasAttribute('empty-only')) return;
+        // A composer built after this element had no chat around it yet at connection.
+        if (!this._transcript) this._watchTranscript();
+        this._sent = true;
+        this._applyEmptyOnly();
+    };
+
+    private _applyEmptyOnly = (): void => {
+        const empty = this._transcript ? isTranscriptEmpty(this._transcript) : true;
+        if (empty && !this._wasEmpty) this._sent = false;
+        this._wasEmpty = empty;
+        this._setHidden(!empty || this._sent);
     };
 
     private _onConfigChange = (): void => {
@@ -139,6 +176,9 @@ export class AparteSuggestions extends HTMLElement {
     disconnectedCallback(): void {
         this._composer?.removeEventListener('aparte-send', this._onSend);
         this._composer = null;
+        this._transcriptObserver?.disconnect();
+        this._transcriptObserver = null;
+        this._transcript = null;
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -149,6 +189,12 @@ export class AparteSuggestions extends HTMLElement {
             this._render();
         } else if (name === 'target') {
             this._watchComposer();
+        } else if (name === 'empty-only') {
+            this._watchTranscript();
+            if (!this.hasAttribute('empty-only')) {
+                this._sent = false;
+                this._setHidden(false);
+            }
         }
     }
 
@@ -195,6 +241,51 @@ export class AparteSuggestions extends HTMLElement {
         this._composer?.removeEventListener('aparte-send', this._onSend);
         this._composer = this._resolveComposer();
         this._composer?.addEventListener('aparte-send', this._onSend);
+        this._watchTranscript();
+    }
+
+    /**
+     * The transcript of the chat the click goes to: the chat around the composer, else
+     * the one around this element, else the one `target` names (here, or on that
+     * composer). No last resort on the page, unlike the composer's: following another
+     * chat's transcript would be worse than following none, which falls back to the send.
+     */
+    private _resolveTranscript(): Element | null {
+        const id = this.getAttribute('target') ?? this._composer?.getAttribute('target') ?? null;
+        const chat = chatBoundaryOf(this._composer) ?? chatBoundaryOf(this) ?? (id ? document.getElementById(id) : null);
+        if (!chat) return null;
+        return chat.matches('aparte-chat-viewport') ? chat : chat.querySelector('aparte-chat-viewport');
+    }
+
+    /** Follow the transcript while `empty-only` is set, and stop following it when it is not. */
+    private _watchTranscript(): void {
+        const transcript = this.hasAttribute('empty-only') ? this._resolveTranscript() : null;
+        if (transcript !== this._transcript) {
+            this._transcriptObserver?.disconnect();
+            this._transcriptObserver = null;
+            this._transcript = transcript;
+            if (transcript) {
+                // Bubbles land anywhere under the viewport; `loading` is the other way of
+                // not being empty. The same watch `<aparte-chat>` runs for `data-empty`.
+                this._transcriptObserver = new MutationObserver(this._applyEmptyOnly);
+                this._transcriptObserver.observe(transcript, {
+                    childList: true, subtree: true, attributes: true, attributeFilter: ['loading'],
+                });
+            }
+        }
+        if (this.hasAttribute('empty-only')) this._applyEmptyOnly();
+    }
+
+    /** Set `hidden`, or lift it only when this element set it: a `hidden` the page wrote stays. */
+    private _setHidden(hide: boolean): void {
+        if (hide) {
+            if (this.hidden) return;
+            this.hidden = true;
+            this._hidOwn = true;
+        } else if (this._hidOwn) {
+            this.hidden = false;
+            this._hidOwn = false;
+        }
     }
 
     private _render(): void {

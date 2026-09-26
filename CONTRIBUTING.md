@@ -245,8 +245,8 @@ The flow:
    > push**, and `changeset publish` has just created twenty — so `--tags` publishes them all
    > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
    > per-package tags can follow in a second push.
-5. Verify the dist-tags: `npm view @aparte/core dist-tags`. **All three** — `beta`, `latest` and,
-   for this release only, `alpha` — must be the version you just shipped.
+5. Verify the dist-tags: `npm view @aparte/core dist-tags`. **Both** `beta` and `latest` must be
+   the version you just shipped.
    > The tags drifted on three releases in a row (0.3.0, 0.4.0, 0.5.0): `changeset publish`
    > moved `latest` and left `alpha` behind, so `npm i @aparte/core@alpha` served the version
    > before. `pnpm release` now passes `--tag beta` **and** runs
@@ -258,8 +258,8 @@ The flow:
    > `latest` follows the beta channel on purpose: there is no stable line yet, `latest`
    > already pointed at a pre-release, and freezing it would only serve older bits to a bare
    > `npm i @aparte/core`. The day a stable line exists, `latest` stops following — and
-   > that is the day to change that script. `alpha` stays aligned for 0.17.0 only, a bridge
-   > for the pins that said `@alpha`; it leaves `TAGS` at the next release.
+   > that is the day to change that script. `alpha` was aligned for 0.17.0 only, a bridge
+   > for the pins that said `@alpha`, and stays there: it left `TAGS` with 0.17.1.
 
 ## Styling
 

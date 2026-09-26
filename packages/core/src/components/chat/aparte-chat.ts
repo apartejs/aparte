@@ -5,6 +5,7 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
 // between a presenter and a placeholder.
 import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { isTranscriptEmpty } from '../../utils/transcript.js';
 
 /**
  * AparteChat - The Shell
@@ -29,14 +30,14 @@ import { escapeAttr } from '../../utils/escape.js';
  * Svelte never create this element at all, so the question does not arise for them.
  *
  * Being a component (not a bare `<div>`), it also owns behaviour a wrapper div
- * can't: with `center-empty`, it watches its own viewport and keeps the composer
- * centered as a welcome state until the first `<aparte-chat-bubble>` lands, then
- * slides to the normal layout — no external JavaScript (`data-empty`, in the attribute
- * list below, is that watcher's output). The watcher needs a viewport somewhere
- * inside, and hand-written markup always has one because composing the default injects
- * it — so the only path where no watcher starts and `data-empty` is never set is
- * `framework-managed`, where the framework owns the subtree anyway. The stylesheet
- * centers through
+ * can't: it watches its own viewport and says whether the conversation is empty —
+ * `data-empty`, in the attribute list below, is that watcher's output — and with
+ * `center-empty` the stylesheet keeps the composer centered as a welcome state until
+ * the first `<aparte-chat-bubble>` lands, then slides to the normal layout, with no
+ * external JavaScript. The watcher needs a viewport somewhere inside: hand-written
+ * markup always has one, because composing the default injects it, and Angular's
+ * `framework-managed` host gets its watcher once the template has rendered the
+ * viewport. The stylesheet centers through
  * `aparte-chat[center-empty][data-empty]` and its DIRECT viewport child, so a
  * framework-managed host that nests the viewport inside a container of its own gets
  * nothing from the attribute — the wrappers ship their own centered layout.
@@ -78,11 +79,11 @@ import { escapeAttr } from '../../utils/escape.js';
  *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
  *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
- * @attr {boolean} data-empty - Reflected BY the element while `center-empty` is set and no
- *   `<aparte-chat-bubble>` has landed in its viewport; the stylesheet centers the composer through
- *   `aparte-chat[center-empty][data-empty]`, and an app styles its welcome state against it. Never
- *   set without `center-empty`, and never under `framework-managed` (no viewport child to watch).
- *   Read-only.
+ * @attr {boolean} data-empty - Reflected BY the element while its viewport holds no
+ *   `<aparte-chat-bubble>` and is not `loading` — set again when the conversation is cleared.
+ *   With or without `center-empty`: the stylesheet centers the composer through
+ *   `aparte-chat[center-empty][data-empty]`, and an app styles or scripts its own empty state
+ *   against `aparte-chat[data-empty]`. Read-only.
  * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
  *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
@@ -121,7 +122,7 @@ import { escapeAttr } from '../../utils/escape.js';
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'submit-on-enter', 'center-empty', 'attachments'];
+    return ['placeholder', 'disabled', 'submit-on-enter', 'attachments'];
   }
 
   private _observer: MutationObserver | null = null;
@@ -161,10 +162,6 @@ export class AparteChat extends HTMLElement {
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
     if (oldValue === newValue) return;
-    if (name === 'center-empty') {
-      this._syncEmptyWatch();
-      return;
-    }
     if (name === 'attachments') {
       this._syncAttachments();
       return;
@@ -281,15 +278,18 @@ export class AparteChat extends HTMLElement {
     this.querySelector('aparte-composer')?.setAttribute(name, this.getAttribute(name) ?? '');
   }
 
-  /** Start/stop watching the viewport so `center-empty` toggles itself. */
+  /**
+   * Watch the viewport so `data-empty` follows the conversation.
+   *
+   * It used to run only under `center-empty`, which made the chat's one statement of
+   * "this conversation is empty" a by-product of a layout option: an app that wanted
+   * starters on an empty thread, or a welcome of its own, had to count messages itself.
+   * Every selector core writes against it still requires `[center-empty]`, so reflecting
+   * it everywhere moves no layout.
+   */
   private _syncEmptyWatch(): void {
     this._observer?.disconnect();
     this._observer = null;
-
-    if (!this.hasAttribute('center-empty')) {
-      this.removeAttribute('data-empty');
-      return;
-    }
 
     const viewport = this.querySelector('aparte-chat-viewport');
     if (!viewport) return;
@@ -367,8 +367,7 @@ export class AparteChat extends HTMLElement {
    */
   private _updateEmpty(): void {
     const viewport = this.querySelector('aparte-chat-viewport');
-    const empty = !viewport || (!viewport.hasAttribute('loading') && !viewport.querySelector('aparte-chat-bubble'));
-    this.toggleAttribute('data-empty', empty);
+    this.toggleAttribute('data-empty', !viewport || isTranscriptEmpty(viewport));
   }
 
 }

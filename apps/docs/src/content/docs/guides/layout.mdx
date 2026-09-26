@@ -294,8 +294,11 @@ there is no room for a column inside it, so it is the feed recipe in a band:
 A conversation starts with nothing in it, and a composer pinned to the bottom of an empty
 box reads as a page that failed to load. `center-empty` on `<aparte-chat>` keeps the
 composer in the middle until the first message lands, then slides it down — the element
-watches its own viewport, so nothing of yours runs. While it is centred the chat carries
-`data-empty`, which is the hook for your own welcome copy.
+watches its own viewport, so nothing of yours runs. While the conversation is empty the
+chat carries `data-empty`, with or without `center-empty`: it is the hook for your own
+welcome copy, and `<aparte-suggestions empty-only>` reads the same condition, so its
+starters show on an empty thread, hide with the first message or a thread being loaded,
+and come back when the conversation is cleared.
 
 ```html
 <aparte-chat center-empty style="height: 100dvh">
@@ -381,7 +384,7 @@ is a state and not a size:
 
 | Attribute | On | What it does |
 | --- | --- | --- |
-| `center-empty` | `<aparte-chat>` | centres the composer until the first message, and carries `data-empty` while it does |
+| `center-empty` | `<aparte-chat>` | centres the composer while the chat is empty — `data-empty`, which the chat reflects with or without it |
 | `position` | `<aparte-split>` | the primary pane's size, as a percentage. Reflected back on every settle |
 | `orientation` | `<aparte-split>` | `horizontal` (side by side, the default) or `vertical` (stacked). It names the *container's* axis |
 | `primary` | `<aparte-split>` | `start` (default) or `end` — which pane `position` sizes |

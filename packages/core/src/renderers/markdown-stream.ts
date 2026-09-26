@@ -26,7 +26,8 @@
  *   the escape-plus-`<br>` default, and re-rendering through it would replace the
  *   rendered DOM with the raw Markdown source at the exact moment the turn ends.
  *   In that configuration the flushed DOM is kept and re-sanitised in place, so a
- *   settled message is still what the sanitizer produced.
+ *   settled message is still what the sanitizer produced — and a later settle on
+ *   the same content (a framework re-syncing the finished message) leaves it there.
  */
 import { contextConfig } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
@@ -45,6 +46,21 @@ import { escapeHtml } from '../utils/escape.js';
 export type AparteMarkdownStreamHost = HTMLElement & {
     _aparteSmd?: { renderer: AparteStreamingMarkdownRenderer; written: number } | null;
 };
+
+/**
+ * The content an element was last settled on by keeping the parser's DOM.
+ *
+ * The parser is gone once it settles, but the settle is not the last non-streaming
+ * update an element receives: a framework's reconcile re-sends `{ content,
+ * isStreaming: false }` to the last message on every render. Without this, that
+ * second settle found no parser and fell through to the one-shot default, turning
+ * the kept DOM back into its raw source one render after the turn ended.
+ *
+ * Keyed by the content element, because that is what the entry describes — the
+ * bubble's own content element can be rebuilt under the same host — and weakly, so
+ * that removing the element removes the entry, for the reason given above.
+ */
+const settledFromParser = new WeakMap<Element, string>();
 
 /** A probe with HTML in it, because escaping HTML is what the default renderer does. */
 const ONE_SHOT_PROBE = '<i>a</i>';
@@ -81,6 +97,7 @@ export function writeStreamedMarkdown(
     if (streaming) {
         // Lazily create an incremental renderer on the first streaming update.
         if (host._aparteSmd === undefined) {
+            settledFromParser.delete(contentEl);   // a new stream writes over the settled DOM
             const renderer = contextConfig().createStreamingMarkdownRenderer(contentEl as HTMLElement);
             if (renderer) {
                 contentEl.textContent = '';   // drop the skeleton — smd appends from scratch
@@ -117,11 +134,18 @@ export function writeStreamedMarkdown(
             // DOM. Keep what the parser wrote — through the sanitizer, which is
             // what makes writing DOM directly acceptable in the first place.
             contentEl.innerHTML = contextConfig().sanitizeHtml(contentEl.innerHTML);
+            settledFromParser.set(contentEl, content);
             return;
         }
         // Otherwise fall through: the one-shot provider re-renders for full fidelity.
+    } else if (settledFromParser.get(contentEl) === content && !hasOneShotMarkdownProvider()) {
+        // Settled already, on this very content: what the parser wrote is still the
+        // best render available. Changed content, or a one-shot provider registered
+        // since, falls through — the kept DOM would be stale or second-best.
+        return;
     }
 
+    settledFromParser.delete(contentEl);
     contentEl.innerHTML = contextConfig().renderMarkdown(content);
 }
 

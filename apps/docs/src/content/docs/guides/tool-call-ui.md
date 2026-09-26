@@ -24,6 +24,24 @@ aparté renders each call as a segment of the assistant's message, in sequence w
 text: one quiet row with the tool's name, so five calls are five quiet lines rather than a
 wall of badges.
 
+The name covers *that* a call happened; *to what* is in its arguments. When one argument
+says it — a path, a query, a city — register a summary for the tool and the row shows it
+after the name, while the states, the spinner and the disclosure stay the default's:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+// The row reads `read_file skills.json` instead of `read_file`.
+aparteGlobalConfig.registerToolSummary('read_file', (segment) =>
+    String(segment.toolCall.input['path'] ?? ''));
+```
+
+The summary returns plain text, written as text, never as HTML. It is read again on every
+update of the call, so it follows arguments that are still arriving. Return `''` to show
+nothing. The input is whatever the model chose, so a summary that throws shows nothing
+rather than breaking the row. A display-only chat registers no tool and still gets it: the
+summary is keyed by the tool's name, like a renderer.
+
 ## 2. The arguments the model chose
 
 The name says *which* tool; the arguments say *what the model decided*. `get_weather` with
@@ -105,7 +123,7 @@ form from the user before it can finish — which is [elicitation](/guides/elici
 
 | Show | Because | aparté, by default |
 |---|---|---|
-| The call, in place | The order is the story | A segment row in the message flow |
+| The call, in place | The order is the story | A segment row in the message flow; its target with `registerToolSummary` |
 | The arguments | They are what the model decided | Disclosure, highlighted JSON |
 | The status, live | Waiting is not stuck; the end is a state | Spinner → glyph, patched in place |
 | The result | The reader checks the answer against its source | Same disclosure; or a tool renderer |

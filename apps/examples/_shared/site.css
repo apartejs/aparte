@@ -56,10 +56,9 @@ body {
    over a conversation that is loading. Three shell shapes: the element (`data-empty`
    on itself), the container React and Vue render (`data-aparte-empty` on a
    `[data-aparte-chat]` div), and Angular's — whose host IS an `<aparte-chat>` tag,
-   `framework-managed`, that core deliberately never marks; its inner
-   `.aparte-chat-container` carries the flag instead. Hence the `:not([framework-managed])`:
-   without it the first selector matched Angular's host unconditionally and kept the
-   welcome collapsed. */
+   `framework-managed`, with the wrapper's own flag on its inner `.aparte-chat-container`.
+   Hence the `:not([framework-managed])`: Angular's welcome follows that one flag, the
+   same one the other wrappers raise, rather than two. */
 aparte-chat:not([framework-managed]):not([data-empty]) .welcome,
 .aparte-chat-container:not([data-aparte-empty]) .welcome,
 [data-aparte-chat]:not([data-aparte-empty]) .welcome {

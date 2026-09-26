@@ -29,6 +29,22 @@
 
   const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
+  /**
+   * The starters, set on every mount of the element. It lives in the `empty-state` slot,
+   * which the wrapper removes when a thread has messages and renders again when it is
+   * cleared — so an element configured once, at the page's mount, came back from a new
+   * chat with no starters at all. An action runs on each element Svelte creates.
+   *
+   * `suggestions` must reach the element as an ATTRIBUTE (its JSON form): Svelte would
+   * otherwise hand the raw string to the element's `suggestions` PROPERTY, whose setter
+   * expects the parsed array. `empty-only` is set the same way rather than as a bare
+   * template attribute, which svelte-check types as a literal `''`.
+   */
+  function starters(node: HTMLElement) {
+    node.setAttribute('suggestions', SUGGESTIONS_JSON);
+    node.setAttribute('empty-only', '');
+  }
+
   const chat = createAparteChat();
   const { messages } = chat;
   let comp: AparteChat | null = null;
@@ -43,7 +59,6 @@
   let themeEl: HTMLButtonElement | null = null;
   let searchIconEl: HTMLSpanElement | null = null;
   let modelSlotEl: HTMLDivElement | null = null;
-  let suggestionsEl: HTMLElement | null = null;
 
   let items: AparteConversationListItem[] = [];
   let activeId: string | null = null;
@@ -79,12 +94,6 @@
     wireThemeToggle(themeEl);
     drawSearchIcon(searchIconEl);
     wireSettingsDialog(dialogEl);
-    // `suggestions` must reach the element as an ATTRIBUTE (its JSON form): Svelte
-    // would otherwise hand the raw string to the element's `suggestions` PROPERTY,
-    // whose setter expects the parsed array. `empty-only` is set the same way rather
-    // than as a bare template attribute, which svelte-check types as a literal `''`.
-    suggestionsEl?.setAttribute('suggestions', SUGGESTIONS_JSON);
-    suggestionsEl?.setAttribute('empty-only', '');
     // The model selector, only with a local server, in the header where the
     // product keeps its picker.
     if (!scenarioMode) mountModelSelector(modelSlotEl, document.querySelector('aparte-composer-toolbar'));
@@ -167,7 +176,7 @@
           <!-- The starters go through the composer's own submit(), so every gate it
                has (disabled, streaming, model not selected yet) applies to a click
                too. Each one matches a scripted scenario. -->
-          <aparte-suggestions bind:this={suggestionsEl}></aparte-suggestions>
+          <aparte-suggestions use:starters></aparte-suggestions>
         </div>
       </div>
       <!-- The toolbar row under the composer: the approval switch, and the model

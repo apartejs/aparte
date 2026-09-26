@@ -11,9 +11,9 @@
  * The tags are aligned, on purpose. There is no stable line yet: `latest` already
  * pointed at a pre-release, so freezing it protects nobody and only serves older bits
  * to a bare `npm i @aparte/core`. The day a stable line exists, `latest` stops
- * following the beta channel — and that is the day to change this script. `alpha` is
- * kept aligned for this release only, a bridge for the READMEs and pins that said
- * `@alpha` for months; it leaves the list at the next release.
+ * following the beta channel — and that is the day to change this script. `alpha` was
+ * kept aligned for 0.17.0 only, a bridge for the READMEs and pins that said `@alpha`
+ * for months, and left the list at the release after it: it stays on 0.17.0.
  *
  * Usage (part of `pnpm release`):
  *   node scripts/align-dist-tags.mjs [--dry]
@@ -41,10 +41,9 @@ const npm = (args) => execSync(`npm ${args.join(' ')}`, { encoding: 'utf8', stdi
 /**
  * The channel this repo publishes under, and the tags that must all point at it.
  * `beta` is the channel (`package.json`'s `release` script passes it to
- * `changeset publish`); `latest` follows while no stable line exists — see above;
- * `alpha` is the bridge, for this release only.
+ * `changeset publish`); `latest` follows while no stable line exists — see above.
  */
-const TAGS = ['beta', 'latest', 'alpha'];
+const TAGS = ['beta', 'latest'];
 
 /** Every publishable package in the workspace, at its current version. */
 function publishable() {

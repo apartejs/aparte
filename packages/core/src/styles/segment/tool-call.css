@@ -108,6 +108,17 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 }
 .aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
 .aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* What the call targets (`registerToolSummary`): the name's quieter continuation. One
+   line, cut with an ellipsis, so a long path gives way before the state word does. */
+.aparte-tool-target {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--aparte-code-font-family);
+    font-weight: var(--aparte-font-weight-normal);
+    color: var(--aparte-text-muted);
+}
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
    the placement rule this repo already settled on: no left/right in a name, so
