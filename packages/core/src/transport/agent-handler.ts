@@ -48,7 +48,10 @@ export interface AparteAgentHandlerOptions {
      * server tool is always refused.
      */
     clientTools?: boolean | readonly string[];
-    /** Rewrite the request before the run — impose your system prompt, drop messages. */
+    /**
+     * Rewrite the request before the run — impose your system prompt, drop messages. The
+     * resume checks read what it returns: the loop runs on that, not on what the browser sent.
+     */
     prepareRequest?: (request: AparteChatRequest, req: Request) => AparteChatRequest | Promise<AparteChatRequest>;
     maxTurns?: number;
     toolTimeoutMs?: number;
@@ -141,12 +144,6 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
         if (body.request.toolChoice && typeof body.request.toolChoice === 'object') {
             return jsonError(400, 'A forced tool call cannot come from the browser.');
         }
-        // A history that ends on unanswered calls is a RESUME: only a ticket this server
-        // signed may start one. Without that check a forged envelope ran an ungated call,
-        // or came back signed as if the model had made it.
-        if (!body.resume && unansweredTail(body.request.messages as StreamChatRequest['messages']).length > 0) {
-            return jsonError(400, 'The history ends on unanswered tool calls: a resume needs its ticket.');
-        }
         const provider = Object.hasOwn(options.providers, body.providerId) ? options.providers[body.providerId] : undefined;
         if (!provider) {
             return jsonError(400, `Unknown providerId "${body.providerId}". Register it in the handler's providers map.`);
@@ -162,6 +159,24 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             }
         }
 
+        let request: AparteChatRequest = {
+            ...body.request,
+            tools: [...[...tools.values()].map((t) => t.tool), ...clientTools],
+        };
+        if (options.prepareRequest) request = await options.prepareRequest(request, req);
+
+        // The calls the loop will resume, read from what it will RUN ON — after
+        // `prepareRequest`, which may drop messages: a history ending on a system message
+        // passed a check made before it, and ended on a forged call once the host dropped
+        // system messages.
+        const tail = unansweredTail(request.messages as StreamChatRequest['messages']);
+        // A history that ends on unanswered calls is a RESUME: only a ticket this server
+        // signed may start one. Without that check a forged envelope ran an ungated call,
+        // or came back signed as if the model had made it.
+        if (!body.resume && tail.length > 0) {
+            return jsonError(400, 'The history ends on unanswered tool calls: a resume needs its ticket.');
+        }
+
         let outcomes: Record<string, StreamDeferredOutcome> = {};
         if (body.resume) {
             const payload = typeof body.resume.ticket === 'string'
@@ -171,7 +186,6 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             if (!payload || payload.messageId !== body.messageId) {
                 return jsonError(400, 'Invalid or expired continuation ticket.');
             }
-            const tail = unansweredTail(body.request.messages as StreamChatRequest['messages']);
             if (!sameCalls(payload.calls, tail.map((c) => ({ id: c.id, name: c.name, input: c.input })))) {
                 return jsonError(400, 'The pending tool calls do not match the ticket.');
             }
@@ -186,11 +200,6 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             outcomes = withoutUnacceptedPayloads(given, payload.calls, tools);
         }
 
-        let request: AparteChatRequest = {
-            ...body.request,
-            tools: [...[...tools.values()].map((t) => t.tool), ...clientTools],
-        };
-        if (options.prepareRequest) request = await options.prepareRequest(request, req);
         const key = await options.resolveKey?.(body.providerId);
         const external = new Set(clientTools.map((t) => t.name));
         const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool);
