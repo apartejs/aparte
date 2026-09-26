@@ -109,6 +109,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
+    // Each call's segment as `tool-start` built it, and whether it reached the target:
+    // a renderer that draws nothing keeps it out, and a suspended call must exist in the
+    // message anyway (see `run-suspended`).
+    const toolSegments = new Map<string, AparteToolCallSegment>();
+    const addedTools = new Set<string>();
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
@@ -200,13 +205,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     toolCall: { id: e.toolCallId, name: e.name, input: e.input as Record<string, unknown> },
                     status: 'pending',
                 };
+                toolSegments.set(toolSeg.id, toolSeg);
                 const renderer = config.getToolRenderer(e.name);
                 if (renderer) {
                     injectToolRendererStyles(e.name, renderer);
                     const html = renderer.render(toolSeg);
-                    if (html) target.addSegment?.(toolSeg);
+                    if (html) { target.addSegment?.(toolSeg); addedTools.add(toolSeg.id); }
                 } else {
                     target.addSegment?.(toolSeg);
+                    addedTools.add(toolSeg.id);
                 }
                 break;
             }
@@ -259,6 +266,31 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'run-aborted':
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
+
+            case 'run-suspended': {
+                // A server loop paused: each pending call records why it waits and the
+                // server's ticket (the wire adds `ticket` to this event), so the paused
+                // call lives in the conversation the app saves and a reload can answer it.
+                const ticket = (e as { ticket?: unknown }).ticket;
+                for (const p of e.pending) {
+                    const id = `tool-${p.toolCallId}`;
+                    const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
+                    if (addedTools.has(id)) {
+                        target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
+                    } else {
+                        // Its renderer drew nothing at `tool-start`, so the call never became a
+                        // segment; a paused call must exist in the message, or a reload loses it.
+                        const seg = toolSegments.get(id);
+                        if (seg) { target.addSegment?.({ ...seg, deferred }); addedTools.add(id); }
+                    }
+                }
+                // The RUN is over; the TURN goes on, through the run that resumes it.
+                target.updateMessage?.(messageId, { status: 'completed' });
+                if (e.usage) {
+                    try { target.setUsage?.(messageId, e.usage); } catch { /* target may not implement setUsage */ }
+                }
+                break;
+            }
 
             case 'run-done':
                 target.updateMessage?.(messageId, { status: 'completed' });

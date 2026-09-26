@@ -115,7 +115,10 @@ export function stampSegmentOnInsert(
  *    the page, so the request is unanswerable — and `'aborted'` rather than `'rejected'`
  *    because nobody refused anything. Documented as a consumer's problem in the
  *    persistence guide until now ("normalise those statuses on save"), which is a
- *    normalisation this function was already the single funnel for.
+ *    normalisation this function was already the single funnel for. The exception is a
+ *    call that carries a continuation ticket (`deferred.ticket`): a server loop paused
+ *    on it, nothing in the page was awaiting it, and it can still be answered
+ *    (`AparteClient.resumeDeferred`).
  */
 export function adoptSegment(
     segments: readonly AparteSegment[],
@@ -127,7 +130,7 @@ export function adoptSegment(
         messageId,
         index: segments.length,
         isStreaming: false,
-        ...(segment.type === 'tool_call' && segment.status === 'awaiting-approval'
+        ...(segment.type === 'tool_call' && segment.status === 'awaiting-approval' && !segment.deferred?.ticket
             ? { status: 'aborted' as const }
             : {}),
     } as AparteSegment;
