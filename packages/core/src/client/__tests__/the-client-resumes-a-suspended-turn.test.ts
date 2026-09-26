@@ -348,3 +348,38 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
     });
 });
+
+describe('a resume sends the history its turn was sent with', () => {
+    it('keeps what the request interceptor added to the turn', async () => {
+        // The resume rebuilt its history from the transcript, so context an interceptor
+        // put in the first request — retrieved documents, a date — was gone from the next.
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+        const { c } = client(el, r.run, {
+            approvalResolver: async () => ({ approved: true }),
+            requestInterceptor: (req: { messages: unknown[] }) => ({ ...req, messages: [{ role: 'system', content: 'The repo is read-only.' }, ...req.messages] }),
+        });
+        await send(c);
+        const resumed = r.calls[1]!.baseRequest.messages;
+        expect(resumed.filter((m) => m.content === 'The repo is read-only.')).toHaveLength(1);
+        expect(resumed.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }] });
+    });
+
+    it('builds a reloaded turn\'s history the way its send did, `history` included', async () => {
+        const transcript: AparteMessage[] = [
+            { id: 'u0', role: 'user', content: 'hello', timestamp: 0 },
+            { id: 'a0', role: 'assistant', content: 'hi', timestamp: 0, status: 'completed' },
+            ...pausedTranscript(),
+        ];
+        for (const [history, sendsEarlier] of [['none', false], ['viewport', true]] as const) {
+            const { el } = chat(transcript);
+            const r = runner(resumeApproved('c1'));
+            const { c } = client(el, r.run, { history, approvalResolver: async () => ({ approved: true }) });
+            await c.resumeDeferred(el);
+            const sent = r.calls[0]!.baseRequest.messages;
+            expect(sent.some((m) => m.content === 'hello')).toBe(sendsEarlier);
+            expect(sent.filter((m) => m.role === 'user').at(-1)).toMatchObject({ content: 'delete a' });
+            expect(sent.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }] });
+        }
+    });
+});

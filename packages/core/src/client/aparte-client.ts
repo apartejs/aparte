@@ -746,7 +746,7 @@ export class AparteClient {
                 };
                 result = await this._streamLoop(
                     targetElement, messageId, provider,
-                    { ...baseRequest, messages: this._resumeMessages(targetElement, messageId) },
+                    { ...baseRequest, messages: this._resumeMessages(targetElement, messageId, baseRequest.messages) },
                     authConfig, streamController, deferral,
                 );
             }
@@ -1123,7 +1123,7 @@ export class AparteClient {
      * `segments`, leaving `content` as '', so without flattening every reply would be
      * empty here and the drop below would swallow the whole transcript.
      */
-    private _wireHistory(messages: AparteMessage[], options?: { openDeferredOf?: string }): import('../types/chat.js').AparteChatMessage[] {
+    private _wireHistory(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
         return messages
             .filter(m => {
                 if (m.role !== 'user' && m.role !== 'assistant') return false;
@@ -1134,7 +1134,7 @@ export class AparteClient {
                 // the order it showed them — see `wire-history.ts`. Every other message
                 // keeps its one text, compaction preamble included.
                 if (m.role === 'assistant' && m.segments?.some(s => s.type === 'tool_call')) {
-                    return wireTurns(m, (segments) => this._segmentsToText(segments), { openDeferred: m.id === options?.openDeferredOf });
+                    return wireTurns(m, (segments) => this._segmentsToText(segments));
                 }
                 const content = this._wireText(m);
                 return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
@@ -1824,12 +1824,30 @@ export class AparteClient {
         }
     }
 
-    /** The history a resume sends: the conversation up to this message, its paused calls left open. */
-    private _resumeMessages(targetElement: AparteChatTargetElement, messageId: string): AparteChatMessage[] {
-        const all = targetElement.getMessages?.() ?? [];
-        const index = all.findIndex((m) => m.id === messageId);
-        const upTo = index >= 0 ? all.slice(0, index + 1) : all;
-        return [...this._systemMessages(), ...this._wireHistory(upTo, { openDeferredOf: messageId })];
+    /**
+     * The history a resume sends: the request the turn was sent with — interceptor and
+     * `history` option included, not rebuilt from the transcript — then the reply so
+     * far, its paused calls left open for the server to answer.
+     */
+    private _resumeMessages(targetElement: AparteChatTargetElement, messageId: string, sent: AparteChatMessage[]): AparteChatMessage[] {
+        const reply = targetElement.getMessages?.().find((m) => m.id === messageId);
+        return [...sent, ...(reply ? wireTurns(reply, (segments) => this._segmentsToText(segments), { openDeferred: true }) : [])];
+    }
+
+    /**
+     * What the send of a reloaded turn put before its reply, rebuilt the way
+     * `_buildMessages` builds it: the system prompts, the history `options.history`
+     * asks for — given the transcript as the send saw it — and the message that asked.
+     * That message goes as its text: the files a send read are not in a transcript.
+     */
+    private _resumeBase(all: AparteMessage[], replyIndex: number): AparteChatMessage[] {
+        const before = all.slice(0, replyIndex);
+        const askedAt = before.map((m) => m.role).lastIndexOf('user');
+        const historyOption = this.options.history ?? 'viewport';
+        const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
+            : typeof historyOption === 'function' ? historyOption(before)
+                : [];
+        return [...this._systemMessages(), ...history, ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : [])];
     }
 
     /**
@@ -1886,7 +1904,8 @@ export class AparteClient {
             const pending: StreamDeferredCall[] = open.map((s) => ({
                 toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
             }));
-            await this._streamTurn(targetElement, last.id, provider, [], config.defaultModel || '', authConfig, {
+            const base = this._resumeBase(messages, messages.indexOf(last));
+            await this._streamTurn(targetElement, last.id, provider, base, config.defaultModel || '', authConfig, {
                 resume: { pending, ticket },
             });
         } finally {
