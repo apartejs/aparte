@@ -468,3 +468,37 @@ describe('a resume adds nothing the turn already has', () => {
         expect(reply.segments!.filter((s) => s.id === 'pre-1')).toHaveLength(1);
     });
 });
+
+describe('a reloaded turn resumes on the model it ran on', () => {
+    const pausedOn = (model?: object): AparteMessage[] => [
+        { id: 'u1', role: 'user', content: 'delete a', timestamp: 1 },
+        { id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'completed', ...(model ? { model } : {}), segments: [
+            { id: 'tool-c1', type: 'tool_call', status: 'awaiting-approval', toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a' } }, deferred: { reason: 'approval', ticket: 'T' } } as AparteSegment,
+        ] } as AparteMessage,
+    ];
+
+    it('records the provider, model and temperature a turn ran on, on its reply', async () => {
+        const { el, messages } = chat();
+        const r = runner(finish);
+        const { c } = client(el, r.run);
+        await send(c);
+        expect(messages.find((m) => m.role === 'assistant')).toMatchObject({ model: { providerId: 'mock', modelId: 'm' } });
+    });
+
+    it('resumes on the recorded provider, model and temperature, not the current default', async () => {
+        const { el } = chat(pausedOn({ providerId: 'other', modelId: 'm2', temperature: 0.4 }));
+        const r = runner(resumeApproved('c1'));
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        cfg.registerAIProvider({ id: 'other', getMetadata: () => ({ id: 'other', name: 'O' }), getModels: () => [{ id: 'm2', name: 'M2' }], chat: async () => '' } as never);
+        expect(await c.resumeDeferred(el)).toBe(true);
+        expect(r.calls[0]).toMatchObject({ providerId: 'other', baseRequest: { modelId: 'm2', temperature: 0.4 } });
+    });
+
+    it('falls back to the default when the recorded provider is gone', async () => {
+        const { el } = chat(pausedOn({ providerId: 'removed', modelId: 'm9' }));
+        const r = runner(resumeApproved('c1'));
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        expect(await c.resumeDeferred(el)).toBe(true);
+        expect(r.calls[0]).toMatchObject({ providerId: 'mock', baseRequest: { modelId: 'm' } });
+    });
+});
