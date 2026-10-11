@@ -5,6 +5,7 @@
  * client's adapter: the same events `runStreamAgent` emits for a loop run in the page.
  */
 import { describe, it, expect } from 'vitest';
+import { RunAgentInputSchema } from '@ag-ui/core/schemas';
 import { AparteError } from '@aparte/core';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createAgUiRunner } from '../index.js';
@@ -19,6 +20,9 @@ function fakeFetch(...responses: (Response | ((body: Record<string, unknown>) =>
     const headers: Record<string, string>[] = [];
     const fetch = (async (_url: string, init: RequestInit) => {
         const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        // Every request the runner sends is a RunAgentInput by the protocol's own schema.
+        const checked = RunAgentInputSchema.safeParse(body);
+        if (!checked.success) throw new Error(`not a RunAgentInput: ${checked.error.message}`);
         bodies.push(body);
         headers.push(init.headers as Record<string, string>);
         const next = responses.shift();

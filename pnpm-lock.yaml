@@ -881,6 +881,9 @@ importers:
 
   packages/providers/agent/ag-ui:
     devDependencies:
+      '@ag-ui/core':
+        specifier: ^1.0.0
+        version: 1.0.0(zod@4.4.3)
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../core

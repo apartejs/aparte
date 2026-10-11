@@ -36,6 +36,7 @@
         "@aparte/core": ">=0.18.0 <1.0.0"
     },
     "devDependencies": {
+        "@ag-ui/core": "^1.0.0",
         "@aparte/core": "workspace:*",
         "@tanstack/ai": "^0.68.0",
         "@types/node": "^22.0.0",
