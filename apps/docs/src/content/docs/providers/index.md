@@ -72,6 +72,13 @@ keyInput.addEventListener('change', () => {
 | OpenAI, Mistral, OpenRouter, Groq, Together, Z.ai, LM Studio, Ollama | [`openai-compat`](/providers/ai/openai-compat/) |
 | Anthropic, Google, Amazon Bedrock, or any other `@ai-sdk/*` vendor | [`ai-sdk`](/providers/ai/ai-sdk/) |
 | A model running 100% in the browser — no server, no key | [`transformers`](/providers/ai/transformers/) |
+| An agent on its own server, over AG-UI — Agno, LangGraph, Mastra, CrewAI, Pydantic AI | [`runner-ag-ui`](/providers/agent/ag-ui/) |
+| A TanStack AI chat route | [`runner-ag-ui`](/providers/agent/tanstack-ai/) |
+
+The last two are not providers. An agent that runs its own loop and tools plugs in one level
+up, as `AparteClient`'s `streamRunner`: aparté draws what the agent streams, and runs no loop
+of its own. [Run the agent loop on your server](/guides/server-loop/) is the same seam with
+aparté's own loop on the server.
 
 ## Writing your own
 

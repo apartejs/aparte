@@ -9,7 +9,7 @@
  * interrupt. Every round trip below goes through their validation and comes back.
  */
 import { describe, it, expect } from 'vitest';
-import { chat, toServerSentEventsResponse, toolDefinition, chatParamsFromRequest } from '@tanstack/ai';
+import { chat, chatParamsFromRequest, mergeAgentTools, toServerSentEventsResponse, toolDefinition } from '@tanstack/ai';
 import { fakeText } from '@tanstack/ai/testing';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createAgUiRunner } from '../index.js';
@@ -41,7 +41,17 @@ function tanstackRoute(responses: object[]) {
     fake.setResponses(responses as never);
     return (async (_url: string, init: RequestInit) => {
         const params = await chatParamsFromRequest(new Request('http://localhost/api/chat', { method: 'POST', body: init.body as string }));
-        const stream = chat({ adapter: fake, ...(params as object), tools: [getWeather, deleteFile, ...params.tools] } as never);
+        // The route the TanStack AI page documents. The run's AG-UI fields must reach chat():
+        // without `resume`, `threadId` and `runId` a paused run never resumes.
+        const stream = chat({
+            adapter: fake,
+            messages: params.messages,
+            threadId: params.threadId,
+            runId: params.runId,
+            parentRunId: params.parentRunId,
+            resume: params.resume,
+            tools: mergeAgentTools([getWeather, deleteFile], params.tools),
+        } as never);
         return toServerSentEventsResponse(stream as never);
     }) as unknown as typeof globalThis.fetch;
 }

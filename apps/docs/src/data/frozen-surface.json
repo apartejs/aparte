@@ -515,6 +515,9 @@
       "useAparteClient",
       "useConversationManager"
     ],
+    "@aparte/runner-ag-ui": [
+      "createAgUiRunner"
+    ],
     "@aparte/svelte": [
       "AparteChat",
       "AparteUi",
