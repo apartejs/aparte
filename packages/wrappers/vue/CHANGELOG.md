@@ -1,5 +1,7 @@
 # @aparte/vue
 
+## 0.18.0
+
 ## 0.17.3
 
 ### Patch Changes
