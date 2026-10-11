@@ -68,6 +68,7 @@ const BARRELS = [
     { pkg: '@aparte/plugin-compaction', types: 'packages/plugins/compaction/dist/index.d.ts', readme: 'packages/plugins/compaction/README.md' },
     { pkg: '@aparte/plugin-titler', types: 'packages/plugins/titler/dist/index.d.ts', readme: 'packages/plugins/titler/README.md' },
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
+    { pkg: '@aparte/runner-ag-ui', types: 'packages/providers/agent/ag-ui/dist/index.d.ts', readme: 'packages/providers/agent/ag-ui/README.md' },
     // Published like the rest (`private` is unset), so its surface is measured here too
     // even though the package is a Node CLI rather than part of the browser library.
     { pkg: '@aparte/docs-mcp', types: 'packages/tools/docs-mcp/dist/index.d.ts', readme: 'packages/tools/docs-mcp/README.md' },
@@ -148,6 +149,8 @@ const MAX_UNMENTIONED = new Map([
     // (setupCompaction, createCompactionSelector, transcriptForSummary, the budget) in a fence.
     ['@aparte/plugin-compaction', 0],
     ['@aparte/provider-scenario', 1],
+    // runner-ag-ui: the runner and its options, both on the AG-UI page.
+    ['@aparte/runner-ag-ui', 0],
     ['@aparte/docs-mcp', 7],
     ['@aparte/locale-fr', 0],
 ]);
