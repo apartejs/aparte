@@ -35,9 +35,9 @@ const theme = readAparteStylesheet();
  * a dark page read `--aparte-bg: #f6f2ea`. Spelled out here rather than made optional,
  * so dropping a twin is a red test and not a silent light island.
  */
-const DARK_ATTR = /\[data-aparte-theme="dark"\],\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/;
-const DARK_MEDIA = /@media \(prefers-color-scheme: dark\)[^{]*\{\s*:root:not\(\[data-aparte-theme="light"\]\),\s*:host\(:not\(\[data-aparte-theme="light"\]\)\)\s*\{([^}]*)\}/;
-const LIGHT_VETO = /\[data-aparte-theme="light"\],\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/;
+const DARK_ATTR = /:where\(\[data-aparte-theme="dark"\]\),\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/;
+const DARK_MEDIA = /@media \(prefers-color-scheme: dark\)[^{]*\{\s*html:not\(\[data-aparte-theme\]\),\s*:host\(:not\(\[data-aparte-theme\]\)\)\s*\{([^}]*)\}/;
+const LIGHT_VETO = /:where\(\[data-aparte-theme="light"\]\),\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/;
 
 /** The declarations of one block, comments stripped, matched from a selector. */
 function blockOf(selectorRe: RegExp): string {
@@ -48,8 +48,21 @@ function blockOf(selectorRe: RegExp): string {
 describe('the theme follows the system by default', () => {
     it('a prefers-color-scheme: dark media block themes the un-attributed root', () => {
         expect(theme).toMatch(/@media \(prefers-color-scheme: dark\)/);
-        // The explicit light choice must beat a dark OS — the guard is in the selector.
-        expect(theme).toMatch(/:root:not\(\[data-aparte-theme=(?:"|')?light(?:"|')?\]\)/);
+        // The attribute, when set, decides: light beats a dark OS, and dark is the
+        // attribute block's alone, where a host's rebrand can win (#95).
+        expect(theme).toMatch(/html:not\(\[data-aparte-theme\]\)/);
+    });
+
+    it("core's palette yields to a host's rule, whichever sheet loads last (#95)", () => {
+        const css = theme.replace(/\/\*[\s\S]*?\*\//g, '');
+        // Zero weight wherever the host owns the choice: the light literals and both
+        // attribute blocks.
+        expect(css).toMatch(/^:where\(:root\),\s*:host\s*\{/m);
+        expect(css).toMatch(/^:where\(\[data-aparte-theme="dark"\]\),/m);
+        expect(css).toMatch(/^:where\(\[data-aparte-theme="light"\]\),/m);
+        // (0,1,1) for the OS: above a bare \`:root\`, so a light-only rebrand stays light on
+        // a dark OS; below \`:root:not(...)\`, the guide's selector for a host's own dark.
+        expect(css).toMatch(/^\s+html:not\(\[data-aparte-theme\]\),/m);
     });
 
     it('every palette block reaches a shadow host as well as the document root', () => {

@@ -98,12 +98,15 @@ It used not to be this way: dark existed only behind the attribute, so a chat dr
 into a dark page rendered **light — unreadable, with no error** — unless the host knew
 to flip the attribute itself. The first consumer to build from these docs alone shipped
 exactly that. Your app still owns the decision: the attribute beats the OS in both
-directions; the default just stopped lying to dark-mode users.
+directions, for core's palette and for yours; the default just stopped lying to
+dark-mode users. Your own dark colours are under
+[Rebrand the dark palette](#rebrand-the-dark-palette).
 :::
 
 ## Rebrand in a handful of variables
 
-Most of the palette derives from a few base tokens, so a rebrand is short:
+Most of the palette derives from a few base tokens, so a rebrand is short. It wins over
+core's palette whichever stylesheet loads first:
 
 ```css
 :root {
@@ -191,6 +194,43 @@ the page that background yourself (`body { background: var(--aparte-bg); }`).
 The generated [CSS variables](/reference/css-variables/) reference marks every token in
 this position **palette only**, so you can tell a knob from a base at a glance.
 :::
+
+## Rebrand the dark palette
+
+Your `:root` block is your light palette. On a dark OS, with no attribute set, core shows
+its own dark palette rather than your light colours mixed into its dark ones. A dark brand
+gets a block of its own, in the form that matches who decides dark:
+
+```css
+/* light */
+:root {
+  --aparte-primary: #087ea4;
+  /* …the eight above */
+}
+
+/* dark, when your toggle sets the attribute */
+[data-aparte-theme="dark"] {
+  --aparte-primary: #58c4dc;
+  /* …the same eight, in dark */
+}
+
+/* dark, when the OS decides */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-aparte-theme="light"]) {
+    --aparte-primary: #58c4dc;
+    /* …the same eight, in dark */
+  }
+}
+```
+
+Give each dark block every token your light block sets. Your `:root` block still matches
+in dark mode, so a token a dark block leaves out keeps its light value.
+
+These blocks win whichever stylesheet loads first. Wherever your choice applies, core
+declares its palette at zero weight. It keeps weight in one place, the OS case, so that a
+light-only rebrand stays light-only on a dark OS. That is why the OS block says
+`:root:not(…)` and not `:root`. Inside the media query, a bare `:root` weighs the same as
+your light block, and loses to core's dark one.
 
 ## The scales
 

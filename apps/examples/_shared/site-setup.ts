@@ -25,6 +25,7 @@ import {
 import type { AparteThinkingSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
@@ -185,6 +186,9 @@ async function run(): Promise<SiteSetup> {
     //    suite starts one), with `get_weather` there as a server tool that needs a person.
     //    The page keeps its panel, its policy and its browser tools; only the loop moves.
     const agentUrl = new URLSearchParams(location.search).get('agent');
+    //    `?agui=<url>`: an AG-UI agent runs the turn on ITS server (the same file serves a
+    //    scripted one), and the page draws it through `@aparte/runner-ag-ui`.
+    const agUiUrl = new URLSearchParams(location.search).get('agui');
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {
@@ -214,7 +218,7 @@ async function run(): Promise<SiteSetup> {
         // through, because auto is auto.
         // Under `?agent` the weather tool is the SERVER's: a page tool of the same name
         // would be sent as a browser tool, and the server refuses the clash.
-        if (!agentUrl) aparteGlobalConfig.registerTool(
+        if (!agentUrl && !agUiUrl) aparteGlobalConfig.registerTool(
             {
                 name: 'get_weather',
                 description: 'Current weather for a city.',
@@ -289,7 +293,7 @@ async function run(): Promise<SiteSetup> {
     //    asserts. Wired here because a capability with no in-repo consumer is a
     //    contract maintained for nobody (ratified decision #7).
     const client = new AparteClient({
-        streamRunner: agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent,
+        streamRunner: agUiUrl ? createAgUiRunner({ endpoint: agUiUrl }) : agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent,
         // The endpoint + token the settings hold, for ANY provider. The record form
         // (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint, and it
         // is honoured on both the chat and the /models path.

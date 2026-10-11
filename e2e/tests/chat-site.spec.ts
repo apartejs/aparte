@@ -197,3 +197,44 @@ test('a sidebar collapsed on a desktop opens again from the header', async ({ pa
     await expect(sidebar).not.toHaveAttribute('collapsed', '');
     await expect(headerToggle).toBeHidden();
 });
+
+/*
+ * A press survives the list re-rendering under it. WebKit drops the click when the pressed
+ * node leaves the document between mousedown and mouseup, even when it comes straight back,
+ * and a re-render that rebuilt or moved rows did exactly that: a conversation clicked while
+ * the list settled (a save had just moved a row) did not open. Pressed the way a mouse
+ * presses, down, a re-render, up, on a list of our own, so the site's store cannot move
+ * anything in between.
+ */
+type PressWindow = Window & { __selected: string[] };
+for (const moves of [false, true]) {
+    test(`a press survives a re-render under it${moves ? ' that moves the pressed row' : ''}`, async ({ page }) => {
+        await page.goto('/?scenario');
+        await page.evaluate(async () => {
+            await customElements.whenDefined('aparte-conversation-list');
+            const day = 86_400_000;
+            const now = Date.now();
+            const list = document.createElement('aparte-conversation-list') as HTMLElement & { conversations: unknown[] };
+            list.id = 'press-test';
+            list.style.cssText = 'position: fixed; inset: 0 auto auto 0; width: 300px; z-index: 10000; background: white';
+            document.body.append(list);
+            list.conversations = [{ id: 'a', title: 'Alpha', updatedAt: now - 2 * day }, { id: 'b', title: 'Beta', updatedAt: now - 3 * day }];
+            (window as unknown as PressWindow).__selected = [];
+            list.addEventListener('aparte-conversation-select', (e) => (window as unknown as PressWindow).__selected.push((e as CustomEvent<{ id: string }>).detail.id));
+        });
+        const box = (await page.locator('#press-test [data-select-id="b"]').boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.evaluate((moves) => {
+            const day = 86_400_000;
+            const now = Date.now();
+            const list = document.getElementById('press-test') as HTMLElement & { conversations: unknown[] };
+            list.setAttribute('active-id', 'a');
+            list.conversations = moves
+                ? [{ id: 'b', title: 'Beta', updatedAt: now }, { id: 'a', title: 'Alpha', updatedAt: now - 2 * day }]
+                : [{ id: 'a', title: 'Alpha', updatedAt: now - 2 * day }, { id: 'b', title: 'Beta, saved', updatedAt: now - 3 * day }];
+        }, moves);
+        await page.mouse.up();
+        await expect.poll(() => page.evaluate(() => (window as unknown as PressWindow).__selected)).toEqual(['b']);
+    });
+}

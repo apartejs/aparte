@@ -220,6 +220,8 @@ export default defineConfig({
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
+        'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 83 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 95, statements: 95, functions: 90, branches: 83 },
         'packages/providers/ai/openai-compat/src/**': { lines: 94, statements: 94, functions: 93, branches: 87 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },

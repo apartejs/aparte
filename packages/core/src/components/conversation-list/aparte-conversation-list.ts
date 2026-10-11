@@ -234,6 +234,7 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
         this.addEventListener('focusout', this._onFocusOut);
+        this.addEventListener('pointerdown', this._onPress);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
     }
@@ -243,6 +244,11 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
         this.removeEventListener('focusout', this._onFocusOut);
+        this.removeEventListener('pointerdown', this._onPress);
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        this._pressed = false;
+        this._renderAfterPress = false;
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -282,7 +288,44 @@ export class AparteConversationList extends HTMLElement {
 
     // ─── Rendering ────────────────────────────────────────────────────────
 
+    /**
+     * A press holds every render until its click has landed. The host re-assigns
+     * `conversations` on every manager change (a save moves a row, a select marks one),
+     * and a row replaced between `mousedown` and `mouseup` lost its click: Chromium sent
+     * it to the list, where the delegated handler matched nothing, and WebKit sent none.
+     * A conversation clicked while the list settled did not open. Keeping the row node
+     * would not have saved it: a row moved to its new place leaves the document on the
+     * way, and the row that moves is often the one pressed (the conversation just
+     * saved). So nothing changes under a pointer that is down, and the render runs once,
+     * after the click.
+     */
+    private _pressed = false;
+    private _renderAfterPress = false;
+
+    private _onPress = (): void => {
+        if (this._pressed) return;
+        this._pressed = true;
+        window.addEventListener('pointerup', this._onRelease, true);
+        window.addEventListener('pointercancel', this._onRelease, true);
+    };
+
+    private _onRelease = (): void => {
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        // `mouseup` and `click` follow `pointerup` in the same task: this runs after them.
+        setTimeout(() => {
+            this._pressed = false;
+            if (!this._renderAfterPress) return;
+            this._renderAfterPress = false;
+            if (this.isConnected) this._render();
+        }, 0);
+    };
+
     private _render(): void {
+        if (this._pressed) {
+            this._renderAfterPress = true;
+            return;
+        }
         // The menu and the rename input live inside the rows; a render replaces them.
         this._closeMenu();
         this._renaming = null;

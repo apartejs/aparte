@@ -108,7 +108,8 @@ test('leaving during the wait keeps the question: it comes back with the convers
     await expect(panel).toHaveCount(0);
     // Seen, as a person sees it before going back. Clicked earlier, the row lands while
     // the list still settles from the switch (the paused conversation was just saved, which
-    // moves it): one WebKit run in fifty lost that click, none in forty after this wait.
+    // moves it): one WebKit run in fifty lost that click, none in forty after this wait. The list
+    // holds its render during a press now (a-press-survives-a-re-render), so the wait is a person's, not a fix.
     await expect(page.locator('aparte-chat-bubble[data-role="user"]').first()).toContainText('weather in Lille');
 
     // Back: the paused call is still there, the question is put again, and the answer
@@ -123,3 +124,74 @@ test('leaving during the wait keeps the question: it comes back with the convers
     await expect(chat.lastReply).toContainText('Cloudy');
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
+
+/*
+ * The same three round trips against an AG-UI agent (`?agui=`, `@aparte/runner-ag-ui`), twice.
+ * `POST /agui` is a scripted AG-UI agent: the approval is an AG-UI INTERRUPT answered by one
+ * `resume` batch, and `ask_user` a frontend tool the agent leaves to the page, answered with a
+ * `tool` message — the two ways AG-UI hands a call back. Its input and its events are checked
+ * against `@ag-ui/core`'s schemas on the way. `POST /agui/tanstack` is TanStack AI's real
+ * server (`chat()`), which pauses for `ask_user` with an interrupt of its own.
+ */
+for (const [agent, AGUI] of [
+    ['an AG-UI agent', 'http://localhost:5399/agui'],
+    ['a TanStack AI route', 'http://localhost:5399/agui/tanstack'],
+] as const) {
+
+async function openAgUiSite(page: Page): Promise<ChatPage> {
+    const chat = new ChatPage(page);
+    await page.goto(`/?scenario&agui=${encodeURIComponent(AGUI)}`);
+    await expect(chat.approvalMode.locator('aparte-select')).toBeVisible();
+    return chat;
+}
+
+test.describe(agent, () => {
+    test('pauses on an interrupt, asks in the page, and Approve runs the tool on the agent', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = await openAgUiSite(page);
+        await chat.send('what is the weather?');
+
+        const panel = page.locator(APPROVAL_PANEL);
+        await expect(panel).toBeVisible();
+        await expect(panel).toContainText('get_weather');
+        await panel.locator(APPROVE).click();
+
+        await expect(panel).toHaveCount(0);
+        await expect(rows(chat, 'resolved')).toHaveCount(1);
+        await expect(chat.lastReply).toContainText('Let me check');
+        await expect(chat.lastReply).toContainText('Cloudy');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('Reject goes back in the resume batch, and the agent answers the refusal', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = await openAgUiSite(page);
+        await chat.send('what is the weather?');
+        const panel = page.locator(APPROVAL_PANEL);
+        await expect(panel).toBeVisible();
+        await panel.locator(REJECT).click();
+
+        await expect(panel).toHaveCount(0);
+        await expect(rows(chat, 'rejected')).toHaveCount(1);
+        await expect(chat.lastReply).toContainText('I have not run it');
+        await expect(chat.lastReply).not.toContainText('Cloudy');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('a frontend tool the agent calls runs in the page, and its answer goes back', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = await openAgUiSite(page);
+        await chat.send('ask me a question');
+
+        const panel = page.locator(QUESTION_PANEL);
+        await expect(panel).toBeVisible();
+        await expect(panel).toContainText('Which mood for your landing page?');
+        await panel.getByText('Dark and quiet', { exact: false }).first().click();
+
+        await expect(panel).toHaveCount(0);
+        await expect(chat.lastReply.locator('.aparte-question-receipt')).toContainText('Dark and quiet');
+        await expect(chat.lastReply).toContainText('Noted');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+});
+}

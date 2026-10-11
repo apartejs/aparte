@@ -70,8 +70,11 @@ const origin = [];
 
 /** Every place a palette can change, and therefore every place the layer re-anchors. */
 const ANCHORS = [':root', ':host', '[data-aparte-theme]', '[data-aparte-host]', 'aparte-chat'];
-/** The literal palette's own selector list, which must stay exactly this. */
-const LITERAL_SELECTORS = [':root', ':host'];
+/**
+ * The literal palette's own selector list, which must stay exactly this. `:where(:root)`
+ * and not `:root`: at zero weight, a host's rebrand wins whichever sheet loads last (#95).
+ */
+const LITERAL_SELECTORS = [':where(:root)', ':host'];
 /**
  * Derived declarations inside an `@media` / `@container` are exempt: a responsive
  * override is scoped on purpose, and those derive from DIMENSIONAL masters (spacing,
@@ -136,7 +139,7 @@ function selectorAt(i) {
  * `:root` and `:host` stay checked, which is where the original bug lived.
  */
 function scopedToAnElement(selectors) {
-    return selectors.length > 0 && selectors.every((sel) => !/^\s*(:root|:host)\b/.test(sel));
+    return selectors.length > 0 && selectors.every((sel) => !/^\s*(:where\(:root\)|:root\b|:host\b)/.test(sel));
 }
 
 const stack = [];
@@ -182,7 +185,7 @@ for (let i = 0; i < lines.length; i++) {
     if (blockOf.get(name) === scope) duplicated.add(name);
     blockOf.set(name, scope);
     declaredNames.add(name);
-    if (top.selectors.some((sel) => sel.trim().startsWith(':root'))) globallyDeclared.add(name);
+    if (top.selectors.some((sel) => /^(?::where\()?:root\b/.test(sel.trim()))) globallyDeclared.add(name);
     if (!byBlock.has(top.key)) byBlock.set(top.key, new Set());
     byBlock.get(top.key).add(name);
 
@@ -359,7 +362,7 @@ for (const sheet of SHEETS) {
         const rule = nearestRule();
         if (!rule) continue;
         const decl = raw.match(DECL);
-        if (decl && !globallyDeclared.has(decl[1]) && !rule.selectors.some((s) => /^\s*(:root|:host)\b/.test(s))) {
+        if (decl && !globallyDeclared.has(decl[1]) && !rule.selectors.some((s) => /^\s*(:where\(:root\)|:root\b|:host\b)/.test(s))) {
             if (!localDeclarers.has(decl[1])) localDeclarers.set(decl[1], []);
             localDeclarers.get(decl[1]).push({ sets: rule.sets, where: at(i), selectors: rule.selectors });
         }
@@ -867,9 +870,9 @@ let proseNames = 0;
     // `:root, :host`, so without one a sheet ADOPTED into a shadow root put the light
     // hexes on the host, where a local declaration beats the inherited dark value.
     // The selector lists are matched in full so that dropping a twin fails here.
-    const darkAttr = themeCss.match(/\[data-aparte-theme="dark"\],\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1];
-    const darkMedia = themeCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-aparte-theme="light"\]\),\s*:host\(:not\(\[data-aparte-theme="light"\]\)\)\s*\{([^}]*)\}/)?.[1];
-    const lightVeto = themeCss.match(/\[data-aparte-theme="light"\],\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/)?.[1];
+    const darkAttr = themeCss.match(/:where\(\[data-aparte-theme="dark"\]\),\s*:host\(\[data-aparte-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1];
+    const darkMedia = themeCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*html:not\(\[data-aparte-theme\]\),\s*:host\(:not\(\[data-aparte-theme\]\)\)\s*\{([^}]*)\}/)?.[1];
+    const lightVeto = themeCss.match(/:where\(\[data-aparte-theme="light"\]\),\s*:host\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/)?.[1];
     if (!darkAttr || !darkMedia || !lightVeto) {
         problems.push('theme.css: the dark attribute block, its prefers-color-scheme copy or the light veto is missing, or one of them lost its `:host(...)` twin — the system-default theme lost a leg, or a chat in a shadow root went light.');
     } else {
@@ -882,7 +885,7 @@ let proseNames = 0;
         for (const prop of m.keys()) {
             if (!a.has(prop)) problems.push(`theme.css: \`${prop}\` is in the prefers-color-scheme copy but not in the attribute block — the two blocks are one theme; edit both.`);
         }
-        const beforeDark = themeCss.slice(0, themeCss.indexOf('[data-aparte-theme="dark"]'));
+        const beforeDark = themeCss.slice(0, themeCss.indexOf(':where([data-aparte-theme="dark"])'));
         const lightLiterals = new Map();
         for (const mm of beforeDark.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
             if (!lightLiterals.has(mm[1])) lightLiterals.set(mm[1], mm[2].trim());

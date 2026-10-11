@@ -333,7 +333,7 @@ function readTokens() {
     const lines = css.split(/\r?\n/);
     const body = [];
     for (let i = 0; i < lines.length; i++) {
-        if (!/^:root\b/.test(lines[i])) continue;
+        if (!/^(?::where\()?:root\b/.test(lines[i])) continue;
         let j = i;
         while (j < lines.length && !lines[j].includes('{')) j++;
         j++;

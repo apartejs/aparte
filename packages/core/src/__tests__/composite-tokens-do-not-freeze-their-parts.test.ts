@@ -26,7 +26,7 @@ const rootDecl = new Map<string, string>();
 const scopedDeclarers = new Map<string, Set<string>>();
 for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = block[1]!.trim().replace(/\s+/g, ' ');
-    const isRoot = /^:root\b/.test(selector);
+    const isRoot = /^(?::where\()?:root\b/.test(selector);
     for (const d of block[2]!.matchAll(/(--aparte-[\w-]+)\s*:\s*([^;]+);/g)) {
         if (isRoot) {
             if (!rootDecl.has(d[1]!)) rootDecl.set(d[1]!, d[2]!.trim());

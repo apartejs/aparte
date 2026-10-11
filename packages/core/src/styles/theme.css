@@ -21,8 +21,14 @@
 
 /* =========================================
    Light Theme (Default)
+
+   At zero weight: `:where(:root)`. A host's rule on the root wins over these literals
+   whichever sheet loads last. At (0,1,0) the order decided, and a `:root` rebrand in a
+   `<link>` of index.html lost under Vite, which injects core's sheets after it.
+   `:host` keeps its weight: on the host element the page's own rules beat a shadow
+   sheet's whatever the specificity.
    ========================================= */
-:root,
+:where(:root),
 :host {
   /* Base Colors */
   --aparte-primary: #b07d33;
@@ -487,6 +493,16 @@
    the DARK block above, verbatim, applied when the OS asks and the host has not
    said otherwise — `data-aparte-theme="light"` on the root is the veto.
 
+   Only when no attribute decides. With the attribute set, its own blocks below apply,
+   at zero weight, and a host that flips the attribute owns its palette there. This
+   block used to match `dark` too, at (0,2,0), and on a dark OS it outranked the
+   host's `[data-aparte-theme="dark"]` rebrand (issue #95).
+   Its weight is (0,1,1), and that is why it says `html` and not `:root`. Above a bare
+   `:root` (0,1,0): a rebrand that only knows light stays light-only on a dark OS,
+   rather than its light masters mixing with this block's dark inks and shadows. Below
+   `:root:not(...)` (0,2,0): the selector the theming guide gives a host that follows
+   the OS with a dark palette of its own.
+
    A duplicate on purpose (CSS cannot share one block between a media query and an
    attribute selector): `check:derived-vars` holds the two byte-identical, so
    editing one without the other fails the build rather than forking the theme.
@@ -504,8 +520,8 @@
    inside (only `:host-context()` could see it, and its support is partial).
    ========================================= */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-aparte-theme="light"]),
-  :host(:not([data-aparte-theme="light"])) {
+  html:not([data-aparte-theme]),
+  :host(:not([data-aparte-theme])) {
     --aparte-bg: #17141c;
     --aparte-surface-1: #211b28;
     --aparte-surface-2: #2a2333;
@@ -542,8 +558,11 @@
    values are the light literals from the `:root` block above, one per property
    the dark block overrides — `check:derived-vars` holds that pairing, so a light
    literal edited above cannot drift from its copy here.
+
+   At zero weight, like the light literals: a host's rule that matches the attributed
+   element wins, whichever sheet loads last.
    ========================================= */
-[data-aparte-theme="light"],
+:where([data-aparte-theme="light"]),
 :host([data-aparte-theme="light"]) {
   color-scheme: light;
   --aparte-bg: #f6f2ea;
@@ -578,8 +597,13 @@
 /* =========================================
    Dark Theme (App-controlled via attribute)
    Usage: <div data-aparte-theme="dark">...</div>
+
+   At zero weight: a host's `[data-aparte-theme="dark"] { … }` rebrand wins, whichever
+   sheet loads last (issue #95). A subtree still turns dark against a light page: the
+   values are declared ON the attributed element, and a declaration beats an inherited
+   value at any weight.
    ========================================= */
-[data-aparte-theme="dark"],
+:where([data-aparte-theme="dark"]),
 :host([data-aparte-theme="dark"]) {
   color-scheme: dark;
   /* Backgrounds */

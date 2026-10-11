@@ -700,6 +700,17 @@ export class AparteClient {
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' }, chatId);
+        // What this turn runs on, on the reply: a pause resumed after a reload takes the
+        // same model back. A resume keeps what its reply already says.
+        if (!opts?.resume) {
+            this._updateMessage(targetElement, messageId, {
+                model: {
+                    providerId: provider.id,
+                    modelId: baseRequest.modelId,
+                    ...(baseRequest.temperature !== undefined ? { temperature: baseRequest.temperature } : {}),
+                },
+            });
+        }
         // This turn's own controller: the terminal below is decided from ITS signal, not
         // from the client-wide `_isAborted`, which the next send resets before the
         // superseded turn has returned.
@@ -1934,7 +1945,10 @@ export class AparteClient {
         if (!last || open.length === 0 || !ticket || this._resuming.has(last.id)) return false;
 
         const config = this._config.getModelConfig();
-        const provider = config.defaultProvider ? this._config.getAIProvider(config.defaultProvider) : undefined;
+        // The model the turn ran on, when its provider is still here; else today's default.
+        const recorded = last.model && this._config.getAIProvider(last.model.providerId) ? last.model : undefined;
+        const providerId = recorded?.providerId ?? config.defaultProvider;
+        const provider = providerId ? this._config.getAIProvider(providerId) : undefined;
         if (!provider) {
             console.warn('[AparteClient] Cannot resume the paused turn: no provider is selected.');
             return false;
@@ -1948,8 +1962,9 @@ export class AparteClient {
                 toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
             }));
             const base = this._resumeBase(messages, messages.indexOf(last));
-            await this._streamTurn(targetElement, last.id, provider, base, config.defaultModel || '', authConfig, {
+            await this._streamTurn(targetElement, last.id, provider, base, recorded?.modelId ?? config.defaultModel ?? '', authConfig, {
                 resume: { pending, ticket },
+                ...(recorded?.temperature !== undefined ? { temperature: recorded.temperature } : {}),
             });
         } finally {
             this._resuming.delete(last.id);

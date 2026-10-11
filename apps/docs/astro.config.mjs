@@ -143,6 +143,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', link: '/providers/' },
             { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
+            { label: 'Agents', items: [{ autogenerate: { directory: 'providers/agent' } }] },
           ],
         },
         { label: 'Plugins', collapsed: true, items: [{ autogenerate: { directory: 'plugins' } }] },
@@ -239,6 +240,9 @@ export default defineConfig({
             + '`createAparteAgentHandler` on the server and `createAgentStreamRunner` in the page, '
             + 'with tool approvals that cross the network and survive a reload, and browser tools '
             + 'that still run in the page (/guides/server-loop/). '
+            + 'An agent served over AG-UI (Agno, LangGraph, Mastra, CrewAI, Pydantic AI) or a '
+            + 'TanStack AI chat route plugs in as `createAgUiRunner` from `@aparte/runner-ag-ui` '
+            + '(/providers/agent/ag-ui/, /providers/agent/tanstack-ai/). '
             + 'Driving a loop you own instead (a backend that streams over its own SSE, another '
             + 'agent framework): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '

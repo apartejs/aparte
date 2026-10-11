@@ -27,6 +27,8 @@
  * is most likely to diverge — and that is the point of testing it in a browser at all.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { ChatPage } from '../helpers/chat.js';
@@ -230,3 +232,63 @@ test('a consumer palette core has never seen is readable too', async ({ page }) 
     expect(ratios['primary'], 'a dark navy brand primary').toBeGreaterThanOrEqual(4.5);
     expect(ratios['neutral'], 'a near-black neutral').toBeGreaterThanOrEqual(4.5);
 });
+
+/*
+ * Issue #95: a host's rebrand wins on the selectors a host writes anyway, whatever order the
+ * sheets load in. The reporter's `[data-aparte-theme="dark"]` block lost to core's
+ * prefers-color-scheme block on a dark OS, and a `:root` rebrand loaded before core (a
+ * `<link>` in index.html, under Vite) lost in light too. And the other half: a rebrand that
+ * only knows light stays light-only. On a dark OS it gets core's whole dark palette, not its
+ * light masters mixed into core's dark inks.
+ * Measured on a blank page with core's own theme.css and nothing else: the examples wear a
+ * skin of their own, which would be what the test measured.
+ */
+const CORE_THEME = readFileSync(fileURLToPath(new URL('../../packages/core/src/styles/theme.css', import.meta.url)), 'utf8');
+/** The reporter's stylesheet, plus the guide's block for a host that follows the OS. */
+const HOST_REBRAND = `
+  :root { --aparte-primary: rgb(8, 126, 164); }
+  [data-aparte-theme="dark"] { --aparte-primary: rgb(88, 196, 220); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-aparte-theme="light"]) { --aparte-primary: rgb(88, 196, 220); }
+  }
+`;
+/** A light rebrand and nothing else. */
+const HOST_LIGHT_ONLY = ':root { --aparte-primary: rgb(8, 126, 164); --aparte-surface-1: rgb(255, 255, 255); }';
+const HOST_LIGHT = 'rgb(8, 126, 164)';
+const HOST_DARK = 'rgb(88, 196, 220)';
+
+async function themedPage(page: import('@playwright/test').Page, host: string, order: string, os: 'light' | 'dark', attribute: string | null) {
+    const sheets = order === 'host after core' ? [CORE_THEME, host] : [host, CORE_THEME];
+    await page.setContent(`<!doctype html><html${attribute ? ` data-aparte-theme="${attribute}"` : ''}><head>${sheets.map((css) => `<style>${css}</style>`).join('')}</head><body><aparte-chat></aparte-chat></body></html>`);
+    await page.emulateMedia({ colorScheme: os });
+}
+
+for (const order of ['host after core', 'host before core (Vite dev)'] as const) {
+    for (const [os, attribute, expected] of [
+        ['light', null, HOST_LIGHT],
+        ['light', 'dark', HOST_DARK],
+        ['dark', null, HOST_DARK],
+        ['dark', 'dark', HOST_DARK],
+        ['dark', 'light', HOST_LIGHT],
+        ['light', 'light', HOST_LIGHT],
+    ] as const) {
+        test(`a host's rebrand wins: ${order}, OS ${os}, attribute ${attribute ?? 'none'}`, async ({ page }) => {
+            await themedPage(page, HOST_REBRAND, order, os, attribute);
+            // The chat reads the root's value: core's derived layer does not redeclare a master.
+            expect(await cssVar(page, ':root', '--aparte-primary')).toBe(expected);
+            expect(await cssVar(page, 'aparte-chat', '--aparte-primary')).toBe(expected);
+        });
+    }
+
+    for (const [os, attribute, primary, surface] of [
+        ['light', null, HOST_LIGHT, 'rgb(255, 255, 255)'],
+        ['dark', null, '#d9a24b', '#211b28'],
+        ['dark', 'light', HOST_LIGHT, 'rgb(255, 255, 255)'],
+    ] as const) {
+        test(`a light-only rebrand stays light-only: ${order}, OS ${os}, attribute ${attribute ?? 'none'}`, async ({ page }) => {
+            await themedPage(page, HOST_LIGHT_ONLY, order, os, attribute);
+            expect(await cssVar(page, 'aparte-chat', '--aparte-primary')).toBe(primary);
+            expect(await cssVar(page, 'aparte-chat', '--aparte-surface-1')).toBe(surface);
+        });
+    }
+}

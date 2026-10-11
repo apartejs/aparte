@@ -204,6 +204,13 @@ export interface AparteMessage {
     usage?: import('./chat.js').AparteUsage;
 
     /**
+     * The provider, model and temperature an assistant turn ran on, written by
+     * `AparteClient` when the turn starts. A turn a server paused is resumed on them after
+     * a reload (`resumeDeferred`), not on whatever model is selected by then.
+     */
+    model?: { providerId: string; modelId: string; temperature?: number };
+
+    /**
      * This message is the summary `@aparte/plugin-compaction` injected in place of the
      * turns it summarised (a host that summarises by other means sets the flag too). Its role is `user` — the summary is context handed to the
      * model, and a `system` message mid-conversation is refused by some providers —

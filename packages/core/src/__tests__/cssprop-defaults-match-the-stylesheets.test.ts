@@ -56,7 +56,7 @@ for (const file of walk(STYLES, '.css')) {
     const css = strip(readFileSync(file, 'utf8'));
     for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         const selector = norm(block[1]!);
-        const isRoot = /^:root\b/.test(selector) && !/prefers-color-scheme|\[data-aparte-theme=/.test(selector);
+        const isRoot = /^(?::where\()?:root\b/.test(selector) && !/prefers-color-scheme|\[data-aparte-theme=/.test(selector);
         for (const d of block[2]!.matchAll(/(--aparte-[\w-]+)\s*:\s*([^;]+);/g)) {
             const target = isRoot ? rootDecl : scopedDecl;
             if (!target.has(d[1]!)) target.set(d[1]!, norm(d[2]!));
