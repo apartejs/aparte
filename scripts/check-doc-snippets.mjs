@@ -175,7 +175,10 @@ for (const file of files) {
 function workspacePaths() {
     const paths = {};
     const roots = ['packages/core', 'packages/engine', 'packages/locales/fr'];
-    for (const dir of ['packages/plugins', 'packages/providers/ai', 'packages/wrappers', 'packages/tools']) {
+    // Every provider group (ai/, agent/…), walked rather than listed: a group missing from
+    // a hand-kept list left its packages unresolvable here.
+    const providerGroups = readdirSync('packages/providers').map((g) => `packages/providers/${g}`).filter((d) => statSync(d).isDirectory());
+    for (const dir of ['packages/plugins', ...providerGroups, 'packages/wrappers', 'packages/tools']) {
         for (const name of readdirSync(dir)) {
             if (statSync(join(dir, name)).isDirectory()) roots.push(join(dir, name).split(sep).join('/'));
         }
