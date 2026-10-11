@@ -5,6 +5,7 @@
   "type": "module",
   "description": "What the five chat-site examples share: the setup, the skin, the sample data. Imported by relative path; a package only so pnpm links its dependencies here.",
   "dependencies": {
+    "@ag-ui/core": "^1.0.0",
     "@aparte/core": "workspace:*",
     "@aparte/engine": "workspace:*",
     "@aparte/plugin-approval": "workspace:*",
@@ -17,6 +18,7 @@
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/runner-ag-ui": "workspace:*",
+    "@tanstack/ai": "^0.68.0",
     "shiki": "^4.0.0",
     "@shikijs/langs": "^4.0.0",
     "@shikijs/themes": "^4.0.0"

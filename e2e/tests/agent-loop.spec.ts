@@ -126,12 +126,17 @@ test('leaving during the wait keeps the question: it comes back with the convers
 });
 
 /*
- * The same three round trips against an AG-UI agent (`?agui=`, `@aparte/runner-ag-ui`): the
- * examples' server answers `POST /agui` with a scripted AG-UI agent. The approval is an AG-UI
- * INTERRUPT answered by one `resume` batch; `ask_user` is a frontend tool the agent leaves to
- * the page, answered with a `tool` message — the two ways AG-UI hands a call back.
+ * The same three round trips against an AG-UI agent (`?agui=`, `@aparte/runner-ag-ui`), twice.
+ * `POST /agui` is a scripted AG-UI agent: the approval is an AG-UI INTERRUPT answered by one
+ * `resume` batch, and `ask_user` a frontend tool the agent leaves to the page, answered with a
+ * `tool` message — the two ways AG-UI hands a call back. Its input and its events are checked
+ * against `@ag-ui/core`'s schemas on the way. `POST /agui/tanstack` is TanStack AI's real
+ * server (`chat()`), which pauses for `ask_user` with an interrupt of its own.
  */
-const AGUI = 'http://localhost:5399/agui';
+for (const [agent, AGUI] of [
+    ['an AG-UI agent', 'http://localhost:5399/agui'],
+    ['a TanStack AI route', 'http://localhost:5399/agui/tanstack'],
+] as const) {
 
 async function openAgUiSite(page: Page): Promise<ChatPage> {
     const chat = new ChatPage(page);
@@ -140,7 +145,7 @@ async function openAgUiSite(page: Page): Promise<ChatPage> {
     return chat;
 }
 
-test.describe('an AG-UI agent', () => {
+test.describe(agent, () => {
     test('pauses on an interrupt, asks in the page, and Approve runs the tool on the agent', async ({ page }) => {
         const errors = collectPageErrors(page);
         const chat = await openAgUiSite(page);
@@ -189,3 +194,4 @@ test.describe('an AG-UI agent', () => {
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 });
+}
