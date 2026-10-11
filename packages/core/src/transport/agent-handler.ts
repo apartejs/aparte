@@ -22,8 +22,17 @@ export interface AparteAgentTool {
 }
 
 export interface AparteAgentHandlerOptions {
-    /** Your server-side format adapters, keyed by the `providerId` the client sends. */
+    /**
+     * Your server-side format adapters, keyed by the `providerId` the client sends. A page
+     * that registers no provider sends none, and the handler runs its only one; with
+     * several, the page names one.
+     */
     providers: Record<string, AparteAIProvider>;
+    /**
+     * The model a turn runs on when the page selected none, which is the case when the
+     * page registers no provider of its own. A model the page selects wins.
+     */
+    defaultModel?: string;
     /**
      * Gate run on EVERY request before any work. **Required**, for the reason
      * `createAparteChatHandler` gives: this endpoint spends your key and runs your
@@ -72,7 +81,8 @@ export interface AparteAgentHandlerOptions {
 /** What `createAgentStreamRunner` POSTs. */
 export interface AparteAgentRequestBody {
     v: 1;
-    providerId: string;
+    /** Absent when the page registered no provider: the handler runs its only one. */
+    providerId?: string;
     messageId: string;
     request: AparteChatRequest;
     /** Definitions of the tools the browser runs; the server marks them external. */
@@ -135,8 +145,8 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             return jsonError(400, 'Invalid JSON body.');
         }
         if (body?.v !== 1) return jsonError(400, 'Unsupported agent wire version: expected v 1.');
-        if (typeof body.providerId !== 'string' || typeof body.messageId !== 'string' || !Array.isArray(body.request?.messages)) {
-            return jsonError(400, 'Body must be { v: 1, providerId, messageId, request: { messages } }.');
+        if ((body.providerId !== undefined && typeof body.providerId !== 'string') || typeof body.messageId !== 'string' || !Array.isArray(body.request?.messages)) {
+            return jsonError(400, 'Body must be { v: 1, providerId?, messageId, request: { messages } }.');
         }
         // A forced call (`toolChoice: { name, input }`) runs its handler before the model
         // speaks, with no gate and no policy — from a browser, that is a direct call to a
@@ -144,9 +154,15 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
         if (body.request.toolChoice && typeof body.request.toolChoice === 'object') {
             return jsonError(400, 'A forced tool call cannot come from the browser.');
         }
-        const provider = Object.hasOwn(options.providers, body.providerId) ? options.providers[body.providerId] : undefined;
+        // A page with no provider of its own names none: the handler's only one runs.
+        const names = Object.keys(options.providers);
+        const providerId = body.providerId || (names.length === 1 ? names[0]! : undefined);
+        if (!providerId) {
+            return jsonError(400, `Name the providerId: this handler has ${names.length ? names.join(', ') : 'no provider'}.`);
+        }
+        const provider = Object.hasOwn(options.providers, providerId) ? options.providers[providerId] : undefined;
         if (!provider) {
-            return jsonError(400, `Unknown providerId "${body.providerId}". Register it in the handler's providers map.`);
+            return jsonError(400, `Unknown providerId "${providerId}". Register it in the handler's providers map.`);
         }
 
         const clientTools = Array.isArray(body.clientTools) ? body.clientTools : [];
@@ -161,6 +177,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
 
         let request: AparteChatRequest = {
             ...body.request,
+            ...(!body.request.modelId && options.defaultModel ? { modelId: options.defaultModel } : {}),
             tools: [...[...tools.values()].map((t) => t.tool), ...clientTools],
         };
         if (options.prepareRequest) request = await options.prepareRequest(request, req);
@@ -200,7 +217,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             outcomes = withoutUnacceptedPayloads(given, payload.calls, tools);
         }
 
-        const key = await options.resolveKey?.(body.providerId);
+        const key = await options.resolveKey?.(providerId);
         const external = new Set(clientTools.map((t) => t.name));
         const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool);
 
@@ -242,10 +259,10 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                 };
                 void runStreamAgent({
                     messageId: body.messageId,
-                    providerId: body.providerId,
+                    providerId,
                     baseRequest: request as StreamChatRequest,
                     transportCall: async (r) => {
-                        const response = await transport.chat(provider, r as AparteChatRequest, key, { providerId: body.providerId, signal: run.signal });
+                        const response = await transport.chat(provider, r as AparteChatRequest, key, { providerId, signal: run.signal });
                         return typeof response === 'string'
                             ? response
                             : readableToAsyncIterable(response as ReadableStream<AparteStreamEvent>, run.signal);

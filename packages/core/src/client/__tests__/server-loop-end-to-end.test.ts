@@ -16,21 +16,26 @@ import { createAparteAgentHandler } from '../../transport/agent-handler.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 
+/** The model each server call ran on. */
+const models: (string | undefined)[] = [];
+
 /** A server-side provider whose `chat()` answers each call with the next scripted turn. */
 function scriptedProvider(...turns: object[][]): AparteAIProvider {
     return {
         id: 'mock', name: 'Mock',
-        async chat() {
+        async chat(request: { modelId?: string }) {
+            models.push(request.modelId);
             const events = turns.shift() ?? [{ type: 'text', delta: 'end' }, { type: 'done' }];
             return new ReadableStream({ start(c) { for (const e of events) c.enqueue(e); c.close(); } });
         },
     } as unknown as AparteAIProvider;
 }
 
-function server(provider: AparteAIProvider) {
+function server(provider: AparteAIProvider, defaultModel?: string) {
     const ran: string[] = [];
     const handler = createAparteAgentHandler({
         providers: { mock: provider },
+        ...(defaultModel ? { defaultModel } : {}),
         authorize: () => true,
         secret: 'e2e-secret-that-is-at-least-32-characters',
         crypto: webcrypto.subtle as unknown as SubtleCrypto,
@@ -66,10 +71,10 @@ function chat(initial: AparteMessage[] = []) {
     return { el, messages };
 }
 
-function client(el: HTMLElement, fetch: typeof globalThis.fetch, approvalResolver: unknown) {
+function client(el: HTMLElement, fetch: typeof globalThis.fetch, approvalResolver: unknown, pageProvider = true) {
     const cfg = new AparteConfig();
-    cfg.registerAIProvider({ id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '' } as never);
-    cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+    if (pageProvider) cfg.registerAIProvider({ id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '' } as never);
+    if (pageProvider) cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     return new AparteClient({
         config: cfg, autoRegister: false, targetResolver: () => el as never,
         streamRunner: createAgentStreamRunner({ endpoint: '/api/agent', fetch }),
@@ -121,5 +126,33 @@ describe('the server loop, end to end', () => {
         expect(callRow(reply)?.status).toBe('resolved');
         expect(texts(reply).join(' ')).toContain('Deleted.');
         expect(ran).toEqual(['a']);
+    });
+
+    it('runs with no provider in the page: the server picks its own, and its model (#100)', async () => {
+        models.length = 0;
+        const { fetch, ran } = server(scriptedProvider(turnDeleting, turnDone), 'server-model');
+
+        // The guide's browser half, and nothing else: no provider, no model selected.
+        const first = chat();
+        let saved: AparteMessage[] = [];
+        const c1: AparteClient = client(first.el, fetch, async () => {
+            saved = structuredClone(first.messages);
+            c1.abort();
+            return { approved: false };
+        }, false);
+        await send(c1, 'delete a');
+        expect(callRow(saved.at(-1))?.status).toBe('awaiting-approval');
+        // Nothing to record: the page did not choose the model.
+        expect(saved.at(-1)?.model).toBeUndefined();
+
+        // And a reload still resumes it.
+        const second = chat(saved);
+        const c2 = client(second.el, fetch, async () => ({ approved: true }), false);
+        expect(await c2.resumeDeferred(second.el)).toBe(true);
+        const reply = second.messages.at(-1);
+        expect(callRow(reply)?.status).toBe('resolved');
+        expect(texts(reply).join(' ')).toContain('Deleted.');
+        expect(ran).toEqual(['a']);
+        expect(models).toEqual(['server-model', 'server-model']);
     });
 });

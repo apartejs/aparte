@@ -9,6 +9,7 @@
  * call resumes through the same path (`resumeDeferred`).
  */
 import { describe, it, expect, vi } from 'vitest';
+import { runStreamAgent } from '@aparte/engine';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfig } from '../../config/index.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
@@ -500,5 +501,58 @@ describe('a reloaded turn resumes on the model it ran on', () => {
         const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
         expect(await c.resumeDeferred(el)).toBe(true);
         expect(r.calls[0]).toMatchObject({ providerId: 'mock', baseRequest: { modelId: 'm' } });
+    });
+});
+
+describe('a runner that calls the model elsewhere needs no provider in the page (#100)', () => {
+    /** A client with nothing registered: the guide's browser half, as written. */
+    function bare(el: HTMLElement, streamRunner: unknown) {
+        const cfg = new AparteConfig();
+        const c = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never, streamRunner } as never);
+        return { c, cfg };
+    }
+    const retry = (c: AparteClient, messageId: string) =>
+        (c as unknown as { _handleRetry: (e: Event) => Promise<void> })._handleRetry(new CustomEvent('aparte-retry', { detail: { messageId } }));
+
+    it('sends with no provider and no model: the runner names neither, and the reply records none', async () => {
+        const { el, messages } = chat();
+        const r = runner(finish, finish);
+        const { c } = bare(el, r.run);
+        await send(c, 'hello');
+        expect(r.calls).toHaveLength(1);
+        expect(r.calls[0]!.providerId).toBeUndefined();
+        const reply = messages.find((m) => m.role === 'assistant')!;
+        expect(reply.model).toBeUndefined();
+        expect(reply.segments?.some((seg) => seg.type === 'text')).toBe(true);
+
+        // A retry went nowhere without a provider; it runs now.
+        await retry(c, reply.id);
+        expect(r.calls).toHaveLength(2);
+    });
+
+    it('passes on a provider and model the page names without registering them', async () => {
+        const { el, messages } = chat();
+        const r = runner(finish);
+        const { c, cfg } = bare(el, r.run);
+        cfg.setModelConfig({ defaultProvider: 'portfolio', defaultModel: 'paul' });
+        await send(c, 'hello');
+        expect(r.calls[0]).toMatchObject({ providerId: 'portfolio', baseRequest: { modelId: 'paul' } });
+        expect(messages.find((m) => m.role === 'assistant')!.model).toEqual({ providerId: 'portfolio', modelId: 'paul' });
+    });
+
+    it('still needs a provider for the loop in the page, passed explicitly or by default', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { el, events } = chat();
+        await send(bare(el, runStreamAgent).c, 'hello');
+        expect(events).toContain('aparte-message-error');
+        warn.mockRestore();
+    });
+
+    it('says so clearly when a runner calls the model from a page that has none', async () => {
+        const { el, events, messages } = chat();
+        const { c } = bare(el, async (opts: AparteStreamRunOptions) => { await opts.transportCall(opts.baseRequest); return undefined; });
+        await send(c, 'hello');
+        expect(events).toContain('aparte-message-error');
+        expect(JSON.stringify(messages.at(-1))).toContain('no provider in the page');
     });
 });

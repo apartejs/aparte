@@ -26,7 +26,8 @@ const client = new AparteClient({
 client.start();
 ```
 
-That is the whole wiring. The runner sits on the `streamRunner` seam: the chat, the composer,
+That is the whole wiring. The page registers no provider and selects no model: the agent
+picks its own. The runner sits on the `streamRunner` seam: the chat, the composer,
 Stop, the conversation manager and the approval panel work unchanged.
 
 ## What the agent's stream becomes

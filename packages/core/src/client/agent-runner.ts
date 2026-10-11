@@ -26,6 +26,9 @@ type WireLine = StreamRunEvent | { type: 'run-error'; message: string; code?: st
  * const client = new AparteClient({ streamRunner: createAgentStreamRunner({ endpoint: '/api/agent' }) });
  * ```
  *
+ * The page needs no provider of its own: the server runs the model. A provider and model
+ * the page selects anyway travel with the turn, and the server uses them.
+ *
  * A pipe, nothing more. It sees no message and no segment, so it opens no panel and runs
  * no tool: when the server suspends a run, the CLIENT asks the person or runs the browser
  * tool, then calls this runner again with the answers in `deferral` — the same path it
@@ -38,9 +41,10 @@ export function createAgentStreamRunner(options: AgentStreamRunnerOptions): Apar
         // The browser's registered tools travel as definitions: the server marks them
         // external and hands their calls back here.
         const { tools, ...request } = opts.baseRequest as AparteChatRequest;
+        // No provider id when the page registered none: the handler runs its own.
         const body = {
             v: 1,
-            providerId: opts.providerId,
+            ...(opts.providerId ? { providerId: opts.providerId } : {}),
             messageId: opts.messageId,
             request,
             clientTools: tools ?? [],
