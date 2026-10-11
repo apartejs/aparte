@@ -339,7 +339,7 @@ export type StreamRunEvent =
     | { type: 'run-suspended'; pending: StreamDeferredCall[]; usage?: StreamUsage };
 
 /**
- * Synchronous event sink — mirrors `AGUIEmitter`. Synchronous by contract: the
+ * Synchronous event sink. Synchronous by contract: the
  * loop must never yield between emitting an event and its ordered successor, or
  * the adapter's streaming updates would interleave out of order.
  */
