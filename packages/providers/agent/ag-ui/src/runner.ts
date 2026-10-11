@@ -52,7 +52,8 @@ function readTicket(token: string | undefined): Ticket | undefined {
     if (!token) return undefined;
     try {
         const ticket = JSON.parse(token) as Ticket;
-        return ticket && ticket.v === 1 && typeof ticket.threadId === 'string' ? ticket : undefined;
+        return ticket && ticket.v === 1 && typeof ticket.threadId === 'string' && typeof ticket.runId === 'string'
+            && Array.isArray(ticket.interrupts) ? ticket : undefined;
     } catch {
         return undefined;
     }
@@ -92,6 +93,12 @@ function addUsage(total: Usage | undefined, step: Usage | undefined): Usage | un
         ...(sumTotal ? { totalTokens: sumTotal } : {}),
         ...(cache ? { cacheReadTokens: cache } : {}),
     } as Usage;
+}
+
+/** A call's streamed arguments as its input: `{}` for none, the raw text when not JSON. */
+function parseArgs(args: string): unknown {
+    if (!args.trim()) return {};
+    try { return JSON.parse(args); } catch { return { arguments: args }; }
 }
 
 /** A tool result as the row shows it: text as is, anything else as JSON. */
@@ -197,7 +204,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
 
         // Calls the history already declares: a resumed run answers them, it does not
         // start them again (no second row).
-        const known = new Set(request.messages.flatMap((m) => (m.toolCalls ?? []).map((c) => c.id)));
+        const history = new Map(request.messages.flatMap((m) => (m.toolCalls ?? []).map((c) => [c.id, { name: c.name, input: c.input ?? {} }] as const)));
+        const known = new Set(history.keys());
         const browserTools = new Set((request.tools ?? []).map((t) => t.name));
         const calls = new Map<string, { name: string; args: string }>();
         const started = new Map<string, { name: string; input: unknown }>();
@@ -205,7 +213,6 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const rejected = new Set<string>();
         const settledByPage = new Set<string>();
         let textOpen = false;
-        let textMessages = 0;
         let usage: Usage | undefined;
         let finished: { runId: string; outcome?: { type?: string; interrupts?: AgUiInterrupt[] } } | undefined;
         const emit = opts.emitter;
@@ -213,14 +220,40 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const startTool = (toolCallId: string) => {
             const call = calls.get(toolCallId);
             if (!call || started.has(toolCallId) || known.has(toolCallId)) return;
-            let input: unknown = {};
-            if (call.args.trim()) {
-                try { input = JSON.parse(call.args); } catch { input = { arguments: call.args }; }
-            }
+            const input = parseArgs(call.args);
             started.set(toolCallId, { name: call.name, input });
             if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
             emit({ type: 'tool-start', toolCallId, name: call.name, input });
+            stepEnded = true;
         };
+
+        // A model step ends on a tool call, or on a RUN_FINISHED (TanStack AI closes each
+        // step with one). What the next step draws, its reasoning or its text, opens a new
+        // turn, the way the in-page loop opens one per model call. Drawn into the old turn,
+        // a second step's reasoning landed in the first step's thinking block, above the
+        // tool row.
+        let stepEnded = false;
+        const nextStep = () => {
+            if (!stepEnded) return;
+            stepEnded = false;
+            if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
+            emit({ type: 'turn-start' });
+        };
+
+        /** The call an interrupt is about: started in this run, else in the history, else as the interrupt describes it. */
+        const callOf = (interrupt: AgUiInterrupt & { toolCallId: string }): { name: string; input: unknown } => {
+            const here = started.get(interrupt.toolCallId) ?? history.get(interrupt.toolCallId);
+            if (here) return here;
+            const streamed = calls.get(interrupt.toolCallId);
+            if (streamed) return { name: streamed.name, input: parseArgs(streamed.args) };
+            // TanStack AI describes the call on the interrupt itself.
+            const meta = interrupt.metadata as { toolName?: unknown; input?: unknown } | undefined;
+            return { name: typeof meta?.toolName === 'string' ? meta.toolName : '', input: meta?.input ?? {} };
+        };
+
+        // A stream that closes between two steps is cut, not finished: TanStack AI sends a
+        // RUN_FINISHED per step, so having seen one says nothing about the last.
+        let endedOnFinish = false;
 
         // The run opens on its FIRST event, whatever it is: a resumed TanStack AI run sends
         // the approved call's TOOL_CALL_RESULT before RUN_STARTED, and settling that row
@@ -264,21 +297,19 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
 
         for await (const event of readAgUiEvents(response.body, response.headers.get('content-type'))) {
             begin();
+            if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
             switch (event.type) {
                 case 'RUN_STARTED':
                     break;
-                case 'TEXT_MESSAGE_START': {
-                    if (textMessages > 0) {
-                        if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
-                        emit({ type: 'turn-start' });
-                    }
-                    textMessages++;
+                case 'TEXT_MESSAGE_START':
+                case 'REASONING_START':
+                case 'REASONING_MESSAGE_START':
+                    nextStep();
                     break;
-                }
                 case 'TEXT_MESSAGE_CONTENT':
                 case 'TEXT_MESSAGE_CHUNK': {
                     const delta = typeof event['delta'] === 'string' ? event['delta'] : '';
-                    if (delta) { emit({ type: 'text-delta', delta }); textOpen = true; }
+                    if (delta) { nextStep(); emit({ type: 'text-delta', delta }); textOpen = true; }
                     break;
                 }
                 case 'TEXT_MESSAGE_END': {
@@ -288,7 +319,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 case 'REASONING_MESSAGE_CONTENT':
                 case 'REASONING_MESSAGE_CHUNK': {
                     const delta = typeof event['delta'] === 'string' ? event['delta'] : '';
-                    if (delta) emit({ type: 'thinking-delta', delta });
+                    if (delta) { nextStep(); emit({ type: 'thinking-delta', delta }); }
                     break;
                 }
                 case 'TOOL_CALL_START': {
@@ -342,6 +373,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     for (const id of calls.keys()) startTool(id);
                     if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
                     usage = addUsage(usage, readUsage(event['usage']));
+                    stepEnded = true;
+                    endedOnFinish = true;
                     finished = {
                         runId: typeof event['runId'] === 'string' ? event['runId'] : runId,
                         outcome: event['outcome'] as { type?: string; interrupts?: AgUiInterrupt[] } | undefined,
@@ -358,6 +391,9 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         if (!finished) {
             throw new AparteError('The agent stream ended without RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
         }
+        if (!endedOnFinish) {
+            throw new AparteError('The agent stream was cut: it ended in the middle of a step, after a RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
+        }
         if (textOpen) emit({ type: 'text-flush' });
 
         const pending: PendingCall[] = [];
@@ -371,20 +407,29 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                         AparteErrorCode.PROVIDER_ERROR,
                     );
                 }
-                const call = started.get(interrupt.toolCallId);
+                // A resumed run can pause again on a call an earlier run started (TanStack AI
+                // asks to approve a client tool, then to run it): its name comes from there.
+                const call = callOf(interrupt as AgUiInterrupt & { toolCallId: string });
                 if (kind === 'approval') {
-                    emit({ type: 'tool-awaiting-approval', toolCallId: interrupt.toolCallId, name: call?.name ?? '', input: call?.input ?? {} });
+                    emit({ type: 'tool-awaiting-approval', toolCallId: interrupt.toolCallId, name: call.name, input: call.input });
                 }
                 interrupts.push({ id: interrupt.id, toolCallId: interrupt.toolCallId, kind });
-                pending.push({ toolCallId: interrupt.toolCallId, name: call?.name ?? '', input: call?.input ?? {}, reason: kind });
+                pending.push({ toolCallId: interrupt.toolCallId, name: call.name, input: call.input, reason: kind });
             }
         } else {
-            // Plain AG-UI: a frontend tool the agent called and nobody answered is the
-            // browser's to run.
+            // Plain AG-UI: the calls left to the browser are the ones the agent names
+            // (`pendingToolCallIds`, AG-UI 1.0), else the page's own tools nobody answered.
+            // Any other call without a result has nobody left to answer it: its row stops
+            // waiting rather than spinning after the run. A cancelled run leaves nothing.
+            const outcome = finished.outcome as { type?: string; pendingToolCallIds?: unknown } | undefined;
+            const named = Array.isArray(outcome?.pendingToolCallIds)
+                ? new Set(outcome.pendingToolCallIds.filter((id): id is string => typeof id === 'string'))
+                : undefined;
             for (const [toolCallId, call] of started) {
-                if (!answered.has(toolCallId) && browserTools.has(call.name)) {
-                    pending.push({ toolCallId, name: call.name, input: call.input, reason: 'external' });
-                }
+                if (answered.has(toolCallId)) continue;
+                const forPage = outcome?.type !== 'cancelled' && (named ? named.has(toolCallId) : browserTools.has(call.name));
+                if (forPage) pending.push({ toolCallId, name: call.name, input: call.input, reason: 'external' });
+                else emit({ type: 'tool-aborted', toolCallId });
             }
         }
         if (pending.length > 0) {

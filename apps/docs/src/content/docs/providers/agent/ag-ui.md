@@ -108,6 +108,9 @@ time of writing. Text and the agent's own tools work today.
 - An interrupt that is neither a tool approval nor a tool for the page, such as
   `input_required`, ends the turn with an error that names its reason.
 - The agent's own state (`STATE_*`) and `CUSTOM` events are not drawn.
+- A refusal reaches the agent as `{ approved: false }`, without the reason the user typed.
+  The resume payload is the agent's schema, and TanStack AI's accepts no other field. In
+  the in-page loop, the model reads that reason.
 
 To run aparté's own loop on your server instead, next to your tools, see
 [Run the agent loop on your server](/guides/server-loop/).
