@@ -266,6 +266,25 @@ const warnedUninlinedFiles = new Set<string>();
 const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
 
 /**
+ * Stands in for a provider the page does not have, when the turn's runner calls the model
+ * somewhere else (a server loop, an AG-UI agent). It carries the id the page named, if
+ * any, and fails clearly if anything still tries to call the model from the page.
+ */
+function remoteProvider(id: string): AparteAIProvider {
+    return {
+        id,
+        getMetadata: () => ({ id, name: id }),
+        getModels: () => [],
+        chat: async () => {
+            throw new AparteError(
+                'This turn has no provider in the page. Register one, or use a runner that calls the model elsewhere (createAgentStreamRunner, an AG-UI runner).',
+                AparteErrorCode.CONFIG_NO_PROVIDER,
+            );
+        },
+    } as unknown as AparteAIProvider;
+}
+
+/**
  * AparteClient
  *
  * The "Automatic Transmission" for Aparte.
@@ -634,6 +653,26 @@ export class AparteClient {
      * then the aparteGlobalConfig key channel (`setKeyProvider`) so a key registered
      * there reaches the request. One key source on the happy path.
      */
+    /**
+     * The runner calls the model somewhere else — a server loop, an AG-UI agent — so the
+     * page needs no provider of its own. The engine's loop, passed explicitly, still does.
+     */
+    private get _modelRunsElsewhere(): boolean {
+        const runner = this.options.streamRunner;
+        return Boolean(runner) && runner !== runStreamAgent;
+    }
+
+    /**
+     * The provider a turn runs on: the registered one, else, when the model runs
+     * elsewhere, a stand-in carrying the id the page named (none is fine: the server
+     * picks). Undefined when the page must have one and has not.
+     */
+    private _providerFor(providerId: string | undefined): AparteAIProvider | undefined {
+        const registered = providerId ? this._config.getAIProvider(providerId) : undefined;
+        if (registered) return registered;
+        return this._modelRunsElsewhere ? remoteProvider(providerId ?? '') : undefined;
+    }
+
     private async _resolveAuth(providerId: string): Promise<string | Record<string, string> | undefined> {
         if (this.options.keyResolver) {
             const resolved = await this.options.keyResolver(providerId);
@@ -702,7 +741,7 @@ export class AparteClient {
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' }, chatId);
         // What this turn runs on, on the reply: a pause resumed after a reload takes the
         // same model back. A resume keeps what its reply already says.
-        if (!opts?.resume) {
+        if (!opts?.resume && provider.id) {
             this._updateMessage(targetElement, messageId, {
                 model: {
                     providerId: provider.id,
@@ -874,11 +913,10 @@ export class AparteClient {
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
-        if (!providerId) return;
-        const provider = this._config.getAIProvider(providerId);
+        const provider = this._providerFor(providerId);
         if (!provider) return;
 
-        const authConfig = await this._resolveAuth(providerId);
+        const authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
         const chatMessages = this._messagesToChatMessages(historyMessages);
 
@@ -961,11 +999,10 @@ export class AparteClient {
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
-        if (!providerId) return;
-        const provider = this._config.getAIProvider(providerId);
+        const provider = this._providerFor(providerId);
         if (!provider) return;
 
-        const authConfig = await this._resolveAuth(providerId);
+        const authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
         const newMessageId = uuid();
         targetElement.appendMessage?.({
@@ -1283,8 +1320,9 @@ export class AparteClient {
         const config = this._config.getModelConfig();
         const providerId = explicitProviderId || config.defaultProvider;
 
-        // 1. Initial Checks (Sync Errors)
-        if (!providerId) {
+        // 1. Initial Checks (Sync Errors). A runner that calls the model elsewhere needs
+        // no provider in the page: the server or the agent picks it.
+        if (!providerId && !this._modelRunsElsewhere) {
             // Said once to the developer, who is the one who can fix it: the error
             // segment below is appended to a message that does not exist yet, so on a
             // page with no listener the send was simply dropped — the user's message
@@ -1305,7 +1343,7 @@ export class AparteClient {
             return;
         }
 
-        const provider = this._config.getAIProvider(providerId);
+        const provider = this._providerFor(providerId);
         if (!provider) {
             this._handleLifecycleError(targetElement, messageId, new AparteError(
                 `Provider '${providerId}' is not registered.`,
@@ -1330,7 +1368,7 @@ export class AparteClient {
         let authConfig: string | Record<string, string> | undefined;
         let messages: AparteChatMessage[];
         try {
-            authConfig = await this._resolveAuth(providerId);
+            authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
             const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             const filesToInject = this._selectFilesToInject(rawFiles);
@@ -1734,7 +1772,7 @@ export class AparteClient {
 
         const usage = await streamRunner({
             messageId,
-            providerId: provider.id,
+            ...(provider.id ? { providerId: provider.id } : {}),
             ...(deferral ? { deferral } : {}),
             baseRequest,
             transportCall,
@@ -1948,7 +1986,7 @@ export class AparteClient {
         // The model the turn ran on, when its provider is still here; else today's default.
         const recorded = last.model && this._config.getAIProvider(last.model.providerId) ? last.model : undefined;
         const providerId = recorded?.providerId ?? config.defaultProvider;
-        const provider = providerId ? this._config.getAIProvider(providerId) : undefined;
+        const provider = this._providerFor(providerId);
         if (!provider) {
             console.warn('[AparteClient] Cannot resume the paused turn: no provider is selected.');
             return false;
@@ -1957,7 +1995,7 @@ export class AparteClient {
         this._beginUserTurn();
         this._resuming.add(last.id);
         try {
-            const authConfig = await this._resolveAuth(provider.id);
+            const authConfig = provider.id ? await this._resolveAuth(provider.id) : undefined;
             const pending: StreamDeferredCall[] = open.map((s) => ({
                 toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
             }));

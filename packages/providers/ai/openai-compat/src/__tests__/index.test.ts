@@ -226,6 +226,17 @@ describe('createOpenAICompatProvider — factory', () => {
         expect(init.headers).toMatchObject({ 'X-Title': 'aparté', Authorization: 'Bearer k' });
     });
 
+    it('adds extraBody to the body, never over its own fields (#101)', () => {
+        const zai = createOpenAICompatProvider({
+            id: 'zai', baseURL: 'https://x.test/v1',
+            extraBody: { thinking: { type: 'disabled' }, model: 'not-this-one', tools: [] },
+        });
+        const { body } = zai.buildRequest!({ modelId: 'glm-4.5', messages: [{ role: 'user', content: 'hi' }] }) as { body: Record<string, unknown> };
+        expect(body['thinking']).toEqual({ type: 'disabled' });
+        expect(body['model']).toBe('glm-4.5');
+        expect(body['tools']).toBeUndefined();
+    });
+
     /** The messages the provider puts on the wire for a given history. */
     const wireOf = (messages: AparteChatMessage[]): Array<Record<string, unknown>> => {
         const p = createOpenAICompatProvider({ id: 'x', baseURL: 'https://x.test/v1' });

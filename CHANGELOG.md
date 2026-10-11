@@ -4,6 +4,26 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.19.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [3cbc85e](https://github.com/apartejs/aparte/commit/3cbc85e): Fixed: with `createAgentStreamRunner` or an AG-UI runner, the page no longer has to register a provider and select a model it never calls (#100). Set `defaultModel` on `createAparteAgentHandler`: when the page names neither, the handler runs its only provider on that model.
+
+  Before, `AparteClient` dropped every send with `Send dropped: no model is selected` unless the page registered a provider whose id matched a key of the server's `providers`. A retry or an edit did nothing, without a word. The server-loop guide's browser snippet left this out, so following it as written sent nothing.
+
+  Now a runner other than the page's own loop (`runStreamAgent`) needs no provider in the page. A provider and model the page names anyway (`setModelConfig`, a model selector) travel with the turn, registered or not, and the server uses them. With several providers, the handler answers 400 and asks the page to name one. A stub provider registered as a workaround keeps working and can be removed.
+  <sub>`@aparte/core`</sub>
+
+- [1c6666a](https://github.com/apartejs/aparte/commit/1c6666a): New: `extraBody` on `createOpenAICompatProvider` adds vendor fields to every request body (#101). For example, `extraBody: { thinking: { type: 'disabled' } }` turns off a GLM model's reasoning on Z.ai.
+
+  It is the body's counterpart of `extraHeaders`. The fields the adapter writes stay its own (`model`, `messages`, `temperature`, `max_tokens`, `stream`, `stream_options`, `seed`, `tools`, `tool_choice`): an `extraBody` key with one of those names is ignored.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.19.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

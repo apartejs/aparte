@@ -46,6 +46,26 @@ createOpenAICompatProvider({
 });
 ```
 
+## Vendor fields outside the OpenAI schema
+
+Some vendors take a switch the OpenAI format does not have. `extraBody` adds fields to every
+request body, the way `extraHeaders` adds headers. Zhipu's `thinking` field turns off the
+reasoning of a GLM model on Z.ai:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({
+  ...presets.ZAI,
+  extraBody: { thinking: { type: 'disabled' } },
+}));
+```
+
+The fields the adapter writes stay its own: `model`, `messages`, `temperature`, `max_tokens`,
+`stream`, `stream_options`, `seed`, `tools` and `tool_choice`. An `extraBody` key with one
+of those names is ignored.
+
 ## Local models (LM Studio, Ollama)
 
 Local servers are served through their OpenAI-compat `/v1` endpoint. The `isLocal` presets relax

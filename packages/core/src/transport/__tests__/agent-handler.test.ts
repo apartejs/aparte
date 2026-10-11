@@ -222,6 +222,30 @@ describe('createAparteAgentHandler', () => {
         expect(seen).toHaveLength(1);
     });
 
+    it('runs its only provider on its defaultModel when the page names neither (#100)', async () => {
+        const { provider, requests } = scriptedProvider([{ type: 'text', delta: 'Hi.' }, { type: 'done' }]);
+        const res = await handlerWith(provider, { defaultModel: 'server-model' })(post({
+            v: 1, messageId: 'm1', request: { messages: [user], modelId: '', stream: true },
+        }));
+        expect(res.status).toBe(200);
+        expect((await lines(res)).at(-1)!.type).toBe('run-done');
+        expect((requests[0] as { modelId?: string }).modelId).toBe('server-model');
+
+        // A model the page selected wins over the default.
+        const chosen = scriptedProvider([{ type: 'text', delta: 'Hi.' }, { type: 'done' }]);
+        await lines(await handlerWith(chosen.provider, { defaultModel: 'server-model' })(post(firstBody())));
+        expect((chosen.requests[0] as { modelId?: string }).modelId).toBe('x');
+    });
+
+    it('asks the page to name a provider when it has several', async () => {
+        const { provider } = scriptedProvider();
+        const res = await handlerWith(provider, { providers: { fake: provider, other: provider } })(post({
+            v: 1, messageId: 'm1', request: { messages: [user], stream: true },
+        }));
+        expect(res.status).toBe(400);
+        expect(JSON.stringify(await res.json())).toContain('Name the providerId: this handler has fake, other.');
+    });
+
     it('lets the server rewrite the request before the run', async () => {
         const { provider, requests } = scriptedProvider([{ type: 'text', delta: 'Hi.' }, { type: 'done' }]);
         await lines(await handlerWith(provider, {

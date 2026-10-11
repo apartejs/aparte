@@ -66,9 +66,20 @@ export interface OpenAICompatProviderOptions {
      * OpenRouter's attribution headers `HTTP-Referer` / `X-Title`.
      */
     extraHeaders?: Record<string, string>;
+    /**
+     * Fields added to every chat request body, for a vendor switch outside the OpenAI
+     * schema, e.g. Zhipu's `thinking: { type: 'disabled' }` on GLM. The body's
+     * counterpart of `extraHeaders`. The fields this adapter writes stay its own
+     * (`model`, `messages`, `stream`, `tools`… see `ADAPTER_FIELDS`): an
+     * `extraBody` key of the same name is ignored.
+     */
+    extraBody?: Record<string, unknown>;
     /** Override the default apiKey+endpoint settings schema. */
     configSchema?: AparteAIProviderConfigSchema;
 }
+
+/** The body fields `buildRequest` writes itself: `extraBody` cannot replace them. */
+const ADAPTER_FIELDS = new Set(['model', 'messages', 'temperature', 'max_tokens', 'stream', 'stream_options', 'seed', 'tools', 'tool_choice']);
 
 // ─── Message / tool shaping (the format half) ────────────────────────────────
 
@@ -275,6 +286,7 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
 
         buildRequest(request: AparteChatRequest) {
             const body: Record<string, unknown> = {
+                ...Object.fromEntries(Object.entries(opts.extraBody ?? {}).filter(([key]) => !ADAPTER_FIELDS.has(key))),
                 model: request.modelId,
                 messages: toOpenAIMessages(request.messages),
                 temperature: request.temperature,

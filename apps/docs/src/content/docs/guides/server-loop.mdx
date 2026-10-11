@@ -31,6 +31,8 @@ import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-com
 
 export const POST = createAparteAgentHandler({
   providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  // The model a turn runs on when the page selects none.
+  defaultModel: 'gpt-4.1-mini',
   resolveKey: () => process.env.OPENAI_API_KEY,
   // Required: this route spends your key and runs your tools.
   authorize: (req) => isSignedIn(req),
@@ -82,6 +84,19 @@ const client = new AparteClient({
 });
 client.start();
 ```
+
+The page registers no provider and selects no model: the model runs on the server. The
+handler runs its only provider, on its `defaultModel`. With several providers, the page
+names one, and the id must be a key of the handler's `providers`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'openai', defaultModel: 'gpt-4.1' });
+```
+
+A model the page selects this way, or through a model selector, wins over `defaultModel`.
+`prepareRequest` on the server still has the last word.
 
 The runner POSTs each turn to the endpoint and replays the server's events; the page draws
 them exactly as it draws a loop run in the page. A function for `headers` is called per
