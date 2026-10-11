@@ -235,8 +235,12 @@ export default defineConfig({
             + 'classification of your tool names, with an `<aparte-approval-mode>` switch for the '
             + 'composer toolbar — are `@aparte/plugin-approval` (/plugins/approval/), built on '
             + 'core\'s per-call `setApprovalPolicy()`.',
-            'Driving your own loop (a backend that streams over its own SSE, a server-side '
-            + 'agent): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
+            'Running the agent loop on your own server, next to your tools, is built in: '
+            + '`createAparteAgentHandler` on the server and `createAgentStreamRunner` in the page, '
+            + 'with tool approvals that cross the network and survive a reload, and browser tools '
+            + 'that still run in the page (/guides/server-loop/). '
+            + 'Driving a loop you own instead (a backend that streams over its own SSE, another '
+            + 'agent framework): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '
             + 'turn — is documented at /guides/bring-your-own-loop/. Plain `content` and '
             + '`segments` are mutually exclusive on a message.',
@@ -251,6 +255,11 @@ export default defineConfig({
               label: 'Tools, approval and asking the user',
               description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
               paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'plugins/approval', 'plugins/artifacts', 'segments/tool-call'],
+            },
+            {
+              label: 'Run the agent loop on your server',
+              description: 'createAparteAgentHandler on the server and createAgentStreamRunner in the page: tools run next to your server, approvals cross the network and survive a reload, browser tools still run in the page.',
+              paths: ['guides/server-loop'],
             },
             {
               label: 'Bring your own loop (display-only)',

@@ -112,10 +112,12 @@ describe('history reconstruction prefers what was RENDERED', () => {
         expect(history, 'a segment with only a fallback still says what it was').toContain('[chart: sales by month]');
     });
 
-    it('a completed tool turn leaves user and assistant turns on the wire, and nothing else', async () => {
-        // The transcript keeps a tool call as a SEGMENT of the assistant's turn, and
-        // the serialiser skips it: the call and its answer belong to the turn they were
-        // made in, which is over. Nothing here mints a `tool` message.
+    it('a completed tool turn goes on the wire as its calls and their answers, in order', async () => {
+        // It used to leave only user and assistant TEXT: the call and its answer were
+        // treated as belonging to the turn they were made in, so on the next turn the
+        // model had forgotten what the tool returned ("what did it say?" had no answer).
+        // A reply that called tools now goes out as the envelope, the `tool` answer and
+        // the text after it — in the order the reply showed them.
         const { cfg, el, seen } = harness([
             { id: 'u1', role: 'user', content: 'what is the weather', timestamp: 1 },
             {
@@ -134,10 +136,11 @@ describe('history reconstruction prefers what was RENDERED', () => {
         await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
             new CustomEvent('aparte-send', { detail: { content: 'and tomorrow?' } }),
         );
-        const roles = (seen[0]?.messages ?? []).map(m => m.role);
-        expect(roles, 'the serialiser does not put a tool turn on the wire').toEqual(['user', 'assistant', 'user']);
-        expect(JSON.stringify(seen[0]?.messages), 'nor a tool call id').not.toContain('toolCallId');
-        expect(historyOf(seen), 'what it said around the call is still what it said').toContain('It is 14 °C.');
+        const messages = seen[0]?.messages ?? [];
+        expect(messages.map(m => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant', 'user']);
+        expect(messages[1]).toMatchObject({ content: 'Checking.', toolCalls: [{ id: 'c1', name: 'get_weather', input: {} }] });
+        expect(messages[2]).toMatchObject({ role: 'tool', content: '14 °C', toolCallId: 'c1', toolName: 'get_weather' });
+        expect(messages[3]).toMatchObject({ role: 'assistant', content: 'It is 14 °C.' });
     });
 
     it('still falls back to `content` when there are no segments', async () => {

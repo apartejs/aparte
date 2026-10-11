@@ -195,7 +195,7 @@ const uiEvents = new Set([...uiEventsBody.matchAll(/'(aparte-[a-z0-9-]+)'/g)].ma
 /**
  * Element-dispatched events deliberately absent from the proxy list.
  *
- * Empty today, and that is the honest state: every one of core's 37 element dispatches
+ * Empty today, and that is the honest state: every one of core's element dispatches
  * is forwarded. It exists so that leaving one out is a DECISION with a reason beside it
  * rather than an omission — the failure mode this whole guard was written for.
  */

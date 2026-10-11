@@ -300,6 +300,23 @@ export interface AparteMessageErrorEventDetail {
 }
 
 /**
+ * Detail payload for `aparte-message-paused`.
+ * Dispatched when a server loop pauses the turn on calls only the page can answer — an
+ * approval, a browser tool. The turn is not over (`aparte-message-done` follows the
+ * resume), but the reply is worth saving now: its paused calls carry the server's
+ * ticket, and a conversation saved here can still be answered after a reload. The
+ * conversation manager persists on it.
+ *
+ * @event aparte-message-paused
+ */
+export interface AparteMessagePausedEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /** Id of the paused reply. */
+    messageId: string;
+}
+
+/**
  * Detail payload for `aparte-message-aborted`.
  * Dispatched when the user stops a turn.
  *

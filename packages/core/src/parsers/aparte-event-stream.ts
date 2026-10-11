@@ -10,43 +10,24 @@
  */
 
 import type { AparteStreamEvent } from '../types/index.js';
+import { readNdjson } from '../utils/ndjson.js';
 
 export function parseAparteEventStream(
     stream: ReadableStream<Uint8Array>,
 ): ReadableStream<AparteStreamEvent> {
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let sawDone = false;
-
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
-            const reader = stream.getReader();
-            const emit = (line: string): void => {
-                const trimmed = line.trim();
-                if (!trimmed) return;
-                try {
-                    const event = JSON.parse(trimmed) as AparteStreamEvent;
-                    if (event && typeof (event as { type?: unknown }).type === 'string') {
-                        controller.enqueue(event);
-                        if (event.type === 'done') sawDone = true;
-                    }
-                } catch { /* skip a malformed / partial line */ }
-            };
+            let sawDone = false;
             try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() ?? '';
-                    for (const line of lines) emit(line);
+                for await (const event of readNdjson<AparteStreamEvent>(stream)) {
+                    controller.enqueue(event);
+                    if (event.type === 'done') sawDone = true;
                 }
-                if (buffer.trim()) emit(buffer);
+                // A server that closed without its `done` line still ended the reply.
                 if (!sawDone) controller.enqueue({ type: 'done' });
             } catch (err) {
                 controller.enqueue({ type: 'error', message: (err as Error)?.message ?? 'Stream error' });
             } finally {
-                reader.releaseLock();
                 controller.close();
             }
         },

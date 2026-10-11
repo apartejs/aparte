@@ -233,7 +233,7 @@ Constructor options (all optional):
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
 | `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` (the user's words) or a `reason` (nobody spoke) the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`, after consulting the `setApprovalPolicy()` policy if one is registered. With one, it owns the whole decision: the policy (and `@aparte/plugin-approval`'s modes) is not consulted at all. |
 | `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
-| `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`) or to replace it with a loop of your own emitting the same events. |
+| `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`), to replace it with a loop of your own emitting the same events, or to run the loop on your server: `createAgentStreamRunner({ endpoint })` ([Server-side loop](/guides/server-loop/)). |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
 | `autoRegister` | `boolean` (default `true`) | Register core's default segment renderers. Rarely needed either way — the built-ins install themselves on first use; set `false` (at startup) to keep them out and register your own. |
 | `history` | `'viewport' \| 'none' \| ((viewportMessages: AparteMessage[]) => AparteChatMessage[])` | Conversation-history strategy for new sends. |
@@ -251,6 +251,7 @@ Constructor options (all optional):
 - `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
 - `stop(): void` — remove all listeners.
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
+- `resumeDeferred(target?: HTMLElement | string): Promise<boolean>` — answer a reply a server loop paused, in a conversation that came back (a reload): the paused calls are asked again, or run in the page, and the loop resumes on the server. Runs on its own on `aparte-conversation-loaded`; call it after `setMessages` if you load conversations another way. `true` when a resume ran.
 - Compaction is not a method of the client any more: `@aparte/plugin-compaction`'s `setupCompaction()` answers `aparte-compact` and summarises through the same transport — see [the plugin](/plugins/compaction/).
 
 ### The turn lifecycle events
@@ -295,5 +296,16 @@ A transport decides **where** a chat request goes and **how** the API key is han
 - **`createAparteChatHandler(options)`** (`packages/core/src/transport/backend-handler.ts`) — builds
   the matching framework-free `/api/chat` handler (`(req: Request) => Promise<Response>`) for
   `AparteBackendTransport`: same `@aparte/provider-*` adapters, run server-side, key never leaves the server.
+- **`createAparteAgentHandler(options)`** (`packages/core/src/transport/agent-handler.ts`) — the whole
+  agent LOOP on your server, next to its tools, streamed as NDJSON; a call that needs a person, or a
+  browser tool, suspends the run with a signed ticket. Options: `providers`, `authorize` and `secret`
+  (required), `tools`, `resolveKey`, `approvalPolicy`, `clientTools`, `prepareRequest`, `maxTurns`,
+  `toolTimeoutMs`, `ticketMaxAgeMs`, `onTicket`, `transport`, `crypto`.
+- **`createAgentStreamRunner(options)`** (`packages/core/src/client/agent-runner.ts`) — the browser half:
+  an `AparteStreamRunner` for `AparteClientOptions.streamRunner` that POSTs each turn to that handler.
+  Options: `{ endpoint: string; headers?: Record<string,string> | (() => … | Promise<…>); fetch?; credentials? }`.
+  Types: `AparteAgentHandlerOptions`, `AparteAgentTool` (a server tool: `{ tool, handler, acceptsApprovalPayload? }`),
+  `AparteAgentRequestBody` (the wire's request) and `AgentStreamRunnerOptions`.
 
-See the [Backend transport](/guides/backend-transport/) guide for the full walkthrough.
+See the [Backend transport](/guides/backend-transport/) guide for the full walkthrough, and
+[Run the agent loop on your server](/guides/server-loop/) for the loop.

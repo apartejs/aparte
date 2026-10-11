@@ -244,6 +244,7 @@
       "aparte-context-threshold",
       "aparte-conversation-archive",
       "aparte-conversation-delete",
+      "aparte-conversation-loaded",
       "aparte-conversation-pin",
       "aparte-conversation-rename",
       "aparte-conversation-select",
@@ -256,6 +257,7 @@
       "aparte-message-done",
       "aparte-message-error",
       "aparte-message-info",
+      "aparte-message-paused",
       "aparte-message-start",
       "aparte-model-change",
       "aparte-optgroup-toggle",
@@ -368,6 +370,8 @@
       "contentToText",
       "contextConfig",
       "copyText",
+      "createAgentStreamRunner",
+      "createAparteAgentHandler",
       "createAparteChatHandler",
       "createStreamAdapter",
       "cssEscape",
@@ -403,7 +407,8 @@
       "uuid"
     ],
     "@aparte/engine": [
-      "runStreamAgent"
+      "runStreamAgent",
+      "unansweredTail"
     ],
     "@aparte/locale-fr": [
       "fr"

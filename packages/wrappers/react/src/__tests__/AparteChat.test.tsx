@@ -549,6 +549,42 @@ describe('AparteChat React Wrapper', () => {
         expect(ref.current!.getMessages().map((m) => m.id)).toEqual(['p1']);
     });
 
+    it('keeps a reply driven through the imperative API whatever earlier emit the parent hands back (#97)', async () => {
+        // The issue's sequence: a host streams a tool call then a reply through the ref,
+        // some steps emit and some (the append) do not, and the parent's echoes land late.
+        const emitted: AparteMessage[][] = [];
+        const onMessagesChange = (m: AparteMessage[]) => { emitted.push(m); };
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const seed: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'read it', timestamp: 1 }];
+        const { rerender } = render(<AparteChat ref={ref} messages={seed} onMessagesChange={onMessagesChange} />);
+        await act(async () => {
+            const api = ref.current!;
+            api.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'streaming' });
+            api.addSegment({ id: 'tool-c1', type: 'tool_call', status: 'pending', toolCall: { id: 'c1', name: 'read_file', input: {} } } as never);
+            api.updateSegment('tool-c1', { status: 'resolved', result: 'ok' } as never);
+            api.addSegment({ id: 't1', type: 'text', content: '' } as never);
+            api.appendToSegment('t1', 'Do');
+            api.appendToSegment('t1', 'ne');
+            api.appendToSegment('t1', '.');
+            api.updateMessage('a1', { status: 'completed' });
+        });
+        await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+        const finished = () => {
+            const reply = ref.current!.getMessages().find((m) => m.id === 'a1')!;
+            expect(reply.status).toBe('completed');
+            expect(reply.segments!.map((s) => s.id)).toEqual(['tool-c1', 't1']);
+            expect((reply.segments![1] as { content?: string }).content).toBe('Done.');
+        };
+        finished();
+        expect(emitted.length).toBeGreaterThan(0);
+
+        // Every list the chat emitted, handed back in turn — none of them undoes the reply.
+        for (const echo of [...emitted]) {
+            await act(async () => { rerender(<AparteChat ref={ref} messages={echo} onMessagesChange={onMessagesChange} />); });
+            finished();
+        }
+    });
+
     it('calls onConversationCreated on the first send once a manager is registered', async () => {
         const cfg = new AparteConfig();
         cfg.setConversationManager(await memoryManager());

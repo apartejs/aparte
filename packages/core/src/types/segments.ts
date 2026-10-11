@@ -239,6 +239,14 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
     result?: string;
     /** The handler's `structuredContent`, when it returned one — the value behind `result`'s prose. */
     structuredResult?: unknown;
+    /**
+     * Set when a server loop (`createAparteAgentHandler`) suspended its run on this call:
+     * why it waits — a person's decision (`approval`), a tool the page runs
+     * (`external`), or nothing but its turn (`queued`) — and the server's signed
+     * continuation. Saved with the conversation, so a reload can still answer it
+     * (`AparteClient.resumeDeferred`).
+     */
+    deferred?: { reason: 'approval' | 'external' | 'queued'; ticket?: string };
 }
 
 /**

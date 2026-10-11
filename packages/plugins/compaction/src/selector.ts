@@ -62,11 +62,20 @@ export interface CompactionSelectorOptions {
 
 const read = <T>(value: T | (() => T)): T => (typeof value === 'function' ? (value as () => T)() : value);
 
-/** What a message costs: its text, or the text of its segments when it has no `content`. */
+/**
+ * What a message costs: its text, or the text of its segments when it has no `content`.
+ * A tool call has no `content` but is not free: its arguments and its result go to the
+ * model (core sends a reply's calls and their answers on later turns), so it costs what
+ * that text does.
+ */
 const textOf = (message: CompactableMessage): string => {
     if (typeof message.content === 'string' && message.content.length > 0) return message.content;
     return (message.segments ?? [])
         .map((segment) => {
+            if ((segment as { type?: unknown }).type === 'tool_call') {
+                const { toolCall, result } = segment as { toolCall?: { input?: unknown }; result?: unknown };
+                return `${JSON.stringify(toolCall?.input ?? {})}\n${typeof result === 'string' ? result : ''}`;
+            }
             const content = (segment as { content?: unknown }).content;
             return typeof content === 'string' ? content : '';
         })

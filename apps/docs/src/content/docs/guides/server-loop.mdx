@@ -1,0 +1,225 @@
+---
+title: Run the agent loop on your server
+description: Run aparté's agent loop next to your tools — createAparteAgentHandler on the server, createAgentStreamRunner in the browser — with tool approvals that cross the network and survive a reload, and browser tools that still run in the page.
+sidebar:
+  order: 19
+  label: Server-side loop
+---
+
+Your tools live on your server — files, a database, secrets — and the model has to call
+them. With the loop in the browser that means exposing each tool over HTTP; with the loop
+on the server there is nothing to expose. This page runs aparté's own agent loop
+(`runStreamAgent`, the one `AparteClient` runs in the page) on your server, and keeps
+everything the page does: tool rows, Stop, the approval panel and your approval policy.
+
+| You want | Use |
+| --- | --- |
+| The **key** off the browser, tools in the page | [Backend transport](/guides/backend-transport/) — one model call per request |
+| The **loop** on the server, next to its tools | This page — the whole run per request |
+| Your **own** loop, anywhere | [Bring your own loop](/guides/bring-your-own-loop/) — drive the chat display-only |
+
+## The server
+
+`createAparteAgentHandler` returns a Fetch-API handler (`Request` → `Response`): it drops
+into a Next.js route, a Cloudflare Worker, Deno, Bun, or Node behind a small adapter.
+
+{/* doc-check: skip excerpt — `isSignedIn` and `readFileHandler` are your own */}
+```ts
+// app/api/agent/route.ts (Next.js)
+import { createAparteAgentHandler } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+export const POST = createAparteAgentHandler({
+  providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  resolveKey: () => process.env.OPENAI_API_KEY,
+  // Required: this route spends your key and runs your tools.
+  authorize: (req) => isSignedIn(req),
+  // Required, 32+ characters: signs the calls a paused run leaves pending.
+  secret: process.env.AGENT_SECRET!,
+  tools: [{
+    tool: {
+      name: 'read_file',
+      description: 'Read a file from the site content.',
+      inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    },
+    handler: readFileHandler,
+  }],
+});
+```
+
+On Node's own `http` server, hand it a `Request` and stream the `Response` back. The
+signal matters: Stop in the browser closes the connection, and the handler stops the run
+— the model call and any tool still running — when its request is aborted:
+
+{/* doc-check: skip excerpt — `handler` is the one built above */}
+```ts
+import { createServer } from 'node:http';
+
+createServer(async (req, res) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const closed = new AbortController();
+  res.on('close', () => closed.abort());
+  const response = await handler(new Request(`http://localhost${req.url}`, {
+    method: req.method, headers: req.headers as HeadersInit, body: Buffer.concat(chunks),
+    signal: closed.signal,
+  }));
+  res.writeHead(response.status, Object.fromEntries(response.headers));
+  if (response.body) for await (const chunk of response.body) res.write(chunk);
+  res.end();
+}).listen(3000);
+```
+
+## The browser
+
+One option on the client you already have — the loop is the only thing that moves:
+
+```ts
+import { AparteClient, createAgentStreamRunner } from '@aparte/core';
+
+const client = new AparteClient({
+  streamRunner: createAgentStreamRunner({ endpoint: '/api/agent' }),
+});
+client.start();
+```
+
+The runner POSTs each turn to the endpoint and replays the server's events; the page draws
+them exactly as it draws a loop run in the page. A function for `headers` is called per
+request, which is where a fresh auth token goes:
+
+```ts
+import { createAgentStreamRunner } from '@aparte/core';
+
+const runner = createAgentStreamRunner({
+  endpoint: 'https://api.example.com/agent',
+  headers: async () => ({ authorization: `Bearer ${sessionStorage.getItem('token') ?? ''}` }),
+});
+```
+
+## Approvals across the network
+
+A tool with `needsApproval: true` on the server — or a call your server's `approvalPolicy`
+answers `ask` — **suspends** the run: the stream ends with the pending call and a signed
+ticket, the page puts the question to the person with the [approval panel](/guides/tools/#require-approval-human-in-the-loop),
+and the answer resumes the run on the server, into the same reply.
+
+The **gate** is the server's: it decides which calls need a person. The **answer** is the
+page's: its approval policy (for instance [`@aparte/plugin-approval`](/plugins/approval/)'s
+`auto` mode) may answer on its own when it has an opinion; with none, the person is asked.
+A server policy can also refuse outright, without asking anyone:
+
+{/* doc-check: skip excerpt — the rest of the options are the ones above */}
+```ts
+createAparteAgentHandler({
+  // …
+  approvalPolicy: (call) => (call.name === 'delete_file' ? { verdict: 'deny', reason: 'Not from the website.' } : undefined),
+});
+```
+
+The person can **leave and come back**. Nothing is stored on the server: the paused call
+lives in the conversation you already save. A [conversation manager](/guides/conversation-persistence/)
+saves the reply the moment the run pauses — the chat dispatches `aparte-message-paused` —
+and when it loads a conversation whose last reply is paused, the panel comes back on its
+own. If you save and load conversations another way, save on `aparte-message-paused` too,
+and call `client.resumeDeferred()` after `setMessages`. A new message sent instead of an
+answer closes the paused call.
+
+## Browser tools
+
+A tool that needs the page — [`@aparte/plugin-ask-user`](/plugins/ask-user/) is the example —
+stays registered in the page with `registerTool`. The runner sends its definition along;
+the server lets the model call it, suspends on it, and the page runs its handler and sends
+the result back. Nothing to configure. To refuse browser tools, or allow a list:
+
+{/* doc-check: skip excerpt — the rest of the options are the ones above */}
+```ts
+createAparteAgentHandler({
+  // …
+  clientTools: ['ask_user'], // or false
+});
+```
+
+A browser tool may not share a server tool's name: the request is refused.
+
+## What the ticket protects, and what it does not
+
+Between the pause and the resume, the pending calls travel through the browser. The ticket
+is an HMAC the server signs over those calls: a resume runs only calls this server
+emitted, for the reply it paused, and a client cannot name a call of its own. Two things it
+does **not** do:
+
+- **It does not make a tool's input safe.** The model chose the arguments; a tool still
+  checks the caller's rights itself, as it would without any approval. Its handler gets the
+  request being served as `context.request` — the cookie or token is there. For a call
+  answered after a pause, that is the request that resumed the run, not the first one.
+- **It is not single-use.** A server that stores nothing cannot tell a replay from a first
+  use. If yours can, `onTicket` is the hook — return `false` to refuse a ticket seen before:
+
+{/* doc-check: skip excerpt — `seen` is your own store */}
+```ts
+createAparteAgentHandler({
+  // …
+  onTicket: async (id) => {
+    if (await seen.has(id)) return false; // replayed: refused with a 409
+    await seen.add(id);
+    return true;
+  },
+});
+```
+
+And the check a tool makes on its caller, with the request in hand:
+
+{/* doc-check: skip excerpt — `userOf` and `removeFile` are your own */}
+```ts
+createAparteAgentHandler({
+  // …
+  tools: [{
+    tool: {
+      name: 'delete_file',
+      description: 'Delete a file.',
+      inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      needsApproval: true,
+    },
+    handler: async (call, signal, context) => {
+      const user = await userOf(context?.request); // the request being served
+      const path = String(call.input.path);
+      if (!user?.canWrite(path)) return { toolCallId: call.id, content: 'You cannot delete this file.' };
+      await removeFile(path, { signal });
+      return { toolCallId: call.id, content: `Deleted ${path}.` };
+    },
+  }],
+});
+```
+
+An approval's `payload` — data an approval UI merges into the call's arguments — is dropped
+unless the tool opts in with `acceptsApprovalPayload: true`. Rotate the secret by passing an
+array: the first signs, all verify. A paused run can wait 7 days (`ticketMaxAgeMs`).
+
+## Node 18
+
+The ticket is signed with Web Crypto: present in browsers, Node 19 and later, Deno, Bun and
+Workers. On Node 18, pass it in:
+
+{/* doc-check: skip excerpt — the rest of the options are the ones above */}
+```ts
+import { webcrypto } from 'node:crypto';
+
+createAparteAgentHandler({
+  // …
+  crypto: webcrypto.subtle as SubtleCrypto,
+});
+```
+
+## The wire
+
+NDJSON, one event per line: the [engine's run events](/guides/engine/) as they are, a
+`run-suspended` line carrying the `ticket`, and a `run-error` line (sanitised — never the
+vendor's own words) when the run fails after the stream began. A server tool that throws
+reaches the page as `The tool failed.`; its own message, which can name a path or a host,
+goes to your server's log. An error before the stream is plain JSON with an HTTP status.
+The request body is `{ v: 1, providerId, messageId, request, clientTools, resume? }`; the
+runner builds it.
+
+Two requests are refused with a 400, because each would run a tool no gate saw: a
+`toolChoice` that names a tool (it runs the call before the model speaks), and a history
+that ends on unanswered calls without a `resume` ticket.

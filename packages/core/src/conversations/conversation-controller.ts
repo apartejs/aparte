@@ -1,6 +1,6 @@
 import type { AparteMessage, AparteAttachment } from '../types/index.js';
 import type { AparteConversationManager } from './conversation-manager.js';
-import type { AparteConversation } from './types.js';
+import type { AparteConversation, AparteConversationLoadedDetail } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
 import { aparteGlobalConfig } from '../config/aparte-config.js';
@@ -94,6 +94,7 @@ export class AparteConversationController {
     private _onMessageDone: (() => void) | null = null;
     private _onMessageError: (() => void) | null = null;
     private _onMessageAborted: (() => void) | null = null;
+    private _onMessagePaused: (() => void) | null = null;
     private _onSelectConversation: ((e: Event) => void) | null = null;
     private _unsubscribeManager: (() => void) | null = null;
     /** The manager the subscription above is on, so a replaced manager is re-subscribed. */
@@ -271,10 +272,17 @@ export class AparteConversationController {
             this._isStreaming = false;
             queueMicrotask(() => this._persistActive());
         };
+        // A server paused the turn on calls the page must answer. The turn goes on, but a
+        // person who closes the tab now comes back to what was saved — the paused calls,
+        // with the server's ticket, have to be in it.
+        this._onMessagePaused = () => {
+            queueMicrotask(() => this._persistActive());
+        };
         host.addEventListener('aparte-message-start', this._onMessageStart);
         host.addEventListener('aparte-message-done', this._onMessageDone);
         host.addEventListener('aparte-message-error', this._onMessageError);
         host.addEventListener('aparte-message-aborted', this._onMessageAborted);
+        host.addEventListener('aparte-message-paused', this._onMessagePaused);
 
         // App-level selection bus. Lets sidebars / nav menus drive the
         // active conversation without going through Angular @Input bindings,
@@ -348,6 +356,10 @@ export class AparteConversationController {
         if (this._onMessageAborted) {
             host.removeEventListener('aparte-message-aborted', this._onMessageAborted);
             this._onMessageAborted = null;
+        }
+        if (this._onMessagePaused) {
+            host.removeEventListener('aparte-message-paused', this._onMessagePaused);
+            this._onMessagePaused = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
             window.removeEventListener('aparte-conversation-select', this._onSelectConversation);
@@ -536,6 +548,14 @@ export class AparteConversationController {
             // the composer for that frame.
             this._showWait(false);
         }
+        // The messages are on screen: the moment to resume a turn a server loop paused
+        // (`AparteClient` listens), to scroll, to measure. A load that failed or that the
+        // user left returned above, so this says only what is true.
+        this._binding.host.dispatchEvent(new CustomEvent<AparteConversationLoadedDetail>('aparte-conversation-loaded', {
+            bubbles: true,
+            composed: true,
+            detail: { targetId: this._binding.hostId, conversationId: id },
+        }));
     }
 
     /**

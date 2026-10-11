@@ -68,6 +68,7 @@ export type {
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
+    AparteMessagePausedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -172,6 +173,7 @@ export type {
     AparteConversationMeta,
     AparteStorageAdapter,
     AparteAttachmentRow,
+    AparteConversationLoadedDetail,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
 export {
@@ -200,7 +202,7 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 // server-side `/api/chat` handler AND both client transports live here; a browser
 // never runs the handler, and the transports touch no DOM at import. Mirrored in
 // full so a wrapper barrel re-exporting a transport can't crash under SSR.
-export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, createAparteAgentHandler, isFormatAdapter } from './transport/index.js';
 export type {
     AparteTransport,
     AparteTransportContext,
@@ -209,6 +211,9 @@ export type {
     BackendTransportOptions,
     DirectTransportOptions,
     AparteChatHandlerOptions,
+    AparteAgentHandlerOptions,
+    AparteAgentTool,
+    AparteAgentRequestBody,
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -248,6 +253,7 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 export { AparteClient } from './client/aparte-client.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
+export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';

@@ -122,6 +122,7 @@ export type {
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
+    AparteMessagePausedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -237,6 +238,7 @@ export type {
     AparteConversationMeta,
     AparteStorageAdapter,
     AparteAttachmentRow,
+    AparteConversationLoadedDetail,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
 export {
@@ -325,11 +327,12 @@ export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
+export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 
 // Export transport seam (where chat requests go + how auth is handled)
-export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
-export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, createAparteAgentHandler, isFormatAdapter } from './transport/index.js';
+export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions, AparteAgentHandlerOptions, AparteAgentTool, AparteAgentRequestBody } from './transport/index.js';
 
 // Export runtime utilities
 export { AparteMessageRepository } from './runtime/message-repository.js';

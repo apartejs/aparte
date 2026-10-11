@@ -4,6 +4,38 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.18.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [8f2d28e](https://github.com/apartejs/aparte/commit/8f2d28e): New: run the agent loop on your server. `createAparteAgentHandler` runs it next to your tools and streams it; `createAgentStreamRunner` plugs `AparteClient` into it — tool rows, Stop, the approval panel and your approval policy work as they do in the browser, and a user can leave in the middle of an approval — another conversation, a closed tab — and answer it when they come back.
+
+  Until now a server with its own tools could only drive the chat display-only: the message, the segments, closing the turn and four lifecycle events, by hand. The handler pauses the loop on a call that needs a person, or on a tool the browser runs (`ask_user`), and ends the stream with a signed continuation ticket; the page asks — the same panel, the same policy — and resumes with the answer, in the same bubble, under one pair of lifecycle events. Nothing is stored on the server: the paused call lives in the conversation you already save (`AparteToolCallSegment.deferred`) — saved the moment the run pauses, since the reply now dispatches `aparte-message-paused` and the conversation controller persists on it — and a conversation that loads with one resumes on its own — the conversation controller now dispatches `aparte-conversation-loaded`, and `client.resumeDeferred()` is there for a host that loads conversations another way. A message sent instead of an answer closes the paused call.
+
+  The server decides which calls need a person; the page's policy answers when it has an opinion, and otherwise the person is asked. The ticket makes the server run only the calls it emitted, for the reply it paused; it does not make a tool's input trustworthy, and it is not single-use unless you pass `onTicket`. A server tool checks who is calling with the request it gets as `context.request` (`AparteToolContext.request`, new). A `toolChoice` naming a tool, or a history ending on unanswered calls without a ticket, is refused with a 400, and a server tool's own error text stays in the server's log. An approval `payload` is dropped unless the tool accepts one. Guide: Run the agent loop on your server.
+  <sub>`@aparte/core`</sub>
+
+- [3776dfc](https://github.com/apartejs/aparte/commit/3776dfc): The model now remembers what its tools returned: each turn's history carries the tool calls and their results, not only the text. **If you serialize the history yourself** — a backend of your own that does not go through an aparté provider or `toModelMessages` — it now contains assistant messages with `toolCalls` and `role: 'tool'` messages, the shapes a tool round trip already used inside one turn: map them, or drop both. Through an aparté provider there is nothing to do. Requests grow on tool-heavy conversations; `@aparte/plugin-compaction` now counts those calls when it measures a conversation, and summarises long ones as before.
+
+  Until now `AparteClient` sent user and assistant text alone, so a `read_file` result was on screen and gone from the model's context one turn later — "what did the file say?" had no answer. A reply is now sent in the order it was shown: the text before some calls and those calls as an assistant message, each call's result as a `tool` message, the text after them as the next assistant message. Every call is answered, because providers reject a call left without one: a refused call sends its reason, a failed one its error line, a stopped one "The tool call was stopped before it ran." Send, retry and edit build the history through the same function, so they cannot disagree. The compactor's selector used to count a tool call as free (it has no `content`); it now costs what its arguments and result send the model.
+  <sub>`@aparte/core`, `@aparte/plugin-compaction`</sub>
+
+- [65845fe](https://github.com/apartejs/aparte/commit/65845fe): New: `runStreamAgent` can pause on a tool call it cannot finish and resume it later. Pass `deferral` and a call that needs a person's decision, or a tool marked `external`, ends the run on `run-suspended` instead of waiting; a later run whose history ends on those calls, with their answers in `deferral.outcomes`, picks up where it stopped. **If you `switch` exhaustively over `StreamRunEvent`** (an adapter of your own), add a case for `run-suspended`; it only occurs when you pass `deferral`.
+
+  Nothing changes for a caller that does not pass `deferral`: the approval resolver still answers in place. The run that pauses reads the model's reply to its end, so every call of that reply is pending at once and a client can answer them in one round trip; nothing runs after the pause point, and a call the gate denies is refused, never deferred. A resumed run answers its pending calls through the same code a streamed call takes, and emits no `tool-start` for them, since their rows exist already. `unansweredTail(messages)` returns the calls a history leaves unanswered. This is the loop half of running the agent on a server; `@aparte/core` adds the server handler and the browser runner.
+  <sub>`@aparte/engine`</sub>
+
+### Patch Changes
+
+- [81661e9](https://github.com/apartejs/aparte/commit/81661e9): Stopping a reply no longer prints an uncaught `AbortError` in the console when the stream had already failed.
+
+  An aborted `fetch` errors its response body, and the Stop handler then cancelled the reader. `reader.cancel()` returns a promise that rejects on an errored stream, and it was wrapped in a `try` that only catches synchronous errors, so the rejection went unhandled. It is caught now.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.17.3
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

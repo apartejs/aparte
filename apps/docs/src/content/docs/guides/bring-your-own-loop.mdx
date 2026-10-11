@@ -323,7 +323,13 @@ runs and can tear down the underlying request.
 If the external loop is yours to write, you don't have to reinvent it:
 [`runStreamAgent` from `@aparte/engine`](/guides/engine/) is the exact agent loop core runs
 inline — headless, zero dependencies, no DOM. It runs fine in Node, a worker, or an Electron
-main process; forward its emitted text over your bridge and inject it here.
+main process.
+
+On a **server**, you do not have to drive the chat display-only either:
+`createAparteAgentHandler` runs that loop next to your tools and `createAgentStreamRunner`
+plugs `AparteClient` into it, so tool rows, Stop, approvals across the network and browser
+tools come with it — see [Run the agent loop on your server](/guides/server-loop/). What
+follows is for a loop that is not aparté's.
 
 ## The pieces core exports for this
 

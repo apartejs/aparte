@@ -109,6 +109,18 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
+    // Each call's segment as `tool-start` built it, and whether it reached the target:
+    // a renderer that draws nothing keeps it out, and a suspended call must exist in the
+    // message anyway (see `run-suspended`).
+    const toolSegments = new Map<string, AparteToolCallSegment>();
+    const addedTools = new Set<string>();
+    // A call this run never started is one a paused run left — a resume replays no
+    // `tool-start`. Settling it ends the pause, so its row drops `deferred`, and the
+    // server's ticket with it: a saved conversation keeps no answered call "paused".
+    const settle = (toolCallId: string, update: Partial<AparteToolCallSegment>): void => {
+        const id = `tool-${toolCallId}`;
+        target.updateSegment?.(id, (toolSegments.has(id) ? update : { ...update, deferred: undefined }) as Partial<AparteSegment>);
+    };
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
@@ -200,13 +212,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     toolCall: { id: e.toolCallId, name: e.name, input: e.input as Record<string, unknown> },
                     status: 'pending',
                 };
+                toolSegments.set(toolSeg.id, toolSeg);
                 const renderer = config.getToolRenderer(e.name);
                 if (renderer) {
                     injectToolRendererStyles(e.name, renderer);
                     const html = renderer.render(toolSeg);
-                    if (html) target.addSegment?.(toolSeg);
+                    if (html) { target.addSegment?.(toolSeg); addedTools.add(toolSeg.id); }
                 } else {
                     target.addSegment?.(toolSeg);
+                    addedTools.add(toolSeg.id);
                 }
                 break;
             }
@@ -217,15 +231,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-approved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'pending' });
+                settle(e.toolCallId, { status: 'pending' });
                 break;
 
             case 'tool-rejected':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'rejected', result: e.reason });
+                settle(e.toolCallId, { status: 'rejected', result: e.reason });
                 break;
 
             case 'tool-resolved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, {
+                settle(e.toolCallId, {
                     status: 'resolved',
                     result: e.result,
                     ...(e.structuredResult !== undefined ? { structuredResult: e.structuredResult } : {}),
@@ -233,13 +247,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-aborted':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
+                settle(e.toolCallId, { status: 'aborted' });
                 break;
 
             case 'tool-failed':
                 // The handler threw: the row settles on the crash's one line, and the run
                 // ends on the same error (the message's error card follows).
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'failed', result: e.error });
+                settle(e.toolCallId, { status: 'failed', result: e.error });
                 break;
 
             case 'turn-limit-exceeded':
@@ -251,7 +265,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         details: 'MAX_TURNS_EXCEEDED',
                     });
                 } else if (e.toolCallId) {
-                    target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
+                    settle(e.toolCallId, { status: 'aborted' });
                 }
                 break;
 
@@ -259,6 +273,36 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'run-aborted':
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
+
+            case 'run-suspended': {
+                // A server loop paused: each pending call records why it waits and the
+                // server's ticket (the wire adds `ticket` to this event), so the paused
+                // call lives in the conversation the app saves and a reload can answer it.
+                const ticket = (e as { ticket?: unknown }).ticket;
+                for (const p of e.pending) {
+                    const id = `tool-${p.toolCallId}`;
+                    const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
+                    // A call this run never started is a resumed one: its row exists, from
+                    // the run that paused first, and it pauses again with this ticket.
+                    if (addedTools.has(id) || !toolSegments.has(id)) {
+                        target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
+                    } else {
+                        // Its renderer drew nothing at `tool-start`, so the call never became a
+                        // segment; a paused call must exist in the message, or a reload loses it.
+                        const seg = toolSegments.get(id);
+                        if (seg) { target.addSegment?.({ ...seg, deferred }); addedTools.add(id); }
+                    }
+                }
+                // The RUN is over; the TURN goes on, through the run that resumes it.
+                target.updateMessage?.(messageId, { status: 'completed' });
+                if (e.usage) {
+                    try { target.setUsage?.(messageId, e.usage); } catch { /* target may not implement setUsage */ }
+                }
+                // Said once the paused calls are on the reply, so whoever saves the
+                // conversation saves them: a reload answers a pause only if it was kept.
+                dispatchLifecycleEvent(target, 'aparte-message-paused', { messageId }, targetId);
+                break;
+            }
 
             case 'run-done':
                 target.updateMessage?.(messageId, { status: 'completed' });
@@ -284,7 +328,13 @@ export function readableToAsyncIterable(
     return {
         [Symbol.asyncIterator](): AsyncIterator<AparteStreamEvent> {
             const reader = stream.getReader();
-            const onAbort = () => { try { void reader.cancel(); } catch { /* best effort */ } };
+            // `cancel()` returns a promise, which REJECTS when the abort already errored
+            // the stream (an aborted fetch errors its body first). `try` catches only a
+            // synchronous throw — a released reader — so the rejection is caught too, or
+            // every Stop at that moment printed an uncaught AbortError.
+            const onAbort = () => {
+                try { reader.cancel().catch(() => { /* best effort */ }); } catch { /* best effort */ }
+            };
             if (signal.aborted) onAbort();
             else signal.addEventListener('abort', onAbort, { once: true });
             return {

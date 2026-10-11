@@ -1,5 +1,7 @@
 # @aparte/plugin-approval
 
+## 0.18.0
+
 ## 0.17.3
 
 ## 0.17.2

@@ -1,14 +1,16 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
 import { runStreamAgent } from '@aparte/engine';
+import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, StreamDeferredOutcome } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
+import { isOpenDeferred, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
-import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
+import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteToolCall, AparteTool } from '../types/tools.js';
+import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
@@ -24,6 +26,13 @@ import { requestUserInput } from '../elicitation/index.js';
  * client always calls them through optional chaining. Mirrors the shape the
  * wrappers and `AparteChatHost` already conform to.
  */
+/** What one run of the loop reports back to its turn: its usage, and whether it paused. */
+interface AparteRunResult {
+    usage: AparteUsage | undefined;
+    /** A server loop suspended on calls the page must answer, with its signed continuation. */
+    suspended?: { pending: StreamDeferredCall[]; ticket?: string };
+}
+
 interface AparteChatTargetElement extends HTMLElement {
     appendMessage?(message: AparteMessage): void;
     updateMessage?(id: string, updates: Partial<AparteMessage>): void;
@@ -279,6 +288,7 @@ const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
+    private _boundLoadedHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _releaseKeyResolver: (() => void) | null = null;
@@ -476,6 +486,16 @@ export class AparteClient {
             };
         }
         window.addEventListener('aparte-edit', this._boundEditHandler);
+
+        // A conversation came back with a turn a server loop paused: answer it now.
+        if (!this._boundLoadedHandler) {
+            this._boundLoadedHandler = (e: Event) => {
+                if (!this._isForThisInstance(e)) return;
+                const host = e.target instanceof HTMLElement ? e.target : undefined;
+                void this.resumeDeferred(host ?? (e as CustomEvent<{ targetId?: string }>).detail?.targetId);
+            };
+        }
+        window.addEventListener('aparte-conversation-loaded', this._boundLoadedHandler);
     }
 
     /**
@@ -504,6 +524,10 @@ export class AparteClient {
         if (this._boundAbortHandler) {
             window.removeEventListener('aparte-abort', this._boundAbortHandler);
             this._boundAbortHandler = null;
+        }
+        if (this._boundLoadedHandler) {
+            window.removeEventListener('aparte-conversation-loaded', this._boundLoadedHandler);
+            this._boundLoadedHandler = null;
         }
         if (this._boundRetryHandler) {
             window.removeEventListener('aparte-retry', this._boundRetryHandler);
@@ -637,7 +661,11 @@ export class AparteClient {
         messages: AparteChatMessage[],
         modelId: string,
         authConfig: string | Record<string, string> | undefined,
-        opts?: { temperature?: number },
+        opts?: {
+            temperature?: number;
+            /** Resume a turn a server loop paused (a reload): skip the first run. */
+            resume?: NonNullable<AparteRunResult['suspended']>;
+        },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
         // a viewport and does not carry it. See `_targetIdOf`.
@@ -676,8 +704,55 @@ export class AparteClient {
         // from the client-wide `_isAborted`, which the next send resets before the
         // superseded turn has returned.
         const streamController = new AbortController();
+        // Registered now rather than by the first run: a turn that resumes a reload waits
+        // on a panel before any run starts, and Stop has to reach that wait.
+        if (this._streamController !== streamController) this._streamController?.abort();
+        this._streamController = streamController;
         try {
-            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+            let result: AparteRunResult = opts?.resume
+                ? { usage: undefined, suspended: opts.resume }
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+            // A server loop paused on calls only the page can answer: ask here — the
+            // panel, the policy, a browser tool — then run again with the answers, into
+            // the same bubble, under the same controller. The turn's lifecycle events
+            // bracket every pause, so the button stays Stop while a panel waits.
+            //
+            // Capped like the loop's own turns: a server that pauses on every run would
+            // otherwise ask forever, and a policy that answers alone would not even pause.
+            const maxResumes = this.options.maxTurns ?? 10; // the engine's default
+            let resumes = 0;
+            while (result.suspended) {
+                const stopped = this._isAborted || streamController.signal.aborted;
+                if (!stopped && ++resumes > maxResumes) {
+                    this._closeOpenCalls(targetElement, messageId);
+                    createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) })(
+                        { type: 'turn-limit-exceeded', scope: 'global', limit: maxResumes },
+                    );
+                    break;
+                }
+                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
+                if (!outcomes) {
+                    // Nobody will answer them — a Stop, or a channel that gave up: the calls
+                    // do not run. And no run is left to say the turn stopped, so say it here.
+                    this._closeOpenCalls(targetElement, messageId);
+                    if (this._isAborted || streamController.signal.aborted) {
+                        dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
+                    }
+                    break;
+                }
+                const deferral: StreamDeferral = {
+                    outcomes,
+                    ...(result.suspended.ticket ? { token: result.suspended.ticket } : {}),
+                };
+                const messages = this._resumeMessages(targetElement, messageId, baseRequest.messages);
+                this._spendPause(targetElement, messageId);
+                result = await this._streamLoop(
+                    targetElement, messageId, provider,
+                    { ...baseRequest, messages },
+                    authConfig, streamController, deferral,
+                );
+            }
+            const usage = result.usage;
             if (this._isAborted || streamController.signal.aborted) {
                 // A stopped turn is FINISHED, and someone has to say so. The inline
                 // loop marks the message completed on its way out; the injected
@@ -688,6 +763,7 @@ export class AparteClient {
                 //
                 // Not `done`, though: announcing a normal completion on top of an
                 // abort is what a provider that ends quietly used to produce.
+                this._closeOpenCalls(targetElement, messageId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage }, chatId);
@@ -700,6 +776,7 @@ export class AparteClient {
             // `reader.read()` nor the one on the `error` event can see it — and
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
+            this._closeOpenCalls(targetElement, messageId);
             if (this._isAborted || streamController.signal.aborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
@@ -1056,11 +1133,16 @@ export class AparteClient {
                 if (m.role !== 'user' && m.role !== 'assistant') return false;
                 return m.status !== 'error' && !AparteClient._inFlight(m);
             })
-            .map(m => ({
-                role: m.role as 'user' | 'assistant',
-                content: this._wireText(m)
-            }))
-            .filter(m => m.content.length > 0);
+            .flatMap((m): import('../types/chat.js').AparteChatMessage[] => {
+                // A reply that called tools goes out as the calls and their answers, in
+                // the order it showed them — see `wire-history.ts`. Every other message
+                // keeps its one text, compaction preamble included.
+                if (m.role === 'assistant' && m.segments?.some(s => s.type === 'tool_call')) {
+                    return wireTurns(m, (segments) => this._segmentsToText(segments));
+                }
+                const content = this._wireText(m);
+                return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
+            });
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1172,6 +1254,8 @@ export class AparteClient {
         // chat beside a raw client echoes exactly once, whichever wrapper or none
         // built either of them. The client marks too: a second client resolving
         // the same target cannot double.
+        // A reply paused on a question nobody answered: the new message closes it.
+        this._closeDeferred(targetElement);
         if (this.options.echoUserMessage !== false && event.detail?.echoed !== true) {
             const echoFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             targetElement.appendMessage?.({
@@ -1368,8 +1452,8 @@ export class AparteClient {
      *
      * `thinking` and `tool_call` stay out on purpose — the first is the model's own
      * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second was already carried, within the turn, as the assistant's calls and the
-     * `tool` messages answering them.
+     * second is not text: `_wireHistory` sends a reply's calls as the assistant's
+     * `toolCalls` and the `tool` messages answering them (`wire-history.ts`).
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';
@@ -1483,6 +1567,7 @@ export class AparteClient {
      * The turn's agent loop — the engine's `runStreamAgent` rendered through the core
      * adapter, or the runner a host injected — after the fetch-level abort bookkeeping.
      */
+    /** One run of the loop: its usage, and whether it paused (a server loop). */
     private async _streamLoop(
         targetElement: AparteChatTargetElement,
         messageId: string,
@@ -1491,7 +1576,9 @@ export class AparteClient {
         authConfig: string | Record<string, string> | undefined,
         // Defaulted for a caller that drives the loop directly (the parity suite does).
         streamController: AbortController = new AbortController(),
-    ): Promise<AparteUsage | undefined> {
+        // A paused server run's answers, when this call resumes it (see `_streamTurn`).
+        deferral?: StreamDeferral,
+    ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
         // rather than only stopping client-side reading of the stream.
@@ -1511,7 +1598,10 @@ export class AparteClient {
         // Cutting the old one rather than tracking both, because two simultaneous
         // assistant turns on one chat is not a state this UI has — and "we walked away
         // from a stream, so cancel it" is already the rule everywhere else here.
-        this._streamController?.abort();
+        //
+        // Only ANOTHER turn's controller, though: a turn that resumes after a pause runs
+        // again under its own, and aborting that would stop the resume before it starts.
+        if (this._streamController !== streamController) this._streamController?.abort();
         // The controller is the TURN's, created by `_streamTurn` and handed in, so the
         // turn can read its own signal when it ends: `_isAborted` is client-wide and
         // is reset by the next send, so a turn superseded by a retry on an earlier
@@ -1527,7 +1617,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape (audit 2026-08-28, D1).
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral);
     }
 
     /**
@@ -1547,7 +1637,8 @@ export class AparteClient {
         baseRequest: AparteChatRequest,
         authConfig: string | Record<string, string> | undefined,
         streamController: AbortController,
-    ): Promise<AparteUsage | undefined> {
+        deferral?: StreamDeferral,
+    ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
         // The chat, not the viewport — see `_targetIdOf`. Without it the adapter's own
@@ -1567,9 +1658,16 @@ export class AparteClient {
         // `run-start` repeat it: harmless on the page, but one call the recorded
         // sequence never had, which is how the parity suite caught it.
         const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
+        // A server loop that paused says so on its last event; the turn picks it up.
+        let suspended: AparteRunResult['suspended'];
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
-            if (event.type === 'run-start' && prefixSegments?.length) {
+            if (event.type === 'run-suspended') {
+                const ticket = (event as { ticket?: unknown }).ticket;
+                suspended = { pending: event.pending, ...(typeof ticket === 'string' ? { ticket } : {}) };
+            }
+            // Once per turn: a resume starts a run too, into a reply that has them already.
+            if (event.type === 'run-start' && prefixSegments?.length && !deferral) {
                 for (const seg of prefixSegments) targetElement.addSegment?.(seg);
             }
         };
@@ -1621,20 +1719,12 @@ export class AparteClient {
         // A host's own resolver decides everything and sees no policy: it already
         // chose to own the decision. The default channel consults the policy first — a
         // `deny` refuses with the policy's own reason, never "the user rejected this".
-        const approvalResolver = this.options.approvalResolver
-            ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
-                const ruling = this._config.ruleOnToolCall(call);
-                if (ruling.verdict === 'allow') return { approved: true };
-                if (ruling.verdict === 'deny') {
-                    // Truthiness, not `??`: an empty reason would otherwise be the whole
-                    // `tool` message, or fall through to "the user rejected this" downstream.
-                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
-                }
-                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
-            });
+        const approvalResolver = this._approvalResolverFor(targetElement);
 
         const usage = await streamRunner({
             messageId,
+            providerId: provider.id,
+            ...(deferral ? { deferral } : {}),
             baseRequest,
             transportCall,
             toolLookup,
@@ -1652,8 +1742,223 @@ export class AparteClient {
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
-        return usage ?? undefined;
+        return { usage: usage ?? undefined, ...(suspended ? { suspended } : {}) };
     }
+
+    /**
+     * The approval channel a run asks through — and the one a paused server run's calls
+     * are answered through, so the page asks the same way whichever loop paused.
+     *
+     * `gatedElsewhere`: a server already decided this call needs a person. The page's
+     * policy may still answer it when it has an opinion (`auto` mode allows, a plan
+     * refuses), but with none the person is asked. `ruleOnToolCall`'s own fallback —
+     * the tool's `needsApproval` — reads a tool the page does not have, and said
+     * "allow": the page approved, silently, what the server wanted a person to decide.
+     */
+    private _approvalResolverFor(targetElement: AparteChatTargetElement, gatedElsewhere = false): StreamApprovalResolver {
+        return this.options.approvalResolver
+            ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
+                const ruling: AparteApprovalRuling = gatedElsewhere
+                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name)) ?? { verdict: 'ask' })
+                    : this._config.ruleOnToolCall(call);
+                if (ruling.verdict === 'allow') return { approved: true };
+                if (ruling.verdict === 'deny') {
+                    // Truthiness, not `??`: an empty reason would otherwise be the whole
+                    // `tool` message, or fall through to "the user rejected this" downstream.
+                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
+                }
+                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
+            });
+    }
+
+
+    /**
+     * The answers a paused server run waits for, asked HERE because only the page can: an
+     * approval through the same channel a run in the page uses (the panel, the policy, a
+     * host's own resolver), a browser tool through the handler `registerTool` gave it.
+     * A `queued` call needs nothing — the server runs it on resume. `undefined` when
+     * nobody answered — the turn was stopped, or the channel gave up — and there is no
+     * resume. A channel that CRASHES fails the turn, as it does for a run in the page.
+     */
+    private async _answerDeferred(
+        targetElement: AparteChatTargetElement,
+        pending: StreamDeferredCall[],
+        signal: AbortSignal,
+    ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
+        const outcomes: Record<string, StreamDeferredOutcome> = {};
+        const resolver = this._approvalResolverFor(targetElement, true);
+        for (const p of pending) {
+            if (signal.aborted) break;
+            const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };
+            if (p.reason === 'approval') {
+                let decision: Awaited<ReturnType<StreamApprovalResolver>> | undefined;
+                try {
+                    decision = await resolver(call, signal);
+                } catch (error: unknown) {
+                    // Resuming without the answer only paused the same call again. The
+                    // turn's error exit closes the calls.
+                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
+                }
+                if (!decision || signal.aborted) return undefined;
+                outcomes[p.toolCallId] = { kind: 'decision', ...decision };
+            } else if (p.reason === 'external') {
+                const handler = this._config.getToolHandler(p.name);
+                try {
+                    if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
+                    const result = await handler(call, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
+                    outcomes[p.toolCallId] = {
+                        kind: 'result',
+                        content: result.content,
+                        ...(result.structuredContent !== undefined ? { structuredContent: result.structuredContent } : {}),
+                    };
+                } catch (error: unknown) {
+                    if (signal.aborted) break;
+                    outcomes[p.toolCallId] = { kind: 'failed', error: error instanceof Error ? error.message : String(error) };
+                }
+            }
+        }
+        return signal.aborted ? undefined : outcomes;
+    }
+
+    /**
+     * The ticket is spent the moment the resume leaves: the server answers these calls
+     * now, so a pause saved from here on — the conversation manager saves before it cuts a
+     * switch — would be resumed a second time, against a server that has moved on. The
+     * history that resumes them is built first; a new pause marks what still waits.
+     */
+    private _spendPause(targetElement: AparteChatTargetElement, messageId: string): void {
+        const segments = targetElement.getMessage?.(messageId)?.segments
+            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const paused = (segment: AparteSegment): segment is AparteToolCallSegment =>
+            segment.type === 'tool_call' && Boolean((segment as AparteToolCallSegment).deferred);
+        if (!segments?.some(paused)) return;
+        targetElement.updateMessage?.(messageId, {
+            segments: segments.map((segment) => {
+                if (!paused(segment)) return segment;
+                const { deferred: _spent, ...rest } = segment;
+                return rest;
+            }),
+        });
+    }
+
+    /**
+     * Close the reply's calls that can no longer finish — paused, queued, or running on a
+     * server the page stopped listening to: each says it stopped, and forgets the pause.
+     * A cut connection carries none of their last events, so nothing else would: the rows
+     * spun, and a queued call kept its ticket, which a reload then resumed against a
+     * server that had moved on. By the reply's id, not the chat's head — a retry during
+     * the wait moves the head. A run in the page ends every call itself: nothing to do.
+     */
+    private _closeOpenCalls(targetElement: AparteChatTargetElement, messageId: string): void {
+        const segments = targetElement.getMessage?.(messageId)?.segments
+            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const unfinished = (segment: AparteSegment): segment is AparteToolCallSegment =>
+            segment.type === 'tool_call'
+            && ((segment as AparteToolCallSegment).status === 'pending' || (segment as AparteToolCallSegment).status === 'awaiting-approval');
+        if (!segments?.some(unfinished)) return;
+        targetElement.updateMessage?.(messageId, {
+            segments: segments.map((segment) => {
+                if (!unfinished(segment)) return segment;
+                const { deferred: _spent, ...rest } = segment;
+                return { ...rest, status: 'aborted' as const };
+            }),
+        });
+    }
+
+    /**
+     * The history a resume sends: the request the turn was sent with — interceptor and
+     * `history` option included, not rebuilt from the transcript — then the reply so
+     * far, its paused calls left open for the server to answer.
+     */
+    private _resumeMessages(targetElement: AparteChatTargetElement, messageId: string, sent: AparteChatMessage[]): AparteChatMessage[] {
+        const reply = targetElement.getMessages?.().find((m) => m.id === messageId);
+        return [...sent, ...(reply ? wireTurns(reply, (segments) => this._segmentsToText(segments), { openDeferred: true }) : [])];
+    }
+
+    /**
+     * What the send of a reloaded turn put before its reply, rebuilt the way
+     * `_buildMessages` builds it: the system prompts, the history `options.history`
+     * asks for — given the transcript before the reply, where the send also saw the
+     * reply's empty shell; handing over the paused reply would send it twice — and the
+     * message that asked.
+     * That message goes as its text: the files a send read are not in a transcript.
+     */
+    private _resumeBase(all: AparteMessage[], replyIndex: number): AparteChatMessage[] {
+        const before = all.slice(0, replyIndex);
+        const askedAt = before.map((m) => m.role).lastIndexOf('user');
+        const historyOption = this.options.history ?? 'viewport';
+        const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
+            : typeof historyOption === 'function' ? historyOption(before)
+                : [];
+        return [...this._systemMessages(), ...history, ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : [])];
+    }
+
+    /**
+     * A new message closes a wait nobody answered. The paused calls of the last reply are
+     * marked stopped, so the history the new turn sends answers them ("stopped before it
+     * ran") — a provider rejects a request that declares a call with no answer.
+     */
+    private _closeDeferred(targetElement: AparteChatTargetElement): void {
+        const messages = targetElement.getMessages?.() ?? [];
+        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        if (!last?.segments?.some(isOpenDeferred)) return;
+        const segments = last.segments.map((segment) => {
+            if (!isOpenDeferred(segment)) return segment;
+            const { deferred: _closed, ...rest } = segment;
+            return { ...rest, status: 'aborted' as const };
+        });
+        targetElement.updateMessage?.(last.id, { segments });
+    }
+
+    /**
+     * Answer a turn a server loop paused, when the conversation comes back — a reload, a
+     * conversation reopened days later. The last reply's paused calls (they carry the
+     * server's ticket) are put to the person again, or run in the page, and the loop
+     * resumes on the server, into the same bubble.
+     *
+     * Called on its own when a conversation manager loads a conversation
+     * (`aparte-conversation-loaded`); call it yourself after `setMessages` if you load
+     * conversations another way. Resolves `true` when a resume ran, `false` when there
+     * was nothing to resume.
+     *
+     * @param target The chat — an element, or its id. Defaults to the one `targetResolver` names, else the first on the page.
+     */
+    async resumeDeferred(target?: HTMLElement | string): Promise<boolean> {
+        const host = typeof target === 'string' ? this._byId(target) : target ?? this.options.targetResolver?.() ?? null;
+        const targetElement = (host ? this._asRenderTarget<HTMLElement>(host) : this._scanForTarget<HTMLElement>()) as AparteChatTargetElement | null;
+        if (!targetElement) return false;
+        const messages = targetElement.getMessages?.() ?? [];
+        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        const open = (last?.segments ?? []).filter(isOpenDeferred);
+        const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket;
+        if (!last || open.length === 0 || !ticket || this._resuming.has(last.id)) return false;
+
+        const config = this._config.getModelConfig();
+        const provider = config.defaultProvider ? this._config.getAIProvider(config.defaultProvider) : undefined;
+        if (!provider) {
+            console.warn('[AparteClient] Cannot resume the paused turn: no provider is selected.');
+            return false;
+        }
+        // A fresh turn, like a send: a Stop pressed on an earlier one does not cancel it.
+        this._beginUserTurn();
+        this._resuming.add(last.id);
+        try {
+            const authConfig = await this._resolveAuth(provider.id);
+            const pending: StreamDeferredCall[] = open.map((s) => ({
+                toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
+            }));
+            const base = this._resumeBase(messages, messages.indexOf(last));
+            await this._streamTurn(targetElement, last.id, provider, base, config.defaultModel || '', authConfig, {
+                resume: { pending, ticket },
+            });
+        } finally {
+            this._resuming.delete(last.id);
+        }
+        return true;
+    }
+
+    /** Replies being resumed, so a second load of the same conversation does not ask twice. */
+    private readonly _resuming = new Set<string>();
 
     /**
      * Updates an existing message or appends a new error if ID lookup fails
