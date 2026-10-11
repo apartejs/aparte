@@ -27,6 +27,8 @@
  * is most likely to diverge — and that is the point of testing it in a browser at all.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { ChatPage } from '../helpers/chat.js';
@@ -230,3 +232,40 @@ test('a consumer palette core has never seen is readable too', async ({ page }) 
     expect(ratios['primary'], 'a dark navy brand primary').toBeGreaterThanOrEqual(4.5);
     expect(ratios['neutral'], 'a near-black neutral').toBeGreaterThanOrEqual(4.5);
 });
+
+/*
+ * Issue #95: a host's dark rebrand on the documented selectors wins in every case, whatever
+ * order the sheets load in. A bare `[data-aparte-theme="dark"]` rule (0,1,0) lost to core's
+ * prefers-color-scheme block (0,2,0) on a dark OS; the guide's doubled `:root` (0,3,0) wins.
+ * Measured on a blank page with core's own theme.css and nothing else: the examples wear a
+ * skin of their own, which would be what the test measured.
+ */
+const CORE_THEME = readFileSync(fileURLToPath(new URL('../../packages/core/src/styles/theme.css', import.meta.url)), 'utf8');
+const HOST_REBRAND = `
+  :root:root { --aparte-primary: rgb(8, 126, 164); }
+  :root:root[data-aparte-theme="dark"] { --aparte-primary: rgb(88, 196, 220); }
+  @media (prefers-color-scheme: dark) {
+    :root:root:not([data-aparte-theme="light"]) { --aparte-primary: rgb(88, 196, 220); }
+  }
+`;
+const HOST_LIGHT = 'rgb(8, 126, 164)';
+const HOST_DARK = 'rgb(88, 196, 220)';
+
+for (const order of ['host after core', 'host before core (Vite dev)'] as const) {
+    for (const [os, attribute, expected] of [
+        ['light', null, HOST_LIGHT],
+        ['light', 'dark', HOST_DARK],
+        ['dark', null, HOST_DARK],
+        ['dark', 'dark', HOST_DARK],
+        ['dark', 'light', HOST_LIGHT],
+    ] as const) {
+        test(`the documented dark rebrand wins: ${order}, OS ${os}, attribute ${attribute ?? 'none'}`, async ({ page }) => {
+            const sheets = order === 'host after core' ? [CORE_THEME, HOST_REBRAND] : [HOST_REBRAND, CORE_THEME];
+            await page.setContent(`<!doctype html><html${attribute ? ` data-aparte-theme="${attribute}"` : ''}><head>${sheets.map((css) => `<style>${css}</style>`).join('')}</head><body><aparte-chat></aparte-chat></body></html>`);
+            await page.emulateMedia({ colorScheme: os });
+            // The chat reads the root's value: core's derived layer does not redeclare a master.
+            expect(await cssVar(page, ':root', '--aparte-primary')).toBe(expected);
+            expect(await cssVar(page, 'aparte-chat', '--aparte-primary')).toBe(expected);
+        });
+    }
+}

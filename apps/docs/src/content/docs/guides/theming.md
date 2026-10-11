@@ -98,12 +98,16 @@ It used not to be this way: dark existed only behind the attribute, so a chat dr
 into a dark page rendered **light — unreadable, with no error** — unless the host knew
 to flip the attribute itself. The first consumer to build from these docs alone shipped
 exactly that. Your app still owns the decision: the attribute beats the OS in both
-directions; the default just stopped lying to dark-mode users.
+directions for core's palette; the default just stopped lying to dark-mode users. For
+your OWN dark colours, the selector matters: see
+[Rebrand the dark palette](#rebrand-the-dark-palette).
 :::
 
 ## Rebrand in a handful of variables
 
-Most of the palette derives from a few base tokens, so a rebrand is short:
+Most of the palette derives from a few base tokens, so a rebrand is short. Write `:root:root`
+instead of `:root` if your stylesheet can load before core's. Vite's dev server injects
+core's sheets after your page's own, and on equal weight the later sheet wins:
 
 ```css
 :root {
@@ -191,6 +195,46 @@ the page that background yourself (`body { background: var(--aparte-bg); }`).
 The generated [CSS variables](/reference/css-variables/) reference marks every token in
 this position **palette only**, so you can tell a knob from a base at a glance.
 :::
+
+## Rebrand the dark palette
+
+A rebrand on `:root` is a **light** rebrand. Dark mode has values of its own, so a dark
+brand needs its own block, and its selector matters. Core declares its dark palette twice:
+once behind the attribute, and once behind `prefers-color-scheme` when no attribute says
+light. Declare yours the same two ways, one step heavier, beside your light block:
+
+```css
+/* light: your rebrand */
+:root:root {
+  --aparte-primary: #087ea4;
+}
+
+/* dark, forced by your toggle */
+:root:root[data-aparte-theme="dark"] {
+  --aparte-primary: #58c4dc;
+  --aparte-bg: #16181d;
+  --aparte-surface-1: #1e2128;
+  --aparte-text: #e8eaee;
+}
+
+/* dark, followed from the OS, unless the attribute says light */
+@media (prefers-color-scheme: dark) {
+  :root:root:not([data-aparte-theme="light"]) {
+    --aparte-primary: #58c4dc;
+    --aparte-bg: #16181d;
+    --aparte-surface-1: #1e2128;
+    --aparte-text: #e8eaee;
+  }
+}
+```
+
+The doubled `:root` outweighs core at every step: 0,2,0 against core's light `:root`, and
+0,3,0 against its two dark blocks (0,2,0). The three blocks then win in every case: OS light or dark, attribute absent, light or dark. They win
+whatever order the sheets load in. That matters while developing: under Vite, core's sheets are
+injected after your page's own. A bare `[data-aparte-theme="dark"] { … }` looks the same and
+is not. At 0,1,0 it loses to core's `prefers-color-scheme` block on a dark OS, and the
+chat shows core's dark palette while your page shows yours. If your toggle writes the
+attribute on another element than `<html>`, name that element after `:root:root`.
 
 ## The scales
 
