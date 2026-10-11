@@ -229,7 +229,9 @@ export default defineConfig({
         'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 83 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
         'packages/wrappers/angular/src/**': { lines: 77, statements: 77, functions: 61, branches: 85 },
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 53, branches: 86 },
+        // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
+        // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 57, branches: 86 },
         'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 50, branches: 88 },
         'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 47, branches: 85 },
       },
