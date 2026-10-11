@@ -123,7 +123,7 @@ for (let i = 0; i < lines.length; i++) {
   // a heading that had nothing to do with motion. A nested block is an override; the
   // dark theme's is skipped for exactly this reason, and this one slipped through only
   // because it happens to start with the same selector.
-  if (!/^:root\b/.test(lines[i])) continue;
+  if (!/^(?::where\()?:root\b/.test(lines[i])) continue;
   let j = i;
   while (j < lines.length && !lines[j].includes('{')) j++;
   const isAnchored = /\baparte-chat\b/.test(lines.slice(i, j + 1).join(' '));

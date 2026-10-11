@@ -98,16 +98,15 @@ It used not to be this way: dark existed only behind the attribute, so a chat dr
 into a dark page rendered **light — unreadable, with no error** — unless the host knew
 to flip the attribute itself. The first consumer to build from these docs alone shipped
 exactly that. Your app still owns the decision: the attribute beats the OS in both
-directions for core's palette; the default just stopped lying to dark-mode users. For
-your OWN dark colours, the selector matters: see
+directions, for core's palette and for yours; the default just stopped lying to
+dark-mode users. Your own dark colours are under
 [Rebrand the dark palette](#rebrand-the-dark-palette).
 :::
 
 ## Rebrand in a handful of variables
 
-Most of the palette derives from a few base tokens, so a rebrand is short. Write `:root:root`
-instead of `:root` if your stylesheet can load before core's. Vite's dev server injects
-core's sheets after your page's own, and on equal weight the later sheet wins:
+Most of the palette derives from a few base tokens, so a rebrand is short. It wins over
+core's palette whichever stylesheet loads first:
 
 ```css
 :root {
@@ -198,43 +197,40 @@ this position **palette only**, so you can tell a knob from a base at a glance.
 
 ## Rebrand the dark palette
 
-A rebrand on `:root` is a **light** rebrand. Dark mode has values of its own, so a dark
-brand needs its own block, and its selector matters. Core declares its dark palette twice:
-once behind the attribute, and once behind `prefers-color-scheme` when no attribute says
-light. Declare yours the same two ways, one step heavier, beside your light block:
+Your `:root` block is your light palette. On a dark OS, with no attribute set, core shows
+its own dark palette rather than your light colours mixed into its dark ones. A dark brand
+gets a block of its own, in the form that matches who decides dark:
 
 ```css
-/* light: your rebrand */
-:root:root {
+/* light */
+:root {
   --aparte-primary: #087ea4;
+  /* …the eight above */
 }
 
-/* dark, forced by your toggle */
-:root:root[data-aparte-theme="dark"] {
+/* dark, when your toggle sets the attribute */
+[data-aparte-theme="dark"] {
   --aparte-primary: #58c4dc;
-  --aparte-bg: #16181d;
-  --aparte-surface-1: #1e2128;
-  --aparte-text: #e8eaee;
+  /* …the same eight, in dark */
 }
 
-/* dark, followed from the OS, unless the attribute says light */
+/* dark, when the OS decides */
 @media (prefers-color-scheme: dark) {
-  :root:root:not([data-aparte-theme="light"]) {
+  :root:not([data-aparte-theme="light"]) {
     --aparte-primary: #58c4dc;
-    --aparte-bg: #16181d;
-    --aparte-surface-1: #1e2128;
-    --aparte-text: #e8eaee;
+    /* …the same eight, in dark */
   }
 }
 ```
 
-The doubled `:root` outweighs core at every step: 0,2,0 against core's light `:root`, and
-0,3,0 against its two dark blocks (0,2,0). The three blocks then win in every case: OS light or dark, attribute absent, light or dark. They win
-whatever order the sheets load in. That matters while developing: under Vite, core's sheets are
-injected after your page's own. A bare `[data-aparte-theme="dark"] { … }` looks the same and
-is not. At 0,1,0 it loses to core's `prefers-color-scheme` block on a dark OS, and the
-chat shows core's dark palette while your page shows yours. If your toggle writes the
-attribute on another element than `<html>`, name that element after `:root:root`.
+Give each dark block every token your light block sets. Your `:root` block still matches
+in dark mode, so a token a dark block leaves out keeps its light value.
+
+These blocks win whichever stylesheet loads first. Wherever your choice applies, core
+declares its palette at zero weight. It keeps weight in one place, the OS case, so that a
+light-only rebrand stays light-only on a dark OS. That is why the OS block says
+`:root:not(…)` and not `:root`. Inside the media query, a bare `:root` weighs the same as
+your light block, and loses to core's dark one.
 
 ## The scales
 

@@ -59,8 +59,8 @@ describe('the scrim', () => {
         // attribute, so a bare indexOf would cut inside it.
         const at = (re: RegExp) => theme.search(re);
         const mediaStart = at(/^@media \(prefers-color-scheme: dark\)/m);
-        const vetoStart = at(/^\[data-aparte-theme="light"\]/m);
-        const darkStart = at(/^\[data-aparte-theme="dark"\]/m);
+        const vetoStart = at(/^:where\(\[data-aparte-theme="light"\]\)/m);
+        const darkStart = at(/^:where\(\[data-aparte-theme="dark"\]\)/m);
         expect(mediaStart).toBeGreaterThan(0);
         expect(vetoStart).toBeGreaterThan(mediaStart);
         expect(darkStart).toBeGreaterThan(vetoStart);
