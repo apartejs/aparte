@@ -1,5 +1,28 @@
 # @aparte/core
 
+## 0.19.0
+
+### Minor Changes
+
+- 16001e5: Your rebrand now wins over core's palette whichever stylesheet loads first. A `[data-aparte-theme="dark"] { … }` block now wins on a dark OS too (#95). Check one case: if your app sets `data-aparte-theme="dark"` and rebrands only on `:root`, your `:root` colours now apply in that dark mode. Give dark a block of its own, as the theming guide shows under "Rebrand the dark palette".
+
+  Core's palette is declared at zero weight (`:where()`) wherever the host owns the choice: the light literals and both attribute blocks. Before, `[data-aparte-theme="dark"]` (0,1,0) lost to core's `prefers-color-scheme` block (0,2,0) on a dark OS. A `:root` rebrand loaded before core lost in light as well, which happens under Vite when the page's stylesheet is a `<link>` in index.html.
+
+  The OS block now applies only when no attribute is set, at (0,1,1) (`html:not([data-aparte-theme])`). That weight is chosen. It sits above a bare `:root`, so a rebrand that only knows light stays light-only on a dark OS, and its light colours do not mix with core's dark inks. It sits below `:root:not([data-aparte-theme="light"])`, the guide's selector for a host that follows the OS with a dark palette of its own.
+
+  A workaround with more weight, such as `:root[data-aparte-theme="dark"]` or `:root:root`, still works. The extra weight is no longer needed.
+
+- 16001e5: New: an assistant reply records the provider, model and temperature it ran on (`AparteMessage.model`), and a turn a server paused resumes on them after a reload instead of on the model selected by then.
+
+  `AparteClient` writes `model: { providerId, modelId, temperature? }` on the reply when a turn starts. `resumeDeferred` uses it when that provider is still registered, and otherwise falls back to the default, as before. A per-message model (`modelId`/`providerId` on `aparte-send`) and a retry's temperature were lost across a reload before.
+
+### Patch Changes
+
+- 16001e5: Fixed: clicking a conversation in `<aparte-conversation-list>` while the list re-rendered (a save had just moved a row) could do nothing. The list now waits until the click has landed before it redraws.
+
+  A row replaced between the press and the release lost its click. Chromium sent the click to the list, where nothing handled it, and WebKit sent none. While a pointer is down on the list, a new `conversations` or any other change is held and drawn once, right after the click. Keeping the row node would not have been enough: a row moved to its new place leaves the document on the way, and the moving row is often the one pressed.
+  - @aparte/engine@0.19.0
+
 ## 0.18.0
 
 ### Minor Changes

@@ -4,6 +4,42 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.19.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [16001e5](https://github.com/apartejs/aparte/commit/16001e5): Your rebrand now wins over core's palette whichever stylesheet loads first. A `[data-aparte-theme="dark"] { … }` block now wins on a dark OS too (#95). Check one case: if your app sets `data-aparte-theme="dark"` and rebrands only on `:root`, your `:root` colours now apply in that dark mode. Give dark a block of its own, as the theming guide shows under "Rebrand the dark palette".
+
+  Core's palette is declared at zero weight (`:where()`) wherever the host owns the choice: the light literals and both attribute blocks. Before, `[data-aparte-theme="dark"]` (0,1,0) lost to core's `prefers-color-scheme` block (0,2,0) on a dark OS. A `:root` rebrand loaded before core lost in light as well, which happens under Vite when the page's stylesheet is a `<link>` in index.html.
+
+  The OS block now applies only when no attribute is set, at (0,1,1) (`html:not([data-aparte-theme])`). That weight is chosen. It sits above a bare `:root`, so a rebrand that only knows light stays light-only on a dark OS, and its light colours do not mix with core's dark inks. It sits below `:root:not([data-aparte-theme="light"])`, the guide's selector for a host that follows the OS with a dark palette of its own.
+
+  A workaround with more weight, such as `:root[data-aparte-theme="dark"]` or `:root:root`, still works. The extra weight is no longer needed.
+  <sub>`@aparte/core`</sub>
+
+- [16001e5](https://github.com/apartejs/aparte/commit/16001e5): New: an assistant reply records the provider, model and temperature it ran on (`AparteMessage.model`), and a turn a server paused resumes on them after a reload instead of on the model selected by then.
+
+  `AparteClient` writes `model: { providerId, modelId, temperature? }` on the reply when a turn starts. `resumeDeferred` uses it when that provider is still registered, and otherwise falls back to the default, as before. A per-message model (`modelId`/`providerId` on `aparte-send`) and a retry's temperature were lost across a reload before.
+  <sub>`@aparte/core`</sub>
+
+- [16001e5](https://github.com/apartejs/aparte/commit/16001e5): New package: `@aparte/runner-ag-ui` renders an agent served over AG-UI (Agno, LangGraph, Mastra, CrewAI, Pydantic AI) or a TanStack AI chat route in aparté. Pass `createAgUiRunner({ endpoint })` as `AparteClient`'s `streamRunner`.
+
+  The agent runs its loop and its tools on its own server. aparté draws what it streams: the text, the reasoning, a row per tool call, and the approval panel when the agent pauses on a call that needs a person (an AG-UI interrupt, such as TanStack AI's `needsApproval`). The answer goes back in one `resume` batch. Tools the page registers go to the agent as frontend tools. When the agent calls one, the page runs it and the result goes back. The pause is saved with the conversation, as with the server loop. The wire (SSE or NDJSON) is parsed in the package, with `@aparte/core` as its only peer: no AG-UI SDK is pulled in.
+
+  A TanStack AI route must hand `chat()` the run's `resume`, `threadId`, `runId` and `parentRunId`. With `messages` alone it streams, but never resumes a pause. The package's tests run TanStack AI's own server for every round trip. Guides: Providers → AG-UI agents, and TanStack AI.
+  <sub>`@aparte/runner-ag-ui`</sub>
+
+### Patch Changes
+
+- [16001e5](https://github.com/apartejs/aparte/commit/16001e5): Fixed: clicking a conversation in `<aparte-conversation-list>` while the list re-rendered (a save had just moved a row) could do nothing. The list now waits until the click has landed before it redraws.
+
+  A row replaced between the press and the release lost its click. Chromium sent the click to the list, where nothing handled it, and WebKit sent none. While a pointer is down on the list, a new `conversations` or any other change is held and drawn once, right after the click. Keeping the row node would not have been enough: a row moved to its new place leaves the document on the way, and the moving row is often the one pressed.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.18.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
