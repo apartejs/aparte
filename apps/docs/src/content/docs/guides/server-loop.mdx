@@ -156,6 +156,64 @@ createAparteAgentHandler({
 
 A browser tool may not share a server tool's name: the request is refused.
 
+## A side effect in the page
+
+Some calls only need the page to do something, such as opening a file in an editor beside the
+chat. The model needs nothing back but "done". A browser tool works, but each call suspends the
+run, and a second request resumes it. Instead, make the tool a server tool that answers by itself:
+
+{/* doc-check: skip excerpt — the rest of the options are the ones above */}
+```ts
+createAparteAgentHandler({
+  // …
+  tools: [{
+    tool: {
+      name: 'open_file',
+      description: 'Open a file in the editor beside the chat.',
+      inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    },
+    handler: async (call) => ({ toolCallId: call.id, content: 'opened' }),
+  }],
+});
+```
+
+Then act in the page when the call resolves. Wrap the runner's `emitter`, which sees every event
+of the run:
+
+```ts
+import { AparteClient, createAgentStreamRunner } from '@aparte/core';
+import type { AparteStreamRunner } from '@aparte/core';
+
+function openFile(input: unknown): void {
+  console.log('open', input); // your page's own code
+}
+
+const runner = createAgentStreamRunner({ endpoint: '/api/agent' });
+const openingFiles: AparteStreamRunner = (opts) => {
+  const calls = new Map<string, { name: string; input: unknown }>();
+  return runner({
+    ...opts,
+    emitter: (event) => {
+      if (event.type === 'tool-start') calls.set(event.toolCallId, { name: event.name, input: event.input });
+      if (event.type === 'tool-resolved' && calls.get(event.toolCallId)?.name === 'open_file') {
+        openFile(calls.get(event.toolCallId)!.input);
+      }
+      opts.emitter(event);
+    },
+  });
+};
+
+const client = new AparteClient({ streamRunner: openingFiles });
+client.start();
+```
+
+- **One request, no pause.** The model gets "opened" from the server and goes on.
+- **After the tool ran.** `tool-resolved` arrives once the server tool succeeded, so a failed
+  call opens nothing. `tool-start` would act before the tool runs.
+- **Never on a reload.** The events come from a run that is streaming. A conversation loaded
+  later draws the call from its history and runs nothing, so the file is not opened again.
+- **Any runner.** The same wrapping works on `createAgUiRunner`.
+
 ## What the ticket protects, and what it does not
 
 Between the pause and the resume, the pending calls travel through the browser. The ticket
