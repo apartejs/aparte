@@ -12,6 +12,7 @@ import { webcrypto } from 'node:crypto';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfig } from '../../config/index.js';
 import { createAgentStreamRunner } from '../agent-runner.js';
+import type { AparteStreamRunner } from '../stream-adapter.js';
 import { createAparteAgentHandler } from '../../transport/agent-handler.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
@@ -154,5 +155,62 @@ describe('the server loop, end to end', () => {
         expect(texts(reply).join(' ')).toContain('Deleted.');
         expect(ran).toEqual(['a']);
         expect(models).toEqual(['server-model', 'server-model']);
+    });
+
+    it('a page-only side effect rides the runner: one request, no pause, nothing replayed on reload (#103)', async () => {
+        // The guide's recipe: `open_file` is a SERVER tool that answers "opened", and the
+        // page wraps the runner's emitter to open the file when the call resolves.
+        const opened: unknown[] = [];
+        let requests = 0;
+        const handler = createAparteAgentHandler({
+            providers: { mock: scriptedProvider(
+                [{ type: 'text', delta: 'Opening it.' }, { type: 'tool_use', id: 'o1', name: 'open_file', input: { path: 'about.md' } }, { type: 'done' }],
+                [{ type: 'text', delta: 'There it is.' }, { type: 'done' }],
+            ) },
+            authorize: () => true,
+            secret: 'e2e-secret-that-is-at-least-32-characters',
+            crypto: webcrypto.subtle as unknown as SubtleCrypto,
+            tools: [{
+                tool: { name: 'open_file', description: 'Open a file in the editor.', inputSchema: { type: 'object' } },
+                handler: async (call) => ({ toolCallId: call.id, content: 'opened' }),
+            }],
+        });
+        const fetch = (async (url: string, init: RequestInit) => {
+            requests++;
+            return handler(new Request(`http://x${url}`, { method: init.method, headers: init.headers, body: init.body }));
+        }) as unknown as typeof globalThis.fetch;
+
+        const runner = createAgentStreamRunner({ endpoint: '/api/agent', fetch });
+        const openingFiles: AparteStreamRunner = (opts) => {
+            const calls = new Map<string, { name: string; input: unknown }>();
+            return runner({
+                ...opts,
+                emitter: (event) => {
+                    if (event.type === 'tool-start') calls.set(event.toolCallId, { name: event.name, input: event.input });
+                    if (event.type === 'tool-resolved' && calls.get(event.toolCallId)?.name === 'open_file') {
+                        opened.push(calls.get(event.toolCallId)!.input);
+                    }
+                    opts.emitter(event);
+                },
+            });
+        };
+        const page = (el: HTMLElement) => new AparteClient({
+            config: new AparteConfig(), autoRegister: false, targetResolver: () => el as never,
+            streamRunner: openingFiles,
+        } as never);
+
+        const first = chat();
+        await send(page(first.el), 'open about');
+        expect(requests).toBe(1);
+        expect(opened).toEqual([{ path: 'about.md' }]);
+        expect(callRow(first.messages.at(-1))?.status).toBe('resolved');
+        expect(callRow(first.messages.at(-1))?.deferred).toBeUndefined();
+        expect(texts(first.messages.at(-1)).join(' ')).toContain('There it is.');
+
+        // Reloaded: the transcript is drawn again, the runner is not run, the file stays shut.
+        const second = chat(structuredClone(first.messages));
+        expect(await page(second.el).resumeDeferred(second.el)).toBe(false);
+        expect(opened).toHaveLength(1);
+        expect(requests).toBe(1);
     });
 });
