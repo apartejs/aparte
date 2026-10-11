@@ -16,6 +16,7 @@
     "@aparte/plugin-shiki": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
+    "@aparte/runner-ag-ui": "workspace:*",
     "shiki": "^4.0.0",
     "@shikijs/langs": "^4.0.0",
     "@shikijs/themes": "^4.0.0"
