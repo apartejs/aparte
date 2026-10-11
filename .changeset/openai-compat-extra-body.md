@@ -1,5 +1,5 @@
 ---
-"@aparte/provider-openai-compat": minor
+"@aparte/provider-openai-compat": patch
 ---
 
 New: `extraBody` on `createOpenAICompatProvider` adds vendor fields to every request body (#101). For example, `extraBody: { thinking: { type: 'disabled' } }` turns off a GLM model's reasoning on Z.ai.
