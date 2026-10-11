@@ -203,6 +203,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const started = new Map<string, { name: string; input: unknown }>();
         const answered = new Set<string>();
         const rejected = new Set<string>();
+        const settledByPage = new Set<string>();
         let textOpen = false;
         let textMessages = 0;
         let usage: Usage | undefined;
@@ -232,7 +233,24 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             emit({ type: 'run-start' });
             emit({ type: 'turn-start' });
             for (const [toolCallId, outcome] of Object.entries(outcomes)) {
-                if (outcome.kind !== 'decision') continue;
+                // A tool the PAGE ran: its row settles here, with the result the page holds —
+                // a plain AG-UI agent never echoes a frontend tool's result, so nothing
+                // else would, and an echo that does come is not drawn twice.
+                if (outcome.kind === 'result') {
+                    emit({
+                        type: 'tool-resolved',
+                        toolCallId,
+                        result: outcome.content,
+                        ...(outcome.structuredContent !== undefined ? { structuredResult: outcome.structuredContent } : {}),
+                    });
+                    settledByPage.add(toolCallId);
+                    continue;
+                }
+                if (outcome.kind === 'failed') {
+                    emit({ type: 'tool-failed', toolCallId, error: outcome.error });
+                    settledByPage.add(toolCallId);
+                    continue;
+                }
                 if (outcome.approved) {
                     emit({ type: 'tool-approved', toolCallId });
                 } else {
@@ -299,7 +317,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 case 'TOOL_CALL_RESULT': {
                     const toolCallId = String(event['toolCallId']);
                     startTool(toolCallId);
-                    if (rejected.has(toolCallId)) break; // the refusal already settled the row
+                    if (rejected.has(toolCallId) || settledByPage.has(toolCallId)) break; // already settled
                     answered.add(toolCallId);
                     const content = resultText(event['content']);
                     const meta = event['metadata'] as { tanstack?: { state?: unknown } } | undefined;

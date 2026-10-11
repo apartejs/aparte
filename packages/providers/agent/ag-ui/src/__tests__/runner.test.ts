@@ -242,6 +242,10 @@ describe('createAgUiRunner: pauses and resumes', () => {
         const messages = second.bodies[0]!['messages'] as { role: string }[];
         expect(messages.at(-1)).toEqual({ id: 'aparte-result-q1', role: 'tool', toolCallId: 'q1', content: 'The blue one.' });
         expect(second.bodies[0]!['resume']).toBeUndefined();
+        // The agent echoes nothing for a frontend tool: the runner settles the row itself,
+        // with the result the page holds (a receipt reads it), before the agent's answer.
+        expect(b.types().slice(0, 4)).toEqual(['run-start', 'turn-start', 'tool-resolved', 'text-delta']);
+        expect(b.events.find((e) => e.type === 'tool-resolved')).toMatchObject({ toolCallId: 'q1', result: 'The blue one.' });
     });
 
     it('answers a client-tool interrupt (TanStack AI) in the resume batch, a failure marked as one', async () => {
