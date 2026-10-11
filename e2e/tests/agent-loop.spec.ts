@@ -109,7 +109,7 @@ test('leaving during the wait keeps the question: it comes back with the convers
     // Seen, as a person sees it before going back. Clicked earlier, the row lands while
     // the list still settles from the switch (the paused conversation was just saved, which
     // moves it): one WebKit run in fifty lost that click, none in forty after this wait. The list
-    // keeps its rows by id now (a-press-survives-a-re-render), so the wait is a person's, not a fix.
+    // holds its render during a press now (a-press-survives-a-re-render), so the wait is a person's, not a fix.
     await expect(page.locator('aparte-chat-bubble[data-role="user"]').first()).toContainText('weather in Lille');
 
     // Back: the paused call is still there, the question is put again, and the answer

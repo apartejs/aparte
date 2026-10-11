@@ -234,6 +234,7 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
         this.addEventListener('focusout', this._onFocusOut);
+        this.addEventListener('pointerdown', this._onPress);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
     }
@@ -243,6 +244,11 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
         this.removeEventListener('focusout', this._onFocusOut);
+        this.removeEventListener('pointerdown', this._onPress);
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        this._pressed = false;
+        this._renderAfterPress = false;
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -282,7 +288,44 @@ export class AparteConversationList extends HTMLElement {
 
     // ─── Rendering ────────────────────────────────────────────────────────
 
+    /**
+     * A press holds every render until its click has landed. The host re-assigns
+     * `conversations` on every manager change (a save moves a row, a select marks one),
+     * and a row replaced between `mousedown` and `mouseup` lost its click: Chromium sent
+     * it to the list, where the delegated handler matched nothing, and WebKit sent none.
+     * A conversation clicked while the list settled did not open. Keeping the row node
+     * would not have saved it: a row moved to its new place leaves the document on the
+     * way, and the row that moves is often the one pressed (the conversation just
+     * saved). So nothing changes under a pointer that is down, and the render runs once,
+     * after the click.
+     */
+    private _pressed = false;
+    private _renderAfterPress = false;
+
+    private _onPress = (): void => {
+        if (this._pressed) return;
+        this._pressed = true;
+        window.addEventListener('pointerup', this._onRelease, true);
+        window.addEventListener('pointercancel', this._onRelease, true);
+    };
+
+    private _onRelease = (): void => {
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        // `mouseup` and `click` follow `pointerup` in the same task: this runs after them.
+        setTimeout(() => {
+            this._pressed = false;
+            if (!this._renderAfterPress) return;
+            this._renderAfterPress = false;
+            if (this.isConnected) this._render();
+        }, 0);
+    };
+
     private _render(): void {
+        if (this._pressed) {
+            this._renderAfterPress = true;
+            return;
+        }
         // The menu and the rename input live inside the rows; a render replaces them.
         this._closeMenu();
         this._renaming = null;
@@ -332,7 +375,7 @@ export class AparteConversationList extends HTMLElement {
             else say();
             return;
         }
-        this._renderRows(this._groups());
+        this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
         if (!restore) return;
         // The same row, by id — not the same element, which no longer exists.
         const back = this.querySelector<HTMLElement>(restore);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
@@ -352,64 +395,6 @@ export class AparteConversationList extends HTMLElement {
             this.addEventListener('blur', () => this.removeAttribute('tabindex'), { once: true });
         }
         this.focus();
-    }
-
-    /**
-     * Draw the groups, keeping every row that is still listed: the same node, synced and
-     * moved, not a copy. The host re-assigns `conversations` on every manager change (a
-     * save moves a row, a select marks one), and a row replaced between `mousedown` and
-     * `mouseup` had its `click` retargeted by the browser to the list, where the
-     * delegated handler matched nothing — a conversation clicked while the list settled
-     * did not open (WebKit). Same rule as the scroll rail's ticks: reuse by id, write only
-     * what changed. The group wrappers are rebuilt; nothing holds on to them.
-     */
-    private _renderRows(groups: ConversationGroup[]): void {
-        const markup = groups.map(g => this._renderGroup(g)).join('');
-        const existing = new Map<string, HTMLElement>();
-        for (const row of Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]'))) {
-            existing.set(row.dataset['convId']!, row);
-        }
-        if (existing.size === 0) {
-            this.innerHTML = markup;
-            return;
-        }
-        const template = document.createElement('template');
-        template.innerHTML = markup;  // safe-text: built by _renderGroup/_renderItem, which escape every field they interpolate.
-        for (const fresh of Array.from(template.content.querySelectorAll<HTMLElement>('[data-conv-id]'))) {
-            const old = existing.get(fresh.dataset['convId']!);
-            if (old && AparteConversationList._syncRow(old, fresh)) fresh.replaceWith(old);
-        }
-        this.replaceChildren(template.content);
-    }
-
-    /**
-     * Bring a kept row up to date from its fresh markup, writing only what differs. False
-     * when the row is not in its plain shape (a rename field in it): that one is replaced.
-     */
-    private static _syncRow(row: HTMLElement, fresh: HTMLElement): boolean {
-        const part = (el: HTMLElement, selector: string) => el.querySelector<HTMLElement>(selector);
-        const select = part(row, '.aparte-conv-item__select');
-        const title = part(row, '.aparte-conv-item__title');
-        const more = part(row, '.aparte-conv-item__more');
-        const freshSelect = part(fresh, '.aparte-conv-item__select');
-        const freshTitle = part(fresh, '.aparte-conv-item__title');
-        const freshMore = part(fresh, '.aparte-conv-item__more');
-        if (!select || !title || !more || !freshSelect || !freshTitle || !freshMore || row.children.length !== fresh.children.length) {
-            return false;
-        }
-        const attrs = (el: HTMLElement, from: HTMLElement, names: readonly string[]) => {
-            for (const name of names) {
-                const value = from.getAttribute(name);
-                if (value === null) el.removeAttribute(name);
-                else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
-            }
-        };
-        if (row.className !== fresh.className) row.className = fresh.className;
-        attrs(select, freshSelect, ['aria-current']);
-        if (title.textContent !== freshTitle.textContent) title.textContent = freshTitle.textContent;
-        attrs(more, freshMore, ['aria-label', 'title', 'aria-expanded']);
-        if (more.innerHTML !== freshMore.innerHTML) more.innerHTML = freshMore.innerHTML;  // safe-text: the icon provider's SVG, as _renderItem drew it.
-        return true;
     }
 
     private _t(key: ListLocaleKey): string {
