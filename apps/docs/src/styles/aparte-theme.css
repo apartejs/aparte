@@ -157,6 +157,33 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
   background: color-mix(in oklab, var(--sl-color-accent) 34%, transparent);
 }
 
+/* Code blocks are the code segment's markup (src/lib/markdown.mjs), coloured for both themes
+   at build time: each token carries --shiki-light and --shiki-dark, and the theme picks one. */
+.aparte-doc-code .astro-code,
+.aparte-doc-code .astro-code span {
+  color: var(--shiki-light);
+  background-color: transparent;
+}
+:root[data-theme='dark'] .aparte-doc-code .astro-code,
+:root[data-theme='dark'] .aparte-doc-code .astro-code span {
+  color: var(--shiki-dark);
+}
+.aparte-doc-code {
+  margin-block: 1.25rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+/* A documentation snippet keeps its lines: it scrolls rather than wrapping like chat code. */
+.aparte-doc-code .aparte-code-content-wrapper pre {
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+}
+.aparte-doc-callout {
+  margin-block: 1.25rem;
+}
+
 /* Search (Pagefind): same brass focus as the chat composer — Pagefind defaults
    to a lighter accent, so the search box focus looked off next to the chat. */
 :root {

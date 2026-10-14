@@ -6,6 +6,7 @@ import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-chang
 import starlightLlmsTxt from 'starlight-llms-txt';
 import starlightLinksValidator from 'starlight-links-validator';
 import { REDIRECTS } from './src/data/redirects.mjs';
+import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -74,7 +75,17 @@ export default defineConfig({
   // Astro 7 deprecated `markdown.remarkPlugins` / `rehypePlugins` / `remarkRehype` in
   // favour of naming the processor: the pipeline is now an object you build, not a set of
   // loose keys Astro assembles. Warned only at build time, not by `astro check`.
-  markdown: { processor: unified({ rehypePlugins: [rehypeExternalLinksInOwnTab] }) },
+  markdown: {
+    processor: unified({ rehypePlugins: [rehypeExternalLinksInOwnTab, rehypeAparteAsides] }),
+    // Code blocks come out as the code segment's own markup (src/lib/markdown.mjs), coloured at
+    // build time for both themes: `defaultColor: false` writes `--shiki-light`/`--shiki-dark`
+    // on every token and the site's CSS picks one per theme.
+    shikiConfig: {
+      themes: { light: 'github-light', dark: 'github-dark' },
+      defaultColor: false,
+      transformers: [aparteCodeBlock()],
+    },
+  },
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',
@@ -102,6 +113,9 @@ export default defineConfig({
     }),
     starlight({
       title: 'aparté',
+      // Code blocks are drawn by the library's own code-segment markup (see `markdown` above),
+      // not by Expressive Code; no page used its options (titles, highlighted lines).
+      expressiveCode: false,
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
       // The mascot: `( '.' )` — the wordmark's brass parentheses, with a face.
       // SVG for browsers; the raster set below is for search engines and older
@@ -305,6 +319,10 @@ export default defineConfig({
           // the "Reference" set and in the full file. Measured: the small file went from
           // 700 KB to 582 KB without them, and the guides are what a small window needs.
           exclude: ['reference/css-variables', 'reference/classes', 'reference/events', 'reference/icons', 'components/**', 'changelog/**'],
+          // What a model reading the text gains nothing from: the copy button and language
+          // label of a code block (the language is on the fence), and the width bar of a live
+          // preview ("Width 375 768 Full" was printed 85 times in llms-full.txt).
+          customSelectors: { all: ['.aparte-code-header', '.aparte-preview-bar'] },
           optionalLinks: [
             { label: 'Source and issues', url: 'https://github.com/apartejs/aparte', description: 'The monorepo — open an issue here.' },
             { label: 'npm', url: 'https://www.npmjs.com/package/@aparte/core', description: 'Every @aparte/* package ships at one version.' },
@@ -326,6 +344,8 @@ export default defineConfig({
       customCss: [
         '@fontsource-variable/geist',
         '@fontsource-variable/geist-mono',
+        // The library's stylesheet on every page: the site is drawn with its recipes.
+        '@aparte/core/styles.css',
         './src/styles/palette.css',
         './src/styles/aparte-theme.css',
       ],

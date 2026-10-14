@@ -35,6 +35,22 @@ const imageAlt = `aparté — ${entry.data.title}`;
 <meta name="twitter:image" content={image} />
 <meta name="twitter:image:alt" content={imageAlt} />
 
+<!-- The library's own pieces on the page (callouts, code blocks) follow the reader's theme:
+     Starlight writes `data-theme` on <html>, the library reads `data-aparte-theme`. Starlight
+     always resolves "auto" to a concrete value, so mirroring it is exact; the observer follows
+     every later toggle. -->
+<script is:inline>
+  (() => {
+    const root = document.documentElement;
+    const sync = () => {
+      const theme = root.getAttribute('data-theme');
+      if (theme === 'light' || theme === 'dark') root.setAttribute('data-aparte-theme', theme);
+    };
+    sync();
+    new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  })();
+</script>
+
 <!-- Self-hosted Umami, on every docs page. Here rather than in the config's `head`
      array because that array is Starlight's alone and would still miss the landing,
      so the site would need two mechanisms for one tag; this file is already the
