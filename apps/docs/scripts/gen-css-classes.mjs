@@ -377,7 +377,13 @@ const headlineFree = (text) =>
         .replace(/^apart(?:é|e-[a-z0-9-]+)\s*[—-]\s*/i, '')
         .replace(/^[a-z]/, (c) => c.toUpperCase());
 const firstSentence = (text) => {
-    const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+    // The first PARAGRAPH, then its first sentence. A banner's headline is a paragraph of
+    // its own and usually has no full stop, so flattening the whole text first ran it into
+    // the next sentence: the kit index read "Small count or status pill Two axes like the
+    // button's…", and since the description is also the lede under a page's title, the
+    // family pages opened on the same run-on line.
+    const para = String(text ?? '').trim().split(/\n\s*\n/)[0] ?? '';
+    const flat = para.replace(/\s+/g, ' ').trim();
     const cut = flat.match(/^(.{20,200}?[.!?])(\s|$)/);
     return (cut ? cut[1] : flat.slice(0, 160)).trim();
 };

@@ -132,10 +132,25 @@ function methodSig(m) {
 
 /** First sentence, for the frontmatter description — that is the meta-description slot. */
 function firstSentence(text) {
-  const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+  // The first PARAGRAPH, then its first sentence: flattening the whole description first ran
+  // a short opening paragraph into the next one, and this sentence is the lede under the
+  // page's title as well as its meta description.
+  const para = String(text ?? '').trim().split(/\n\s*\n/)[0] ?? '';
+  const flat = para.replace(/\s+/g, ' ').trim();
   if (!flat) return '';
   const cut = flat.match(/^(.{20,240}?[.!?])(\s|$)/);
   return (cut ? cut[1] : flat.slice(0, 200)).trim();
+}
+
+/**
+ * A JSDoc that opens on the class's own name (`AparteChat - The Shell`, `AparteIcon`) says in
+ * code form what the page title already says in words, and it became the page's first line
+ * AND its lede. The class is stated once, plainly, on its own line under the preview.
+ */
+function withoutClassHeadline(text, className) {
+  const [first = '', ...rest] = String(text ?? '').trim().split(/\n\s*\n/);
+  const isHeadline = first.startsWith(className) && first.length < 60 && !/[.!?]\s/.test(first);
+  return (isHeadline ? rest.join('\n\n') : String(text ?? '')).trim();
 }
 
 /** YAML-safe single-quoted scalar. Tags carry `<`/`>`, descriptions carry apostrophes. */
@@ -353,7 +368,7 @@ function flatSections(decl) {
 function page(tag) {
   const { decl, path } = byTag.get(tag);
   const parts = (PARTS[tag] ?? []).filter((p) => byTag.has(p));
-  const description = String(decl.description ?? '').trim();
+  const description = withoutClassHeadline(decl.description, decl.name);
   const order = LEAD.indexOf(tag);
   const all = [decl, ...parts.map((p) => byTag.get(p).decl)];
   const hasCss = all.some((d) => d.cssProperties?.length);
@@ -368,14 +383,18 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
 
 `;
 
-  // The tag before the prose: the page is titled in human words, so the identifier a reader
-  // types has to be stated once, plainly, at the top.
-  md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''}\n\n`;
+  // The element first, then the words about it — the order every component library's docs
+  // use. The preview sat under "## Usage", after the description, so on the bigger elements
+  // it arrived 58 to 81 lines down and a reader met a wall of architecture before seeing
+  // the thing. ElementPreview renders nothing for an element with no example, so a page
+  // without one simply starts with its tag.
+  md += `<ElementPreview tag="${tag}" />\n\n`;
 
-  // Named once, plainly: the export guard's Tier 1 measures the DOM-free barrel and
-  // cannot see an element class, so the only way a reader (or a future widening of that
-  // guard) finds the class this tag is backed by is a page saying so in words.
-  md += `Class: \`${decl.name}\`\n\n`;
+  // The tag and its class on one line: the page is titled in human words, so the
+  // identifier a reader types has to be stated once, plainly. The class is named because
+  // the export guard's Tier 1 measures the DOM-free barrel and cannot see an element
+  // class, so a page saying so in words is the only place a reader finds it.
+  md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''} · class \`${decl.name}\`\n\n`;
 
   if (description) md += `${mdxSafe(description)}\n\n`;
 
@@ -389,9 +408,10 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
   // to a document outline, in every framework. Stacked, the outline IS the navigation.
   //
   // The FRAMEWORK tabs below stay: they carry no headings, so they cost the outline nothing.
-  md += `## Usage\n\n<ElementPreview tag="${tag}" />\n`;
-
+  // A heading only when something sits under it: with the preview moved to the top, an
+  // element with no example and no parts would otherwise keep an empty "Usage".
   const ex = exampleBlocks(decl);
+  if (ex || parts.length) md += `## Usage\n`;
   md += ex ? `\n### Example\n${ex}` : '';
   for (const p of parts) {
     const pDecl = byTag.get(p).decl;
