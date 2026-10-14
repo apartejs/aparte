@@ -73,4 +73,38 @@
             detail.echoed = true;
         });
     }
+
+    // `?play=<message>`: the frame sends its own first message, typed into the composer
+    // the way a person would, once the composer is on screen. The landing's showcase uses
+    // it so the application is MOVING the first time a visitor sees it, instead of waiting
+    // for a click nobody knows to make. Through the composer's public API (`setValue`,
+    // `submit`), so the turn that follows is the one a typed message gets. Under reduced
+    // motion the message lands at once, with no typing.
+    const play = new URLSearchParams(location.search).get('play');
+    if (play) {
+        void customElements.whenDefined('aparte-composer').then(() => {
+            const composer = document.querySelector<HTMLElement & { setValue(value: string): void; submit(): void }>('aparte-composer');
+            if (!composer) return;
+            const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+            const run = async () => {
+                await sleep(reduce ? 200 : 700);
+                if (!reduce) {
+                    for (let i = 1; i <= play.length; i++) {
+                        composer.setValue(play.slice(0, i));
+                        await sleep(38);
+                    }
+                    await sleep(350);
+                }
+                composer.setValue(play);
+                composer.submit();
+            };
+            const seen = new IntersectionObserver((entries) => {
+                if (!entries.some((entry) => entry.isIntersecting)) return;
+                seen.disconnect();
+                void run();
+            }, { threshold: 0.6 });
+            seen.observe(composer);
+        });
+    }
 </script>
