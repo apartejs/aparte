@@ -1,10 +1,32 @@
 import { defineCollection } from 'astro:content';
+import { z } from 'astro/zod';
 import { docsLoader } from '@astrojs/starlight/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
 import { changelogsLoader } from 'starlight-changelogs/loader';
 
+/**
+ * A catalogue page says what it is in its own frontmatter: its group, its place in it, what it
+ * documents (so nothing is documented twice or never — scripts/check-catalogue.mjs) and the live
+ * demos it shows. scripts/lib/catalogue.mjs reads the same block outside Astro.
+ */
+const catalog = z
+  .object({
+    group: z.enum(['chat', 'layout', 'kit']),
+    order: z.number().int().nonnegative(),
+    claims: z
+      .object({
+        elements: z.array(z.string()).default([]),
+        segments: z.array(z.string()).default([]),
+        classes: z.array(z.string()).default([]),
+        plugin: z.string().optional(),
+      })
+      .default({ elements: [], segments: [], classes: [] }),
+    demos: z.array(z.string()).default([]),
+  })
+  .optional();
+
 export const collections = {
-  docs: defineCollection({ loader: docsLoader(), schema: docsSchema() }),
+  docs: defineCollection({ loader: docsLoader(), schema: docsSchema({ extend: z.object({ catalog }) }) }),
   // The path is relative to THIS Starlight project, so two levels up is the repo root.
   changelogs: defineCollection({
     loader: changelogsLoader([

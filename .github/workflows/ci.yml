@@ -222,6 +222,12 @@ jobs:
       - name: Build the docs site
         run: pnpm --filter @aparte-workspace/docs build
 
+      # The catalogue is written by hand and grouped by what a person sees; each page claims
+      # what it documents, and this holds what the generators used to guarantee by
+      # construction: every element, segment and kit family has exactly one page.
+      - name: Check every component has its catalogue page
+        run: pnpm check:catalogue
+
       - name: Check internal links and anchors
         run: pnpm check:doc-links
 
