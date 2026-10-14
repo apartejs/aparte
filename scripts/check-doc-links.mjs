@@ -45,6 +45,18 @@ for (const file of pages) {
     idsByRoute.set(routeOf(file), ids);
 }
 
+/*
+ * A REDIRECT is not an orphan, and the first run of the reachability pass below called two
+ * of them one. A redirect page's whole job is a meta refresh, so the shape is detectable and
+ * needs no list: nothing SHOULD link to a redirect — that is what makes it a redirect.
+ *
+ * Detected rather than named, because a name is a list somebody has to maintain and the
+ * next redirect would fail the build for being correct.
+ */
+const isRedirectStub = (file) =>
+    /<meta\s+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'));
+const redirects = new Set(pages.filter(isRedirectStub).map(routeOf));
+
 const broken = [];
 let checked = 0;
 /** Every route some page links TO — the other half of "the links resolve". */
@@ -53,6 +65,10 @@ const linkedTo = new Set();
 for (const file of pages) {
     const from = routeOf(file);
     const html = readFileSync(file, 'utf8');
+    // A redirect page links to its destination, and that link must resolve like any other —
+    // but it does not make the destination REACHABLE: a hundred redirect pages pointing at a
+    // page nothing else links to would otherwise hide exactly the orphan the pass below hunts.
+    const countsAsInbound = !redirects.has(from);
     for (const m of html.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)) {
         const href = m[1];
         // External, in-page-only, and non-navigational hrefs are out of scope.
@@ -74,7 +90,7 @@ for (const file of pages) {
             broken.push(`${from} → ${href} (no such page)`);
             continue;
         }
-        linkedTo.add(path);
+        if (countsAsInbound) linkedTo.add(path);
         if (hash && !idsByRoute.get(path).has(decodeURIComponent(hash))) {
             broken.push(`${from} → ${href} (page exists, anchor does not)`);
         }
@@ -112,22 +128,7 @@ if (broken.length) {
 // model, not navigated; '/404' is served on a miss and by definition nothing links to it.
 const REACH_EXEMPT = new Set(['/', '/llms.txt/', '/llms-full.txt/', '/404']);
 
-/*
- * A REDIRECT is not an orphan, and the first run of this pass called two of them one.
- *
- * `astro.config.mjs` keeps `/reference/release-notes` → `/changelog/` because the first
- * release of that page used the old URL, and `/404` is served on a miss rather than
- * navigated to. Astro emits a redirect as a stub whose whole body is a meta refresh, so
- * the shape is detectable and needs no list: nothing SHOULD link to a redirect — that is
- * what makes it a redirect.
- *
- * Detected rather than named, because a name is a list somebody has to maintain and the
- * next redirect would fail the build for being correct.
- */
-const isRedirectStub = (file) =>
-    /<meta\s+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'));
-const redirects = new Set(pages.filter(isRedirectStub).map(routeOf));
-
+// Redirect pages (detected above) are exempt here too: nothing should link to them.
 const orphans = [...idsByRoute.keys()]
     .filter((route) => !REACH_EXEMPT.has(route) && !redirects.has(route) && !linkedTo.has(route))
     .sort();

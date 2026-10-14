@@ -5,6 +5,7 @@ import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import starlightLinksValidator from 'starlight-links-validator';
+import { REDIRECTS } from './src/data/redirects.mjs';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -77,28 +78,28 @@ export default defineConfig({
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',
-  // /changelog is the guessable URL; the first release of this page used
-  // /reference/release-notes/, which is already in the sitemap. Keep it alive.
-  // Both are URLs that shipped and are in the sitemap. /reference/api was one 752-line
-  // page listing every element; it is now one page per element under /components/, so the
-  // old URL points at the catalogue rather than 404ing on a reader's bookmark.
-  redirects: {
-    '/reference/release-notes': '/changelog/',
-    '/reference/api': '/components/',
-  },
+  // Moved pages are NOT Astro `redirects`: those emit a meta refresh to a fixed URL and drop
+  // the `#anchor` published links carry. Each old address gets its own page instead —
+  // src/data/redirects.mjs (the map) and src/pages/[...moved].astro (the page).
   integrations: [
     /*
      * Ours rather than Starlight's: Starlight adds `@astrojs/sitemap` itself unless
      * the integration is already in this array, and its copy takes no filter.
      *
-     * What the filter removes: the 59 frame routes, one per element and per
-     * kit family. Each is the document of an <iframe> — it carries
+     * What the filter removes: the frame routes, one per element and per kit family,
+     * and the pages that moved. Each frame is the document of an <iframe> — it carries
      * `<meta name="robots" content="noindex, nofollow">` on purpose, because it
      * would otherwise compete in search with the real page that frames it and say
-     * far less. Listing a noindex URL in a sitemap is a contradiction a crawler
-     * reports back: 227 URLs were submitted, 59 of them asking not to be indexed.
+     * far less. A moved page is `noindex` too. Listing a noindex URL in a sitemap is a
+     * contradiction a crawler reports back: 227 URLs were submitted, 59 of them asking
+     * not to be indexed.
      */
-    sitemap({ filter: (page) => !PREVIEW_FRAME.test(new URL(page).pathname) }),
+    sitemap({
+      filter: (page) => {
+        const path = new URL(page).pathname;
+        return !PREVIEW_FRAME.test(path) && !(path in REDIRECTS);
+      },
+    }),
     starlight({
       title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
