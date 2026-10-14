@@ -390,6 +390,8 @@ const firstSentence = (text) => {
 const kitPages = [];
 /** What the index lists: one line per family, grouped as the sidebar groups them. */
 const kitIndex = [];
+/** The same families as DATA, for the catalogue's hand-written pages (written below). */
+const kitData = [];
 let kitOrder = 0;
 // No gallery page — one page per family IS the section. A gallery of every preview on
 // one page was built and rejected by the maintainer ("galerie, c'est pas ça").
@@ -428,6 +430,16 @@ import ClassPreview from '../../../components/ClassPreview.astro';
             name,
             desc: firstSentence(prose) || `The ${name} classes, with their markup.`,
         });
+        kitData.push({
+            id: family.id,
+            name,
+            group: group.title,
+            sheet: `packages/core/src/styles/${family.rel}`,
+            summary: firstSentence(prose),
+            prose,
+            example,
+            classes: family.classes,
+        });
     }
 }
 
@@ -440,6 +452,9 @@ if (kitPages.length < KIT_FLOOR) {
 mkdirSync(KIT_DIR, { recursive: true });
 let kitWrote = 0;
 for (const { file, page } of kitPages) if (writeIfChanged(file, page)) kitWrote += 1;
+
+mkdirSync(join(GENERATED, 'api'), { recursive: true });
+writeIfChanged(join(GENERATED, 'api', 'kit.json'), `${JSON.stringify(kitData, null, 2)}\n`);
 
 /*
  * The section's front door (#63 caught it missing: the llms preamble cited /kit/ and

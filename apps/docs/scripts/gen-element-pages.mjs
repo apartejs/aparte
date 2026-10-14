@@ -563,6 +563,34 @@ writeIfChanged(
 );
 
 /*
+ * The API as DATA, for the catalogue's hand-written pages. A page about "Prompt input" decides
+ * what it says and asks for the composer's tables; the tables still come from the manifest, so
+ * there is one source, but the manifest no longer decides what a page IS. Every element is here,
+ * core's and the plugins', parts included — a catalogue page picks the ones it shows.
+ */
+function apiEntry(d, pkg) {
+  const members = (d.members ?? []).filter(isPublic);
+  return {
+    tag: d.tagName,
+    name: humanName(d.tagName),
+    package: pkg,
+    className: d.name,
+    description: String(d.description ?? '').trim(),
+    attributes: (d.attributes ?? []).map((a) => ({ name: a.name, type: typeText(a.type), description: a.description ?? '' })),
+    properties: members
+      .filter((m) => m.kind === 'field')
+      .map((p) => ({ name: p.name, type: typeText(p.type), readonly: Boolean(p.readonly), description: p.description ?? '' })),
+    methods: members
+      .filter((m) => m.kind === 'method')
+      .map((m) => ({ name: m.name, signature: methodSig(m), description: m.description ?? '' })),
+    events: (d.events ?? []).map((ev) => ({ name: ev.name, type: typeText(ev.type), description: ev.description ?? '' })),
+    cssProperties: (d.cssProperties ?? []).map((p) => ({ name: p.name, default: p.default ?? '', description: p.description ?? '' })),
+    examples: examplesOf(d).map((ex) => String(ex).trim()),
+  };
+}
+const apiElements = [...byTag.values()].map(({ decl }) => apiEntry(decl, '@aparte/core'));
+
+/*
  * A plugin's element gets a PARTIAL rather than a page. Its own page is the plugin's, where the
  * hand-written prose explains what installing the package gets you — so only the tables are
  * generated, and the plugin page imports them.
@@ -575,9 +603,11 @@ if (existsSync(PLUGIN_DIR)) {
     const file = join(PLUGIN_DIR, plugin, 'dist', 'custom-elements.json');
     if (!existsSync(file)) continue;
     const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    const pkg = JSON.parse(readFileSync(join(PLUGIN_DIR, plugin, 'package.json'), 'utf8')).name;
     for (const mod of manifest.modules ?? []) {
       for (const d of mod.declarations ?? []) {
         if (!d.customElement || !d.tagName) continue;
+        apiElements.push(apiEntry(d, pkg));
         seen.add(`${d.tagName}.mdx`);
         writeIfChanged(
           join(PARTIALS, `${d.tagName}.mdx`),
@@ -591,25 +621,37 @@ if (existsSync(PLUGIN_DIR)) {
   for (const f of readdirSync(PARTIALS)) if (f.endsWith('.mdx') && !seen.has(f)) rmSync(join(PARTIALS, f));
 }
 
+apiElements.sort((a, b) => a.tag.localeCompare(b.tag));
+mkdirSync(join(GENERATED, 'api'), { recursive: true });
+writeIfChanged(
+  join(GENERATED, 'api', 'elements.json'),
+  `${JSON.stringify(apiElements, null, 2)}\n`,
+);
+
 /*
- * Sweep. These directories hold nothing but generated pages, so a removed element — or one that
- * became a PART of another — must take its page with it. Without this, folding the composer's
- * seven parts in would have left seven pages documenting elements the catalogue no longer lists.
+ * Sweep — of what THIS script wrote, and nothing else. A removed element, or one that became a
+ * PART of another, must take its page with it: folding the composer's seven parts in would
+ * otherwise have left seven pages documenting elements the catalogue no longer lists.
+ *
+ * It used to delete every `.mdx` it did not write in this directory, on the premise that the
+ * directory held nothing else. The catalogue's hand-written pages now live here too (flat files
+ * beside the generated group folders), so a file is only ever removed when it carries this
+ * script's own footer — a page somebody wrote is never this script's to delete.
  */
+const MARKER = 'apps/docs/scripts/gen-element-pages.mjs';
+const ours = (file) => readFileSync(file, 'utf8').includes(MARKER);
 let swept = 0;
 for (const entry of readdirSync(CONTENT, { withFileTypes: true })) {
   if (entry.isDirectory()) {
     const dir = join(CONTENT, entry.name);
     const wanted = keep.get(entry.name);
     for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.mdx')) continue;
-      if (!wanted || !wanted.has(f)) {
-        rmSync(join(dir, f));
-        swept++;
-      }
+      if (!f.endsWith('.mdx') || (wanted && wanted.has(f)) || !ours(join(dir, f))) continue;
+      rmSync(join(dir, f));
+      swept++;
     }
-    if (!wanted) rmSync(dir, { recursive: true });
-  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx') {
+    if (!wanted && readdirSync(dir).length === 0) rmSync(dir, { recursive: true });
+  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx' && ours(join(CONTENT, entry.name))) {
     rmSync(join(CONTENT, entry.name));
     swept++;
   }

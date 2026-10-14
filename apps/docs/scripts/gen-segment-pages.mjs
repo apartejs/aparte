@@ -311,6 +311,27 @@ writeIfChanged(
     `export const SEGMENT_PREVIEWS: SegmentPreview[] = ${JSON.stringify(previews, null, 4)};\n`,
 );
 
+/*
+ * The same shapes as DATA, for the catalogue's hand-written pages: a page about "Reasoning"
+ * shows the thinking segment's fields by asking for them, from this one source.
+ */
+mkdirSync(join(GENERATED, 'api'), { recursive: true });
+writeIfChanged(
+  join(GENERATED, 'api', 'segments.json'),
+  `${JSON.stringify(
+    segments.map((s) => ({
+      kind: s.kind,
+      name: s.name,
+      description: docOf(s.decl),
+      example: exampleOf(s.decl) ?? '',
+      renderer: rendererFor(s.kind) ?? null,
+      fields: fieldsOf(s.decl),
+    })),
+    null,
+    2,
+  )}\n`,
+);
+
 mkdirSync(OUT, { recursive: true });
 const keep = new Set();
 for (const s of segments) {
