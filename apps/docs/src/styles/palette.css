@@ -42,6 +42,16 @@
   --brand-dim: #a89bb6;          /* muted text */
   --brand-plum: #a48fc0;         /* secondary voice */
   --brand-user-bubble: #2f2740;
+
+  /* Type, shared by the landing and the docs. ONE sans for everything a reader reads —
+     headings, prose, the UI — because a single face held with care is what makes the
+     docs this site is measured against look finished; Georgia was a proxy that rendered
+     differently on every OS. The serif stays for the wordmark and one accent word: the
+     brand's voice, used where it is a signature rather than a texture. Self-hosted
+     (fontsource), so no third-party request and no CSP change. */
+  --brand-font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --brand-font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --brand-font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
 
 :root[data-theme="light"] {
