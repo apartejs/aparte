@@ -51,6 +51,28 @@ const imageAlt = `aparté — ${entry.data.title}`;
   })();
 </script>
 
+<!-- The copy button every code block carries (src/lib/markdown.mjs). One delegated listener
+     for the whole page; the button says it worked the way the chat's own code block does,
+     with a check for a moment. -->
+<script is:inline>
+  document.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-copy-code]') : null;
+    if (!button) return;
+    const code = button.closest('.aparte-segment-code')?.querySelector('pre')?.textContent ?? '';
+    try {
+      await navigator.clipboard.writeText(code);
+      button.setAttribute('data-copied', '');
+      button.setAttribute('aria-label', 'Copied');
+      setTimeout(() => {
+        button.removeAttribute('data-copied');
+        button.setAttribute('aria-label', 'Copy');
+      }, 1500);
+    } catch {
+      // A browser that refuses the clipboard leaves the code selectable; nothing to undo.
+    }
+  });
+</script>
+
 <!-- Self-hosted Umami, on every docs page. Here rather than in the config's `head`
      array because that array is Starlight's alone and would still miss the landing,
      so the site would need two mechanisms for one tag; this file is already the

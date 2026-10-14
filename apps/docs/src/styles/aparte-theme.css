@@ -183,6 +183,10 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
 .aparte-doc-callout {
   margin-block: 1.25rem;
 }
+/* "Copied": the button turns to the success colour for a moment. */
+.aparte-doc-code .aparte-code-copy[data-copied] {
+  color: var(--aparte-success);
+}
 
 /* Search (Pagefind): same brass focus as the chat composer — Pagefind defaults
    to a lighter accent, so the search box focus looked off next to the chat. */
