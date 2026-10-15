@@ -1,5 +1,13 @@
 # @aparte-workspace/demo-vanilla
 
+## 0.0.35
+
+### Patch Changes
+
+- Updated dependencies [c0d518b]
+- Updated dependencies [cd4a48f]
+  - @aparte/core@0.19.2
+
 ## 0.0.34
 
 ### Patch Changes

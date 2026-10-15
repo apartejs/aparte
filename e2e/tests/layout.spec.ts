@@ -11,11 +11,12 @@
  * exist for this: the chat beside a frame, and the same split inside a real
  * `.aparte-app-shell` with a sidebar that becomes a drawer.
  *
- * Every assertion here is geometry or an attribute the element wrote — never a
- * pixel constant, because three engines round differently and the viewport is the
- * config's, not this file's.
+ * Every assertion here is geometry, an attribute the element wrote, or a painted colour
+ * compared with the one the stylesheet asked for — never a pixel constant, because
+ * three engines round differently and the viewport is the config's, not this file's.
  */
 
+import { inflateSync } from 'node:zlib';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
@@ -23,6 +24,23 @@ import { ChatPage } from '../helpers/chat.js';
 
 /** The same phone box `responsive.spec.ts` uses, and under the split's 48rem breakpoint. */
 const PHONE = { width: 390, height: 844 };
+
+/**
+ * The colour the engine painted at one point, from a screenshot clipped to it. The first
+ * pixel of a PNG's first row is stored as is whatever the row's filter, because it has no
+ * neighbour to be predicted from — so inflating the data is the whole decoder.
+ */
+async function paintedAt(page: Page, x: number, y: number): Promise<number[]> {
+    const png = await page.screenshot({ clip: { x, y, width: 1, height: 1 } });
+    const data: Buffer[] = [];
+    for (let at = 8; at < png.length; ) {
+        const length = png.readUInt32BE(at);
+        if (png.toString('ascii', at + 4, at + 8) === 'IDAT') data.push(png.subarray(at + 8, at + 8 + length));
+        at += 12 + length;
+    }
+    const raw = inflateSync(Buffer.concat(data));
+    return [raw[1]!, raw[2]!, raw[3]!]; // raw[0] is the row's filter byte
+}
 
 interface SplitBoxes {
     /** The container's inline size. */
@@ -427,6 +445,49 @@ test.describe('at phone width', () => {
         const noSideScroll = await page.evaluate(() =>
             document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
         expect(noSideScroll, 'the shell must not widen the page').toBe(true);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+
+    test('the open drawer is painted in its own ground, not dimmed by its scrim', async ({ page }) => {
+        // The open drawer is a stacking context (fixed + z-index) and its scrim a child at
+        // z-index -1, which paints ABOVE the context's own background: the whole panel came
+        // out grey, and only the children with a ground of their own (the search field, the
+        // selected row) stayed bright. Every check above is behaviour, so none saw it; this
+        // one reads what the engine painted.
+        const { errors } = await open(page, 'shell');
+        const sidebar = page.locator('aparte-sidebar');
+        await page.locator('.aparte-app-header__toggle').click();
+        await expect(sidebar).not.toHaveAttribute('collapsed', '');
+        await expect(page.locator('.aparte-sidebar__scrim')).toHaveCount(1);
+        // The slide has landed: what is read below is the panel at rest.
+        await expect.poll(() => sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().left))).toBe(0);
+
+        // A point of bare ground — the foot of the body region — and the colour the
+        // stylesheet asked for, resolved by the engine itself.
+        const probe = await page.evaluate(() => {
+            const host = document.querySelector('aparte-sidebar')!;
+            const r = host.querySelector('.aparte-sidebar__body')!.getBoundingClientRect();
+            const x = Math.round(r.left + r.width / 2);
+            const y = Math.round(r.bottom - 4);
+            // Nothing between the point and the drawer may paint a ground of its own.
+            for (let n = document.elementFromPoint(x, y); n && n !== host; n = n.parentElement) {
+                const bg = getComputedStyle(n).backgroundColor;
+                if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return { x, y, blocker: n.className };
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 1;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+            ctx.fillStyle = getComputedStyle(host).backgroundColor;
+            ctx.fillRect(0, 0, 1, 1);
+            return { x, y, blocker: null, ground: [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)] };
+        });
+        expect(probe.blocker, 'the probe must land on bare ground').toBeNull();
+
+        const painted = await paintedAt(page, probe.x, probe.y);
+        for (const [i, channel] of ['red', 'green', 'blue'].entries()) {
+            expect(Math.abs(painted[i]! - probe.ground![i]!), `${channel}: painted ${painted} for a ground of ${probe.ground}`)
+                .toBeLessThanOrEqual(6);
+        }
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 });

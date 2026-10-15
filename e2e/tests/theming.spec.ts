@@ -292,3 +292,31 @@ for (const order of ['host after core', 'host before core (Vite dev)'] as const)
         });
     }
 }
+
+/*
+ * The menu's check mark. Every item of a panel that holds a checkable one keeps a gutter,
+ * as a hidden glyph, so the labels share one edge — and the rule that does it weighs
+ * (0,4,1), because `:has()` takes the weight of its argument. The rule that shows the glyph
+ * on the checked item weighed (0,2,1) and lost: no menu showed which item was checked, the
+ * kit's own example included. Only a browser resolves that cascade.
+ */
+test('a checked menu item shows its check; the others keep the gutter', async ({ page }) => {
+    const marks = await page.evaluate(() => {
+        const menu = document.createElement('div');
+        menu.className = 'aparte-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML =
+            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="true">Ask</button>' +
+            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="false">Auto</button>' +
+            '<button class="aparte-menu__item" role="menuitem">Copy</button>';
+        document.body.appendChild(menu);
+        return [...menu.children].map((item) => {
+            const mark = getComputedStyle(item, '::before');
+            return { content: mark.content, visibility: mark.visibility };
+        });
+    });
+    expect(marks[0]!.visibility, 'the checked item shows its check').toBe('visible');
+    for (const mark of marks) expect(mark.content, 'every item keeps the gutter').not.toBe('none');
+    expect(marks[1]!.visibility).toBe('hidden');
+    expect(marks[2]!.visibility).toBe('hidden');
+});
