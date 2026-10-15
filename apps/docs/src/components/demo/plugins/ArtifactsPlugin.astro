@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-artifacts` for a demo frame: the demo calls `setupArtifacts()` itself. */
+---
+
+<script>
+    import * as artifacts from '@aparte/plugin-artifacts';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).artifacts = artifacts;
+</script>

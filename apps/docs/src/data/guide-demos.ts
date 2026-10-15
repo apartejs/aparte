@@ -20,6 +20,8 @@
  * is why every scenario below is driven through a public method (`setSiblings`,
  * `setSegments`) rather than through a module export.
  */
+import type { DemoPlugin } from '../components/demo/plugins';
+
 export interface GuideDemo {
     /** URL segment and `<Demo id>`. */
     id: string;
@@ -28,12 +30,11 @@ export interface GuideDemo {
     /** The scenario: markup, plus an optional classic script that drives it. */
     html: string;
     /**
-     * Packages the preview document must import for this scenario, beyond core — today
-     * only `'artifacts'`. Named per demo rather than imported site-wide: an
-     * unconditional import would put the plugin's chunk in every element, segment,
-     * class and demo frame on the site, for the one frame that uses it.
+     * Plugins the preview document loads for this scenario, beyond core (see
+     * components/demo/PluginRuntime.astro). Named per demo rather than imported site-wide:
+     * an unconditional import would put every plugin in every frame on the site.
      */
-    plugins?: string[];
+    plugins?: readonly DemoPlugin[];
 }
 
 export const GUIDE_DEMOS: GuideDemo[] = [
@@ -514,7 +515,7 @@ function toLine(item) {
      here so the whole card fits a documentation frame.
 
      In your app the first line is \`import { setupArtifacts } from '@aparte/plugin-artifacts'\`.
-     This frame reads it off \`window.aparteArtifacts\` only because a classic script
+     This frame reads it off \`window.apartePlugins.artifacts\` only because a classic script
      cannot import. -->
 <aparte-split position="55" breakpoint="48rem" style="height: 30rem; --aparte-split-min: 18rem; --aparte-split-max: 75%">
   <aparte-chat style="--aparte-artifact-body-max: 11rem">
@@ -534,7 +535,7 @@ function toLine(item) {
 </aparte-split>
 
 <script>
-  const { setupArtifacts, artifactSegment } = window.aparteArtifacts;
+  const { setupArtifacts, artifactSegment } = window.apartePlugins.artifacts;
   setupArtifacts();
 
   const DOC = \`<!doctype html>

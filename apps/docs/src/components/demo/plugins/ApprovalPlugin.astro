@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-approval` for a demo frame: the demo calls `setupApproval()` itself. */
+---
+
+<script>
+    import * as approval from '@aparte/plugin-approval';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).approval = approval;
+</script>

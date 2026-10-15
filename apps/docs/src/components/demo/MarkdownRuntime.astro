@@ -1,0 +1,40 @@
+---
+/**
+ * Markdown in a demo frame, wired the way an app wires it: the streaming parser for the
+ * tokens as they arrive, marked for a finished reply, Shiki for code (its `/core` entry,
+ * with the handful of grammars these demos use, and the light/dark pair following the
+ * frame's theme).
+ *
+ * The highlighter loads asynchronously, and a block is highlighted when it settles: a demo
+ * that seeds a settled code block at once would get it plain. So the setup's promise goes
+ * on `window.__aparteDemoReady`, which PreviewDocument awaits before it runs any demo script.
+ */
+---
+
+<script>
+    import { setupMarkedProvider } from '@aparte/plugin-marked';
+    import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
+    import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
+    import { createHighlighterCore } from 'shiki/core';
+    import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+    import bash from '@shikijs/langs/bash';
+    import css from '@shikijs/langs/css';
+    import html from '@shikijs/langs/html';
+    import js from '@shikijs/langs/javascript';
+    import json from '@shikijs/langs/json';
+    import ts from '@shikijs/langs/typescript';
+    import tsx from '@shikijs/langs/tsx';
+    import githubDark from '@shikijs/themes/github-dark';
+    import githubLight from '@shikijs/themes/github-light';
+
+    setupStreamingMarkdownProvider();
+    setupMarkedProvider();
+    const ready = createHighlighterCore({
+        themes: [githubLight, githubDark],
+        langs: [bash, css, html, js, json, ts, tsx],
+        engine: createJavaScriptRegexEngine(),
+    }).then((highlighter) => setupShikiProviderFromHighlighter(highlighter, { theme: { light: 'github-light', dark: 'github-dark' } }));
+
+    const host = window as unknown as { __aparteDemoReady?: Promise<unknown>[] };
+    (host.__aparteDemoReady ??= []).push(ready);
+</script>

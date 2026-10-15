@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-model-selector` for a demo frame: the import defines `<aparte-model-selector>`. */
+---
+
+<script>
+    import * as modelSelector from '@aparte/plugin-model-selector';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {})['model-selector'] = modelSelector;
+</script>

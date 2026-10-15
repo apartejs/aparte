@@ -1,0 +1,11 @@
+---
+/** `@aparte/plugin-ask-user` for a demo frame, installed: `setupAskUser()` has no options to show. */
+---
+
+<script>
+    import * as askUser from '@aparte/plugin-ask-user';
+
+    askUser.setupAskUser();
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {})['ask-user'] = askUser;
+</script>
