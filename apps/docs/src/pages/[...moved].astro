@@ -7,10 +7,18 @@
  * (so the old URL does not stay in the history), and keeps the meta refresh for a reader
  * without script. `noindex` + `canonical` tell a crawler where the page lives now.
  */
-import { REDIRECTS } from '../data/redirects.mjs';
+import { getCollection } from 'astro:content';
+import legacy from '../data/legacy-urls.json';
+import { MOVED, catalogueRedirects } from '../data/redirects.mjs';
 
-export function getStaticPaths() {
-    return Object.entries(REDIRECTS).map(([from, to]) => ({
+export async function getStaticPaths() {
+    // The catalogue's moves, from the collection rather than the files: this module is bundled,
+    // and scripts/lib/catalogue.mjs reads the files relative to its own location.
+    const pages = (await getCollection('docs'))
+        .filter((entry) => entry.data.catalog)
+        .map((entry) => ({ slug: entry.id.replace(/^components\//, ''), claims: entry.data.catalog!.claims }));
+    const redirects = { ...MOVED, ...catalogueRedirects(pages, legacy.urls) };
+    return Object.entries(redirects).map(([from, to]) => ({
         params: { moved: from.replace(/^\/|\/$/g, '') },
         props: { to },
     }));

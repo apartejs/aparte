@@ -21,6 +21,7 @@ import { writeIfChanged } from './write-if-changed.mjs';
 import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readCatalogue } from './lib/catalogue.mjs';
 import ts from 'typescript';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -125,6 +126,9 @@ function rendererFor(kind) {
 
 // mdxSafe here too: a field's description can name a tag, and a bare one fails the MDX parse.
 const esc = (s) => mdxSafe(String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim());
+/** For a cell's code span: MDX reads nothing inside backticks, so only the table's pipe and line
+ *  breaks matter — mdxSafe's entities would print verbatim there (`&#123;` for `{`). */
+const escCode = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').replace(/`/g, "'").trim();
 const yaml = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
 function firstSentence(text) {
@@ -146,7 +150,7 @@ function table(fields) {
   for (const f of fields) {
     const cell =
       f.doc.length > LONG_DOC ? `${esc(firstSentence(f.doc))} [More](#${f.name.toLowerCase()})` : esc(f.doc);
-    md += `| \`${esc(f.name)}\` | \`${esc(f.type)}\` | ${f.optional ? '—' : 'yes'} | ${cell} |\n`;
+    md += `| \`${escCode(f.name)}\` | \`${escCode(f.type)}\` | ${f.optional ? '—' : 'yes'} | ${cell} |\n`;
   }
   return md;
 }
@@ -291,7 +295,13 @@ for (const name of unionMembers) {
  *
  * A segment with no `@example` gets no entry and `SegmentPreview` renders nothing.
  */
+// A type a catalogue page claims is documented THERE (with demos of its own, not this frame): it
+// gets no generated page and no preview route, the index links to the catalogue page, and
+// src/data/redirects.mjs sends the old URL on.
+const claimedBy = new Map(readCatalogue().flatMap((e) => e.claims.segments.map((kind) => [kind, e.slug])));
+
 const previews = segments
+  .filter((s) => !claimedBy.has(s.kind))
   .map((s) => ({ kind: s.kind, name: s.name, example: exampleOf(s.decl) }))
   .filter((p) => p.example);
 
@@ -353,7 +363,7 @@ for (const s of segments) {
     // `import('./tools.js').AparteToolCall` is how the compiler names a type from another
     // module; a reader needs the name, which is what they import.
     const type = f.type.replace(/import\([^)]*\)\./g, '');
-    md += `| \`${esc(f.name)}\` | \`${esc(type)}\` | ${f.optional ? '—' : 'yes'} | ${cell} |\n`;
+    md += `| \`${escCode(f.name)}\` | \`${escCode(type)}\` | ${f.optional ? '—' : 'yes'} | ${cell} |\n`;
   }
   for (const f of own.filter((f) => f.doc.length > LONG_DOC)) {
     md += `\n<span id="field-${f.name.toLowerCase()}"></span>**\`${f.name}\`** — ${mdxSafe(f.doc)}\n`;
@@ -364,9 +374,12 @@ for (const s of segments) {
 }
 for (const f of readdirSync(SEGMENT_PIECES)) if (!pieces.has(f)) rmSync(join(SEGMENT_PIECES, f));
 
+const segmentHref = (kind) => (claimedBy.has(kind) ? `/components/${claimedBy.get(kind)}/` : `/segments/${kind.replace(/_/g, '-')}/`);
+
 mkdirSync(OUT, { recursive: true });
 const keep = new Set();
 for (const s of segments) {
+  if (claimedBy.has(s.kind)) continue;
   // The discriminant is the truth a developer writes (`type: 'tool_call'`) and stays the page
   // title; the URL gets hyphens, because a search engine reads `tool-call` as two words and
   // `tool_call` as one token.
@@ -396,7 +409,7 @@ tool call awaiting approval, then code, then prose.
 
 `;
   for (const s of segments) {
-    md += `- **[${s.kind}](/segments/${s.kind.replace(/_/g, '-')}/)** — ${mdxSafe(firstSentence(docOf(s.decl)) || s.name)}\n`;
+    md += `- **[${s.kind}](${segmentHref(s.kind)})** — ${mdxSafe(firstSentence(docOf(s.decl)) || s.name)}\n`;
   }
   md += `
 Two seams make the list yours: [\`registerSegmentRenderer\`](/guides/customization/#custom-segment-types)

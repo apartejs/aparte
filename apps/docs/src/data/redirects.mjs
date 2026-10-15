@@ -14,12 +14,43 @@
  * `scripts/check-legacy-urls.mjs` fails when one of them leads nowhere.
  *
  * Keys and values are absolute paths with a trailing slash.
- *
- * @type {Record<string, string>}
  */
-export const REDIRECTS = {
+
+/** Moves made by hand. @type {Record<string, string>} */
+export const MOVED = {
     // The first release notes page; /changelog/ is the guessable URL that replaced it.
     '/reference/release-notes/': '/changelog/',
     // One 752-line page listing every element became one page per component.
     '/reference/api/': '/components/',
 };
+
+/**
+ * Moves made by the catalogue: a published element, segment, kit or plugin page whose subject a
+ * catalogue page now claims goes to that page. Derived, never written, so a claim cannot forget
+ * its redirect. Pure — the pages are passed in, because the two callers read them differently
+ * (Node from the files, the redirect route from Astro's collection).
+ *
+ * @param {{ slug: string, claims: { elements?: string[], segments?: string[], classes?: string[], plugin?: string } }[]} pages
+ * @param {string[]} urls every URL the site ever published (legacy-urls.json)
+ * @returns {Record<string, string>}
+ */
+export function catalogueRedirects(pages, urls) {
+    const claimant = (test) => pages.find((p) => test(p.claims));
+    /** @type {Record<string, string>} */
+    const out = {};
+    for (const url of urls) {
+        let m;
+        let page;
+        if ((m = /^\/components\/[a-z]+\/(aparte-[a-z-]+)\/$/.exec(url))) {
+            page = claimant((c) => c.elements?.includes(m[1]));
+        } else if ((m = /^\/segments\/([a-z-]+)\/$/.exec(url))) {
+            page = claimant((c) => c.segments?.includes(m[1].replace(/-/g, '_')));
+        } else if ((m = /^\/kit\/([a-z-]+)\/$/.exec(url))) {
+            page = claimant((c) => c.classes?.includes(m[1]));
+        } else if ((m = /^\/plugins\/([a-z-]+)\/$/.exec(url))) {
+            page = claimant((c) => c.plugin === `@aparte/plugin-${m[1]}`);
+        }
+        if (page) out[url] = `/components/${page.slug}/`;
+    }
+    return out;
+}

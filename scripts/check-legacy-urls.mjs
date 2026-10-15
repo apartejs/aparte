@@ -15,7 +15,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REDIRECTS } from '../apps/docs/src/data/redirects.mjs';
+import { REDIRECTS } from '../apps/docs/scripts/lib/redirects.mjs';
 
 const DIST = 'apps/docs/dist';
 const LEGACY = 'apps/docs/src/data/legacy-urls.json';

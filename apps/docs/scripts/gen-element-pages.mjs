@@ -34,6 +34,7 @@ import { writeIfChanged } from './write-if-changed.mjs';
 import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readCatalogue } from './lib/catalogue.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CEM = resolve(here, '../../../packages/core/dist/custom-elements.json');
@@ -122,6 +123,9 @@ function humanName(tag) {
 // mdxSafe here and not only on the prose: a table cell carries descriptions too, and a bare
 // `<aparte-composer>` in one of them fails the MDX parse exactly the same way.
 const esc = (s) => mdxSafe(String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim());
+/** For a cell's code span: MDX reads nothing inside backticks, so only the table's pipe and line
+ *  breaks matter — mdxSafe's entities would print verbatim there (`&#123;` for `{`). */
+const escCode = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').replace(/`/g, "'").trim();
 const typeText = (t) => (t && t.text ? t.text : '');
 const isPublic = (m) => m.privacy !== 'private' && m.privacy !== 'protected' && !m.name.startsWith('_');
 
@@ -208,17 +212,17 @@ function apiTables(decl, h) {
 
   if (attrs.length) {
     md += `${head(h, 'Attributes')}| Attribute | Description |\n| --- | --- |\n`;
-    for (const a of attrs) md += `| \`${esc(a.name)}\` | ${esc(a.description)} |\n`;
+    for (const a of attrs) md += `| \`${escCode(a.name)}\` | ${esc(a.description)} |\n`;
   }
   if (props.length) {
     md += `${head(h, 'Properties')}| Property | Type | Description |\n| --- | --- | --- |\n`;
     for (const p of props) {
-      md += `| \`${esc(p.name)}\`${p.readonly ? ' _(readonly)_' : ''} | \`${esc(typeText(p.type))}\` | ${esc(p.description)} |\n`;
+      md += `| \`${escCode(p.name)}\`${p.readonly ? ' _(readonly)_' : ''} | \`${escCode(typeText(p.type))}\` | ${esc(p.description)} |\n`;
     }
   }
   if (methods.length) {
     md += `${head(h, 'Methods')}| Method | Description |\n| --- | --- |\n`;
-    for (const m of methods) md += `| \`${esc(methodSig(m))}\` | ${esc(m.description)} |\n`;
+    for (const m of methods) md += `| \`${escCode(methodSig(m))}\` | ${esc(m.description)} |\n`;
   }
   if (events.length) {
     // The Type column is what tells a consumer the shape of `e.detail`, and what a typed wrapper
@@ -226,7 +230,7 @@ function apiTables(decl, h) {
     // absence is information too.
     md += `${head(h, 'Events')}| Event | Type | Description |\n| --- | --- | --- |\n`;
     for (const ev of events) {
-      md += `| \`${esc(ev.name)}\` | \`${esc(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
+      md += `| \`${escCode(ev.name)}\` | \`${escCode(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
     }
   }
   return md;
@@ -243,7 +247,7 @@ function cssTable(decl, h) {
   // it would be the confident-but-wrong kind of sentence this lot exists to remove.
   let md = `${head(h, h ? `\`<${decl.tagName}>\`` : 'CSS variables')}| Variable | Default | Description |\n| --- | --- | --- |\n`;
   for (const p of cssProps) {
-    md += `| \`${esc(p.name)}\` | ${p.default ? `\`${esc(p.default)}\`` : '—'} | ${esc(p.description)} |\n`;
+    md += `| \`${escCode(p.name)}\` | ${p.default ? `\`${escCode(p.default)}\`` : '—'} | ${esc(p.description)} |\n`;
   }
   return md;
 }
@@ -495,9 +499,13 @@ before finding them.
 
 // ── write ────────────────────────────────────────────────────────────────────
 
+// An element a catalogue page claims is documented THERE: its generated page goes (the sweep
+// below removes the file) and src/data/redirects.mjs sends the old URL to the new page.
+const claimed = new Set(readCatalogue().flatMap((e) => e.claims.elements));
+
 const pagesByGroup = {};
 for (const tag of byTag.keys()) {
-  if (isPart.has(tag)) continue;
+  if (isPart.has(tag) || claimed.has(tag)) continue;
   const group = GROUP[tag] ?? 'other';
   if (!GROUP[tag]) console.warn(`[gen-element-pages] <${tag}> is in no purpose group — filed under "other"`);
   (pagesByGroup[group] ??= []).push(tag);
