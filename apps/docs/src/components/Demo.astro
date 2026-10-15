@@ -5,7 +5,7 @@
  * `ElementPreview` renders only the frame — on a generated element page the code beside it
  * is emitted separately, by the generator. Dropped into a guide it therefore showed a
  * picture with no code, which is worth less than the code alone it replaced. That is the
- * whole reason this component exists: it reads `guide-demos.ts` once and emits both, so
+ * whole reason this component exists: it reads the demo registry (src/data/demos/) once and emits both, so
  * the reader sees the state AND how to reach it, and neither can drift from the other.
  *
  * An unknown `id` renders NOTHING rather than an empty box, the same rule
@@ -13,18 +13,18 @@
  * shipped here for months once already.
  */
 import Code from './content/Code.astro';
-import { GUIDE_DEMOS } from '../data/guide-demos';
+import { findDemo } from '../data/demos';
 import PreviewFrame from './PreviewFrame.astro';
 
 interface Props {
-    /** The scenario's `id` in `guide-demos.ts`. */
+    /** The demo's `id` in src/data/demos/. */
     id: string;
     /** One line under the frame, saying what the reader is looking at. */
     caption: string;
 }
 
 const { id, caption } = Astro.props;
-const demo = GUIDE_DEMOS.find((entry) => entry.id === id);
+const demo = findDemo(id);
 ---
 
 {

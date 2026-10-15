@@ -337,6 +337,23 @@ html {
   color: var(--aparte-text);
 }
 
+/* What a catalogue page documents, as the kit's tags under the lede. */
+.site-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-2);
+  margin: var(--aparte-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.site-chips code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--brand-font-mono);
+  font-size: inherit;
+}
+
 /* ── Search dialog ──────────────────────────────────────────────────────── */
 
 .site-search {

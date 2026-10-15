@@ -180,7 +180,7 @@ and Angular an unknown slot name renders **nothing, silently**, which is why thi
 exists. Pass one `toolbar` and order your controls yourself — see
 [The composer toolbar](/guides/customization/#the-composer-toolbar).
 
-**The row is empty.** [`<aparte-composer-toolbar>`](/components/input/aparte-composer/) reflects `data-empty` while it holds no
+**The row is empty.** [`<aparte-composer-toolbar>`](/components/composer/) reflects `data-empty` while it holds no
 content, and the stylesheet hides it then — an empty row must not draw its separator. Text
 counts as content, so a bare token count is fine; whitespace and comments do not. If you
 expected something in it and see nothing, inspect the element: `data-empty` present means

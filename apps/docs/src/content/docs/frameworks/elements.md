@@ -116,7 +116,7 @@ Declared through `SvelteHTMLElements`, so `svelte-check` covers them:
 
 Angular is the one wrapper that ships code for this, for two structural reasons: its template
 compiler rejects a tag nothing claims, and `[placeholder]="x"` writes a *property* — which on an
-attribute-driven element is a silent no-op, or a throw on one of [`<aparte-composer>`](/components/input/aparte-composer/)'s eight
+attribute-driven element is a silent no-op, or a throw on one of [`<aparte-composer>`](/components/composer/)'s eight
 getter-only accessors.
 
 So each element has a **standalone directive** whose selector is the tag. Import the ones you use,

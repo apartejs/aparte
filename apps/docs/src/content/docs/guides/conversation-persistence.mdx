@@ -345,7 +345,7 @@ Read them back with `segmentDuration(segment)` rather than subtracting, so an ab
 gives you `undefined` instead of `NaN`.
 :::
 
-**A request that outlived its page is closed for you.** A [`tool_call`](/segments/tool-call/) persisted as
+**A request that outlived its page is closed for you.** A [`tool_call`](/components/tool/) persisted as
 `awaiting-approval` comes back as `aborted`. The loop that awaited the decision went with
 the page, so nothing can answer it — and `aborted` rather than `rejected` because nobody
 refused anything. Every load path shares one normalisation, so this holds whichever of

@@ -4,14 +4,14 @@
  *
  * Deliberately the same shape as `preview/[tag].astro`: a list, `getStaticPaths`, the
  * script split out so `PreviewDocument` can revive it after the library has loaded. The
- * only difference is where the string comes from — `guide-demos.ts` rather than an
+ * only difference is where the string comes from — the demo registry (src/data/demos/) rather than an
  * element's `@example` — because a guide illustrates a STATE, not an element.
  */
-import { GUIDE_DEMOS } from '../../../data/guide-demos';
+import { DEMOS } from '../../../data/demos';
 import PreviewDocument from '../../../components/PreviewDocument.astro';
 
 export function getStaticPaths() {
-    return GUIDE_DEMOS.map((demo) => ({ params: { id: demo.id }, props: demo }));
+    return DEMOS.map((demo) => ({ params: { id: demo.id }, props: demo }));
 }
 
 const { title, html, plugins } = Astro.props;

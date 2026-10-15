@@ -20,24 +20,9 @@
  * is why every scenario below is driven through a public method (`setSiblings`,
  * `setSegments`) rather than through a module export.
  */
-import type { DemoPlugin } from '../components/demo/plugins';
+import type { DemoEntry } from './types';
 
-export interface GuideDemo {
-    /** URL segment and `<Demo id>`. */
-    id: string;
-    /** Announced as the frame's title. */
-    title: string;
-    /** The scenario: markup, plus an optional classic script that drives it. */
-    html: string;
-    /**
-     * Plugins the preview document loads for this scenario, beyond core (see
-     * components/demo/PluginRuntime.astro). Named per demo rather than imported site-wide:
-     * an unconditional import would put every plugin in every frame on the site.
-     */
-    plugins?: readonly DemoPlugin[];
-}
-
-export const GUIDE_DEMOS: GuideDemo[] = [
+export const GUIDE_DEMOS: DemoEntry[] = [
     {
         id: 'branch-picker',
         title: 'A reply with siblings, and the branch picker',

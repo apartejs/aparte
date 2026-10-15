@@ -1,0 +1,24 @@
+---
+/**
+ * One variant on a catalogue page: the live demo and, a click away, the string that renders
+ * it — one entry of src/data/demos/, read once, so the two cannot disagree.
+ *
+ * An unknown id fails the build: a catalogue page promising a variant must show one. (The
+ * guides' `<Demo>` renders nothing instead, a rule older than the catalogue.)
+ */
+import PreviewFrame from '../PreviewFrame.astro';
+import { findDemo } from '../../data/demos';
+
+interface Props {
+    /** The demo's id in src/data/demos/. */
+    id: string;
+    /** One sentence under the frame, when the heading above it does not say enough. */
+    caption?: string;
+}
+
+const { id, caption } = Astro.props;
+const demo = findDemo(id);
+if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
+---
+
+<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} />

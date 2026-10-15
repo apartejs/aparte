@@ -12,6 +12,7 @@
  * so the search index skips it.
  */
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import kit from '../generated/api/kit.json';
 import { sectionOf } from './site/sections';
 import TocList from './site/TocList.astro';
 
@@ -38,6 +39,25 @@ const groups = trail(sidebar) ?? [];
 const crumbs = groups.filter((label, i) => !(i === 0 && label === section?.label));
 
 const lede = (description ?? '').split('`');
+
+/*
+ * On a catalogue page, what it documents, in the words a developer types: the element (and
+ * how many parts fold into it), the segment type, the kit's class, the plugin to install.
+ * Read from the page's own `catalog` claims, so the chips cannot promise what the page does
+ * not cover — check-catalogue.mjs holds the claims to the API.
+ */
+const claims = entry.data.catalog?.claims;
+const firstClass = (family: string) => kit.find((f) => f.id === family)?.classes[0];
+const chips: string[] = claims
+    ? [
+          ...(claims.elements[0]
+              ? [`<${claims.elements[0]}>${claims.elements.length > 1 ? ` + ${claims.elements.length - 1} part${claims.elements.length > 2 ? 's' : ''}` : ''}`]
+              : []),
+          ...claims.segments.map((s) => `type: '${s}'`),
+          ...claims.classes.map(firstClass).filter((c): c is string => Boolean(c)).map((c) => `.${c}`),
+          ...(claims.plugin ? [claims.plugin] : []),
+      ]
+    : [];
 ---
 
 {
@@ -55,6 +75,17 @@ const lede = (description ?? '').split('`');
 }
 <h1 id="_top">{title}</h1>
 {description && <p class="aparte-lede">{lede.map((part, i) => (i % 2 ? <code>{part}</code> : part))}</p>}
+{
+    chips.length > 0 && (
+        <ul class="site-chips not-content" aria-label="What this page documents" data-pagefind-ignore>
+            {chips.map((chip) => (
+                <li class="aparte-tag aparte-tag--sm">
+                    <code class="aparte-tag__label">{chip}</code>
+                </li>
+            ))}
+        </ul>
+    )
+}
 {
     toc && (
         <details class="site-toc-mobile" data-pagefind-ignore>
