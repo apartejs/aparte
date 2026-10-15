@@ -1,0 +1,77 @@
+---
+title: Response
+description: The text of a reply, rendered as Markdown — headings, lists, tables, links — and written as it streams rather than re-rendered at every token.
+catalog:
+  group: chat
+  order: 8
+  claims:
+    segments: [text]
+  demos: [response, response-streaming, response-plain]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/text.fields.mdx';
+
+<Variant id="response" />
+
+The words of a reply are a `text` segment, or the message's `content` when it is plain text.
+Core has no Markdown dependency: until you install a renderer, it shows the text as it is,
+escaped, with its line breaks. Two plugins add the formatting: `@aparte/plugin-marked` renders a
+finished reply, `@aparte/plugin-streaming-markdown` renders one while it arrives. Whatever
+renders it, the HTML goes through core's sanitizer before it reaches the page.
+
+## Variants
+
+### While it streams
+
+<Variant id="response-streaming" />
+
+With the streaming plugin, each chunk is appended to what is already on screen instead of
+re-parsing the whole reply, so a list grows item by item and `**bold` is bold before its closing
+marks arrive. When the turn ends, the reply is rendered once more in full.
+
+### With no renderer installed
+
+<Variant id="response-plain" />
+
+The text stays readable and safe; the Markdown marks show as typed.
+
+## Usage
+
+```ts
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
+
+setupMarkedProvider(); // a finished reply, in full
+setupStreamingMarkdownProvider(); // a reply while it streams
+```
+
+`marked` and `streaming-markdown` are peer dependencies: install them beside the plugins. The
+[Markdown plugin page](/plugins/marked/) covers the options.
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-content-font-size` | The size of the reply's text. |
+| `--aparte-content-color` | Its colour. |
+| `--aparte-content-line-height` | Its line height. |
+
+Another parser plugs in with `aparteGlobalConfig.setMarkdownProvider(fn)`, a function from
+Markdown to HTML. The sanitizer can be replaced with `setHtmlSanitizer()`.
+
+## Fields
+
+<Fields />
+
+## Accessibility
+
+- Headings, lists, tables and links come out as the HTML elements they are, so a screen reader
+  can move through a long reply by heading or by list.
+- Tables, quotes and inline code are styled by the same prose sheet as the rest of the reply.
+
+## Related
+
+- [Code block](/components/code-block/) — a fenced block in a reply.
+- [Reasoning](/components/reasoning/) — rendered by the same Markdown path.
+- [Message](/components/message/) — the bubble the text sits in.

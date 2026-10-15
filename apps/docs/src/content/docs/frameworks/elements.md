@@ -162,7 +162,7 @@ There is one directive per element, named `Aparte<Element>Directive` — every c
 page under [Components](/components/) shows the exact symbol in its Angular tab — and
 `APARTE_ELEMENT_DIRECTIVES` imports them all at once.
 
-[`<aparte-chat>`](/components/conversation/aparte-chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
+[`<aparte-chat>`](/components/chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.
 
 ## Your own element, or a plugin's

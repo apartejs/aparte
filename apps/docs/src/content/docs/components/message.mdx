@@ -1,0 +1,63 @@
+---
+title: Message
+description: One message of the conversation — who wrote it, when, and its content as plain text or as a list of segments.
+catalog:
+  group: chat
+  order: 3
+  claims:
+    elements: [aparte-chat-bubble]
+  demos: [message, message-avatars]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-chat-bubble.usage.mdx';
+import BubbleApi from '../../../generated/api/elements/aparte-chat-bubble.api.mdx';
+
+<Variant id="message" />
+
+`<aparte-chat-bubble>` is one message with one role, `user` or `assistant`. The
+[transcript](/components/conversation/) creates one per message in its store; you write the tag
+yourself only when your code draws the conversation.
+
+A message holds either plain text (the `content` attribute, rendered as Markdown when a renderer
+is installed) or a list of segments: text, [reasoning](/components/reasoning/),
+[code](/components/code-block/), [tool calls](/components/tool/), [errors](/components/error/)
+and [views of your own](/components/custom-view/). Segments win when both are set.
+
+## Variants
+
+### With avatars
+
+<Variant id="message-avatars" />
+
+The avatar slot is empty, and hidden, until you fill it with `setAvatarProvider()`: initials, a
+picture, a component. The provider receives the role and the slot, already sized; it can return
+a cleanup function for a live component.
+
+## Customize
+
+Each part of a message has its own hook instead of a slot: `setBubbleShellRenderer` for the
+whole structure, `setAvatarProvider`, `setAttachmentRenderer`, `setSiblingNavRenderer`, and
+`registerSegmentRenderer` for the content. The colours and spacing are CSS variables, listed
+below.
+
+## Usage
+
+<Usage />
+
+## API
+
+<BubbleApi />
+
+## Accessibility
+
+- Each message is a `role="article"` named after its author, so a screen reader can move from
+  one message to the next.
+- A message with nothing to show (a tool with no output, a turn stopped before its first token)
+  hides its whole row instead of leaving a name and a time over nothing.
+
+## Related
+
+- [Message actions](/components/message-actions/) — copy, retry, edit, feedback.
+- [Branches](/components/branches/) — the `‹1/2›` picker between versions of a reply.
+- [Attachments](/components/attachments/) — the files a message carries.

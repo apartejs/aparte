@@ -61,7 +61,7 @@ methods straight off the `chat` object.
 The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
 discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
 For full control of the input row, fill the `composer` slot; for the primitives as
-children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+children, use core's [`<aparte-chat>`](/components/chat/) directly.
 
 The six callbacks are `@message-sent`, `@action`, `@messages-change`, `@message-appended`, `@typing-change` and `@conversation-created`. Vue hands you the payload directly — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 

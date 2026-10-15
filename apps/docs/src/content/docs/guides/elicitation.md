@@ -268,7 +268,7 @@ what happened so it can say so, and a thrown error would surface as a failed tur
 
 [`<aparte-elicitation>`](/components/input/aparte-elicitation/) is the default presenter, and it **has to be in your markup**.
 It registers itself the moment it connects — but nothing creates it for you, so put it
-inside your [`<aparte-chat>`](/components/conversation/aparte-chat/):
+inside your [`<aparte-chat>`](/components/chat/):
 
 ```html
 <aparte-chat>

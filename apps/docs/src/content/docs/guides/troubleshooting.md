@@ -241,7 +241,7 @@ table, for a provider that wants the same). Anything else thrown along the way i
 `AparteError.from(error)`, which reads the same table off an error's own `status` when it
 has one, reads `fetch`'s network failure as `NET_ERROR` (`NET_OFFLINE` when the browser
 says so) and a `TimeoutError` as `NET_TIMEOUT`, and settles on `UNKNOWN_ERROR` only when
-nothing says more. `AparteClient` renders it as the message's [`error` segment](/segments/error/)
+nothing says more. `AparteClient` renders it as the message's [`error` segment](/components/error/)
 (`content` = `error.message`, `details` = `error.code`), and dispatches an
 `aparte-message-error` `CustomEvent` on the target element with
 `{ messageId, error }` — `error` is the full `AparteError`, so `error.code`,

@@ -57,7 +57,7 @@ The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToB
 The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
 discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
 For full control of the input row, fill the `composer` slot; for the primitives as
-children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+children, use core's [`<aparte-chat>`](/components/chat/) directly.
 
 The other five callbacks — `onAction`, `onMessagesChange`, `onMessageAppended`, `onTypingChange`, `onConversationCreated` — take the same payloads as everywhere else; the table with all four frameworks side by side is generated from this wrapper's own props: [Wrapper surface](/reference/wrappers/#callbacks).
 

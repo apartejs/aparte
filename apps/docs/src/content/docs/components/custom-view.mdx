@@ -1,0 +1,85 @@
+---
+title: Custom view
+description: A view of your own inside a reply — a card, a chart, a form — drawn by a renderer you register for a segment type you name.
+catalog:
+  group: chat
+  order: 14
+  claims:
+    segments: [custom]
+  demos: [custom-view, custom-view-family]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/custom.fields.mdx';
+
+<Variant id="custom-view" />
+
+A reply is a list of segments, and the list is open: give a segment a type of your own, register
+a renderer for that type, and the reply draws your view in its place. This is how a chat shows a
+weather card, a chart or a booking form in the middle of an answer (what other libraries call
+generative UI).
+
+A view drawn from a tool's result is the same idea one step further; the [Tool call](/components/tool/)
+page shows `registerToolRenderer` for that case.
+
+## Variants
+
+### Several small views behind one renderer
+
+<Variant id="custom-view-family" />
+
+The `custom` type keeps a family of small views behind a single renderer: each segment says which
+view it wants in `subType`, and carries its data in `data`. Draw something sensible in the
+default branch, for a sub-type your app does not know yet.
+
+## Usage
+
+```ts
+import { registerSegmentRenderer } from '@aparte/core';
+import type { AparteSegmentBase } from '@aparte/core';
+
+interface ForecastSegment extends AparteSegmentBase {
+  type: 'forecast';
+  city: string;
+  days: { day: string; high: number }[];
+}
+
+registerSegmentRenderer<ForecastSegment>({
+  type: 'forecast',
+  render(segment) {
+    const card = document.createElement('div');
+    card.className = 'aparte-card';
+    card.textContent = `${segment.city}: ${segment.days.map((d) => `${d.day} ${d.high}°`).join(', ')}`;
+    return card;
+  },
+});
+```
+
+`render` returns an element or an HTML string. Returning an element is safer: nothing you
+interpolate goes through `innerHTML`. Three optional hooks follow it: `setup` once the view is in
+the page, `update` when a streamed segment changes, `cleanup` when it leaves.
+
+### When no renderer is there
+
+A conversation can outlive the code that drew it: replayed in another app, exported, loaded
+before a lazy renderer. Give the segment a `fallback`, one sentence, and core draws that text in
+its place. When `AparteClient` builds the history sent back to the model, a segment of your own
+contributes its `content`, or else that sentence.
+
+## Fields
+
+Every segment has `id`, `type` and an optional `fallback`; a segment of your own adds whatever
+fields its view needs. The `custom` type adds these:
+
+<Fields />
+
+## Accessibility
+
+What you draw is yours to make accessible: give a chart a text equivalent, a button a name, a
+form its labels. The kit's recipes used in these demos ([Card](/kit/card/),
+[Badge](/kit/badge/)) already carry their contrast and focus styles.
+
+## Related
+
+- [Tool call](/components/tool/) — a view for a tool's result.
+- [Customization guide](/guides/customization/) — every rendering hook in one place.

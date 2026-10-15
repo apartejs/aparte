@@ -249,7 +249,7 @@ rather than one per token — you don't need your own batching layer.
 :::note[Segments and `content` don't mix]
 As soon as a message has segments, the bubble stops rendering its plain `content`. So a
 message you filled with `injectTokenStream` can't also show a [`thinking`](/components/reasoning/) segment — give
-the answer its own [`text`](/segments/text/) segment if you need both in one message.
+the answer its own [`text`](/components/response/) segment if you need both in one message.
 :::
 
 :::caution[A segments-driven turn has to be finished]
@@ -346,7 +346,7 @@ exported so you do not have to reimplement them:
 | `copyText` | Copies to the clipboard on plain `http://` too — `navigator.clipboard` first, `execCommand('copy')` where it does not exist | You add a copy button of your own; core's three use it |
 | `registerAllComponents` | References all 24 element classes so a bundler cannot tree-shake their `customElements.define` away, then warns naming any tag that is still not in the registry | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
 | `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
-| `populateBubbleFromMessage` | Fills an [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
+| `populateBubbleFromMessage` | Fills an [`<aparte-chat-bubble>`](/components/message/) from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
 | `parseAparteEventStream` | Reads the NDJSON wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
 
 Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:

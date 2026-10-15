@@ -1,0 +1,38 @@
+---
+title: Waiting indicator
+description: The three dots a reply shows between the question and its first word, so the reader knows the model is on it.
+catalog:
+  group: chat
+  order: 7
+  demos: [waiting]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="waiting" />
+
+Between sending a question and the first token of the answer there is a pause: the model is
+reading, maybe calling a tool. The reply's bubble fills it with three dots, which give way to
+the text as soon as it arrives. It is on by default and needs nothing from your app: a bubble
+that is `streaming` with nothing in it yet shows it.
+
+The waiting region keeps a minimum height, so the first token does not make the transcript jump.
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-waiting-height` | The height the region keeps before the first token. |
+| `--aparte-waiting-dot-gap` | The space between the dots. |
+
+The dots stop moving under `prefers-reduced-motion`.
+
+## Accessibility
+
+- The dots are decoration; a visually hidden line says the reply is coming, from the `typing`
+  locale key.
+
+## Related
+
+- [Message](/components/message/) — the bubble that waits.
+- [Status line](/components/conversation/aparte-chat-status/) — the line that says what the turn is doing.

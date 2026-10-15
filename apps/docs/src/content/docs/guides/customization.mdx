@@ -267,7 +267,7 @@ the order you want them, and push one — with everything after it — to the en
 right-to-left locale without you doing anything: the composer mirrors the locale's reading
 direction onto itself, and the push follows.
 
-The row is **not** part of the default [`<aparte-chat>`](/components/conversation/aparte-chat/) shell. Nothing is drawn until you
+The row is **not** part of the default [`<aparte-chat>`](/components/chat/) shell. Nothing is drawn until you
 put something in it, and an empty row draws no separator either.
 
 ```html
@@ -409,7 +409,7 @@ markup.
 
 Replacing the whole bubble has two levels:
 
-- **`setBubbleShellRenderer`** (above) keeps the native [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) and swaps
+- **`setBubbleShellRenderer`** (above) keeps the native [`<aparte-chat-bubble>`](/components/message/) and swaps
   its inner structure. The machinery — action bar, streaming pushes, segments — keeps
   working, as long as your shell carries the region hooks.
 - **Your own element per message** (`renderBubble` in React, the `bubble` slot in

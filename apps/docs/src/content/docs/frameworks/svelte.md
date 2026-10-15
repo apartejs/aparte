@@ -68,7 +68,7 @@ method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` stor
 The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
 discarded — React and Svelte reject it at compile time, Vue and Angular drop it at runtime.
 For full control of the input row, fill the `composer` slot; for the primitives as
-children, use core's [`<aparte-chat>`](/components/conversation/aparte-chat/) directly.
+children, use core's [`<aparte-chat>`](/components/chat/) directly.
 
 The other five are `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange` and `onconversationCreated` (as events: `on:action`, `on:messagesChange`, … with the payload under `event.detail`) — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 

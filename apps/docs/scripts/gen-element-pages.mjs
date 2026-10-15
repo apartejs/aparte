@@ -471,7 +471,7 @@ sidebar:
 
 Every element is a plain custom element: no framework, no runtime dependency, and the same
 object whatever you mount it with. A component made of parts is documented on one page, with its
-parts as sections. [Segments](/segments/text/) are the other family and a different kind of
+parts as sections. [Segments](/segments/) are the other family and a different kind of
 thing — data somebody renders, with no tag at all.
 
 :::tip[There is a third family: the UI kit]

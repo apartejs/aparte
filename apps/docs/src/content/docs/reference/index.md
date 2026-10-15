@@ -43,7 +43,7 @@ you want is the rendered text rather than the source.
 
 :::tip[Looking for the components themselves?]
 The custom elements — `<aparte-chat>`, `<aparte-composer>`, `<aparte-select>`… — are under
-[Components](/components/); the data a bubble renders is under [Segments](/segments/text/).
+[Components](/components/); the data a bubble renders is under [Segments](/segments/).
 The **UI kit** above is the third family: no tag, just classes, for the controls your own
 page puts around the chat.
 :::
