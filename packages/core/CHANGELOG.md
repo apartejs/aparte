@@ -1,5 +1,18 @@
 # @aparte/core
 
+## 0.19.2
+
+### Patch Changes
+
+- c0d518b: A checked menu item (`role="menuitemradio"` or `menuitemcheckbox` with `aria-checked="true"`) now shows its check mark. Nothing to change in your code.
+
+  The menu keeps a gutter on every item of a panel that holds a checkable one, as a hidden glyph, so the labels share one edge. That rule uses `:has()`, which takes the weight of its argument, and it outweighed the rule that shows the glyph on the checked item: no menu showed which item was checked, the kit's own example included. The showing rule now carries the same `:has()`.
+
+- cd4a48f: The open sidebar drawer shows its own background again instead of being greyed out by its scrim. Nothing to change in your code.
+
+  The open drawer is a stacking context, and its scrim is a child at `z-index: -1`, which paints above the drawer's own background. The panel came out dimmed: a white ground measured 166,166,166 under the default scrim. Only the children with a background of their own (the search field, the selected row) stayed bright. The drawer's ground is now painted again by an `::after` above the scrim. It inherits the element's background, so a ground set through `--aparte-sidebar-bg` or through a selector of your own is the one shown.
+  - @aparte/engine@0.19.2
+
 ## 0.19.1
 
 ### Patch Changes
