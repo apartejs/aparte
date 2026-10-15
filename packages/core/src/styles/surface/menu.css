@@ -139,7 +139,10 @@
   visibility: hidden;
 }
 
-.aparte-menu__item[aria-checked='true']::before {
+/* The same `:has()` as the gutter above, and on purpose: `:has()` takes the weight of its
+   argument, so that rule weighs (0,4,1), and a bare `.aparte-menu__item[aria-checked]`
+   rule (0,2,1) lost to it — no menu ever showed which item was checked. */
+.aparte-menu:has(.aparte-menu__item[aria-checked]) .aparte-menu__item[aria-checked='true']::before {
   visibility: visible;
 }
 
