@@ -130,6 +130,21 @@ aparte-sidebar,
   box-shadow: none;
 }
 
+/* The drawer's ground, painted again above its scrim. The open drawer is a stacking
+   context (fixed + z-index) and the scrim is its child at z-index -1 — a negative child
+   paints ABOVE its context's own background, so the scrim dimmed the very panel it sets
+   off, and only the children with a ground of their own (the search field, the selected
+   row) stayed bright. An ::after at the same z-index comes after the scrim in tree order,
+   so it paints over it, inside the drawer's box only. `inherit`, so a ground set on the
+   element itself, by the token or by a selector, is the one repainted. */
+.aparte-sidebar[data-drawer]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: inherit;
+}
+
 .aparte-sidebar__scrim {
   position: fixed;
   inset: 0;
