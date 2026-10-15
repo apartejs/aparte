@@ -1,0 +1,17 @@
+/*
+ * The library's sheet, in a cascade layer of its own: Starlight < the library < the site.
+ *
+ * Every page loads it — the docs through Starlight's customCss, the other pages through
+ * src/layouts/Landing.astro — so the bundler makes it ONE shared file, and where that file
+ * lands among a page's <link>s is the bundler's choice, not ours. Unlayered, a tie between
+ * a recipe and the site's own rule went to whichever sheet came last: the day the landing
+ * started importing it, the shared chunk moved after the site's CSS and every code block
+ * in the docs gained 8px of margin. In a layer, the order of the files no longer decides:
+ * the site wins every tie, the way a consumer's own stylesheet does.
+ *
+ * `starlight` is named first so the library sits ABOVE Starlight's own layers
+ * (`starlight.base`, `starlight.core`, … nest inside it): the recipes must still beat
+ * Starlight's content styles inside a page, as they did unlayered.
+ */
+@layer starlight, aparte;
+@import '@aparte/core/styles.css' layer(aparte);

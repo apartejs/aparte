@@ -344,8 +344,9 @@ export default defineConfig({
       customCss: [
         '@fontsource-variable/geist',
         '@fontsource-variable/geist-mono',
-        // The library's stylesheet on every page: the site is drawn with its recipes.
-        '@aparte/core/styles.css',
+        // The library's stylesheet on every page, in its own cascade layer: the site is
+        // drawn with its recipes. See the file for why the layer.
+        './src/styles/library.css',
         './src/styles/palette.css',
         './src/styles/aparte-theme.css',
       ],

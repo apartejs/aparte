@@ -2,6 +2,9 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+// The library's sheet, layered (see the file): palette.css reads core's palette, and the
+// chrome wears its recipes.
+import '../styles/library.css';
 import '../styles/palette.css';
 import '../styles/landing.css';
 
@@ -130,7 +133,8 @@ const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-'
     <script is:inline>
       // Shared light/dark with the Starlight docs: read the SAME localStorage key
       // Starlight uses (`starlight-theme`) and apply `data-theme` before paint, so
-      // the choice made on the docs carries over to the landing with no flash.
+      // the choice made on the docs carries over to the landing with no flash. The
+      // library reads `data-aparte-theme`, and the palette is the library's, so both.
       (() => {
         const stored = localStorage.getItem('starlight-theme') || 'auto';
         const theme =
@@ -140,6 +144,7 @@ const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-'
               ? 'dark'
               : 'light';
         document.documentElement.dataset.theme = theme;
+        document.documentElement.dataset.aparteTheme = theme;
       })();
     </script>
 
@@ -242,6 +247,7 @@ const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-'
           const next = now === 'dark' ? 'light' : 'dark';
           localStorage.setItem('starlight-theme', next);
           root.setAttribute('data-theme', next);
+          root.setAttribute('data-aparte-theme', next);
           document.dispatchEvent(new CustomEvent('site-theme-change', { detail: { theme: next } }));
         });
       })();

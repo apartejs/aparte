@@ -781,9 +781,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       </section>
 
     <script>
-      // The real library — registers <aparte-*> elements + pulls in the theme.
+      // The real library — registers <aparte-*> elements. Its stylesheet comes with the
+      // frame (src/layouts/Landing.astro), once, for every page.
       import '@aparte/core';
-      import '@aparte/core/styles.css';
       import { registerDefaultRenderers, aparteGlobalConfig, filesToAttachments } from '@aparte/core';
       import { setupArtifacts } from '@aparte/plugin-artifacts';
       // The real package, not a French object typed into this page: a lever that
@@ -828,11 +828,8 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         // The CHAT's palette is not set here: a theme preset may pin it light or
         // dark independently of the page, so `applySkin` owns that attribute and
         // is re-run below once it exists. The levers row is not the chat: its
-        // `<aparte-select>`s follow the PAGE, and core's dark palette is keyed on
-        // this attribute, whose absence is light.
-        const levers = document.querySelector('.levers');
-        if (theme === 'dark') levers?.setAttribute('data-aparte-theme', 'dark');
-        else levers?.removeAttribute('data-aparte-theme');
+        // `<aparte-select>`s follow the PAGE, whose theme the frame already wrote on
+        // the root as `data-aparte-theme`, so they need nothing from here.
       }
       applyTheme(currentTheme());
       document.addEventListener('site-theme-change', (e) => {
@@ -1192,9 +1189,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       // The FIRST version of this hand-picked four variables and produced light
       // bubbles with light text on them, because the text is painted through
       // `--aparte-text` which it never touched. The mechanism core actually ships
-      // is an attribute: `:root` IS the light palette and `[data-aparte-theme="dark"]`
-      // is the override — so "light" is the ABSENCE of the attribute, not a list of
-      // colours. Each preset therefore picks a base with the attribute and then
+      // is an attribute: `[data-aparte-theme="light"]` and `[data-aparte-theme="dark"]`
+      // each declare a whole palette on the element that carries it — so a base is
+      // an attribute value, not a list of colours. Each preset therefore picks a base and then
       // spends a handful of variables on top of a palette that is already coherent.
       // Icons are a PROVIDER of `() => string`, every key optional with a built-in
       // fallback — so a preset can ship three and inherit the rest, and switching
@@ -1278,10 +1275,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         skin = key;
         const spec = SKINS[key] ?? SKINS.stage;
         const base = spec.base === 'page' ? currentTheme() : spec.base;
-        // `light` is the ABSENCE of the attribute — core's default palette is light
-        // and only dark is an override.
-        if (base === 'dark') chatHost.setAttribute('data-aparte-theme', 'dark');
-        else chatHost.removeAttribute('data-aparte-theme');
+        // Named either way, never left to inherit: the page's root carries the page's
+        // theme, so a light preset on a dark page has to say `light` to stay an island.
+        chatHost.setAttribute('data-aparte-theme', base === 'dark' ? 'dark' : 'light');
         for (const v of SKIN_VARS) chatHost.style.removeProperty(v);
         for (const [k, v] of Object.entries(spec.vars)) chatHost.style.setProperty(k, v);
         // The CARD is this page's chrome, not the component's: core paints no

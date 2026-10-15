@@ -181,9 +181,9 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
   </div>
 
   <script>
-    // The real library — the row the title lands in is the sidebar's own element.
+    // The real library — the row the title lands in is the sidebar's own element. Its
+    // stylesheet comes with the frame (src/layouts/Landing.astro).
     import '@aparte/core';
-    import '@aparte/core/styles.css';
     // The real package, the one a consumer installs: the model file ships inside it and
     // the bundler copied it as an asset of this site, so the fetch below is same-origin.
     import { loadTitler } from '@aparte/titler-latin';
@@ -194,24 +194,9 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
     const figure = document.querySelector('[data-tl-ms]');
     const field = document.getElementById('tl-msg') as HTMLTextAreaElement;
     const state = section.querySelector('[data-tl-state]')!;
-    const side = section.querySelector('[data-tl-side]')!;
-    // Typed by core's element map: `conversations` is the list's own property.
+    // Typed by core's element map: `conversations` is the list's own property. Its theme
+    // is the page's: the frame writes it on the root as `data-aparte-theme`.
     const list = section.querySelector('aparte-conversation-list')!;
-
-    // ── theme: the frame owns the toggle, this page mirrors it onto the list ──
-    // Core's dark palette is keyed on `data-aparte-theme`, whose absence is light.
-    const root = document.documentElement;
-    const currentTheme = () =>
-      root.getAttribute('data-theme') ||
-      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const mirror = (theme: string) => {
-      if (theme === 'dark') side.setAttribute('data-aparte-theme', 'dark');
-      else side.removeAttribute('data-aparte-theme');
-    };
-    mirror(currentTheme());
-    document.addEventListener('site-theme-change', (e) => {
-      mirror((e as CustomEvent<{ theme: string }>).detail.theme);
-    });
 
     // ── the row ──
     const show = (title: string) => {
