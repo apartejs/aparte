@@ -249,7 +249,25 @@ function* walk(dir) {
  */
 const NOT_DOCUMENTATION = ['changelog.md'];
 
-const corpus = [...walk(DOCS), 'README.md', ...BARRELS.map(b => b.readme).filter(existsSync)]
+/**
+ * The generated pieces a page imports. A catalogue page writes its prose and imports its
+ * tables from `src/generated/api/`, so the names in those tables are on the page a reader
+ * opens without being in its source. A piece counts only when a page imports it: one that
+ * nobody imports is on no page.
+ */
+function importedPieces(pages) {
+    const out = new Set();
+    for (const page of pages) {
+        for (const m of readFileSync(page, 'utf8').matchAll(/^import\s+\w+\s+from\s+'([^']*\/generated\/[^']+\.mdx)'/gm)) {
+            const target = resolve(dirname(page), m[1]);
+            if (existsSync(target)) out.add(target);
+        }
+    }
+    return [...out];
+}
+
+const pages = [...walk(DOCS)];
+const corpus = [...pages, ...importedPieces(pages), 'README.md', ...BARRELS.map(b => b.readme).filter(existsSync)]
     .filter(f => !NOT_DOCUMENTATION.some(n => f.endsWith(n)))
     .map(f => readFileSync(f, 'utf8'))
     .join('\n');
