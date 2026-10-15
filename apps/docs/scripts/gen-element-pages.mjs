@@ -41,6 +41,8 @@ const CONTENT = resolve(here, '../src/content/docs/components');
 const PLUGIN_DIR = resolve(here, '../../../packages/plugins');
 const PARTIALS = resolve(here, '../src/generated/element-api');
 const GENERATED = resolve(here, '../src/generated');
+/** Every file this script writes says so; the sweep removes only those. */
+const MARKER = 'apps/docs/scripts/gen-element-pages.mjs';
 
 if (!existsSync(CEM)) {
   console.error(
@@ -189,8 +191,14 @@ function exampleBlocks(decl) {
     .join('');
 }
 
+/**
+ * A sub-section's title: a heading of level `h`, or — `h` is 0 — a bold label, for a partial
+ * a catalogue page imports under headings of its own (Starlight's outline only sees the
+ * headings written in the page itself, never those an imported file brings).
+ */
+const head = (h, title) => (h ? `\n${'#'.repeat(h)} ${title}\n\n` : `\n**${title}**\n\n`);
+
 function apiTables(decl, h) {
-  const H = '#'.repeat(h);
   const members = (decl.members ?? []).filter(isPublic);
   const props = members.filter((m) => m.kind === 'field');
   const methods = members.filter((m) => m.kind === 'method');
@@ -199,24 +207,24 @@ function apiTables(decl, h) {
   let md = '';
 
   if (attrs.length) {
-    md += `\n${H} Attributes\n\n| Attribute | Description |\n| --- | --- |\n`;
+    md += `${head(h, 'Attributes')}| Attribute | Description |\n| --- | --- |\n`;
     for (const a of attrs) md += `| \`${esc(a.name)}\` | ${esc(a.description)} |\n`;
   }
   if (props.length) {
-    md += `\n${H} Properties\n\n| Property | Type | Description |\n| --- | --- | --- |\n`;
+    md += `${head(h, 'Properties')}| Property | Type | Description |\n| --- | --- | --- |\n`;
     for (const p of props) {
       md += `| \`${esc(p.name)}\`${p.readonly ? ' _(readonly)_' : ''} | \`${esc(typeText(p.type))}\` | ${esc(p.description)} |\n`;
     }
   }
   if (methods.length) {
-    md += `\n${H} Methods\n\n| Method | Description |\n| --- | --- |\n`;
+    md += `${head(h, 'Methods')}| Method | Description |\n| --- | --- |\n`;
     for (const m of methods) md += `| \`${esc(methodSig(m))}\` | ${esc(m.description)} |\n`;
   }
   if (events.length) {
     // The Type column is what tells a consumer the shape of `e.detail`, and what a typed wrapper
     // derives its output from. An event with no detail renders as a bare `CustomEvent` — that
     // absence is information too.
-    md += `\n${H} Events\n\n| Event | Type | Description |\n| --- | --- | --- |\n`;
+    md += `${head(h, 'Events')}| Event | Type | Description |\n| --- | --- | --- |\n`;
     for (const ev of events) {
       md += `| \`${esc(ev.name)}\` | \`${esc(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
     }
@@ -227,14 +235,13 @@ function apiTables(decl, h) {
 function cssTable(decl, h) {
   const cssProps = decl.cssProperties ?? [];
   if (!cssProps.length) return '';
-  const H = '#'.repeat(h);
   // ONE table. Some of these are the element's own knob and some are a site-wide token that
   // merely styles it, and the difference matters — but it is not DERIVABLE. Two tests were
   // measured and both are wrong: ":root-declared" catches every knob, since aparté gives all of
   // them a root default; "declared by more than one element" catches shared regional knobs like
   // `--aparte-thumb-*` while missing `--aparte-primary`, which one element declares. Asserting
   // it would be the confident-but-wrong kind of sentence this lot exists to remove.
-  let md = `\n${H} \`<${decl.tagName}>\`\n\n| Variable | Default | Description |\n| --- | --- | --- |\n`;
+  let md = `${head(h, h ? `\`<${decl.tagName}>\`` : 'CSS variables')}| Variable | Default | Description |\n| --- | --- | --- |\n`;
   for (const p of cssProps) {
     md += `| \`${esc(p.name)}\` | ${p.default ? `\`${esc(p.default)}\`` : '—'} | ${esc(p.description)} |\n`;
   }
@@ -308,7 +315,8 @@ function angularSymbols() {
 
 const ANGULAR = angularSymbols();
 
-function frameworkTabs(decl) {
+/** `bare`: the tabs alone, for a catalogue page that writes its own heading and sentence. */
+function frameworkTabs(decl, { bare = false } = {}) {
   const tag = decl.tagName;
   const attrs = decl.attributes ?? [];
   // A presence attribute is the one worth showing: it is where the four frameworks differ most,
@@ -324,7 +332,9 @@ function frameworkTabs(decl) {
   const openTag = (syntax) => `<${tag}${attr ? ` ${syntax}` : ''}></${tag}>`;
   const plain = attr ? (bool ? `${attr.name}=""` : `${attr.name}="…"`) : '';
 
-  let md = `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
+  let md = bare
+    ? `\n<Tabs syncKey="framework">\n`
+    : `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
 
   md += `<TabItem label="Vanilla">\n\n\`\`\`html\n${openTag(plain)}\n\`\`\`\n`;
   if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
@@ -596,6 +606,7 @@ const apiElements = [...byTag.values()].map(({ decl }) => apiEntry(decl, '@apart
  * generated, and the plugin page imports them.
  */
 let partials = 0;
+const pluginDecls = [];
 if (existsSync(PLUGIN_DIR)) {
   mkdirSync(PARTIALS, { recursive: true });
   const seen = new Set();
@@ -608,6 +619,7 @@ if (existsSync(PLUGIN_DIR)) {
       for (const d of mod.declarations ?? []) {
         if (!d.customElement || !d.tagName) continue;
         apiElements.push(apiEntry(d, pkg));
+        pluginDecls.push(d);
         seen.add(`${d.tagName}.mdx`);
         writeIfChanged(
           join(PARTIALS, `${d.tagName}.mdx`),
@@ -629,6 +641,30 @@ writeIfChanged(
 );
 
 /*
+ * The pieces a catalogue page imports, per element, core's and the plugins' alike:
+ * `<tag>.api.mdx` (its tables) and `<tag>.usage.mdx` (the five framework tabs). No headings in
+ * either — the page writes its own, because the outline only sees headings written in the
+ * page — and an element with nothing to show writes no file, so a page cannot import an
+ * empty one by mistake (the import fails the build instead).
+ */
+const ELEMENT_PIECES = join(GENERATED, 'api', 'elements');
+mkdirSync(ELEMENT_PIECES, { recursive: true });
+const pieces = new Set();
+const piece = (name, body) => {
+  pieces.add(name);
+  writeIfChanged(join(ELEMENT_PIECES, name), body);
+};
+for (const d of [...[...byTag.values()].map(({ decl }) => decl), ...pluginDecls]) {
+  const tables = apiTables(d, 0) + cssTable(d, 0);
+  if (tables.trim()) piece(`${d.tagName}.api.mdx`, `{/* Generated by ${MARKER}. */}\n${tables}`);
+  piece(
+    `${d.tagName}.usage.mdx`,
+    `import { Tabs, TabItem } from '../../../components/content/tabs';\n\n{/* Generated by ${MARKER}. */}\n${frameworkTabs(d, { bare: true })}`,
+  );
+}
+for (const f of readdirSync(ELEMENT_PIECES)) if (!pieces.has(f)) rmSync(join(ELEMENT_PIECES, f));
+
+/*
  * Sweep — of what THIS script wrote, and nothing else. A removed element, or one that became a
  * PART of another, must take its page with it: folding the composer's seven parts in would
  * otherwise have left seven pages documenting elements the catalogue no longer lists.
@@ -638,7 +674,6 @@ writeIfChanged(
  * beside the generated group folders), so a file is only ever removed when it carries this
  * script's own footer — a page somebody wrote is never this script's to delete.
  */
-const MARKER = 'apps/docs/scripts/gen-element-pages.mjs';
 const ours = (file) => readFileSync(file, 'utf8').includes(MARKER);
 let swept = 0;
 for (const entry of readdirSync(CONTENT, { withFileTypes: true })) {
