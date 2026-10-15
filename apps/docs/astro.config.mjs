@@ -357,6 +357,7 @@ export default defineConfig({
         './src/styles/palette.css',
         './src/styles/aparte-theme.css',
         './src/styles/site-frame.css',
+        './src/styles/content.css',
       ],
     }),
   ],

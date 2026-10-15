@@ -378,7 +378,7 @@ title: ${yaml(humanName(tag))}
 description: ${yaml(firstSentence(description) || `The <${tag}> custom element.`)}
 ${order === -1 ? '' : `sidebar:\n  order: ${order + 1}\n`}---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '../../../../components/content/tabs';
 import ElementPreview from '../../../../components/ElementPreview.astro';
 
 `;
