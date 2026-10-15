@@ -1,0 +1,58 @@
+---
+/**
+ * "On this page": the page's outline in a sticky column from 72rem, the link of the
+ * section being read marked as `aria-current="location"` while the page scrolls.
+ *
+ * The section being read is the last heading whose top has passed the line just under
+ * the sticky header — the same line an anchor jump lands on (Starlight's
+ * `scroll-padding-top`), so a click on a link marks that very link.
+ */
+import TocList from './TocList.astro';
+
+const { toc } = Astro.locals.starlightRoute;
+---
+
+{
+    toc && (
+        <div class="site-toc" data-pagefind-ignore>
+            <p class="site-toc__title">On this page</p>
+            <TocList items={toc.items} />
+        </div>
+    )
+}
+
+<script>
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('.site-toc [data-toc-slug]')];
+    const headings = links
+        .map((link) => document.getElementById(link.dataset.tocSlug ?? ''))
+        .filter((h): h is HTMLElement => h !== null);
+
+    if (headings.length) {
+        let current: string | null = null;
+        let queued = false;
+        const mark = () => {
+            queued = false;
+            const line = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+            let active = headings[0]!;
+            for (const h of headings) {
+                if (h.getBoundingClientRect().top - line <= 1) active = h;
+                else break;
+            }
+            if (active.id === current) return;
+            current = active.id;
+            for (const link of links) {
+                if (link.dataset.tocSlug === current) link.setAttribute('aria-current', 'location');
+                else link.removeAttribute('aria-current');
+            }
+        };
+        const queue = () => {
+            if (!queued) {
+                queued = true;
+                requestAnimationFrame(mark);
+            }
+        };
+        addEventListener('scroll', queue, { passive: true });
+        addEventListener('resize', queue, { passive: true });
+        mark();
+    }
+</script>

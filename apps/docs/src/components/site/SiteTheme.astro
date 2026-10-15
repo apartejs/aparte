@@ -1,0 +1,127 @@
+---
+/**
+ * The theme control: an icon button that opens the kit's menu — Light, Dark, System.
+ *
+ * A menu of radio items rather than a segmented row: the choice is a setting, and the menu
+ * recipe draws the check of `menuitemradio` itself, where the segmented tabs only know
+ * `aria-selected`, which a radio cannot carry. The button shows the theme in force.
+ *
+ * Stored exactly as Starlight stores it — `light`, `dark`, or an empty string for the
+ * system's — under `starlight-theme`, so a reader's existing choice still holds and the
+ * pre-paint scripts (Starlight's on the docs, the frame's elsewhere) keep reading it.
+ * Every change is written to `data-theme` and `data-aparte-theme` on the root and then
+ * announced as `site-theme-change`, which the home listens to for its live chat.
+ */
+import { moonIcon, sunIcon } from '@aparte/core/icons';
+
+const CHOICES = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'auto', label: 'System' },
+];
+---
+
+<div class="site-theme">
+    <button
+        class="aparte-btn aparte-btn--icon aparte-btn--ghost site-theme__button"
+        type="button"
+        aria-label="Theme"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls="site-theme-menu"
+        data-site-theme-button
+    >
+        <span class="site-theme__glyph" data-glyph="light" set:html={sunIcon} />
+        <span class="site-theme__glyph" data-glyph="dark" set:html={moonIcon} />
+    </button>
+    <div class="aparte-menu site-theme__menu" id="site-theme-menu" role="menu" aria-label="Theme" hidden>
+        {
+            CHOICES.map((choice) => (
+                <button class="aparte-menu__item" type="button" role="menuitemradio" aria-checked="false" tabindex="-1" data-theme-choice={choice.value}>
+                    {choice.label}
+                </button>
+            ))
+        }
+    </div>
+</div>
+
+<script>
+    type Choice = 'light' | 'dark' | 'auto';
+    const KEY = 'starlight-theme';
+    const root = document.documentElement;
+    const system = matchMedia('(prefers-color-scheme: light)');
+
+    const stored = (): Choice => {
+        try {
+            const value = localStorage.getItem(KEY);
+            return value === 'light' || value === 'dark' ? value : 'auto';
+        } catch {
+            return 'auto';
+        }
+    };
+    const resolve = (choice: Choice): 'light' | 'dark' => (choice === 'auto' ? (system.matches ? 'light' : 'dark') : choice);
+
+    function apply(choice: Choice, persist: boolean): void {
+        const theme = resolve(choice);
+        root.dataset.theme = theme;
+        root.dataset.aparteTheme = theme;
+        if (persist) {
+            try {
+                localStorage.setItem(KEY, choice === 'auto' ? '' : choice);
+            } catch {
+                // A browser that refuses storage still switches for this page.
+            }
+        }
+        for (const item of document.querySelectorAll<HTMLElement>('[data-theme-choice]')) {
+            item.setAttribute('aria-checked', String(item.dataset.themeChoice === choice));
+        }
+        document.dispatchEvent(new CustomEvent('site-theme-change', { detail: { theme } }));
+    }
+
+    const button = document.querySelector<HTMLButtonElement>('[data-site-theme-button]');
+    const menu = document.getElementById('site-theme-menu');
+    if (button && menu) {
+        const items = () => [...menu.querySelectorAll<HTMLButtonElement>('[data-theme-choice]')];
+        const open = (focusChecked: boolean) => {
+            menu.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            if (focusChecked) (items().find((i) => i.getAttribute('aria-checked') === 'true') ?? items()[0])?.focus();
+        };
+        const close = (returnFocus: boolean) => {
+            if (menu.hidden) return;
+            menu.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+            if (returnFocus) button.focus();
+        };
+
+        button.addEventListener('click', () => (menu.hidden ? open(true) : close(false)));
+        menu.addEventListener('click', (event) => {
+            const item = (event.target as Element).closest<HTMLElement>('[data-theme-choice]');
+            if (!item) return;
+            apply(item.dataset.themeChoice as Choice, true);
+            close(true);
+        });
+        menu.addEventListener('keydown', (event) => {
+            const list = items();
+            const at = list.indexOf(document.activeElement as HTMLButtonElement);
+            const moves: Record<string, number> = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: list.length - 1 };
+            if (event.key in moves) {
+                event.preventDefault();
+                list[(moves[event.key]! + list.length) % list.length]?.focus();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                close(true);
+            } else if (event.key === 'Tab') {
+                close(false);
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (!(event.target instanceof Node) || !button.parentElement?.contains(event.target)) close(false);
+        });
+    }
+
+    system.addEventListener('change', () => {
+        if (stored() === 'auto') apply('auto', false);
+    });
+    apply(stored(), false);
+</script>

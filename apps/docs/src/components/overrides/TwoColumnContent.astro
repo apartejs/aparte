@@ -1,0 +1,15 @@
+---
+/** The page, then its outline in a column of its own from 72rem (see site-frame.css). */
+const { toc } = Astro.locals.starlightRoute;
+---
+
+<div class="site-columns" data-has-toc={toc ? '' : undefined}>
+    <div class="site-columns__main"><slot /></div>
+    {
+        toc && (
+            <aside class="site-columns__toc" aria-label="On this page">
+                <slot name="right-sidebar" />
+            </aside>
+        )
+    }
+</div>

@@ -1,23 +1,72 @@
 ---
 /**
- * The page's title, and under it the page's own description in a quieter voice.
+ * The top of a page: where it sits, its title, what it is for, and — under 72rem, where
+ * the outline has no column of its own — the outline, folded.
  *
- * Every page already carries a one-sentence `description` in its frontmatter — written
- * for search results, so it says what the page is for — and Starlight only put it in a
- * meta tag. A reader landing on a page met the title and then the first paragraph of the
- * body, which on the generated pages is a class name. Shown here, the sentence does the
- * job a lede does on the docs this site is compared with: what you are about to read,
- * before any of it.
+ * The lede is the page's frontmatter `description`, which every page already carries for
+ * search results; Starlight only put it in a meta tag. It is plain text there, so a name in
+ * backticks becomes a `<code>` here rather than showing its backticks.
+ *
+ * The trail is the section, then the groups that hold the page — read from the same
+ * sidebar data the navigation draws, so the two cannot disagree. It is chrome, not content,
+ * so the search index skips it.
  */
-const { title, description } = Astro.locals.starlightRoute.entry.data;
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import { sectionOf } from './site/sections';
+import TocList from './site/TocList.astro';
+
+type Entry = StarlightRouteData['sidebar'][number];
+
+const { entry, sidebar, toc } = Astro.locals.starlightRoute;
+const { title, description } = entry.data;
+const section = sectionOf(Astro.url.pathname);
+
+/** The labels of the groups that hold the current page, outermost first. */
+function trail(entries: Entry[]): string[] | null {
+    for (const e of entries) {
+        if (e.type === 'link') {
+            if (e.isCurrent) return [];
+        } else {
+            const inner = trail(e.entries);
+            if (inner) return [e.label, ...inner];
+        }
+    }
+    return null;
+}
+const groups = trail(sidebar) ?? [];
+// The outermost group usually repeats the section ("Reference" in Reference): say it once.
+const crumbs = groups.filter((label, i) => !(i === 0 && label === section?.label));
+
+const lede = (description ?? '').split('`');
 ---
 
+{
+    section && (
+        <nav class="site-crumbs" aria-label="Breadcrumb" data-pagefind-ignore>
+            <a href={section.href}>{section.label}</a>
+            {crumbs.map((label) => (
+                <>
+                    <span class="site-crumbs__sep" aria-hidden="true">/</span>
+                    <span>{label}</span>
+                </>
+            ))}
+        </nav>
+    )
+}
 <h1 id="_top">{title}</h1>
-{description && <p class="aparte-lede">{description}</p>}
+{description && <p class="aparte-lede">{lede.map((part, i) => (i % 2 ? <code>{part}</code> : part))}</p>}
+{
+    toc && (
+        <details class="site-toc-mobile" data-pagefind-ignore>
+            <summary>On this page</summary>
+            <TocList items={toc.items} />
+        </details>
+    )
+}
 
 <style>
     h1 {
-        margin-top: 1rem;
+        margin-top: 0.5rem;
         font-size: var(--sl-text-h1);
         line-height: var(--sl-line-height-headings);
         font-weight: 600;

@@ -336,10 +336,17 @@ export default defineConfig({
       // present themselves (the slot sits in the header AND the phone's menu). PageTitle:
       // the page's own description under its title, the one sentence a reader needs
       // before the first heading.
+      // Starlight is the engine; what a reader sees is drawn with the library. The frame,
+      // header, outline and pager below are the site's own (src/components/site/), so the
+      // same header and footer also serve the pages Starlight does not build.
       components: {
         Head: './src/components/Head.astro',
-        SocialIcons: './src/components/HeaderLinks.astro',
+        Header: './src/components/overrides/Header.astro',
+        PageFrame: './src/components/overrides/PageFrame.astro',
+        TwoColumnContent: './src/components/overrides/TwoColumnContent.astro',
+        PageSidebar: './src/components/overrides/PageSidebar.astro',
         PageTitle: './src/components/PageTitle.astro',
+        Footer: './src/components/overrides/Footer.astro',
       },
       customCss: [
         '@fontsource-variable/geist',
@@ -349,6 +356,7 @@ export default defineConfig({
         './src/styles/library.css',
         './src/styles/palette.css',
         './src/styles/aparte-theme.css',
+        './src/styles/site-frame.css',
       ],
     }),
   ],

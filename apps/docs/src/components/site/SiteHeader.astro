@@ -1,0 +1,51 @@
+---
+/**
+ * The header every page of the site wears — the docs (through Starlight's `Header`
+ * override) and the home, the roadmap and the models (through src/layouts/Landing.astro).
+ * One component, so the two families of pages cannot drift apart.
+ *
+ * It is the kit's `.aparte-app-header`: the toggle (`__toggle`, shown under 48rem by the
+ * recipe) opens the site's navigation drawer, `<aparte-sidebar id="site-nav">`, which every
+ * page carries; the sections; then search, theme and the repository in `__actions`.
+ */
+import { menuIcon } from '@aparte/core/icons';
+import { GITHUB_PATH, REPO_URL, SECTIONS } from './sections';
+import SiteSearch from './SiteSearch.astro';
+import SiteTheme from './SiteTheme.astro';
+
+interface Props {
+    /** The section the page belongs to, if any. */
+    section?: string | undefined;
+}
+
+const { section } = Astro.props;
+---
+
+<div class="aparte-app-header site-header" data-pagefind-ignore>
+    <div class="site-header__row">
+        <button
+            class="aparte-btn aparte-btn--icon aparte-btn--ghost aparte-app-header__toggle"
+            type="button"
+            aria-label="Menu"
+            data-aparte-sidebar-toggle="site-nav"
+            set:html={menuIcon}
+        />
+        <a class="site-brand" href="/" aria-label="aparté, home"><span class="site-brand__paren">(</span>aparté<span class="site-brand__paren">)</span></a>
+        <nav class="site-header__sections" aria-label="Sections">
+            {
+                SECTIONS.map((s) => (
+                    <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href={s.href} aria-current={s.id === section ? 'true' : undefined}>
+                        {s.label}
+                    </a>
+                ))
+            }
+        </nav>
+        <div class="aparte-app-header__actions">
+            <SiteSearch />
+            <SiteTheme />
+            <a class="aparte-btn aparte-btn--icon aparte-btn--ghost site-header__repo" href={REPO_URL} rel="me" aria-label="GitHub">
+                <svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={GITHUB_PATH} /></svg>
+            </a>
+        </div>
+    </div>
+</div>

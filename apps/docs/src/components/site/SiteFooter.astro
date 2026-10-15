@@ -1,0 +1,65 @@
+---
+/**
+ * The footer every page ends on, the docs and the rest alike. The version is read from
+ * core's package.json at build time and links to that release's notes, so it cannot show
+ * one version and point at another.
+ */
+import { CORE_VERSION } from '../../data/core-version';
+import { REPO_URL } from './sections';
+
+const releaseNotes = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
+
+const COLUMNS = [
+    {
+        title: 'Learn',
+        links: [
+            { label: 'Get started', href: '/guides/getting-started/' },
+            { label: 'Components', href: '/components/' },
+            { label: 'Reference', href: '/reference/' },
+            { label: 'Changelog', href: '/changelog/' },
+        ],
+    },
+    {
+        title: 'About',
+        links: [
+            { label: 'Why aparté', href: '/why/' },
+            { label: 'Compare', href: '/compare/' },
+            { label: 'Roadmap', href: '/roadmap/' },
+            { label: 'Models', href: '/models/' },
+        ],
+    },
+    {
+        title: 'Elsewhere',
+        links: [
+            { label: 'GitHub', href: REPO_URL },
+            { label: 'npm', href: 'https://www.npmjs.com/org/aparte' },
+        ],
+    },
+];
+---
+
+<footer class="site-footer" data-pagefind-ignore>
+    <div class="site-footer__inner">
+        <div class="site-footer__brand">
+            <a class="site-brand" href="/" aria-label="aparté, home"><span class="site-brand__paren">(</span>aparté<span class="site-brand__paren">)</span></a>
+            <p class="site-footer__line">A private word, in any framework.</p>
+            <p class="site-footer__meta">
+                <a href={releaseNotes}>v{CORE_VERSION}</a> · MIT
+            </p>
+        </div>
+        {
+            COLUMNS.map((column) => (
+                <nav class="site-footer__column" aria-label={column.title}>
+                    <p class="site-footer__title">{column.title}</p>
+                    <ul>
+                        {column.links.map((link) => (
+                            <li>
+                                <a href={link.href}>{link.label}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+            ))
+        }
+    </div>
+</footer>

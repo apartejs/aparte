@@ -57,30 +57,13 @@
 /* ── Brand polish ───────────────────────────────────────────────────────── */
 
 /* Headings in the one sans, set tight and semibold: the hierarchy comes from weight and
-   size, not from a second face. The serif is kept for the wordmark below. */
+   size, not from a second face. The serif is kept for the wordmark (site-frame.css). */
 :is(h1, h2, h3),
 .sl-markdown-content :is(h1, h2, h3) {
   font-family: var(--brand-font-sans);
   font-weight: 600;
   letter-spacing: -0.022em;
 }
-a.site-title {
-  font-family: var(--brand-font-serif);
-  font-weight: 400;
-  letter-spacing: -0.018em;
-}
-/* The name itself: italic serif in the light text colour, exactly like the
-   landing wordmark (Starlight tints the site title with the accent otherwise).
-   `gap: 0` is the real fix for the wide gap: Starlight makes the title a flex
-   row (`sl-flex`) with a gap for an optional logo, which was pushing the
-   parenthesis pseudo-elements far from the name. */
-a.site-title { font-style: italic; color: var(--sl-color-white); gap: 0; }
-/* Match the landing wordmark: brass, UPRIGHT parentheses hugging the name.
-   Upright (font-style: normal) + a hair-thin gap — the default italic would
-   slant them and push them away from the word. */
-a.site-title::before { content: '('; color: var(--sl-color-accent); font-style: normal; margin-right: 0.03em; }
-a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: normal; margin-left: 0.03em; }
-
 /* One faint spotlight behind the top of the page (dark only). It used to be two washes,
    brass and plum; on a reading page the second one was colour behind text. */
 :root:not([data-theme='light']) body::before {
@@ -113,24 +96,6 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
   border-radius: 0.3rem;
   padding: 0.08em 0.35em;
   font-size: 0.86em;
-}
-
-/* Sidebar: smaller, quieter, and the current page marked by a tint instead of a solid
-   brass bar, which outshouted the title of the page it pointed at. */
-.sidebar-content a {
-  font-size: 0.875rem;
-}
-.sidebar-content a[aria-current='page'],
-.sidebar-content a[aria-current='page']:hover,
-.sidebar-content a[aria-current='page']:focus {
-  color: var(--sl-color-white);
-  background-color: color-mix(in oklab, var(--sl-color-accent) 16%, transparent);
-  font-weight: 600;
-}
-.sidebar-content .large {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--sl-color-white);
 }
 
 /* Asides: a neutral card with a coloured edge. Starlight paints the whole box in the
@@ -231,36 +196,4 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
     .sl-markdown-content table :is(th, td) > code {
         white-space: nowrap;
     }
-}
-
-/* The frame stops growing at 96rem and centres as a whole. Starlight pins its sidebar
-   to the viewport's start edge (`position: fixed; inset-inline-start: 0`) and centres
-   only the article, so on a wide screen the two drift apart — at 2560px the sidebar sat
-   600px from the text it navigates. Above 96rem the three columns (sidebar, article,
-   "on this page") travel together: the fixed sidebar takes the frame's start edge as
-   its inset, the main frame caps and centres itself, and the header's row narrows to
-   match so the title and search stay over the columns they belong to. Below 96rem
-   nothing changes. The width appears twice because a media query cannot read a custom
-   property — keep the two in step. */
-:root {
-  --aparte-docs-frame: 96rem;
-}
-
-@media (min-width: 96rem) {
-  .sidebar-pane {
-    inset-inline-start: max(0px, calc(50% - var(--aparte-docs-frame) / 2));
-  }
-
-  .main-frame {
-    /* A flex item that takes auto margins stops stretching and shrinks to its content;
-       the width pins it back to the column before the cap applies. */
-    width: 100%;
-    max-width: var(--aparte-docs-frame);
-    margin-inline: auto;
-  }
-
-  header.header > .header {
-    max-width: calc(var(--aparte-docs-frame) - 2 * var(--sl-nav-pad-x));
-    margin-inline: auto;
-  }
 }

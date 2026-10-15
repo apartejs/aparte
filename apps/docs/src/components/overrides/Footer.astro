@@ -1,0 +1,41 @@
+---
+/**
+ * The end of a page: the previous and the next page, as the kit's cards. Starlight's own
+ * order, kept, but bounded to the section — the last guide does not lead into the first
+ * component, because a reader following "Next" through the guides has finished something
+ * there, and the sidebar is the way into another section.
+ */
+import { chevronLeftIcon, chevronRightIcon } from '@aparte/core/icons';
+import { sectionOf } from '../site/sections';
+
+const { pagination } = Astro.locals.starlightRoute;
+const here = sectionOf(Astro.url.pathname);
+const inSection = <T extends { href: string }>(link?: T) => (link && here && sectionOf(link.href) === here ? link : undefined);
+const prev = inSection(pagination.prev);
+const next = inSection(pagination.next);
+---
+
+{
+    (prev || next) && (
+        <nav class="site-pager" aria-label="More pages" data-pagefind-ignore>
+            {prev && (
+                <a class="aparte-card site-pager__card" href={prev.href} rel="prev">
+                    <span class="site-pager__hint">
+                        <span set:html={chevronLeftIcon} />
+                        Previous
+                    </span>
+                    <span class="site-pager__title">{prev.label}</span>
+                </a>
+            )}
+            {next && (
+                <a class="aparte-card site-pager__card site-pager__card--next" href={next.href} rel="next">
+                    <span class="site-pager__hint">
+                        Next
+                        <span set:html={chevronRightIcon} />
+                    </span>
+                    <span class="site-pager__title">{next.label}</span>
+                </a>
+            )}
+        </nav>
+    )
+}
