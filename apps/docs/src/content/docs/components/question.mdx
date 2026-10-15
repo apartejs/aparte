@@ -1,0 +1,132 @@
+---
+title: Question
+description: A question put to the person mid-conversation — choices, yes or no, a short text, or several at once — answered at the composer and kept in the transcript.
+catalog:
+  group: chat
+  order: 16
+  claims:
+    elements: [aparte-elicitation, aparte-ask-user]
+    plugin: '@aparte/plugin-ask-user'
+  demos: [question, question-form, question-receipt]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import ElicitationApi from '../../../generated/api/elements/aparte-elicitation.api.mdx';
+import ElicitationUsage from '../../../generated/api/elements/aparte-elicitation.usage.mdx';
+
+<Variant id="question" />
+
+Sometimes the next step needs an answer only the person has: which format, which audience,
+go or wait. The question opens in place of the composer's input, with its choices; the
+person answers, and the conversation carries on.
+
+It can come from two places. **The model** asks it through the `ask_user` tool of
+`@aparte/plugin-ask-user`. **Your code** asks it with `requestUserInput()`, from a tool
+handler or anywhere else. Either way, `<aparte-elicitation>` presents it, and
+[`<aparte-chat>`](/components/chat/) already contains one.
+
+## Variants
+
+### Several questions at once
+
+<Variant id="question-form" />
+
+A form asks one question at a time, with a chip per question; the composer's button sends
+the answers once the last one is given.
+
+### What the transcript keeps
+
+<Variant id="question-receipt" />
+
+Once answered, the panel is gone. The plugin leaves a receipt in the reply instead: each
+question with its answer, so scrolling back shows what was asked.
+
+## Usage
+
+Let the model ask:
+
+```ts
+import { setupAskUser } from '@aparte/plugin-ask-user';
+
+setupAskUser(); // registers the ask_user tool and its receipt
+```
+
+Or ask yourself:
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const result = await requestUserInput({
+  message: 'Which format should the report use?',
+  schema: {
+    type: 'enum',
+    options: [
+      { value: 'md', label: 'Markdown', recommended: true },
+      { value: 'pdf', label: 'PDF' },
+    ],
+  },
+});
+if (result.action === 'accept') console.info(result.content); // 'md'
+```
+
+The schema is one field (`enum`, `boolean`, `string`) or an `object` of several, each with a
+`header` that names its chip. An `enum` can be `multiple`. The result is
+`{ action: 'accept', content }` or `{ action: 'decline' }` when the person skips; a request
+that ends without an answer (the turn was stopped, the `signal` fired) rejects with
+`AparteElicitationAbortError`.
+
+<ElicitationUsage />
+
+## Customize
+
+`aparteGlobalConfig.setElicitationOptions()` sets how questions are presented:
+`allowOther` adds a free-text "Other…" to every choice (on by default), `layout` asks a form
+`stepped` (one at a time) or `stacked`, and `answerOnClick` makes a single choice answer on
+the click (on by default) rather than with the composer's button.
+
+The `ask_user` tool is built, not fixed. `setupAskUser()` takes `maxOptions` (4 by default)
+and `maxQuestions` (5), the tool's `name`, `description` and `systemPrompt` (or `false` to
+send none), and `receipt: false` for an app that records the exchange itself. These are
+`AskUserSetupOptions`, which extends `AskUserToolOptions`, what `createAskUserTool()` takes.
+
+To wire it by hand: `createAskUserTool()` and `askUserHandler` for the tool,
+`questionReceiptRenderer` and `buildReceipt` for the card. To draw the receipt your own way,
+`receiptRows()` turns a call's `ReceiptSource` (its input, result and structured result) into
+`ReceiptRow`s, one `{ question, answer, declined? }` per question:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { receiptRows } from '@aparte/plugin-ask-user';
+
+aparteGlobalConfig.registerToolRenderer('ask_user', {
+  render: (segment) => {
+    const list = document.createElement('ul');
+    for (const row of receiptRows({ input: segment.toolCall.input, result: segment.result, structuredResult: segment.structuredResult })) {
+      list.append(Object.assign(document.createElement('li'), { textContent: `${row.question}: ${row.answer}` }));
+    }
+    return list;
+  },
+});
+```
+
+The tool returns the answer twice: as a sentence for the model, and as a value,
+`AskUserStructuredResult`, which the receipt reads. A skipped question returns the sentence
+`ASK_USER_DECLINED`; compare with the constant rather than a copy of it.
+
+## API
+
+<ElicitationApi />
+
+`<aparte-ask-user>` is the same element under a name that says what it is for, registered by
+importing the plugin. Mount one or the other, never both.
+
+## Accessibility
+
+- A single choice is a radio group, several are a group of checkboxes, named by the question.
+- A form's chips are a tab list: arrow keys move between questions.
+- "Other…" and a text answer are labelled fields; nothing in the panel is a bare input.
+
+## Related
+
+- [Approval](/components/approval/) — the same panel asking for a decision.
+- [Composer](/components/composer/) — where the panel opens.

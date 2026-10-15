@@ -1,0 +1,58 @@
+---
+title: Compaction notice
+description: The summary that takes the place of the oldest turns when a long conversation fills the model's context, so the conversation can go on.
+catalog:
+  group: chat
+  order: 24
+  demos: [compaction-notice]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="compaction-notice" />
+
+A conversation can outgrow the model's context window. Rather than failing, or silently dropping
+the start, `@aparte/plugin-compaction` asks the model to summarise the oldest turns and puts that
+summary in their place, keeping the recent turns as they were. The summary is shown as a notice:
+centred, with a dashed border, and no avatar, name, time or actions, because nobody said it.
+
+The notice is a message with `compaction: true`. Its title comes from the `compactionSummaryTitle`
+locale key ("Conversation summary"). It is sent to the model as context from the user, introduced
+as a summary, since some providers refuse a system message in the middle of a conversation.
+
+## Usage
+
+```ts
+import { setupCompaction } from '@aparte/plugin-compaction';
+
+setupCompaction(); // the global config, the current model's window
+```
+
+```html
+<aparte-composer-toolbar>
+  <aparte-context variant="ring" auto-compact></aparte-context>
+</aparte-composer-toolbar>
+```
+
+With the [context gauge](/components/context-gauge/)'s `auto-compact`, compaction starts when the
+gauge reaches `danger`; the plugin can also be called on demand. How much it keeps, how it
+summarises and the events it fires are on the [compaction plugin page](/plugins/compaction/).
+
+A conversation you restore keeps its notice like any other message: `compaction: true` is part of
+the message, so it is saved and drawn the same way.
+
+## Customize
+
+The notice is the message's bubble with `data-kind="compaction"`, so a selector on
+`aparte-chat-bubble[data-kind="compaction"]` restyles it. Its text is the summary, rendered as
+Markdown when a renderer is installed.
+
+## Accessibility
+
+- The notice is a message like the others in the transcript, read in order; its title says what
+  it is before the summary.
+
+## Related
+
+- [Context gauge](/components/context-gauge/) — what triggers it.
+- [Message](/components/message/) — the bubble it is drawn in.

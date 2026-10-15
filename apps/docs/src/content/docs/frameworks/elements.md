@@ -222,7 +222,7 @@ export class MyWidget {
 ```
 
 A plugin that wants to spare its users those six lines ships them itself, and
-[`@aparte/plugin-model-selector`](/plugins/model-selector/#typed-in-your-framework) is the worked
+[`@aparte/plugin-model-selector`](/components/model-selector/#usage) is the worked
 example: one subpath per framework, `@angular/core` an optional peer, and the directive generated
 from its own manifest by the same script that generates core's. Run
 `scripts/gen-element-bindings.mjs` against your package's manifest and you get the same output.

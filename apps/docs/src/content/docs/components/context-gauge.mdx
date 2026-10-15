@@ -1,0 +1,69 @@
+---
+title: Context gauge
+description: How much of the model's context window the conversation uses, as a bar or a ring that warns before the window is full.
+catalog:
+  group: chat
+  order: 21
+  claims:
+    elements: [aparte-context]
+  demos: [context, context-levels]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-context.usage.mdx';
+import ContextApi from '../../../generated/api/elements/aparte-context.api.mdx';
+
+<Variant id="context" />
+
+A model reads a limited number of tokens, and a long conversation reaches the limit before
+anyone notices. `<aparte-context>` shows how much is used: the size of the last request, as
+the provider reported it, out of the current model's window. The bar takes the width it is
+given; `variant="ring"` takes none, for a toolbar, with the full reading in its tooltip.
+
+It needs nothing from your code: it listens to the usage each turn reports, and takes the window
+from the model (a provider's model list fills in `contextWindow`) or from the `window`
+attribute. Before the first turn, or without a window, it shows nothing.
+
+## Variants
+
+### Warning, then danger
+
+<Variant id="context-levels" />
+
+At 75% of the window the gauge turns `warn`, at 90% `danger` (`warn` and `danger` attributes
+move them). It reflects the level in `data-level` and fires `aparte-context-threshold` when it
+changes.
+
+## Usage
+
+<Usage />
+
+### When the window is full
+
+With `auto-compact`, reaching `danger` dispatches `aparte-compact` for its chat, once per
+crossing. What answers is `@aparte/plugin-compaction`: it summarises the oldest turns and keeps
+the recent ones (see [Compaction notice](/components/compaction-notice/)). Without the plugin,
+the gauge only measures.
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-context-ring-size` | The ring's diameter. |
+
+The bar wears the [progress](/kit/progress/) recipe, and its colours follow the level.
+
+## API
+
+<ContextApi />
+
+## Accessibility
+
+- The gauge is a `meter` with its minimum, maximum and current value, named from the
+  `contextLabel` key ("Context window") followed by the reading.
+- The level is written, not only coloured: the reading says how full the window is.
+
+## Related
+
+- [Compaction notice](/components/compaction-notice/) — what a full window turns into.
+- [Composer](/components/composer/) — the toolbar the ring sits in.

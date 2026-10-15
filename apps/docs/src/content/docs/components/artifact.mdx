@@ -1,0 +1,146 @@
+---
+title: Artifact
+description: A document the model produces — a page, a component, a script, a note — shown as a card with its code, a sandboxed preview, copy and download.
+catalog:
+  group: chat
+  order: 12
+  claims:
+    plugin: '@aparte/plugin-artifacts'
+  demos: [artifact, artifact-markdown]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="artifact" />
+
+When the model writes a whole document rather than an answer, the reply shows it as a card:
+its title and kind, a **Code** tab, a **Preview** tab for what a browser can render, and
+buttons to copy and download it. The preview is mounted only when the reader opens it, in a
+sandboxed frame that can reach nothing outside itself, because what it runs is code the model
+wrote.
+
+Everything here comes from `@aparte/plugin-artifacts`: the `create_artifact` tool the model
+calls, the card, and an `<artifact>` tag for a model that writes the document in its prose.
+
+## Variants
+
+### A note
+
+<Variant id="artifact-markdown" />
+
+The card offers what the kind allows: a note has no preview, so it has no Preview tab.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-artifacts @aparte/core
+```
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+
+setupArtifacts();
+```
+
+One call registers the tool and its handler, the card on the tool's result, the `<artifact>`
+grammar on core's parser, and the card on the segment that grammar produces. It returns a
+function that removes all four; a second argument scopes them to one `AparteConfig`.
+
+**A model with tools** calls `create_artifact` with `{ mimeType, title, content }`. The
+handler (`artifactHandler`) returns the document as the tool's structured result and tells
+the model it is shown, so the model does not repeat it. Being a real tool, it goes through
+everything a tool does, the [approval mode](/components/approval-mode/) included.
+
+**A model without tools** writes the document in its reply, and the card streams in as it is
+written:
+
+```text
+Here is a first draft:
+
+<artifact type="text/markdown" title="Launch note">
+## aparté
+A chat in Web Components, with the agent loop inside.
+</artifact>
+```
+
+`type=` and `mimeType=` are both read (`mimeType` wins); `title=` is optional. While the block
+streams, the card pulses and the code follows the tokens; Preview and Download wait for the
+end. [Teach the parser a block](/guides/customization/#teach-the-parser-a-block) explains the
+grammar mechanism.
+
+## Customize
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+
+setupArtifacts({
+  name: 'create_artifact', // the tool's name as the model sees it
+  systemPrompt: false, // your own string, or false to send none
+  tag: 'artifact', // the tag recognised in the prose; false for none
+  preview: true, // false: no Preview tab; a function: your own document builder
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `name` | `'create_artifact'` | The tool's name. |
+| `systemPrompt` | a short prompt saying when to produce a document | `false` sends none; a string replaces it. |
+| `tag` | `'artifact'` | The tag the grammar recognises. `false`: only the tool produces artifacts. |
+| `preview` | `true` | `false` removes the Preview tab; `(kind, body, title) => srcdoc` replaces the built-in document builder. |
+| `onBinary` | — | Produces the file for a binary kind; see below. |
+
+The built-in preview document is `buildSafePreviewDocument`, under the policy `PREVIEW_CSP`,
+declared both as the frame's attribute and in a `<meta>`.
+
+### Binary files
+
+For `pdf`, `xlsx` and `docx`, the model writes the code that produces the file, and something
+must run it. That something is yours:
+
+{/* doc-check: skip excerpt — `runInMySandbox` is the app's own sandbox, the subject of this section */}
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import type { ArtifactBinary, ArtifactSegment } from '@aparte/plugin-artifacts';
+
+async function makeFile(artifact: ArtifactSegment): Promise<ArtifactBinary> {
+  const { bytes, filename } = await runInMySandbox(artifact.content); // yours
+  return { buffer: bytes, mime: artifact.mimeType, filename };
+}
+
+setupArtifacts({ onBinary: makeFile });
+```
+
+Once the source is complete, the card calls `onBinary` once, then shows the file's name and
+size and enables Download, or shows the failure. A `previewHtml` on the result (a spreadsheet as
+a table) is sanitised like a reply before it is shown. Without `onBinary`, a binary artifact
+shows its source and offers no download.
+
+### Kinds and building blocks
+
+`deriveArtifactKind(mimeType)` names the kind the card switches on (`react`, `html`, `js`,
+`css`, `svg`, `json`, `markdown`, `csv`, `text`, `pdf`, `xlsx`, `docx`), from a standard MIME
+type or Anthropic's `application/vnd.ant.*` names. To assemble the pieces yourself:
+`createArtifactTool`, `ARTIFACT_SYSTEM_PROMPT`, `artifactSegment`, `artifactBlock`,
+`artifactFromToolCall`, `ARTIFACT_TAG`, `ARTIFACT_SEGMENT_TYPE`, and `artifactRenderer`, the card
+itself as a segment renderer.
+
+The types: `ArtifactSegment` (alias `AparteArtifactSegment`); `ArtifactInput`, the
+`{ mimeType, title?, content }` the tool takes and returns; `ArtifactsSetupOptions`, which is
+`ArtifactToolOptions` plus `ArtifactRenderOptions` plus `tag`; `ArtifactPreviewBuilder` and
+`ArtifactBinaryResolver`, the signatures of `preview` and `onBinary`.
+
+On a server, the package's `node` entry registers the tool, its handler and the grammar
+without the card, so an SSR build imports it without a document.
+
+## Accessibility
+
+- Code and Preview are a real tab set: arrow keys move between tabs, and each pane is a
+  focusable tab panel named by its tab.
+- Copy and Download are named from the locale; while the card is being written, its pulse is
+  labelled from the `generating` key.
+
+## Related
+
+- [Code block](/components/code-block/) — code that is part of an answer rather than a document.
+- [Split layout](/guides/layout/#with-an-artifact-in-the-pane) — the document beside the chat.
+- [Tool call](/components/tool/) — the call the card is drawn from.

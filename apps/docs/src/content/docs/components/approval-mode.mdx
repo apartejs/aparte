@@ -1,0 +1,151 @@
+---
+title: Approval mode
+description: The switch every agent product ends up with — plan, ask, auto-edit, auto — deciding which tool calls run, which ask first, and which are refused.
+catalog:
+  group: chat
+  order: 20
+  claims:
+    elements: [aparte-approval-mode]
+    plugin: '@aparte/plugin-approval'
+  demos: [approval-mode]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import ModeApi from '../../../generated/api/elements/aparte-approval-mode.api.mdx';
+
+<Variant id="approval-mode" />
+
+How much should the agent do without asking? **Plan** only reads. **Ask** confirms every
+change. **Auto-edit** lets changes through and asks before running commands. **Auto** never
+asks. `<aparte-approval-mode>` is that switch, in the composer's toolbar, and
+`@aparte/plugin-approval` applies it to every tool call. It decides; it never runs anything
+and stores nothing.
+
+The library cannot tell that `run_command` executes and `search` reads: those are your tool
+names. So you sort them once into `read`, `write` and `exec`, and the mode does the rest.
+
+| | `read` | `write` | `exec` | not sorted |
+| --- | --- | --- | --- | --- |
+| **plan** | runs | refused, with a reason | refused, with a reason | its own `needsApproval` |
+| **ask** | runs | asks | asks | its own `needsApproval` |
+| **auto-edit** | runs | runs | asks | its own `needsApproval` |
+| **auto** | runs | runs | runs | runs |
+
+"Asks" opens the [approval](/components/approval/) panel. "Refused, with a reason" is what makes
+*plan* usable: the model reads which tool was refused and why, and says what it would do
+instead.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-approval @aparte/core
+```
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupApproval } from '@aparte/plugin-approval';
+
+const approval = setupApproval(
+  {
+    classify: {
+      read: ['read_file', 'search', /^list_/],
+      write: ['write_file', 'edit_file'],
+      exec: ['run_command'],
+    },
+    mode: 'ask', // the default
+  },
+  aparteGlobalConfig, // the config last, like every setup function
+);
+
+approval.setMode('plan'); // from your own UI
+approval.subscribe((mode, previous) => console.info(previous, '→', mode));
+```
+
+```html
+<aparte-composer-toolbar>
+  <aparte-approval-mode></aparte-approval-mode>
+</aparte-composer-toolbar>
+```
+
+A name in a list matches exactly; a `RegExp` matches a pattern. A change of mode applies to the
+next tool call, in the middle of a run too. `setupApproval()` takes `ApprovalSetupOptions` and
+returns an `ApprovalController` (`getMode`, `setMode`, `subscribe`), which
+`getApprovalController(config)` finds again from anywhere.
+
+The element also dispatches `aparte-approval-mode-change` with `{ mode, previousMode }`
+(`AparteApprovalModeChangeEventDetail`), bubbling, so an ancestor can save the choice. Nothing is
+remembered across a reload: keep `getMode()` wherever you keep preferences.
+
+The plugin ships no framework binding. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
+component that hosts the tag; Vue and Svelte accept it as it is. In a React `.tsx` file the tag
+is a compile error until you declare it once:
+
+```ts
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'aparte-approval-mode': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
+  }
+}
+```
+
+[Your own element, or a plugin's](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package)
+covers the rule for any plugin's element. The class is exported as `AparteApprovalMode`, for
+the type of a `ref`.
+
+## Customize
+
+The labels are English; a translated app sets `element.labels = { plan: 'Planifier', … }`.
+
+If the mode already lives elsewhere (a settings page, a URL, a store), take the policy without
+the controller. It reads the mode on every call:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { APPROVAL_MODES, classifyTool, createApprovalPolicy, rulingFor } from '@aparte/plugin-approval';
+import type { ApprovalClassification, ApprovalMode } from '@aparte/plugin-approval';
+
+const classify: ApprovalClassification = { read: ['read_file'], write: ['write_file'], exec: ['run_command'] };
+let mode: ApprovalMode = 'ask'; // wherever your app keeps it
+
+aparteGlobalConfig.setApprovalPolicy(createApprovalPolicy(() => mode, classify));
+
+// The table, readable without installing a policy, for a settings screen:
+APPROVAL_MODES; // ['plan', 'ask', 'auto-edit', 'auto']
+classifyTool('run_command', classify); // 'exec'
+rulingFor('plan', 'exec', { id: 'c1', name: 'run_command', input: {} }); // { verdict: 'deny', reason: '…' }
+```
+
+`ApprovalMode`, `ToolClass` and `ToolMatcher` (a name or a `RegExp`) are exported for the store
+that holds them. Underneath, a policy is core's `AparteApprovalPolicy`: a function from a call
+to an `AparteApprovalRuling` (`allow`, `ask`, or `deny` with a `reason`), or `undefined` to let
+the tool's own `needsApproval` decide. You can write one without the plugin:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setApprovalPolicy((call) =>
+  call.name === 'run_command' && String(call.input['cmd']).startsWith('rm ')
+    ? { verdict: 'deny', reason: 'Deleting is off in this workspace.' }
+    : undefined,
+);
+```
+
+## API
+
+<ModeApi />
+
+## Accessibility
+
+- The switch is a select named from the `approvalModeLabel` key ("Approval mode").
+- With no `setupApproval()` on its config, it renders disabled rather than offering a choice
+  that would do nothing.
+
+## Related
+
+- [Approval](/components/approval/) — the panel a call that asks opens.
+- [Model selector](/components/model-selector/) — the other switch in the toolbar.
+- [Tools guide](/guides/tools/) — registering the tools the modes sort.

@@ -3,13 +3,14 @@
  * `/preview/demo/[id]` builds one document per entry; `<Demo>` and `<Variant>` print one.
  */
 import { CHAT_DEMOS } from './chat';
+import { CHAT_AGENT_DEMOS } from './chat-agent';
 import { CHAT_MESSAGE_DEMOS } from './chat-messages';
 import { GUIDE_DEMOS } from './guide';
 import type { DemoEntry } from './types';
 
 export type { DemoEntry } from './types';
 
-export const DEMOS: DemoEntry[] = [...GUIDE_DEMOS, ...CHAT_DEMOS, ...CHAT_MESSAGE_DEMOS];
+export const DEMOS: DemoEntry[] = [...GUIDE_DEMOS, ...CHAT_DEMOS, ...CHAT_MESSAGE_DEMOS, ...CHAT_AGENT_DEMOS];
 
 // Two demos under one id would build one frame and show the other's code: refuse the build.
 const seen = new Set<string>();

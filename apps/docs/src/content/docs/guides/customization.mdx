@@ -222,7 +222,7 @@ answers every chat on the page. The type behind the button names is
 `setBubbleActions({ assistant: ['copy', 'retry', 'info'] satisfies AparteBubbleActionName[] })`.
 
 The download on a *binary* artifact used to be a third row here; it is
-[`@aparte/plugin-artifacts`](/plugins/artifacts/)'s now, and it follows the same rule in the
+[`@aparte/plugin-artifacts`](/components/artifact/)'s now, and it follows the same rule in the
 plugin's own terms — the button exists only when the app gave `setupArtifacts` an `onBinary`
 that can produce the bytes.
 
@@ -291,7 +291,7 @@ put something in it, and an empty row draws no separator either.
 ```
 
 (`<aparte-model-selector>` comes from
-[`@aparte/plugin-model-selector`](/plugins/model-selector/); anything of yours works just
+[`@aparte/plugin-model-selector`](/components/model-selector/); anything of yours works just
 as well.)
 
 The wrappers render the element for you as soon as you fill their **one** `toolbar` slot:

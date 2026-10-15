@@ -273,7 +273,7 @@ in [the UI kit](/kit/split/).
 
 The split's reason to exist: the model returns a document, and the reader wants it beside
 the conversation rather than scrolled away inside it.
-[`@aparte/plugin-artifacts`](/plugins/artifacts/) renders the document as a Code / Preview
+[`@aparte/plugin-artifacts`](/components/artifact/) renders the document as a Code / Preview
 card with Copy and Download, and the pane is where your app mounts the result.
 
 <Demo id="layout-artifact" caption="One setupArtifacts() call, and the card is the reply. The pane beside it is the same document, mounted — that part is your app's, not the library's." />
@@ -342,7 +342,7 @@ the `scrollIntoView`, so a host that pages history in can load it first. `every`
 exposes `jumpTo(messageId)` and `currentMessageId` for a control of your own — a "back to
 my question" button, say. It hides under a coarse pointer,
 where a two-pixel tick is no target, and renders nothing below two ticks. The
-[element page](/components/conversation/aparte-scroll-rail/) has the live demo and the knobs.
+[element page](/components/scroll-rail/) has the live demo and the knobs.
 
 ## A pane beside a sidebar
 

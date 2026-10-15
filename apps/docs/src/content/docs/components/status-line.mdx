@@ -1,0 +1,65 @@
+---
+title: Status line
+description: A line under the conversation for what your app is doing — searching, uploading, waiting in a queue — shown and hidden by your code.
+catalog:
+  group: chat
+  order: 22
+  claims:
+    elements: [aparte-chat-status]
+  demos: [status-line, status-line-dots]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-chat-status.usage.mdx';
+import StatusApi from '../../../generated/api/elements/aparte-chat-status.api.mdx';
+
+<Variant id="status-line" />
+
+Some waits only your app knows about: it is searching the docs, uploading a file, holding a
+place in a queue. `<aparte-chat-status>` says so in one quiet line. It is yours to turn on with
+`visible` and off again; core never shows it by itself.
+
+It is not the indicator for the pause before the first word of a reply: the reply's own
+[waiting indicator](/components/waiting-indicator/) covers that, and showing both is two
+indicators for one wait. The framework wrappers render one inside the transcript, driven by
+their `isTyping` prop.
+
+## Variants
+
+### Without text
+
+<Variant id="status-line-dots" />
+
+Without `text`, the line is a single pulsing dot.
+
+## Usage
+
+<Usage />
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-status-color` | The colour of the text and the dot. |
+| `--aparte-status-font-size` | The size of the text. |
+| `--aparte-status-dot-size` | The dot's diameter. |
+
+To draw the line yourself, `aparteGlobalConfig.setStatusRenderer()` replaces its contents; the
+element keeps showing and hiding it, and keeps its accessible name.
+
+## API
+
+<StatusApi />
+
+## Accessibility
+
+- The line is a polite live region: what it says is announced when it appears, without
+  interrupting.
+- With `text`, that text is what is announced; without it, the word "Typing" is, from a
+  visually hidden label.
+- The dot stops pulsing under `prefers-reduced-motion`.
+
+## Related
+
+- [Waiting indicator](/components/waiting-indicator/) — the wait before a reply's first word.
+- [Conversation](/components/conversation/) — the transcript the line sits under.

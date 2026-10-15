@@ -1,0 +1,64 @@
+---
+title: Suggestions
+description: Prompt starters — a row of ready-made prompts above the input that the reader clicks instead of typing.
+catalog:
+  group: chat
+  order: 18
+  claims:
+    elements: [aparte-suggestions]
+  demos: [suggestions, suggestions-fill]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-suggestions.usage.mdx';
+import SuggestionsApi from '../../../generated/api/elements/aparte-suggestions.api.mdx';
+
+<Variant id="suggestions" />
+
+An empty chat is a blank page, and three good starters tell a reader what it is for. Each one
+is a button: a click puts its prompt in the composer and sends it. With `empty-only`, the row
+is there while the conversation is empty and gone after the first message. Try one above:
+the scripted model answers.
+
+The click goes through the composer, as if the prompt had been typed, so it obeys the same
+rules: nothing is sent while the composer is disabled, a reply is streaming, or no model is
+selected.
+
+## Variants
+
+### Fill without sending
+
+<Variant id="suggestions-fill" />
+
+`mode="fill"` puts the prompt in the input and focuses it, for prompts the reader is meant to
+finish or adjust.
+
+## Usage
+
+Place it inside the [composer](/components/composer/), before its shell. A suggestion is a
+string, or a `{ label, prompt }` pair when the button's text and the prompt sent differ. The
+`suggestions` attribute takes them as JSON; the property takes the array.
+
+<Usage />
+
+To act on a click yourself, listen for `aparte-suggestion`: it fires first and is cancelable,
+and `preventDefault()` leaves the composer untouched.
+
+## Customize
+
+The row has no variables of its own: its spacing comes from the `--aparte-space-*` scale and
+its buttons wear the [button](/kit/button/) recipe, so it follows your theme.
+
+## API
+
+<SuggestionsApi />
+
+## Accessibility
+
+- The row is a group named from the `suggestionsLabel` key ("Suggested prompts"); each
+  suggestion is a button that reads as its label.
+
+## Related
+
+- [Composer](/components/composer/) — where the row sits and what it sends through.
+- [Chat](/components/chat/) — the empty state the starters fill.

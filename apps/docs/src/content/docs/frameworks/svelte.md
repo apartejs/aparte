@@ -179,7 +179,7 @@ testing `hasAttribute` reads that as on. The rules and the full set are on
 :::note[An element from a plugin, or one of your own]
 This typing covers `@aparte/core`'s elements — the ones the wrapper depends on. An element
 from a plugin (`aparte-model-selector`, from
-[`@aparte/plugin-model-selector`](/plugins/model-selector/)) or one of your own is typed by
+[`@aparte/plugin-model-selector`](/components/model-selector/)) or one of your own is typed by
 **whoever owns it**, never by us: a third-party plugin's author cannot add a line to core,
 so shipping typing for our own plugins would privilege our packages over theirs.
 

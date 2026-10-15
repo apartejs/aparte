@@ -72,7 +72,7 @@ show/hide, class hooks). Each accepts `string | HTMLElement` and `null` clears i
 - `setSiblingNavRenderer(renderer: AparteSiblingNavRenderer | null): void` / `getSiblingNavRenderer(): AparteSiblingNavRenderer | null` — the `‹ N / M ›` branch-position indicator.
 - `setBubbleShellRenderer(renderer: AparteBubbleShellRenderer | null): void` / `getBubbleShellRenderer(): AparteBubbleShellRenderer | null` — the structural skeleton of `<aparte-chat-bubble>` (advanced; must honor the `.aparte-message` class-hook contract).
 - `setAvatarProvider(provider: AparteAvatarProvider | null): void` / `getAvatarProvider(): AparteAvatarProvider | null` — fills the avatar host element with custom DOM (e.g. a mounted framework component).
-- The artifact preview builder is not here any more: an artifact is [`@aparte/plugin-artifacts`](/plugins/artifacts/)'s, and its `preview` option takes the builder (with the sandbox note that used to sit on this page).
+- The artifact preview builder is not here any more: an artifact is [`@aparte/plugin-artifacts`](/components/artifact/)'s, and its `preview` option takes the builder (with the sandbox note that used to sit on this page).
 
 ### Markdown, highlight & sanitizer
 
@@ -158,7 +158,7 @@ See the [Customization](/guides/customization/) guide.
 - `registerStreamBlock(block: AparteStreamBlock): void` — teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's prose becomes the segment `block.toSegment` builds, streamed delta by delta (see [Teach the parser a block](/guides/customization/#teach-the-parser-a-block)). One grammar per tag; read when a turn starts.
 - `unregisterStreamBlock(tag: string): void` / `getStreamBlocks(): AparteStreamBlock[]` — forget a grammar; list the registered ones.
 - `getToolRenderer(toolName: string): AparteToolRenderer | undefined` — the renderer for a tool name, if any.
-- `setApprovalPolicy(policy: AparteApprovalPolicy | null): void` — decide per **call** whether a tool runs, asks, or is refused: `allow` runs without asking, `ask` puts the call to the person exactly as a `needsApproval` tool is, `deny` refuses it with the ruling's own `reason` as what the model reads. Returning `undefined` leaves the tool's `needsApproval` to decide; `null` removes the policy. A host that owns its `approvalResolver` on `AparteClientOptions` is not affected — that resolver already decides everything. The four modes ready-made: [`@aparte/plugin-approval`](/plugins/approval/).
+- `setApprovalPolicy(policy: AparteApprovalPolicy | null): void` — decide per **call** whether a tool runs, asks, or is refused: `allow` runs without asking, `ask` puts the call to the person exactly as a `needsApproval` tool is, `deny` refuses it with the ruling's own `reason` as what the model reads. Returning `undefined` leaves the tool's `needsApproval` to decide; `null` removes the policy. A host that owns its `approvalResolver` on `AparteClientOptions` is not affected — that resolver already decides everything. The four modes ready-made: [`@aparte/plugin-approval`](/components/approval-mode/).
 - `getApprovalPolicy(): AparteApprovalPolicy | null` — the registered policy, or `null`.
 - `ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling` — what the policy says about one call, with the tool's own `needsApproval` as the answer when it has no opinion. The one place the two are combined, so the client's gate predicate and its approval channel cannot disagree.
 

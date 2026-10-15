@@ -47,7 +47,7 @@ alone in this version.
 ## Tools the page runs
 
 A tool you register in the page with `registerTool` is sent to the agent as an AG-UI
-**frontend tool**. The [`ask_user`](/plugins/ask-user/) plugin is one. When the agent calls
+**frontend tool**. The [`ask_user`](/components/question/) plugin is one. When the agent calls
 it, the run ends with the call open. The page runs the tool, shows its row as resolved, and
 calls the agent again with the result as a `tool` message. Nothing to configure.
 
@@ -56,7 +56,7 @@ calls the agent again with the result as a `tool` message. Nothing to configure.
 When the agent pauses on a call that needs a person, the page asks with the same
 [approval panel](/guides/tools/#require-approval-human-in-the-loop) as for its own tools. The
 pause is an AG-UI interrupt with reason `tool_call` or `confirmation`, which is what TanStack AI's
-`needsApproval` sends. Your [approval policy](/plugins/approval/) can answer first. The answer
+`needsApproval` sends. Your [approval policy](/components/approval-mode/) can answer first. The answer
 goes back to the agent in one `resume` batch, since AG-UI refuses a partial one, and the run
 continues on the agent's server, into the same reply.
 

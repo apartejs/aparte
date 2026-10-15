@@ -1,0 +1,96 @@
+---
+title: Approval
+description: A tool call held until a person decides — the call and its arguments asked at the composer, approve, reject, or a word on what to do instead.
+catalog:
+  group: chat
+  order: 15
+  demos: [approval, approval-scoped]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="approval" />
+
+Some tools should not run without a yes: deleting a file, sending an email, running a command.
+Mark such a tool `needsApproval` and the turn stops before its handler runs. The tool's row
+in the transcript says it is waiting, and the question is asked where the person is already
+looking, at the composer: which tool, with which arguments, approve or reject.
+
+The person can also type an answer instead of clicking: "no, archive it instead". That
+refuses the call, and the words reach the model as the tool's result, so the next step can
+follow them.
+
+## Variants
+
+### A choice that can be remembered
+
+<Variant id="approval-scoped" />
+
+The options come with the request, so an app that can remember a grant offers a third one,
+and says what it reaches. Offer "always" only where your app keeps it.
+
+## Usage
+
+With `AparteClient`, marking the tool is all it takes:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerTool(
+  {
+    name: 'delete_file',
+    description: 'Delete a file from the workspace.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    needsApproval: true,
+  },
+  async (call) => ({ toolCallId: call.id, content: `Deleted ${String(call.input['path'])}.` }),
+);
+```
+
+To ask on your own terms, call `requestUserInput()` with `kind: 'approval'`. It resolves with
+the chosen option's `value`, or with the typed `instruction`:
+
+```ts
+import { requestUserInput } from '@aparte/core';
+import type { AparteApprovalAnswer } from '@aparte/core';
+
+const result = await requestUserInput({
+  kind: 'approval',
+  message: 'Run run_command?',
+  details: 'git status',
+  options: [
+    { value: 'once', label: 'Allow once' },
+    { value: 'always', label: 'Always allow', description: 'git status, in this workspace' },
+    { value: 'reject', label: 'Reject', tone: 'deny' },
+  ],
+});
+if (result.action === 'accept') {
+  const { option, instruction } = result.content as AparteApprovalAnswer;
+}
+```
+
+An `AparteApprovalOption` has a `value`, a `label`, an optional `description` (what choosing it
+commits to) and a `tone`, `affirm` or `deny`. A label can be a function, re-read when the
+language changes while the question is open.
+
+## Customize
+
+- Which calls ask is a policy: the [approval mode](/components/approval-mode/) switch decides
+  by mode (plan, ask, auto-edit, auto) from your tool names.
+- `AparteClient`'s `approvalResolver` option takes the whole decision instead, for a CLI, a
+  webhook or a rule written in code.
+- The panel is capped at `--aparte-elic-max-height`, half the window by default.
+
+## Accessibility
+
+- The arguments are shown as text, in a focusable group named "Arguments", never as markup:
+  they are written by the model.
+- The options are buttons in a group named from the `approvalOptionsLabel` key ("Your
+  decision"); a decision takes one click or one key press.
+- The instruction field is named by its placeholder ("Or tell it what to do instead…").
+
+## Related
+
+- [Approval mode](/components/approval-mode/) — when to ask, by mode.
+- [Tool call](/components/tool/) — the row that waits in the transcript.
+- [Question](/components/question/) — the same panel collecting an answer instead of a decision.

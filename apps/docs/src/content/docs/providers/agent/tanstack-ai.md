@@ -57,11 +57,11 @@ client.start();
 
 - **`needsApproval: true`** on a server tool pauses the run. The page asks with its
   [approval panel](/guides/tools/#require-approval-human-in-the-loop), and its
-  [approval policy](/plugins/approval/) can answer first. **Approve** runs the tool on your
+  [approval policy](/components/approval-mode/) can answer first. **Approve** runs the tool on your
   server. **Reject** sends the refusal, the model answers it, and the row stays refused. The
   refusal goes as `{ approved: false }`: the reason the user typed does not reach the model.
 - **A tool that needs the page.** Register it in the page with `registerTool`, the way
-  [`@aparte/plugin-ask-user`](/plugins/ask-user/) does. It goes to your route as a declared tool,
+  [`@aparte/plugin-ask-user`](/components/question/) does. It goes to your route as a declared tool,
   and `mergeAgentTools` adds it. TanStack AI pauses on it, the page runs it, and the result
   resumes the run. You don't need TanStack's `.client()` implementation: the page's handler is
   the implementation.

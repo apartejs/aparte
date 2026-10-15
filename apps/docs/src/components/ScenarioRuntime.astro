@@ -28,6 +28,9 @@
     });
     aparteGlobalConfig.registerAIProvider(scripted);
     aparteGlobalConfig.setModelConfig({ defaultProvider: scripted.id, defaultModel: 'scripted' });
+    // The factory, for a demo that needs more providers than this one (the model picker).
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).scenario = { createScenarioProvider };
     aparteGlobalConfig.registerTool(
         {
             name: 'get_weather',

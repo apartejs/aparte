@@ -119,7 +119,7 @@ ticket, the page puts the question to the person with the [approval panel](/guid
 and the answer resumes the run on the server, into the same reply.
 
 The **gate** is the server's: it decides which calls need a person. The **answer** is the
-page's: its approval policy (for instance [`@aparte/plugin-approval`](/plugins/approval/)'s
+page's: its approval policy (for instance [`@aparte/plugin-approval`](/components/approval-mode/)'s
 `auto` mode) may answer on its own when it has an opinion; with none, the person is asked.
 A server policy can also refuse outright, without asking anyone:
 
@@ -141,7 +141,7 @@ answer closes the paused call.
 
 ## Browser tools
 
-A tool that needs the page — [`@aparte/plugin-ask-user`](/plugins/ask-user/) is the example —
+A tool that needs the page — [`@aparte/plugin-ask-user`](/components/question/) is the example —
 stays registered in the page with `registerTool`. The runner sends its definition along;
 the server lets the model call it, suspends on it, and the page runs its handler and sends
 the result back. Nothing to configure. To refuse browser tools, or allow a list:

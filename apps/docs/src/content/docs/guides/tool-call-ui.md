@@ -79,8 +79,8 @@ There is a second kind of result: the one that *is* the answer. A tool that gene
 document, a chart, a form the user filled in — its result should be rendered as a thing,
 not as JSON. That is what a **tool renderer** is for: a renderer registered for a tool
 name replaces the default row with a surface of its own. aparté's
-[`ask_user` plugin](/plugins/ask-user/) is the in-repo example — its result is drawn as a
-receipt card of the question and the answer — and [`@aparte/plugin-artifacts`](/plugins/artifacts/)'
+[`ask_user` plugin](/components/question/) is the in-repo example — its result is drawn as a
+receipt card of the question and the answer — and [`@aparte/plugin-artifacts`](/components/artifact/)'
 `create_artifact` is the same shape: a call whose result is rendered richly, as a
 Code/Preview card. Register yours with `registerToolRenderer` — the worked example, with the
 `AparteToolRenderer` contract and the streaming `update` hook, is on

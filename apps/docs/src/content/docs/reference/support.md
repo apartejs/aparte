@@ -95,7 +95,7 @@ element upgrades under jsdom — point it at
 
 Each wrapper declares `@aparte/core` as a peer at the release it shipped with
 (the range is written into every wrapper's `peerDependencies` at release time): install both from the same release.
-[`@aparte/plugin-model-selector`](/plugins/model-selector/) carries the same four peers,
+[`@aparte/plugin-model-selector`](/components/model-selector/) carries the same four peers,
 all optional.
 
 ## Bundlers and TypeScript

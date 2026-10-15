@@ -56,7 +56,7 @@ row below is one member of `ScenarioStep`:
 
 | Step | What it does |
 |---|---|
-| `{ text }` | Streams the text, chunk by chunk. Rendered as markdown once a markdown plugin is installed ([`@aparte/plugin-marked`](/plugins/marked/) or [`streaming-markdown`](/plugins/streaming-markdown/)) — plain text otherwise, `**stars**` included. An `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
+| `{ text }` | Streams the text, chunk by chunk. Rendered as markdown once a markdown plugin is installed ([`@aparte/plugin-marked`](/plugins/marked/) or [`streaming-markdown`](/plugins/streaming-markdown/)) — plain text otherwise, `**stars**` included. An `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/components/artifact/) is set up (it is prose otherwise). |
 | `{ thinking }` | Streams reasoning — the thinking block. |
 | `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. In `scenarios` mode, pair it with a scenario declaring `after: '<tool>'` — without one, the result re-matches the same `when` and the conversation loops until the client's `maxTurns` stops it (the provider warns at creation). |
 | `{ error }` | Fails the turn with that message — what a provider error looks like to the UI. |

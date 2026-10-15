@@ -52,7 +52,7 @@ vendor, because the server speaks the same format.
 
 A local server knows which models it holds — `GET /v1/models` lists them, and the local
 presets fetch that list without a key. Rather than hardcoding `defaultModel`, let the user
-pick from the list with the [model selector](/plugins/model-selector/), and gate the
+pick from the list with the [model selector](/components/model-selector/), and gate the
 composer until a model is chosen:
 
 ```ts
@@ -70,7 +70,7 @@ aparteGlobalConfig.setRequireModelSelection(true); // the composer waits for a p
 
 `auto-select` takes the first model when nothing is persisted; `persist` remembers the choice
 across reloads. Where the toolbar goes is in
-[the plugin's page](/plugins/model-selector/#where-to-put-it).
+[the plugin's page](/components/model-selector/#usage).
 
 ## LM Studio
 
@@ -118,7 +118,7 @@ supports function calling, and does nothing visible with one that does not.
 
 **The context window is yours to declare.** A cloud vendor's model list carries the context
 length; a local server's usually does not. Give the model a `contextWindow` in a static list
-and the [context gauge](/components/conversation/aparte-context/) can show how full the
+and the [context gauge](/components/context-gauge/) can show how full the
 conversation is:
 
 ```ts
