@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.19.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [c0d518b](https://github.com/apartejs/aparte/commit/c0d518b): A checked menu item (`role="menuitemradio"` or `menuitemcheckbox` with `aria-checked="true"`) now shows its check mark. Nothing to change in your code.
+
+  The menu keeps a gutter on every item of a panel that holds a checkable one, as a hidden glyph, so the labels share one edge. That rule uses `:has()`, which takes the weight of its argument, and it outweighed the rule that shows the glyph on the checked item: no menu showed which item was checked, the kit's own example included. The showing rule now carries the same `:has()`.
+  <sub>`@aparte/core`</sub>
+
+- [cd4a48f](https://github.com/apartejs/aparte/commit/cd4a48f): The open sidebar drawer shows its own background again instead of being greyed out by its scrim. Nothing to change in your code.
+
+  The open drawer is a stacking context, and its scrim is a child at `z-index: -1`, which paints above the drawer's own background. The panel came out dimmed: a white ground measured 166,166,166 under the default scrim. Only the children with a background of their own (the search field, the selected row) stayed bright. The drawer's ground is now painted again by an `::after` above the scrim. It inherits the element's background, so a ground set through `--aparte-sidebar-bg` or through a selector of your own is the one shown.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.19.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
