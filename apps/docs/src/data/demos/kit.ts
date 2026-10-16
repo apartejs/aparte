@@ -9,11 +9,9 @@ import type { DemoEntry } from './types';
 
 /**
  * Families whose sheet example is not their page's hero: the four with a page in the Layout group
- * (demos of their own); the icon, whose page shows every glyph rather than the sheet's one; and
- * the badge and the progress bar, whose sheet examples leave out an accessible name (a dot badge
- * labelled on a span with no role, a progress bar with no name) — written correctly below.
+ * (demos of their own), and the icon, whose page shows every glyph rather than the sheet's one.
  */
-const NOT_FROM_SHEET = new Set(['app-shell', 'app-header', 'sidebar', 'split', 'icon', 'badge', 'progress']);
+const NOT_FROM_SHEET = new Set(['app-shell', 'app-header', 'sidebar', 'split', 'icon']);
 
 /** The glyphs core draws, as `<aparte-icon>` takes them. */
 const GLYPHS = ['copy', 'check', 'send', 'loading', 'error', 'expand', 'collapse', 'terminal', 'paperclip', 'image', 'file', 'scrollDown', 'retry', 'edit', 'thumbUp', 'thumbDown', 'prevBranch', 'nextBranch', 'tool', 'close', 'stop', 'pause', 'info', 'archive', 'unarchive', 'download', 'more', 'pin', 'trash', 'menu', 'alertTriangle'];
@@ -24,29 +22,6 @@ const FROM_SHEETS: DemoEntry[] = (kit as { id: string; name: string; example: st
 
 export const KIT_DEMOS: DemoEntry[] = [
     ...FROM_SHEETS,
-
-    // ── Badge and progress: the sheets' examples, with the names they leave out ──────────────
-    {
-        id: 'kit-badge',
-        title: 'Badge',
-        html: `<span class="aparte-badge aparte-badge--success aparte-badge--solid">Live</span>
-<span class="aparte-badge aparte-badge--warning">Draft</span>
-<span class="aparte-badge aparte-badge--danger aparte-badge--outline">Failed</span>
-<span class="aparte-badge aparte-badge--info aparte-badge--sm">12</span>
-<!-- A dot has no text: role="img" lets its label be read. -->
-<span class="aparte-badge aparte-badge--danger aparte-badge--dot" role="img" aria-label="Unread"></span>`,
-    },
-    {
-        id: 'kit-progress',
-        title: 'Progress',
-        html: `<div class="aparte-progress" role="progressbar" aria-label="Uploading" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
-     style="--aparte-progress-value: 60">
-  <div class="aparte-progress__bar"></div>
-</div>
-<div class="aparte-progress aparte-progress--indeterminate" role="progressbar" aria-label="Working">
-  <div class="aparte-progress__bar"></div>
-</div>`,
-    },
 
     // ── Button ────────────────────────────────────────────────────────────────
     {

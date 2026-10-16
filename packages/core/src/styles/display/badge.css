@@ -34,7 +34,8 @@
        <span class="aparte-badge aparte-badge--warning">Draft</span>
        <span class="aparte-badge aparte-badge--danger aparte-badge--outline">Failed</span>
        <span class="aparte-badge aparte-badge--info aparte-badge--sm">12</span>
-       <span class="aparte-badge aparte-badge--danger aparte-badge--dot" aria-label="Unread"></span>
+       <!-- A dot has no text: role="img" lets its label be read. -->
+       <span class="aparte-badge aparte-badge--danger aparte-badge--dot" role="img" aria-label="Unread"></span>
    ========================================= */
 
 .aparte-badge {
