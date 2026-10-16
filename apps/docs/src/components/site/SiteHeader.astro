@@ -9,6 +9,7 @@
  * page carries; the sections; then search, theme and the repository in `__actions`.
  */
 import { menuIcon } from '@aparte/core/icons';
+import { CORE_VERSION } from '../../lib/facts';
 import { GITHUB_PATH, REPO_URL, SECTIONS } from './sections';
 import SiteSearch from './SiteSearch.astro';
 import SiteTheme from './SiteTheme.astro';
@@ -19,6 +20,9 @@ interface Props {
 }
 
 const { section } = Astro.props;
+// The chip says a version, so it opens that version's release notes (starlight-changelogs slugs a
+// version by turning its dots into dashes).
+const versionHref = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
 ---
 
 <div class="aparte-app-header site-header" data-pagefind-ignore>
@@ -31,6 +35,7 @@ const { section } = Astro.props;
             set:html={menuIcon}
         />
         <a class="site-brand" href="/" aria-label="aparté, home"><span class="site-brand__paren">(</span>aparté<span class="site-brand__paren">)</span></a>
+        <a class="aparte-badge aparte-badge--soft site-version" href={versionHref} title={`What changed in ${CORE_VERSION}`}>v{CORE_VERSION} · beta</a>
         <nav class="site-header__sections" aria-label="Sections">
             {
                 SECTIONS.map((s) => (

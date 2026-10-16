@@ -82,6 +82,15 @@ html {
   color: var(--aparte-primary);
   font-style: normal;
 }
+.site-version {
+  text-decoration: none;
+  white-space: nowrap;
+}
+@media (max-width: 48rem) {
+  .site-version {
+    display: none;
+  }
+}
 
 /* Search: a field-shaped button on a wide screen, an icon on a phone. */
 .site-search__open {
@@ -91,8 +100,12 @@ html {
   color: var(--aparte-text-muted);
   font-weight: var(--aparte-font-weight-normal, 400);
 }
+/* Inside a button the key loses its bevel: the thicker bottom edge lifted its label off the
+   button's centre line. */
 .site-search__keys {
+  --aparte-kbd-border-bottom-width: var(--aparte-border-width);
   margin-inline-start: auto;
+  align-self: center;
 }
 .site-search__glyph {
   display: inline-flex;

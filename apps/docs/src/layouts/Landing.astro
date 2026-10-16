@@ -3,6 +3,7 @@ import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import SiteFooter from '../components/site/SiteFooter.astro';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import SiteNav from '../components/site/SiteNav.astro';
+import { sectionOf } from '../components/site/sections';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import FontPreload from '../components/site/FontPreload.astro';
@@ -11,6 +12,7 @@ import FontPreload from '../components/site/FontPreload.astro';
 import '../styles/library.css';
 import '../styles/palette.css';
 import '../styles/code.css';
+import '../styles/content.css';
 import '../styles/landing.css';
 import '../styles/site-frame.css';
 
@@ -122,7 +124,7 @@ const { title, description, canonical, ogImage, ogImageAlt } = Astro.props;
   </head>
   <body>
     <div class="stage-glow" aria-hidden="true"></div>
-    <header class="site-frame__header" aria-label="Site"><SiteHeader /></header>
+    <header class="site-frame__header" aria-label="Site"><SiteHeader section={sectionOf(Astro.url.pathname)?.id} /></header>
     <SiteNav hasTree={false} />
     <main class="wrap">
       <slot />

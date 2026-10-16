@@ -20,6 +20,8 @@ export const SECTIONS: Section[] = [
     { id: 'components', label: 'Components', href: '/components/', prefixes: ['/components/', '/segments/', '/kit/', '/plugins/'] },
     // No sidebar: the grid and the templates' own pages are not docs pages.
     { id: 'templates', label: 'Templates', href: '/templates/', prefixes: ['/templates/'] },
+    // No sidebar either: the models aparté ships, each on a page of its own.
+    { id: 'models', label: 'Models', href: '/models/', prefixes: ['/models/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
 ];
 
