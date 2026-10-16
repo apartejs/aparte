@@ -1,0 +1,159 @@
+---
+/**
+ * The Support widget template: the website of Kilnhouse, an invented booking app for craft
+ * studios, with its help chat in the corner. The page is a backdrop made of kit recipes; the
+ * widget is a launcher and a panel holding a hand-composed <aparte-chat>. The behaviour is
+ * app.ts.
+ */
+import { messageSquareIcon } from '@aparte/core/icons';
+import { AGENT, ASSISTANT_NAME, MARK_SVG } from './brand';
+import './support-widget.css';
+
+const suggestions = JSON.stringify([
+    { label: 'Set up a waitlist', prompt: 'Can students join a waitlist when a class is full?' },
+    { label: 'Refund a pass', prompt: 'How do I refund a class pass?' },
+    { label: 'Change my plan', prompt: 'How do I change my plan?' },
+    { label: 'Talk to a person', prompt: 'I’d like to talk to a person, please.' },
+]);
+---
+
+<div class="support-widget">
+    <div class="sw-site">
+        <header class="sw-site__header">
+            <a class="sw-logo" href="#sw-top">
+                <span class="sw-logo__mark"><Fragment set:html={MARK_SVG} /></span>
+                Kilnhouse
+            </a>
+            <nav class="sw-nav" aria-label="Kilnhouse">
+                <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sw-features">Features</a>
+                <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sw-pricing">Pricing</a>
+                <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="https://example.com/help">Help center</a>
+            </nav>
+            <div class="sw-site__actions">
+                <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="https://example.com/sign-in">Sign in</a>
+                <a class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--sm" href="https://example.com/start">Start free</a>
+            </div>
+        </header>
+
+        <section class="sw-hero" id="sw-top" aria-labelledby="sw-hero-title">
+            <span class="aparte-badge aparte-badge--info">New: waitlists that text your students</span>
+            <h2 class="sw-hero__title" id="sw-hero-title">Bookings for studios that make things.</h2>
+            <p class="sw-hero__lede">
+                Kilnhouse runs the schedule, the passes and the payouts for pottery, print and woodwork studios, so
+                your evenings go to the wheel and not to the inbox.
+            </p>
+            <div class="sw-hero__actions">
+                <a class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--lg" href="https://example.com/start">Start free for 14 days</a>
+                <a class="aparte-btn aparte-btn--surface aparte-btn--lg" href="https://example.com/demo">Tour a demo studio</a>
+            </div>
+            <p class="sw-hero__proof">
+                Used by Ember Lane Ceramics, Northfold Print Co., The Turning Shed and 1,900 other studios.
+            </p>
+        </section>
+
+        <section class="sw-section" id="sw-features" aria-labelledby="sw-features-title">
+            <h2 class="sw-section__title" id="sw-features-title">The front desk, without the desk</h2>
+            <div class="sw-grid">
+                <div class="aparte-card">
+                    <div class="aparte-card__body">
+                        <h3 class="sw-card__title">Classes and waitlists</h3>
+                        <p class="sw-card__text">Weekly courses, one-off workshops, and waitlists that refill a class when someone cancels.</p>
+                    </div>
+                </div>
+                <div class="aparte-card">
+                    <div class="aparte-card__body">
+                        <h3 class="sw-card__title">Passes and memberships</h3>
+                        <p class="sw-card__text">Sell five- and ten-class passes or a monthly membership, with pauses and refunds in two clicks.</p>
+                    </div>
+                </div>
+                <div class="aparte-card">
+                    <div class="aparte-card__body">
+                        <h3 class="sw-card__title">Payouts for every teacher</h3>
+                        <p class="sw-card__text">Split each booking between the studio and its teacher, paid out every Friday.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="sw-section" id="sw-pricing" aria-labelledby="sw-pricing-title">
+            <h2 class="sw-section__title" id="sw-pricing-title">One price per studio, not per booking</h2>
+            <div class="sw-grid">
+                <div class="aparte-card">
+                    <div class="aparte-card__header">Starter</div>
+                    <div class="aparte-card__body">
+                        <p class="sw-price">Free</p>
+                        <p class="sw-card__text">One teacher, unlimited classes, card payments.</p>
+                    </div>
+                </div>
+                <div class="aparte-card">
+                    <div class="aparte-card__header sw-plan__header">Studio <span class="aparte-badge aparte-badge--success aparte-badge--sm">Most chosen</span></div>
+                    <div class="aparte-card__body">
+                        <p class="sw-price">$39 <span class="sw-price__unit">a month</span></p>
+                        <p class="sw-card__text">Up to eight teachers, waitlists, passes and memberships.</p>
+                    </div>
+                </div>
+                <div class="aparte-card">
+                    <div class="aparte-card__header">Collective</div>
+                    <div class="aparte-card__body">
+                        <p class="sw-price">$89 <span class="sw-price__unit">a month</span></p>
+                        <p class="sw-card__text">Several rooms, shared kilns on one calendar, payouts per teacher.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="sw-site__footer">
+            <span>© 2026 Kilnhouse Ltd.</span>
+            <a href="https://example.com/privacy">Privacy</a>
+            <a href="https://example.com/terms">Terms</a>
+            <a href="https://example.com/status">Status</a>
+        </footer>
+    </div>
+
+    <div class="sw-widget">
+        <section class="sw-panel aparte-card" id="sw-panel" aria-labelledby="sw-panel-title">
+            <header class="aparte-card__header sw-panel__header">
+                <span class="aparte-avatar-group sw-panel__faces">
+                    <span class="aparte-avatar"><span class="sw-face sw-face--assistant"><Fragment set:html={MARK_SVG} /></span></span>
+                    <span class="aparte-avatar sw-panel__agent" hidden><span class="sw-face sw-face--agent">{AGENT.initials}</span></span>
+                </span>
+                <div class="sw-panel__who">
+                    <h2 class="sw-panel__title" id="sw-panel-title">{ASSISTANT_NAME} from Kilnhouse</h2>
+                    <p class="sw-panel__status">
+                        <span class="aparte-badge aparte-badge--success aparte-badge--dot" aria-hidden="true"></span>
+                        <span class="sw-panel__status-text">Online. A person is a message away.</span>
+                    </p>
+                </div>
+                <button class="aparte-btn aparte-btn--icon aparte-btn--ghost sw-panel__close" type="button" aria-label="Close the help chat">
+                    <aparte-icon name="close"></aparte-icon>
+                </button>
+            </header>
+            <aparte-chat class="sw-chat">
+                <aparte-chat-viewport></aparte-chat-viewport>
+                <aparte-chat-status></aparte-chat-status>
+                <aparte-elicitation></aparte-elicitation>
+                <aparte-composer placeholder="Ask about Kilnhouse">
+                    <aparte-suggestions suggestions={suggestions}></aparte-suggestions>
+                    <div class="aparte-composer-shell">
+                        <aparte-composer-attachments></aparte-composer-attachments>
+                        <div class="aparte-composer-row">
+                            <aparte-composer-add-attachment accept="image/*"></aparte-composer-add-attachment>
+                            <aparte-composer-input></aparte-composer-input>
+                            <aparte-composer-send></aparte-composer-send>
+                        </div>
+                    </div>
+                </aparte-composer>
+            </aparte-chat>
+        </section>
+        <button class="sw-launcher aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--pill aparte-btn--lg" type="button" aria-expanded="true" aria-controls="sw-panel">
+            <span class="sw-launcher__closed" aria-hidden="true"><Fragment set:html={messageSquareIcon} /></span>
+            <aparte-icon class="sw-launcher__open" name="close" aria-hidden="true"></aparte-icon>
+            <span class="sw-launcher__closed">Help</span>
+            <span class="sw-launcher__open">Close</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>
