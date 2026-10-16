@@ -1,50 +1,180 @@
 /**
- * The Assistant template's behaviour: a scripted model behind the real client, Markdown, the
- * conversation list, and the three modes (src/templates/runtime.ts).
+ * The Assistant template's behaviour, in the order an app writes it: the renderers (Markdown,
+ * highlighting, the reasoning line), the model and its one tool, the client that runs the turns,
+ * then the conversations (a manager over an in-memory store, bound to the chat by a controller),
+ * and the three modes (src/templates/runtime.ts). The markup is Template.astro.
  */
-import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import {
+    APARTE_DEFAULT_LOCALE,
+    AparteClient,
+    AparteConversationController,
+    AparteConversationManager,
+    AparteDirectTransport,
+    aparteGlobalConfig,
+    registerDefaultRenderers,
+} from '@aparte/core';
+import type { AparteChatViewport, AparteConversationList, AparteSidebar } from '@aparte/core';
+import { moonIcon, sunIcon } from '@aparte/core/icons';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
-import { followTheme, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
-import { HISTORY, PLAY_QUESTION, SCENARIOS, SEED } from './scenario';
+import bash from '@shikijs/langs/bash';
+import json from '@shikijs/langs/json';
+import python from '@shikijs/langs/python';
+import ts from '@shikijs/langs/typescript';
+import githubDark from '@shikijs/themes/github-dark-default';
+import githubLight from '@shikijs/themes/github-light-default';
+import { createHighlighterCore } from 'shiki/core';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+import { followTheme, reducedMotion, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
+import { CONVERSATIONS, FIRST_CONVERSATION } from './conversations';
+import { showReasoningDuration } from './reasoning';
+import { PLAY_QUESTION, pickScenario, scenarios, titleFor, TRIP_RESULTS } from './scenario';
+import { createMemoryStore } from './store';
 
-followTheme();
-
-// Markdown before anything renders: a bubble drawn before its renderer is set keeps its raw text.
-setupMarkedProvider();
-setupStreamingMarkdownProvider();
-
-const model = createScenarioProvider({
-    id: 'assistant',
-    name: 'Assistant',
-    scenarios: SCENARIOS,
-    pacing: replyPacing(),
-    models: [{ id: 'assistant-large', name: 'Large', contextWindow: 128000, capabilities: ['streaming'] }],
-});
-aparteGlobalConfig.registerAIProvider(model);
-aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'assistant-large' });
-aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-new AparteClient().start();
-
-// The model picker is defined only now, once the model is registered: it reads the providers when
-// it mounts. A dynamic import, because a bundler evaluates a static one before this module's body
-// whatever the order it is written in — measured: the picker mounted with no model to list.
-void import('@aparte/plugin-model-selector');
-
-type Viewport = HTMLElement & { setMessages(messages: typeof SEED): void };
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
 
-const list = document.querySelector<HTMLElement & { conversations: typeof HISTORY }>('aparte-conversation-list');
-if (list) list.conversations = HISTORY;
+// Awaited inside a function: the highlighter loads asynchronously, and the production build
+// targets browsers that refuse a top-level await.
+void main();
 
-const viewport = document.querySelector<Viewport>('aparte-chat-viewport');
-const composer = document.querySelector<Composer>('aparte-composer');
-const mode = templateMode();
+async function main(): Promise<void> {
+    followTheme();
+    // English, dates included: the list's date groups follow the locale's tag.
+    aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
-if (mode === 'thumb') {
-    // The tile shows the finished conversation at once.
-    viewport?.setMessages(SEED);
-} else if (mode === 'play' && composer) {
-    whenShown(() => void typeAndSend(composer, PLAY_QUESTION));
+    // Every renderer before anything renders: a bubble drawn before its Markdown provider is set
+    // keeps its raw text, and a code block is highlighted when it settles, so a highlighter
+    // registered later would miss the seeded conversations' code.
+    registerDefaultRenderers();
+    setupStreamingMarkdownProvider();
+    setupMarkedProvider();
+    setupShikiProviderFromHighlighter(
+        await createHighlighterCore({
+            themes: [githubLight, githubDark],
+            langs: [bash, json, python, ts],
+            engine: createJavaScriptRegexEngine(),
+        }),
+        { theme: { light: 'github-light-default', dark: 'github-dark-default' } },
+    );
+    showReasoningDuration();
+
+    // The model: a script with three models to pick from. Tools need `function_calling`.
+    const model = createScenarioProvider({
+        id: 'assistant',
+        name: 'Assistant',
+        scenarios: scenarios(reducedMotion() ? 0 : 900),
+        match: pickScenario,
+        pacing: replyPacing(),
+        models: [
+            { id: 'large', name: 'Large', contextWindow: 200_000, capabilities: ['streaming', 'function_calling'] },
+            { id: 'fast', name: 'Fast', contextWindow: 128_000, capabilities: ['streaming', 'function_calling'] },
+            { id: 'reasoning', name: 'Reasoning', contextWindow: 200_000, capabilities: ['streaming', 'function_calling', 'reasoning'] },
+        ],
+    });
+    aparteGlobalConfig.registerAIProvider(model);
+    aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'large' });
+    aparteGlobalConfig.registerTool(
+        {
+            name: 'web_search',
+            description: 'Search the web and return the top pages.',
+            inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+        },
+        async (call) => ({ toolCallId: call.id, content: TRIP_RESULTS }),
+    );
+    // The tool row's one line: what was searched for.
+    aparteGlobalConfig.registerToolSummary('web_search', (segment) => String(segment.toolCall.input['query'] ?? ''));
+    aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+    // Retry and edit are honoured by the client below, so the bubbles may offer them.
+    aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+    new AparteClient().start();
+
+    // The model picker reads the providers when it mounts: imported now, once the model is
+    // registered. A static import would be evaluated before this module's body.
+    void import('@aparte/plugin-model-selector');
+
+    const chat = document.querySelector<HTMLElement>('.assistant aparte-chat');
+    const viewport = chat?.querySelector<AparteChatViewport>('aparte-chat-viewport');
+    const sidebar = document.querySelector<AparteSidebar>('.assistant aparte-sidebar');
+    const list = document.querySelector<AparteConversationList>('.assistant aparte-conversation-list');
+    const heading = document.querySelector<HTMLElement>('[data-assistant-title]');
+    if (!chat || !viewport || !sidebar || !list || !heading) return;
+
+    // The conversations: the manager over the store, registered for every element (the list's
+    // `manage` renames and deletes through it), and the controller that binds the chat to it.
+    // The controller loads a conversation when the list selects it, creates one on the first
+    // message of a new chat, and saves every finished turn.
+    const manager = new AparteConversationManager(createMemoryStore(CONVERSATIONS), { titleProvider: titleFor });
+    aparteGlobalConfig.setConversationManager(manager);
+    const controller = new AparteConversationController({
+        hostId: chat.id,
+        host: chat,
+        getMessages: () => viewport.getMessages(),
+        setMessages: (messages) => viewport.setMessages(messages),
+        appendMessage: (message) => viewport.appendMessage(message),
+        clearMessages: (options) => viewport.clearAll(options),
+        setLoading: (on) => viewport.setLoading(on),
+        exportTree: () => viewport.exportTree(),
+        importTree: (tree) => viewport.importTree(tree),
+    });
+    controller.bind();
+
+    // The list and the header follow the manager.
+    manager.subscribe(() => {
+        list.conversations = manager.activeConversations.map(({ id, title, updatedAt, pinnedAt }) => ({ id, title, updatedAt, pinnedAt }));
+        const active = manager.active;
+        if (active) list.setAttribute('active-id', active.id);
+        else list.removeAttribute('active-id');
+        heading.textContent = active?.title || 'New chat';
+    });
+
+    // On a phone the sidebar is a drawer over the chat: picking a conversation, or starting a
+    // new one, is done with it.
+    const closeDrawer = (): void => {
+        if (sidebar.drawer) sidebar.close();
+    };
+    list.addEventListener('aparte-conversation-select', closeDrawer);
+    document.querySelector('[data-assistant-new]')?.addEventListener('click', () => {
+        closeDrawer();
+        void controller.setConversationId(null);
+        chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
+    });
+    wireThemeToggle(document.querySelector<HTMLButtonElement>('[data-assistant-theme]'));
+
+    await manager.init();
+    const mode = templateMode();
+    if (mode === 'play') {
+        // The showcase starts on a new chat and asks its question there.
+        const composer = chat.querySelector<Composer>('aparte-composer');
+        if (composer) whenShown(() => void typeAndSend(composer, PLAY_QUESTION));
+    } else {
+        await controller.setConversationId(FIRST_CONVERSATION);
+    }
+}
+
+/** Light or dark for this page, on the two attributes the site and core's tokens read. */
+function wireThemeToggle(button: HTMLButtonElement | null): void {
+    if (!button) return;
+    const root = document.documentElement;
+    const paint = (): void => {
+        const dark = root.dataset.aparteTheme === 'dark';
+        // Static SVG strings from core's extended icon set.
+        button.innerHTML = dark ? sunIcon : moonIcon;
+        button.setAttribute('aria-label', dark ? 'Switch to the light theme' : 'Switch to the dark theme');
+    };
+    button.addEventListener('click', () => {
+        const next = root.dataset.aparteTheme === 'dark' ? 'light' : 'dark';
+        root.dataset.theme = next;
+        root.dataset.aparteTheme = next;
+        // The site's own key, so a reload and the system's scheme agree with this choice.
+        try {
+            localStorage.setItem('starlight-theme', next);
+        } catch {
+            // Storage can be blocked; the choice then holds for this page only.
+        }
+    });
+    // The site's own changes (a framing page, another tab, the system) repaint it too.
+    new MutationObserver(paint).observe(root, { attributes: true, attributeFilter: ['data-aparte-theme'] });
+    paint();
 }

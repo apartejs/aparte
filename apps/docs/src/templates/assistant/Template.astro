@@ -1,45 +1,69 @@
 ---
 /**
- * The Assistant template: an app shell with conversations in the sidebar, the chat in the main
- * area. The markup is the library's elements and recipes; the behaviour is app.ts.
+ * The Assistant template: an app shell with the conversations in the sidebar (a drawer on a
+ * phone) and the chat in the main area. The markup is the library's elements and recipes; the
+ * behaviour is app.ts.
  */
+import { sparklesIcon } from '@aparte/core/icons';
 import './assistant.css';
+import { FRENCH_QUESTION, INTEREST_QUESTION, PLAY_QUESTION, TODO_QUESTION } from './scenario';
+
+// The starters under the greeting: each one is a question the script answers (scenario.ts), and
+// none of them is already in the history, so a starter never adds a twin to the list.
+const suggestions = JSON.stringify([
+    { label: 'Rename photos by date', prompt: PLAY_QUESTION },
+    { label: 'Explain compound interest', prompt: INTEREST_QUESTION },
+    { label: 'Notes to a to-do list', prompt: TODO_QUESTION },
+    { label: 'Translate into French', prompt: FRENCH_QUESTION },
+]);
 ---
 
 <div class="assistant aparte-app-shell">
     <aparte-sidebar>
         <div class="aparte-sidebar__header">
-            <span class="aparte-sidebar__brand">Assistant</span>
-            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
+            <span class="aparte-sidebar__brand assistant-brand">
+                <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true" set:html={sparklesIcon}></span>
+                Assistant
+            </span>
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat" data-assistant-new>
                 <aparte-icon name="edit"></aparte-icon>
             </button>
         </div>
         <div class="aparte-sidebar__search aparte-field-group">
-            <input class="aparte-field aparte-field--sm" type="search" placeholder="Search" aria-label="Search conversations" data-aparte-sidebar-search />
+            <input class="aparte-field aparte-field--sm" type="search" placeholder="Search chats" aria-label="Search chats" data-aparte-sidebar-search />
         </div>
         <div class="aparte-sidebar__body">
-            <aparte-conversation-list active-id="c1"></aparte-conversation-list>
+            <!-- manage: the row menu's rename and delete go straight to the conversation manager. -->
+            <aparte-conversation-list manage></aparte-conversation-list>
         </div>
         <div class="aparte-sidebar__footer">
-            <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
+            <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true">MO</span>
+            <span>Maya Okafor</span>
         </div>
     </aparte-sidebar>
     <header class="aparte-app-header">
         <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
             <aparte-icon name="menu"></aparte-icon>
         </button>
-        <span class="aparte-app-header__title">What is a web component?</span>
+        <span class="aparte-app-header__title" data-assistant-title>New chat</span>
+        <div class="aparte-app-header__actions">
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Switch the theme" data-assistant-theme></button>
+        </div>
     </header>
     <div class="aparte-app-shell__main">
-        <aparte-chat>
+        <!-- center-empty: a new chat holds the greeting and the composer in the middle. -->
+        <aparte-chat id="assistant-chat" center-empty>
             <aparte-chat-viewport></aparte-chat-viewport>
             <aparte-composer placeholder="Ask anything">
-                <aparte-suggestions
-                    empty-only
-                    suggestions='[{"label": "Explain web components", "prompt": "What is a web component, in two sentences and an example?"}, {"label": "Plan a launch week", "prompt": "Plan a launch week for a small library"}, {"label": "Review a migration", "prompt": "Review this SQL migration"}]'
-                ></aparte-suggestions>
+                <div class="assistant-welcome">
+                    <h2 class="assistant-welcome__title">What can I help with, Maya?</h2>
+                    <aparte-suggestions empty-only suggestions={suggestions}></aparte-suggestions>
+                </div>
                 <div class="aparte-composer-shell">
+                    <!-- Files are opt-in: these two elements are the declaration. -->
+                    <aparte-composer-attachments></aparte-composer-attachments>
                     <div class="aparte-composer-row">
+                        <aparte-composer-add-attachment accept=".csv,.pdf,.txt,.md"></aparte-composer-add-attachment>
                         <aparte-composer-input></aparte-composer-input>
                         <aparte-composer-send></aparte-composer-send>
                     </div>
