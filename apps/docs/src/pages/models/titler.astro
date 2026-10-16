@@ -291,8 +291,11 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       .band h2 { font-size: clamp(26px, 3.2vw, 36px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 14px; }
       .band h2 .paren { color: var(--accent); }
       .sec-sub { margin: 0 0 18px; color: var(--dim); font-size: 16px; line-height: 1.62; max-width: 64ch; }
-      .sec-sub a, .sec-note a, .tl-facts a, .pick a { color: var(--accent-text); text-decoration: none; }
-      .sec-sub a:hover, .sec-note a:hover, .tl-facts a:hover, .pick a:hover { text-decoration: underline; }
+      /* `.band` outweighs the landing's `a:not(.aparte-btn) { color: inherit }`, which weighs the same
+         and comes later. The underline is what tells a link inside a sentence apart: its colour
+         against the text around it is 1.02:1. */
+      .band :is(.sec-sub, .sec-note, .tl-facts, .pick) a { color: var(--accent-text); text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--accent-text) 40%, transparent); text-underline-offset: .2em; }
+      .band :is(.sec-sub, .sec-note, .tl-facts, .pick) a:hover { text-decoration-color: currentColor; }
       .sec-note { margin: 16px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
       .band code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; color: color-mix(in oklab, var(--text) 82%, var(--accent-text)); }
       .code + .sec-sub { margin-top: 22px; }
