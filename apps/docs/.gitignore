@@ -3,6 +3,7 @@
 # the scripts in scripts/.
 src/content/docs/reference/css-variables.md
 src/content/docs/reference/engine.md
+src/content/docs/reference/core/
 src/content/docs/reference/wrappers.md
 # The generated component pages live in group folders; the catalogue's hand-written
 # pages are flat files beside them and ARE tracked.

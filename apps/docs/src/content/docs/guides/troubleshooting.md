@@ -255,5 +255,5 @@ document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', 
 ```
 
 Customize what the error segment looks like with
-[`aparteGlobalConfig.setErrorRenderer`](/reference/config/#renderers--render-hooks) rather than
+[`aparteGlobalConfig.setErrorRenderer`](/reference/core/config/#seterrorrenderer) rather than
 registering a segment renderer for `error` yourself.

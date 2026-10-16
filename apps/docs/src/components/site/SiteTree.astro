@@ -6,6 +6,7 @@
  */
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
 import { expandIcon } from '@aparte/core/icons';
+import { groupLabel } from './sections';
 
 type Entry = StarlightRouteData['sidebar'][number];
 
@@ -30,7 +31,7 @@ const holdsCurrent = (e: Entry): boolean => (e.type === 'link' ? e.isCurrent : e
                 <li>
                     <details class="site-tree__group" open={!e.collapsed || holdsCurrent(e)}>
                         <summary class="site-tree__summary">
-                            <span>{e.label}</span>
+                            <span>{groupLabel(e.label)}</span>
                             <span class="site-tree__chevron" set:html={expandIcon} />
                         </summary>
                         <Astro.self entries={e.entries} />

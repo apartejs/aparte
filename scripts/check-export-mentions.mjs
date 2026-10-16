@@ -121,7 +121,9 @@ const MAX_UNMENTIONED = new Map([
     // Ratcheted 76 → 66 by the generated events reference. It names every event-detail
     // interface in one place, which is ten types that were exported, typed in the event
     // map, and named on no page a reader opens.
-    ['@aparte/core', 44],      // of 200 exports checked
+    // Ratcheted 44 → 0 by the generated core API reference (reference/core/, TypeDoc), the
+    // same credit the engine's reference gets; see the note below.
+    ['@aparte/core', 0],       // of 220 exports checked
     ['@aparte/react', 6],
     ['@aparte/vue', 2],
     ['@aparte/svelte', 3],
@@ -169,6 +171,9 @@ const MAX_UNMENTIONED = new Map([
  * Recording the disagreement rather than silently picking a side: if a future round
  * decides a TypeDoc dump does not count, this ceiling jumps by 36 and the fix is 36
  * pages, not a number.
+ *
+ * Core has a TypeDoc reference too since the docs were rewritten (reference/core/), and the
+ * same holds: the 44 core exports it alone names would come back.
  */
 
 /** How far below its ceiling a count may sit before the ceiling must be lowered. */

@@ -13,7 +13,7 @@
  */
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
 import kit from '../generated/api/kit.json';
-import { sectionOf } from './site/sections';
+import { groupLabel, sectionOf } from './site/sections';
 import TocList from './site/TocList.astro';
 
 type Entry = StarlightRouteData['sidebar'][number];
@@ -29,7 +29,7 @@ function trail(entries: Entry[]): string[] | null {
             if (e.isCurrent) return [];
         } else {
             const inner = trail(e.entries);
-            if (inner) return [e.label, ...inner];
+            if (inner) return [groupLabel(e.label), ...inner];
         }
     }
     return null;

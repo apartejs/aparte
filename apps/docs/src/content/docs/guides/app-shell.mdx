@@ -157,6 +157,6 @@ chat.addEventListener('aparte-link-click', (event) => {
 The detail is `{ href, anchor, messageId }` — `anchor` is the element itself, for a host
 that wants its text or its `rel`, and `messageId` is `null` on a bubble mounted without
 one. What the browser would have done otherwise is on
-[`setHtmlSanitizer`](/reference/config/#markdown-highlight--sanitizer): an off-site link
+[`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer): an off-site link
 gets its own tab, a same-site one is left as written. You do not need to intercept clicks
 in the DOM.

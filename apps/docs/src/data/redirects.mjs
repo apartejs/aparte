@@ -22,6 +22,8 @@ export const MOVED = {
     '/reference/release-notes/': '/changelog/',
     // One 752-line page listing every element became one page per component.
     '/reference/api/': '/components/',
+    // The hand-written core API page became the generated core API reference, one page per area.
+    '/reference/config/': '/reference/core/config/',
 };
 
 /**

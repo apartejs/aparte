@@ -25,6 +25,13 @@ export const SECTIONS: Section[] = [
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
 ];
 
+/**
+ * Starlight names a sidebar group it builds from a folder after the folder, and takes no other
+ * name for it; the sidebar and the breadcrumb both show this name instead.
+ */
+const FOLDER_LABELS: Record<string, string> = { core: 'Core API' };
+export const groupLabel = (label: string): string => FOLDER_LABELS[label] ?? label;
+
 export function sectionOf(path: string): Section | undefined {
     return SECTIONS.find((s) => s.prefixes.some((prefix) => path.startsWith(prefix)));
 }

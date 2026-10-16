@@ -1,6 +1,6 @@
 ---
 title: Reference
-description: The generated references — the UI kit's classes, every CSS variable, the events, the config, the engine, the wrappers and the icons — and what each one answers.
+description: The generated references — the UI kit's classes, every CSS variable, the events, the core API, the engine, the wrappers and the icons — and what each one answers.
 sidebar:
   order: 0
 ---
@@ -14,7 +14,7 @@ answers one question:
 | [The UI kit — classes](/reference/classes/) | *Which ready-made classes can I put on my own elements?* Every class on one page. Buttons, fields, switches, tags, alerts, menus, tabs, avatars — plain classes on plain elements, themed by the same variables as the chat, with their HTML verbatim. To *see* them first, one family per page, start at the [UI kit](/kit/). |
 | [CSS variables](/reference/css-variables/) | *Which `--aparte-*` token do I set to change this?* Every declared variable with its default, and the ones a component reads with a fallback. |
 | [Events](/reference/events/) | *What does aparté dispatch, with what `detail`?* The kebab-case event map, one row per event. |
-| [Config](/reference/config/) | *What can `aparteGlobalConfig` (or a per-chat `AparteConfig`) be told?* Providers, transports, renderers, hooks, host handlers. |
+| [Core API](/reference/core/) | *What does `@aparte/core` export, with which signature?* Every export by area: configuration, client, transports, messages, conversations, questions, element types, utilities. |
 | [Engine](/reference/engine/) | *What does `@aparte/engine` export?* The loop and its run events. |
 | [Wrappers](/reference/wrappers/) | *What is the same on React, Vue, Svelte and Angular?* The one imperative contract and how each framework spells it. |
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
@@ -32,7 +32,7 @@ each one is generated FROM is the thing to read:
 | CSS variables | the `--aparte-*` declarations in `packages/core/src/styles/` (`theme.css` holds the tokens) |
 | Classes / UI kit | the class names and banner comments in the same sheets |
 | Events | `packages/core/src/types/event-map.ts` and the `@fires` tags on each element |
-| Config | `packages/core/src/config/` |
+| Core API | `packages/core/src/` (its JSDoc, through TypeDoc) |
 | Engine | `packages/engine/src/` |
 | Wrappers | the four `packages/wrappers/*/src/` |
 | Icons | `packages/core/src/icons/` |
