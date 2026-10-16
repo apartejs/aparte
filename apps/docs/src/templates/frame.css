@@ -32,6 +32,8 @@ body {
 
 .template-bar__name {
     min-width: 0;
+    margin: 0;
+    font-size: inherit;
     overflow: hidden;
     font-weight: var(--aparte-font-weight-semibold, 600);
     text-overflow: ellipsis;
