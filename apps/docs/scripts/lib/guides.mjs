@@ -21,7 +21,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const GUIDES_DIR = resolve(here, '../../src/content/docs/guides');
 
 /** The groups a guide can name, in the order the sidebar shows them. */
-export const GUIDE_GROUPS = ['start', 'models', 'agents', 'conversations', 'look', 'help'];
+export const GUIDE_GROUPS = ['start', 'look', 'conversations', 'agents', 'models', 'help'];
 
 function frontmatter(text) {
     const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);

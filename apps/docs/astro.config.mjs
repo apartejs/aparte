@@ -142,8 +142,12 @@ export default defineConfig({
       sidebar: [
         // The Docs section, by what a reader came to do. Each guide names its own group
         // (scripts/lib/guides.mjs); the framework and provider pages are listed by folder.
+        // The look comes right after the start, and the models last but for help.
         { label: 'Start here', items: guides.start },
+        { label: 'Look and content', items: guides.look },
         { label: 'Frameworks', collapsed: true, items: [{ autogenerate: { directory: 'frameworks' } }] },
+        { label: 'Conversations', items: guides.conversations },
+        { label: 'Agents and tools', items: guides.agents },
         {
           label: 'Models and agents',
           collapsed: true,
@@ -154,9 +158,6 @@ export default defineConfig({
             ...guides.models,
           ],
         },
-        { label: 'Agents and tools', items: guides.agents },
-        { label: 'Conversations', items: guides.conversations },
-        { label: 'Look and content', items: guides.look },
         { label: 'Help', items: guides.help },
         // Assembled, copy-me applications - the section the audit found missing: every
         // component was documented and nothing showed them put together.
