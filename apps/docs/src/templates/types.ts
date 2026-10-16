@@ -7,6 +7,8 @@ export interface TemplateMeta {
     slug: string;
     /** What a reader calls it ("Assistant"). */
     title: string;
+    /** The page's <title>, when what people search differs from what a reader calls it. */
+    pageTitle?: string;
     /** One sentence: what it is and who it is for. */
     description: string;
     /** Its place in the grid. */

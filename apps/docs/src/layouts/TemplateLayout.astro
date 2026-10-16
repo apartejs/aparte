@@ -25,7 +25,7 @@ const { meta } = Astro.props;
 const site = Astro.site ?? new URL('https://apartejs.dev');
 const canonical = new URL(`/templates/${meta.slug}/`, site).href;
 const ogImage = new URL(`/og/templates/${meta.slug}.png`, site).href;
-const title = `${meta.title} — an aparté template`;
+const title = meta.pageTitle ?? `${meta.title} — an aparté template`;
 const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
 ---
 

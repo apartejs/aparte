@@ -4,8 +4,9 @@ import type { TemplateMeta } from '../types';
 export default {
     slug: 'assistant',
     title: 'Assistant',
+    pageTitle: 'Open-source ChatGPT-style chat UI — an aparté template',
     description:
-        'A general chat assistant: conversations by date in a sidebar, answers in Markdown with code, reasoning and a web search, versions of a reply, files and a model picker.',
+        'A ChatGPT-style assistant: conversations in a sidebar, Markdown and code, reasoning, web search, versions of a reply, files and a model picker.',
     order: 1,
     uses: [
         'app-shell',
