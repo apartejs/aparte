@@ -4,9 +4,13 @@
  * other, the library in between, and the transport that decides where a request goes. Every node
  * links to its page.
  *
- * Drawn twice from the same lists: an SVG for a wide screen, where the lines can say "any of
- * these, into one element", and a stack of plain HTML on a phone, where the same lines would be
- * too small to read. The flow along the lines stops under reduced motion.
+ * The two transports are two routes, and they do not reach the same things: a model running in
+ * the page is reached from the browser only, an agent that runs its own loop through a server
+ * only, and an OpenAI-compatible API or an AI SDK model from either.
+ *
+ * Drawn twice from the same lists: across for a wide screen, where five frameworks fan into the
+ * library and each transport fans out to what it reaches; down for a phone, where each route
+ * keeps its own group. A flow runs along every line, and stops under reduced motion.
  */
 import { COMPONENTS } from '../../lib/facts';
 
@@ -15,77 +19,86 @@ const FRAMEWORKS = [
     { label: 'Vue', href: '/frameworks/vue/' },
     { label: 'Svelte', href: '/frameworks/svelte/' },
     { label: 'Angular', href: '/frameworks/angular/' },
-    { label: 'Plain HTML', href: '/guides/getting-started/' },
+    { label: 'Vanilla JS', href: '/guides/getting-started/' },
 ];
 const TRANSPORTS = [
     { label: 'In the browser', line: 'your key, or a local model', href: '/guides/getting-started/' },
-    { label: 'Your server', line: 'your /api/chat holds the key', href: '/guides/backend-transport/' },
+    { label: 'Your server', line: 'holds the key, or runs the agent', href: '/guides/backend-transport/' },
 ];
+/** Top to bottom; `via` is the transports that reach it (0 the browser, 1 the server). */
 const MODELS = [
-    { label: 'OpenAI-compatible', href: '/providers/ai/openai-compat/' },
-    { label: 'Vercel AI SDK', href: '/providers/ai/ai-sdk/' },
-    { label: 'In-browser models', href: '/providers/ai/transformers/' },
-    { label: 'AG-UI agents', href: '/providers/agent/ag-ui/' },
-    { label: 'TanStack AI', href: '/providers/agent/tanstack-ai/' },
+    { label: 'Scripted replies', href: '/providers/ai/scenario/', via: [0] },
+    { label: 'In-browser models', href: '/providers/ai/transformers/', via: [0] },
+    { label: 'OpenAI-compatible', href: '/providers/ai/openai-compat/', via: [0, 1] },
+    { label: 'Vercel AI SDK', href: '/providers/ai/ai-sdk/', via: [0, 1] },
+    { label: 'AG-UI agents', href: '/providers/agent/ag-ui/', via: [1] },
+    { label: 'TanStack AI', href: '/providers/agent/tanstack-ai/', via: [1] },
 ];
 
-// The wide drawing's geometry, in viewBox units.
-const ROW = (i: number) => 50 + i * 72; // top of the i-th pill
-const PILL_H = 46;
+/** One drawn connection: a faint line and the flow that runs along it, on the same path. */
+type Path = string;
+
+// ── Across (viewBox 1120 × 420) ──────────────────────────────────────────────
+const PILL = { w: 180, h: 46 };
+const row = (i: number) => 50 + i * 72;
+const rowMid = (i: number) => row(i) + PILL.h / 2;
 const CORE = { x: 330, y: 130, w: 260, h: 180 };
-const CORE_MID = CORE.y + CORE.h / 2;
-const BOX = (i: number) => ({ x: 660, y: i === 0 ? 112 : 252, w: 200, h: 76 });
-const BUS_X = 892;
+const coreMid = CORE.y + CORE.h / 2;
+const BOX = (i: number) => ({ x: 650, y: i === 0 ? 112 : 252, w: 180, h: 76 });
+const boxMid = (i: number) => BOX(i).y + BOX(i).h / 2;
+const MODEL_X = 930;
+/** The models column holds one more row than the frameworks, a little tighter. */
+const MODEL_PILL_H = 42;
+const modelRow = (i: number) => 42 + i * 62;
+const modelMid = (i: number) => modelRow(i) + MODEL_PILL_H / 2;
+const wide: Path[] = [
+    ...FRAMEWORKS.map((_, i) => `M190,${rowMid(i)} C260,${rowMid(i)} 260,${coreMid} ${CORE.x},${coreMid}`),
+    ...TRANSPORTS.map((_, i) => `M${CORE.x + CORE.w},${coreMid} C622,${coreMid} 618,${boxMid(i)} 650,${boxMid(i)}`),
+    ...MODELS.flatMap((m, i) => m.via.map((t) => `M830,${boxMid(t)} C880,${boxMid(t)} 880,${modelMid(i)} ${MODEL_X},${modelMid(i)}`)),
+];
+
+// ── Down (viewBox 360 × 584): each route keeps its own group, so nothing crosses ──
+const TALL_FW = [
+    { x: 20, y: 44 }, { x: 130, y: 44 }, { x: 240, y: 44 },
+    { x: 75, y: 86 }, { x: 185, y: 86 },
+];
+const TALL_BOX = (i: number) => ({ x: i === 0 ? 8 : 184, y: 300, w: 168, h: 60 });
+const tallMid = (i: number) => TALL_BOX(i).x + TALL_BOX(i).w / 2;
+const TALL_GROUP_Y = 404;
+/** The models each route reaches, in the column under it. */
+const tallModels = (route: number) => MODELS.filter((m) => m.via.includes(route));
+const tallGroupHeight = (route: number) => 18 + tallModels(route).length * 38;
+const tall: Path[] = [
+    'M180,134 L180,172',
+    ...TRANSPORTS.map((_, i) => `M180,272 C180,290 ${tallMid(i)},282 ${tallMid(i)},300`),
+    ...TRANSPORTS.map((_, i) => `M${tallMid(i)},360 L${tallMid(i)},${TALL_GROUP_Y}`),
+];
+const tallHeight = TALL_GROUP_Y + Math.max(tallGroupHeight(0), tallGroupHeight(1)) + 8;
 ---
 
 <figure class="fits">
     {/* A group, not an image: an image's children are presentational, and these are links. */}
-    <svg class="fits__wide" viewBox="0 0 1120 420" role="group" aria-labelledby="fits-title" aria-describedby="fits-desc">
+    <svg class="fits__drawing fits__drawing--wide" viewBox="0 0 1120 420" role="group" aria-labelledby="fits-title" aria-describedby="fits-desc">
         <title id="fits-title">How aparté fits</title>
         <desc id="fits-desc">
-            React, Vue, Svelte, Angular or plain HTML render the same aparté elements. A transport sends each
-            request either straight from the browser or through your server, to an OpenAI-compatible API, a
-            Vercel AI SDK model, a model running in the browser, an AG-UI agent or TanStack AI.
+            React, Vue, Svelte, Angular or vanilla JS render the same aparté elements. From the browser, a
+            request goes straight to a model running in the page, an OpenAI-compatible API or a Vercel AI SDK
+            model, with your key or a local server. Through your server, it reaches an OpenAI-compatible API or
+            an AI SDK model with the key kept there, or an agent that runs its own loop: AG-UI agents and TanStack AI.
         </desc>
 
         <text class="fits__heading" x="100" y="26">Your framework</text>
         <text class="fits__heading" x="460" y="26">aparté</text>
-        <text class="fits__heading" x="760" y="26">Transport</text>
-        <text class="fits__heading" x="1015" y="26">Models and agents</text>
+        <text class="fits__heading" x="740" y="26">Transport</text>
+        <text class="fits__heading" x="1020" y="26">Models and agents</text>
 
-        {/* Into one element: a curve from each framework to the library. */}
-        {
-            FRAMEWORKS.map((_, i) => {
-                const y = ROW(i) + PILL_H / 2;
-                const d = `M190,${y} C262,${y} 258,${CORE_MID} ${CORE.x},${CORE_MID}`;
-                return [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />];
-            })
-        }
-        {/* Out through a transport: one curve to each. */}
-        {
-            TRANSPORTS.map((_, i) => {
-                const box = BOX(i);
-                const y = box.y + box.h / 2;
-                const d = `M${CORE.x + CORE.w},${CORE_MID} C628,${CORE_MID} 626,${y} ${box.x},${y}`;
-                return [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />];
-            })
-        }
-        {/* Either transport reaches any of them: a bus, and a stub to each. */}
-        <path class="fits__line" d={`M${BUS_X},${ROW(0) + PILL_H / 2} V${ROW(MODELS.length - 1) + PILL_H / 2}`} />
-        {
-            TRANSPORTS.map((_, i) => {
-                const box = BOX(i);
-                const d = `M${box.x + box.w},${box.y + box.h / 2} H${BUS_X}`;
-                return [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />];
-            })
-        }
-        {MODELS.map((_, i) => <path class="fits__line" d={`M${BUS_X},${ROW(i) + PILL_H / 2} H920`} />)}
+        {wide.map((d) => [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />])}
 
         {
             FRAMEWORKS.map((f, i) => (
                 <a href={f.href}>
-                    <rect class="fits__pill" x="10" y={ROW(i)} width="180" height={PILL_H} rx="23" />
-                    <text class="fits__label" x="100" y={ROW(i) + 29}>{f.label}</text>
+                    <rect class="fits__pill" x="10" y={row(i)} width={PILL.w} height={PILL.h} rx="23" />
+                    <text class="fits__label" x="100" y={row(i) + 29}>{f.label}</text>
                 </a>
             ))
         }
@@ -116,54 +129,93 @@ const BUS_X = 892;
         {
             MODELS.map((m, i) => (
                 <a href={m.href}>
-                    <rect class="fits__pill" x="920" y={ROW(i)} width="190" height={PILL_H} rx="23" />
-                    <text class="fits__label" x="1015" y={ROW(i) + 29}>{m.label}</text>
+                    <rect class="fits__pill" x={MODEL_X} y={modelRow(i)} width={PILL.w} height={MODEL_PILL_H} rx="21" />
+                    <text class="fits__label" x={MODEL_X + PILL.w / 2} y={modelRow(i) + 27}>{m.label}</text>
                 </a>
             ))
         }
     </svg>
 
-    <div class="fits__stack">
-        <p class="fits__stack-heading">Your framework</p>
-        <ul class="fits__chips">{FRAMEWORKS.map((f) => <li><a class="aparte-tag" href={f.href}>{f.label}</a></li>)}</ul>
-        <span class="fits__arrow" aria-hidden="true">↓</span>
-        <a class="fits__stack-core aparte-card" href="/components/">
-            <span class="fits__stack-mark"><span class="fits__stack-paren">(</span>aparté<span class="fits__stack-paren">)</span></span>
-            <span>{COMPONENTS.total} components and the agent loop</span>
+    <svg class="fits__drawing fits__drawing--tall" viewBox={`0 0 360 ${tallHeight}`} role="group" aria-labelledby="fits-title-tall" aria-describedby="fits-desc">
+        <title id="fits-title-tall">How aparté fits</title>
+
+        {tall.map((d) => [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />])}
+
+        <rect class="fits__group" x="8" y="8" width="344" height="126" rx="16" />
+        <text class="fits__heading" x="180" y="30">Your framework</text>
+        {
+            FRAMEWORKS.map((f, i) => (
+                <a href={f.href}>
+                    <rect class="fits__pill" x={TALL_FW[i]!.x} y={TALL_FW[i]!.y} width="100" height="32" rx="16" />
+                    <text class="fits__label fits__label--small" x={TALL_FW[i]!.x + 50} y={TALL_FW[i]!.y + 21}>{f.label}</text>
+                </a>
+            ))
+        }
+
+        <a href="/components/">
+            <rect class="fits__core" x="60" y="172" width="240" height="100" rx="16" />
+            <text class="fits__mark" x="180" y="208">
+                <tspan class="fits__paren">(</tspan>aparté<tspan class="fits__paren">)</tspan>
+            </text>
+            <text class="fits__label fits__label--small" x="180" y="236">{COMPONENTS.total} components</text>
+            <text class="fits__line-text" x="180" y="256">and the agent loop</text>
         </a>
-        <span class="fits__arrow" aria-hidden="true">↓</span>
-        <p class="fits__stack-heading">Transport</p>
-        <ul class="fits__pair">
-            {
-                TRANSPORTS.map((t) => (
-                    <li>
-                        <a class="aparte-card" href={t.href}>
-                            <strong>{t.label}</strong>
-                            <span>{t.line}</span>
+
+        {
+            TRANSPORTS.map((t, i) => {
+                const box = TALL_BOX(i);
+                return (
+                    <a href={t.href}>
+                        <rect class="fits__box" x={box.x} y={box.y} width={box.w} height={box.h} rx="12" />
+                        <text class="fits__label fits__label--small" x={tallMid(i)} y={box.y + 25}>{t.label}</text>
+                        <text class="fits__line-text fits__line-text--small" x={tallMid(i)} y={box.y + 44}>{t.line}</text>
+                    </a>
+                );
+            })
+        }
+
+        <text class="fits__heading" x="180" y="388">Models and agents</text>
+        {
+            TRANSPORTS.map((_, route) => {
+                const box = TALL_BOX(route);
+                return [
+                    <rect class="fits__group" x={box.x} y={TALL_GROUP_Y} width={box.w} height={tallGroupHeight(route)} rx="14" />,
+                    ...tallModels(route).map((m, j) => (
+                        <a href={m.href}>
+                            <rect class="fits__pill" x={box.x + 8} y={TALL_GROUP_Y + 10 + j * 38} width={box.w - 16} height="30" rx="15" />
+                            <text class="fits__label fits__label--small" x={tallMid(route)} y={TALL_GROUP_Y + 30 + j * 38}>{m.label}</text>
                         </a>
-                    </li>
-                ))
-            }
-        </ul>
-        <span class="fits__arrow" aria-hidden="true">↓</span>
-        <p class="fits__stack-heading">Models and agents</p>
-        <ul class="fits__chips">{MODELS.map((m) => <li><a class="aparte-tag" href={m.href}>{m.label}</a></li>)}</ul>
-    </div>
+                    )),
+                ];
+            })
+        }
+    </svg>
 </figure>
 
 <style>
     .fits {
         margin: 0;
     }
-
-    /* ── The wide drawing ─────────────────────────────────────────────── */
-    .fits__wide {
+    .fits__drawing {
         display: block;
         width: 100%;
         height: auto;
         font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
     }
-    .fits__wide text {
+    .fits__drawing--tall {
+        display: none;
+        max-width: 26rem;
+        margin-inline: auto;
+    }
+    @media (max-width: 48rem) {
+        .fits__drawing--wide {
+            display: none;
+        }
+        .fits__drawing--tall {
+            display: block;
+        }
+    }
+    .fits__drawing text {
         text-anchor: middle;
     }
     .fits__heading {
@@ -197,6 +249,11 @@ const BUS_X = 892;
             opacity: 0.35;
         }
     }
+    .fits__group {
+        fill: color-mix(in oklab, var(--aparte-surface-2) 55%, transparent);
+        stroke: var(--aparte-border);
+        stroke-width: 1;
+    }
     .fits__pill,
     .fits__box {
         fill: var(--aparte-surface-1);
@@ -209,16 +266,16 @@ const BUS_X = 892;
         stroke: var(--aparte-primary);
         stroke-width: 2;
     }
-    .fits__wide a:hover .fits__pill,
-    .fits__wide a:hover .fits__box,
-    .fits__wide a:focus-visible .fits__pill,
-    .fits__wide a:focus-visible .fits__box {
+    .fits__drawing a:hover .fits__pill,
+    .fits__drawing a:hover .fits__box,
+    .fits__drawing a:focus-visible .fits__pill,
+    .fits__drawing a:focus-visible .fits__box {
         stroke: var(--aparte-primary);
     }
-    .fits__wide a:focus-visible {
+    .fits__drawing a:focus-visible {
         outline: none;
     }
-    .fits__wide a:focus-visible rect {
+    .fits__drawing a:focus-visible rect {
         stroke-width: 3;
     }
     .fits__label {
@@ -226,9 +283,15 @@ const BUS_X = 892;
         font-size: 16px;
         font-weight: 550;
     }
+    .fits__label--small {
+        font-size: 13px;
+    }
     .fits__line-text {
         fill: var(--aparte-text-muted);
         font-size: 13.5px;
+    }
+    .fits__line-text--small {
+        font-size: 11px;
     }
     .fits__mark {
         fill: var(--aparte-text);
@@ -242,82 +305,5 @@ const BUS_X = 892;
         fill: var(--aparte-text-muted);
         font-family: 'Geist Mono Variable', ui-monospace, monospace;
         font-size: 12.5px;
-    }
-
-    /* ── The phone stack ──────────────────────────────────────────────── */
-    .fits__stack {
-        display: none;
-    }
-    @media (max-width: 48rem) {
-        .fits__wide {
-            display: none;
-        }
-        .fits__stack {
-            display: grid;
-            justify-items: center;
-            gap: 0.75rem;
-            text-align: center;
-        }
-    }
-    .fits__stack-heading {
-        margin: 0;
-        color: var(--aparte-text-muted);
-        font-size: 0.75rem;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-    }
-    .fits__chips {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.5rem;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-    .fits__chips a {
-        text-decoration: none;
-    }
-    .fits__arrow {
-        color: var(--aparte-primary);
-        font-size: 1.25rem;
-        line-height: 1;
-    }
-    .fits__stack-core {
-        display: grid;
-        gap: 0.25rem;
-        padding: 1rem 1.5rem;
-        border-color: var(--aparte-primary);
-        color: var(--aparte-text);
-        text-decoration: none;
-    }
-    .fits__stack-mark {
-        font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-        font-size: 1.75rem;
-    }
-    .fits__stack-paren {
-        color: var(--aparte-primary);
-    }
-    .fits__pair {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-    .fits__pair a {
-        display: grid;
-        gap: 0.25rem;
-        height: 100%;
-        padding: 0.75rem;
-        color: var(--aparte-text);
-        font-size: 0.875rem;
-        text-decoration: none;
-    }
-    .fits__pair span {
-        color: var(--aparte-text-muted);
-        font-size: 0.8125rem;
     }
 </style>
