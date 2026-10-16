@@ -61,7 +61,9 @@
     margin-inline-start: auto;
 }
 
-/* The welcome above the starters, gone with the first message (the chat reflects data-empty). */
+/* The welcome above the starters, gone with the first message (the chat reflects data-empty).
+   Shown before the chat is defined too: the markup is the empty state, and hiding it until the
+   script runs made it the page's last paint (LCP 4.5 s on a throttled phone). */
 .agent-workshop__welcome {
     max-width: var(--aparte-message-max-width);
     margin: 0 auto var(--aparte-space-4);
@@ -69,7 +71,7 @@
     text-align: center;
 }
 
-aparte-chat:not([data-empty]) .agent-workshop__welcome {
+aparte-chat:defined:not([data-empty]) .agent-workshop__welcome {
     display: none;
 }
 
