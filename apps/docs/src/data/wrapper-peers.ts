@@ -8,11 +8,16 @@ import vue from '../../../../packages/wrappers/vue/package.json';
 import svelte from '../../../../packages/wrappers/svelte/package.json';
 import angular from '../../../../packages/wrappers/angular/package.json';
 
+const same = (a: string | undefined, b: string | undefined, what: string): string => {
+    if (!a || a !== b) throw new Error(`wrapper-peers: ${what} declare different ranges (${a} / ${b}); the pages print one.`);
+    return a;
+};
+
 export const WRAPPER_PEERS = {
-    react: react.peerDependencies.react,
+    react: same(react.peerDependencies.react, react.peerDependencies['react-dom'], 'react and react-dom'),
     vue: vue.peerDependencies.vue,
     svelte: svelte.peerDependencies.svelte,
-    angular: angular.peerDependencies['@angular/core'],
+    angular: same(angular.peerDependencies['@angular/core'], angular.peerDependencies['@angular/common'], '@angular/core and @angular/common'),
     rxjs: angular.peerDependencies.rxjs,
-    core: react.peerDependencies['@aparte/core'],
+    core: [vue, svelte, angular].reduce((range, pkg) => same(range, pkg.peerDependencies['@aparte/core'], "the wrappers' @aparte/core peers"), react.peerDependencies['@aparte/core']),
 };

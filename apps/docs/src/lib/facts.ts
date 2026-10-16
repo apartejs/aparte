@@ -9,7 +9,7 @@
  * not from `import.meta.url`: Astro prerenders from bundled chunks, where that URL points inside
  * `dist/`.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readCatalogue } from '../../scripts/lib/catalogue.mjs';
 
@@ -60,4 +60,52 @@ export const BROWSER_ENGINES = (() => {
     ].filter(([device]) => config.includes(`devices['${device}']`)).map(([, engine]) => engine);
     if (!engines.length) throw new Error('facts: no browser project found in e2e/playwright.config.ts.');
     return engines;
+})();
+
+/** `engines.node`, as @aparte/core declares it. */
+export const NODE_FLOOR = (() => {
+    const floor = json<{ engines?: { node?: string } }>('packages/core/package.json').engines?.node;
+    if (!floor) throw new Error('facts: packages/core/package.json declares no engines.node.');
+    return floor;
+})();
+
+/** The Node versions the CI jobs run, lowest first. */
+export const CI_NODE_VERSIONS = (() => {
+    const ci = read('.github/workflows/ci.yml');
+    const versions = [...new Set([...ci.matchAll(/node-version:\s*'?(\d+)'?/g)].map((m) => m[1]!))]
+        .sort((a, b) => Number(a) - Number(b));
+    if (!versions.length) throw new Error('facts: no node-version found in .github/workflows/ci.yml.');
+    return versions;
+})();
+
+/** The example apps the browser suite also runs in WebKit and in Firefox; all of them run in Chromium. */
+export const E2E_APPS = (() => {
+    const config = read('e2e/playwright.config.ts');
+    const appsIn = (name: string): string[] =>
+        (config.match(new RegExp(`const ${name}[^=]*=\\s*\\[([^\\]]*)\\]`))?.[1] ?? '').match(/'([^']+)'/g)?.map((s) => s.slice(1, -1)) ?? [];
+    const webkit = appsIn('WEBKIT_APPS');
+    const firefox = appsIn('FIREFOX_APPS');
+    if (!webkit.length || !firefox.length) throw new Error('facts: WEBKIT_APPS or FIREFOX_APPS not found in e2e/playwright.config.ts.');
+    return { webkit, firefox };
+})();
+
+/** The browser builds the pinned Playwright runs, read from its own browsers.json. */
+export const CI_BROWSERS = (() => {
+    const dir = readdirSync(at('node_modules/.pnpm/')).find((name) => name.startsWith('playwright-core@'));
+    if (!dir) throw new Error('facts: playwright-core is not installed; the support page reads its browser builds.');
+    const { browsers } = json<{ browsers: { name: string; browserVersion?: string }[] }>(`node_modules/.pnpm/${dir}/node_modules/playwright-core/browsers.json`);
+    const version = (name: string, parts: number): string => {
+        const found = browsers.find((b) => b.name === name)?.browserVersion;
+        if (!found) throw new Error(`facts: no ${name} build in playwright-core's browsers.json.`);
+        return found.split('.').slice(0, parts).join('.');
+    };
+    return { chromium: version('chromium', 1), webkit: version('webkit', 2), firefox: version('firefox', 1) };
+})();
+
+/** The TypeScript the packages' declarations are emitted with, as major.minor. */
+export const TYPESCRIPT = (() => {
+    const spec = json<{ devDependencies?: Record<string, string> }>('package.json').devDependencies?.typescript ?? '';
+    const version = /(\d+\.\d+)/.exec(spec)?.[1];
+    if (!version) throw new Error('facts: no typescript devDependency in the root package.json.');
+    return version;
 })();
