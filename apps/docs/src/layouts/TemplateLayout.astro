@@ -3,9 +3,9 @@
  * A template on its own page: a thin bar (back to the grid, the template's name, its code) and the
  * template in the rest of the window, as the app it is.
  *
- * The same page is the grid's tile (`?thumb`, frozen, no bar) and the landing's showcase
- * (`?play`): src/templates/runtime.ts reads the mode, and the script below hides the bar before
- * paint so a tile never flashes it.
+ * The same page is the grid's tile (`?thumb`, frozen) and the landing's showcase (`?play`):
+ * src/templates/runtime.ts reads the mode, and the script below hides the bar before paint
+ * whenever the page is framed, so neither ever flashes it.
  */
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import FontPreload from '../components/site/FontPreload.astro';
@@ -52,8 +52,8 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="48x48 32x32 16x16" />
         <script is:inline>
-            // Before paint: the site's theme (the same key the docs use), and the tile mode, so a
-            // tile in the grid never shows the bar for a frame.
+            // Before paint: the site's theme (the same key the docs use), and whether the page is
+            // framed, so a tile or the landing's showcase never shows the bar for a frame.
             (() => {
                 let stored = '';
                 try { stored = localStorage.getItem('starlight-theme') || ''; } catch {}
@@ -62,7 +62,7 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
                     : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.dataset.aparteTheme = theme;
-                if (new URLSearchParams(location.search).has('thumb')) document.documentElement.classList.add('template-thumb');
+                if (window !== parent) document.documentElement.classList.add('template-framed');
                 // Framed (a tile, the landing's showcase), nothing inside takes the focus before the
                 // reader touches the frame: a focus() in a frame scrolls the parent page to it.
                 if (window !== parent) {

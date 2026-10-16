@@ -57,11 +57,12 @@ body {
     min-height: 0;
 }
 
-/* A tile in the grid: no bar, the template is the whole frame. */
-html.template-thumb body {
+/* Framed (a tile in the grid, the landing's showcase): no bar, the template is the whole frame —
+   the page around it already says what it is and links to it. */
+html.template-framed body {
     grid-template-rows: minmax(0, 1fr);
 }
 
-html.template-thumb .template-bar {
+html.template-framed .template-bar {
     display: none;
 }
