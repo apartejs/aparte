@@ -1,0 +1,103 @@
+---
+title: Accessibility
+description: What the chat does for keyboard and screen-reader users, what it leaves to your page, and what is tested.
+sidebar:
+  order: 7
+  label: Accessibility
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { BROWSER_ENGINES } from '../../../lib/facts';
+
+## What a screen reader hears
+
+| Part | Role | Name |
+| --- | --- | --- |
+| The message list | `log`, `aria-live="polite"`, and a tab stop | "Transcript" |
+| A message | `article` | "Your message" or "Assistant response" |
+| A message's buttons | `toolbar` | "Message actions" |
+| A reply still waiting for its first words | hidden text in its waiting dots | "Typing..." |
+| Your status line, `<aparte-chat-status>` | `status`, `aria-live="polite"` | its `text`, else "Typing" |
+| The composer's input | `textbox`, `aria-multiline="true"` | its placeholder |
+
+While a reply streams, its message is marked busy, so a screen reader reads it once it is
+complete, and a reply still waiting says a turn is in progress rather than leaving a silence.
+Moving to another version of a reply is announced without taking the focus. Every name the chat
+writes itself comes from the locale, so it follows the language
+([Translation](/guides/localization/)), and a key the locale leaves out reads in English; the
+status line's name is the text you give it.
+
+## Keyboard
+
+| Where | Keys |
+| --- | --- |
+| The composer | <kbd>Enter</kbd> sends, <kbd>Shift</kbd>+<kbd>Enter</kbd> starts a new line; `submit-on-enter="false"` (`submitOnEnter={false}` on the framework components) swaps them; while a reply streams, <kbd>Enter</kbd> keeps the draft |
+| A message's buttons | one tab stop: <kbd>←</kbd> <kbd>→</kbd> move between them, mirrored right-to-left, <kbd>Home</kbd> <kbd>End</kbd> jump to the ends |
+| A select | <kbd>Enter</kbd>, <kbd>Space</kbd> or <kbd>↓</kbd> opens, <kbd>↓</kbd> <kbd>↑</kbd> move, <kbd>Home</kbd> <kbd>End</kbd> jump to the ends — in a searchable select, they move in its filter field — <kbd>Enter</kbd> chooses, <kbd>Escape</kbd> closes |
+| A conversation's menu | <kbd>↓</kbd> <kbd>↑</kbd> move and wrap, <kbd>Home</kbd> <kbd>End</kbd>, <kbd>Escape</kbd> closes, <kbd>Tab</kbd> leaves for the button that opened it |
+| A split's seam | arrows move it a step (up and down on a vertical split), <kbd>Shift</kbd> with an arrow a larger one, <kbd>Home</kbd> <kbd>End</kbd> to the ends, <kbd>Enter</kbd> folds the primary pane and a second <kbd>Enter</kbd> restores it |
+| The sidebar as a drawer | its toggle opens it with the focus inside, and <kbd>Tab</kbd> stays inside while it is open; <kbd>Escape</kbd> closes it and gives the focus back |
+
+A [select](/components/select/) is a combobox: `aria-expanded`, `aria-controls` and
+`aria-activedescendant` sit on the element that has the focus, which is its filter field when it
+is `searchable`. A [conversation](/components/conversation-list/)'s row is a button that opens it,
+beside a ⋯ button that opens its menu; asking before a delete turns that menu into a dialog named
+by the question. The [split](/components/split/)'s arrows follow the reading direction.
+
+## Focus, motion, contrast and touch
+
+- **Focus.** Every control shows a ring on keyboard focus (`:focus-visible`), flush against it,
+  drawn in `--aparte-border-focus` — which follows `--aparte-neutral` — at
+  `--aparte-focus-outline-width`. Widen it everywhere at once:
+
+  ```css
+  :root { --aparte-focus-outline-width: 2px; }
+  ```
+
+- **Motion.** Under `prefers-reduced-motion`, the duration tokens drop to near zero, so the
+  chat's transitions and animations stop, and so do yours where they read those tokens. What is
+  happening is still announced.
+- **Contrast.** Under forced colours, as in Windows High Contrast mode, a part drawn only by its
+  fill gets a border.
+- **Touch.** On a coarse pointer, the composer's controls, the message buttons, the scroll button,
+  a conversation's ⋯ and a split's grab zone grow to `--aparte-touch-target-size`; the message
+  buttons stay shown instead of waiting for a hover, and the scroll rail is hidden.
+
+## What you add
+
+- **A name for each chat**, when a page has more than one, so a reader knows which transcript
+  they are in: wrap each in a landmark, `<section aria-label="Support">`. The chat element has no
+  role of its own, so a name set on it alone is not read.
+- **A translated label for each action you register.** `registerAction({ id, icon, label, zones })`
+  writes `label` as the button's name as given, without the locale: register the action again
+  with the new label when the language changes.
+- **Roles for the kit's neutral classes.** `.aparte-menu`, `.aparte-accordion`,
+  `.aparte-popover` and `.aparte-tooltip` draw a surface; `role="menu"`, `menuitem`,
+  `tooltip` and the keys those patterns need are yours. The conversation list's row menu is a
+  complete one to copy.
+- **Arrow keys across a long conversation list**, if you want them: every row is in the tab
+  order, with no roving `tabindex`.
+- **A name in what a render hook returns.** An element with `textContent` carries it; a string
+  of markup must carry it too ([Render hooks](/guides/customization/render-hooks/)).
+- **Your page around the chat**: headings, landmarks, a skip link.
+
+## What is tested
+
+An axe suite runs in a real browser, in {BROWSER_ENGINES.join(', ')}, and fails on any serious
+or critical violation, in each of these states: an idle chat, a streamed exchange, an open model
+menu, a turn in flight, and a failed turn. One more test reaches the composer, fills it and sends
+with the keyboard alone.
+
+axe sees what a machine can. Whether your labels say something useful, and whether your page reads
+in a sensible order, takes a person using your app.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/localization/', title: 'Translation', line: 'The locale every name on this page comes from.' },
+        { href: '/guides/customization/', title: 'Customization', line: 'Your own parts of the chat, and the names they carry.' },
+    ]}
+/>

@@ -1,0 +1,121 @@
+---
+title: Translate the chat
+description: Show the chat's own labels in French or in your language, switch at runtime, and set the date format and the reading direction.
+sidebar:
+  order: 6
+  label: Translation
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+The chat's own words — the composer's placeholder, the Copy and Retry buttons, "Thinking", the
+names a screen reader hears — come from a locale. English is built in, as
+`APARTE_DEFAULT_LOCALE`, so a chat with no locale set is in English.
+
+## Switch to French
+
+```bash
+npm install @aparte/locale-fr
+```
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { fr } from '@aparte/locale-fr';
+
+aparteGlobalConfig.setLocale(fr);
+```
+
+The switch is live: the chats already on the page relabel at once, so it can happen at any time,
+before or after they render. A chat with a [configuration of its own](/guides/customization/#per-chat-configuration)
+has its own locale: call `setLocale(fr)` on that configuration too.
+
+## Let the person choose
+
+```ts
+function setLanguage(lang: 'fr' | 'en'): void {
+  if (lang === 'fr') aparteGlobalConfig.setLocale(fr);
+  else aparteGlobalConfig.resetLocale();
+}
+```
+
+`resetLocale()` puts English back, and `getLocale()` returns the locale in force.
+
+## Write your own locale
+
+```ts
+import { aparteGlobalConfig, APARTE_DEFAULT_LOCALE, type AparteLocale } from '@aparte/core';
+
+const es: AparteLocale = {
+  ...APARTE_DEFAULT_LOCALE,
+  tag: 'es-ES',
+  inputPlaceholder: 'Escribe un mensaje…',
+  sendButton: 'Enviar',
+  copy: 'Copiar',
+  approvalAsk: '¿Ejecutar {tool}?',
+};
+
+aparteGlobalConfig.setLocale(es);
+```
+
+Start from the English default and override the keys you translate: the type lists the chat's
+built-in strings, and a key you leave out shows in English. These keys take a placeholder the
+chat fills in: `{tool}` in `approvalAsk`, `{name}` in `removeAttachment` and `{title}` in
+`deleteConversationConfirm`.
+
+`tag` and `direction` are not words:
+
+- `tag` is a BCP-47 language tag, such as `'es-ES'`. Message times, the conversation list's dates
+  and the context gauge's numbers are formatted for it, so a French locale gets 24-hour times.
+  Without it, they follow the browser.
+- `direction` is `'ltr'` or `'rtl'`, written as `dir` on the message list and the composer.
+  Without it, the chat follows the page: a page that says `<html dir="rtl">` gets a right-to-left
+  chat with no locale setting at all.
+
+## Add strings of your own
+
+```ts
+import { aparteGlobalConfig, subscribeConfigChange } from '@aparte/core';
+import { fr } from '@aparte/locale-fr';
+
+aparteGlobalConfig.setLocale(fr);
+aparteGlobalConfig.extendLocale({ myPluginRetry: 'Réessayer' });
+
+const label = (): string => aparteGlobalConfig.getLocale().myPluginRetry ?? 'Try again';
+
+function mount(el: HTMLElement): () => void {
+  const paint = (): void => { el.textContent = label(); };
+  paint();
+  return subscribeConfigChange(el, paint);
+}
+```
+
+A locale holds your keys beside the chat's. `extendLocale` merges them into the locale in force;
+`setLocale` and `resetLocale` replace the whole object, your keys included, so set the package
+first and extend it after, or pass `{ ...fr, myPluginRetry: 'Réessayer' }` in one call — which is
+what a language toggle does on every switch. Read your key off `getLocale()` with its English
+default at the call site, and repaint on a switch with `subscribeConfigChange`, which returns the
+function that stops it. A [segment renderer](/guides/customization/segments/#what-a-renderer-is-called-for)
+relabels in its `relabel` callback instead, called on every change.
+
+## What stays in English
+
+The status line the framework components show while `isTyping` is set reads their `typingText`
+prop, `'Assistant is thinking...'` by default: pass your translation. `<aparte-chat-status>`
+shows the `text` you give it, and says "Typing" to a screen reader without one.
+
+The words the model reads stay in English whatever the locale, since they are part of the request,
+not of the interface: the question tool's description and instructions in
+`@aparte/plugin-ask-user` (its `description` and `systemPrompt` options replace them), the
+compaction plugin's summary prompt (`prompt`), and the artifacts tool's instructions
+(`systemPrompt` on `createArtifactTool`).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/accessibility/', title: 'Accessibility', line: 'The names the locale gives a screen reader, and what stays yours to add.' },
+        { href: '/guides/customization/', title: 'Customization', line: 'Your own parts of the chat, and their labels.' },
+    ]}
+/>
