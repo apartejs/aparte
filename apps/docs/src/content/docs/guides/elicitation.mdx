@@ -1,0 +1,263 @@
+---
+title: Ask the user a question
+description: Pause a run and get a choice, a yes or no, some text or a small form from the person — or a decision between options of yours — in a panel at the composer.
+sidebar:
+  order: 3
+  label: Ask the user a question
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="question" caption="A question asked at the composer: a single choice, answered by its click." />
+
+## Ask one thing
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const answer = await requestUserInput({
+  message: 'Which environment should I deploy to?',
+  schema: {
+    type: 'enum',
+    options: [
+      { value: 'staging', label: 'Staging', recommended: true },
+      { value: 'prod', label: 'Production', description: 'Live traffic' },
+    ],
+  },
+});
+
+if (answer.action === 'accept') {
+  const env = answer.content as string;   // 'staging', 'prod', or what the person wrote instead
+}
+```
+
+`requestUserInput` asks in a panel at the composer and resolves with the answer. It needs no
+client: call it from a tool handler, a button, anywhere. `message` can be a function, so the
+question follows a change of language while it waits.
+
+| `schema.type` | Drawn as | `content` on accept |
+| --- | --- | --- |
+| `enum` | one choice, or several with `multiple: true` | `string`, or `string[]` |
+| `boolean` | two choices, labelled `trueLabel` and `falseLabel` | `boolean` |
+| `string` | one line, or a box with `multiline: true` | `string` |
+
+A single choice — an `enum` without `multiple` or `default`, a `boolean` without `default` — is a
+row of buttons, and a click answers it. With a `default`, or after
+`aparteGlobalConfig.setElicitationOptions({ answerOnClick: false })`, it is radios, which the
+composer's button sends; `multiple: true` makes checkboxes.
+
+A field also takes a `title`, a `description` and a `default`; a `string` takes a `placeholder`,
+`required`, `minLength` and `maxLength`. An `enum` offers an **Other…** entry for an answer of the
+person's own, which `allowOther: false` on the field closes;
+`aparteGlobalConfig.setElicitationOptions({ allowOther: false })` closes it everywhere, and a
+field's own setting wins.
+
+## Ask several things
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const answer = await requestUserInput({
+  message: 'Open a pull request?',
+  schema: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', header: 'Title', title: 'The title', placeholder: 'Fix the abort path' },
+      body: { type: 'string', header: 'Body', title: 'The description', multiline: true },
+      draft: { type: 'boolean', header: 'Draft', title: 'Open it as a draft?', default: true },
+    },
+    required: ['title'],
+  },
+});
+
+if (answer.action === 'accept') {
+  const { title, body, draft } = answer.content as { title: string; body: string; draft: boolean };
+}
+```
+
+<Variant id="question-form" caption="Several questions, one at a time, with a chip for each." />
+
+An `object` schema asks each of its fields, and `content` comes back keyed the same way. The
+questions come one at a time, with a chip above for each — its `header`, a word or two — that moves
+between them and marks the ones answered; the composer's button sends the whole answer once every
+required question has one. `required` lists the questions that must be answered — leave it out and
+all of them must — and a text left empty comes back as `''`.
+`aparteGlobalConfig.setElicitationOptions({ layout: 'stacked' })` shows the questions all at once,
+as a form.
+
+## When there is no answer
+
+```ts
+import { requestUserInput, AparteElicitationAbortError } from '@aparte/core';
+
+try {
+  const answer = await requestUserInput({ message: 'Delete the branch?', schema: { type: 'boolean' } });
+  if (answer.action === 'decline') {
+    // the person chose not to answer
+  }
+} catch (err) {
+  if (err instanceof AparteElicitationAbortError) {
+    // no answer at all: err.reason is 'aborted' or 'no-presenter'
+  }
+}
+```
+
+Declining is an answer: the person pressed **Skip**, in the panel's corner, and the request
+resolves `{ action: 'decline' }`. A [decision](#ask-for-a-decision) has no Skip: a refusal is one
+of its options, or what the person writes instead. A request that ends without an answer rejects
+with an
+`AparteElicitationAbortError` — its `name` is `'AbortError'` — whose `reason` is `'aborted'` when
+the turn was stopped, a signal fired or the question was taken away, and `'no-presenter'` when
+nothing on the page can ask. A request you start without awaiting it therefore needs a `.catch()`.
+
+## Ask from a tool
+
+```ts
+import { requestUserInput } from '@aparte/core';
+import type { AparteToolHandler } from '@aparte/core';
+
+export const deleteBranch: AparteToolHandler = async (call, signal, context) => {
+  const branch = String(call.input['branch']);
+  const answer = await requestUserInput({
+    message: `Delete ${branch}? This cannot be undone.`,
+    schema: { type: 'boolean', trueLabel: 'Delete it', falseLabel: 'Keep it' },
+    signal,
+    target: context?.target,
+  });
+  if (answer.action !== 'accept' || answer.content !== true) {
+    return { toolCallId: call.id, content: 'The user did not confirm; nothing was deleted.' };
+  }
+  return { toolCallId: call.id, content: `Deleted ${branch}.` };
+};
+```
+
+Register the handler as any [tool](/guides/tools/#register-a-tool), with
+`aparteGlobalConfig.registerTool(tool, deleteBranch)`. Pass it the handler's `signal`, so a stopped
+turn or a timeout takes the question away, and the context's `target`, so the right chat asks when
+a page has several. Answer a refusal with a result the model reads, rather than an error, so it can
+say what happened.
+
+## Ask for a decision
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const answer = await requestUserInput({
+  kind: 'approval',
+  message: 'Run git status?',
+  details: JSON.stringify({ cmd: 'git status' }, null, 2),
+  options: [
+    { value: 'allow', label: 'Approve', tone: 'affirm' },
+    { value: 'allow-always', label: 'Approve, and always for git', description: 'git *', tone: 'affirm' },
+    { value: 'deny', label: 'Reject', tone: 'deny' },
+  ],
+});
+
+if (answer.action === 'accept') {
+  const { option, instruction } = answer.content as { option?: string; instruction?: string };
+}
+```
+
+<Variant id="approval-scoped" caption="A decision between options of yours, one of them with a reach the person sees before choosing." />
+
+A `kind: 'approval'` request offers your options, each answered by its click, and resolves with
+the chosen option's `value` as `option` — or, when the person writes instead, with their
+`instruction`. Give an option that reaches further its own `value`, so your code knows to remember
+it, and say that reach in its `description`, under the label. `details` is shown as plain text
+under an **Arguments** heading, never as markup. The
+[tool approval](/guides/tools/#require-approval-human-in-the-loop) is this request, with two
+options.
+
+## Let the model ask
+
+```ts
+import { setupAskUser } from '@aparte/plugin-ask-user';
+
+setupAskUser({ maxOptions: 4, maxQuestions: 3 });
+```
+
+<Variant id="question-receipt" caption="What the model asked and what the person chose, kept in the conversation." />
+
+`@aparte/plugin-ask-user` gives the model an `ask_user` tool: it asks when it decides a choice is
+needed, and the answer, with what was asked, stays in the conversation as a receipt. Its options
+are the tool's `name` and `description`, the `systemPrompt` that tells the model when to ask
+(`false` for none), the most options and questions in one call, and `receipt: false` to keep the
+receipt out. Ask from your own code when your code knows what to ask; let the model ask when it
+should decide. The [Question](/components/question/) page shows both.
+
+## Draw it yourself
+
+The panel comes from `<aparte-elicitation>`, which `<aparte-chat>` and the framework components
+already hold. A chat you compose in plain HTML writes it inside `<aparte-chat>`, beside the message
+list and the `<aparte-composer>` where the panel opens, as
+[the composer toolbar](/guides/customization/composer-toolbar/) shows. Most of the time a different
+look is one field:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setElicitationFieldRenderer((field, ctx) => {
+  if (field.type !== 'enum' || field.multiple) return null;   // the built-in draws the others
+
+  const el = document.createElement('div');
+  el.className = 'my-chips';
+  let picked = '';
+  for (const option of field.options) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.textContent = option.label ?? option.value;
+    chip.addEventListener('click', () => {
+      picked = option.value;
+      for (const c of el.children) c.setAttribute('aria-pressed', String(c === chip));
+      ctx.notifyChange();
+    });
+    el.append(chip);
+  }
+  return { el, getValue: () => picked, isComplete: () => picked !== '', focus: () => el.querySelector('button')?.focus() };
+});
+```
+
+A field renderer returns a control — its element, its value, whether it is complete, and a
+`focus` — or `null` to leave the field to the built-in. It replaces the whole field, its **Other…**
+entry included, and a click on it answers nothing: the composer's button sends. Call
+`ctx.notifyChange()` on every change, so the button knows when the answer is complete; `ctx.key`
+names the field in a form.
+
+To draw the whole request your way — a modal, a page of your own — take the built-in out first:
+set the framework component's `elicitation` option to `false`, or leave `<aparte-elicitation>` out
+of a chat you compose. Then register a presenter:
+
+```ts
+import { aparteGlobalConfig, AparteElicitationAbortError } from '@aparte/core';
+import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
+
+declare function openMyModal(request: AparteElicitationRequest): Promise<AparteElicitationResult>;
+
+const present: AparteElicitationPresenter = (request) => new Promise((resolve, reject) => {
+  request.signal?.addEventListener('abort', () => reject(new AparteElicitationAbortError('aborted')), { once: true });
+  openMyModal(request).then(resolve, reject);
+});
+
+aparteGlobalConfig.setElicitationPresenter(present);
+```
+
+A presenter gets every request, tool approvals included: a question carries its `schema`; a
+decision carries `kind: 'approval'` and its `options`, and resolves
+`{ action: 'accept', content: { option } }`. When the request's `signal` fires, reject with an
+`AparteElicitationAbortError`, as above. The most recent presenter answers; on a page with several
+chats, pass an element of one as the second argument, and the requests that name that chat reach
+its presenter. `aparteGlobalConfig.removeElicitationPresenter(fn)` takes one back.
+`buildElicitationPanel` and `buildApprovalPanel` give you the built-in panel to place yourself.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/question/', title: 'Question', line: 'The panel, the form, the receipt, and their options.' },
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'Tools, and the approval asked before one runs.' },
+        { href: '/reference/core/elicitation/', title: 'Questions and approvals', line: 'Every type and function the panel is built from.' },
+    ]}
+/>
