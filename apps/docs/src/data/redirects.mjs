@@ -35,6 +35,9 @@ export const MOVED = {
     '/plugins/titler/': '/guides/titles/',
     // What a tool-call row shows folded into the tools guide.
     '/guides/tool-call-ui/': '/guides/tools/',
+    // The plugins have no section of their own: each lives where it is seen, and the list of
+    // every package is on How it fits.
+    '/plugins/': '/guides/how-it-fits/',
 };
 
 /**

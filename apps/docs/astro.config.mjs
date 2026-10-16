@@ -178,7 +178,6 @@ export default defineConfig({
             { label: 'UI kit', link: '/kit/' },
           ],
         },
-        { label: 'Plugins', collapsed: true, items: [{ autogenerate: { directory: 'plugins' } }] },
         { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'reference' } }] },
         {
           label: 'Changelog',
