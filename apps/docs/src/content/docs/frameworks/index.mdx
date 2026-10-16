@@ -1,0 +1,58 @@
+---
+title: Use aparté in React, Vue, Svelte or Angular
+description: Pick the package for your framework — a chat component, typed tags for every element, and a way to mount any custom element — over the same web components.
+sidebar:
+  order: 1
+  label: Overview
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+
+## Pick the package
+
+<table>
+  <thead>
+    <tr><th>Framework</th><th>Package</th><th>Versions</th><th>The chat</th><th>Its state</th><th>The client</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><a href="/frameworks/react/">React</a></td><td><code>@aparte/react</code></td><td><code>{WRAPPER_PEERS.react}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>useAparteChat()</code></td><td><code>useAparteClient()</code></td></tr>
+    <tr><td><a href="/frameworks/vue/">Vue</a></td><td><code>@aparte/vue</code></td><td><code>{WRAPPER_PEERS.vue}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>useAparteChat()</code></td><td><code>useAparteClient()</code></td></tr>
+    <tr><td><a href="/frameworks/svelte/">Svelte</a></td><td><code>@aparte/svelte</code></td><td><code>{WRAPPER_PEERS.svelte}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>createAparteChat()</code></td><td><code>createAparteClient()</code></td></tr>
+    <tr><td><a href="/frameworks/angular/">Angular</a></td><td><code>@aparte/angular</code></td><td><code>{WRAPPER_PEERS.angular}</code></td><td><code>AparteChatComponent</code></td><td>the component, by <code>viewChild</code></td><td><code>provideAparte()</code>, <code>AparteAiService</code></td></tr>
+  </tbody>
+</table>
+
+`@aparte/core` is web components, so it works in any framework as it is; a wrapper adds the
+framework's idiom — refs, events and lifecycle wired for you. Each one gives you:
+
+- **a chat component**, the whole chat with its slots and callbacks;
+- **typed tags for every element of core**, real attributes and real events checked by your
+  compiler, to place a select, a conversation list or a composer of your own
+  ([Elements, typed](/frameworks/elements/)); a plugin's element, like the model selector, is
+  typed by the plugin;
+- **`AparteUi`** — `AparteUiComponent` in Angular — which mounts any custom element as a
+  component, for an element of yours or a third party's.
+
+A wrapper depends on `@aparte/core` alone, never on a provider: register the one you want
+([Connect a model](/providers/)).
+
+## The same in all four
+
+The same slots — `empty-state`, `composer`, `above-composer`, `toolbar` and a bubble of your own
+— and the same callbacks — `messageSent`, `action`, `messagesChange`, `messageAppended`,
+`typingChange` and `conversationCreated` — each in its framework's idiom.
+[Wrapper surface](/reference/wrappers/) has the four syntaxes side by side, generated from the
+wrappers' source. Without a framework, the elements are the API:
+[Installation and first chat](/guides/getting-started/).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/frameworks/react/', title: 'React', line: 'A streaming chat in a React or Next app.' },
+        { href: '/frameworks/vue/', title: 'Vue', line: 'A streaming chat in a Vue or Nuxt app.' },
+        { href: '/frameworks/svelte/', title: 'Svelte', line: 'A streaming chat in a Svelte or SvelteKit app.' },
+        { href: '/frameworks/angular/', title: 'Angular', line: 'A streaming chat in a standalone Angular app.' },
+    ]}
+/>
