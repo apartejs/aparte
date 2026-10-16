@@ -38,6 +38,8 @@ export const MOVED = {
     // The plugins have no section of their own: each lives where it is seen, and the list of
     // every package is on How it fits.
     '/plugins/': '/guides/how-it-fits/',
+    // The assembled example became the Assistant template.
+    '/examples/chatgpt-like/': '/templates/assistant/',
 };
 
 /**

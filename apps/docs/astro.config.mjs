@@ -160,9 +160,6 @@ export default defineConfig({
           ],
         },
         { label: 'Help', items: guides.help },
-        // Assembled, copy-me applications - the section the audit found missing: every
-        // component was documented and nothing showed them put together.
-        { label: 'Examples', items: [{ autogenerate: { directory: 'examples' } }] },
         // The catalogue, by what a reader sees: Chat, Layout, Kit, one page per thing, read
         // from each page's own `catalog` block (scripts/lib/catalogue.mjs). Every element,
         // segment type and kit family now has its page there.
