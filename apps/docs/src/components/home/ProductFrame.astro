@@ -1,0 +1,130 @@
+---
+/**
+ * A template running in a drawn browser window: the home's proof that the components make a whole
+ * product. The app inside is the template's own page in `?play`, which plays its scripted run once
+ * this page says it is on screen (src/templates/runtime.ts, `whenShown`) and stays interactive
+ * after. Nothing in the frame takes the focus before the reader touches it (TemplateLayout).
+ */
+import { REPO_URL } from '../site/sections';
+import type { TemplateMeta } from '../../templates/types';
+
+interface Props {
+    meta: TemplateMeta;
+}
+
+const { meta } = Astro.props;
+const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
+---
+
+<figure class="product-frame">
+    <div class="product-frame__window">
+        <div class="product-frame__bar" aria-hidden="true">
+            <span class="product-frame__dots"><i></i><i></i><i></i></span>
+            <span class="product-frame__address">apartejs.dev/templates/{meta.slug}</span>
+        </div>
+        <iframe class="product-frame__app" src={`/templates/${meta.slug}/?play`} title={`The ${meta.title} template, live`}></iframe>
+    </div>
+    <figcaption class="product-frame__caption">
+        The <a href={`/templates/${meta.slug}/`}>{meta.title} template</a>, live: every piece is an aparté component.
+        <a href={code} target="_blank" rel="noopener">Read its code ↗</a>
+    </figcaption>
+</figure>
+
+<script>
+    // Tell each frame when it is on screen, so its run starts where the reader can see it; and
+    // when the page's theme changes, so it follows the toggle. A frame that loads after it was
+    // seen hears it again on load: its listener only exists once its script has run.
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>('.product-frame__app')) {
+        let seen = false;
+        const play = (): void => frame.contentWindow?.postMessage({ aparteVisible: true }, '*');
+        new IntersectionObserver(
+            (entries, observer) => {
+                if (!entries.some((entry) => entry.isIntersecting)) return;
+                seen = true;
+                play();
+                observer.disconnect();
+            },
+            { threshold: 0.4 },
+        ).observe(frame);
+        frame.addEventListener('load', () => {
+            if (seen) play();
+        });
+        new MutationObserver(() => {
+            frame.contentWindow?.postMessage({ aparteTheme: document.documentElement.dataset.theme }, '*');
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+</script>
+
+<style>
+    .product-frame {
+        display: grid;
+        gap: var(--aparte-space-4);
+        margin: 0;
+    }
+    .product-frame__window {
+        overflow: hidden;
+        border: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-xl, 14px);
+        background: var(--aparte-surface-1);
+        box-shadow: 0 30px 60px -36px color-mix(in oklab, var(--aparte-text) 45%, transparent);
+    }
+    .product-frame__bar {
+        display: flex;
+        align-items: center;
+        gap: var(--aparte-space-4);
+        padding: var(--aparte-space-3) var(--aparte-space-4);
+        border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        background: var(--aparte-surface-2);
+    }
+    .product-frame__dots {
+        display: flex;
+        gap: 6px;
+    }
+    .product-frame__dots i {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: color-mix(in oklab, var(--aparte-text-muted) 45%, transparent);
+    }
+    .product-frame__address {
+        flex: 1;
+        max-width: 26rem;
+        margin-inline: auto;
+        padding: 3px var(--aparte-space-4);
+        overflow: hidden;
+        border-radius: var(--aparte-radius-full);
+        background: var(--aparte-surface-1);
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-xs, 0.75rem);
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .product-frame__app {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        border: 0;
+        background: var(--aparte-bg);
+    }
+    .product-frame__caption {
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+        text-align: center;
+    }
+    .product-frame__caption a {
+        color: var(--aparte-text);
+        text-decoration-color: var(--aparte-primary);
+        text-underline-offset: 3px;
+    }
+    @media (max-width: 48rem) {
+        /* A phone shows the template's phone layout, at a height a thumb can scroll past. */
+        .product-frame__app {
+            aspect-ratio: auto;
+            height: 34rem;
+        }
+        .product-frame__dots {
+            display: none;
+        }
+    }
+</style>
