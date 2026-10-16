@@ -145,7 +145,7 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 - **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.mdx)** — retry, edit, branches, persistence
 - **[The agent engine](./apps/docs/src/content/docs/guides/engine.mdx)** — the headless `runStreamAgent` loop
 - **[Tools & human-in-the-loop](./apps/docs/src/content/docs/guides/tools.mdx)** — function calling with an approve/reject gate
-- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.md)** — your `/api/chat`, key stays server-side
+- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.mdx)** — your `/api/chat`, key stays server-side
 - **[Bring your own loop](./apps/docs/src/content/docs/guides/bring-your-own-loop.mdx)** — display-only mode for an external agent loop
 
 ## Status
