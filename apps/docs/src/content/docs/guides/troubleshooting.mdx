@@ -1,0 +1,146 @@
+---
+title: Troubleshooting
+description: The failures people meet first — a bare import the browser cannot resolve, a local model the browser refuses, no provider, the key warning, missing buttons — and what an error tells you.
+sidebar:
+  order: 2
+guide:
+  group: help
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## `Failed to resolve module specifier "@aparte/core"`
+
+The page imports `@aparte/core` by name with no bundler in front of it, and a browser cannot
+resolve a bare name on its own. Use a bundler — Vite, Next, Astro, esbuild, any of them — as every
+snippet here assumes, or load the packages from a CDN by URL, as in
+[From a CDN](/guides/getting-started/#from-a-cdn).
+
+## CORS on local BYOK (LM Studio / Ollama)
+
+The server's log shows the request, and the page shows a network or CORS error: the browser called
+the local server itself — `http://localhost:1234` for LM Studio, `http://localhost:11434` for
+Ollama — and refused the answer, because the server did not allow the page's origin.
+
+- **LM Studio:** turn on **Enable CORS** in the server settings, in the Developer tab, then
+  restart the server.
+- **Ollama:** start it with `OLLAMA_ORIGINS` set to the page's origin, or `*` while you develop.
+
+```bash
+OLLAMA_ORIGINS=* ollama serve
+```
+
+```powershell
+$env:OLLAMA_ORIGINS = "*"
+ollama serve
+```
+
+[Local models](/guides/local-models/) has the whole setup for both, and for llama.cpp.
+
+## "Provider is not registered", "No provider selected"
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+new AparteClient().start();
+```
+
+**Provider is not registered:** the selected `defaultProvider` names an id no provider was
+registered under. **No provider selected:** nothing chose a model — no `setModelConfig`, and no
+[model selector](/components/model-selector/) has picked one; `aparteGlobalConfig.hasSelectedModel()`
+is `false` until one is. To keep the composer from sending until a model is chosen,
+`aparteGlobalConfig.setRequireModelSelection(true)`.
+
+A page that never calls `new AparteClient().start()` looks the same from the outside: nothing
+streams, because nothing answers the send.
+
+## "Key exposed" console warning
+
+```
+[Aparte] AparteDirectTransport is sending the "<provider>" API key straight from the browser —
+it is visible to anyone who opens devtools. …
+```
+
+`AparteDirectTransport` sent a real key from the browser, once per page load. When the key is the
+person's own, or the model is local, say so and the warning stops:
+`new AparteDirectTransport({ byok: true })`; a keyless local provider never triggers it. When the
+key is yours, anyone with devtools can read and spend it: send the requests through
+[your server](/guides/backend-transport/) instead.
+
+## `[Unknown segment type: …]` in a message
+
+No renderer claims that segment's type.
+
+- **A type of yours:** register a renderer for it with `registerSegmentRenderer`, or give the
+  segment a `fallback`, a sentence drawn as text when nothing claims it. A `custom` segment's
+  `subType` is not a key of its own: one renderer answers every `custom` segment and reads its
+  `subType` ([Custom segment types](/guides/customization/#custom-segment-types)).
+- **A built-in type** — `text`, `thinking`, `code`, `tool_call`, `error` — means the built-in
+  renderers were declined, with `new AparteClient({ autoRegister: false })`. Drop the option, or
+  register what you need yourself.
+
+## The retry, edit or ⓘ buttons are not there
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });     // you run an AparteClient
+aparteGlobalConfig.setBubbleActions({ feedback: true, info: true });  // you answer these events
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });      // a click on an image opens it
+```
+
+Only copy is on by default: the others need something outside the chat to answer them, so they
+stay off until you say it is there. The bar also hides while a reply streams, and a bar with no
+action in it is not drawn at all. [Buttons](/guides/customization/actions/) lists each one.
+
+## The composer toolbar is not showing
+
+An empty toolbar is hidden: it carries `data-empty` while it holds nothing visible, and
+whitespace or comments do not count. If you put a control in it and still see `data-empty`, the
+control never arrived — a mistyped slot name, or a framework that rendered nothing. A toolbar
+that shows but is unstyled, with your control at the start instead of the end, means the
+stylesheet did not load: import `@aparte/core/styles.css`
+([The composer toolbar](/guides/customization/composer-toolbar/)).
+
+## What an error tells you
+
+```ts
+document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', (event) => {
+  const { error } = event.detail;   // an AparteError
+  console.error(error.code, error.message, error.httpStatus);
+});
+```
+
+A failure that reaches the chat — a refused key, a rate limit, a dropped connection, a missing
+provider — is an `AparteError`: its `message`, a `code`, the `httpStatus` when there was one, its
+`data` and the `originalError`. The message shows it as an [error](/components/error/), and the
+chat sends `aparte-message-error` with `{ messageId, error }`. A vendor's HTTP status sets the
+code:
+
+| Status | `code` |
+| --- | --- |
+| 400 | `USAGE_BAD_REQUEST` |
+| 401, 403 | `CONFIG_INVALID_KEY` |
+| 408 | `NET_TIMEOUT` |
+| 429 | `USAGE_RATE_LIMIT` |
+| 503 | `PROVIDER_UNAVAILABLE` |
+| any other 5xx | `PROVIDER_ERROR` |
+
+A network failure is `NET_ERROR`, or `NET_OFFLINE` when the browser says it is offline; a timeout
+is `NET_TIMEOUT`; no provider selected is `CONFIG_NO_PROVIDER`, and one not registered
+`CONFIG_MISSING_KEY`. Anything else is `UNKNOWN_ERROR`. `AparteError.from(error)` turns any error
+into one by the same rules, and `AparteError.codeForStatus(status)` is the table above, for a
+provider of yours. To change how the error looks, use `aparteGlobalConfig.setErrorRenderer`.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/getting-started/', title: 'Installation and first chat', line: 'The setup these failures come from, step by step.' },
+        { href: '/guides/docs-for-agents/', title: 'Docs for AI agents', line: 'Give a coding agent these docs to read.' },
+    ]}
+/>
