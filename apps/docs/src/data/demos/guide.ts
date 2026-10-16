@@ -68,27 +68,6 @@ export const GUIDE_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
-        id: 'tool-approval',
-        title: 'A tool call paused for a person',
-        html: `<!-- A tool marked \`needsApproval\` stops the turn BEFORE its handler runs. Core draws
-     the pause: the row is the anchor, and the decision is asked at the composer. -->
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
-
-<script>
-  document.querySelector('aparte-chat-bubble').setSegments([
-    {
-      id: 's1',
-      type: 'tool_call',
-      status: 'awaiting-approval',
-      toolCall: { id: 't1', name: 'delete_file', input: { path: 'src/legacy/old-client.ts' } },
-    },
-  ]);
-  // Open the row the way a reader deciding would: the argument the decision is about
-  // (which file) is what the demo is here to show.
-  document.querySelector('details')?.setAttribute('open', '');
-</script>`,
-    },
-    {
         id: 'layout-reading-column',
         title: 'The reading column: an unboxed chat, the column from a token',
         html: `<!-- The ChatGPT shape. Do NOT box the chat — let it span whatever sizes it — and let

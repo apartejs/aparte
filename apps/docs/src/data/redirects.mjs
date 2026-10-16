@@ -33,6 +33,8 @@ export const MOVED = {
     // The compaction and titler plugin pages became the guides of what they do.
     '/plugins/compaction/': '/guides/long-conversations/',
     '/plugins/titler/': '/guides/titles/',
+    // What a tool-call row shows folded into the tools guide.
+    '/guides/tool-call-ui/': '/guides/tools/',
 };
 
 /**
