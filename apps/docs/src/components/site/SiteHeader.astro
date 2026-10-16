@@ -35,7 +35,6 @@ const versionHref = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
             set:html={menuIcon}
         />
         <a class="site-brand" href="/" aria-label="aparté, home"><span class="site-brand__paren">(</span>aparté<span class="site-brand__paren">)</span></a>
-        <a class="aparte-badge aparte-badge--soft site-version" href={versionHref} title={`What changed in ${CORE_VERSION}`}>v{CORE_VERSION} · beta</a>
         <nav class="site-header__sections" aria-label="Sections">
             {
                 SECTIONS.map((s) => (
@@ -46,6 +45,7 @@ const versionHref = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
             }
         </nav>
         <div class="aparte-app-header__actions">
+            <a class="aparte-badge aparte-badge--soft site-version" href={versionHref} title={`What changed in ${CORE_VERSION}`}>v{CORE_VERSION} · beta</a>
             <SiteSearch />
             <SiteTheme />
             <a class="aparte-btn aparte-btn--icon aparte-btn--ghost site-header__repo" href={REPO_URL} rel="me" aria-label="GitHub">

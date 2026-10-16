@@ -77,9 +77,10 @@ const tallHeight = TALL_GROUP_Y + Math.max(tallGroupHeight(0), tallGroupHeight(1
 ---
 
 <figure class="fits">
-    {/* A group, not an image: an image's children are presentational, and these are links. */}
-    <svg class="fits__drawing fits__drawing--wide" viewBox="0 0 1120 420" role="group" aria-labelledby="fits-title" aria-describedby="fits-desc">
-        <title id="fits-title">How aparté fits</title>
+    {/* A group, not an image: an image's children are presentational, and these are links. Named
+        by aria-label, not a <title>: a browser shows an svg's title as the tooltip of everything in
+        it, so every node said "How aparté fits" on hover. */}
+    <svg class="fits__drawing fits__drawing--wide" viewBox="0 0 1120 420" role="group" aria-label="How aparté fits" aria-describedby="fits-desc">
         <desc id="fits-desc">
             React, Vue, Svelte, Angular or vanilla JS render the same aparté elements. From the browser, a
             request goes straight to a model running in the page, an OpenAI-compatible API or a Vercel AI SDK
@@ -136,8 +137,7 @@ const tallHeight = TALL_GROUP_Y + Math.max(tallGroupHeight(0), tallGroupHeight(1
         }
     </svg>
 
-    <svg class="fits__drawing fits__drawing--tall" viewBox={`0 0 360 ${tallHeight}`} role="group" aria-labelledby="fits-title-tall" aria-describedby="fits-desc">
-        <title id="fits-title-tall">How aparté fits</title>
+    <svg class="fits__drawing fits__drawing--tall" viewBox={`0 0 360 ${tallHeight}`} role="group" aria-label="How aparté fits" aria-describedby="fits-desc">
 
         {tall.map((d) => [<path class="fits__line" d={d} />, <path class="fits__flow" d={d} />])}
 

@@ -83,6 +83,7 @@ html {
   font-style: normal;
 }
 .site-version {
+  margin-inline-end: var(--aparte-space-3);
   text-decoration: none;
   white-space: nowrap;
 }
