@@ -24,6 +24,14 @@ export function reducedMotion(): boolean {
     return matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/**
+ * The pace a scripted reply streams at (`createScenarioProvider({ pacing })`): the provider's
+ * usual one, or the whole reply at once under reduced motion.
+ */
+export function replyPacing(): 'instant' | { chunk?: number; delay?: number } {
+    return reducedMotion() ? 'instant' : {};
+}
+
 function applyTheme(choice: string | null): void {
     const dark = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
     const theme = dark ? 'dark' : 'light';
@@ -101,7 +109,7 @@ export async function settled(chat: HTMLElement, ceilingMs = 20000): Promise<voi
     const start = Date.now();
     await sleep(200);
     while (Date.now() - start < ceilingMs) {
-        if (!chat.querySelector('aparte-chat-bubble[streaming]')) return;
+        if (!chat.querySelector('[data-streaming="true"]')) return;
         await sleep(150);
     }
 }

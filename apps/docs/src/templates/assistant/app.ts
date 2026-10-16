@@ -6,7 +6,7 @@ import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
-import { followTheme, templateMode, typeAndSend, whenShown } from '../runtime';
+import { followTheme, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
 import { HISTORY, PLAY_QUESTION, SCENARIOS, SEED } from './scenario';
 
 followTheme();
@@ -19,6 +19,7 @@ const model = createScenarioProvider({
     id: 'assistant',
     name: 'Assistant',
     scenarios: SCENARIOS,
+    pacing: replyPacing(),
     models: [{ id: 'assistant-large', name: 'Large', contextWindow: 128000, capabilities: ['streaming'] }],
 });
 aparteGlobalConfig.registerAIProvider(model);
