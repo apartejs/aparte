@@ -1,0 +1,187 @@
+---
+title: Add an AI chat to a Vue app
+description: Install @aparte/vue, render <AparteChat>, stream a model with useAparteClient, and put your own UI in its slots — in a Vue app, Nuxt included.
+sidebar:
+  order: 3
+  label: Vue
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+
+## Install
+
+```bash
+npm install @aparte/vue @aparte/core
+npm install @aparte/provider-scenario   # a scripted model, to stream with no key
+```
+
+{/* doc-check: skip excerpt — your Vite config, which imports @vitejs/plugin-vue */}
+```ts
+// vite.config.ts — the aparte-* tags are custom elements, not Vue components
+import vue from '@vitejs/plugin-vue';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('aparte-') } } })],
+});
+```
+
+`@aparte/core` and `vue` are peer dependencies: Vue <code>{WRAPPER_PEERS.vue}</code>. The
+`isCustomElement` setting keeps Vue from resolving an `aparte-*` tag as a component of yours; under
+Nuxt it goes in `nuxt.config.ts`, as `vue.compilerOptions.isCustomElement`.
+
+## Render the chat
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import '@aparte/core/styles.css';
+
+const chat = useAparteChat();
+</script>
+
+<template>
+  <AparteChat
+    :ref="chat.chatRef"
+    :messages="chat.messages.value"
+    center-when-empty
+    @messages-change="chat.onMessagesChange"
+  >
+    <template #empty-state><p>Ask me anything…</p></template>
+  </AparteChat>
+</template>
+```
+
+`useAparteChat` holds the messages and the component's ref: bind both, or bind
+`v-model:messages` to a ref of yours. The person's message is added when they send, so do not add
+it yourself; `@message-sent` fires after, for a side effect.
+
+## Stream a model
+
+{/* doc-check: skip excerpt — your main.ts, which imports your App.vue */}
+```ts
+// main.ts — registered once, before the app mounts
+import { createApp } from 'vue';
+import { aparteGlobalConfig } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+import App from './App.vue';
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+createApp(App).mount('#app');
+```
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat, useAparteClient } from '@aparte/vue';
+
+const chat = useAparteChat();
+useAparteClient();
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+</template>
+```
+
+`useAparteClient` starts a client when the component mounts, stops it before it unmounts, and
+returns `{ client, abort }`; it takes the `AparteClientOptions`. For a real model, register its
+provider, name the model and give the key — `aparteGlobalConfig.setModelConfig({ defaultProvider:
+'openrouter', defaultModel: 'openai/gpt-4o-mini' })` and `useAparteClient({ keyResolver })`
+([Connect a model](/providers/)). A `config` prop gives one `<AparteChat>` providers and a
+transport of its own; give its client the same one, `useAparteClient({ config })`. With the client
+running, turn on retry and edit with `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`
+([Buttons](/guides/customization/actions/)).
+
+## Put your own UI in it
+
+```vue
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
+    <template #empty-state><p>Ask me anything…</p></template>
+    <template #toolbar><span class="hint">Shift + Enter for a new line</span></template>
+    <template #bubble="{ message }"><MyBubble :message="message" /></template>
+  </AparteChat>
+</template>
+```
+
+| Slot | What it fills |
+| --- | --- |
+| `empty-state` | the chat before the first message |
+| `above-composer` | the space above the composer |
+| `toolbar` | the composer's bottom row, not drawn when you fill `composer` ([The composer toolbar](/guides/customization/composer-toolbar/)) |
+| `composer` | the composer, replaced by yours |
+| `bubble`, with `{ message }` | each message, drawn by you ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)) |
+
+Content outside these slots is not drawn.
+
+## Props and events
+
+```vue
+<AparteChat id="support" class="flex-1 min-h-0" :loading="isFetchingHistory" attachments />
+```
+
+The ones you reach for: `placeholder`, `disabled` and `submit-on-enter`; `center-when-empty`;
+`loading`, for a wait of your own; `is-typing` and `typing-text`, a waiting line you drive yourself;
+`overlay-composer`; `attachments`, off by default ([Attachments](/guides/attachments/));
+`:elicitation="false"` when you draw the questions yourself; `conversation-id`, `config` and
+`layout-transition-ms`, how long the list holds its layout after a conversation swap. `class` and
+`style` fall through to the root. `id` is the chat's id, which every event carries: for two chats on
+one page, each answered by its own client, give each an `id` and its client `scopeToTargetId` with
+it. The events — `@message-sent`, `@action`, `@messages-change` (and `update:messages`, for
+`v-model`), `@message-appended`, `@typing-change` and `@conversation-created` — hand you the
+payload itself ([Wrapper surface](/reference/wrappers/#callbacks)).
+
+## Control it from code
+
+`chat.chatRef`, and the methods `useAparteChat` returns beside it, are the chat's imperative API:
+`appendMessage`, `addSegment`, `injectTokenStream`, `scrollToBottom`, `focusInput` and the rest, to
+drive the chat from a loop of yours ([Your own loop](/guides/bring-your-own-loop/)).
+`useConversationManager()` lists, creates, archives and pins saved conversations once you call
+`init(adapter)` with your storage adapter — and the chat's `config` as second argument, if it has
+one — and the chat switches between them through `conversation-id`
+([Save conversations](/guides/conversation-persistence/)).
+
+## Any element, typed
+
+```vue
+<template>
+  <aparte-select searchable="" placeholder="Pick a model" @aparte-select-change="(e) => (model = e.detail.value)">
+    <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+  </aparte-select>
+</template>
+```
+
+Importing from `@aparte/vue` declares every element of core in `GlobalComponents`, so `vue-tsc`
+checks its attributes in any template: a presence attribute takes `''` to be on and `null` to be
+off ([Elements, typed](/frameworks/elements/)). A plugin's element is typed by the plugin, and one
+of yours by you ([your own element](/frameworks/elements/#your-own-element-or-a-plugins)).
+`<AparteUi>` mounts any tag and sets its props; it forwards core's events, so name your element's
+own in `events`:
+
+```vue
+<template>
+  <AparteUi name="my-token-counter" :props="{ 'data-budget': '8000' }" :events="['token-count']" @element-event="(e) => (count = e.detail)" />
+</template>
+```
+
+## Nuxt and tests
+
+The wrapper has no server guard: under Nuxt, render the chat on the client only, in `<ClientOnly>`
+or a `.client.vue` component. `@aparte/core` itself imports on a server through its entry without
+elements ([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
+`@aparte/core` to `@aparte/core/browser` for the elements to upgrade
+([Testing your components](/frameworks/elements/#testing-your-components)).
+
+A whole chat site in Vue — the conversation sidebar, the header, settings, tools and the scripted
+model — is [the Vue example](https://github.com/apartejs/aparte/tree/main/apps/examples/vue).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/frameworks/elements/', title: 'Elements, typed', line: 'Any element in Vue, with its attributes checked.' },
+        { href: '/reference/wrappers/', title: 'Wrapper surface', line: 'Every slot and event, beside the other three frameworks.' },
+    ]}
+/>
