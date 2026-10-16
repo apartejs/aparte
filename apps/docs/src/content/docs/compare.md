@@ -135,7 +135,9 @@ aparté's [transport](/why/) is the seam that keeps it out.
 ## Also in the field
 
 - **CopilotKit** — a category above: app-state sync with agents, generative UI, LangGraph
-  co-agents. Not a chat component; if that is what you need, aparté is not it.
+  co-agents, with React chat components of its own (CopilotChat, CopilotSidebar, CopilotPopup).
+  If that framework is what you need, aparté is not it; aparté can still drive an agent that
+  speaks its [AG-UI protocol](/providers/agent/ag-ui/).
 - **NLUX** — React and vanilla, with a modified MPL licence to read before adopting.
 - **TanStack AI** — type-safe, framework-agnostic hooks with no UI (alpha). Closer to
   aparté's engine than to its components.
