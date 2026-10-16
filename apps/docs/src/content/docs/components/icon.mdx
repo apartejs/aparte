@@ -1,0 +1,60 @@
+---
+title: Icon
+description: The glyphs the library draws, available in markup as aparte-icon, sized by the place they sit in.
+catalog:
+  group: kit
+  order: 5
+  claims:
+    classes: [icon]
+    elements: [aparte-icon]
+  demos: [kit-icon, icon-set]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-icon.usage.mdx';
+import IconApi from '../../../generated/api/elements/aparte-icon.api.mdx';
+import Classes from '../../../generated/api/kit/icon.classes.mdx';
+import Vars from '../../../generated/api/kit/icon.vars.mdx';
+
+<Variant id="kit-icon" />
+
+`<aparte-icon name="copy">` draws one of the glyphs the chat itself uses, from markup, with no
+script of your own. A glyph carries no size: it takes `--aparte-icon-size` from its container, so
+the same drawing serves a small remove button and a large toolbar. `--sm`, `--lg` and `--xl`
+change it on one icon.
+
+An icon provider (`aparteGlobalConfig.setIconProvider()`) replaces the set, for the chat and for
+every `<aparte-icon>` at once. The full reference, with the extended set behind
+`@aparte/core/icons`, is on the [icons page](/reference/icons/).
+
+## Variants
+
+### Every glyph
+
+<Variant id="icon-set" />
+
+## Usage
+
+<Usage />
+
+## Customize
+
+<Vars />
+
+## API
+
+<IconApi />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The drawing is hidden from screen readers: an icon beside a label is decoration. When the icon
+  is the only content of a button, name the button with `aria-label`.
+
+## Related
+
+- [Button](/components/button/) — where most icons sit.
+- [Icons reference](/reference/icons/) — every name, and how to replace the set.

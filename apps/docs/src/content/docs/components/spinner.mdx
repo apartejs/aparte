@@ -1,0 +1,60 @@
+---
+title: Spinner
+description: A rotating indicator for a wait, as a class, or as an element that can also show how far along it is.
+catalog:
+  group: kit
+  order: 9
+  claims:
+    classes: [spinner]
+    elements: [aparte-progress-spinner]
+  demos: [kit-spinner, progress-spinner]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-progress-spinner.usage.mdx';
+import SpinnerApi from '../../../generated/api/elements/aparte-progress-spinner.api.mdx';
+import Classes from '../../../generated/api/kit/spinner.classes.mdx';
+import Vars from '../../../generated/api/kit/spinner.vars.mdx';
+
+<Variant id="kit-spinner" />
+
+`.aparte-spinner` is a ring that turns, in three sizes (`--sm`, the default, `--lg`), for a wait
+of unknown length: a button that is sending, a list that is loading.
+
+## Variants
+
+### With progress
+
+<Variant id="progress-spinner" />
+
+`<aparte-progress-spinner>` turns while it has no `value`, and fills its ring to the `value`
+(0 to 100) once it has one: a model being downloaded, a file being read.
+
+## Usage
+
+<Usage />
+
+## Customize
+
+<Vars />
+
+## API
+
+<SpinnerApi />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- `<aparte-progress-spinner>` is a `progressbar`, with its value once it has one. It has no name
+  of its own: give it an `aria-label` unless the text beside it says what is loading.
+- The `.aparte-spinner` class is drawing only: put `role="status"` and a visually hidden label on
+  what it sits in, or let the surrounding text say it.
+- Both stop turning under `prefers-reduced-motion`.
+
+## Related
+
+- [Progress](/components/progress/) — a bar, when there is room for one.
+- [Skeleton](/components/skeleton/) — the shape of content that is on its way.

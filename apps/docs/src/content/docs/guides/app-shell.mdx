@@ -25,7 +25,7 @@ data.
 | `<aparte-sidebar>` | an element wearing the `.aparte-sidebar` recipe | it collapses, it becomes a drawer, and its search filters the list — three behaviours |
 
 That split is the rule the whole kit follows: a recipe draws, an element exists only where
-there is something to do. The [UI kit](/kit/button/) has every recipe with its markup, one family per page; the
+there is something to do. The [UI kit](/kit/) has every recipe with its markup, one family per page; the
 [element page](/components/sidebar/) has the sidebar's attributes and events.
 
 A shell written as static HTML paints before any script runs, so load the stylesheet from
@@ -104,7 +104,7 @@ a click on the backdrop closes it unless the dialog carries `data-aparte-dialog-
 
 <Demo id="dialog" caption="The kit's dialog on a native <dialog>: open it, tab through it, press Escape or click the backdrop." />
 
-The tabs of a settings hub are [`.aparte-tabs`](/kit/tabs/); what goes in each panel is
+The tabs of a settings hub are [`.aparte-tabs`](/components/tabs/); what goes in each panel is
 yours. The wiring is installed when `@aparte/core` is imported; a page built before that
 import calls `installDialogTriggersOnce()` itself, once.
 

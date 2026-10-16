@@ -1,0 +1,40 @@
+---
+title: Skeleton
+description: Grey shapes that stand where content will appear, so the page keeps its layout while it loads.
+catalog:
+  group: kit
+  order: 11
+  claims:
+    classes: [skeleton]
+  demos: [kit-skeleton]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/skeleton.classes.mdx';
+import Vars from '../../../generated/api/kit/skeleton.vars.mdx';
+
+<Variant id="kit-skeleton" />
+
+`.aparte-skeleton` is a block that pulses where text, a picture or a card will be. It has no
+margin of its own: lay a group out the way the real content will be (a grid with a gap), and the
+skeleton takes the same shape. The [conversation list](/components/conversation-list/) and the
+transcript draw their loading state with it.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A skeleton is decoration: give it `aria-hidden="true"`, or put the group in one region marked
+  `aria-busy` with a line that says what is loading, so a screen reader does not read empty boxes.
+- The pulse stops under `prefers-reduced-motion`.
+
+## Related
+
+- [Spinner](/components/spinner/) — a wait with no shape to stand in for.
+- [Conversation](/components/conversation/) — the transcript's loading state.

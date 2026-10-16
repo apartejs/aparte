@@ -1,0 +1,61 @@
+---
+title: Button
+description: Buttons in five fills and seven intents, four sizes, icon and pill shapes, and groups that fuse into one control.
+catalog:
+  group: kit
+  order: 1
+  claims:
+    classes: [button]
+  demos: [kit-button, kit-button-styles, kit-button-sizes]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/button.classes.mdx';
+import Vars from '../../../generated/api/kit/button.vars.mdx';
+
+<Variant id="kit-button" />
+
+`.aparte-btn` on a `<button>` gives it the look of the chat's own buttons: the send button, the
+copy button, the approval options. Two axes make every button. An **intent** says what the
+colour means (primary, neutral, success, warning, danger, info, secondary); a **fill** says how
+loudly (solid, soft, outline, surface, or none, which is the quiet ghost a chat uses most). Any
+intent works with any fill.
+
+`.aparte-btn-group` fuses neighbouring buttons into one control, the way the `‹ 1/2 ›` picker
+and the site's own Preview/Code switch are drawn.
+
+## Variants
+
+### Fills and intents
+
+<Variant id="kit-button-styles" />
+
+### Sizes and shapes
+
+<Variant id="kit-button-sizes" />
+
+`--icon` makes a square button for a lone glyph, `--circle` a round one, `--pill` rounds the
+ends, `--block` takes the full width.
+
+## Customize
+
+<Vars />
+
+A component inside a container sets the token rather than out-specifying the recipe: the
+composer's row declares `--aparte-btn-size` and every button in it follows.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Use a real `<button>` (or an `<a>` for a link): the classes give the look, the element gives
+  the keyboard and the role.
+- An icon-only button needs an `aria-label`; the glyph inside is hidden from screen readers.
+- A group of buttons that acts as one control takes `role="group"` and a label.
+
+## Related
+
+- [Icon](/components/icon/) — the glyphs buttons carry.
+- [Field](/components/field/) — the other control recipe.

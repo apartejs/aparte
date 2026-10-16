@@ -1,0 +1,38 @@
+---
+title: Divider
+description: A thin line between two parts, horizontal or vertical, with an optional label in the middle.
+catalog:
+  group: kit
+  order: 12
+  claims:
+    classes: [divider]
+  demos: [kit-divider]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/divider.classes.mdx';
+import Vars from '../../../generated/api/kit/divider.vars.mdx';
+
+<Variant id="kit-divider" />
+
+`.aparte-divider` separates two parts of a panel: horizontal by default, vertical between items
+in a row, and labelled when a word helps ("or"). The line is a border, not a background, so it
+stays visible in forced-colours mode.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A divider that separates sections can be an `<hr>`, or carry `role="separator"`; one that is
+  only visual takes `aria-hidden="true"`.
+
+## Related
+
+- [Card](/components/card/) — a surface with its own header and footer.
+- [Menu](/components/menu/) — its separators between groups of items.

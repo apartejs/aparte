@@ -1,0 +1,38 @@
+---
+title: Card
+description: A bordered surface with an optional header, body and footer, for a summary, a setting or a view of your own in a reply.
+catalog:
+  group: kit
+  order: 14
+  claims:
+    classes: [card]
+  demos: [kit-card]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/card.classes.mdx';
+import Vars from '../../../generated/api/kit/card.vars.mdx';
+
+<Variant id="kit-card" />
+
+`.aparte-card` is a surface with a border and rounded corners, split into an optional
+`__header`, a `__body` and an optional `__footer`. It is the natural frame for a
+[view of your own](/components/custom-view/) inside a reply: a forecast, an order, a summary.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A card is a box, not a landmark: give its title a real heading level when the card is a section
+  of the page, and make the whole card a link only when it leads to one place.
+
+## Related
+
+- [Custom view](/components/custom-view/) — a card drawn in a reply.
+- [Popover](/components/popover/) — a surface that floats above the page.

@@ -1,0 +1,63 @@
+---
+title: Select
+description: A dropdown with optional groups and a search field, driven by the keyboard, for choices a native select cannot style or filter.
+catalog:
+  group: kit
+  order: 3
+  claims:
+    elements: [aparte-select, aparte-option, aparte-optgroup]
+  demos: [select, select-grouped]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-select.usage.mdx';
+import SelectApi from '../../../generated/api/elements/aparte-select.api.mdx';
+import OptionApi from '../../../generated/api/elements/aparte-option.api.mdx';
+import OptgroupApi from '../../../generated/api/elements/aparte-optgroup.api.mdx';
+
+<Variant id="select" />
+
+`<aparte-select>` is the dropdown the [model selector](/components/model-selector/) and the
+[approval mode](/components/approval-mode/) switch are built on. Its options are
+`<aparte-option>` children, optionally grouped in `<aparte-optgroup>`. The value is an attribute;
+a change fires `aparte-select-change` with the new value, its label and the previous value.
+
+## Variants
+
+### Groups and a search field
+
+<Variant id="select-grouped" />
+
+`searchable` adds a field that filters the options as you type. A group has a `label`; it can be
+`collapsible`, and `loading` adds a spinner row while its options arrive.
+
+## Usage
+
+<Usage />
+
+## API
+
+### `<aparte-select>`
+
+<SelectApi />
+
+### `<aparte-option>`
+
+<OptionApi />
+
+### `<aparte-optgroup>`
+
+<OptgroupApi />
+
+## Accessibility
+
+- The trigger is a combobox (a button when the list is searchable) that opens a list box; the
+  arrow keys move through the options, Enter picks one, Escape closes.
+- A group is a labelled group, so a screen reader names it with each option.
+- Give the select an `aria-label`, or a placeholder that says what it chooses.
+
+## Related
+
+- [Model selector](/components/model-selector/) — a select over providers and models.
+- [Field](/components/field/) — the native `<select>` with the field recipe.
+- [Menu](/components/menu/) — a list of commands rather than a value.

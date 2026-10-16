@@ -1,0 +1,47 @@
+---
+title: Menu
+description: A floating list of commands — items, labels, separators, a checked choice, a two-line item — for a dropdown, a context menu or an overflow menu.
+catalog:
+  group: kit
+  order: 19
+  claims:
+    classes: [menu]
+  demos: [kit-menu]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/menu.classes.mdx';
+import Vars from '../../../generated/api/kit/menu.vars.mdx';
+
+<Variant id="kit-menu" />
+
+`.aparte-menu` is the surface a dropdown, a context menu or a `⋯` menu is drawn on: a bordered,
+raised column of `__item` rows, with `__label` headings and `__separator` lines between groups.
+A two-line item wraps its name and a `__description` in a `__body`. The
+[conversation list](/components/conversation-list/)'s row menu is this recipe.
+
+The check mark is drawn for you: an item with `aria-checked` (a `menuitemradio` or
+`menuitemcheckbox`) gets a gutter, and the mark shows when the value is `"true"`. Do not add a
+check of your own.
+
+Where the menu sits, and opening and closing it, are yours: there is no positioning here.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Use `role="menu"` and `role="menuitem"` (or `menuitemradio` / `menuitemcheckbox` with
+  `aria-checked`) on real buttons, and `role="separator"` between groups.
+- The button that opens the menu takes `aria-haspopup="menu"` and `aria-expanded`; the arrow keys
+  between items and Escape to close are your script's.
+
+## Related
+
+- [Popover](/components/popover/) — a floating box for anything that is not a list of commands.
+- [Select](/components/select/) — a list that holds a value.

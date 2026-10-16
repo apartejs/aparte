@@ -1,0 +1,46 @@
+---
+title: Avatar
+description: A person's picture or initials, in five sizes and two shapes, and a group that overlaps them.
+catalog:
+  group: kit
+  order: 4
+  claims:
+    classes: [avatar]
+  demos: [kit-avatar]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/avatar.classes.mdx';
+import Vars from '../../../generated/api/kit/avatar.vars.mdx';
+
+<Variant id="kit-avatar" />
+
+`.aparte-avatar` stands for a person: their picture (`.aparte-avatar__image`), or their
+initials when there is none. It is the same object as a message's avatar, so a size set here
+resizes the chat's avatars too. `--xs` to `--xl` size it, `--circle` and `--square` shape it, and
+`.aparte-avatar-group` overlaps several, with a `+3` for the rest.
+
+The corner, the initials and the overlap are fractions of the size, so they stay in proportion
+whatever size you pick.
+
+## Customize
+
+<Vars />
+
+To put avatars on the chat's messages, see `setAvatarProvider()` on the
+[Message](/components/message/) page.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A picture needs an `alt` that names the person; initials alone may need an `aria-label` with
+  the full name.
+- In a group, the `+3` should say what it counts ("3 more people").
+
+## Related
+
+- [Message](/components/message/) — avatars beside the conversation.
+- [Thumbnail](/components/thumbnail/) — the same tile for a file instead of a person.

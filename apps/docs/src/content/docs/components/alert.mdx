@@ -1,0 +1,41 @@
+---
+title: Alert
+description: A callout with an icon, a title and a message, in seven intents, with an optional button to dismiss it.
+catalog:
+  group: kit
+  order: 13
+  claims:
+    classes: [alert]
+  demos: [kit-alert]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/alert.classes.mdx';
+import Vars from '../../../generated/api/kit/alert.vars.mdx';
+
+<Variant id="kit-alert" />
+
+`.aparte-alert` is a callout: an `__icon`, a `__body` holding a `__title` and a `__message`, and
+an optional `__dismiss` button. Its intent (info, success, warning, danger, neutral, primary,
+secondary) colours it. The chat's [error](/components/error/) card wears this recipe, and so do
+this site's notes and warnings.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- An alert that appears while someone is reading takes `role="status"` (or `role="alert"` when it
+  must interrupt); one that is part of the page from the start needs neither.
+- The intent is written in the title or the message, not only coloured.
+- The dismiss button shows a cross: give it an `aria-label`.
+
+## Related
+
+- [Error](/components/error/) — a failed turn, drawn as an alert.
+- [Badge](/components/badge/) — a status in a word rather than a sentence.
