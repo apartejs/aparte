@@ -1,0 +1,262 @@
+---
+title: Add an AI chat to an Angular app
+description: Install @aparte/angular, render the standalone chat component, configure and stream a model with provideAparte at bootstrap, and put your own UI in its slots.
+sidebar:
+  order: 5
+  label: Angular
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+
+## Install
+
+```bash
+npm install @aparte/angular @aparte/core
+npm install @aparte/provider-scenario   # a scripted model, to stream with no key
+```
+
+```css
+/* src/styles.css — the global stylesheet angular.json lists under "styles" */
+@import '@aparte/core/styles.css';
+```
+
+`@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are peer dependencies: Angular
+<code>{WRAPPER_PEERS.angular}</code> and RxJS <code>{WRAPPER_PEERS.rxjs}</code>.
+
+## Render the chat
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent, type AparteMessage } from '@aparte/angular';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `
+    <aparte-chat centerWhenEmpty (messagesChange)="messages = $event">
+      <p slot="empty-state">Ask me anything…</p>
+    </aparte-chat>
+  `,
+})
+export class ChatComponent {
+  messages: AparteMessage[] = [];
+}
+```
+
+`AparteChatComponent` is standalone: import it where you use it, with no NgModule. The chat keeps
+its thread and reports it through `(messagesChange)`. The person's message is added when they send,
+so do not add it again in `(messageSent)`, which fires after, for a side effect.
+
+## Stream a model
+
+{/* doc-check: skip excerpt — `App` is your root component */}
+```ts
+// main.ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideAparte } from '@aparte/angular';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+import { App } from './app';
+
+bootstrapApplication(App, {
+  providers: [provideAparte({ providers: [createScenarioProvider({ scenarios: showcase })] })],
+});
+```
+
+`provideAparte` registers the providers at bootstrap and starts the client — `autoConnect`, on by
+default — so a send streams with no wiring in your components. With `autoConnect: false`, the
+client is yours to start:
+
+```ts
+import { Component, inject, type OnDestroy, type OnInit } from '@angular/core';
+import { AparteAiService } from '@aparte/angular';
+
+@Component({ selector: 'app-shell', standalone: true, template: '' })
+export class ShellComponent implements OnInit, OnDestroy {
+  private ai = inject(AparteAiService);
+  ngOnInit() { this.ai.connect(); }      // safe to call twice
+  ngOnDestroy() { this.ai.disconnect(); }
+}
+```
+
+`AparteAiService` also gives you `client`, the running `AparteClient`, and `abort()`, which stops
+the reply. With the client running, turn on retry and edit with
+`aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` ([Buttons](/guides/customization/actions/)).
+
+## Configure it at bootstrap
+
+```bash
+npm install @aparte/provider-openai-compat @aparte/plugin-marked @aparte/plugin-model-selector @aparte/locale-fr
+```
+
+```ts
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { provideAparte } from '@aparte/angular';
+import { fr } from '@aparte/locale-fr';
+
+export const aparte = provideAparte({
+  providers: [createOpenAICompatProvider(presets.OPENROUTER)],
+  plugins: {
+    actions: [async () => { await import('@aparte/plugin-model-selector'); }],
+    markdown: () => import('@aparte/plugin-marked').then((m) => m.setupMarkedProvider()),
+  },
+  modelConfig: { defaultProvider: 'openrouter', defaultModel: 'openai/gpt-4o-mini' },
+  locale: fr,
+  themeMode: 'auto',
+  clientOptions: { keyResolver: () => localStorage.getItem('openrouter.key') ?? undefined },
+});
+```
+
+Pass `aparte` to `bootstrapApplication(App, { providers: [aparte] })`.
+
+| Option | What it takes |
+| --- | --- |
+| `providers` | the providers to register |
+| `plugins.actions` | loaders, `() => void \| Promise<void>`, awaited before the client starts: a dynamic `import()` gives the plugin a chunk of its own |
+| `plugins.icons` | an icon provider, or a loader |
+| `plugins.markdown` | a Markdown provider `(raw) => html`, which declares its `raw` parameter, or a loader |
+| `plugins.theme` | a loader |
+| `modelConfig` | the model to send to, as `setModelConfig` takes it — a provider that lists its models over the network selects none |
+| `locale` | an `AparteLocale` object, such as `fr` from `@aparte/locale-fr` |
+| `themeMode` | `'light'`, `'dark'` or `'auto'`, which follows the system |
+| `clientOptions` | the `AparteClientOptions` — a `keyResolver` gives a cloud provider its key |
+| `autoConnect` | whether the client starts at bootstrap: `true` by default |
+
+A loader that fails is reported in the console and skipped. A loader defines its plugin's element,
+and you place it: `<aparte-model-selector slot="toolbar" persist></aparte-model-selector>`, with
+`AparteModelSelectorDirective` from `@aparte/plugin-model-selector/angular` in the component's
+`imports`. The options are typed as `ProvideAparteOptions` and `ApartePluginLoader`, and injectable
+as `APARTE_CONFIG_TOKEN`, the client's own as `APARTE_CLIENT_OPTIONS`. `provideAparte` is optional:
+the same calls on `aparteGlobalConfig` configure the same things, and `AparteAiService.connect()`
+then starts the client.
+
+## Put your own UI in it
+
+```html
+<aparte-chat [messages]="messages" [bubbleTemplate]="bubble" (messagesChange)="messages = $event">
+  <p slot="empty-state">Ask me anything…</p>
+  <span slot="toolbar" class="hint">Shift + Enter for a new line</span>
+</aparte-chat>
+
+<ng-template #bubble let-message>
+  <div class="my-bubble">{{ message.content }}</div>
+</ng-template>
+```
+
+| `slot` | What it fills |
+| --- | --- |
+| `empty-state` | the chat before the first message |
+| `above-composer` | the space above the composer |
+| `toolbar` | the composer's bottom row, not drawn when you fill `composer` ([The composer toolbar](/guides/customization/composer-toolbar/)) |
+| `composer` | the composer, replaced by yours |
+
+`[bubbleTemplate]` draws each message from a template of yours, the message as its `$implicit`
+([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)). Content in no slot is
+not drawn.
+
+## Inputs and outputs
+
+```html
+<aparte-chat
+  id="support"
+  [loading]="isFetchingHistory"
+  attachments
+  [containerClass]="'rounded-2xl border'"
+  [containerStyle]="{ 'max-inline-size': '48rem' }"
+></aparte-chat>
+```
+
+The ones you reach for: `placeholder`, `disabled` and `submitOnEnter`; `centerWhenEmpty`;
+`loading`, for a wait of your own; `isTyping` and `typingText`, a waiting line you drive yourself;
+`overlayComposer`; `attachments`, off by default ([Attachments](/guides/attachments/));
+`[elicitation]="false"` when you draw the questions yourself; `conversationId`, `config` and
+`layoutTransitionMs`, how long the list holds its layout after a conversation swap. An `id` on the
+tag is the chat's id, which every event carries: for two chats on one page, each answered by its
+own client, give each an `id` and its client `clientOptions.scopeToTargetId`. `class` and `style`
+on the tag reach the component's host, the sized box (`display: block; height: 100%`);
+`[containerClass]` and `[containerStyle]`, a string or a map, reach the chat's container inside
+it. The outputs are `messageSent`, `messagesChange`, `messageAppended`, `action`, `typingChange`
+and `conversationCreated` ([Wrapper surface](/reference/wrappers/#callbacks)).
+
+## Control it from code
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+
+@Component({ selector: 'app-agent-chat', standalone: true, imports: [AparteChatComponent], template: `<aparte-chat></aparte-chat>` })
+export class AgentChatComponent {
+  private readonly chat = viewChild.required(AparteChatComponent);
+
+  reply(id: string, tokens: AsyncIterable<string>) {
+    this.chat().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    void this.chat().injectTokenStream(id, tokens);
+  }
+}
+```
+
+The component carries the chat's imperative API — `appendMessage`, `addSegment`,
+`injectTokenStream`, `scrollToBottom`, `focusInput` and the rest — once its view is initialised, to
+drive the chat from a loop of yours ([Your own loop](/guides/bring-your-own-loop/));
+`injectTokenStream` also takes an RxJS `Observable<string>`. `ConversationManagerService` lists,
+creates, archives and pins saved conversations as signals once `init(adapter)` has run, and the
+chat switches between them through `[conversationId]`
+([Save conversations](/guides/conversation-persistence/)).
+
+## Any element, typed
+
+```ts
+import { Component } from '@angular/core';
+import { AparteOptionDirective, AparteSelectDirective } from '@aparte/angular';
+
+@Component({
+  selector: 'app-picker',
+  standalone: true,
+  imports: [AparteSelectDirective, AparteOptionDirective],
+  template: `
+    <aparte-select searchable placeholder="Pick a model" (selectChange)="use($event.value)">
+      <aparte-option value="small">Small</aparte-option>
+      <aparte-option value="large">Large</aparte-option>
+    </aparte-select>
+  `,
+})
+export class PickerComponent {
+  use(value: string) { console.info(value); }
+}
+```
+
+Each element of core has a standalone directive whose selector is its tag — typed inputs, one
+output per event — so the template is checked without `CUSTOM_ELEMENTS_SCHEMA`; import the ones you
+use, or `APARTE_ELEMENT_DIRECTIVES` for all of them ([Elements, typed](/frameworks/elements/)). A
+plugin's element is typed by the plugin, and one of yours by you
+([your own element](/frameworks/elements/#your-own-element-or-a-plugins)). `<aparte-ui>`, the
+`AparteUiComponent` with its inputs typed as `AparteUiProps`, mounts any tag and sets its props; it
+forwards core's events, so name your element's own in `[events]`:
+
+```html
+<aparte-ui name="my-token-counter" [props]="{ 'data-budget': '8000' }" [events]="['token-count']" (elementEvent)="onCount($event)" />
+```
+
+## Server rendering and tests
+
+`provideAparte` starts the client only in a browser. Render the chat itself on the client, in a
+`@defer` block — `@defer { <aparte-chat></aparte-chat> }` — so the server draws only its
+placeholder; `@aparte/core` imports on a server through its entry without elements
+([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
+Jest — takes that entry too, so alias `@aparte/core` to `@aparte/core/browser` for the elements to
+upgrade ([Testing your components](/frameworks/elements/#testing-your-components)); Karma runs in
+a browser and needs nothing.
+
+A whole chat site in Angular — the conversation sidebar, the header, settings, tools and the
+scripted model — is [the Angular example](https://github.com/apartejs/aparte/tree/main/apps/examples/angular).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/frameworks/elements/', title: 'Elements, typed', line: 'Every element as a standalone directive, and one of your own.' },
+        { href: '/reference/wrappers/', title: 'Wrapper surface', line: 'Every slot and output, beside the other three frameworks.' },
+    ]}
+/>
