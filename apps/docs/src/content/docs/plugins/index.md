@@ -19,8 +19,8 @@ and wire in one call, so core stays small and you pay only for what you use.
 | Let the AI ask the user a question | [`ask-user`](/components/question/) | `registerTool` + elicitation |
 | Switch approval modes — plan, ask, auto-edit, auto | [`approval`](/components/approval-mode/) | `setApprovalPolicy` + `<aparte-approval-mode>` |
 | Let the AI produce a document — a page, a component, a spreadsheet — shown as a Code/Preview card | [`artifacts`](/components/artifact/) | `registerTool` + `registerToolRenderer` + `registerStreamBlock` + `registerSegmentRenderer` |
-| Summarise a long conversation so it fits the model's window | [`compaction`](/plugins/compaction/) | the `aparte-compact` command + the `compaction: true` notice |
-| Title each conversation from its first message, with a 40–133 KB model in the browser | [`titler`](/plugins/titler/) | the conversation manager's `setTitleProvider` |
+| Summarise a long conversation so it fits the model's window | [`compaction`](/guides/long-conversations/) | the `aparte-compact` command + the `compaction: true` notice |
+| Title each conversation from its first message, with a small model in the browser | [`titler`](/guides/titles/) | the conversation manager's `setTitleProvider` |
 
 Every plugin lists `@aparte/core` as a peer dependency and, where it wraps a third-party library
 (marked, streaming-markdown, shiki), that library too — so you control its version and it is never

@@ -1,0 +1,132 @@
+---
+title: Give each conversation a short title
+description: Title conversations from their first message — with a small model that runs in the browser, or with your own titling on a server or a model.
+sidebar:
+  order: 5
+  label: Conversation titles
+guide:
+  group: conversations
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { titlerModels } from '../../../lib/bundled-model';
+
+export const models = titlerModels();
+
+## When a title is decided
+
+A conversation in a [manager](/guides/conversation-persistence/) takes its title from the person's
+first message, written as they typed it — even over a title the conversation was created with.
+Editing that message gives it a new title while the title is still the manager's, which
+`autoTitle: true` says. A title typed in after that, through `updateTitle` or the list's rename,
+is never replaced; the list renames through the manager when it has `manage`, or when you answer
+its `aparte-conversation-rename`. A title provider replaces the "as typed" part: it gets the
+message and answers a short title.
+
+## Title in the browser
+
+```bash
+npm install @aparte/plugin-titler @aparte/titler-latin
+```
+
+{/* doc-check: skip a Vite `?url` import, which TypeScript resolves through vite/client */}
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { loadTitler } from '@aparte/titler-latin';
+import modelUrl from '@aparte/titler-latin/model?url';
+import { setupTitler } from '@aparte/plugin-titler';
+
+const manager = aparteGlobalConfig.getConversationManager();   // the one your chat saves to
+if (manager) setupTitler(manager, { titler: () => loadTitler(modelUrl) });
+```
+
+The model reads the first message in the browser, with no API call, and picks the words that make
+the title: it copies them in the message's order and does not rephrase. `loadTitler` runs once, the
+first time a conversation needs a title, and fetches the model file from your own site; a load that
+fails is tried again on the next title. The `?url` import is Vite's way of serving the package's
+model file; with another bundler, copy the `.bin` from the package's `model` folder into what you
+serve and give `loadTitler` its path. Run the setup once the manager is registered — after
+`setConversationManager`, or once a framework helper's `init` has resolved.
+
+Left to its default, the model keeps among its six best-scored words those it is confident about,
+never fewer than three, and every word of a short message. `budget: 4` keeps exactly four of its
+best-scored words instead. `setupTitler` returns the function that gives the manager back its
+previous provider, unless another was set since.
+
+[Try the model](/models/titler/#demo) on its own page.
+
+## Pick a model
+
+| Package | Reads | Model file |
+| --- | --- | --- |
+| `@aparte/titler-latin` | {models.latin.languages.length} languages: {models.latin.languages.join(', ')} | {models.latin.kb} KB |
+| `@aparte/titler-latin-mini` | the same {models.mini.languages.length}, with a smaller vocabulary | {models.mini.kb} KB |
+| `@aparte/titler-efigsp` | {models.efigsp.languages.length} languages: {models.efigsp.languages.join(', ')} | {models.efigsp.kb} KB |
+
+For a model file of your choice, download a `.bin` from the
+[model repository](https://huggingface.co/apartejs/aparte-titler), serve it from your site, and
+give its bytes to the runtime alone, `@aparte/titler`:
+
+```ts
+import type { AparteConversationManager } from '@aparte/core';
+import { loadTitler } from '@aparte/titler';
+import { setupTitler } from '@aparte/plugin-titler';
+
+declare const manager: AparteConversationManager;
+
+const bytes = (url: string): Promise<ArrayBuffer> =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`${url}: ${r.status}`);
+    return r.arrayBuffer();
+  });
+
+setupTitler(manager, { titler: () => loadTitler(bytes('/models/titler-fr.bin')) });
+```
+
+## Title your own way
+
+```ts
+import type { AparteConversationManager } from '@aparte/core';
+
+declare const manager: AparteConversationManager;
+
+manager.setTitleProvider(async (text) => {
+  const response = await fetch('/api/title', { method: 'POST', body: text });
+  return response.ok ? response.text() : '';
+});
+```
+
+A title provider gets the message's text and the message, and answers a title, at once or as a
+promise: a request to your server, a call to a model, a rule of yours. An empty answer, or an
+error, keeps the message as typed, and an error is logged. `setTitleProvider(null)` puts the
+default back.
+
+## Without a setup call
+
+{/* doc-check: skip a Vite `?url` import, which TypeScript resolves through vite/client */}
+```ts
+import { AparteConversationManager, type AparteStorageAdapter } from '@aparte/core';
+import { loadTitler } from '@aparte/titler-latin';
+import modelUrl from '@aparte/titler-latin/model?url';
+import { createTitleProvider } from '@aparte/plugin-titler';
+
+declare const adapter: AparteStorageAdapter;
+
+const manager = new AparteConversationManager(adapter, {
+  titleProvider: createTitleProvider({ titler: () => loadTitler(modelUrl) }),
+});
+```
+
+`createTitleProvider` is the provider alone, for a manager you build with one. Its options are a
+`TitlerOptions`, and any object with `title(message, budget?)` — a `TitlerLike` — can be the
+`titler`.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/models/titler/', title: 'aparte-titler', line: 'The model, running in your browser, and the numbers behind it.' },
+        { href: '/guides/conversation-persistence/', title: 'Save conversations', line: 'The manager the titles are written to, and the list that shows them.' },
+        { href: '/components/conversation-list/', title: 'Conversation list', line: 'The sidebar list, with each conversation under its title.' },
+    ]}
+/>

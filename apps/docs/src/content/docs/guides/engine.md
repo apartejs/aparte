@@ -53,7 +53,7 @@ danger, once, until the level drops. Before the first turn, or without a window,
 
 What answers that command is not the engine: the loop reports usage and lets the caller decide,
 and compaction — the budget, the selector, the summariser — is
-[`@aparte/plugin-compaction`](/plugins/compaction/). The budget and selector lived here until
+[`@aparte/plugin-compaction`](/guides/long-conversations/). The budget and selector lived here until
 0.16.0; they moved with their one consumer, same names, same signatures:
 
 ```ts

@@ -1,12 +1,12 @@
 ---
 import Landing from '../../layouts/Landing.astro';
-import { bundled } from '../../lib/bundled-model';
+import { titlerModels } from '../../lib/bundled-model';
 
 /*
  * The product page of aparte-titler, the first model aparté publishes.
  *
  * An Astro page on the landing's frame, beside /roadmap/ — not a docs entry. The docs
- * carry the plugin (/plugins/titler/); the Hugging Face card carries the science (every
+ * carry the plugin (/guides/titles/); the Hugging Face card carries the science (every
  * file, the benchmark, the charts). This page carries the one thing neither of them can:
  * the model running, under the reader's fingers, in the first screen. The demo is the
  * top of the page and `#demo` is the address given everywhere — the card, the npm
@@ -24,11 +24,9 @@ import { bundled } from '../../lib/bundled-model';
  *      demo that let the reader believe otherwise would be selling something else.
  */
 
-/** The three bundled models the site installs, measured by the shared `bundled()` helper. */
-const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
-const LATIN = bundled('@aparte/titler-latin', LATIN_LANGS);
-const MINI = bundled('@aparte/titler-latin-mini', LATIN_LANGS);
-const EFIGSP = bundled('@aparte/titler-efigsp', ['en', 'fr', 'es', 'de', 'pt', 'it']);
+/** The three bundled models the site installs, measured by the shared helper. */
+const { latin: LATIN, mini: MINI, efigsp: EFIGSP } = titlerModels();
+const LATIN_LANGS = LATIN.languages;
 
 /** Six first messages, six languages. Their titles are the model's, computed live. */
 const EXAMPLES = [
@@ -120,7 +118,7 @@ const IMAGE_ALT =
     <section class="band">
       <h2 class="serif">In apart&eacute;, <span class="paren">(</span>three lines<span class="paren">)</span></h2>
       <p class="sec-sub">
-        The <a href="/plugins/titler/">titler plugin</a> binds the model to the conversation
+        The <a href="/guides/titles/">titler plugin</a> binds the model to the conversation
         manager: the first message of every conversation is titled by it, and the title lands in
         the list. The model loads once, the first time a title is needed.
       </p>
@@ -174,7 +172,7 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
         <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">The model card &#8594;</a>
         <a href="https://github.com/apartejs/aparte-titler-model" target="_blank" rel="noopener">The code &#8594;</a>
         <a href="https://www.npmjs.com/package/@aparte/titler-latin" target="_blank" rel="noopener">On npm &#8594;</a>
-        <a href="/plugins/titler/">The plugin &#8594;</a>
+        <a href="/guides/titles/">The plugin &#8594;</a>
       </p>
     </section>
   </div>

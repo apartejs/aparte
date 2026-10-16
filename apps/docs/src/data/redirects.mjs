@@ -30,6 +30,9 @@ export const MOVED = {
     '/plugins/shiki/': '/guides/markdown/',
     // The app-shell guide folded into Layouts (its last section, the whole page).
     '/guides/app-shell/': '/guides/layout/',
+    // The compaction and titler plugin pages became the guides of what they do.
+    '/plugins/compaction/': '/guides/long-conversations/',
+    '/plugins/titler/': '/guides/titles/',
 };
 
 /**

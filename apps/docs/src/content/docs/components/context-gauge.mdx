@@ -40,8 +40,8 @@ changes.
 
 ### When the window is full
 
-With `auto-compact`, reaching `danger` dispatches `aparte-compact` for its chat, once per
-crossing. What answers is `@aparte/plugin-compaction`: it summarises the oldest turns and keeps
+With `auto-compact`, a turn that ends in `danger` dispatches `aparte-compact` for its chat, one
+request at a time: once it is answered, the next turn still in `danger` asks again. What answers is `@aparte/plugin-compaction`: it summarises the oldest turns and keeps
 the recent ones (see [Compaction notice](/components/compaction-notice/)). Without the plugin,
 the gauge only measures.
 
