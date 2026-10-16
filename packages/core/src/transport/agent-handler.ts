@@ -62,7 +62,9 @@ export interface AparteAgentHandlerOptions {
      * resume checks read what it returns: the loop runs on that, not on what the browser sent.
      */
     prepareRequest?: (request: AparteChatRequest, req: Request) => AparteChatRequest | Promise<AparteChatRequest>;
+    /** How many model turns one run may take before it stops. @default 10 */
     maxTurns?: number;
+    /** How long one tool call may run, in milliseconds, before it is abandoned. @default 300000 (5 minutes) */
     toolTimeoutMs?: number;
     /** How long a suspended run can wait for its answer. @default 7 days */
     ticketMaxAgeMs?: number;

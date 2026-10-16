@@ -377,6 +377,11 @@ export class AparteClient {
     /** Config read by this client — an instance config, or the global default. */
     private readonly _config: AparteConfig;
 
+    /**
+     * A `keyResolver` becomes a key source on the client's config at once, before `start()`,
+     * so everything that needs a key can use it — the model selector's list included.
+     * `autoRegister` (on by default) installs core's built-in renderers on that config.
+     */
     constructor(options: AparteClientOptions = {}) {
         this.options = {
             autoRegister: true,
@@ -468,7 +473,9 @@ export class AparteClient {
     }
 
     /**
-     * Start listening for aparte-send events on the window.
+     * Answer the chats: listen on `window` for `aparte-send`, `aparte-retry`, `aparte-edit`,
+     * `aparte-abort` and `aparte-conversation-loaded`. Nothing streams before this is
+     * called. Starting a stopped client puts its `keyResolver` back on the config.
      */
     start(): void {
         // A client that was stopped and started again signs requests with its own
@@ -518,7 +525,8 @@ export class AparteClient {
     }
 
     /**
-     * Stop listening.
+     * Stop answering: abort the reply in flight, take this client's `keyResolver` off the
+     * config, and remove the listeners.
      */
     stop(): void {
         // Abort what is in flight, not just the listeners.
