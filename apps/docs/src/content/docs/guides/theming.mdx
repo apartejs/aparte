@@ -1,0 +1,278 @@
+---
+title: Theme the chat to your brand, in light and dark
+description: Restyle the whole chat with CSS variables — your brand colours, light and dark, density and shape — on the page, on one part of it, or on one chat.
+sidebar:
+  order: 1
+  label: Theme
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="theme-brand" caption="Eight variables on a wrapper, and every part of the chat follows them." />
+
+## Set your brand colours
+
+```css
+:root,
+[data-aparte-theme="light"] {
+  --aparte-primary: #b45309;        /* the accent: send button, links, the user's bubble */
+  --aparte-primary-hover: #92400e;
+  --aparte-bg: #fbf7f0;             /* your page's background */
+  --aparte-surface-1: #ffffff;      /* cards, code blocks, the composer */
+  --aparte-surface-2: #f4ece0;      /* headers, inline code */
+  --aparte-text: #241a12;
+  --aparte-text-muted: #7c6f60;
+  --aparte-border: #e7dccb;
+}
+```
+
+The chat's colours follow these eight: 239 of core's variables read another one, such as
+`--aparte-input-bg`, which is `var(--aparte-surface-1)`, or `--aparte-avatar-bg-user`, which is
+`var(--aparte-primary)`. Set the bases, not each value they feed. The block wins whichever
+stylesheet loads first, and its second selector keeps it on an element
+[forced light](#light-and-dark).
+
+A few do not follow them. The status colours — `--aparte-info`, `--aparte-success`,
+`--aparte-warning`, `--aparte-error` — and `--aparte-secondary` are yours to set in the same block
+if your brand has an opinion, and so is `--aparte-neutral`, which draws the focus ring, the
+scrollbar and the neutral buttons. The chat paints no background of its own, so your page shows
+through it: `--aparte-bg` only tints the progress track and the loading skeleton, and is there for
+your page too (`body { background: var(--aparte-bg); }`).
+
+### The text on a fill
+
+```css
+:root {
+  --aparte-primary: #1a1a2e;
+  --aparte-on-primary: #f8fafc;
+}
+```
+
+The label on a filled button, badge or checkbox is worked out from the fill's lightness, so it
+stays readable whatever colour you choose. Set its pair to choose it yourself:
+`--aparte-on-primary`, `--aparte-on-secondary`, `--aparte-on-neutral`, `--aparte-on-info`,
+`--aparte-on-success`, `--aparte-on-warning` and `--aparte-on-error`. Two numbers tune the
+worked-out ink: `--aparte-ink-flip`, the fill lightness where it turns from light to dark, and
+`--aparte-ink-dark`, how dark it gets.
+
+## Light and dark
+
+```html
+<!-- follows the system: nothing to write -->
+<aparte-chat></aparte-chat>
+
+<!-- always dark -->
+<aparte-chat data-aparte-theme="dark"></aparte-chat>
+
+<!-- always light, even on a dark system: on the chat or on any ancestor -->
+<body data-aparte-theme="light">…</body>
+```
+
+With no attribute, the system's `prefers-color-scheme` decides. `data-aparte-theme` forces
+either way, on the chat or on any ancestor, so a light panel inside a dark page stays light. The
+attribute puts core's palette on the element that carries it, which is why your light block names
+`[data-aparte-theme="light"]` beside `:root`.
+
+## Give dark its own colours
+
+```css
+/* light */
+:root,
+[data-aparte-theme="light"] {
+  --aparte-primary: #087ea4;
+  /* …the rest of your light palette */
+}
+
+/* dark, when your toggle sets the attribute */
+[data-aparte-theme="dark"] {
+  --aparte-primary: #58c4dc;
+  /* …the same tokens, in dark */
+}
+
+/* dark, when the system decides */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-aparte-theme="light"]) {
+    --aparte-primary: #58c4dc;
+    /* …the same tokens, in dark */
+  }
+}
+```
+
+Without a dark block, a dark system shows core's dark palette rather than your light colours.
+Give each dark block every token your light block sets. Core's dark palette has a value for the
+eight, `--aparte-neutral`, the shadows, the scrim behind dialogs and the error colours
+(`--aparte-error-bg`, `--aparte-error-text`, `--aparte-error-border`, `--aparte-error-solid`), and
+any of those you leave out takes core's dark value rather than yours. Keep the selector of the
+third block as it is: a bare `:root` inside the media query loses to core's dark palette.
+
+## Theme one chat, or part of the page
+
+```html
+<aparte-chat class="sales"></aparte-chat>
+<aparte-chat class="support" data-aparte-theme="dark"></aparte-chat>
+
+<style>
+  aparte-chat.sales { --aparte-primary: #16a34a; }
+  aparte-chat.support { --aparte-primary: #db2777; }
+</style>
+```
+
+A variable set on an element reaches everything inside it: one [chat](/components/chat/), a
+sidebar, a section of the page. A token that reads another one, such as `--aparte-avatar-bg-user`
+or `--aparte-radius-bubble`, is worked out again on every `aparte-chat` and every
+`[data-aparte-theme]` element, so a chat given its own `--aparte-primary` gets its own user bubble
+and avatar too. The same rule stops a value you give such a token on `:root` at the chat: set it on
+the chat, in a rule with a class as above, which outweighs core's own declaration there whatever
+order the stylesheets load in. The [CSS variables](/reference/css-variables/) reference marks
+those tokens **anchored**.
+
+In React, Vue and Svelte, the chat's root is a `<div data-aparte-chat>`, where nothing is worked
+out again: theme one of those chats through an element around it that carries the attribute, such
+as `<div class="sales" data-aparte-theme="light">`, with `div.sales { … }`.
+
+## Make it denser, squarer or larger
+
+```css
+:root {
+  --aparte-space-unit: 1.5px;   /* every gap and padding, tighter */
+  --aparte-radius-unit: 2px;    /* every corner, squarer */
+  --aparte-font-scale: 1;       /* every text size, a notch smaller */
+  --aparte-btn-size-md: 28px;   /* the medium control, and every size read from it */
+}
+```
+
+The sizes are scales, each a base times a step, so one base moves a whole family:
+
+| Scale | Tokens | Base |
+| --- | --- | --- |
+| Spacing | `--aparte-space-1` … `--aparte-space-8` | `--aparte-space-unit` |
+| Corners | `--aparte-radius-xs` … `--aparte-radius-xl` | `--aparte-radius-unit` |
+| Text | `--aparte-font-size-2xs` … `--aparte-font-size-2xl` | `--aparte-font-scale` |
+| Controls | `--aparte-btn-size-sm`, `-md`, `-lg`, `-xl` | each its own |
+
+`--aparte-radius-full`, the pill, stays a pill whatever the unit. A single step can be set too, on
+the chat with a class: `aparte-chat.chat { --aparte-space-6: 8px; }` pulls in the paddings that use
+it and leaves the rest of the scale alone. The kit's controls read the same tokens, so a page of
+[buttons](/components/button/) and [fields](/components/field/) moves with the chat.
+
+## Small recipes
+
+They set tokens on `<aparte-chat class="chat">`. In React, Vue and Svelte, give the chat's root the
+class with `className` and write `[data-aparte-chat].chat`.
+
+### Give the assistant a bubble too
+
+```css
+aparte-chat.chat { --aparte-message-content-bg-assistant: var(--aparte-surface-2); }
+.aparte-message[data-role="assistant"] .aparte-message-content {
+  width: fit-content;
+  padding: var(--aparte-message-content-padding);
+}
+```
+
+The assistant's reply is plain text across the column by default, and only the person's words
+sit in a bubble. The token colours the reply; the rule gives it the user bubble's shape.
+
+### Resize the composer
+
+```css
+aparte-chat.chat { --aparte-composer-control-size: 52px; }
+```
+
+The input's height and every button in the composer follow it. On a touch screen they take
+`--aparte-touch-target-size` instead.
+
+### Change the code font
+
+```css
+:root { --aparte-code-font-family: 'JetBrains Mono', ui-monospace, monospace; }
+```
+
+### Mark a row as chosen
+
+```css
+:root {
+  --aparte-mark-tint: 12%;   /* a quieter ground, for marked rows and the user's bubble */
+  --aparte-mark-bar: 3px;    /* a bar on the start edge, which has none by default */
+}
+```
+
+```html
+<li class="aparte-mark">Chosen</li>
+<li class="aparte-mark aparte-mark--success">Accepted</li>
+<li class="aparte-mark aparte-mark--quiet">Declined</li>
+```
+
+The [mark](/components/mark/) is how the chat shows what was chosen: a select's option, a
+checked choice in a question, the answer a question kept. The same class marks a row of yours.
+`--success`, `--danger` and `--neutral` change the intent; `--quiet` is the one that did not
+happen, with no tint and muted text.
+
+### Type a theme in TypeScript
+
+```ts
+import type { AparteThemeVariables } from '@aparte/core';
+
+export const brand: AparteThemeVariables = {
+  '--aparte-primary': '#b45309',
+  '--aparte-surface-1': '#ffffff',
+};
+
+for (const [name, value] of Object.entries(brand)) {
+  if (value) document.documentElement.style.setProperty(name, value);
+}
+```
+
+A key that does not start with `--aparte-` is a compile error. The name after the prefix is not
+checked, which is what the next recipe is for.
+
+### Check that every token you use exists
+
+{/* undeclared-on-purpose: the sentence below is about a name core does not declare. */}
+A `var(--aparte-text-primary)` that names a token the library does not have fails without a word:
+the property falls back to its inherited or initial value, and the page looks almost right. The
+stylesheet you import names every token it declares or reads, so a script can check your CSS
+against it:
+
+```js
+// aparte-tokens.mjs — node aparte-tokens.mjs src/**/*.css
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const sheet = readFileSync(createRequire(import.meta.url).resolve('@aparte/core/styles.css'), 'utf8');
+const known = new Set(sheet.match(/--aparte-[\w-]+/g));
+let bad = 0;
+for (const file of process.argv.slice(2)) {
+  for (const name of new Set(readFileSync(file, 'utf8').match(/--aparte-[\w-]+/g) ?? [])) {
+    if (!known.has(name)) { bad++; console.log(`${file}: ${name} is not an @aparte/core token`); }
+  }
+}
+process.exit(bad ? 1 : 0);
+```
+
+Run it with your tests. A name it reports that you declared yourself is fine, though a token of
+your own reads better under a prefix of your own.
+
+## Inside a shadow root of your own
+
+Load `@aparte/core/styles.css` inside the shadow root — a `<link>` in it, or
+`adoptedStyleSheets` — since a document's stylesheet does not cross into it. The stylesheet
+declares its tokens on `:host` as well as `:root`, so the chat themes the same way: set the
+variables on the host or on any element inside, and put `data-aparte-theme` on the host itself,
+since an attribute on an element outside the shadow root does not reach the chat.
+`<aparte-suggestions target>` and `<aparte-scroll-rail target>` look their partner up in the
+document; inside a shadow root, put them in the chat and leave `target` out.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/customization/', title: 'Customization', line: 'Past colours and sizes: your own icons, avatars, buttons and parts of a message.' },
+        { href: '/reference/css-variables/', title: 'CSS variables', line: 'Every token, its default, and whether it is anchored.' },
+        { href: '/guides/layout/', title: 'Layouts', line: 'A reading column, a full-width feed, a side panel, a floating composer.' },
+        { href: '/kit/', title: 'The kit', line: 'The controls around the chat, in the same theme.' },
+    ]}
+/>

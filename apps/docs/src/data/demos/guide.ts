@@ -556,6 +556,44 @@ function toLine(item) {
         plugins: ['artifacts'],
     },
     {
+        id: 'theme-brand',
+        title: 'The chat in a brand of its own',
+        html: `<!-- Eight variables move the palette: the send button, the user's bubble, the surfaces,
+     the borders, the text. Set on a wrapper that carries data-aparte-theme, they reach every
+     part inside it, and the values worked out from them are worked out again there. -->
+<style>
+  .brand {
+    --aparte-primary: #b45309;
+    --aparte-primary-hover: #92400e;
+    --aparte-bg: #fbf7f0;
+    --aparte-surface-1: #ffffff;
+    --aparte-surface-2: #f4ece0;
+    --aparte-text: #241a12;
+    --aparte-text-muted: #7c6f60;
+    --aparte-border: #e7dccb;
+    padding: 1rem;
+    background: var(--aparte-bg);
+  }
+</style>
+
+<div class="brand" data-aparte-theme="light">
+  <aparte-chat style="height: 22rem">
+    <aparte-chat-viewport>
+      <aparte-chat-bubble message-id="u1" data-role="user" content="Can the chat wear our colours?"></aparte-chat-bubble>
+      <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="It does: eight variables, and every part follows them."></aparte-chat-bubble>
+    </aparte-chat-viewport>
+    <aparte-composer placeholder="Ask anything">
+      <div class="aparte-composer-shell">
+        <div class="aparte-composer-row">
+          <aparte-composer-input></aparte-composer-input>
+          <aparte-composer-send></aparte-composer-send>
+        </div>
+      </div>
+    </aparte-composer>
+  </aparte-chat>
+</div>`,
+    },
+    {
         id: 'intro-chat',
         title: 'A scripted reply, with Markdown',
         plugins: ['scenario', 'markdown'],

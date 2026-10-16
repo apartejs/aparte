@@ -222,7 +222,7 @@ for (const theme of ['light', 'dark'] as const) {
 }
 
 test('a consumer palette core has never seen is readable too', async ({ page }) => {
-    // The exact gesture guides/theming.md teaches, with a brand colour far from ours.
+    // The exact gesture guides/theming.mdx teaches, with a brand colour far from ours.
     // Against the old constant this measured 1.11:1 and nothing said so.
     await page.evaluate(() => {
         document.documentElement.style.setProperty('--aparte-primary', '#1a1a2e');

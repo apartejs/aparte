@@ -140,7 +140,7 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 - **[Getting started](./apps/docs/src/content/docs/guides/getting-started.md)** — your first streaming chat, no framework
 - **[Providers](./apps/docs/src/content/docs/providers/index.md)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
-- **[Theming](./apps/docs/src/content/docs/guides/theming.md)** — restyle everything through CSS variables
+- **[Theming](./apps/docs/src/content/docs/guides/theming.mdx)** — restyle everything through CSS variables
 - **[Customization](./apps/docs/src/content/docs/guides/customization.md)** — icons, render hooks, action registries
 - **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.md)** — retry, edit, branches, persistence
 - **[The agent engine](./apps/docs/src/content/docs/guides/engine.md)** — the headless `runStreamAgent` loop

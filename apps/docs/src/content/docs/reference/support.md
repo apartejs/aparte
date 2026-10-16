@@ -51,7 +51,7 @@ audit); the split and the reason for it are in the
   button stays readable on whatever brand colour you set. It sits under `@supports`: a
   browser without it (Chrome before 119, Safari before 16.4, Firefox before 128) gets the
   fixed `--aparte-on-intent` fallback — readable on the default palette, not recomputed
-  for yours. See [the ink on a fill](/guides/theming/#rebrand-in-a-handful-of-variables).
+  for yours. See [the ink on a fill](/guides/theming/#the-text-on-a-fill).
 - **`@container`** narrows the message padding below 520px. Without it (Chrome before
   106, Safari before 16, Firefox before 110) the wide defaults stay.
 - **`content-visibility`** is a rendering hint and is ignored where unsupported.
