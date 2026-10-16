@@ -108,10 +108,10 @@ export function Chat() {
 
 | Framework | Package | Guide |
 |---|---|---|
-| React 18 / 19 | `@aparte/react` | [React](./apps/docs/src/content/docs/frameworks/react.md) |
-| Vue 3 | `@aparte/vue` | [Vue](./apps/docs/src/content/docs/frameworks/vue.md) |
-| Svelte | `@aparte/svelte` | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.md) |
-| Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.md) |
+| React 18 / 19 | `@aparte/react` | [React](./apps/docs/src/content/docs/frameworks/react.mdx) |
+| Vue 3 | `@aparte/vue` | [Vue](./apps/docs/src/content/docs/frameworks/vue.mdx) |
+| Svelte | `@aparte/svelte` | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.mdx) |
+| Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.mdx) |
 
 Runnable examples for every framework (plus vanilla) live in
 [`apps/examples`](./apps/examples).
