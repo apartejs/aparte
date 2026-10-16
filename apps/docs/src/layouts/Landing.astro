@@ -1,5 +1,5 @@
 ---
-import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import SiteFooter from '../components/site/SiteFooter.astro';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import SiteNav from '../components/site/SiteNav.astro';
@@ -116,7 +116,7 @@ const { title, description, canonical, ogImage, ogImageAlt } = Astro.props;
          inherit nothing from Starlight; src/data/analytics.ts holds the two values
          once, and names the CSP that has to allow the host. -->
     {import.meta.env.PROD && (
-      <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
+      <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID} data-domains={UMAMI_DOMAINS}></script>
     )}
   </head>
   <body>

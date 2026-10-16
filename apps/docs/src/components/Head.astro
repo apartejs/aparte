@@ -14,7 +14,7 @@
 import Default from '@astrojs/starlight/components/Head.astro';
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
 import { ogSlug } from '../lib/og-slug';
-import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import FontPreload from './site/FontPreload.astro';
 
 const { entry } = Astro.locals.starlightRoute as StarlightRouteData;
@@ -80,5 +80,5 @@ const imageAlt = `aparté — ${entry.data.title}`;
      so the site would need two mechanisms for one tag; this file is already the
      per-page head and the landing already has its own. See src/data/analytics.ts. -->
 {import.meta.env.PROD && (
-  <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
+  <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID} data-domains={UMAMI_DOMAINS}></script>
 )}

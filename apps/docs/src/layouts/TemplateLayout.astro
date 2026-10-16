@@ -7,7 +7,7 @@
  * src/templates/runtime.ts reads the mode, and the script below hides the bar before paint
  * whenever the page is framed, so neither ever flashes it.
  */
-import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import FontPreload from '../components/site/FontPreload.astro';
 import { REPO_URL } from '../components/site/sections';
 import type { TemplateMeta } from '../templates/types';
@@ -77,7 +77,7 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
         </script>
         {
             import.meta.env.PROD && (
-                <script is:inline define:vars={{ src: UMAMI_SRC, id: UMAMI_WEBSITE_ID }}>
+                <script is:inline define:vars={{ src: UMAMI_SRC, id: UMAMI_WEBSITE_ID, domains: UMAMI_DOMAINS }}>
                     // A visit is the template on its own page: a tile in the grid or the landing's
                     // showcase is part of another page's visit, and would count four times over.
                     if (window === parent) {
@@ -85,6 +85,7 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
                         s.defer = true;
                         s.src = src;
                         s.dataset.websiteId = id;
+                        s.dataset.domains = domains;
                         document.head.appendChild(s);
                     }
                 </script>
