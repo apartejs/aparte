@@ -18,8 +18,8 @@ snippet here assumes, or load the packages from a CDN by URL, as in
 
 ## CORS on local BYOK (LM Studio / Ollama)
 
-The server's log shows the request, and the page shows a network or CORS error: the browser called
-the local server itself — `http://localhost:1234` for LM Studio, `http://localhost:11434` for
+The server's log shows the request, and the reply ends in an error such as `Failed to fetch`
+(code `NET_ERROR`): the browser called the local server itself — `http://localhost:1234` for LM Studio, `http://localhost:11434` for
 Ollama — and refused the answer, because the server did not allow the page's origin.
 
 - **LM Studio:** turn on **Enable CORS** in the server settings, in the Developer tab, then
@@ -35,9 +35,16 @@ $env:OLLAMA_ORIGINS = "*"
 ollama serve
 ```
 
+If the Ollama app is running, quit it first, or set `OLLAMA_ORIGINS` as a user environment
+variable and restart the app.
+
 [Local models](/guides/local-models/) has the whole setup for both, and for llama.cpp.
 
 ## "Provider is not registered", "No provider selected"
+
+```
+[AparteClient] Send dropped: no model is selected. …
+```
 
 ```ts
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
@@ -49,23 +56,26 @@ aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 new AparteClient().start();
 ```
 
-**Provider is not registered:** the selected `defaultProvider` names an id no provider was
-registered under. **No provider selected:** nothing chose a model — no `setModelConfig`, and no
+Neither error appears in the chat: the person's message gets no reply, the console warns, and
+`aparte-message-error` carries the code. **Provider is not registered:** the selected
+`defaultProvider` names an id no provider was registered under. **No provider selected:** nothing chose a model — no `setModelConfig`, and no
 [model selector](/components/model-selector/) has picked one; `aparteGlobalConfig.hasSelectedModel()`
-is `false` until one is. To keep the composer from sending until a model is chosen,
+is `false` until one is. A provider registered alone with a single model is selected by itself;
+for a list fetched from the server, `<aparte-model-selector auto-select persist>` picks one. To
+keep the composer from sending until a model is chosen,
 `aparteGlobalConfig.setRequireModelSelection(true)`.
 
 A page that never calls `new AparteClient().start()` looks the same from the outside: nothing
 streams, because nothing answers the send.
 
-## "Key exposed" console warning
+## "Sending the API key straight from the browser" warning
 
 ```
 [Aparte] AparteDirectTransport is sending the "<provider>" API key straight from the browser —
 it is visible to anyone who opens devtools. …
 ```
 
-`AparteDirectTransport` sent a real key from the browser, once per page load. When the key is the
+`AparteDirectTransport` sent a real key from the browser, and says so once per transport. When the key is the
 person's own, or the model is local, say so and the warning stops:
 `new AparteDirectTransport({ byok: true })`; a keyless local provider never triggers it. When the
 key is yours, anyone with devtools can read and spend it: send the requests through
@@ -90,18 +100,21 @@ import { aparteGlobalConfig } from '@aparte/core';
 
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });     // you run an AparteClient
 aparteGlobalConfig.setBubbleActions({ feedback: true, info: true });  // you answer these events
-aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });      // a click on an image opens it
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });      // you open it on aparte-attachment-preview
 ```
 
 Only copy is on by default: the others need something outside the chat to answer them, so they
-stay off until you say it is there. The bar also hides while a reply streams, and a bar with no
-action in it is not drawn at all. [Buttons](/guides/customization/actions/) lists each one.
+stay off until you say it is there. ⓘ also needs the reply's token usage: it shows on a reply
+whose provider reported usage. The bar hides while a reply streams, and a bar with no action in
+it is not drawn at all. [Buttons](/guides/customization/actions/) lists each one.
 
 ## The composer toolbar is not showing
 
 An empty toolbar is hidden: it carries `data-empty` while it holds nothing visible, and
-whitespace or comments do not count. If you put a control in it and still see `data-empty`, the
-control never arrived — a mistyped slot name, or a framework that rendered nothing. A toolbar
+whitespace or comments do not count. If you put a control in it and still see `data-empty`, either
+the control never arrived — a mistyped slot name, a framework that rendered nothing — or it hides
+itself: a child with `hidden` or `data-empty` does not count, and `<aparte-context>` stays
+`data-empty` until the first reply reports its usage. A toolbar
 that shows but is unstyled, with your control at the start instead of the end, means the
 stylesheet did not load: import `@aparte/core/styles.css`
 ([The composer toolbar](/guides/customization/composer-toolbar/)).
@@ -115,11 +128,12 @@ document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', 
 });
 ```
 
-A failure that reaches the chat — a refused key, a rate limit, a dropped connection, a missing
-provider — is an `AparteError`: its `message`, a `code`, the `httpStatus` when there was one, its
+A failure that reaches the chat — a refused key, a rate limit, a dropped connection — is an
+`AparteError`: its `message`, a `code`, the `httpStatus` when there was one, its
 `data` and the `originalError`. The message shows it as an [error](/components/error/), and the
-chat sends `aparte-message-error` with `{ messageId, error }`. A vendor's HTTP status sets the
-code:
+chat sends `aparte-message-error` with `{ messageId, error }`. A missing or unregistered provider
+is the exception: the send is refused before a reply exists, so nothing appears in the chat and
+only the event reports it. A vendor's HTTP status sets the code:
 
 | Status | `code` |
 | --- | --- |
@@ -132,7 +146,9 @@ code:
 
 A network failure is `NET_ERROR`, or `NET_OFFLINE` when the browser says it is offline; a timeout
 is `NET_TIMEOUT`; no provider selected is `CONFIG_NO_PROVIDER`, and one not registered
-`CONFIG_MISSING_KEY`. Anything else is `UNKNOWN_ERROR`. `AparteError.from(error)` turns any error
+`CONFIG_MISSING_KEY`. Anything else is `UNKNOWN_ERROR` — except under a runner that calls the
+model elsewhere (`createAgentStreamRunner`, an AG-UI runner), where a failed or cut run, and a
+status the table does not name, is `PROVIDER_ERROR`. `AparteError.from(error)` turns any error
 into one by the same rules, and `AparteError.codeForStatus(status)` is the table above, for a
 provider of yours. To change how the error looks, use `aparteGlobalConfig.setErrorRenderer`.
 
