@@ -1,0 +1,34 @@
+/*
+ * Code blocks, wherever the site prints one: the code segment's markup (src/lib/markdown.mjs,
+ * src/components/content/Code.astro), coloured at build time for both themes. Each token carries
+ * --shiki-light and --shiki-dark, and these rules pick one — without them a block is plain text.
+ *
+ * Loaded by the docs (astro.config.mjs, customCss) AND by the pages on the Landing layout (the
+ * home, the roadmap, the models): the rules used to live in the docs' theme only, so every code
+ * block on the home was printed without its colours.
+ */
+.aparte-doc-code .astro-code,
+.aparte-doc-code .astro-code span {
+  color: var(--shiki-light);
+  background-color: transparent;
+}
+:root[data-theme='dark'] .aparte-doc-code .astro-code,
+:root[data-theme='dark'] .aparte-doc-code .astro-code span {
+  color: var(--shiki-dark);
+}
+.aparte-doc-code {
+  margin-block: 1.25rem;
+  border: 1px solid var(--sl-color-gray-5, var(--aparte-border));
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+/* A documentation snippet keeps its lines: it scrolls rather than wrapping like chat code. */
+.aparte-doc-code .aparte-code-content-wrapper pre {
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+}
+/* "Copied": the button turns to the success colour for a moment. */
+.aparte-doc-code .aparte-code-copy[data-copied] {
+  color: var(--aparte-success);
+}

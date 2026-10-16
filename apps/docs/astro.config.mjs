@@ -362,6 +362,7 @@ export default defineConfig({
         './src/styles/library.css',
         './src/styles/palette.css',
         './src/styles/aparte-theme.css',
+        './src/styles/code.css',
         './src/styles/site-frame.css',
         './src/styles/content.css',
       ],
