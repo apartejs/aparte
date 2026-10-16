@@ -556,12 +556,20 @@ function toLine(item) {
         plugins: ['artifacts'],
     },
     {
-        id: 'getting-started-scripted',
-        title: 'A scripted reply, streaming',
-        plugins: ['scenario'],
+        id: 'intro-chat',
+        title: 'A scripted reply, with Markdown',
+        plugins: ['scenario', 'markdown'],
         html: `<!-- The model here is scripted: no key, no network, the same replies every time.
      Everything else is the real thing - the loop, the transcript, the tool call. -->
-<aparte-chat center-empty placeholder="Ask for a haiku, a table, some code or the weather..." style="height: 22rem"></aparte-chat>`,
+<aparte-chat center-empty placeholder="Ask for a haiku, a table, some code or the weather..." style="height: 24rem"></aparte-chat>`,
+    },
+    {
+        id: 'getting-started-scripted',
+        title: 'A scripted reply, streaming',
+        plugins: ['scenario', 'markdown'],
+        html: `<!-- The model here is scripted: no key, no network, the same replies every time.
+     Everything else is the real thing - the client, the loop, the transcript. -->
+<aparte-chat center-empty placeholder="Ask for a haiku, a table or some code..." style="height: 22rem"></aparte-chat>`,
     },
     {
         id: 'customization-bubble-shell',

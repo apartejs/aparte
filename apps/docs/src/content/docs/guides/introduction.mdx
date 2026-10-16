@@ -1,0 +1,73 @@
+---
+title: What aparté is
+description: A chat for your web app — web components that stream a model's reply, run its tools and ask the person when they should, in any framework and with any model.
+sidebar:
+  order: 1
+  label: Introduction
+guide:
+  group: start
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+import { COMPONENTS } from '../../../lib/facts';
+
+<Variant
+    id="intro-chat"
+    play="What's the weather in Lille?"
+    caption="The library itself, with a scripted model in place of an AI: it calls a weather tool and answers, with no key and no server. Ask it for a haiku, a table or some code."
+/>
+
+## What comes with it
+
+- **Messages that stream as they are written**: the [response](/components/response/), the
+  model's [reasoning](/components/reasoning/), [code](/components/code-block/),
+  [tool calls](/components/tool/), [errors](/components/error/), and
+  [views of your own](/components/custom-view/). Markdown and code highlighting come from two
+  plugins, [Marked](/plugins/marked/) and [Shiki](/plugins/shiki/).
+- **Tools, with a person in the loop**: the model calls your functions, the ones you choose
+  wait for the person's [approval](/guides/tools/), and the model can
+  [ask a question](/guides/elicitation/) in the middle of a turn.
+- **Conversations**: [retry](/guides/conversations-branching/) keeps each answer as a version you
+  can step through, edit rewrites a message and its reply — both one line to turn on — with a
+  [conversation list](/components/conversation-list/), [attachments](/guides/attachments/) when
+  you ask for them, and [storage](/guides/conversation-persistence/) you plug in.
+- **Your look**: colours, sizes and shapes are [CSS variables](/guides/theming/), and a
+  [kit of classes](/kit/) draws the controls around the chat.
+- **Any model**: [OpenAI-compatible APIs](/providers/ai/openai-compat/), the
+  [Vercel AI SDK](/providers/ai/ai-sdk/), a [model in the browser](/providers/ai/transformers/),
+  or an agent that runs its own loop, over [AG-UI](/providers/agent/ag-ui/).
+- **Any framework**: [React, Vue, Svelte, Angular](/frameworks/), or none.
+
+<a href="/components/">{COMPONENTS.total} components</a> in all, each on a page of its own with
+live examples.
+
+## What it leaves to you
+
+Routing, sign-in, settings, and where conversations are kept belong to your app. aparté draws
+the chat and runs the conversation; storage is an interface you implement over your own
+database, IndexedDB or API.
+
+## What you need
+
+- A recent browser: the [support matrix](/reference/support/) has the exact versions.
+- npm and a bundler, or one script tag from a CDN.
+- Node 18 or later, for the parts that run on your server.
+- A model: the scripted one to start, then the person's own key, a model on their machine, or
+  your server.
+
+## Where it stands
+
+aparté is in beta. Its public surface — elements, attributes, events, exports — is
+[frozen](/reference/stability/), and every release is in the [changelog](/changelog/).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/getting-started/', title: 'Installation and first chat', line: 'Install, put the chat on a page, stream a first reply.' },
+        { href: '/guides/how-it-fits/', title: 'How it fits', line: 'The pieces between your page and your model, and the package that holds each.' },
+        { href: '/frameworks/', title: 'Your framework', line: 'The same chat as a React, Vue, Svelte or Angular component.' },
+        { href: '/templates/', title: 'Templates', line: 'Whole apps built with aparté, live, with their code.' },
+    ]}
+/>

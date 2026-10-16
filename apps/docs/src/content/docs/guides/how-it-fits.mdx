@@ -1,0 +1,91 @@
+---
+title: How aparté fits together
+description: What sits between your framework and your model — the elements, the client and its loop, the transport, the provider — and which package holds each.
+sidebar:
+  order: 3
+  label: How it fits
+guide:
+  group: start
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import HowItFits from '../../../components/home/HowItFits.astro';
+import Packages from '../../../components/content/Packages.astro';
+import { COMPONENTS } from '../../../lib/facts';
+
+<HowItFits />
+
+## One message, from send to reply
+
+1. The person sends. The composer fires `aparte-send` with the text and any files.
+2. The **client**, [`AparteClient`](/reference/core/client/#aparteclient), adds the message to
+   the conversation and builds the request: the history, the tools you registered, the system
+   prompt.
+3. The **loop**, [`@aparte/engine`](/guides/engine/), sends it and reads the reply as it streams.
+   When the model calls a tool, the loop runs it — once the person approves, if the tool asks
+   for that — sends the result back, and goes on until the model is done.
+4. The **transport** carries each request: from the browser straight to the model, or through
+   your server.
+5. The **provider** speaks the model's format: an OpenAI-compatible API, the Vercel AI SDK, a
+   model running in the page.
+6. The reply comes back as **segments** — text, reasoning, code, tool calls, errors — and the
+   message draws each one as it streams.
+
+## Where the request goes
+
+| Transport | The request goes | The key |
+| --- | --- | --- |
+| `AparteDirectTransport`, the default | from the browser to the model | the person's own, or none for a local model |
+| `AparteBackendTransport` | to your endpoint, which calls the model | stays on your server |
+
+The chat is the same either way. [Keep the key server-side](/guides/backend-transport/) has the
+endpoint, ready-made as `createAparteChatHandler`.
+
+## Where the loop runs
+
+| Where | What you use | Guide |
+| --- | --- | --- |
+| In the page | `AparteClient`, the default | [Installation and first chat](/guides/getting-started/) |
+| On your server | `createAparteAgentHandler` on the server, `createAgentStreamRunner` in the page | [Run the loop on your server](/guides/server-loop/) |
+| In an agent framework | `@aparte/runner-ag-ui`, for an agent served over AG-UI: Agno, LangGraph, Mastra, CrewAI, TanStack AI | [AG-UI](/providers/agent/ag-ui/), [TanStack AI](/providers/agent/tanstack-ai/) |
+| In your own code | the chat alone: you stream into it | [Use your own loop](/guides/bring-your-own-loop/) |
+
+The client, both transports and both server handlers come from `@aparte/core`, in the page and
+on the server alike.
+
+## What the chat is made of
+
+Three kinds of parts, all in the [components](/components/):
+
+- **Elements** — tags you put on the page, such as `<aparte-chat>`, `<aparte-composer>` or
+  `<aparte-conversation-list>`. They hold the behaviour: streaming, scrolling, focus, keyboard.
+- **[Segments](/segments/)** — what a message is made of, as data: text, reasoning, code, a tool call, an
+  error, or a view of your own. Each kind has a renderer, and you can register yours.
+- **[The kit](/kit/)** — CSS classes for the controls around the chat: buttons, fields, menus, dialogs,
+  in the same theme.
+
+{COMPONENTS.total} components in all: {COMPONENTS.chat} for the chat, {COMPONENTS.layout} for
+the page around it, {COMPONENTS.kit} in the kit.
+
+## In your framework
+
+The [framework packages](/frameworks/) wrap the same elements: a chat component for React, Vue,
+Svelte and Angular, with typed properties and events for every element. They depend on
+`@aparte/core` alone: the provider and the transport are set up the same way in every framework,
+and each package starts the client for you — `useAparteClient` in React, `AparteAiService` in
+Angular.
+
+## Which package does what
+
+<Packages />
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/getting-started/', title: 'Installation and first chat', line: 'Install, put the chat on a page, stream a first reply.' },
+        { href: '/providers/', title: 'Models and agents', line: 'Pick the provider for your model, or the runner for your agent.' },
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'Let the model call your functions, with the person approving what matters.' },
+        { href: '/guides/bring-your-own-loop/', title: 'Use your own loop', line: 'Keep your loop, and stream its replies into the chat.' },
+    ]}
+/>
