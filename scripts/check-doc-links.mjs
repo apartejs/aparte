@@ -82,7 +82,10 @@ for (const file of pages) {
         }
         if (!href.startsWith('/')) continue; // relative asset links: not routes
         checked++;
-        const [rawPath, hash] = href.split('#');
+        const [beforeHash, hash] = href.split('#');
+        // A query string never changes which static page is served (`?anatomy=`, `?fill` on a
+        // preview's Open link): the route is the path before it.
+        const rawPath = beforeHash.split('?')[0];
         const path = rawPath.endsWith('/') || /\.[a-z0-9]+$/i.test(rawPath) ? rawPath : `${rawPath}/`;
         if (!idsByRoute.has(path)) {
             // Could be a static asset (og image, txt, xml) rather than a page.
