@@ -2,8 +2,13 @@
 
 [![Published on webcomponents.org](https://img.shields.io/badge/webcomponents.org-published-blue.svg)](https://www.webcomponents.org/element/@aparte/core)
 
-Framework-agnostic AI chat UI as **vanilla Web Components, with the agent loop inside** —
+AI chat and agent UI components as **vanilla Web Components, with the agent loop inside** —
 zero third-party dependencies, ESM-only, usable in any framework or none.
+
+The conversation, messages, reasoning, tool calls a human approves, the questions an agent
+asks, the composer, the layout around the chat (app shell, sidebar, conversation list) and a
+UI kit for the rest of the app — each one [shown live with its variants](https://apartejs.dev/components/),
+and assembled into [templates](https://apartejs.dev/templates/) you can copy.
 
 > **Beta.** On npm, released in lockstep with every other `@aparte/*` package — the
 > version number is a plain `0.x`, and the declared surface is
