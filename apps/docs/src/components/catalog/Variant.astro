@@ -8,6 +8,7 @@
  */
 import PreviewFrame from '../PreviewFrame.astro';
 import { findDemo } from '../../data/demos';
+import { frameHeight } from './frame-height';
 
 interface Props {
     /** The demo's id in src/data/demos/. */
@@ -21,4 +22,4 @@ const demo = findDemo(id);
 if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
 ---
 
-<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} />
+<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} />

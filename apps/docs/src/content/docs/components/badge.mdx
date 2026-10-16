@@ -29,8 +29,9 @@ axes: an intent says what it means, a fill (`--solid`, `--soft`, `--outline`) ho
 
 ## Accessibility
 
-- A badge is text, read where it sits. A `--dot` has no text: give it an `aria-label` or a
-  visually hidden word, since its colour alone says nothing to someone who cannot see it.
+- A badge is text, read where it sits. A `--dot` has no text: give it `role="img"` and an
+  `aria-label`, or a visually hidden word, since its colour alone says nothing to someone who
+  cannot see it. An `aria-label` alone on a `<span>` is not read: a span has no role to name.
 
 ## Related
 

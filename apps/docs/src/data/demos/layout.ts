@@ -108,7 +108,7 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
   </aparte-chat>
   <section class="aparte-split__pane">
     <!-- The pane is yours: here, a plain log. -->
-    <pre style="margin: 0; padding: 1.25rem; font: 13px/1.6 var(--aparte-code-font-family)">✓ build
+    <pre tabindex="0" aria-label="Test output" style="margin: 0; padding: 1.25rem; font: 13px/1.6 var(--aparte-code-font-family)">✓ build
 ✓ unit tests
 ✓ browser tests</pre>
   </section>

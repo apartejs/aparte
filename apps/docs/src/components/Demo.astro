@@ -15,6 +15,7 @@
 import Code from './content/Code.astro';
 import { findDemo } from '../data/demos';
 import PreviewFrame from './PreviewFrame.astro';
+import { frameHeight } from './catalog/frame-height';
 
 interface Props {
     /** The demo's `id` in src/data/demos/. */
@@ -30,7 +31,7 @@ const demo = findDemo(id);
 {
     demo && (
         <>
-            <PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} />
+            <PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} height={frameHeight(demo.html)} />
             <Code code={demo.html} lang="html" />
         </>
     )

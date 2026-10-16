@@ -24,7 +24,7 @@ and stores nothing.
 The library cannot tell that `run_command` executes and `search` reads: those are your tool
 names. So you sort them once into `read`, `write` and `exec`, and the mode does the rest.
 
-| | `read` | `write` | `exec` | not sorted |
+| Mode | `read` | `write` | `exec` | not sorted |
 | --- | --- | --- | --- | --- |
 | **plan** | runs | refused, with a reason | refused, with a reason | its own `needsApproval` |
 | **ask** | runs | asks | asks | its own `needsApproval` |

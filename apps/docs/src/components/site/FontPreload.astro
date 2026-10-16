@@ -1,0 +1,13 @@
+---
+/**
+ * The two font files every page draws its text with, asked for alongside the HTML rather than
+ * after the stylesheet that names them. On a throttled phone they arrived after the first paint
+ * and the text re-flowed: a guide's CLS was 0.15, every line of it the swap. The URLs are the
+ * ones the stylesheet uses, because Vite names an asset by its content.
+ */
+import sans from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import mono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
+---
+
+<link rel="preload" href={sans} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={mono} as="font" type="font/woff2" crossorigin />

@@ -10,6 +10,8 @@
  *
  * The bar is the kit's: segmented `.aparte-btn-group`s — `aria-selected` under a tablist for
  * the view, `aria-pressed` for the width.
+ * The intent is named (`--neutral`) rather than left to the default: a selected segment with no
+ * intent class is painted neutral but keeps the default dark ink, 3.38:1 in the light theme.
  *
  * ONE RENDER, FIVE FRAMEWORKS, and it is deliberate. Every wrapper mounts the same custom
  * elements, so five frames would render five identical documents and prove the same thing
@@ -29,9 +31,14 @@ interface Props {
     code?: string;
     /** The code's language (default `html`). */
     lang?: string;
+    /**
+     * The frame's height before its document reports one, in px. Without it the frame starts at
+     * the 10rem floor and grows when the demo loads, pushing everything under it down.
+     */
+    height?: number;
 }
 
-const { src, label, caption, code, lang = 'html' } = Astro.props;
+const { src, label, caption, code, lang = 'html', height } = Astro.props;
 const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
@@ -42,8 +49,8 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         {
             code && (
                 <div class="aparte-btn-group" role="tablist" aria-label="View">
-                    <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" role="tab" id={`${id}-tab-preview`} aria-controls={`${id}-preview`} aria-selected="true" data-view="preview">Preview</button>
-                    <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" role="tab" id={`${id}-tab-code`} aria-controls={`${id}-code`} aria-selected="false" tabindex="-1" data-view="code">Code</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" role="tab" id={`${id}-tab-preview`} aria-controls={`${id}-preview`} aria-selected="true" data-view="preview">Preview</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" role="tab" id={`${id}-tab-code`} aria-controls={`${id}-code`} aria-selected="false" tabindex="-1" data-view="code">Code</button>
                 </div>
             )
         }
@@ -51,9 +58,9 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
             declares, and 375 is the one a reader cannot hit by dragging inside a documentation
             column. The handle stays for everything in between. */}
         <div class="aparte-btn-group aparte-preview-widths" role="group" aria-label="Preview width">
-            <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-width="375" aria-pressed="false">375</button>
-            <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-width="768" aria-pressed="false">768</button>
-            <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-width="0" aria-pressed="true">Full</button>
+            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="375" aria-pressed="false">375</button>
+            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="768" aria-pressed="false">768</button>
+            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="0" aria-pressed="true">Full</button>
         </div>
         <a class="aparte-btn aparte-btn--ghost aparte-btn--sm aparte-preview-open" href={src} target="_blank" rel="noopener">
             Open
@@ -61,7 +68,7 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         </a>
     </div>
     <div class="aparte-preview-frame" id={`${id}-preview`} role={code ? 'tabpanel' : undefined} aria-labelledby={code ? `${id}-tab-preview` : undefined}>
-        <iframe title={label} loading="lazy" src={src}></iframe>
+        <iframe title={label} loading="lazy" src={src} style={height ? `height: ${height}px` : undefined}></iframe>
     </div>
     {
         code && (

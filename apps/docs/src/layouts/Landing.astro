@@ -5,6 +5,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import SiteNav from '../components/site/SiteNav.astro';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
+import FontPreload from '../components/site/FontPreload.astro';
 // The library's sheet, layered (see the file): palette.css reads core's palette, and the
 // chrome wears its recipes.
 import '../styles/library.css';
@@ -47,6 +48,7 @@ const { title, description, canonical, ogImage, ogImageAlt } = Astro.props;
 <!doctype html>
 <html lang="en">
   <head>
+    <FontPreload />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
@@ -119,7 +121,7 @@ const { title, description, canonical, ogImage, ogImageAlt } = Astro.props;
   </head>
   <body>
     <div class="stage-glow" aria-hidden="true"></div>
-    <header class="site-frame__header"><SiteHeader /></header>
+    <header class="site-frame__header" aria-label="Site"><SiteHeader /></header>
     <SiteNav hasTree={false} />
     <main class="wrap">
       <slot />

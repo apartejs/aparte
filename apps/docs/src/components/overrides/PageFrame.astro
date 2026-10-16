@@ -23,7 +23,7 @@ const groups = section ? sidebar.filter((e) => hrefs(e).some((href) => sectionOf
 ---
 
 <div class="site-frame">
-    <header class="site-frame__header"><slot name="header" /></header>
+    <header class="site-frame__header" aria-label="Site"><slot name="header" /></header>
     <div class="site-frame__body" data-has-tree={groups.length ? '' : undefined}>
         <SiteNav section={section?.id} label={section?.label} hasTree={groups.length > 0}>
             <SiteTree entries={groups} />

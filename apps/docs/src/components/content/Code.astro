@@ -20,7 +20,7 @@ const { code, lang = 'plaintext' } = Astro.props;
 <AstroCode
     code={code}
     lang={lang as never}
-    themes={{ light: 'github-light', dark: 'github-dark' }}
+    themes={{ light: 'github-light-high-contrast', dark: 'github-dark-default' }}
     defaultColor={false}
     transformers={[aparteCodeBlock()]}
 />

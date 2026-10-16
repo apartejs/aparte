@@ -82,7 +82,9 @@ export default defineConfig({
     // build time for both themes: `defaultColor: false` writes `--shiki-light`/`--shiki-dark`
     // on every token and the site's CSS picks one per theme.
     shikiConfig: {
-      themes: { light: 'github-light', dark: 'github-dark' },
+      // Measured on the site's code grounds (axe, 2026-10-16): github-light's red, green and grey and
+      // github-dark's comment grey fell under 4.5:1; these two keep every token colour above it.
+      themes: { light: 'github-light-high-contrast', dark: 'github-dark-default' },
       defaultColor: false,
       transformers: [aparteCodeBlock()],
     },

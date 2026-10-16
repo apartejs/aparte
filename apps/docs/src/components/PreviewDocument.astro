@@ -76,6 +76,21 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
             if (new URLSearchParams(location.search).has('fill')) {
                 document.documentElement.classList.add('preview-fill');
             }
+            /*
+             * A demo never takes the reader's focus on its own. A panel that focuses its first option
+             * when it opens is right in a chat, where the person already is; in a page of examples
+             * it moved the focus into a frame the reader had not touched and scrolled the page to it
+             * (the approval page, measured: 51px at 1.9s on a phone). Script focus is the frame's
+             * once the reader has pressed or typed inside it; the keyboard's own Tab is never held.
+             */
+            const nativeFocus = HTMLElement.prototype.focus;
+            let engaged = false;
+            const engage = () => { engaged = true; };
+            addEventListener('pointerdown', engage, { capture: true, once: true });
+            addEventListener('keydown', engage, { capture: true, once: true });
+            HTMLElement.prototype.focus = function (options) {
+                if (engaged) nativeFocus.call(this, options);
+            };
         </script>
         <style is:global>
             /* `is:global`, and it is load-bearing rather than tidy.

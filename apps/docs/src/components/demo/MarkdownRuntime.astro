@@ -24,8 +24,8 @@
     import json from '@shikijs/langs/json';
     import ts from '@shikijs/langs/typescript';
     import tsx from '@shikijs/langs/tsx';
-    import githubDark from '@shikijs/themes/github-dark';
-    import githubLight from '@shikijs/themes/github-light';
+    import githubDark from '@shikijs/themes/github-dark-default';
+    import githubLight from '@shikijs/themes/github-light-high-contrast';
 
     setupStreamingMarkdownProvider();
     setupMarkedProvider();
@@ -33,7 +33,7 @@
         themes: [githubLight, githubDark],
         langs: [bash, css, html, js, json, ts, tsx],
         engine: createJavaScriptRegexEngine(),
-    }).then((highlighter) => setupShikiProviderFromHighlighter(highlighter, { theme: { light: 'github-light', dark: 'github-dark' } }));
+    }).then((highlighter) => setupShikiProviderFromHighlighter(highlighter, { theme: { light: 'github-light-high-contrast', dark: 'github-dark-default' } }));
 
     const host = window as unknown as { __aparteDemoReady?: Promise<unknown>[] };
     (host.__aparteDemoReady ??= []).push(ready);

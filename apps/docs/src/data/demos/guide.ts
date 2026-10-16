@@ -409,7 +409,7 @@ export const GUIDE_DEMOS: DemoEntry[] = [
   }
 </style>
 <div id="side-panel-demo">
-  <pre style="margin: 0; overflow: auto; padding: var(--aparte-space-4); font-size: 0.78rem; line-height: 1.7; color: var(--aparte-text-muted)">export function createOrder(cart, customer) {
+  <pre tabindex="0" aria-label="The file" style="margin: 0; overflow: auto; padding: var(--aparte-space-4); font-size: 0.78rem; line-height: 1.7; color: var(--aparte-text-muted)">export function createOrder(cart, customer) {
   const lines = cart.items.map(toLine);
   const total = lines.reduce((sum, line) =&gt; sum + line.amount, 0);
   return { id: nextId(), customer, lines, total };
