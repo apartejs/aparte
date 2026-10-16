@@ -12,9 +12,9 @@ and wire in one call, so core stays small and you pay only for what you use.
 
 | You want… | Package | Seam it fills |
 | --- | --- | --- |
-| Render finished Markdown messages | [`marked`](/plugins/marked/) | `setMarkdownProvider` |
-| Stream Markdown token-by-token | [`streaming-markdown`](/plugins/streaming-markdown/) | `setStreamingMarkdownProvider` |
-| Highlight code blocks | [`shiki`](/plugins/shiki/) | `setHighlightProvider` |
+| Render finished Markdown messages | [`marked`](/guides/markdown/) | `setMarkdownProvider` |
+| Stream Markdown token-by-token | [`streaming-markdown`](/guides/markdown/) | `setStreamingMarkdownProvider` |
+| Highlight code blocks | [`shiki`](/guides/markdown/) | `setHighlightProvider` |
 | Let the user pick a provider + model | [`model-selector`](/components/model-selector/) | `<aparte-model-selector>` element |
 | Let the AI ask the user a question | [`ask-user`](/components/question/) | `registerTool` + elicitation |
 | Switch approval modes — plan, ask, auto-edit, auto | [`approval`](/components/approval-mode/) | `setApprovalPolicy` + `<aparte-approval-mode>` |
@@ -30,7 +30,7 @@ bundled into core.
 `@aparte/plugin-shiki` is the convenience import: it knows ~300 languages, and your bundler prepares all
 of them (302 files, 11 MB measured). `@aparte/plugin-shiki/core` takes a highlighter you built with the
 grammars you actually use — 1 file, 560 kB. Same plugin, and the
-[page explains which to pick](/plugins/shiki/#bundle--two-different-costs).
+[page explains which to pick](/guides/markdown/#ship-only-the-grammars-you-need).
 :::
 
 ## The shape of a plugin

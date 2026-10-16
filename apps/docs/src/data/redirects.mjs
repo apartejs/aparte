@@ -24,6 +24,10 @@ export const MOVED = {
     '/reference/api/': '/components/',
     // The hand-written core API page became the generated core API reference, one page per area.
     '/reference/config/': '/reference/core/config/',
+    // The three Markdown and code plugins became one guide.
+    '/plugins/marked/': '/guides/markdown/',
+    '/plugins/streaming-markdown/': '/guides/markdown/',
+    '/plugins/shiki/': '/guides/markdown/',
 };
 
 /**

@@ -134,7 +134,7 @@ const MAX_UNMENTIONED = new Map([
     // more than a type, and the ratchet is only the first step: it makes the number
     // visible and stops it growing. Writing the pages is a lot of its own.
     ['@aparte/plugin-marked', 0],
-    ['@aparte/plugin-shiki', 3],
+    ['@aparte/plugin-shiki', 0],   // its five types are named on the Markdown and code guide
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
     ['@aparte/plugin-ask-user', 6],
