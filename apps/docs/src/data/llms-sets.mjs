@@ -38,7 +38,7 @@ export const LLMS_SETS = [
   {
     label: 'Reference: components, segments, events, config',
     description: 'Every custom element with its attributes, events and CSS properties; every segment shape; the event map; the config object; the icons.',
-    paths: ['components/**', 'segments/**', 'reference/events', 'reference/core/**', 'reference/icons', 'reference/support', 'reference'],
+    paths: ['components/**', 'segments/**', 'reference/events', 'reference/core/**', 'reference/icons', 'reference/support', 'reference/stability', 'reference'],
   },
 ];
 

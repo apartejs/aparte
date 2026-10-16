@@ -14,7 +14,7 @@ import { LLMS_SETS, llmsSetPath } from '../../../data/llms-sets.mjs';
 ## Give it the index
 
 [`/llms.txt`](/llms.txt) is the library in a paragraph and a file per topic, each named in a
-sentence. Give a model that can fetch the index, or the file of the topic at hand:
+sentence. Hand the index to a model that can fetch, or only the file of the topic at hand:
 
 <table>
   <thead>
@@ -27,8 +27,9 @@ sentence. Give a model that can fetch the index, or the file of the topic at han
   </tbody>
 </table>
 
-[`/llms-small.txt`](/llms-small.txt) is the guides without the generated references, for a small
-context window, and [`/llms-full.txt`](/llms-full.txt) is everything.
+[`/llms-small.txt`](/llms-small.txt) is every page but the element pages and the generated
+references — classes, CSS variables, events, icons — shortened, for a small context window;
+[`/llms-full.txt`](/llms-full.txt) is everything.
 
 ## Or give it the MCP server
 
@@ -50,9 +51,10 @@ others — gets the same text through four tools:
 | `get_page` | one page's Markdown, by its title or a distinctive part of it |
 | `get_set` | a whole topic at once |
 
-The server reads this site, so it serves the docs of the version online: every `@aparte/*`
-package ships at one version, from the commit the site deploys. It needs the network;
-`APARTE_DOCS_URL` points it at another docs build, for an offline or a staging setup. To embed it
+The server reads https://apartejs.dev, so it serves the docs online, and it needs the network.
+`APARTE_DOCS_URL` points it at another docs build, served over http — for an offline or a staging
+setup: `claude mcp add aparte-docs -e APARTE_DOCS_URL=http://localhost:4321 -- npx -y @aparte/docs-mcp`,
+or `"env": { "APARTE_DOCS_URL": "http://localhost:4321" }` in the JSON entry. To embed it
 in a host of yours, `createDocsMcpServer({ baseUrl })` returns the `McpServer`, and `DocsSource`,
 `parseIndex`, `splitPages` and `searchPages` give the text without the protocol.
 
