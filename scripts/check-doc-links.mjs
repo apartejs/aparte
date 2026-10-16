@@ -159,9 +159,11 @@ if (orphans.length) {
  * notice. Collected here: every quoted absolute route ('/why/'), every route cited
  * inside prose strings (', /compare/.'), and every `paths: […]` entry of the llms
  * customSets (plain entries as routes, `dir/**` globs as prefixes that must match at
- * least one built page).
+ * least one built page) — those live in `src/data/llms-sets.mjs`, which the config imports.
  */
-const configSrc = readFileSync('apps/docs/astro.config.mjs', 'utf8');
+const configSrc = ['apps/docs/astro.config.mjs', 'apps/docs/src/data/llms-sets.mjs']
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n');
 const citedRoutes = new Set();
 const citedPrefixes = new Set();
 for (const m of configSrc.matchAll(/'(\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)'/g)) citedRoutes.add(m[1]);
@@ -176,14 +178,14 @@ for (const [, body] of pathArrays) {
 if (pathArrays.length === 0) {
     // A corpus that silently shrinks is the failure worth catching: the llms
     // customSets moved or changed shape, and this pass would be reading nothing.
-    console.error('\n[doc-links] FAIL: no `paths: […]` arrays found in astro.config.mjs — the llms customSets moved; update this check rather than letting it go blind.\n');
+    console.error('\n[doc-links] FAIL: no `paths: […]` arrays found in astro.config.mjs or src/data/llms-sets.mjs — the llms customSets moved; update this check rather than letting it go blind.\n');
     process.exit(1);
 }
 const missingCited = [...citedRoutes].filter((r) => !idsByRoute.has(r) && !redirects.has(r)).sort();
 const emptyPrefixes = [...citedPrefixes].filter((p) => ![...idsByRoute.keys()].some((r) => r.startsWith(p))).sort();
 if (missingCited.length || emptyPrefixes.length) {
     console.error('\n[doc-links] the site\'s own config cites what the build does not contain:\n');
-    for (const r of missingCited) console.error(`  ${r} — cited in astro.config.mjs, no built page`);
+    for (const r of missingCited) console.error(`  ${r} — cited in the site config, no built page`);
     for (const p of emptyPrefixes) console.error(`  ${p}** — a customSets glob that matches nothing`);
     console.error('\nA route named in the llms preamble or the sidebar is a promise to a reader\nthe link walk cannot see. Build the page, or stop citing it.\n');
     process.exit(1);
