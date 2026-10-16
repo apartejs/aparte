@@ -25,9 +25,14 @@ const markup = html.replace(SCRIPT, '').trim();
  * and nothing else — 1.4% of the scene at 375 — and nothing in it answered the width.
  * The class preview already opens its dialog modally on arrival (`class/[slug].astro`);
  * a demo that carries one gets the same, and the code a reader copies keeps no `open`.
+ *
+ * Opened with the `open` attribute, not `showModal()`: showModal() runs the dialog's focusing
+ * steps, which move the focus into the frame on load — the components overview's first three Tab
+ * presses landed in this dialog's tile. In the flow (`position: relative`) rather than where the UA
+ * puts a non-modal dialog, which was on top of its own trigger. The trigger still opens it modally.
  */
 if (/class="aparte-dialog"/.test(markup)) {
-    scripts.push("const d = document.querySelector('dialog.aparte-dialog'); if (d) d.showModal();");
+    scripts.push("const d = document.querySelector('dialog.aparte-dialog'); if (d) { d.setAttribute('open', ''); d.style.position = 'relative'; }");
 }
 ---
 
