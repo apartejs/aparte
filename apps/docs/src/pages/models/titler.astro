@@ -1,6 +1,7 @@
 ---
 import Landing from '../../layouts/Landing.astro';
 import { titlerModels } from '../../lib/bundled-model';
+import { TITLER_RUNTIMES } from '../../data/titler-runtimes';
 
 /*
  * The product page of aparte-titler, the first model aparté publishes.
@@ -137,6 +138,36 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       </p>
     </section>
 
+    <!-- ── where it runs: one runtime per platform, same titles ──────────── -->
+    <section class="band" id="runtimes">
+      <h2 class="serif">Where it <span class="paren">(</span>runs<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        One model, one runtime per language. Each reads the same files and gives the same title,
+        character for character.
+      </p>
+      <dl class="tl-facts runtimes">
+        {TITLER_RUNTIMES.map((runtime) => (
+          <>
+            <dt><a href={runtime.href} target="_blank" rel="noopener">{runtime.language}</a></dt>
+            <dd>
+              {runtime.platforms}
+              <span class="runtime-install">{runtime.installNote && `${runtime.installNote}: `}<code>{runtime.install}</code></span>
+            </dd>
+          </>
+        ))}
+      </dl>
+      <p class="sec-sub">In Swift, <code>AparteTitlerLatin</code> brings the runtime and the 17-language model:</p>
+      <div class="code"><pre><code><span class="kw">import</span> AparteTitlerLatin
+
+<span class="kw">let</span> titler = <span class="kw">try</span> AparteTitlerLatin.<span class="fn">load</span>()
+titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la photosynthèse chez les plantes ?"</span>)</code></pre></div>
+      <p class="sec-note">
+        In Xcode, <i>File &#8594; Add Package Dependencies&#8230;</i> and paste the repository URL.
+        <code>AparteTitler</code>, the runtime alone, reads any model file from the
+        <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">model card</a>.
+      </p>
+    </section>
+
     <!-- ── pick a model ─────────────────────────────────────────────────── -->
     <section class="band">
       <h2 class="serif">Pick the <span class="paren">(</span>file<span class="paren">)</span></h2>
@@ -172,6 +203,7 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
         <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">The model card &#8594;</a>
         <a href="https://github.com/apartejs/aparte-titler-model" target="_blank" rel="noopener">The code &#8594;</a>
         <a href="https://www.npmjs.com/package/@aparte/titler-latin" target="_blank" rel="noopener">On npm &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-titler-swift" target="_blank" rel="noopener">For Swift &#8594;</a>
         <a href="/guides/titles/">The plugin &#8594;</a>
       </p>
     </section>
@@ -312,6 +344,9 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       .pick td:first-child { color: var(--text); white-space: nowrap; }
       .pick td:last-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
       .pick td em { display: block; font-style: normal; font-size: 12.5px; }
+      .runtimes + .sec-sub { margin-top: 22px; }
+      .runtimes .runtime-install { display: block; margin-top: 2px; }
+      .runtimes code { overflow-wrap: anywhere; }
 
       .tl-facts { display: grid; grid-template-columns: minmax(0, .5fr) minmax(0, 1.5fr); gap: 0; margin: 4px 0 0; }
       .tl-facts dt { padding: 12px 0; border-top: 1px solid var(--line); color: var(--text); font-size: 15px; line-height: 24px; }
