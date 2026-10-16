@@ -110,7 +110,7 @@ yours. A menu that looks like a menu and reports as a group of buttons is worse 
 that looks plain, so put the roles on.
 
 One exception, and it is the reference to copy: the per-row menu inside
-[`<aparte-conversation-list>`](/components/conversation/aparte-conversation-list/)
+[`<aparte-conversation-list>`](/components/conversation-list/)
 implements the pattern in full — `role="menu"` and an `aria-label` on the container,
 `role="menuitem"` on each item, focus into the first item on open, `ArrowDown` / `ArrowUp`
 with wrap-around, `Home` / `End`, `Escape` to close, and `Tab` to leave the menu and land

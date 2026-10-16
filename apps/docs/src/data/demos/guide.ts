@@ -99,8 +99,8 @@ export const GUIDE_DEMOS: DemoEntry[] = [
      The split stores nothing. \`position\` goes in, one \`aparte-split-resize\` comes out
      on release — persist from there.
 
-     Under its breakpoint (the 48rem default, restated here so the frame and the buttons
-     agree) the split shows ONE pane: set the width to 375 above and the two buttons switch
+     Under its breakpoint (30rem here, narrower than the 48rem default so this frame shows
+     both panes; restated in the style rule so the buttons agree) the split shows ONE pane: set the width to 375 above and the two buttons switch
      it through \`data-aparte-split-pane\` and no script at all.
 
      The buttons are hidden above that same width, which is the rule rather than the
@@ -109,7 +109,7 @@ export const GUIDE_DEMOS: DemoEntry[] = [
      the split already answers to. -->
 <style>
   #split-panes { display: none }
-  @media (max-width: 48rem) {
+  @media (max-width: 30rem) {
     #split-panes { display: flex; gap: var(--aparte-space-2); margin-block-end: var(--aparte-space-3) }
   }
 </style>
@@ -118,7 +118,7 @@ export const GUIDE_DEMOS: DemoEntry[] = [
   <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
 </div>
 
-<aparte-split position="38" breakpoint="48rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
+<aparte-split position="38" breakpoint="30rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
   <aparte-chat>
     <aparte-chat-viewport>
       <aparte-chat-bubble message-id="u1" data-role="user" content="Make the hero headline bigger and pin the header."></aparte-chat-bubble>
@@ -146,11 +146,11 @@ export const GUIDE_DEMOS: DemoEntry[] = [
         title: 'The application shell: sidebar, header, chat',
         html: `<!-- Three pieces: the grid and the header are recipes, the sidebar is an element
      because it has behaviour. The toggle in the header needs no script — the sidebar
-     listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem.
-     breakpoint="30rem" only because this frame is narrower than the shell's own 48rem:
-     the column shows here, and at a phone's width it is a drawer behind the toggle. -->
+     listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem. This frame is
+     narrower than 48rem, so the sidebar is a drawer behind that toggle; open the demo on
+     its own page and the window is wide enough for the column. -->
 <div class="aparte-app-shell" style="height: 24rem">
-  <aparte-sidebar breakpoint="30rem">
+  <aparte-sidebar collapsed>
     <div class="aparte-sidebar__header">
       <span class="aparte-sidebar__brand">aparté</span>
       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">

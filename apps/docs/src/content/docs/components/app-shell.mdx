@@ -1,0 +1,62 @@
+---
+title: App shell
+description: The page around a chat — a sidebar beside, a header above, the chat in the rest — as a grid you size once.
+catalog:
+  group: layout
+  order: 1
+  claims:
+    classes: [app-shell]
+  demos: [app-shell]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/app-shell.classes.mdx';
+
+<Variant id="app-shell" />
+
+Most chat products have the same page: the conversations in a column on the left, a bar with the
+conversation's title on top, the chat filling the rest. `.aparte-app-shell` is that page as a
+grid of two columns and two rows. The sidebar spans both rows; the [header](/components/header/)
+and `.aparte-app-shell__main` stack in the second column.
+
+Size the shell (`height: 100dvh` for a whole page) and everything inside follows: the main area
+gives the chat the height it needs to scroll. Under 48rem of window, the
+[sidebar](/components/sidebar/) leaves the grid and becomes a drawer behind the header's button.
+This frame is narrower than that, which is why the sidebar is a drawer here; open the demo on its
+own page to see the column.
+
+## Usage
+
+```html
+<div class="aparte-app-shell" style="height: 100dvh">
+  <aparte-sidebar>…</aparte-sidebar>
+  <header class="aparte-app-header">…</header>
+  <main class="aparte-app-shell__main">
+    <aparte-chat></aparte-chat>
+  </main>
+</div>
+```
+
+The shell is classes and nothing else: no element, no script. The behaviour lives in the parts
+that have some: `<aparte-sidebar>` folds and becomes a drawer, `<aparte-split>` drags. The main
+area takes a [split](/components/split/) as well as a chat, for a chat beside a preview.
+
+The [app shell guide](/guides/app-shell/) builds a whole page step by step, and the
+[layout guide](/guides/layout/) shows the other shapes a chat takes: a reading column, a side
+panel, a floating composer, a centred welcome.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The shell styles whatever elements carry its classes, so the landmarks are yours to choose: an
+  `<aside>` or `<aparte-sidebar>`, a `<header>`, a `<main>` give a screen reader the page's
+  regions.
+
+## Related
+
+- [Sidebar](/components/sidebar/) — the column, and the drawer it becomes.
+- [Header](/components/header/) — the bar above the chat.
+- [Split](/components/split/) — two panes in the main area.

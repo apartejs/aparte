@@ -13,7 +13,7 @@ persistence subsystem closes that gap. A **`AparteConversationManager`** holds t
 conversations and notifies listeners on every change, but never touches storage directly —
 that's the job of an **`AparteStorageAdapter`** you implement against any backend
 (`localStorage`, IndexedDB, SQLite WASM, your own REST API). A `conversationId` binding
-loads/persists the *active* thread; [`<aparte-conversation-list>`](/components/conversation/aparte-conversation-list/) renders a sidebar to
+loads/persists the *active* thread; [`<aparte-conversation-list>`](/components/conversation-list/) renders a sidebar to
 switch between them.
 
 ## 1. Implement an `AparteStorageAdapter`
@@ -357,7 +357,7 @@ gone. If your adapter can be interrupted mid-turn, normalise that status on save
 
 ---
 
-See its [element page](/components/conversation/aparte-conversation-list/) for the exact property and
+See its [element page](/components/conversation-list/) for the exact property and
 attribute signatures, and
 [Conversations & branching](/guides/conversations-branching/) for `exportTree()` /
 `importTree()`, which this subsystem persists as the `tree` field.

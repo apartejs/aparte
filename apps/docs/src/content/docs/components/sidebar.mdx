@@ -1,0 +1,78 @@
+---
+title: Sidebar
+description: The column beside the chat — conversations, a new-chat button, a search field, an account row — that folds away and becomes a drawer on a narrow window.
+catalog:
+  group: layout
+  order: 3
+  claims:
+    elements: [aparte-sidebar]
+    classes: [sidebar]
+  demos: [sidebar, sidebar-drawer]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-sidebar.usage.mdx';
+import SidebarApi from '../../../generated/api/elements/aparte-sidebar.api.mdx';
+import Classes from '../../../generated/api/kit/sidebar.classes.mdx';
+
+<Variant id="sidebar" />
+
+`<aparte-sidebar>` is the column, with the three behaviours a sidebar needs. It **folds**:
+`collapsed` is an attribute you can set, read and save. It becomes a **drawer** on a narrow window.
+And its **search** field filters the list of conversations below it as the reader types, hiding a
+date group once nothing in it matches.
+
+Its content is yours, in the order you want: a `.aparte-sidebar__header`, a
+`.aparte-sidebar__search`, a `.aparte-sidebar__body` holding the
+[conversation list](/components/conversation-list/), a `.aparte-sidebar__footer`. The stylesheet
+lays them out and draws nothing you did not put there. Without the element, `<aside
+class="aparte-sidebar">` is the same look with no behaviour.
+
+## Variants
+
+### As a drawer
+
+<Variant id="sidebar-drawer" />
+
+Under `breakpoint` (48rem of window by default, or `none` for a column that never changes), the
+sidebar slides over the page. Open, it dims the page behind a scrim, moves the focus inside,
+closes on Escape or a click outside, and gives the focus back to the button that opened it.
+
+## Usage
+
+<Usage />
+
+Any element carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar, or the one whose id
+the attribute names, so a button in the [header](/components/header/) needs no script.
+`aparte-sidebar-toggle` fires on every change, whoever caused it. The search field is any input
+with `data-aparte-sidebar-search`; it filters by title, on the rows the list already has.
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-sidebar-width` | The column's width, and the drawer's (260px). |
+| `--aparte-sidebar-inset` | The inline inset of its four regions. |
+| `--aparte-sidebar-bg` | Its background. |
+
+## API
+
+<SidebarApi />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A closed sidebar, folded or slid away, is `inert` and `aria-hidden`: nothing invisible keeps a
+  tab stop.
+- The toggle's `aria-expanded` and `aria-controls` follow the state; the sidebar gives itself an id
+  when it has none.
+- The open drawer takes the focus and gives it back on close.
+
+## Related
+
+- [Conversation list](/components/conversation-list/) — what the body holds.
+- [App shell](/components/app-shell/) — the grid it sits in.
+- [Header](/components/header/) — where its toggle goes.

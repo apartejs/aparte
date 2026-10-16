@@ -488,7 +488,7 @@ Dispatch them **on the chat host element, bubbling** — the `<aparte-chat>` (th
 wrapper's tag too), or the `[data-aparte-chat]` element the React, Vue and Svelte wrappers
 render. That is what `AparteClient` does (`bubbles: true, composed: true`), and it is the one
 dispatch that reaches every reader: the composer and `<aparte-context>` listen on `window`,
-which a bubbling event reaches; the [conversation controller](/components/conversation/aparte-conversation-list/)
+which a bubbling event reaches; the [conversation controller](/components/conversation-list/)
 and `AparteChatHost` (the wrappers' binding) listen on the host itself, which a `window`
 dispatch never reaches — so a host with its own loop that dispatched on `window` saw the button
 follow and the conversation list not. `targetId` is the host's `id`, which is also what the

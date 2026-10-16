@@ -14,7 +14,7 @@ and the chat in the rest of the window. aparté ships that chrome as three recip
 element — enough to build the whole page on the library alone, and nothing that owns your
 data.
 
-<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. Narrow the frame to 375 and the sidebar becomes a drawer behind the header's toggle (the demo sets the breakpoint to 30rem; the shell's own default is 48rem, wider than this frame)." />
+<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. This frame is narrower than the shell's 48rem breakpoint, so the sidebar is a drawer behind the header's button; open the demo on its own page to see it as a column." />
 
 ## The three pieces
 
@@ -26,7 +26,7 @@ data.
 
 That split is the rule the whole kit follows: a recipe draws, an element exists only where
 there is something to do. The [UI kit](/kit/button/) has every recipe with its markup, one family per page; the
-[element page](/components/shell/aparte-sidebar/) has the sidebar's attributes and events.
+[element page](/components/sidebar/) has the sidebar's attributes and events.
 
 A shell written as static HTML paints before any script runs, so load the stylesheet from
 the head — a `<link>`, or an `@import` at the top of your own CSS — rather than from
@@ -111,7 +111,7 @@ import calls `installDialogTriggersOnce()` itself, once.
 ## Wiring the data
 
 The sidebar renders what you put in it, and the list is the
-[conversation list](/components/conversation/aparte-conversation-list/) you already wire
+[conversation list](/components/conversation-list/) you already wire
 to a manager — see [persistence](/guides/conversation-persistence/). The header's title is
 the active conversation's, the new-chat button calls `manager.createNew()`, and the model
 picker is [`@aparte/plugin-model-selector`](/components/model-selector/) in `__actions`. What
