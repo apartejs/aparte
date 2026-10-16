@@ -1,0 +1,189 @@
+---
+title: Run the agent loop on its own
+description: The loop that streams a reply and runs its tools, as a package of its own — run it headless in Node or a worker, wrap the one AparteClient runs, own its history, or pause it on a call and resume later.
+sidebar:
+  order: 6
+  label: The agent engine
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## Run it headless
+
+```bash
+npm install @aparte/engine
+```
+
+```ts
+import { runStreamAgent, type StreamChatEvent, type StreamChatRequest } from '@aparte/engine';
+
+// A stand-in for the model: it calls the clock, then answers with what the clock said.
+async function* reply(request: StreamChatRequest): AsyncIterable<StreamChatEvent> {
+  const last = request.messages[request.messages.length - 1];
+  if (last?.role === 'tool') yield { type: 'text', delta: `It is ${String(last.content)}.` };
+  else yield { type: 'tool_use', id: 'c1', name: 'clock', input: {} };
+  yield { type: 'done' };
+}
+
+await runStreamAgent({
+  messageId: 'a1',
+  baseRequest: { messages: [{ role: 'user', content: 'What time is it?' }], modelId: 'my-model' },
+  transportCall: async (request) => reply(request),
+  toolLookup: (name) => (name === 'clock' ? async () => ({ content: new Date().toISOString() }) : undefined),
+  emitter: (event) => { if (event.type === 'text-delta') process.stdout.write(event.delta); },
+  signal: new AbortController().signal,
+});
+```
+
+`runStreamAgent` is the loop `AparteClient` runs: it calls the model, reads the stream, runs the
+tools the model calls, gives their results back and calls again, until the model answers or a cap
+is reached. It has no dependency and no DOM, so it runs in the browser, Node, a worker or an
+Electron process, and installs alone; it is ESM only, and `@aparte/core` depends on it. It resolves
+to the run's usage, and throws when the stream reports an error or a tool fails other than by an
+abort. `transportCall` returns the model's events — `text`, `thinking`, `tool_use`, `error` and
+`done` — or a plain string from a model that does not stream. Each turn calls it again with the
+conversation so far, the `tool` messages answering the last calls included, as `reply` reads above.
+
+## Options
+
+| Option | What it is |
+| --- | --- |
+| `messageId` | the id of the reply this run writes; the loop does not read it, a runner that forwards the run does |
+| `baseRequest` | the first request: its `messages` and `modelId`, the tools, `toolChoice` |
+| `transportCall(request)` | calls the model with the request of each turn |
+| `toolLookup(name)` | the handler of a tool, `(call, signal) => Promise<{ content, structuredContent? }>` |
+| `toolConfigLookup(name)` | a tool's `maxTurns`, `needsApproval` and `external` |
+| `approvalResolver(call, signal)` | answers a call that needs approval: `{ approved, payload?, instruction?, reason? }` |
+| `emitter(event)` | receives every event of the run |
+| `signal` | stops the run |
+| `maxTurns`, `toolTimeoutMs` | the turns of one run, ten by default, and a tool's time, five minutes by default |
+| `onHistoryAppend(message)` | each message the loop adds to the history, for [a host that keeps its own](#own-the-history) |
+| `deferral` | [pause on a call](#pause-and-resume) rather than wait for it |
+| `idGen`, `providerId` | the id of the call the loop makes for a forced `toolChoice`, and your provider's id, passed untouched to a runner that sends the run elsewhere |
+
+A tool's `needsApproval` may be a function of the call, answering `true`, `false`, `'ask'` or
+`'deny'`. A gated call goes to `approvalResolver`, a denied one included, which is then refused
+without a wait being announced, its `reason` being what the model reads; without a resolver, a
+gated or denied call is aborted and the run ends. A tool marked `external` runs elsewhere: with
+`deferral` the run pauses for its result, and without it the call is aborted and the run ends. A
+`toolChoice` of `{ name, input }` runs that tool's handler before the model is called, and the run
+goes on with no tools; `{ name }` alone makes the model call it on the first turn, and the later
+turns are back to `'auto'`.
+
+## Events
+
+| Event | When |
+| --- | --- |
+| `run-start`, `turn-start` | the run begins; each streamed reply from the model begins |
+| `text-delta`, `thinking-delta` | the reply's text and reasoning arrive |
+| `text-flush` | a turn's text is complete |
+| `tool-start` | the model calls a tool: `{ toolCallId, name, input }` |
+| `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it |
+| `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either |
+| `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
+| `run-aborted` | the run was stopped; `run-done` follows |
+| `run-done` | the run ends, with its usage |
+| `run-suspended` | the run ends paused, with its pending calls, in place of `run-done` |
+
+A run that fails emits neither of the last two: `runStreamAgent` throws. `StreamRunEvent` types
+them all, and the [engine reference](/reference/engine/) lists every field.
+
+## The streamRunner seam
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { runStreamAgent } from '@aparte/engine';
+
+new AparteClient({
+  streamRunner: (opts) => runStreamAgent({
+    ...opts,
+    emitter: (event) => {
+      if (event.type === 'tool-resolved') console.info('tool answered', event.toolCallId);
+      opts.emitter(event);
+    },
+  }),
+}).start();
+```
+
+`AparteClient` runs `runStreamAgent` by itself; `streamRunner` is the place to change that. Wrap
+it to watch or change a run, as above — a wrapped loop still calls the model from the page, so a
+provider has to be selected — or give the client another function with the same signature, an
+`AparteStreamRunner`: a loop of your own that sends the same events, which the chat draws as it
+draws its own. `createAgentStreamRunner` ([server loop](/guides/server-loop/)) and
+`createAgUiRunner` ([AG-UI](/providers/agent/ag-ui/)) are two.
+
+## Own the history
+
+{/* doc-check: skip excerpt — `PromptLog`, `myCompletion` and the rest of the run's options are your own */}
+```ts
+const log = new PromptLog();   // your append-only transcript
+
+await runStreamAgent({
+  // …messageId, emitter, signal, toolLookup
+  baseRequest: { messages: [], modelId: 'my-model' },
+  onHistoryAppend: (message) => log.append(message),   // the calls, each result, each reply
+  transportCall: () => myCompletion(log.render()),     // your bytes, extended, never rebuilt
+});
+```
+
+For a server with a prefix cache — llama.cpp slots, vLLM — keep the transcript yourself:
+`transportCall` may ignore `request.messages`, and `onHistoryAppend` reports each message the loop
+adds, in order, before the call that carries it. It never reports the messages you passed in
+`baseRequest`: write the person's turn into your log yourself before the run. The assistant's
+message is reported once, on its first call, and its `content` and `toolCalls` are completed later
+in the same turn: keep the reference and read it when you write, rather than a copy taken on
+arrival. Through the client, add it at the seam:
+`streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAppend })`. Writing tools, calls and
+results into a raw prompt stays yours.
+
+## Pause and resume
+
+{/* doc-check: skip excerpt — `run`, `savePending` and `callId` are the ones of your run */}
+```ts
+import { runStreamAgent, unansweredTail } from '@aparte/engine';
+
+// First run: it pauses on the call that needs a person.
+const history = [...run.baseRequest.messages];
+await runStreamAgent({
+  ...run,
+  deferral: {},
+  onHistoryAppend: (message) => history.push(message),
+  emitter: (event) => {
+    if (event.type === 'run-suspended') savePending(history, event.pending);   // [{ toolCallId, name, input, reason }]
+  },
+});
+
+// Later, with the answer: the history ends on the paused call, which runs first.
+await runStreamAgent({
+  ...run,
+  baseRequest: { ...run.baseRequest, messages: history },
+  deferral: { outcomes: { [callId]: { kind: 'decision', approved: true } } },
+});
+
+unansweredTail(history);   // the calls a history leaves open
+```
+
+With `deferral`, a call that needs a person, or an `external` one, is not awaited: the run reads
+the reply to its end, leaves its calls pending, and ends on `run-suspended`, whose `pending` says
+why each one waits — `'approval'`, `'external'`, or `'queued'` behind them. Keep the history as it
+grows, through `onHistoryAppend`: it ends on the assistant message that declares the paused calls,
+and the run that resumes needs it. A later run whose history ends on those calls, with their
+answers in `deferral.outcomes`, picks up where it stopped: a decision, a tool's result, or a
+failure. A denied call is not paused: `approvalResolver` refuses it, as above. The
+[server loop](/guides/server-loop/) is built on this.
+
+The loop passes on the usage the model reports, and decides nothing about a long conversation:
+[Long conversations](/guides/long-conversations/) shows the gauge and the compaction that answer
+it.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/server-loop/', title: 'Run the loop on your server', line: 'The loop next to your tools, with the page drawing it.' },
+        { href: '/guides/bring-your-own-loop/', title: 'Your own loop', line: 'Show a loop that is not aparté\'s in the chat.' },
+        { href: '/reference/engine/', title: 'Engine reference', line: 'Every option, event and type, generated from the source.' },
+    ]}
+/>
