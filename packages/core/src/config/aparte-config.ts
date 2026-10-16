@@ -1114,7 +1114,7 @@ export class AparteConfig {
 
     /**
      * Highlight code block
-     * Fallback: Returns raw code wrapped in <pre><code>
+     * Fallback: Returns raw code wrapped in `<pre><code>`
      * Supports Promise if provider is async/streaming
      */
     async highlightCode(code: string, lang: string): Promise<string> {

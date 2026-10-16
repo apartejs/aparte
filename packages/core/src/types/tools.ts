@@ -205,7 +205,7 @@ export interface AparteToolRenderer {
      * Return a **string** and core inserts it with `innerHTML`, so every
      * interpolated value must go through `escapeHtml` (text position) or
      * `escapeAttr` (inside an attribute). The natural first thing to write here is
-     * `\`<div>Searching for ${s.toolCall.input.query}</div>\``, and that is a direct
+     * `` `<div>Searching for ${s.toolCall.input.query}</div>` ``, and that is a direct
      * model-to-DOM XSS in the host page's origin.
      *
      * Return an empty string to render nothing (e.g. a UI-only tool like

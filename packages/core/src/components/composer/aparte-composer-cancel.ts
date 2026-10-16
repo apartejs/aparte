@@ -4,7 +4,7 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * Cancel/stop streaming button primitive for <aparte-composer>.
+ * Cancel/stop streaming button primitive for `<aparte-composer>`.
  *
  * Most composers should not use this element. `<aparte-composer-send>` already becomes
  * the stop button while a reply streams, so adding this one gives you a second, equally

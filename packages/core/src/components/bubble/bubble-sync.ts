@@ -39,7 +39,7 @@ export interface SyncableBubble {
  *
  * Idempotent. Safe to call on every render. Segment count drives the strategy:
  * - same count → reconcile content per segment (cheap, preserves user-toggled
- *   <details> open/closed state on thinking blocks, etc.)
+ *   `<details>` open/closed state on thinking blocks, etc.)
  * - count changed (new segment streamed, branch switched, etc.) → full rebuild
  *   via setSegments
  *

@@ -4,7 +4,7 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * Submit button primitive for <aparte-composer>.
+ * Submit button primitive for `<aparte-composer>`.
  *
  * One control, three meanings: **send**, **stop** while the root is streaming, and — when
  * an elicitation panel is open — **submit** the answer; a panel whose mode is `'none'`

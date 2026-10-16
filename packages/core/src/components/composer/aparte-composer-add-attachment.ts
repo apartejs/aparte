@@ -4,7 +4,7 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * File picker button for <aparte-composer>.
+ * File picker button for `<aparte-composer>`.
  *
  * Opens a native file picker on click, then pushes picked files to root.addAttachments().
  * Also sets up drag & drop on the nearest <aparte-composer> root.

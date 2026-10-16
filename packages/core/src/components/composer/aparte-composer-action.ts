@@ -4,7 +4,7 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * Generic action button primitive for <aparte-composer>.
+ * Generic action button primitive for `<aparte-composer>`.
  *
  * The consumer declares it directly in markup — no global registration needed.
  *
