@@ -1,6 +1,6 @@
 ---
 title: Branches
-description: Every version of a reply is kept — retry and edit fork the conversation instead of overwriting it, and a ‹1/2› picker walks between the versions.
+description: Every version of a reply is kept — retry forks the conversation instead of overwriting it, and a ‹1/2› picker walks between the versions.
 catalog:
   group: chat
   order: 5
@@ -11,13 +11,13 @@ import Variant from '../../../components/catalog/Variant.astro';
 
 <Variant id="branch-picker" />
 
-Retrying a reply, or editing a question, does not throw the old version away: it forks the
-conversation. The message gets a sibling, and a `‹1/2›` picker appears on it as soon as there is
-more than one version. Moving between them shows the whole conversation that followed each
+Retrying a reply does not throw the old version away: it forks the conversation. The reply gets a
+sibling, and a `‹1/2›` picker appears on it as soon as there is more than one version. Editing a
+question rewrites it in place and drops the replies under it. Moving between them shows the whole conversation that followed each
 version, because the [transcript](/components/conversation/) keeps the tree and renders one path
 through it.
 
-With `AparteClient` running and retry or edit turned on (see
+With `AparteClient` running and retry turned on (see
 [Message actions](/components/message-actions/)), you write nothing more: the client forks, the
 viewport keeps the tree, the picker appears.
 
@@ -38,8 +38,8 @@ tree; `exportTree()` and `importTree()` save and restore it with the conversatio
 
 ## Customize
 
-`setSiblingNavRenderer()` replaces the picker with your own markup, for a product that writes
-"Version 2 of 3" or draws dots.
+`setSiblingNavRenderer()` draws the counter between the arrows your way, for a product that writes
+"Version 2 of 3" or draws dots; the arrows stay.
 
 ## Accessibility
 

@@ -42,6 +42,32 @@ export const GUIDE_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
+        id: 'branches-retry',
+        title: 'Retry keeps every version; edit asks again',
+        plugins: ['scenario'],
+        html: `<!-- The model here is scripted, and each call takes the next of three replies, so a
+     retry really answers differently. Retry the reply, then walk the versions with the
+     arrows; edit the question to ask it again. -->
+<aparte-chat placeholder="Ask anything" style="height: 24rem"></aparte-chat>
+
+<script>
+  const { aparteGlobalConfig } = window.aparte;
+  const { createScenarioProvider } = window.apartePlugins.scenario;
+  aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+    id: 'versions',
+    name: 'Versions',
+    turns: [
+      'Cache it: the query is the same on every load, so keep its result for a minute.',
+      'Batch it: the panel sends ten lookups one after the other. Send them as one request.',
+      'Index it: the lookup reads the whole table. An index on the date column makes it instant.',
+    ],
+    models: [{ id: 'versions', name: 'Versions' }],
+  }));
+  aparteGlobalConfig.setModelConfig({ defaultProvider: 'versions', defaultModel: 'versions' });
+  aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+</script>`,
+    },
+    {
         id: 'tool-approval',
         title: 'A tool call paused for a person',
         html: `<!-- A tool marked \`needsApproval\` stops the turn BEFORE its handler runs. Core draws
