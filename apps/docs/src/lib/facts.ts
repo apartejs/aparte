@@ -11,7 +11,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gzipSync } from 'node:zlib';
 import { readCatalogue } from '../../scripts/lib/catalogue.mjs';
 
 const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
@@ -61,24 +60,4 @@ export const BROWSER_ENGINES = (() => {
     ].filter(([device]) => config.includes(`devices['${device}']`)).map(([, engine]) => engine);
     if (!engines.length) throw new Error('facts: no browser project found in e2e/playwright.config.ts.');
     return engines;
-})();
-
-/**
- * What `import '@aparte/core'` costs a page, gzipped: the entry and every chunk it imports
- * statically, then the stylesheet. Read from core's build output, so the site builds after core.
- */
-export const CORE_WEIGHT = (() => {
-    const dist = 'packages/core/dist/';
-    const seen = new Set<string>();
-    const walk = (file: string): number => {
-        if (seen.has(file)) return 0;
-        seen.add(file);
-        const source = read(dist + file);
-        const imports = [...source.matchAll(/(?:import|from)\s*["']\.\/([\w.-]+\.js)["']/g)].map((match) => match[1] as string);
-        return gzipSync(source).length + imports.reduce((sum, child) => sum + walk(child), 0);
-    };
-    const kb = (bytes: number): number => Math.round(bytes / 1024);
-    const js = walk('index.js');
-    if (js < 10 * 1024) throw new Error(`facts: core's entry gzips to ${js} bytes — the build output moved; build core first.`);
-    return { js: kb(js), css: kb(gzipSync(read(dist + 'index.css')).length) };
 })();

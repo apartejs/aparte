@@ -1,0 +1,240 @@
+---
+/**
+ * Bars for a few measured values, drawn inside a real table: a screen reader reads the figures, a
+ * sighted reader sees their lengths, and the two cannot disagree. A row stacks up to three shares
+ * (a library's JavaScript, its CSS, the framework it needs), each with its own legend entry.
+ */
+
+export interface BarShare {
+    /** Legend key: `own` is the row's JavaScript, `css` its stylesheet, `framework` what it needs on top. */
+    kind: 'own' | 'css' | 'framework';
+    value: number;
+}
+
+export interface BarRow {
+    label: string;
+    /** A link to the row's subject, optional. */
+    href?: string;
+    shares: BarShare[];
+    /** One short line under the label: what is counted. */
+    note?: string;
+    /** The row the chart is about, drawn in the accent. */
+    highlight?: boolean;
+}
+
+interface Props {
+    caption: string;
+    rows: BarRow[];
+    /** The heading of the value column (values are bytes, printed in KB). */
+    valueLabel: string;
+}
+
+const { caption, rows, valueLabel } = Astro.props;
+const total = (row: BarRow): number => row.shares.reduce((sum, share) => sum + share.value, 0);
+const max = Math.max(...rows.map(total));
+const kb = (bytes: number): string => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
+// How each kind of share is named, in the split under a total and in the legend, in stacking order.
+const KINDS = [
+    { kind: 'own', suffix: '', legend: 'the library’s JavaScript' },
+    { kind: 'css', suffix: ' CSS', legend: 'its CSS' },
+    { kind: 'framework', suffix: ' React', legend: 'React, which it needs' },
+] as const;
+const suffix = (kind: BarShare['kind']): string => KINDS.find((k) => k.kind === kind)?.suffix ?? '';
+const present = KINDS.filter((k) => rows.some((row) => row.shares.some((share) => share.kind === k.kind && share.value > 0)));
+---
+
+<figure class="bars">
+    <table class="bars__table">
+        <caption class="bars__caption">{caption}</caption>
+        <thead>
+            <tr>
+                <th scope="col">Library</th>
+                <th scope="col">{valueLabel}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {
+                rows.map((row) => (
+                    <tr class:list={['bars__row', { 'bars__row--highlight': row.highlight }]}>
+                        <th scope="row" class="bars__label">
+                            {row.href ? <a href={row.href}>{row.label}</a> : row.label}
+                        </th>
+                        <td class="bars__cell">
+                            <span class="bars__track" aria-hidden="true">
+                                {row.shares.map((share) => (
+                                    <span class={`bars__share bars__share--${share.kind}`} style={`--share: ${(share.value / max) * 100}%`} />
+                                ))}
+                            </span>
+                            <span class="bars__value">
+                                {kb(total(row))}
+                                {row.shares.length > 1 && (
+                                    <span class="bars__split">
+                                        {row.shares.map((share) => `${kb(share.value)}${suffix(share.kind)}`).join(' + ')}
+                                    </span>
+                                )}
+                            </span>
+                            {row.note && <span class="bars__note">{row.note}</span>}
+                        </td>
+                    </tr>
+                ))
+            }
+        </tbody>
+    </table>
+    {
+        present.length > 1 && (
+            <p class="bars__legend" aria-hidden="true">
+                {present.map((k) => (
+                    <span class="bars__legend-item">
+                        <span class={`bars__key bars__key--${k.kind}`} /> {k.legend}
+                    </span>
+                ))}
+            </p>
+        )
+    }
+</figure>
+
+<style>
+    .bars {
+        margin: 0;
+        display: grid;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+    .bars__table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+    }
+    .bars__caption {
+        caption-side: top;
+        padding-block-end: 0.75rem;
+        color: var(--aparte-text-muted);
+        font-size: 0.9375rem;
+        text-align: start;
+    }
+    .bars__table thead th {
+        padding: 0 0 0.5rem;
+        border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        color: var(--aparte-text-muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-align: start;
+        text-transform: uppercase;
+    }
+    .bars__row > * {
+        padding-block: 0.875rem;
+        border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        vertical-align: top;
+    }
+    .bars__label {
+        width: 11rem;
+        padding-inline-end: 1rem;
+        color: var(--aparte-text);
+        font-weight: 600;
+        text-align: start;
+    }
+    .bars__label a {
+        color: inherit;
+        text-decoration-color: var(--aparte-primary);
+        text-underline-offset: 3px;
+    }
+    /* Under the bar, across the cell: what the number counts. */
+    .bars__note {
+        grid-column: 1 / -1;
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+        line-height: 1.45;
+    }
+    .bars__cell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 10.5rem;
+        align-items: center;
+        gap: 0.375rem 1rem;
+    }
+    .bars__track {
+        display: flex;
+        height: 0.875rem;
+        overflow: hidden;
+        border-radius: var(--aparte-radius-full);
+        background: var(--aparte-surface-2);
+    }
+    .bars__share {
+        flex: 0 0 var(--share);
+    }
+    .bars__share--own {
+        background: color-mix(in oklab, var(--aparte-text-muted) 55%, transparent);
+    }
+    .bars__share--css {
+        background: color-mix(in oklab, var(--aparte-text-muted) 28%, transparent);
+    }
+    .bars__share--framework {
+        background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--aparte-text-muted) 35%, transparent) 0 4px, transparent 4px 8px);
+    }
+    .bars__row--highlight .bars__share--own {
+        background: var(--aparte-primary);
+    }
+    .bars__row--highlight .bars__share--css {
+        background: color-mix(in oklab, var(--aparte-primary) 45%, transparent);
+    }
+    .bars__value {
+        display: grid;
+        color: var(--aparte-text);
+        font-weight: 600;
+        text-align: end;
+    }
+    .bars__split {
+        color: var(--aparte-text-muted);
+        font-size: 0.75rem;
+        font-weight: 400;
+    }
+    .bars__legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 0.75rem;
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+    }
+    .bars__key {
+        display: inline-block;
+        width: 1.5rem;
+        height: 0.625rem;
+        border-radius: var(--aparte-radius-full);
+    }
+    .bars__key--own {
+        background: color-mix(in oklab, var(--aparte-text-muted) 55%, transparent);
+    }
+    .bars__legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+    .bars__key--css {
+        background: color-mix(in oklab, var(--aparte-text-muted) 28%, transparent);
+    }
+    .bars__key--framework {
+        background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--aparte-text-muted) 35%, transparent) 0 4px, transparent 4px 8px);
+    }
+    @media (max-width: 40rem) {
+        .bars__table thead {
+            display: none;
+        }
+        .bars__row {
+            display: grid;
+        }
+        .bars__row > * {
+            width: auto;
+            padding-block: 0.25rem;
+            border: 0;
+        }
+        .bars__row {
+            padding-block: 0.625rem;
+            border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        }
+        .bars__cell {
+            grid-template-columns: minmax(0, 1fr) 7.5rem;
+        }
+    }
+</style>
