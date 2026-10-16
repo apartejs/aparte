@@ -17,11 +17,13 @@ interface Props {
     caption?: string;
     /** The frame's width presets (see PreviewFrame). */
     widths?: boolean;
+    /** A message the frame types and sends itself once it is on screen (ScenarioRuntime's `?play=`). */
+    play?: string;
 }
 
-const { id, caption, widths } = Astro.props;
+const { id, caption, widths, play } = Astro.props;
 const demo = findDemo(id);
 if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
 ---
 
-<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} />
+<PreviewFrame src={`/preview/demo/${demo.id}/${play ? `?play=${encodeURIComponent(play)}` : ''}`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} />

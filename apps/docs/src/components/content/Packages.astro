@@ -1,0 +1,111 @@
+---
+/**
+ * Every published @aparte/* package, by kind, with the first clause of its own `description`
+ * and a link to the page about it. Read from the packages at build time, so a new package
+ * shows up here the day it exists, and its line says what its package.json says.
+ */
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { readCatalogue } from '../../../scripts/lib/catalogue.mjs';
+
+// From the docs app's root, not import.meta.url, which points inside dist/ once bundled (src/lib/facts.ts).
+const ROOT = resolve(process.cwd(), '../../packages');
+const CATALOGUE = resolve(process.cwd(), 'src/content/docs/components');
+
+/** Kinds, in reading order, and the folders under packages/ each one is read from. */
+const KINDS = [
+    { label: 'The library', folders: ['core', 'engine'] },
+    { label: 'Frameworks', folders: ['wrappers/*'] },
+    { label: 'Models', folders: ['providers/ai/*'] },
+    { label: 'Agent frameworks', folders: ['providers/agent/*'] },
+    { label: 'Plugins', folders: ['plugins/*'] },
+    { label: 'Translations', folders: ['locales/*'] },
+    { label: 'Tools', folders: ['tools/*'] },
+];
+
+/** The page about a package, when no catalogue page claims it. */
+const PAGES: Record<string, string> = {
+    '@aparte/core': '/reference/core/',
+    '@aparte/engine': '/guides/engine/',
+    '@aparte/react': '/frameworks/react/',
+    '@aparte/vue': '/frameworks/vue/',
+    '@aparte/svelte': '/frameworks/svelte/',
+    '@aparte/angular': '/frameworks/angular/',
+    '@aparte/provider-openai-compat': '/providers/ai/openai-compat/',
+    '@aparte/provider-ai-sdk': '/providers/ai/ai-sdk/',
+    '@aparte/provider-transformers': '/providers/ai/transformers/',
+    '@aparte/provider-scenario': '/providers/ai/scenario/',
+    '@aparte/runner-ag-ui': '/providers/agent/ag-ui/',
+    '@aparte/plugin-marked': '/plugins/marked/',
+    '@aparte/plugin-streaming-markdown': '/plugins/streaming-markdown/',
+    '@aparte/plugin-shiki': '/plugins/shiki/',
+    '@aparte/plugin-compaction': '/plugins/compaction/',
+    '@aparte/plugin-titler': '/plugins/titler/',
+    '@aparte/locale-fr': '/guides/localization/',
+    '@aparte/docs-mcp': '/guides/docs-for-agents/',
+};
+for (const page of readCatalogue(CATALOGUE)) {
+    if (page.claims.plugin) PAGES[page.claims.plugin] = `/components/${page.slug}/`;
+}
+
+function packagesIn(folder: string): { name: string; line: string }[] {
+    const dirs = folder.endsWith('/*')
+        ? readdirSync(join(ROOT, folder.slice(0, -2)), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(folder.slice(0, -2), d.name))
+        : [folder];
+    return dirs
+        .map((dir) => join(ROOT, dir, 'package.json'))
+        .filter((file) => existsSync(file))
+        .map((file) => JSON.parse(readFileSync(file, 'utf8')))
+        .filter((pkg) => !pkg.private)
+        .map((pkg) => ({ name: String(pkg.name), line: String(pkg.description ?? '').split(' — ')[0]!.replace(/\.$/, '') }));
+}
+
+const kinds = KINDS.map((kind) => ({ label: kind.label, packages: kind.folders.flatMap(packagesIn) })).filter((k) => k.packages.length);
+for (const { packages } of kinds) {
+    for (const { name } of packages) {
+        if (!PAGES[name]) throw new Error(`<Packages>: no page for ${name} — add it to PAGES, or claim it from a catalogue page.`);
+    }
+}
+---
+
+<table class="site-packages">
+    <thead>
+        <tr>
+            <th scope="col">Package</th>
+            <th scope="col">What it is</th>
+        </tr>
+    </thead>
+    {
+        kinds.map((kind) => (
+            <tbody>
+                <tr>
+                    <th scope="rowgroup" colspan="2">{kind.label}</th>
+                </tr>
+                {kind.packages.map((pkg) => (
+                    <tr>
+                        <td>
+                            <a href={PAGES[pkg.name]}>
+                                <code>{pkg.name}</code>
+                            </a>
+                        </td>
+                        <td>{pkg.line}</td>
+                    </tr>
+                ))}
+            </tbody>
+        ))
+    }
+</table>
+
+<style>
+    .site-packages th[scope='rowgroup'] {
+        padding-block-start: var(--aparte-space-4);
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+        font-weight: var(--aparte-font-weight-semibold);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .site-packages td:first-child {
+        white-space: nowrap;
+    }
+</style>
