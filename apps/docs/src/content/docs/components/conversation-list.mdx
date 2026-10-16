@@ -45,7 +45,8 @@ The events carry the conversation's id (and the new title, for a rename); the ar
 was until you assign it again. To have the list carry out the menu's actions itself, register a
 conversation manager with `setConversationManager()` and set `manage`: renaming, pinning,
 archiving and deleting then happen on that manager, and `preventDefault()` on the event still
-takes the gesture back. Selecting a conversation always stays yours.
+takes the gesture back. `manage` does not select: a click sends `aparte-conversation-select`, which
+a chat bound to the manager answers by opening that conversation.
 
 The rows come from the array, so the element takes no children: put the new-chat button and the
 search field around it, in the [sidebar](/components/sidebar/).

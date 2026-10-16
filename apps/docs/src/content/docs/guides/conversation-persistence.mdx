@@ -1,48 +1,20 @@
 ---
-title: Persist chat conversations (IndexedDB, SQLite, REST)
-description: Implement an AparteStorageAdapter, register a AparteConversationManager, and drive a multi-conversation sidebar that loads and saves threads.
+title: Save conversations and list them in a sidebar
+description: Keep conversations across reloads in any store — localStorage, IndexedDB, SQLite or your API — open one from a list or a URL, and get back what was saved.
 sidebar:
   order: 2
-  label: Conversation persistence
+  label: Save conversations
 guide:
   group: conversations
 ---
 
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
 import { Tabs, TabItem } from '../../../components/content/tabs';
 
-Everything so far lives in memory — reload the page and the thread is gone. aparté's
-persistence subsystem closes that gap. A **`AparteConversationManager`** holds the list of
-conversations and notifies listeners on every change, but never touches storage directly —
-that's the job of an **`AparteStorageAdapter`** you implement against any backend
-(`localStorage`, IndexedDB, SQLite WASM, your own REST API). A `conversationId` binding
-loads/persists the *active* thread; [`<aparte-conversation-list>`](/components/conversation-list/) renders a sidebar to
-switch between them.
+<Variant id="conversation-list" caption="The list of saved conversations, grouped by date, each with its menu." />
 
-## 1. Implement an `AparteStorageAdapter`
-
-The contract has three **required** methods — together they're the minimum viable adapter:
-
-```ts
-interface AparteStorageAdapter {
-  loadAll(): Promise<AparteConversation[]>;   // all conversations, full payload, newest first
-  save(conv: AparteConversation): Promise<void>; // upsert (create or update)
-  delete(id: string): Promise<void>;             // permanent delete
-  // + optional split-storage extensions: archive?/unarchive?, loadMeta?/loadFull?,
-  //   pin?/unpin?, rename?, and loadAttachments? for persisted attachment blobs.
-}
-```
-
-An `AparteConversation` carries `id`, `title`, `createdAt`, `updatedAt`, a flat `messages`
-array (the active path — always kept for sidebar previews and compat), an optional `tree`
-(full branch topology, see [Conversations & branching](/guides/conversations-branching/)),
-and optional `archivedAt` / `pinnedAt` / `schemaVersion` (current version is
-`2`; treat `undefined` as legacy data).
-
-The current value is exported as `APARTE_CONVERSATION_SCHEMA_VERSION`, so an adapter
-can compare it against what it stored and migrate instead of guessing.
-
-Here's a complete adapter over `localStorage`, implementing the three required methods plus
-the optional `archive` / `unarchive` pair:
+## Write a storage adapter
 
 ```ts
 import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
@@ -53,91 +25,107 @@ function readAll(): AparteConversation[] {
   try { return JSON.parse(localStorage.getItem(KEY) ?? '[]'); }
   catch { return []; }
 }
-function writeAll(convs: AparteConversation[]): void {
-  localStorage.setItem(KEY, JSON.stringify(convs));
+function writeAll(conversations: AparteConversation[]): void {
+  localStorage.setItem(KEY, JSON.stringify(conversations));
 }
 
 export class LocalStorageAdapter implements AparteStorageAdapter {
   async loadAll(): Promise<AparteConversation[]> {
-    return readAll().sort((a, b) => b.updatedAt - a.updatedAt);
+    return readAll();
   }
 
-  async save(conv: AparteConversation): Promise<void> {
+  async save(conversation: AparteConversation): Promise<void> {
     const all = readAll();
-    const i = all.findIndex((c) => c.id === conv.id);
-    if (i >= 0) all[i] = conv; else all.push(conv);
+    const i = all.findIndex((c) => c.id === conversation.id);
+    if (i >= 0) all[i] = conversation; else all.push(conversation);
     writeAll(all);
   }
 
   async delete(id: string): Promise<void> {
     writeAll(readAll().filter((c) => c.id !== id));
   }
-
-  // Optional — without them, archiving falls back to a plain save().
-  async archive(id: string): Promise<void> { this._setArchived(id, Date.now()); }
-  async unarchive(id: string): Promise<void> { this._setArchived(id, undefined); }
-
-  private _setArchived(id: string, archivedAt: number | undefined): void {
-    const all = readAll();
-    const conv = all.find((c) => c.id === id);
-    if (conv) { conv.archivedAt = archivedAt; writeAll(all); }
-  }
 }
 ```
 
-An IndexedDB (or SQLite WASM) adapter follows the same shape — every method is `async`
-precisely so any backend fits. Richer backends can additionally implement `loadMeta()` /
-`loadFull(id)` (fast sidebar listing vs. lazy full payload), `pin` / `unpin` / `rename`,
-and `loadAttachments(msgId)` for attachment blobs — all optional, consulted only when
-present. Anything beyond the conversation — a memory of user facts, a settings store, a
-gallery of every artifact ever produced — is your app's own table: extend the interface
-in your code rather than expecting the library to carry your schema.
+Your adapter does all the storage, against any store, and every method returns a promise. Three
+methods are required — `loadAll`, `save` (create or update) and `delete`.
+The optional ones let a store do a change in place rather than through `save`: `archive` and
+`unarchive`, `pin` and `unpin`, `rename`, and the pair `loadMeta` and `loadFull` for
+[large histories](#large-histories). An `AparteConversation` holds its `id`, `title`, `createdAt`,
+`updatedAt`, the `messages` on screen, the branch `tree`, and `archivedAt`, `pinnedAt` and
+`schemaVersion`, which an adapter compares with `APARTE_CONVERSATION_SCHEMA_VERSION` to migrate
+old records. Anything else your app keeps is a table of its own.
 
-## 2. Register a `AparteConversationManager`
-
-`AparteConversationManager` owns the in-memory list, mutates it, and calls your adapter — your
-app never calls the adapter directly.
+## Register a manager
 
 {/* doc-check: skip excerpt — imports the adapter the reader writes in the fence above */}
 ```ts
 import { aparteGlobalConfig, AparteConversationManager } from '@aparte/core';
 import { LocalStorageAdapter } from './local-storage-adapter';
 
-const manager = new AparteConversationManager(new LocalStorageAdapter());
-await manager.init();                          // hydrates the list from the adapter
-aparteGlobalConfig.setConversationManager(manager);  // registers it for every <aparte-*> component
+const manager = new AparteConversationManager(new LocalStorageAdapter(), {
+  retention: { maxMessages: 200 },   // optional: what a save keeps
+});
+await manager.init();
+aparteGlobalConfig.setConversationManager(manager);
 ```
 
-Running several independently-configured chats on one page? Call `setConversationManager`
-on each chat's own `AparteConfig` instance (passed as `config`) instead of the global
-singleton.
+The manager holds the list and calls your adapter; your app talks to the manager. `init()` reads
+the store once. `retention` saves the last 200 messages of a conversation and the branches under
+them; the conversation on screen stays whole. A chat with its own configuration gets its own
+manager through that configuration's `setConversationManager`.
 
-Useful reads once registered: `manager.conversations`, `manager.activeConversations` /
-`manager.archivedConversations` (newest first), `manager.activeId`, `manager.active`, and
-`manager.subscribe(listener)` (returns an unsubscribe fn; fires after every mutation).
-Mutations: `createNew(title?)`, `delete(id)`, `archive(id)`, `unarchive(id)`.
+| Read | Gives |
+| --- | --- |
+| `conversations`, `activeConversations`, `archivedConversations` | the lists, the last two newest first |
+| `activeId`, `active` | the conversation open in the chat |
+| `subscribe(listener)` | a call after every change; returns the function that stops it |
 
-Optional bounded history:
-`new AparteConversationManager(adapter, { retention: { maxMessages: 200 } })` trims a persisted
-conversation to its last N messages on every write — **storage only**, the live session in
-the DOM is never truncated.
+`createNew`, `delete`, `archive`, `unarchive`, `pin`, `unpin` and `updateTitle` change the list. A
+rename, a pin or an archive leaves `updatedAt` alone, so the conversation keeps its date;
+`updatedAt` moves when its messages change. The
+[conversations reference](/reference/core/conversations/) lists every method and type.
 
-## 3. Load and persist the active thread — `conversationId`
+In a framework, the package's helper builds and registers the manager: call its `init(adapter)`
+once, or `init(adapter, config)` for a chat with its own `config`. The helpers build it without
+options; for `retention` or a title provider, build the manager as above and register it with
+`setConversationManager` — the chat saves to whichever manager is registered.
 
-Each wrapper's `<AparteChat>` exposes a **`conversationId`** binding. Setting it loads that
-conversation's messages (and branch tree, if any) via the registered manager; setting it to
-`null` deselects. Sending the first message while `conversationId` is unset lazily creates a
-conversation and reports the new id back, so you can sync a URL/router.
+| Framework | Helper |
+| --- | --- |
+| React | `useConversationManager()`, a hook |
+| Vue | `useConversationManager()`, a composable |
+| Svelte | `createConversationManager()`, stores |
+| Angular | `ConversationManagerService`, provided in root |
+
+## Open a conversation
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
 
-There is no binding without a wrapper — the pair is a wrapper convenience over
-`AparteConversationController`, which is the next section on this page.
-
 ```ts
-controller.bind();
-void controller.setConversationId('abc-123'); // or null to deselect
+import { AparteConversationController } from '@aparte/core';
+
+const chat = document.querySelector('aparte-chat');
+const viewport = chat?.viewport;
+
+if (chat && viewport) {
+  chat.id ||= 'main-chat';   // the id the chat's events carry as targetId
+  const controller = new AparteConversationController({
+    hostId: chat.id,
+    host: chat,
+    getMessages: () => viewport.getMessages(),
+    setMessages: (messages) => viewport.setMessages(messages),
+    appendMessage: (message) => viewport.appendMessage(message),
+    clearMessages: (options) => viewport.clearAll(options),
+    setLoading: (loading) => viewport.setLoading(loading),
+    exportTree: () => viewport.exportTree(),
+    importTree: (tree) => viewport.importTree(tree),
+  }, { onConversationCreated: (id) => history.replaceState(null, '', `#${id}`) });
+
+  controller.bind();
+  void controller.setConversationId(location.hash.slice(1) || null);
+}
 ```
 
 </TabItem>
@@ -176,190 +164,116 @@ const [conversationId, setConversationId] = useState<string | null>(null);
 </TabItem>
 </Tabs>
 
-Without a wrapper, drive the same lifecycle yourself with `AparteConversationController` —
-it's exactly what the wrappers use internally:
+A conversation id opens that conversation in the chat, and `null` closes it. The first message
+sent with none open creates one and hands you its id, so a URL or a router can follow. From then
+on, the person's messages are saved as they are sent, and a reply when the chat hears it end —
+`aparte-message-done`, `-error` or `-aborted`, which `AparteClient` sends, and a loop of your own
+sends as in [Your own loop](/guides/bring-your-own-loop/). A new version is saved as it appears.
+In plain HTML the controller does this work, and `bind()` returns the function that stops it;
+`setLoading`, `exportTree` and `importTree` are optional, and without one it does without the
+loading state or the branches.
+
+`aparte-conversation-select` with `{ id }`, sent on `window`, opens a conversation in every chat
+bound to a manager — or in one chat, when it also carries that chat's `targetId` — and
+`{ id: null }` starts a new one, so a New chat button needs nothing else:
+`window.dispatchEvent(new CustomEvent('aparte-conversation-select', { detail: { id: null } }))`.
+The chat sends `aparte-conversation-loaded` with `{ targetId, conversationId }` once the messages
+are on screen. With a framework, let your `conversationId` follow those selections too —
+`window.addEventListener('aparte-conversation-select', (e) => setConversationId(e.detail.id))` —
+so that a later `null` is a change the chat sees.
+
+## Show the list
 
 ```ts
-import { AparteConversationController } from '@aparte/core';
+const list = document.querySelector('aparte-conversation-list');
 
-const chat = document.querySelector('aparte-chat')!;
-const viewport = chat.viewport!;
-
-const controller = new AparteConversationController({
-  hostId: 'main-chat',
-  host: chat,
-  getMessages: () => viewport.getMessages(),
-  setMessages: (m) => viewport.setMessages(m),
-  appendMessage: (m) => viewport.appendMessage(m),
-  clearMessages: () => viewport.clearMessages(),
-  setLoading: (on) => viewport.setLoading(on), // optional — the viewport draws the wait
-  exportTree: () => viewport.exportTree(),   // optional — enables branch persistence
-  importTree: (t) => viewport.importTree(t), // optional
-});
-controller.bind();
-void controller.setConversationId('abc-123'); // or null to deselect
-```
-
-### A conversation on its way
-
-A store takes its time. When your adapter implements `loadMeta()` and `loadFull(id)`,
-the manager reads the list through the first and fetches a conversation's messages
-through the second the first time it is opened (`manager.ensureFull(id)`, and
-`manager.isLoaded(id)` says whether it has). While that fetch runs, the controller calls
-the binding's `setLoading(true)`: `<aparte-chat-viewport>` draws two skeleton turns,
-marks its scroll surface `aria-busy` and names the wait for a screen reader, and
-`aparte-chat[center-empty]` does not count it as empty — the welcome never shows over a
-conversation that is loading. The composer is disabled for the duration — a message sent
-into a transcript that has not arrived would be overwritten by it — and comes back as
-it was (a `disabled` you set stays). Two quick clicks are safe: a reply that lands for a
-conversation the user has already left is dropped. `ensureFull()` resolves `false` when the store
-has no such record — the row then does not count as loaded, and the controller goes home rather
-than keep an empty transcript active. A metadata change (`updateTitle`, `pin`, `archive`) on a
-conversation whose messages are not in memory goes through the adapter's own hook when it has one
-(`rename()`, `pin()`, `archive()`…) and otherwise fetches the messages first, so a row the list came
-with is never written back without them; `updateMessages()` on such a row is refused with a warning.
-A metadata change leaves `updatedAt` alone — a rename, a pin and an archive keep the conversation's
-place in the list, which sorts on the last message rather than on the last edit.
-
-The list has the same word for its own wait: set `loading` on
-`<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign
-`conversations`.
-
-The framework wrappers draw the same wait themselves — the controller sets it while it
-fetches — and each has a `loading` prop (an input in Angular) for a wait of your own.
-
-## 4. Render a sidebar
-
-`<aparte-conversation-list>` is a display primitive: set its `conversations` property and
-`active-id` attribute. Each row is its title plus a `⋯` menu: rename, pin/unpin,
-archive/unarchive, delete (which asks first). The rows are grouped by date as soon as any
-item carries `updatedAt`; set `flat` to render them flat.
-
-Add `manage` and the menu writes through to the manager you registered in step 2 — those
-gestures need no code of yours at all:
-
-```ts
-const list = document.querySelector('aparte-conversation-list')!;
-
-function render() {
+function render(): void {
+  if (!list) return;
   list.conversations = manager.activeConversations;
   list.setAttribute('active-id', manager.activeId ?? '');
 }
 manager.subscribe(render);
 render();
-
-// The two lines that finish the row menu — the first is step 2's, repeated here so the
-// pair is visible together.
-aparteGlobalConfig.setConversationManager(manager);
-list.setAttribute('manage', '');
-// Selecting a conversation is owned by the `conversationId` binding (or a window-level
-// `aparte-conversation-select` event that every bound controller listens for), not the list.
+list?.setAttribute('manage', '');
 ```
 
-**When you own the persistence**, leave `manage` off: the list then only announces the
-intent, and every gesture is yours to carry out. The events all bubble, with
-`detail: { id }` — rename adds `title`. They fire under `manage` too, first and
-cancelable, so `preventDefault()` on one takes that single gesture back and leaves the
-rest to the list.
+[`<aparte-conversation-list>`](/components/conversation-list/) draws the rows, grouped by date —
+`flat` lists them without the groups — each with a menu to rename, pin, archive or delete it.
+With `manage`, the menu acts on the manager you registered. A click on a row sends
+`aparte-conversation-select`, which opens it in the chats bound to the manager.
+
+Without `manage`, the list only announces each gesture, and you carry it out:
 
 ```ts
-list.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
-list.addEventListener('aparte-conversation-pin', (e) => manager.pin(e.detail.id));
-list.addEventListener('aparte-conversation-unpin', (e) => manager.unpin(e.detail.id));
-list.addEventListener('aparte-conversation-archive', (e) => manager.archive(e.detail.id));
-list.addEventListener('aparte-conversation-unarchive', (e) => manager.unarchive(e.detail.id));
-list.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
+list?.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
+list?.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
 ```
 
-Each wrapper ships a reactive helper around the same manager — call its `init(adapter)`
-once instead of constructing `AparteConversationManager` by hand (step 2 is done for you), then
-bind `conversations` / `activeConversations` / `archivedConversations` to the list and
-`createNew` / `addMessage` / `updateMessages` / `updateTitle` / `pin` / `unpin` / `delete` /
-`archive` / `unarchive` to actions:
+The others are `-pin`, `-unpin`, `-archive` and `-unarchive`, each with `{ id }`. Under `manage`
+they still come first and can be cancelled, which takes back that one gesture.
 
-| Wrapper | Helper |
-|---|---|
-| React | `useConversationManager()` — hook, plain state |
-| Vue | `useConversationManager()` — composable, refs/computed |
-| Svelte | `createConversationManager()` — stores |
-| Angular | `ConversationManagerService` — injectable (`providedIn: 'root'`) |
+## Large histories
 
-Switching the active conversation stays owned by the `conversationId` binding — the helpers
-deliberately don't expose a `select()`.
-
-## 5. What survives a round trip
-
-Your adapter stores `AparteMessage` objects verbatim, segments included, and hands them
-back. One exception, and it is core's own: the `segments` core derived by splitting a
-markdown reply on display are not written back — neither in `messages` nor in the branch
-tree. They are core's reading of your `content`, so they are read again on the next open
-and a block grammar you register later applies to conversations already saved.
-
-Core then **adopts** the segments you did store rather than treating them as new — and the difference is
-worth knowing, because two of the fields on a segment are facts and two are measurements.
-
-| on a restored segment | what happens | why |
-|---|---|---|
-| `id`, `type`, `content`, … | yours, untouched | it is your data |
-| `messageId`, `index` | **recomputed** from the array being joined | derivable facts. A stored value can only contradict the list it lands in — and no protocol persists either; Anthropic's block `index` exists solely inside the streaming envelope, as a position |
-| `meta.aparte.startedAt` / `endedAt` | **not restored, and not invented** | a span is something the client measured while the turn ran. A measurement nobody took is absent |
-| `isStreaming` | forced to `false` | a persisted stream is dead. Restored as streaming it would render a caret for ever, and the next completed turn would stamp it a brand-new end |
-| `meta.*` (yours) | round-trips as stored | your half of the bag |
-
-**Nothing is lost that was ever there.** Most backends store messages and have never
-heard of a segment — content parts carry no timestamp in any wire format — so there is
-usually nothing to lose. What changed is that core no longer *fills the gap with now*: a
-conversation from three weeks ago used to come back claiming every segment had started
-that second, and only on some of the load paths, so the same stored thread produced
-different numbers depending on whether you were in native or framework-managed mode and
-on whether a `tree` had been saved.
-
-:::note[If you want the spans back]
-Persist them yourself and put them where core reads them:
+<Variant id="conversation-list-loading" caption="The list while the store answers." />
 
 ```ts
-import { segmentTiming, type AparteMessage, type AparteSegment } from '@aparte/core';
+import type { AparteConversation, AparteConversationMeta } from '@aparte/core';
 
-type Span = { id: string; startedAt?: number; endedAt?: number };
-
-/** On save: pull out what core measured, alongside whatever else you store. */
-function spansOf(message: AparteMessage): Span[] {
-  return (message.segments ?? []).map((s) => ({ id: s.id, ...segmentTiming(s) }));
-}
-
-/** On load: put it back under `meta.aparte`, and core leaves it alone. */
-function restoreSpans(message: AparteMessage, spans: Span[]): AparteMessage {
-  return {
-    ...message,
-    segments: message.segments?.map((s: AparteSegment) => {
-      const span = spans.find((x) => x.id === s.id);
-      if (!span) return s;
-      return {
-        ...s,
-        meta: { ...s.meta, aparte: { startedAt: span.startedAt, endedAt: span.endedAt } },
-      } as AparteSegment;
-    }),
-  };
+interface SplitLoading {
+  loadMeta(): Promise<AparteConversationMeta[]>;              // the rows, without their messages
+  loadFull(id: string): Promise<AparteConversation | null>;   // one conversation, or null if unknown
 }
 ```
 
-Read them back with `segmentDuration(segment)` rather than subtracting, so an absent span
-gives you `undefined` instead of `NaN`.
-:::
+Give the adapter these two methods, and the manager lists the conversations through the first and
+fetches a conversation's messages through the second the first time it opens. Meanwhile the chat draws two placeholder turns, tells a screen reader it is loading,
+and disables the composer until the messages arrive. Set `loading` on the list while `init()`
+runs, and clear it when you set `conversations`.
 
-**A request that outlived its page is closed for you.** A [`tool_call`](/components/tool/) persisted as
-`awaiting-approval` comes back as `aborted`. The loop that awaited the decision went with
-the page, so nothing can answer it — and `aborted` rather than `rejected` because nobody
-refused anything. Every load path shares one normalisation, so this holds whichever of
-them your adapter uses.
+## Save the branches and the title
 
-**One thing core still cannot fix for you.** A `tool_call` persisted as `pending` comes
-back with a spinner and an open span, because the handler that was running is likewise
-gone. If your adapter can be interrupted mid-turn, normalise that status on save.
+The versions of every answer are saved with the conversation, as its `tree`, when the binding has
+`exportTree` and `importTree` — the framework packages always do — and opening it brings every
+version back, picker included. To keep a single conversation yourself, without a manager:
 
----
+```ts
+import type { AparteChatViewport } from '@aparte/core';
 
-See its [element page](/components/conversation-list/) for the exact property and
-attribute signatures, and
-[Conversations & branching](/guides/conversations-branching/) for `exportTree()` /
-`importTree()`, which this subsystem persists as the `tree` field.
+declare const viewport: AparteChatViewport;
+
+localStorage.setItem('chat', JSON.stringify(viewport.exportTree()));   // every version, as data
+```
+
+and later `viewport.importTree(JSON.parse(localStorage.getItem('chat') ?? 'null'))`, once you have
+checked there is something to restore.
+
+A conversation's title comes from its first message, and `autoTitle` says the manager chose it:
+editing that message then gives it a new one, while a title typed in later — `updateTitle` — is
+never replaced. [Conversation titles](/guides/titles/) makes them short and meaningful.
+
+## What comes back after a reload
+
+| On a saved message | After a reload |
+| --- | --- |
+| your fields: `id`, `content`, `segments` and their `meta` | as you saved them |
+| `messageId` and `index` on a segment | worked out again from the list |
+| timings | as saved, and never invented when absent |
+| a reply that was streaming | finished, `isStreaming: false` |
+| a tool call `awaiting-approval`, or `pending` in a finished reply | `aborted`, unless it carries a [server loop](/guides/server-loop/)'s `deferred.ticket` |
+| the parts core read from a Markdown reply | not saved: read again from its `content` |
+
+Attachments do not survive the adapter above: `JSON.stringify` drops each attachment's `blob`, and
+its `url` dies with the page. Save each `blob` where binary data fits, such as IndexedDB, as an
+`AparteAttachmentRow` with its conversation and message ids, and when you load a conversation give
+each attachment a new `URL.createObjectURL(row.blob)`
+([Attachments](/guides/attachments/#release-memory-and-save-the-files)).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/titles/', title: 'Conversation titles', line: 'A short title for each conversation, in the browser or from your model.' },
+        { href: '/components/conversation-list/', title: 'Conversation list', line: 'The list, its menu, its states and its options.' },
+        { href: '/components/sidebar/', title: 'Sidebar', line: 'The column the list goes in, and its drawer on a phone.' },
+    ]}
+/>
