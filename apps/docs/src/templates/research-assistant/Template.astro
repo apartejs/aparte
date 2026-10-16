@@ -1,0 +1,84 @@
+---
+/**
+ * The Research assistant template: an app shell with research threads in the sidebar, and a
+ * split in the main area: the chat where the agent plans, searches and reads, and the pane
+ * where the report it wrote is shown. The markup is the library's elements and recipes; the
+ * behaviour is app.ts.
+ */
+import './research-assistant.css';
+---
+
+<div class="research aparte-app-shell">
+    <aparte-sidebar>
+        <div class="aparte-sidebar__header">
+            <span class="aparte-sidebar__brand">Research</span>
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New research" data-research-new>
+                <aparte-icon name="edit"></aparte-icon>
+            </button>
+        </div>
+        <div class="aparte-sidebar__search aparte-field-group">
+            <input class="aparte-field aparte-field--sm" type="search" placeholder="Search threads" aria-label="Search research threads" data-aparte-sidebar-search />
+        </div>
+        <div class="aparte-sidebar__body">
+            <aparte-conversation-list manage></aparte-conversation-list>
+        </div>
+        <div class="aparte-sidebar__footer">
+            <span class="aparte-avatar aparte-avatar--sm" aria-hidden="true">J</span> Jonas Berg
+        </div>
+    </aparte-sidebar>
+    <header class="aparte-app-header">
+        <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+            <aparte-icon name="menu"></aparte-icon>
+        </button>
+        <span class="aparte-app-header__title" data-research-title>Merrow Wheels, year one</span>
+        <div class="aparte-app-header__actions">
+            <div class="research__panes aparte-btn-group" role="group" aria-label="Show">
+                <button class="aparte-btn aparte-btn--sm aparte-btn--primary aparte-btn--outline" type="button" data-aparte-split-pane="start" aria-pressed="true">Chat</button>
+                <button class="aparte-btn aparte-btn--sm aparte-btn--primary aparte-btn--outline" type="button" data-aparte-split-pane="end" aria-pressed="false">Report</button>
+            </div>
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Switch the theme" data-research-theme></button>
+        </div>
+    </header>
+    <div class="aparte-app-shell__main">
+        <aparte-split position="44" label="Resize the chat and the report">
+            <!-- center-empty: a new thread holds the welcome and the composer in the middle. -->
+            <aparte-chat id="research-chat" center-empty>
+                <aparte-chat-viewport></aparte-chat-viewport>
+                <aparte-composer placeholder="Ask a research question">
+                    <div class="research-welcome">
+                        <h2 class="research-welcome__title">What should I research, Jonas?</h2>
+                        <p class="research-welcome__lede">I plan the search, read the sources and write a short report with numbered citations.</p>
+                        <aparte-suggestions empty-only></aparte-suggestions>
+                    </div>
+                    <div class="aparte-composer-shell">
+                        <div class="aparte-composer-row">
+                            <aparte-composer-input></aparte-composer-input>
+                            <aparte-composer-send></aparte-composer-send>
+                        </div>
+                        <aparte-composer-toolbar>
+                            <aparte-context class="research__gauge" window="128000"></aparte-context>
+                        </aparte-composer-toolbar>
+                    </div>
+                </aparte-composer>
+            </aparte-chat>
+            <section class="aparte-split__pane research-pane" aria-label="Report">
+                <div class="research-pane__bar" hidden>
+                    <span class="research-pane__title"></span>
+                    <span class="research-pane__meta"></span>
+                    <button class="aparte-btn aparte-btn--sm aparte-btn--ghost research-pane__copy" type="button">Copy Markdown</button>
+                    <span class="research-pane__status" role="status"></span>
+                </div>
+                <article class="research-report aparte-content" hidden></article>
+                <div class="research-pane__empty">
+                    <aparte-icon name="file" class="aparte-icon--xl"></aparte-icon>
+                    <p class="research-pane__empty-title">No report in this thread yet</p>
+                    <p>Ask a question, and the report the assistant writes opens here: a summary, a chart, a table and numbered sources.</p>
+                </div>
+            </section>
+        </aparte-split>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>
