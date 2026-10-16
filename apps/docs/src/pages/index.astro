@@ -12,12 +12,11 @@ import CatalogueGrid from '../components/catalog/CatalogueGrid.astro';
 import Variant from '../components/catalog/Variant.astro';
 import Code from '../components/content/Code.astro';
 import { TabItem, Tabs } from '../components/content/tabs';
-import BarChart, { type BarRow } from '../components/home/BarChart.astro';
 import HowItFits from '../components/home/HowItFits.astro';
 import ProductFrame from '../components/home/ProductFrame.astro';
+import WeightChart from '../components/home/WeightChart.astro';
 import { REPO_URL } from '../components/site/sections';
 import TemplateGrid from '../components/templates/TemplateGrid.astro';
-import bundles from '../data/bundle-sizes.json';
 import { LANDING_DESCRIPTION, LANDING_IMAGE_ALT, LANDING_TITLE } from '../data/landing-meta';
 import Landing from '../layouts/Landing.astro';
 import { BROWSER_ENGINES, COMPONENTS, CORE_THIRD_PARTY_DEPS, CORE_VERSION, TESTS } from '../lib/facts';
@@ -119,42 +118,6 @@ const LOOP = [
     { title: 'Keep the loop on your server', line: 'A turn that waits for a person survives a reload and picks up where it stopped.', href: '/guides/server-loop/' },
 ];
 
-/**
- * The weight of a working chat, from scripts/measure-bundles.mjs (run by hand: it downloads every
- * library). Every bar is the JavaScript and the CSS a page downloads at startup; a React library's
- * React is its own share. Lightest first.
- */
-const kb = (bytes: number): string => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
-const sentence = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
-type Library = (typeof bundles.libraries)[number];
-const css = (lib: Library): number => lib.cssGzip ?? 0;
-const sharesOf = (lib: Library, own: number): BarRow['shares'] => [
-    { kind: 'own', value: own },
-    ...(css(lib) ? [{ kind: 'css' as const, value: css(lib) }] : []),
-    ...(lib.frameworkGzip ? [{ kind: 'framework' as const, value: lib.frameworkGzip }] : []),
-];
-/** "306 KB + 67 KB React": a variant split the way its bar is, so the two compare at a glance. */
-const spoken = (lib: Library, own: number): string =>
-    sharesOf(lib, own)
-        .map((share) => `${kb(share.value)}${share.kind === 'css' ? ' CSS' : share.kind === 'framework' ? ' React' : ''}`)
-        .join(' + ');
-const WEIGHTS: BarRow[] = [...bundles.libraries]
-    .sort((a, b) => a.startupGzip + css(a) - (b.startupGzip + css(b)))
-    .map((lib) => ({
-        label: `${lib.name} ${lib.version}`,
-        // The other documented paths to the same UI, measured too, beside what the bar counts.
-        note: [lib.note, ...lib.variants.map((variant) => `${sentence(variant.label)}: ${spoken(lib, variant.ownGzip)}.`)].join(' '),
-        highlight: lib.id === 'aparte',
-        shares: sharesOf(lib, lib.ownGzip),
-    }));
-const weightOf = (id: string): Library => {
-    const lib = bundles.libraries.find((entry) => entry.id === id);
-    if (!lib) throw new Error(`bundle-sizes.json has no "${id}".`);
-    return lib;
-};
-const MEASURED_ON = new Date(`${bundles.measuredOn}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-const PINNED_BEFORE = new Date(bundles.before).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
 const PROOF = [
     { figure: String(CORE_THIRD_PARTY_DEPS), label: 'third-party dependencies', line: 'in @aparte/core. Markdown, highlighting and the rest are plugins you add.' },
     TESTS
@@ -223,7 +186,7 @@ const PROOF = [
             <h1 class="home-hero__title">{COMPONENTS.total} components for AI chat and agents, built as Web Components</h1>
             <p class="home-hero__lede">
                 The transcript, the tools, the approvals and the composer of an AI app, streaming any model or agent — in
-                React, Vue, Svelte, Angular or plain HTML, with zero third-party dependencies.
+                React, Vue, Svelte, Angular or vanilla JS, with zero third-party dependencies.
             </p>
             <div class="home-hero__actions">
                 <a class="aparte-btn aparte-btn--solid aparte-btn--primary aparte-btn--lg" href="/guides/getting-started/">
@@ -238,6 +201,11 @@ const PROOF = [
                     <span class="home-icon home-install__done" set:html={checkIcon} />
                 </button>
             </div>
+        </section>
+
+        <section class="home-weight" aria-labelledby="weight">
+            <h2 id="weight" class="home-weight__title">What a working chat weighs</h2>
+            <WeightChart compact />
         </section>
 
         <section class="home-product" aria-label="The Assistant template, live">
@@ -338,20 +306,6 @@ const PROOF = [
                 <h2 id="checked">Checked, not claimed</h2>
                 <p>A beta: the public surface is frozen, and a change to it ships with a notice. Every figure here is read from the repository when the site builds.</p>
             </header>
-            <BarChart
-                caption="What a page downloads to start a chat that streams a model's reply, JavaScript and CSS, gzipped: each library set up from its docs' quickstart; the line under each bar says what it holds."
-                valueLabel="At startup"
-                rows={WEIGHTS}
-            />
-            <p class="home-method">
-                Measured on {MEASURED_ON} with esbuild {bundles.esbuild}: minified, code splitting on, what loads at startup, gzip
-                level {bundles.gzipLevel}; every library at its latest version published before {PINNED_BEFORE}. Loquix and Deep Chat
-                keep their component styles inside their JavaScript; assistant-ui's CSS comes out of your own Tailwind build and is
-                not counted. CopilotKit's build also splits off {kb(weightOf('copilotkit').laterGzip)} of optional chunks (a grammar
-                per highlighted language, diagrams, a developer inspector), fetched only when a reply needs one. A server is never
-                counted.{' '}
-                <a href={`${REPO_URL}/blob/main/scripts/measure-bundles.mjs`} target="_blank" rel="noopener">The script that measures it ↗</a>
-            </p>
             <dl class="home-proof">
                 {
                     PROOF.map((fact) => (
@@ -399,7 +353,7 @@ const PROOF = [
         --home-gap: clamp(4rem, 9vw, 7.5rem);
         display: grid;
         gap: var(--home-gap);
-        padding-block: clamp(3rem, 7vw, 5.5rem) var(--home-gap);
+        padding-block: clamp(2rem, 4.5vw, 3.25rem) var(--home-gap);
         font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
     }
     .home a {
@@ -414,8 +368,8 @@ const PROOF = [
     .home-hero {
         display: grid;
         justify-items: center;
-        gap: 1.5rem;
-        max-width: 50rem;
+        gap: 1.25rem;
+        max-width: 58rem;
         margin-inline: auto;
         text-align: center;
     }
@@ -425,14 +379,14 @@ const PROOF = [
     .home-hero__title {
         margin: 0;
         color: var(--aparte-text);
-        font-size: clamp(2.25rem, 5.4vw, 3.75rem);
+        font-size: clamp(2.125rem, 4.6vw, 3.375rem);
         font-weight: 650;
         letter-spacing: -0.03em;
         line-height: 1.05;
         text-wrap: balance;
     }
     .home-hero__lede {
-        max-width: 40rem;
+        max-width: 50rem;
         margin: 0;
         color: var(--aparte-text-muted);
         font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
@@ -470,7 +424,22 @@ const PROOF = [
         display: inline-flex;
     }
 
-    /* ── The product ──────────────────────────────────────────────────── */
+    /* ── The weight, then the product, both close under the hero ───────── */
+    .home-weight {
+        display: grid;
+        gap: 0.75rem;
+        width: 100%;
+        max-width: 46rem;
+        margin: calc(var(--home-gap) * -0.62) auto 0;
+        min-width: 0;
+    }
+    .home-weight__title {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: 1.125rem;
+        font-weight: 650;
+        text-align: center;
+    }
     .home-product {
         margin-block-start: calc(var(--home-gap) * -0.45);
     }
@@ -591,17 +560,6 @@ const PROOF = [
     }
 
     /* ── Proof ────────────────────────────────────────────────────────── */
-    .home-method {
-        max-width: 50rem;
-        margin: -1rem 0 0;
-        color: var(--aparte-text-muted);
-        font-size: 0.875rem;
-        line-height: 1.55;
-    }
-    .home-method a {
-        color: var(--aparte-text);
-        text-decoration-color: var(--aparte-primary);
-    }
     .home-proof {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
