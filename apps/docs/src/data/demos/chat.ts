@@ -64,7 +64,7 @@ export const CHAT_DEMOS: DemoEntry[] = [
       <aparte-composer-action icon="image" label="Generate an image" action-id="image"></aparte-composer-action>
       <!-- From @aparte/plugin-model-selector: lists the models your providers declare.
            margin-inline-start: auto pushes it, and whatever follows, to the end of the row. -->
-      <aparte-model-selector auto-select style="margin-inline-start: auto"></aparte-model-selector>
+      <aparte-model-selector auto-select persist style="margin-inline-start: auto"></aparte-model-selector>
     </aparte-composer-toolbar>
   </div>
 </aparte-composer>`,

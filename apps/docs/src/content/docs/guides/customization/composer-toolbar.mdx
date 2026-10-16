@@ -29,7 +29,7 @@ import Variant from '../../../../components/catalog/Variant.astro';
       </div>
       <aparte-composer-toolbar>
         <my-mode-picker></my-mode-picker>
-        <aparte-model-selector style="margin-inline-start: auto"></aparte-model-selector>
+        <aparte-model-selector persist style="margin-inline-start: auto"></aparte-model-selector>
       </aparte-composer-toolbar>
     </div>
   </aparte-composer>
@@ -45,7 +45,7 @@ import Variant from '../../../../components/catalog/Variant.astro';
   onMessagesChange={chat.setMessages}
   toolbar={<>
     <ModePicker value={mode} onChange={setMode} />
-    <aparte-model-selector style={{ marginInlineStart: 'auto' }} />
+    <aparte-model-selector persist="" style={{ marginInlineStart: 'auto' }} />
   </>}
 />
 ```
@@ -57,7 +57,7 @@ import Variant from '../../../../components/catalog/Variant.astro';
 <AparteChat :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
   <template #toolbar>
     <ModePicker v-model="mode" />
-    <aparte-model-selector style="margin-inline-start: auto" />
+    <aparte-model-selector persist style="margin-inline-start: auto" />
   </template>
 </AparteChat>
 ```
@@ -69,7 +69,7 @@ import Variant from '../../../../components/catalog/Variant.astro';
 <AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
   <svelte:fragment slot="toolbar">
     <ModePicker bind:value={mode} />
-    <aparte-model-selector style="margin-inline-start: auto"></aparte-model-selector>
+    <aparte-model-selector persist style="margin-inline-start: auto"></aparte-model-selector>
   </svelte:fragment>
 </AparteChat>
 ```
@@ -80,7 +80,7 @@ import Variant from '../../../../components/catalog/Variant.astro';
 ```html
 <aparte-chat [messages]="messages" (messagesChange)="messages = $event">
   <app-mode-picker slot="toolbar"></app-mode-picker>
-  <aparte-model-selector slot="toolbar" style="margin-inline-start: auto"></aparte-model-selector>
+  <aparte-model-selector slot="toolbar" persist style="margin-inline-start: auto"></aparte-model-selector>
 </aparte-chat>
 ```
 
@@ -102,7 +102,8 @@ so a composer of your own, put in through the `composer` slot, writes its own
 
 `<aparte-model-selector>` comes from `@aparte/plugin-model-selector`, and draws nothing until that
 package is imported. Its `/react`, `/vue` and `/svelte` entries type the tag, and `/angular` exports
-`AparteModelSelectorDirective` for a standalone component's `imports`. The
+`AparteModelSelectorDirective` for a standalone component's `imports`; `persist` makes its pick the
+model the next message goes to. The
 [model selector](/components/model-selector/) and the [approval mode](/components/approval-mode/)
 are two controls made for this row.
 

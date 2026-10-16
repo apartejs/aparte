@@ -16,10 +16,11 @@ import SelectorApi from '../../../generated/api/elements/aparte-model-selector.a
 
 <Variant id="model-selector" />
 
-`<aparte-model-selector>` lists the providers your config knows, one group per provider, and
-the models each one offers. With a single provider it is a flat list. The choice is what the
-next message is sent to; `persist` writes it back to the config, and `aparte-model-change`
-tells you about it.
+`<aparte-model-selector>` lists the providers your config knows, one group per provider, with
+the models each one fetches; a provider with no list to fetch, such as the Vercel AI SDK bridge,
+is left out. With a single provider it is a flat list. With `persist`, the choice is what the
+next message is sent to: the pick is written into the config. Without it, the element only sends
+`aparte-model-change`, for code of yours to act on.
 
 It is built on core's [select](/components/select/), and it reads the config of the chat it sits in,
 so two chats on one page each list their own models.

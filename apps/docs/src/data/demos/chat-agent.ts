@@ -250,7 +250,7 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
       <aparte-composer-send></aparte-composer-send>
     </div>
     <aparte-composer-toolbar>
-      <aparte-model-selector searchable></aparte-model-selector>
+      <aparte-model-selector persist searchable></aparte-model-selector>
     </aparte-composer-toolbar>
   </div>
 </aparte-composer>
