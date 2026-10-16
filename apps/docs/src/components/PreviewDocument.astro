@@ -76,6 +76,11 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
             if (new URLSearchParams(location.search).has('fill')) {
                 document.documentElement.classList.add('preview-fill');
             }
+            // `?tile`: a picture in a grid of them, scaled down and inert: no scrollbar, since
+            // nothing in a tile can be scrolled and a bar drawn at that size is all a reader sees.
+            if (new URLSearchParams(location.search).has('tile')) {
+                document.documentElement.classList.add('preview-tile');
+            }
             /*
              * A demo never takes the reader's focus on its own. A panel that focuses its first option
              * when it opens is right in a chat, where the person already is; in a page of examples
@@ -130,6 +135,14 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
 
             html.preview-fill body {
                 padding: 0;
+            }
+
+            html.preview-tile,
+            html.preview-tile * {
+                scrollbar-width: none;
+            }
+            html.preview-tile ::-webkit-scrollbar {
+                display: none;
             }
 
             /* `?anatomy`: a dashed outline and a number on each part, above the demo and never in

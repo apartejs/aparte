@@ -63,6 +63,7 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
                 document.documentElement.dataset.theme = theme;
                 document.documentElement.dataset.aparteTheme = theme;
                 if (window !== parent) document.documentElement.classList.add('template-framed');
+                if (new URLSearchParams(location.search).has('thumb')) document.documentElement.classList.add('template-thumb');
                 // Framed (a tile, the landing's showcase), nothing inside takes the focus before the
                 // reader touches the frame: a focus() in a frame scrolls the parent page to it.
                 if (window !== parent) {

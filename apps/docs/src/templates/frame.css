@@ -66,3 +66,13 @@ html.template-framed body {
 html.template-framed .template-bar {
     display: none;
 }
+
+/* A tile is a picture, scaled down and inert: no scrollbar, since nothing in it can be scrolled. */
+html.template-thumb,
+html.template-thumb * {
+    scrollbar-width: none;
+}
+
+html.template-thumb ::-webkit-scrollbar {
+    display: none;
+}
