@@ -22,6 +22,8 @@ export const SECTIONS: Section[] = [
     { id: 'templates', label: 'Templates', href: '/templates/', prefixes: ['/templates/'] },
     // No sidebar either: the models aparté ships, each on a page of its own.
     { id: 'models', label: 'Models', href: '/models/', prefixes: ['/models/'] },
+    // No sidebar: where the library is going, one page.
+    { id: 'roadmap', label: 'Roadmap', href: '/roadmap/', prefixes: ['/roadmap/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
 ];
 

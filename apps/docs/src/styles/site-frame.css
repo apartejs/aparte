@@ -87,7 +87,8 @@ html {
   text-decoration: none;
   white-space: nowrap;
 }
-@media (max-width: 48rem) {
+/* Below 60rem the section links need the room: the version is in the footer too. */
+@media (max-width: 60rem) {
   .site-version {
     display: none;
   }
@@ -100,6 +101,11 @@ html {
   justify-content: flex-start;
   color: var(--aparte-text-muted);
   font-weight: var(--aparte-font-weight-normal, 400);
+}
+@media (max-width: 60rem) {
+  .site-search__open {
+    min-inline-size: 10rem;
+  }
 }
 /* Inside a button the key loses its bevel: the thicker bottom edge lifted its label off the
    button's centre line. */
