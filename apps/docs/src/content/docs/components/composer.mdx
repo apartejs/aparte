@@ -18,6 +18,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import Anatomy from '../../../components/catalog/Anatomy.astro';
 import Usage from '../../../generated/api/elements/aparte-composer.usage.mdx';
 import ComposerApi from '../../../generated/api/elements/aparte-composer.api.mdx';
 import InputApi from '../../../generated/api/elements/aparte-composer-input.api.mdx';
@@ -38,6 +39,20 @@ wherever your layout puts them.
 
 Inside an [`<aparte-chat>`](/components/chat/), the message goes to the chat's client. On its
 own, listen for `aparte-send` on the composer.
+
+## Anatomy
+
+<Anatomy
+  demo="composer-anatomy"
+  parts={[
+    { selector: 'aparte-composer-attachments', label: 'Pending files', href: '#aparte-composer-attachments' },
+    { selector: 'aparte-composer-add-attachment', label: 'Attach', href: '#aparte-composer-add-attachment' },
+    { selector: 'aparte-composer-input', label: 'Input', href: '#aparte-composer-input' },
+    { selector: 'aparte-composer-send', label: 'Send and stop', href: '#aparte-composer-send' },
+    { selector: 'aparte-composer-toolbar', label: 'Toolbar', href: '#aparte-composer-toolbar' },
+    { selector: 'aparte-composer-action', label: 'Action', href: '#aparte-composer-action' },
+  ]}
+/>
 
 ## Variants
 

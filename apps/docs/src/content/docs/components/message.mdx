@@ -10,6 +10,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import Anatomy from '../../../components/catalog/Anatomy.astro';
 import Usage from '../../../generated/api/elements/aparte-chat-bubble.usage.mdx';
 import BubbleApi from '../../../generated/api/elements/aparte-chat-bubble.api.mdx';
 
@@ -23,6 +24,19 @@ A message holds either plain text (the `content` attribute, rendered as Markdown
 is installed) or a list of segments: text, [reasoning](/components/reasoning/),
 [code](/components/code-block/), [tool calls](/components/tool/), [errors](/components/error/)
 and [views of your own](/components/custom-view/). Segments win when both are set.
+
+## Anatomy
+
+<Anatomy
+  demo="message-anatomy"
+  parts={[
+    { selector: '.aparte-avatar', label: 'Avatar', href: '#with-avatars' },
+    { selector: '.aparte-header', label: 'Name and time', href: '#api' },
+    { selector: '.aparte-message-content', label: 'Content', href: '/components/response/' },
+    { selector: '.aparte-action-bar', label: 'Actions', href: '/components/message-actions/' },
+    { selector: '.aparte-branch-picker', label: 'Versions', href: '/components/branches/' },
+  ]}
+/>
 
 ## Variants
 

@@ -116,6 +116,35 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
             html.preview-fill body {
                 padding: 0;
             }
+
+            /* `?anatomy`: a dashed outline and a number on each part, above the demo and never in
+               its way. Absolute in document coordinates, so it scrolls with what it marks. */
+            .preview-anatomy {
+                position: absolute;
+                inset: 0 auto auto 0;
+                pointer-events: none;
+            }
+            .preview-anatomy__box {
+                position: absolute;
+                outline: 2px dashed var(--aparte-primary);
+                outline-offset: 2px;
+                border-radius: 4px;
+            }
+            .preview-anatomy__num {
+                position: absolute;
+                /* At the end corner: stacked parts start where the one above starts, so a number at
+                   the start corner sat on the previous part's text. */
+                inset-block-start: -0.7rem;
+                inset-inline-end: -0.7rem;
+                min-width: 1.25rem;
+                height: 1.25rem;
+                padding: 0 0.3rem;
+                border-radius: 999px;
+                background: var(--aparte-primary);
+                color: var(--aparte-text-inverse, #fff);
+                font: 600 0.75rem/1.25rem var(--aparte-font-family);
+                text-align: center;
+            }
             html.preview-fill body > :first-child {
                 height: 100vh !important;
                 border-radius: 0;
@@ -195,6 +224,56 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
                 const script = document.createElement('script');
                 script.textContent = held.content.textContent ?? '';
                 document.body.appendChild(script);
+            }
+
+            /*
+             * `?anatomy=["selector", …]`: number the parts of the component, in order, for the legend
+             * an Anatomy figure prints under the frame. Only numbers are drawn here — the names and
+             * links stay in the page, where a reader can select and follow them. Redrawn whenever the
+             * layout moves, because a part can appear late (a file's tile) or change size.
+             */
+            const anatomy = new URLSearchParams(location.search).get('anatomy');
+            if (anatomy) {
+                const selectors = JSON.parse(anatomy) as string[];
+                const layer = document.createElement('div');
+                layer.className = 'preview-anatomy';
+                layer.setAttribute('aria-hidden', 'true');
+                // The stage's stacking margin (body > * + *) would shift every box by 1rem.
+                layer.style.margin = '0';
+                document.body.appendChild(layer);
+                const draw = (): void => {
+                    layer.replaceChildren(
+                        ...selectors.flatMap((selector, i) => {
+                            const part = document.querySelector(selector);
+                            if (!part) return [];
+                            // A part laid out with `display: contents` has no box of its own (the
+                            // composer's buttons): outline what it renders instead.
+                            const first = part.getBoundingClientRect();
+                            const pick = first.width || first.height
+                                ? [first]
+                                : [...part.children].map((c) => c.getBoundingClientRect()).filter((rect) => rect.width || rect.height);
+                            if (!pick.length) return [];
+                            const left = Math.min(...pick.map((rect) => rect.left));
+                            const top = Math.min(...pick.map((rect) => rect.top));
+                            const r = {
+                                left,
+                                top,
+                                width: Math.max(...pick.map((rect) => rect.right)) - left,
+                                height: Math.max(...pick.map((rect) => rect.bottom)) - top,
+                            };
+                            const box = document.createElement('div');
+                            box.className = 'preview-anatomy__box';
+                            box.style.cssText = `left:${r.left + scrollX}px;top:${r.top + scrollY}px;width:${r.width}px;height:${r.height}px`;
+                            const n = document.createElement('span');
+                            n.className = 'preview-anatomy__num';
+                            n.textContent = String(i + 1);
+                            box.appendChild(n);
+                            return [box];
+                        }),
+                    );
+                };
+                requestAnimationFrame(() => requestAnimationFrame(draw));
+                new ResizeObserver(draw).observe(document.body);
             }
 
             /*
