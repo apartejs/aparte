@@ -415,7 +415,7 @@ tool call awaiting approval, then code, then prose.
   md += `
 Two seams make the list yours: [\`registerSegmentRenderer\`](/guides/customization/#custom-segment-types)
 draws a type of your own (a weather card, a domain widget — generative UI), and
-[\`registerStreamBlock\`](/guides/customization/#teach-the-parser-a-block) teaches the
+[\`registerStreamBlock\`](/guides/customization/segments/#turn-a-tag-into-a-segment) teaches the
 streaming parser a tag grammar that produces it.
 
 {/* Generated from packages/core/src/types/segments.ts by apps/docs/scripts/gen-segment-pages.mjs — edit the JSDoc, not this file. */}

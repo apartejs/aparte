@@ -170,7 +170,7 @@ Two things that are *not* the cause, before you go looking:
 
 Coming from 0.4.x and the buttons vanished? That's this change — one line brings them back.
 The full table of what ships enabled and why is in
-[Customization](/guides/customization/#what-ships-enabled).
+[Buttons](/guides/customization/actions/).
 
 ## The composer toolbar isn't showing
 
@@ -180,7 +180,7 @@ Three causes, in the order they happen.
 three positional slots became one `toolbar`. In React that is a type error; in Vue, Svelte
 and Angular an unknown slot name renders **nothing, silently**, which is why this entry
 exists. Pass one `toolbar` and order your controls yourself — see
-[The composer toolbar](/guides/customization/#the-composer-toolbar).
+[The composer toolbar](/guides/customization/composer-toolbar/).
 
 **The row is empty.** [`<aparte-composer-toolbar>`](/components/composer/) reflects `data-empty` while it holds no
 content, and the stylesheet hides it then — an empty row must not draw its separator. Text

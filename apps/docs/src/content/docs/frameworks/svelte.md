@@ -59,7 +59,7 @@ the same occurrence, the callback with the payload itself, the event with it und
 
 Slots are named slots: `empty-state`, `composer`, `above-composer`,
 `toolbar` (the composer's bottom row — mode picker, model selector: see
-[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example; use
+[The composer toolbar](/guides/customization/composer-toolbar/) for an example; use
 `<svelte:fragment slot="toolbar">` to project several nodes), and
 the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble. Every imperative
 method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` store and reachable via
@@ -132,7 +132,7 @@ is the seam for wrapping its options or replacing it with a loop of your own:
 `createAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
 see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
-host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+host they do nothing (see [What ships enabled](/guides/customization/actions/)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/). The `<aparte-elicitation>` presenter — what the
 built-in approval gate and `requestUserInput()` ask through — renders inside the host **by

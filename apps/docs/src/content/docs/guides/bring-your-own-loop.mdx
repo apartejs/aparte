@@ -209,9 +209,9 @@ SDK, whatever produces tokens.
 
 That empty assistant message from step 2 needs no `status`: an assistant message with no status
 and nothing in it *is* a reply on its way, so the bubble shows the [waiting
-indicator](/guides/customization/#the-waiting-state) and keeps its action bar away until the
+indicator](/guides/customization/render-hooks/#the-waiting-dots) and keeps its action bar away until the
 first token. As the stream runs, your framework's message list is kept in sync (once per frame),
-so `getMessages()`, persistence and a [custom bubble](/guides/customization/#custom-bubbles) all
+so `getMessages()`, persistence and a [custom bubble](/guides/customization/bubble/) all
 see the text — not just the DOM.
 
 :::caution[Append before injecting]
@@ -232,7 +232,7 @@ silently** while the UI suggests they were sent. When you do handle them,
 Your own controls go **in** the composer, not in a bar below the chat: the toolbar row takes
 a mode picker, a model selector or a token counter. Driving the loop yourself is exactly the
 case where you have such controls — see
-[The composer toolbar](/guides/customization/#the-composer-toolbar).
+[The composer toolbar](/guides/customization/composer-toolbar/).
 
 ## Richer replies: segments instead of plain text
 
@@ -552,7 +552,7 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
 …or leave them off, which is the default and costs you nothing. Same story for the ⓘ details
 popover and the image-tile preview — see
-[What ships enabled](/guides/customization/#what-ships-enabled). For
+[What ships enabled](/guides/customization/actions/). For
 tool-call rows, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
 `updateSegment` (same imperative API) stream structured segments the same way
 `injectTokenStream` streams plain text.

@@ -61,7 +61,7 @@ export class Chat {
 Slots are **content projection** by attribute: `[slot='empty-state']`, `[slot='composer']`,
 `[slot='above-composer']`, `[slot='toolbar']` — the last one being the composer's bottom
 row, with an example under
-[The composer toolbar](/guides/customization/#the-composer-toolbar). For a fully custom
+[The composer toolbar](/guides/customization/composer-toolbar/). For a fully custom
 bubble, pass a template instead:
 
 ```html
@@ -213,7 +213,7 @@ ask through — renders inside the host **by default**, as in core's `<aparte-ch
 the container inside it, bind `[containerClass]` / `[containerStyle]` (below).
 `provideAparte` wires the client, so switch the retry/edit buttons on with
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
-host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+host they do nothing (see [What ships enabled](/guides/customization/actions/)).
 :::
 
 For a wait of your own — independent of what the client is doing, e.g. while your own store

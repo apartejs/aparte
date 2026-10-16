@@ -1,0 +1,149 @@
+---
+title: Buttons on a message and in the composer
+description: Turn on retry, edit, feedback and details, choose their order, answer them, and add buttons of your own to a message or to the composer.
+sidebar:
+  order: 3
+  label: Buttons
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import Variant from '../../../../components/catalog/Variant.astro';
+
+<Variant id="message-actions" caption="A message's buttons: copy is on by default, the rest are yours to turn on." />
+
+## Turn on the built-in buttons
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true, feedback: true, info: true });
+```
+
+| Button | Shown on | Who answers it | On by default |
+| --- | --- | --- | --- |
+| `copy` | every message | core | yes |
+| `retry` | replies | `AparteClient`, or your listener for `aparte-retry` | no |
+| `edit` | your messages | `AparteClient`, or your listener for `aparte-edit` | no |
+| `feedback`, a thumb up and down | replies | your listener (`aparte-feedback`) | no |
+| `info`, the details of a reply | replies that carry `usage` | your listener (`aparte-message-info`) | no |
+
+Only `copy` is on by default; turn on the buttons your app answers. Calls merge: each one changes
+the flags it names. `APARTE_DEFAULT_BUBBLE_ACTIONS` holds the defaults, and
+[Conversations and branches](/guides/conversations-branching/) shows what retry and edit do.
+
+## Choose them and their order
+
+```ts
+import { aparteGlobalConfig, type AparteBubbleActionName } from '@aparte/core';
+
+aparteGlobalConfig.setBubbleActions({
+  user: ['edit', 'copy'] satisfies AparteBubbleActionName[],
+  assistant: ['copy', 'thumbUp', 'thumbDown', 'retry', 'info'] satisfies AparteBubbleActionName[],
+});
+```
+
+A list for a role draws exactly those buttons, in that order, whatever the flags say: naming a
+button in a list turns it on. In a list, feedback is two buttons, `thumbUp` and `thumbDown`.
+
+## Answer feedback and details
+
+```ts
+document.addEventListener('aparte-feedback', (event) => {
+  const { messageId, value } = event.detail;   // value: 'positive' or 'negative'
+  void fetch('/api/feedback', { method: 'POST', body: JSON.stringify({ messageId, value }) });
+});
+
+document.addEventListener('aparte-message-info', (event) => {
+  openDetails(event.detail.messageId, event.detail.usage);
+});
+```
+
+The events bubble out of the chat, so one listener on `document` answers every chat on the page.
+
+## Let image tiles open a preview
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare function openLightbox(url: string, name: string): void;
+
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
+
+document.addEventListener('aparte-attachment-preview', (event) => {
+  openLightbox(event.detail.url, event.detail.name);
+});
+```
+
+Declared, an attached image becomes a button that sends `aparte-attachment-preview`, with the
+image's `url` and `name`; undeclared, it is a picture and nothing more. A tile of your own, drawn by
+[`setAttachmentRenderer`](/guides/customization/render-hooks/), gets none of this: send the event
+from your element yourself.
+
+## Add a button to a message
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare function shareMessage(messageId: string | undefined): void;
+
+aparteGlobalConfig.registerAction({
+  id: 'share',
+  icon: 'download',
+  label: 'Share',
+  zones: ['bubble'],
+  bubble: { roles: ['assistant'] },
+});
+
+document.addEventListener('aparte-action', (event) => {
+  const { actionId, messageId } = event.detail;
+  if (actionId === 'share') shareMessage(messageId);
+});
+```
+
+A registered action follows the built-in buttons, sorted by its `order`. `icon` is one of core's
+[icon names](/reference/icons/), or SVG markup when it starts with `<` — pass the markup for any
+glyph core does not have: a name it does not know draws the action's `iconFallback`, or nothing.
+`label` is the
+button's accessible name, so an icon alone always has one. A click sends `aparte-action` with
+`{ actionId, zone, messageId, role, targetId }`, `targetId` being the chat's id, and calls the
+action's `onClick` if you gave one; `unregisterAction(id)` removes the button. The framework
+packages hand you the same detail: `onAction` in React, `@action` in Vue, `on:action` in Svelte,
+`(action)` in Angular.
+
+## Add a button to the composer
+
+```html
+<aparte-composer>
+  <div class="aparte-composer-shell">
+    <div class="aparte-composer-row">
+      <aparte-composer-input></aparte-composer-input>
+      <aparte-composer-action icon="pin" label="Pin" action-id="pin"></aparte-composer-action>
+      <aparte-composer-send></aparte-composer-send>
+    </div>
+  </div>
+</aparte-composer>
+```
+
+```ts
+document.addEventListener('aparte-action-click', (event) => {
+  if (event.detail.actionId === 'pin') pinDraft();
+});
+```
+
+[`<aparte-composer-action>`](/components/composer/) sits where you write it, anywhere inside the
+composer, and greys out while a reply streams. `action-id` comes back on the event, which tells two
+of them apart, and `icon` takes a core icon name or SVG markup. Inside an `<aparte-chat>`, write
+the `<aparte-chat-viewport>` too, as [the composer toolbar](/guides/customization/composer-toolbar/)
+shows: a chat with no message list inside replaces its children with the default chat. The
+framework packages draw their own composer row, so put the button in their `toolbar` slot. For
+sending, stopping and attaching, the composer's own elements already do the work:
+`<aparte-composer-send>`, `<aparte-composer-cancel>` and `<aparte-composer-add-attachment>`.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/message-actions/', title: 'Message actions', line: 'The buttons, live, in every state.' },
+        { href: '/guides/customization/composer-toolbar/', title: 'The composer toolbar', line: 'A row of controls under the composer.' },
+    ]}
+/>

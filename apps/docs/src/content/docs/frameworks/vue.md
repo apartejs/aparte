@@ -53,7 +53,7 @@ a backend call).
 
 Slots are named slots: `empty-state`, `composer`, `above-composer`,
 `toolbar` (the composer's bottom row — mode picker, model selector: see
-[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example), and
+[The composer toolbar](/guides/customization/composer-toolbar/) for an example), and
 the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. The imperative handle
 (`chat.chatRef`) exposes streaming, branch/edit and `scrollToBottom` — also available as plain
 methods straight off the `chat` object.
@@ -123,7 +123,7 @@ is the seam for wrapping its options or replacing it with a loop of your own:
 `useAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
 see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
-host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+host they do nothing (see [What ships enabled](/guides/customization/actions/)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/). The `<aparte-elicitation>` presenter — what the
 built-in approval gate and `requestUserInput()` ask through — renders inside the host **by

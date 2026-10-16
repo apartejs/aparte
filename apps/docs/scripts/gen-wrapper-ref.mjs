@@ -132,12 +132,12 @@ md += `
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
 the other three take a \`bubble\` slot that receives the message. It is per-message rather
 than per-region, which is why it is shaped differently — see
-[Custom bubbles](/guides/customization/#custom-bubbles).
+[Custom bubbles](/guides/customization/bubble/).
 
 **Placement inside a slot** is yours. Nothing here is positional: put your controls in the
 order you want them and push one to the end with \`margin-inline-start: auto\` — a logical
 property, so it follows the reading direction. The worked example is in
-[The composer toolbar](/guides/customization/#the-composer-toolbar).
+[The composer toolbar](/guides/customization/composer-toolbar/).
 `;
 
 /*

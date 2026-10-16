@@ -49,9 +49,9 @@ a backend call).
 
 Slots are plain props: `emptyState`, `composer`, `aboveComposer`,
 `toolbar` (the composer's bottom row — mode picker, model selector: see
-[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example), and
+[The composer toolbar](/guides/customization/composer-toolbar/) for an example), and
 `renderBubble` for a fully custom bubble — driven by the reactive `messages` list, so re-render
-from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
+from `message.content` / `message.segments` and it streams live ([details](/guides/customization/bubble/)).
 The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
 
 The wrapper projects **only** these slots. Anything else you put inside `<AparteChat>` is
@@ -112,7 +112,7 @@ is the seam for wrapping its options or replacing it with a loop of your own:
 `useAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
 see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
-host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+host they do nothing (see [What ships enabled](/guides/customization/actions/)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::

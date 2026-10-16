@@ -1,0 +1,155 @@
+---
+title: Redraw the whole message
+description: A frame of your own around core's message, or your own element in its place — in a framework or in plain HTML.
+sidebar:
+  order: 2
+  label: The message
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../../components/content/tabs';
+
+## A frame of your own
+
+```ts
+import { aparteGlobalConfig, escapeAttr, escapeHtml } from '@aparte/core';
+
+aparteGlobalConfig.setBubbleShellRenderer(({ role, name }) => `
+  <div class="aparte-message my-card" data-role="${escapeAttr(role)}">
+    <header class="my-card__who"><span class="aparte-name">${escapeHtml(name)}</span></header>
+    <div class="aparte-message-content">
+      <div class="aparte-segments"></div>
+      <div class="aparte-content"></div>
+      <div class="aparte-waiting" hidden>
+        <span class="aparte-dots" aria-hidden="true">
+          <span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span>
+        </span>
+        <span class="aparte-sr-only"></span>
+      </div>
+    </div>
+    <div class="aparte-footer">
+      <div class="aparte-branch-picker" hidden>
+        <button type="button" class="aparte-branch-prev" aria-label="Previous response">‹</button>
+        <span class="aparte-branch-label"></span>
+        <span class="aparte-sr-only aparte-branch-status" aria-live="polite"></span>
+        <button type="button" class="aparte-branch-next" aria-label="Next response">›</button>
+      </div>
+      <div class="aparte-action-bar" role="toolbar" aria-label="Message actions"></div>
+    </div>
+  </div>
+`);
+```
+
+The message stays core's — it streams, keeps its buttons and its versions — and draws itself into
+your markup, finding each region by its class. The renderer receives `{ role, name, avatarInitial }`.
+What the frame must carry:
+
+- **`.aparte-message`** as its root. The message writes its role and its accessible name there,
+  unless your root already has a `role`.
+- **`.aparte-message-content`**, holding `.aparte-segments`, `.aparte-content` and
+  `.aparte-waiting`.
+- **`.aparte-waiting`**, with `.aparte-dots` around three `.aparte-dot` and an `.aparte-sr-only`
+  label: the message shows and hides it, the dots are your markup. Leave it out and the message
+  shows no waiting state.
+- **`.aparte-branch-picker`**, if the message can have versions, written `hidden` with the four
+  parts above: the message shows it once there are two versions, and fills the label and the
+  status. Keep `aria-live` on the status, the one thing a screen reader hears when the version
+  changes; the arrows' labels and glyphs are yours.
+- **`.aparte-action-bar`**, with `role="toolbar"` and a label of yours: the message puts its
+  buttons there, and they share one tab stop with the arrow keys between them.
+- **`.aparte-name`**, holding the `name` you are given: the message updates it when the name or the
+  language changes. Any of `.aparte-avatar`, `.aparte-timestamp`, `.aparte-attachments` and
+  `.aparte-footer` that you want filled.
+
+A frame for one chat only goes on that chat's own configuration
+([Per-chat configuration](/guides/customization/#per-chat-configuration)). A message draws its
+frame once, when it appears, so a chat's frame reaches the messages that appear after its
+configuration is attached: with a framework's `config` prop, the messages there at the first render
+keep the page-wide frame.
+
+## Your own element, in a framework
+
+<Tabs syncKey="framework">
+<TabItem label="React">
+
+```tsx
+<AparteChat
+  messages={messages}
+  onMessagesChange={setMessages}
+  renderBubble={(message) => <MyBubble message={message} />}
+/>
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat :messages="messages" @messages-change="onMessagesChange">
+  <template #bubble="{ message }">
+    <MyBubble :message="message" />
+  </template>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
+  <svelte:fragment slot="bubble" let:message>
+    <MyBubble {message} />
+  </svelte:fragment>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat [messages]="messages" [bubbleTemplate]="bubble"></aparte-chat>
+<ng-template #bubble let-message>
+  <my-bubble [message]="message"></my-bubble>
+</ng-template>
+```
+
+</TabItem>
+</Tabs>
+
+Each message is then drawn by your component, from `message.content` and `message.segments`,
+which update while the reply streams. The buttons and the versions belong to core's message: an
+element of your own draws and wires whatever it needs.
+
+## Your own element, in plain HTML
+
+```html
+<aparte-chat-viewport>
+  <my-bubble data-aparte-bubble message-id="m-42"></my-bubble>
+</aparte-chat-viewport>
+```
+
+```ts
+const viewport = document.querySelector('aparte-chat-viewport');
+viewport?.appendToken('m-42', 'Hello');   // reaches <my-bubble>
+viewport?.completeMessage('m-42');
+```
+
+Without a framework there is no reactive list, so the message list also calls your element: an
+element inside it carrying `data-aparte-bubble` and the message's `message-id` receives what it
+would send core's message — `appendToken`, `appendToSegment`, `addSegment`, `updateSegment`,
+`removeSegment`, `setUsage` and `updateMessage`. Implement the ones you need, and stream into it by
+its id from a loop of your own: `appendMessage` draws core's message for that id beside yours.
+
+Three limits: `clearAll()` removes core's messages only, and leaves yours behind; a retry, a move to
+another version of a reply, or loading a history rebuilds the list with core's messages, so yours
+is replaced; and a client that appends each new reply draws core's message for it. To draw every
+message yourself, set `framework-managed` on the viewport and add one element per message, as the
+framework packages do. The framework hooks above have none of these limits.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/customization/render-hooks/', title: 'Render hooks', line: 'Replace one piece instead of the whole frame.' },
+        { href: '/components/message/', title: 'Message', line: "Core's message, its parts and its options." },
+    ]}
+/>

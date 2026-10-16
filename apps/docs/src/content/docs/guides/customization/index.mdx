@@ -1,0 +1,104 @@
+---
+title: Customize the chat
+description: Change more than colours and sizes — which part of the chat each seam changes, when a change shows on the chats already on screen, and how two chats get different setups.
+sidebar:
+  order: 2
+  label: Customization
+guide:
+  group: look
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import Variant from '../../../../components/catalog/Variant.astro';
+
+<Variant id="customization-bubble-shell" caption="The same message twice: core's message, then a frame of your own, given to the second one by its own configuration." />
+
+## Pick the seam
+
+| You want to | Use | Page |
+| --- | --- | --- |
+| change colours, sizes and shapes | CSS variables | [Theme](/guides/theming/) |
+| replace the error card, an attachment chip, the status line | a render hook | [Render hooks](/guides/customization/render-hooks/) |
+| redraw the whole message | a frame of your own, or an element of your own | [The message](/guides/customization/bubble/) |
+| turn on retry and edit, add a button to a message or to the composer | the actions | [Buttons](/guides/customization/actions/) |
+| put a mode picker or a model selector under the composer | the composer's toolbar | [The composer toolbar](/guides/customization/composer-toolbar/) |
+| show a chart, a map or a form in a reply | a segment renderer | [Your own content](/guides/customization/segments/) |
+| show "Thought for 8s" | the timing a segment carries | [Durations](/guides/customization/segment-timing/) |
+| swap the icons, add avatars | the icon and avatar providers | [Icons and avatars](/guides/customization/icons-and-avatars/) |
+| render Markdown and colour code | the Markdown and highlight plugins | [Markdown and code](/guides/markdown/) |
+
+## Everything goes through the configuration
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setErrorRenderer(({ message }) => {
+  const el = document.createElement('div');
+  el.className = 'my-error';
+  el.textContent = message;
+  return el;
+});
+
+aparteGlobalConfig.setErrorRenderer(null);   // the built-in one again
+```
+
+The render hooks, the providers and the button settings are methods on `aparteGlobalConfig`, the
+configuration every chat on the page reads; a render hook or the avatar provider takes `null` to
+put the built-in back. A change to the buttons, the icons, the avatars or the language reaches the
+messages already on screen, and a new status-line renderer reaches the line already shown. The
+message frame, the error card, the
+attachment chips, a segment renderer and the Markdown and highlight providers apply to what is
+drawn after them, so set those before the chat renders.
+
+## Custom segment types
+
+```ts
+import { registerSegmentRenderer } from '@aparte/core';
+
+registerSegmentRenderer({
+  type: 'chart',
+  render(segment) {
+    const el = document.createElement('div');
+    el.className = 'my-chart';
+    return el;
+  },
+});
+```
+
+A reply is made of typed parts — text, reasoning, code, a tool call — called segments, and a
+renderer registered for a type of your own draws it: a chart, a map, a form, generative UI. A
+segment whose type no renderer claims shows its `fallback` text, or `[Unknown segment type: …]`
+with a warning in the console when it has none: register a renderer for the type, or give the
+segment a `fallback`. [Your own content](/guides/customization/segments/) shows how such a segment
+reaches a message, and the rest of a renderer's life.
+
+## Per-chat configuration
+
+```ts
+import { AparteConfig, attachConfig } from '@aparte/core';
+
+const support = new AparteConfig();
+support.setBubbleActions({ retry: true, edit: true });
+
+const chat = document.querySelector<HTMLElement>('#support-chat');
+if (chat) attachConfig(chat, support);
+```
+
+Attach a configuration of its own to a chat, or to an element around it, and every part inside
+reads that one; `detachConfig` takes it off. The framework packages take it as their `config`
+prop. A new configuration starts from the built-in defaults: set up on it what that chat needs —
+its Markdown and highlighting (`setupMarkedProvider(undefined, support)`), its icons, its
+language. It inherits one thing from the page-wide one, the segment renderers registered there,
+and cannot remove one of those; `registerSegmentRenderer(renderer, support)` registers one for
+that chat alone, which wins over the page-wide one.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/customization/render-hooks/', title: 'Render hooks', line: 'Your own markup for one piece: the error card, an attachment chip, the status line.' },
+        { href: '/guides/customization/segments/', title: 'Your own content', line: 'A chart, a map or a form in a reply, and a tag the model writes turned into one.' },
+        { href: '/guides/customization/actions/', title: 'Buttons', line: 'Retry, edit and feedback, and buttons of your own on a message or in the composer.' },
+        { href: '/guides/customization/icons-and-avatars/', title: 'Icons and avatars', line: 'Your icon set, and an avatar beside each message.' },
+    ]}
+/>
