@@ -7,7 +7,7 @@ src/content/docs/reference/wrappers.md
 # The generated component pages live in group folders; the catalogue's hand-written
 # pages are flat files beside them and ARE tracked.
 src/content/docs/components/*/
-src/content/docs/components/index.mdx
+src/content/docs/components/elements.mdx
 src/content/docs/segments/
 src/generated/
 src/content/docs/reference/icons.md

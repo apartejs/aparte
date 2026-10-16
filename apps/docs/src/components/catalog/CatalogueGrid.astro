@@ -1,0 +1,126 @@
+---
+/**
+ * One group of the catalogue as a grid of live tiles: each tile is the page's hero demo, running
+ * in a frame and scaled down, with the page's name and line under it. Read from the pages' own
+ * `catalog` blocks, so a page that joins the catalogue joins the grid.
+ *
+ * The frames load as they approach the screen (`loading="lazy"`) and take no input: the tile is a
+ * link, and the frame is a picture of what the link leads to. No screenshot is involved — the
+ * site shows the components themselves.
+ */
+import { getCollection } from 'astro:content';
+
+interface Props {
+    group: 'chat' | 'layout' | 'kit';
+}
+
+const { group } = Astro.props;
+// A chat demo is written for a wide frame and reads at 40%; a kit example is a few controls and
+// would be a speck at that size, so the kit's frames zoom less.
+const scale = group === 'kit' ? 0.6 : 0.4;
+const entries = (await getCollection('docs'))
+    .filter((entry) => entry.data.catalog?.group === group)
+    .sort((a, b) => (a.data.catalog?.order ?? 0) - (b.data.catalog?.order ?? 0));
+---
+
+<ul class="catalogue-grid not-content" style={`--tile-scale: ${scale}`}>
+    {
+        entries.map((entry) => {
+            const demo = entry.data.catalog?.demos?.[0];
+            return (
+                <li class="catalogue-tile aparte-card">
+                    <div class="catalogue-tile__frame">
+                        {demo && (
+                            <iframe
+                                src={`/preview/demo/${demo}/`}
+                                title={`${entry.data.title}, live`}
+                                loading="lazy"
+                                tabindex="-1"
+                                aria-hidden="true"
+                            />
+                        )}
+                    </div>
+                    <div class="catalogue-tile__text">
+                        <a class="catalogue-tile__link" href={`/${entry.id}/`}>
+                            {entry.data.title}
+                        </a>
+                        <p class="catalogue-tile__line">{entry.data.description}</p>
+                    </div>
+                </li>
+            );
+        })
+    }
+</ul>
+
+<style>
+    .catalogue-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
+        gap: var(--aparte-space-6);
+        margin: var(--aparte-space-6) 0 var(--aparte-space-10);
+        padding: 0;
+        list-style: none;
+    }
+    .catalogue-tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .catalogue-tile:hover {
+        border-color: var(--aparte-border-strong, var(--aparte-border));
+    }
+    .catalogue-tile:focus-within {
+        outline: var(--aparte-focus-outline-width, 2px) solid var(--aparte-focus-ring, var(--aparte-primary));
+        outline-offset: 2px;
+    }
+    /* A window onto the demo at --tile-scale of its size: the frame is laid out that many times
+       wider and taller than the tile, then scaled back, so the demo renders at a width it was
+       written for. */
+    .catalogue-tile__frame {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        overflow: hidden;
+        background: var(--aparte-bg);
+        border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+    }
+    .catalogue-tile__frame iframe {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: calc(100% / var(--tile-scale));
+        height: calc(100% / var(--tile-scale));
+        border: 0;
+        transform: scale(var(--tile-scale));
+        transform-origin: 0 0;
+        pointer-events: none;
+    }
+    .catalogue-tile__text {
+        display: grid;
+        gap: var(--aparte-space-2);
+        padding: var(--aparte-space-5) var(--aparte-space-6);
+    }
+    .catalogue-tile__link {
+        color: var(--aparte-text);
+        font-weight: var(--aparte-font-weight-semibold, 600);
+        text-decoration: none;
+    }
+    .catalogue-tile__link:focus-visible {
+        outline: none;
+    }
+    /* The whole tile is the link's target. */
+    .catalogue-tile__link::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+    }
+    .catalogue-tile__line {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+        line-height: var(--aparte-line-height-snug, 1.4);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>

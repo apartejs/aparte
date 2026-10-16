@@ -148,7 +148,7 @@ export default defineConfig({
           label: 'Indexes',
           collapsed: true,
           items: [
-            { label: 'Elements', link: '/components/' },
+            { label: 'Elements', link: '/components/elements/' },
             { label: 'Segments', link: '/segments/' },
             { label: 'UI kit', link: '/kit/' },
           ],

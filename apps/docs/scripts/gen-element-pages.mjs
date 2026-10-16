@@ -462,11 +462,10 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
 
 function indexPage(pagesByGroup) {
   let md = `---
-title: 'Chatbot UI Components'
-description: 'Every element aparté ships — what each one is for, in one line.'
+title: 'Every element'
+description: 'Every custom element aparté ships, by tag — what each one is for, in one line, and the catalogue page that shows it.'
 sidebar:
-  order: 0
-  label: Overview
+  label: Elements
 ---
 
 Every element is a plain custom element: no framework, no runtime dependency, and the same
@@ -537,7 +536,8 @@ for (const [group, tags] of Object.entries(pagesByGroup)) {
   }
 }
 mkdirSync(CONTENT, { recursive: true });
-writeIfChanged(join(CONTENT, 'index.mdx'), indexPage(indexByGroup));
+// The tag index lives at /components/elements/: /components/ is the catalogue's own overview, written by hand.
+writeIfChanged(join(CONTENT, 'elements.mdx'), indexPage(indexByGroup));
 
 /*
  * The live preview's data, written HERE — beside the page that shows the same example as
@@ -702,7 +702,7 @@ for (const entry of readdirSync(CONTENT, { withFileTypes: true })) {
       swept++;
     }
     if (!wanted && readdirSync(dir).length === 0) rmSync(dir, { recursive: true });
-  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx' && ours(join(CONTENT, entry.name))) {
+  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx' && entry.name !== 'elements.mdx' && ours(join(CONTENT, entry.name))) {
     rmSync(join(CONTENT, entry.name));
     swept++;
   }

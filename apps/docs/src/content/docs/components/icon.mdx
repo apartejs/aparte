@@ -7,7 +7,7 @@ catalog:
   claims:
     classes: [icon]
     elements: [aparte-icon]
-  demos: [kit-icon, icon-set]
+  demos: [icon-set]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -16,7 +16,7 @@ import IconApi from '../../../generated/api/elements/aparte-icon.api.mdx';
 import Classes from '../../../generated/api/kit/icon.classes.mdx';
 import Vars from '../../../generated/api/kit/icon.vars.mdx';
 
-<Variant id="kit-icon" />
+<Variant id="icon-set" />
 
 `<aparte-icon name="copy">` draws one of the glyphs the chat itself uses, from markup, with no
 script of your own. A glyph carries no size: it takes `--aparte-icon-size` from its container, so
@@ -26,12 +26,6 @@ change it on one icon.
 An icon provider (`aparteGlobalConfig.setIconProvider()`) replaces the set, for the chat and for
 every `<aparte-icon>` at once. The full reference, with the extended set behind
 `@aparte/core/icons`, is on the [icons page](/reference/icons/).
-
-## Variants
-
-### Every glyph
-
-<Variant id="icon-set" />
 
 ## Usage
 

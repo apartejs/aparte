@@ -7,14 +7,17 @@
 import kit from '../../generated/api/kit.json';
 import type { DemoEntry } from './types';
 
-/** Families that have a page in the Layout group, with their own demos. */
-const LAYOUT = new Set(['app-shell', 'app-header', 'sidebar', 'split']);
+/**
+ * Families whose sheet example is not their page's hero: the four with a page in the Layout group
+ * (demos of their own), and the icon, whose page shows every glyph rather than the sheet's one.
+ */
+const NOT_FROM_SHEET = new Set(['app-shell', 'app-header', 'sidebar', 'split', 'icon']);
 
 /** The glyphs core draws, as `<aparte-icon>` takes them. */
 const GLYPHS = ['copy', 'check', 'send', 'loading', 'error', 'expand', 'collapse', 'terminal', 'paperclip', 'image', 'file', 'scrollDown', 'retry', 'edit', 'thumbUp', 'thumbDown', 'prevBranch', 'nextBranch', 'tool', 'close', 'stop', 'pause', 'info', 'archive', 'unarchive', 'download', 'more', 'pin', 'trash', 'menu', 'alertTriangle'];
 
 const FROM_SHEETS: DemoEntry[] = (kit as { id: string; name: string; example: string }[])
-    .filter((family) => family.example && !LAYOUT.has(family.id))
+    .filter((family) => family.example && !NOT_FROM_SHEET.has(family.id))
     .map((family) => ({ id: `kit-${family.id}`, title: family.name, html: family.example }));
 
 export const KIT_DEMOS: DemoEntry[] = [
