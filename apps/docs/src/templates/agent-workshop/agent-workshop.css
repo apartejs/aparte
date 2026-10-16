@@ -1,0 +1,380 @@
+/*
+ * The Agent workshop's look: the library's tokens on the template's root, and the layout of the
+ * workspace panel, which is the template's own (a file tree, a code view, a terminal, diffs).
+ * Every colour is a core token, so both themes follow the site's switch with nothing to redeclare.
+ */
+.agent-workshop {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --aparte-code-font-family: "Geist Mono Variable", ui-monospace, monospace;
+    /* A reading column narrower than the pane, so a long line never runs under the scroll rail. */
+    --aparte-message-max-width: min(42rem, calc(100% - 3rem));
+    /* The approval panel shows the arguments it asks about in full, not folded. */
+    --aparte-elic-max-height: 70vh;
+    /* The mode switch's longest label is "Auto-edit": it needs less than a select's 200px. */
+    --aparte-select-min-width: 8.5rem;
+    /* The chat keeps room to read; the workspace takes what is left. */
+    --aparte-split-min: 22rem;
+    --aparte-split-max: 62%;
+    height: 100%;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.agent-workshop__repo {
+    flex: none;
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.agent-workshop__owner {
+    color: var(--aparte-text-muted);
+    font-weight: var(--aparte-font-weight-medium);
+}
+
+.agent-workshop__branch {
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--aparte-code-font-family);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Above the split's breakpoint both panes show, so a switch between them would switch nothing. */
+.agent-workshop__panes {
+    display: none;
+}
+
+@media (max-width: 48rem) {
+    .agent-workshop__panes {
+        display: flex;
+    }
+}
+
+@media (max-width: 30rem) {
+    .agent-workshop__owner {
+        display: none;
+    }
+}
+
+/* ── Chat ────────────────────────────────────────────────────────────────── */
+
+.agent-workshop__gauge {
+    margin-inline-start: auto;
+}
+
+/* The welcome above the starters, gone with the first message (the chat reflects data-empty). */
+.agent-workshop__welcome {
+    max-width: var(--aparte-message-max-width);
+    margin: 0 auto var(--aparte-space-4);
+    padding-inline: var(--aparte-space-6);
+    text-align: center;
+}
+
+aparte-chat:not([data-empty]) .agent-workshop__welcome {
+    display: none;
+}
+
+.agent-workshop__welcome-title {
+    margin: 0 0 var(--aparte-space-2);
+    font-size: var(--aparte-font-size-2xl);
+    font-weight: var(--aparte-font-weight-semibold);
+    line-height: var(--aparte-line-height-tight);
+}
+
+.agent-workshop__welcome-text {
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-md);
+    line-height: var(--aparte-line-height-normal);
+}
+
+/* ── Workspace ───────────────────────────────────────────────────────────── */
+
+/* Inside the split's pane, not on it: the pane's own display is the split's, which hides it
+   when one pane shows at a time. */
+.agent-workshop__workspace {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    container-type: inline-size;
+}
+
+.agent-workshop__tabs {
+    flex: none;
+    padding-inline: var(--aparte-space-3);
+    border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.agent-workshop__panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.agent-workshop__panel[hidden] {
+    display: none;
+}
+
+.agent-workshop__empty {
+    margin: auto;
+    max-width: 22rem;
+    padding: var(--aparte-space-6);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+    text-align: center;
+}
+
+/* Files: the tree beside the code, or above it in a narrow pane. */
+.agent-workshop__files {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+}
+
+.agent-workshop__tree {
+    overflow: auto;
+    padding: var(--aparte-space-3) var(--aparte-space-2);
+    border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.agent-workshop__tree ul {
+    margin: 0 0 var(--aparte-space-3);
+    padding: 0;
+    list-style: none;
+}
+
+.agent-workshop__folder-name {
+    display: block;
+    padding: var(--aparte-space-1) var(--aparte-space-3);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+    font-weight: var(--aparte-font-weight-medium);
+}
+
+.agent-workshop__file {
+    width: 100%;
+    justify-content: flex-start;
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.agent-workshop__file[aria-current='true'] {
+    background: var(--aparte-surface-2);
+    color: var(--aparte-text);
+}
+
+.agent-workshop__file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-align: start;
+    text-overflow: ellipsis;
+}
+
+.agent-workshop__viewer {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.agent-workshop__viewer-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    min-height: 2.5rem;
+    padding: var(--aparte-space-2) var(--aparte-space-4);
+    border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.agent-workshop__path {
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The highlighted file, with line numbers drawn from the highlighter's own lines. */
+.agent-workshop__code {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-code-block-font-size);
+    line-height: var(--aparte-code-block-line-height);
+}
+
+.agent-workshop__code:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+}
+
+.agent-workshop__code pre {
+    min-height: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: var(--aparte-space-3) var(--aparte-space-4) var(--aparte-space-6) 0;
+    font: inherit;
+    counter-reset: line;
+}
+
+.agent-workshop__code .line::before {
+    counter-increment: line;
+    content: counter(line);
+    display: inline-block;
+    width: 3.5em;
+    padding-inline-end: var(--aparte-space-4);
+    box-sizing: border-box;
+    color: var(--aparte-text-muted);
+    text-align: end;
+}
+
+@container (max-width: 34rem) {
+    .agent-workshop__files {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .agent-workshop__tree {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--aparte-space-1) var(--aparte-space-3);
+        max-height: 7.5rem;
+        border-inline-end: 0;
+        border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+    }
+
+    .agent-workshop__folder {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .agent-workshop__tree ul {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0;
+    }
+
+    .agent-workshop__file {
+        width: auto;
+    }
+}
+
+/* Terminal: every run, newest last. */
+.agent-workshop__terminal {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: var(--aparte-space-3) var(--aparte-space-4);
+    background: var(--aparte-code-bg);
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-code-block-line-height);
+}
+
+.agent-workshop__terminal:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+}
+
+.agent-workshop__run + .agent-workshop__run {
+    margin-block-start: var(--aparte-space-4);
+    padding-block-start: var(--aparte-space-4);
+    border-block-start: var(--aparte-border-width) dashed var(--aparte-border);
+}
+
+.agent-workshop__prompt {
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.agent-workshop__output {
+    margin: 0;
+    font: inherit;
+    white-space: pre;
+}
+
+.agent-workshop__ok {
+    color: var(--aparte-success-ink);
+}
+
+.agent-workshop__fail {
+    color: var(--aparte-error-text);
+}
+
+.agent-workshop__dim {
+    color: var(--aparte-text-muted);
+}
+
+/* Changes: one card per edited file. */
+.agent-workshop__changes {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--aparte-space-4);
+    overflow: auto;
+    padding: var(--aparte-space-4);
+}
+
+.agent-workshop__diff-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--aparte-space-3);
+}
+
+.agent-workshop__diff-file {
+    margin: 0;
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.agent-workshop__diff-stat {
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+}
+
+.agent-workshop__diff-body {
+    overflow-x: auto;
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-code-block-font-size);
+    line-height: var(--aparte-code-block-line-height);
+}
+
+.agent-workshop__diff-body pre {
+    margin: 0;
+    padding: var(--aparte-space-3) var(--aparte-space-4);
+    font: inherit;
+}
+
+.agent-workshop__diff-body:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+}
+
+/* A changed line is painted across the whole width, in both themes. */
+.agent-workshop__diff-body .line {
+    display: inline-block;
+    min-width: 100%;
+}
+
+.agent-workshop__diff-body .line[data-diff='add'] {
+    background: var(--aparte-success-surface);
+}
+
+.agent-workshop__diff-body .line[data-diff='del'] {
+    background: var(--aparte-error-surface);
+}
+
+.agent-workshop__diff-body .line[data-diff='hunk'] {
+    color: var(--aparte-text-muted);
+}
