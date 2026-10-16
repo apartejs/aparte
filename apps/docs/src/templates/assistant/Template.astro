@@ -51,8 +51,10 @@ const suggestions = JSON.stringify([
         </div>
     </header>
     <div class="aparte-app-shell__main">
-        <!-- center-empty: a new chat holds the greeting and the composer in the middle. -->
-        <aparte-chat id="assistant-chat" center-empty>
+        <!-- A new chat holds the greeting and the composer in the middle (center-empty), set by app.ts
+             once the first view is up: in this markup it would centre the composer of a chat about
+             to open on a stored conversation, then slide it down, a layout shift. -->
+        <aparte-chat id="assistant-chat">
             <aparte-chat-viewport></aparte-chat-viewport>
             <aparte-composer placeholder="Ask anything">
                 <div class="assistant-welcome">

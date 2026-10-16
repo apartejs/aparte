@@ -41,8 +41,10 @@ import './research-assistant.css';
     </header>
     <div class="aparte-app-shell__main">
         <aparte-split position="44" label="Resize the chat and the report">
-            <!-- center-empty: a new thread holds the welcome and the composer in the middle. -->
-            <aparte-chat id="research-chat" center-empty>
+            <!-- A new thread holds the welcome and the composer in the middle (center-empty), set by
+                 app.ts once the first view is up: in this markup it would centre the composer of a
+                 chat about to open on a stored thread, then slide it down, a layout shift. -->
+            <aparte-chat id="research-chat">
                 <aparte-chat-viewport></aparte-chat-viewport>
                 <aparte-composer placeholder="Ask a research question">
                     <div class="research-welcome">

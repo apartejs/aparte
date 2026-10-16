@@ -192,14 +192,16 @@ wireThemeToggle(part<HTMLButtonElement>('[data-research-theme]'));
 
 part('aparte-suggestions').setAttribute('suggestions', JSON.stringify(SUGGESTIONS));
 
-void manager.init().then(() => {
+void manager.init().then(async () => {
     if (mode === 'play') {
         showThread([]);
         whenShown(() => void typeAndSend(composer, PLAY_QUESTION));
     } else {
         // The app and the tile open on the finished study, report beside it.
-        void controller.setConversationId(WHEELS_ID);
+        await controller.setConversationId(WHEELS_ID);
     }
+    // The welcome state, now that the first view is up (see Template.astro).
+    chat.setAttribute('center-empty', '');
 });
 
 /** Light or dark for this page, on the two attributes the site and core's tokens read. */

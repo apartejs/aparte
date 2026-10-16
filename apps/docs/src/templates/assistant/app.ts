@@ -151,6 +151,8 @@ async function main(): Promise<void> {
     } else {
         await controller.setConversationId(FIRST_CONVERSATION);
     }
+    // The welcome state, now that the first view is up (see Template.astro).
+    chat.setAttribute('center-empty', '');
 }
 
 /** Light or dark for this page, on the two attributes the site and core's tokens read. */
