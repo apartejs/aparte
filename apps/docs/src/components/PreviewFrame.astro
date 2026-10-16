@@ -125,6 +125,11 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         display: none;
     }
 
+    /* Its height is the preview's when the view switches (in script); longer code scrolls here. */
+    .aparte-preview-code {
+        overflow: auto;
+    }
+
     .aparte-preview-code :global(.aparte-doc-code) {
         margin: 0;
     }
@@ -205,7 +210,11 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         }
 
         const views = [...figure.querySelectorAll<HTMLButtonElement>('[data-view]')];
+        const code = figure.querySelector<HTMLElement>('.aparte-preview-code');
         const show = (view: HTMLButtonElement) => {
+            // The code takes the preview's height and scrolls inside it, so switching views never
+            // moves what is under the figure (nor the column beside it).
+            if (code && box && view.dataset.view === 'code' && box.offsetHeight) code.style.height = `${box.offsetHeight}px`;
             for (const tab of views) {
                 const on = tab === view;
                 tab.setAttribute('aria-selected', String(on));
