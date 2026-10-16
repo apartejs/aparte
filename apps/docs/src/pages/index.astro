@@ -182,7 +182,6 @@ const PROOF = [
 
     <div class="home">
         <section class="home-hero">
-            <a class="home-hero__version aparte-badge aparte-badge--soft" href="/changelog/">v{CORE_VERSION} · beta · what changed</a>
             <h1 class="home-hero__title">{COMPONENTS.total} components for AI chat and agents, built as Web Components</h1>
             <p class="home-hero__lede">
                 The transcript, the tools, the approvals and the composer of an AI app, streaming any model or agent — in
@@ -193,19 +192,19 @@ const PROOF = [
                     Get started <span class="home-icon" set:html={arrowRightIcon} />
                 </a>
                 <a class="aparte-btn aparte-btn--outline aparte-btn--lg" href="/components/">Browse the components</a>
-            </div>
-            <div class="home-install">
+                <div class="home-install">
                 <code class="home-install__line"><span class="home-install__prompt" aria-hidden="true">$</span> npm i @aparte/core</code>
                 <button class="aparte-btn aparte-btn--ghost aparte-btn--icon aparte-btn--sm home-install__copy" type="button" aria-label="Copy the install command" data-copy="npm i @aparte/core">
                     <span class="home-icon home-install__idle" set:html={copyIcon} />
                     <span class="home-icon home-install__done" set:html={checkIcon} />
                 </button>
+                </div>
             </div>
         </section>
 
-        <section class="home-weight" aria-labelledby="weight">
-            <h2 id="weight" class="home-weight__title">What a working chat weighs</h2>
-            <WeightChart compact />
+        <section class="home-fits" aria-labelledby="fits">
+            <h2 id="fits" class="home-fits__title">Between your framework and your model</h2>
+            <HowItFits />
         </section>
 
         <section class="home-product" aria-label="The Assistant template, live">
@@ -246,15 +245,11 @@ const PROOF = [
             </div>
         </section>
 
-        <section class="home-band" aria-labelledby="fits">
+        <section class="home-band" aria-labelledby="mount">
             <header class="home-band__head">
-                <h2 id="fits">Between your framework and your model</h2>
-                <p>
-                    The same elements render in every framework. A transport sends each turn from the browser or through
-                    your server, to the model or the agent you run.
-                </p>
+                <h2 id="mount">Two lines in your framework</h2>
+                <p>The same elements in React, Vue, Svelte, Angular or vanilla JS: install the core and place the chat.</p>
             </header>
-            <HowItFits />
             <div class="home-mount">
                 <Tabs syncKey="framework">
                     {
@@ -306,6 +301,10 @@ const PROOF = [
                 <h2 id="checked">Checked, not claimed</h2>
                 <p>A beta: the public surface is frozen, and a change to it ships with a notice. Every figure here is read from the repository when the site builds.</p>
             </header>
+            <div class="home-weight">
+                <h3 class="home-weight__title">What a working chat weighs</h3>
+                <WeightChart compact />
+            </div>
             <dl class="home-proof">
                 {
                     PROOF.map((fact) => (
@@ -424,13 +423,31 @@ const PROOF = [
         display: inline-flex;
     }
 
-    /* ── The weight, then the product, both close under the hero ───────── */
-    .home-weight {
+    /* ── The architecture, then the product, both close under the hero ── */
+    .home-fits {
         display: grid;
         gap: 0.75rem;
         width: 100%;
-        max-width: 46rem;
+        max-width: 62rem;
         margin: calc(var(--home-gap) * -0.62) auto 0;
+        min-width: 0;
+    }
+    .home-fits__title {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-align: center;
+        text-transform: uppercase;
+    }
+    /* The weights, in the proof section. */
+    .home-weight {
+        display: grid;
+        gap: 0.5rem;
+        width: 100%;
+        max-width: 46rem;
+        margin-inline: auto;
         min-width: 0;
     }
     .home-weight__title {
@@ -550,6 +567,11 @@ const PROOF = [
         max-width: 50rem;
         min-width: 0;
         margin-inline: auto;
+    }
+    /* A grid item is as wide as its longest line unless told otherwise: without this, the
+       framework tabs widened with whichever code they showed. */
+    .home-mount > :global(*) {
+        min-width: 0;
     }
 
     /* ── Skins ────────────────────────────────────────────────────────── */
