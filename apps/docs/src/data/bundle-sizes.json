@@ -1,0 +1,125 @@
+{
+  "measuredOn": "2026-10-16",
+  "before": "2026-10-17T00:00:00Z",
+  "esbuild": "0.27.7",
+  "gzipLevel": 9,
+  "react": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "reactGzip": 68867,
+  "libraries": [
+    {
+      "id": "aparte",
+      "name": "aparté",
+      "version": "0.19.2",
+      "packages": {
+        "@aparte/core": "0.19.2",
+        "@aparte/provider-openai-compat": "0.19.2",
+        "@aparte/plugin-marked": "0.19.2",
+        "@aparte/plugin-streaming-markdown": "0.19.2"
+      },
+      "startupGzip": 87615,
+      "frameworkGzip": 0,
+      "ownGzip": 87615,
+      "laterGzip": 0,
+      "cssGzip": 20158,
+      "note": "The chat with Markdown while it streams, its own client for any OpenAI-compatible API, and the agent loop with tools and approvals.",
+      "variants": []
+    },
+    {
+      "id": "loquix",
+      "name": "Loquix",
+      "version": "0.6.0",
+      "packages": {
+        "@loquix/core": "0.6.0",
+        "lit": "3.3.3"
+      },
+      "startupGzip": 26899,
+      "frameworkGzip": 0,
+      "ownGzip": 26899,
+      "laterGzip": 0,
+      "cssGzip": 905,
+      "note": "Presentational components: the six its Quick Start imports and the token sheet, plus about 50 lines of ours to stream a reply, since it ships no model client; replies are plain text.",
+      "variants": [
+        {
+          "label": "the full import its README shows",
+          "startupGzip": 83970,
+          "ownGzip": 83970
+        }
+      ]
+    },
+    {
+      "id": "deep-chat",
+      "name": "Deep Chat",
+      "version": "2.5.1",
+      "packages": {
+        "deep-chat": "2.5.1"
+      },
+      "startupGzip": 122919,
+      "frameworkGzip": 0,
+      "ownGzip": 122919,
+      "laterGzip": 0,
+      "cssGzip": 0,
+      "note": "One element with its own clients for 24 AI services (OpenAI, Claude, Gemini, Ollama…), Markdown and tool calls; its styles are inside its JavaScript.",
+      "variants": [
+        {
+          "label": "the CDN script its docs also list, served as it ships",
+          "startupGzip": 107434,
+          "ownGzip": 107434
+        }
+      ]
+    },
+    {
+      "id": "assistant-ui",
+      "name": "assistant-ui",
+      "version": "0.15.29",
+      "packages": {
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "@assistant-ui/react": "0.15.29",
+        "@assistant-ui/ai-sdk": "0.0.13",
+        "@assistant-ui/react-markdown": "0.14.23",
+        "ai": "7.0.142",
+        "@base-ui/react": "1.9.0",
+        "lucide-react": "1.58.0",
+        "cn": "0.4.0",
+        "class-variance-authority": "0.7.1",
+        "remark-gfm": "4.0.1",
+        "zustand": "5.0.15"
+      },
+      "startupGzip": 454807,
+      "frameworkGzip": 68867,
+      "ownGzip": 385940,
+      "laterGzip": 0,
+      "cssGzip": null,
+      "note": "The AI SDK runtime and the Thread its docs copy into your app: Markdown, tool calls, attachments; the model is called from your server, and its CSS is your Tailwind build’s output.",
+      "variants": [
+        {
+          "label": "its LocalRuntime with an adapter you write, in place of the AI SDK",
+          "startupGzip": 374935,
+          "ownGzip": 306068
+        }
+      ]
+    },
+    {
+      "id": "copilotkit",
+      "name": "CopilotKit",
+      "version": "1.79.1",
+      "packages": {
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "@copilotkit/react-core": "1.79.1",
+        "@copilotkit/react-ui": "1.79.1",
+        "zod": "4.6.7"
+      },
+      "startupGzip": 767594,
+      "frameworkGzip": 68867,
+      "ownGzip": 698727,
+      "laterGzip": 3015514,
+      "cssGzip": 18359,
+      "note": "Its documented React chat: Markdown, math, code highlighting, tool calls and generative UI; its runtime runs on a server and is not counted.",
+      "variants": []
+    }
+  ]
+}
