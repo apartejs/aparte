@@ -36,9 +36,11 @@ interface Props {
      * the 10rem floor and grows when the demo loads, pushing everything under it down.
      */
     height?: number;
+    /** The 375 / 768 / Full presets (default on); off where the frame is narrower than 768 anyway. */
+    widths?: boolean;
 }
 
-const { src, label, caption, code, lang = 'html', height } = Astro.props;
+const { src, label, caption, code, lang = 'html', height, widths = true } = Astro.props;
 const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
@@ -57,11 +59,15 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         {/* Presets over a free drag handle: the point is to reach the breakpoints core actually
             declares, and 375 is the one a reader cannot hit by dragging inside a documentation
             column. The handle stays for everything in between. */}
-        <div class="aparte-btn-group aparte-preview-widths" role="group" aria-label="Preview width">
-            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="375" aria-pressed="false">375</button>
-            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="768" aria-pressed="false">768</button>
-            <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="0" aria-pressed="true">Full</button>
-        </div>
+        {
+            widths && (
+                <div class="aparte-btn-group aparte-preview-widths" role="group" aria-label="Preview width">
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="375" aria-pressed="false">375</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="768" aria-pressed="false">768</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="0" aria-pressed="true">Full</button>
+                </div>
+            )
+        }
         <a class="aparte-btn aparte-btn--ghost aparte-btn--sm aparte-preview-open" href={src} target="_blank" rel="noopener">
             Open
             <span class="aparte-preview-open__glyph" set:html={externalLinkIcon} />

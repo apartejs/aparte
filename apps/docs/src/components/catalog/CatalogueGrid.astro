@@ -12,15 +12,23 @@ import { getCollection } from 'astro:content';
 
 interface Props {
     group: 'chat' | 'layout' | 'kit';
+    /** A selection of the group's pages, by slug, in the order to show them (default: all of them). */
+    only?: string[];
 }
 
-const { group } = Astro.props;
+const { group, only } = Astro.props;
 // A chat demo is written for a wide frame and reads at 40%; a kit example is a few controls and
 // would be a speck at that size, so the kit's frames zoom less.
 const scale = group === 'kit' ? 0.6 : 0.4;
-const entries = (await getCollection('docs'))
-    .filter((entry) => entry.data.catalog?.group === group)
-    .sort((a, b) => (a.data.catalog?.order ?? 0) - (b.data.catalog?.order ?? 0));
+const slug = (id: string) => id.replace(/^components\//, '');
+const all = (await getCollection('docs')).filter((entry) => entry.data.catalog?.group === group);
+const entries = only
+    ? only.map((name) => {
+          const entry = all.find((e) => slug(e.id) === name);
+          if (!entry) throw new Error(`<CatalogueGrid only>: no ${group} page named "${name}".`);
+          return entry;
+      })
+    : all.sort((a, b) => (a.data.catalog?.order ?? 0) - (b.data.catalog?.order ?? 0));
 ---
 
 <ul class="catalogue-grid not-content" style={`--tile-scale: ${scale}`}>

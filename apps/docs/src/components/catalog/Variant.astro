@@ -15,11 +15,13 @@ interface Props {
     id: string;
     /** One sentence under the frame, when the heading above it does not say enough. */
     caption?: string;
+    /** The frame's width presets (see PreviewFrame). */
+    widths?: boolean;
 }
 
-const { id, caption } = Astro.props;
+const { id, caption, widths } = Astro.props;
 const demo = findDemo(id);
 if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
 ---
 
-<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} />
+<PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} />
