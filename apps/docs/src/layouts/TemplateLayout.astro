@@ -97,7 +97,7 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
             <h1 class="template-bar__name">{meta.title}</h1>
             <a class="aparte-btn aparte-btn--ghost aparte-btn--sm template-bar__code" href={code} target="_blank" rel="noopener">View the code ↗</a>
         </header>
-        <main class="template-stage">
+        <main class="template-stage" aria-label={meta.title}>
             <slot />
         </main>
     </body>
