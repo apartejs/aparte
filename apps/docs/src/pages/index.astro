@@ -8,10 +8,10 @@
  * itself, running in a frame (no screenshot anywhere on the site).
  */
 import { arrowRightIcon, checkIcon, copyIcon } from '@aparte/core/icons';
-import CatalogueGrid from '../components/catalog/CatalogueGrid.astro';
 import Variant from '../components/catalog/Variant.astro';
 import Code from '../components/content/Code.astro';
 import { TabItem, Tabs } from '../components/content/tabs';
+import ComponentCarousel from '../components/home/ComponentCarousel.astro';
 import HowItFits from '../components/home/HowItFits.astro';
 import ProductFrame from '../components/home/ProductFrame.astro';
 import WeightChart from '../components/home/WeightChart.astro';
@@ -25,7 +25,7 @@ import { findTemplate } from '../templates/registry';
 const assistant = findTemplate('assistant');
 if (!assistant) throw new Error('The home shows the Assistant template, and the registry has none.');
 
-/** The chat pages the mosaic shows: one per kind of thing a turn holds, the composer last. */
+/** The chat pages the carousel shows: one per kind of thing a turn holds, the composer last. */
 const MOSAIC = ['message', 'reasoning', 'tool', 'code-block', 'artifact', 'approval', 'question', 'composer'];
 
 /** The same chat in each framework: the first snippet of each framework page, cut to its core. */
@@ -219,7 +219,7 @@ const PROOF = [
                     turn can hold, the person in the loop and the composer.
                 </p>
             </header>
-            <CatalogueGrid group="chat" only={MOSAIC} />
+            <ComponentCarousel only={MOSAIC} label="Chat components" />
             <a class="home-more" href="/components/">All {COMPONENTS.total} components <span class="home-icon" set:html={arrowRightIcon} /></a>
         </section>
 
@@ -491,14 +491,8 @@ const PROOF = [
         line-height: 1.6;
         text-wrap: pretty;
     }
-    /* Eight tiles, four by two; the templates two by two, large enough to read. */
-    .home-band :global(.catalogue-grid) {
-        margin: 0;
-    }
+    /* The templates two by two, large enough to read. */
     @media (min-width: 64rem) {
-        .home-band :global(.catalogue-grid) {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
         .home-band :global(.template-grid) {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             margin: 0;
