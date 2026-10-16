@@ -107,19 +107,24 @@ md += `\n${props.map((p) => p.summary).join(' ')}\n`;
 md += `
 ## Callbacks
 
-The same six events on all four wrappers, each in its own idiom. React, Vue and Angular
-hand you the payload directly; Svelte re-wraps it in a \`CustomEvent\`, so read it from
-\`event.detail\` there.
+The same events on all four wrappers, each in its own idiom. React, Vue and Angular hand you
+the payload directly. Svelte has a callback prop, with the payload, and a component event as well —
+\`on:messageSent\` and the rest — with it under \`event.detail\`.
 
-| Payload | ${frameworks.map((f) => f.label).join(' | ')} |
-| --- | ${frameworks.map(() => '---').join(' | ')} |
 `;
 
+/*
+ * Written as HTML, not as a Markdown table: five columns of code are wider than the content
+ * column, and the site's tables scroll sideways — a region a keyboard has to be able to reach,
+ * so the table takes a tab stop and a name of its own.
+ */
+const html = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+md += `\n<table tabindex="0" aria-label="The callbacks in the four frameworks">\n<thead><tr><th>Payload</th>${frameworks.map((f) => `<th>${html(f.label)}</th>`).join('')}</tr></thead>\n<tbody>\n`;
 for (const cb of callbacks) {
-    md += `| \`${esc(cb.payload)}\` | ${[cb.react, cb.vue, cb.svelte, cb.angular]
-        .map((usage) => `\`${esc(usage)}\``)
-        .join(' | ')} |\n`;
+    const cells = [cb.payload, cb.react, cb.vue, cb.svelte.replace(/^on:/, 'on'), cb.angular];
+    md += `<tr>${cells.map((c) => `<td><code>${html(c)}</code></td>`).join('')}</tr>\n`;
 }
+md += `</tbody>\n</table>\n`;
 
 md += `\n## What each callback is for\n`;
 for (const cb of callbacks) {
@@ -130,7 +135,8 @@ md += `
 ## Two things this table does not cover
 
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
-the other three take a \`bubble\` slot that receives the message. It is per-message rather
+Vue and Svelte a \`bubble\` slot that receives the message, and Angular a
+\`[bubbleTemplate]\` with the message as \`$implicit\`. It is per-message rather
 than per-region, which is why it is shaped differently — see
 [Custom bubbles](/guides/customization/bubble/).
 
