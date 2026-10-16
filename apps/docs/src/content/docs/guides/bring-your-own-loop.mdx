@@ -99,14 +99,14 @@ async function onMessageSent(event: { content: string }) {
   let comp: AparteChatImperativeApi | null = null;
   $: chat.connect(comp);
 
-  async function onMessageSent(event: CustomEvent<{ content: string }>) {
+  async function onMessageSent(event: { content: string }) {
     const id = uuid();
     chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-    await chat.injectTokenStream(id, myAgentLoop(event.detail.content));
+    await chat.injectTokenStream(id, myAgentLoop(event.content));
   }
 </script>
 
-<AparteChat bind:this={comp} messages={$messages} on:messagesChange={(e) => chat.onMessagesChange(e.detail)} on:messageSent={onMessageSent} />
+<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} onmessageSent={onMessageSent} />
 ```
 
 </TabItem>
