@@ -5,7 +5,6 @@
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
-import '@aparte/plugin-model-selector';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { followTheme, templateMode, typeAndSend, whenShown } from '../runtime';
 import { HISTORY, PLAY_QUESTION, SCENARIOS, SEED } from './scenario';
@@ -26,6 +25,11 @@ aparteGlobalConfig.registerAIProvider(model);
 aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'assistant-large' });
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 new AparteClient().start();
+
+// The model picker is defined only now, once the model is registered: it reads the providers when
+// it mounts. A dynamic import, because a bundler evaluates a static one before this module's body
+// whatever the order it is written in — measured: the picker mounted with no model to list.
+void import('@aparte/plugin-model-selector');
 
 type Viewport = HTMLElement & { setMessages(messages: typeof SEED): void };
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
