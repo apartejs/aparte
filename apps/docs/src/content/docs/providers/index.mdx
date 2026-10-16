@@ -1,0 +1,114 @@
+---
+title: Connect the chat to a model or an agent
+description: Pick the package that reaches your model — an OpenAI-compatible API, the Vercel AI SDK, a model in the browser, a scripted one — or your agent, and decide where the key lives.
+sidebar:
+  order: 1
+  label: Overview
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## Pick a package
+
+| You want to reach | Package |
+| --- | --- |
+| OpenAI, Mistral, OpenRouter, Z.ai, LM Studio, Ollama — or any other OpenAI-compatible endpoint | [`@aparte/provider-openai-compat`](/providers/ai/openai-compat/) |
+| Anthropic, Google, Amazon Bedrock, or another `@ai-sdk/*` vendor | [`@aparte/provider-ai-sdk`](/providers/ai/ai-sdk/) |
+| A model running in the browser, with no server and no key | [`@aparte/provider-transformers`](/providers/ai/transformers/) |
+| Scripted replies, for a demo or a test | [`@aparte/provider-scenario`](/providers/ai/scenario/) |
+| An agent on its own server, over AG-UI — Agno, LangGraph, Mastra, CrewAI, Pydantic AI | [`@aparte/runner-ag-ui`](/providers/agent/ag-ui/) |
+| A TanStack AI chat route | [`@aparte/runner-ag-ui`](/providers/agent/tanstack-ai/) |
+
+A provider is the wire format of a family of models: how a request is shaped and how its answer
+is read. The transport is where the request goes — from the browser to the model, or to
+[your server](/guides/backend-transport/), which keeps the key.
+
+## Wire it
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'openrouter', defaultModel: 'openai/gpt-4o-mini' });
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+new AparteClient({
+  keyResolver: (providerId) => localStorage.getItem(`${providerId}.key`) ?? undefined,
+}).start();
+```
+
+Register a provider, name the model — or let the person pick it in the
+[model selector](/components/model-selector/) — and start a client: the `<aparte-chat>` on the page
+streams from there ([Installation and first chat](/guides/getting-started/)). A provider that lists
+its models over the network selects none by itself. The browser transport is the default, so
+`setTransport` only says `byok: true` — the key is the person's own — which keeps the console from
+warning, once, that a key went out from the page.
+
+## The key
+
+`keyResolver` is asked for a provider's key on each request, and may be async — a vault, an input
+of yours:
+
+```ts
+declare const keyInput: HTMLInputElement;   // a field in your settings
+
+keyInput.addEventListener('change', () => localStorage.setItem('openrouter.key', keyInput.value.trim()));
+```
+
+It may also answer `{ apiKey, endpoint }`, which points the provider, and its list of models, at a
+host of yours. `aparteGlobalConfig.setKeyProvider(fn)` does the same for every client, and
+`registerKeyProvider(fn)` adds a source and returns the function that removes it; a client's own
+resolver is asked first. A local server — the Ollama and LM Studio presets — needs no key. A cloud
+provider without one lists no models, and the vendor refuses its requests. To keep the key off the
+browser altogether, send the requests through [your server](/guides/backend-transport/).
+
+## Agents are not providers
+
+An agent that runs its own loop and its own tools does not plug in as a provider: it plugs in one
+level up, as the client's `streamRunner`. The page registers no provider and picks no model; it
+draws what the agent streams. [AG-UI](/providers/agent/ag-ui/) and
+[TanStack AI](/providers/agent/tanstack-ai/) work this way, and so does
+[aparté's own loop on your server](/guides/server-loop/).
+
+## Write your own provider
+
+A provider is an `AparteAIProvider`, in one of two shapes:
+
+- **a format adapter** — `defaultEndpoint`, `buildRequest(request)`, `parseStream(body)`, one of
+  `authHeaders(key)` or `authQuery(key)`, and `parseText` for an answer that does not stream. The
+  transport sends the request and holds the key. This is
+  [`openai-compat`](/providers/ai/openai-compat/).
+- **its own I/O** — `chat(request, config, { providerId, signal })`, which makes the call itself,
+  through an SDK or a runtime in the page. This is [`ai-sdk`](/providers/ai/ai-sdk/) and
+  [`transformers`](/providers/ai/transformers/).
+
+A transport of your own tells the two apart with `isFormatAdapter(provider)`.
+
+Both answer `id`, `getMetadata()` — an `AparteAIProviderMetadata`, whose `name` the model selector
+shows as a group label, with an `icon` and a `color` for a picker of your own — and `getModels()`. `fetchModels` fetches the list at run time, and is
+what the [model selector](/components/model-selector/) shows; `getModelStatus`, `prepareModel`
+and `deleteModel` are for a model that has to be downloaded first. A model's `capabilities` say
+what it can do; one that declares them without `function_calling` gets no tools.
+
+A tool turn reaches the provider as an `assistant` message carrying the model's `toolCalls`, then
+one `tool` message per result, which the provider turns into its vendor's shape:
+
+```ts
+import type { AparteChatMessage } from '@aparte/core';
+
+const history: AparteChatMessage[] = [
+  { role: 'user', content: 'Any news on the beta?' },
+  { role: 'assistant', content: 'Let me look.', toolCalls: [{ id: 'call_1', name: 'search', input: { query: 'beta' } }] },
+  { role: 'tool', content: '3 results', toolCallId: 'call_1', toolName: 'search' },
+];
+```
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/ai/openai-compat/', title: 'OpenAI-compatible', line: 'OpenAI, Mistral, OpenRouter, Ollama and every compatible endpoint.' },
+        { href: '/guides/local-models/', title: 'Local models', line: 'A model on your machine, from Ollama, LM Studio or llama.cpp.' },
+        { href: '/guides/backend-transport/', title: 'Keep the key on your server', line: 'The same chat, with each request going through your server.' },
+    ]}
+/>

@@ -139,7 +139,7 @@ Live at **[apartejs.dev](https://apartejs.dev/)** — a [Starlight](https://star
 site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 - **[Getting started](./apps/docs/src/content/docs/guides/getting-started.mdx)** — your first streaming chat, no framework
-- **[Providers](./apps/docs/src/content/docs/providers/index.md)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
+- **[Providers](./apps/docs/src/content/docs/providers/index.mdx)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
 - **[Theming](./apps/docs/src/content/docs/guides/theming.mdx)** — restyle everything through CSS variables
 - **[Customization](./apps/docs/src/content/docs/guides/customization/index.mdx)** — icons, render hooks, action registries
 - **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.mdx)** — retry, edit, branches, persistence
