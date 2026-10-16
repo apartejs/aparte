@@ -55,7 +55,7 @@
  * Output (git-ignored, always regenerated):
  *   src/content/docs/reference/css-variables.md
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -536,6 +536,24 @@ if (lost.length) {
   );
   process.exit(1);
 }
+
+/*
+ * The same tokens as DATA, for the catalogue: gen-css-classes lists a kit family's own
+ * variables on its page from this file, so a default and its note are written once.
+ */
+const API = resolve(here, '../src/generated/api');
+mkdirSync(API, { recursive: true });
+writeIfChanged(
+  join(API, 'css-vars.json'),
+  `${JSON.stringify(
+    [
+      ...groups.flatMap((g) => g.tokens.map((t) => ({ name: t.name, default: t.value, note: t.note }))),
+      ...componentTokens.map((t) => ({ name: t.name, default: [...t.fallbacks][0] ?? '', note: '' })),
+    ],
+    null,
+    2,
+  )}\n`,
+);
 
 const wrote = writeIfChanged(OUT, md);
 console.log(
