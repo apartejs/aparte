@@ -47,7 +47,10 @@ body {
 .serif { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; }
 .mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace; }
 .wrap { width: min(1120px, 92vw); margin-inline: auto; }
-a { color: inherit; }
+/* A link takes the text's colour, except one wearing the button recipe: this sheet is not in a
+   layer, so a bare rule here would beat the recipe's own ink (a solid button's label went to
+   the text colour, 1.96:1 on the brass fill in dark). */
+a:not(.aparte-btn) { color: inherit; }
 
 /* Custom page scrollbar — harmonized with the Starlight docs (see
    aparte-theme.css). Dark only; light keeps the OS default, exactly like the
