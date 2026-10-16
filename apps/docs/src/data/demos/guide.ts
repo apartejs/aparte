@@ -156,6 +156,11 @@ export const GUIDE_DEMOS: DemoEntry[] = [
       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
         <aparte-icon name="edit"></aparte-icon>
       </button>
+      <!-- The header's toggle shows only while the sidebar is closed (or under 48rem):
+           on a wide window, this one is what closes it. -->
+      <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+        <aparte-icon name="menu"></aparte-icon>
+      </button>
     </div>
     <div class="aparte-sidebar__search aparte-field-group">
       <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations" data-aparte-sidebar-search>
@@ -275,72 +280,6 @@ export const GUIDE_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
-        id: 'dialog',
-        title: 'A settings dialog on the native <dialog>',
-        html: `<!-- The browser's <dialog> wearing the kit's recipe. No script: the button's
-     \`data-aparte-dialog-open\` names the dialog, \`data-aparte-dialog-close\` closes it,
-     the backdrop click closes it too. -->
-<button class="aparte-btn aparte-btn--surface" type="button" data-aparte-dialog-open="settings">Open settings</button>
-<p class="aparte-field-hint" id="settings-result">Nothing saved yet.</p>
-
-<dialog class="aparte-dialog" id="settings" aria-labelledby="settings-title">
-  <div class="aparte-dialog__header">
-    <h2 class="aparte-dialog__title" id="settings-title">Settings</h2>
-    <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-aparte-dialog-close>
-      <aparte-icon name="close"></aparte-icon>
-    </button>
-  </div>
-  <div class="aparte-dialog__body">
-    <div class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Settings section">
-      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-model" aria-controls="panel-model" aria-selected="true" tabindex="0">Model</button>
-      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-appearance" aria-controls="panel-appearance" aria-selected="false" tabindex="-1">Appearance</button>
-    </div>
-    <div class="aparte-tabs__panel" role="tabpanel" id="panel-model" aria-labelledby="tab-model">
-      <label class="aparte-field-label" for="endpoint">Endpoint</label>
-      <input class="aparte-field" id="endpoint" value="http://localhost:11434/v1">
-      <p class="aparte-field-hint">Any OpenAI-compatible server.</p>
-    </div>
-    <div class="aparte-tabs__panel" role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance" hidden>
-      <label class="aparte-field-label" for="accent">Accent</label>
-      <input class="aparte-field" id="accent" type="color" value="#b8860b">
-    </div>
-  </div>
-  <div class="aparte-dialog__footer">
-    <button class="aparte-btn aparte-btn--ghost" type="button" data-aparte-dialog-close>Cancel</button>
-    <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" data-aparte-dialog-close="saved">Save</button>
-  </div>
-</dialog>
-
-<script>
-  // The native close event carries the value of the control that closed it.
-  document.getElementById('settings').addEventListener('close', (e) => {
-    document.getElementById('settings-result').textContent =
-      e.target.returnValue === 'saved' ? 'Saved.' : 'Closed without saving.';
-  });
-
-  // The tabs. The recipe draws the row; who is selected, which panel shows and where
-  // the one tab stop sits are the app's - a tablist whose arrows do nothing announces
-  // more than plain buttons and does less. This is the whole handler.
-  const tabs = [...document.querySelectorAll('#settings [role="tab"]')];
-  const showTab = (tab) => {
-    for (const t of tabs) {
-      const on = t === tab;
-      t.setAttribute('aria-selected', String(on));
-      t.tabIndex = on ? 0 : -1;
-      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
-    }
-    tab.focus();
-  };
-  tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => showTab(tab));
-    tab.addEventListener('keydown', (e) => {
-      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-      if (step) { e.preventDefault(); showTab(tabs[(i + step + tabs.length) % tabs.length]); }
-    });
-  });
-</script>`,
-    },
-    {
         id: 'layout-overlay',
         title: 'overlay-composer: the scroll surface spans the column, the composer floats over it',
         html: `<!-- One attribute. The transcript's scroll surface takes the WHOLE column - watch the
@@ -366,75 +305,6 @@ export const GUIDE_DEMOS: DemoEntry[] = [
     </div>
   </aparte-composer>
 </aparte-chat>`,
-    },
-    {
-        id: 'layout-feed',
-        title: 'The full-width feed: no reading column',
-        html: `<!-- \`--aparte-message-max-width: none\` lifts the centred column: bubbles and the
-     composer run edge to edge with the transcript's own padding, the way a team-chat
-     feed does. The same token, set on the chat rather than on :root, keeps it to this
-     one instance. -->
-<aparte-chat style="height: 22rem; --aparte-message-max-width: none">
-  <aparte-chat-viewport>
-    <aparte-chat-bubble message-id="u1" data-role="user" content="Is this the whole width?"></aparte-chat-bubble>
-    <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes — no column here, just the transcript's padding on each side."></aparte-chat-bubble>
-  </aparte-chat-viewport>
-  <aparte-composer>
-    <div class="aparte-composer-shell">
-      <div class="aparte-composer-row">
-        <aparte-composer-input></aparte-composer-input>
-        <aparte-composer-send></aparte-composer-send>
-      </div>
-    </div>
-  </aparte-composer>
-</aparte-chat>`,
-    },
-    {
-        id: 'layout-side-panel',
-        title: 'The side panel: a chat docked in a host window',
-        html: `<!-- A docked strip in a host window — an editor, a browser sidebar, a review panel.
-     The host gives the width, so there is no room for a reading column inside it: lift
-     the token and let the chat fill the band, with one border for the seam.
-
-     Nothing else is needed. Below 520px of CHAT width the transcript switches to its
-     narrow spacing on its own — a container query on the chat, not a media query on the
-     page — so a 20rem strip and a phone share the same CSS. -->
-<style>
-  #side-panel-demo { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; height: 20rem; background: var(--aparte-surface-2) }
-  /* Under 40rem the strip stacks: a fixed 20rem column beside a 1fr one squeezed the code
-     to a sliver on a phone and let the chat overflow its host. */
-  @media (max-width: 40rem) {
-    #side-panel-demo { grid-template-columns: minmax(0, 1fr); grid-template-rows: 9rem minmax(0, 1fr); height: 30rem }
-    #side-panel-demo > aparte-chat { border-inline-start: 0; border-block-start: var(--aparte-border-width) solid var(--aparte-border) }
-  }
-</style>
-<div id="side-panel-demo">
-  <pre tabindex="0" aria-label="The file" style="margin: 0; overflow: auto; padding: var(--aparte-space-4); font-size: 0.78rem; line-height: 1.7; color: var(--aparte-text-muted)">export function createOrder(cart, customer) {
-  const lines = cart.items.map(toLine);
-  const total = lines.reduce((sum, line) =&gt; sum + line.amount, 0);
-  return { id: nextId(), customer, lines, total };
-}
-
-function toLine(item) {
-  return { sku: item.sku, qty: item.qty, amount: item.qty * item.price };
-}</pre>
-  <aparte-chat style="border-inline-start: var(--aparte-border-width) solid var(--aparte-border); --aparte-message-max-width: none">
-    <aparte-chat-viewport>
-      <aparte-chat-bubble message-id="u1" data-role="user" content="Why is total a float here?"></aparte-chat-bubble>
-      <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Because price is. Money in a float rounds badly at the third order — keep amounts in minor units and divide only when you print."></aparte-chat-bubble>
-      <aparte-chat-bubble message-id="u2" data-role="user" content="Fix toLine then."></aparte-chat-bubble>
-      <aparte-chat-bubble message-id="a2" data-role="assistant" name="Assistant" content="Done: amount is now Math.round(item.qty * item.priceCents), and total sums integers."></aparte-chat-bubble>
-    </aparte-chat-viewport>
-    <aparte-composer>
-      <div class="aparte-composer-shell">
-        <div class="aparte-composer-row">
-          <aparte-composer-input></aparte-composer-input>
-          <aparte-composer-send></aparte-composer-send>
-        </div>
-      </div>
-    </aparte-composer>
-  </aparte-chat>
-</div>`,
     },
     {
         id: 'layout-empty-state',

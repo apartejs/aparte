@@ -28,6 +28,8 @@ export const MOVED = {
     '/plugins/marked/': '/guides/markdown/',
     '/plugins/streaming-markdown/': '/guides/markdown/',
     '/plugins/shiki/': '/guides/markdown/',
+    // The app-shell guide folded into Layouts (its last section, the whole page).
+    '/guides/app-shell/': '/guides/layout/',
 };
 
 /**
