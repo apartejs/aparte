@@ -70,7 +70,7 @@ async function main(): Promise<void> {
         models: [
             { id: 'large', name: 'Large', contextWindow: 200_000, capabilities: ['streaming', 'function_calling'] },
             { id: 'fast', name: 'Fast', contextWindow: 128_000, capabilities: ['streaming', 'function_calling'] },
-            { id: 'reasoning', name: 'Reasoning', contextWindow: 200_000, capabilities: ['streaming', 'function_calling', 'reasoning'] },
+            { id: 'reasoning', name: 'Think', contextWindow: 200_000, capabilities: ['streaming', 'function_calling', 'reasoning'] },
         ],
     });
     aparteGlobalConfig.registerAIProvider(model);

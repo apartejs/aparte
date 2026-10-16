@@ -8,10 +8,18 @@
     height: 100%;
 }
 
-/* The model picker as a quiet switch in the toolbar, not a boxed form field. */
+/* The model picker as a quiet switch at the end of the toolbar, the way chat apps show it:
+   no box, the name in the muted ink, a chevron. */
 .assistant aparte-composer-toolbar {
     --aparte-select-min-width: 0;
+    --aparte-select-bg: transparent;
     --aparte-select-border: transparent;
+    --aparte-select-border-hover: transparent;
+    --aparte-select-text: var(--aparte-text-muted);
+}
+
+.assistant aparte-model-selector {
+    margin-inline-start: auto;
 }
 
 .assistant-brand {
