@@ -1,0 +1,65 @@
+/*
+ * The frame of a template's page: a thin bar, and the template in the rest of the window. The
+ * template's own look is its own (its folder's CSS, through --aparte-* tokens); this sheet only
+ * lays out the window and draws the bar, in the site's type.
+ */
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: var(--aparte-bg);
+    color: var(--aparte-text);
+    font-family: var(--aparte-font-family);
+}
+
+.template-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    min-width: 0;
+    padding-block: var(--aparte-space-2);
+    padding-inline: max(var(--aparte-space-4), env(safe-area-inset-left, 0px)) max(var(--aparte-space-4), env(safe-area-inset-right, 0px));
+    border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+    background: var(--aparte-surface-1);
+    font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    font-size: var(--aparte-font-size-sm);
+}
+
+.template-bar__name {
+    min-width: 0;
+    overflow: hidden;
+    font-weight: var(--aparte-font-weight-semibold, 600);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.template-bar__code {
+    margin-inline-start: auto;
+}
+
+/* The template fills the stage: a single child that takes all of it. */
+.template-stage {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.template-stage > * {
+    flex: 1;
+    min-height: 0;
+}
+
+/* A tile in the grid: no bar, the template is the whole frame. */
+html.template-thumb body {
+    grid-template-rows: minmax(0, 1fr);
+}
+
+html.template-thumb .template-bar {
+    display: none;
+}

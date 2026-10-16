@@ -1,0 +1,6 @@
+/* The Assistant's look: the site's type, the library's tokens. Everything is a --aparte-* knob. */
+.assistant {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --aparte-message-max-width: 46rem;
+    height: 100%;
+}

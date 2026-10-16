@@ -18,6 +18,8 @@ export interface Section {
 export const SECTIONS: Section[] = [
     { id: 'docs', label: 'Docs', href: '/guides/getting-started/', prefixes: ['/guides/', '/frameworks/', '/providers/', '/examples/'] },
     { id: 'components', label: 'Components', href: '/components/', prefixes: ['/components/', '/segments/', '/kit/', '/plugins/'] },
+    // No sidebar: the grid and the templates' own pages are not docs pages.
+    { id: 'templates', label: 'Templates', href: '/templates/', prefixes: ['/templates/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
 ];
 

@@ -1,0 +1,57 @@
+---
+/**
+ * The Assistant template: an app shell with conversations in the sidebar, the chat in the main
+ * area. The markup is the library's elements and recipes; the behaviour is app.ts.
+ */
+import './assistant.css';
+---
+
+<div class="assistant aparte-app-shell">
+    <aparte-sidebar>
+        <div class="aparte-sidebar__header">
+            <span class="aparte-sidebar__brand">Assistant</span>
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
+                <aparte-icon name="edit"></aparte-icon>
+            </button>
+        </div>
+        <div class="aparte-sidebar__search aparte-field-group">
+            <input class="aparte-field aparte-field--sm" type="search" placeholder="Search" aria-label="Search conversations" data-aparte-sidebar-search />
+        </div>
+        <div class="aparte-sidebar__body">
+            <aparte-conversation-list active-id="c1"></aparte-conversation-list>
+        </div>
+        <div class="aparte-sidebar__footer">
+            <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
+        </div>
+    </aparte-sidebar>
+    <header class="aparte-app-header">
+        <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+            <aparte-icon name="menu"></aparte-icon>
+        </button>
+        <span class="aparte-app-header__title">What is a web component?</span>
+    </header>
+    <div class="aparte-app-shell__main">
+        <aparte-chat>
+            <aparte-chat-viewport></aparte-chat-viewport>
+            <aparte-composer placeholder="Ask anything">
+                <aparte-suggestions
+                    empty-only
+                    suggestions='["What is a web component, in two sentences and an example?", "Plan a launch week for a small library", "Review this SQL migration"]'
+                ></aparte-suggestions>
+                <div class="aparte-composer-shell">
+                    <div class="aparte-composer-row">
+                        <aparte-composer-input></aparte-composer-input>
+                        <aparte-composer-send></aparte-composer-send>
+                    </div>
+                    <aparte-composer-toolbar>
+                        <aparte-model-selector></aparte-model-selector>
+                    </aparte-composer-toolbar>
+                </div>
+            </aparte-composer>
+        </aparte-chat>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>
