@@ -1,0 +1,143 @@
+---
+title: Connect OpenAI and every OpenAI-compatible endpoint
+description: One adapter for every endpoint that speaks OpenAI's chat completions — OpenAI, Mistral, OpenRouter, Z.ai, Ollama, LM Studio, and any other compatible URL such as Groq or vLLM.
+sidebar:
+  order: 2
+  label: OpenAI-compatible
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import { OPENAI_PRESETS } from '../../../../data/openai-presets';
+
+## Register a preset, or any endpoint
+
+```bash
+npm install @aparte/core @aparte/provider-openai-compat
+```
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.MISTRAL));
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({
+  id: 'groq',
+  name: 'Groq',
+  baseURL: 'https://api.groq.com/openai/v1',
+}));
+```
+
+`createOpenAICompatProvider` takes an `OpenAICompatProviderOptions`. A preset is one filled in —
+a vendor's base URL and branding — and any other endpoint takes an `id` and its `baseURL`.
+Spread a preset to change a field: `{ ...presets.OPENAI, baseURL: 'https://my-proxy.example/v1' }`.
+The key goes through the [key resolver](/providers/#the-key). Nothing is selected until you name
+a model — `aparteGlobalConfig.setModelConfig({ defaultProvider: 'mistral', defaultModel:
+'mistral-small-latest' })` — or the person picks one in the
+[model selector](/components/model-selector/).
+
+<table>
+  <thead>
+    <tr><th>Preset</th><th>Base URL</th><th>Key</th></tr>
+  </thead>
+  <tbody>
+    {OPENAI_PRESETS.map((p) => (
+      <tr>
+        <td><code>presets.{p.key}</code> — {p.name}</td>
+        <td><code>{p.baseURL}</code></td>
+        <td>{p.local ? 'none, a server on your machine' : 'yours'}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+`presets.OPENROUTER` sends OpenRouter's attribution headers, `HTTP-Referer` with the page's origin
+and `X-Title: aparté`; name your app with
+`{ ...presets.OPENROUTER, extraHeaders: { 'HTTP-Referer': location.origin, 'X-Title': 'My app' } }`.
+
+## The list of models
+
+The provider fetches `GET {baseURL}/models`, and the [model selector](/components/model-selector/)
+lists each model by its `name`, or its `id` when the server sends none; a model's `context_length`
+becomes the `contextWindow` the [context gauge](/components/context-gauge/) reads. Each fetched
+model is marked as streaming and calling tools. A cloud provider fetches nothing without a key; a
+local one — `isLocal: true`, which the Ollama and LM Studio presets set — lists its models with
+none. A `models` option gives the provider a list of its own, which the client reads for a model
+the fetched list does not have: a fetched entry with the same id wins, and the selector shows only
+the fetched list.
+
+## Fields the OpenAI format does not have
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({
+  ...presets.ZAI,
+  extraBody: { thinking: { type: 'disabled' } },
+}));
+```
+
+`extraBody` adds fields to every request body, for a vendor's own switch — here, Z.ai's `thinking`
+field — and `extraHeaders` adds headers to every request and to the list of models; spreading a
+preset with `extraHeaders` replaces its own.
+The fields the adapter writes itself stay its own: `model`, `messages`, `temperature`,
+`max_tokens`, `stream`, `stream_options`, `seed`, `tools` and `tool_choice`.
+
+## What it sends and reads
+
+| In the chat | On the wire |
+| --- | --- |
+| registered tools | `tools`, with `tool_choice: 'auto'`, or the tool a `toolChoice` forces |
+| an image part in a message | an `image_url` part; an assistant turn that calls tools goes as text only |
+| `temperature`, `maxTokens`, `seed` | `temperature`, `max_tokens`, `seed` |
+| the usage of a reply | `stream_options.include_usage`, read back as input, output, total and cached tokens |
+| reasoning | `reasoning_content` in the stream, drawn as a [reasoning block](/components/reasoning/) |
+
+The key goes as `Authorization: Bearer …`, and a key pasted with its `Bearer ` is not doubled.
+
+## Without aparté's client
+
+```ts
+import { readableToAsyncIterable } from '@aparte/core';
+import type { AparteChatRequest } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+const provider = createOpenAICompatProvider(presets.MISTRAL);
+const request: AparteChatRequest = { messages: [{ role: 'user', content: 'hi' }], modelId: 'mistral-small-latest', stream: true };
+
+const { path, body, headers } = provider.buildRequest(request);
+const response = await fetch(`${provider.defaultEndpoint}${path}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', ...headers, ...provider.authHeaders(process.env['MISTRAL_API_KEY'] ?? '') },
+  body: JSON.stringify(body),
+});
+if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);   // an error body has no events
+
+const stop = new AbortController();
+for await (const event of readableToAsyncIterable(provider.parseStream(response.body!), stop.signal)) {
+  // text, thinking, tool_use, error, then done with its usage
+}
+```
+
+The provider is the wire format alone: build the request, send it yourself, read the stream back as
+events — in a server route, a worker, another process. It is an `OpenAICompatProvider`, whose
+`buildRequest`, `authHeaders` and `parseText` are always there; `parseOpenAICompatStream(body)` is
+the same stream reader on its own. `readableToAsyncIterable` makes the stream something
+`for await` reads in every browser.
+
+## A model on your machine
+
+Ollama and LM Studio speak this format at their `/v1` endpoint — for Ollama, rather than its own
+`/api/chat`. [Local models](/guides/local-models/)
+covers the browser's permission, llama.cpp, and picking a model.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/local-models/', title: 'Local models', line: 'Ollama, LM Studio or llama.cpp, from the browser.' },
+        { href: '/providers/ai/ai-sdk/', title: 'Vercel AI SDK', line: 'Anthropic, Google and the vendors this format does not reach.' },
+        { href: '/guides/backend-transport/', title: 'Keep the key on your server', line: 'The same provider, called from your server.' },
+    ]}
+/>
