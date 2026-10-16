@@ -1,0 +1,81 @@
+---
+title: Connect Claude, Gemini and other vendors through the Vercel AI SDK
+description: Bring an @ai-sdk/* package — Anthropic, Google, Amazon Bedrock and the others the SDK supports — and the chat streams its replies, reasoning and tool calls.
+sidebar:
+  order: 3
+  label: Vercel AI SDK
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import pkg from '../../../../../../../packages/providers/ai/ai-sdk/package.json';
+
+export const AI_RANGE = pkg.peerDependencies.ai;
+
+## Install and register
+
+```bash
+npm install @aparte/core @aparte/provider-ai-sdk ai @ai-sdk/anthropic
+```
+
+```ts
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createAiSdkProvider } from '@aparte/provider-ai-sdk';
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+
+aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
+  id: 'anthropic',
+  name: 'Anthropic',
+  languageModel: (modelId, auth) =>
+    createAnthropic({
+      apiKey: typeof auth === 'string' ? auth : auth?.apiKey,
+      headers: { 'anthropic-dangerous-direct-browser-access': 'true' },   // a key used from the browser
+    })(modelId),
+}));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-4-5' });
+new AparteClient({
+  keyResolver: (providerId) => localStorage.getItem(`${providerId}.key`) ?? undefined,   // the person's key
+}).start();
+```
+
+The provider needs `ai` in the range <code>{AI_RANGE}</code> beside it, and the `@ai-sdk/*`
+package of your vendor; its options are an `AiSdkProviderOptions`. `languageModel` is called for each request with the model's id and what
+the [key resolver](/providers/#the-key) answered, so a key the person types reaches the vendor's
+SDK; a factory that already holds its key ignores `auth`. Stop cancels the vendor's call.
+
+## Choose the model
+
+The SDK has no list of models to fetch, so the [model selector](/components/model-selector/) shows
+none for this provider: choose the model with `setModelConfig`, as above, or from a control of
+your own. A `models` option gives the provider a list of its own, which the client reads for a
+model's capabilities; a model without `capabilities` is sent the tools.
+
+## What maps to what
+
+| From the SDK | In the chat |
+| --- | --- |
+| text | the reply |
+| reasoning | a [reasoning block](/components/reasoning/) |
+| a tool call | a [tool](/guides/tools/) the chat runs, then calls the model again |
+| the finish, with its usage | the end of the reply, with its tokens, cached ones included |
+| an error | the message's error |
+
+The provider calls `streamText` for one step at a time: the tools go as declarations without an
+`execute`, and the chat's loop runs them. An image in the person's message goes as an image part.
+
+## In a server route
+
+`toModelMessages`, `toToolSet`, `toToolChoice` and `fullStreamToAparteEvents` are exported on
+their own, to answer the chat from a route that already uses the SDK
+([Keep the key on your server](/guides/backend-transport/#if-your-server-already-uses-the-ai-sdk)).
+`fullStreamToAparteEvents` passes the vendor's error text along, and a vendor's refusal can quote
+parts of the key: replace an `error` event with a message of your own before it leaves the server.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/backend-transport/', title: 'Keep the key on your server', line: 'The same vendors, with the key on your server.' },
+        { href: '/providers/ai/openai-compat/', title: 'OpenAI-compatible', line: 'The vendors that speak OpenAI\'s format, with no SDK.' },
+    ]}
+/>
