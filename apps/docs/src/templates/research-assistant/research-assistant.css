@@ -269,6 +269,10 @@
     flex: none;
 }
 
+.research-pane__close {
+    flex: none;
+}
+
 .research-report {
     --aparte-prose-h1-size: 1.75em;
     --aparte-prose-h1-margin: 0 0 0.35em;

@@ -5,7 +5,8 @@
  *
  * The pane is a function of the thread: whichever thread is open, it shows the last report
  * that thread's create_artifact call produced, and a new report lands in it the moment the
- * tool returns.
+ * tool returns. A thread with no report shows the chat alone; the pane's ✕ closes it, and the
+ * report's receipt in the transcript opens it again.
  */
 import {
     aparteGlobalConfig,
@@ -34,7 +35,7 @@ import { THREADS, WHEELS_ID } from './threads';
 import { readPage, readPageTool, webSearch, webSearchTool } from './tools';
 
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
-type Split = HTMLElement & { showPane(pane: 'start' | 'end'): void };
+type Split = HTMLElement & { showPane(pane: 'start' | 'end'): void; single: boolean };
 type Sidebar = HTMLElement & { readonly drawer: boolean; close(): void };
 
 const mode = templateMode();
@@ -56,6 +57,7 @@ function part<T extends Element>(selector: string): T {
 const chat = part<HTMLElement>('aparte-chat');
 const viewport = part<AparteChatViewport>('aparte-chat-viewport');
 const composer = part<Composer>('aparte-composer');
+const input = part<HTMLElement & { focusEnd(): void }>('aparte-composer-input');
 const list = part<AparteConversationList>('aparte-conversation-list');
 const split = part<Split>('aparte-split');
 const sidebar = part<Sidebar>('aparte-sidebar');
@@ -76,10 +78,26 @@ function showPane(which: 'start' | 'end'): void {
     markPane(which);
 }
 
+/** The report beside the chat, or the chat alone: `single` keeps one pane at every width. */
+function setPaneOpen(open: boolean): void {
+    split.single = !open;
+    if (!open) showPane('start');
+}
+
 function openReport(report: Report): void {
     pane.show(report);
+    setPaneOpen(true);
     showPane('end');
 }
+
+// The ✕ takes the pane away with the focus on it: the focus goes to the receipt that opens the
+// report again, or to the composer when the thread shows none.
+part('[data-research-close]').addEventListener('click', () => {
+    setPaneOpen(false);
+    const reopen = [...viewport.querySelectorAll<HTMLButtonElement>('.research-receipt button')].at(-1);
+    if (reopen) reopen.focus();
+    else input.focusEnd();
+});
 
 /** A thread was picked, or a new one started: on a phone, close the drawer and show the chat. */
 function leaveDrawer(): void {
@@ -96,6 +114,8 @@ setupArtifacts();
 aparteGlobalConfig.registerTool(createArtifactTool(), async (call) => {
     const result = await artifactHandler(call);
     pane.show(result.structuredContent as Report);
+    // Beside the chat on a wide screen; a phone stays on the chat, where the receipt appears.
+    setPaneOpen(true);
     return result;
 });
 aparteGlobalConfig.registerTool(webSearchTool, webSearch);
@@ -170,7 +190,9 @@ function lastReport(messages: AparteMessage[]): Report | null {
 
 /** Put the pane and the context gauge on the thread just opened. */
 function showThread(messages: AparteMessage[]): void {
-    pane.show(lastReport(messages));
+    const report = lastReport(messages);
+    pane.show(report);
+    setPaneOpen(report !== null);
     // The gauge reads a turn's usage when the turn ends, and nothing on a thread that is
     // opened; this hands it the thread's last reading the way a finished turn would.
     const last = messages.filter((m) => m.role === 'assistant' && m.usage).at(-1);
