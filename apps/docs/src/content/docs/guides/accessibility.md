@@ -2,7 +2,9 @@
 title: Accessibility
 description: What aparté's components do for accessibility, what they leave to you, and what is checked automatically rather than promised.
 sidebar:
-  order: 14
+  order: 6
+guide:
+  group: look
 ---
 
 A chat is a hard surface to get right: content arrives on its own, the newest thing is at

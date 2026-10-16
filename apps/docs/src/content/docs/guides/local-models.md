@@ -2,8 +2,10 @@
 title: Chat UI for a local LLM (Ollama, LM Studio, llama.cpp)
 description: Put a chat UI on a model running on your machine — Ollama, LM Studio or llama.cpp through their OpenAI-compatible endpoint, browser-direct, no key and no backend.
 sidebar:
-  order: 15
+  order: 3
   label: Local models
+guide:
+  group: models
 ---
 
 A model on your own machine has an HTTP endpoint; aparté is the chat in front of it. This

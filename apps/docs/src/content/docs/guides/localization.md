@@ -2,8 +2,10 @@
 title: Localization
 description: Translate aparté's built-in UI strings — English ships in core, and @aparte/locale-fr adds French. Pass any AparteLocale to switch.
 sidebar:
-  order: 7
+  order: 5
   label: Localization
+guide:
+  group: look
 ---
 
 aparté's built-in UI strings — the composer placeholder, the *Copy* / *Retry* buttons, the *thinking…*

@@ -2,8 +2,10 @@
 title: Keep the key server-side — chat through your own /api/chat
 description: An OpenAI-compatible chat frontend over your own backend — route chat through your /api/chat with AparteBackendTransport and createAparteChatHandler, the key never in the browser.
 sidebar:
-  order: 8
+  order: 2
   label: Backend transport
+guide:
+  group: models
 ---
 
 Every aparté chat goes through a **transport**: *where* the request goes and *how* the

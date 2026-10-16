@@ -2,8 +2,10 @@
 title: What a tool-call UI has to show
 description: The five things a chat has to render for a tool call — the call, its arguments, its status, its result and the approval — why each one matters, and what aparté draws by default.
 sidebar:
-  order: 16
+  order: 2
   label: Tool-call UI
+guide:
+  group: agents
 ---
 
 A model that can call tools stops being a text box and starts being an agent, and the

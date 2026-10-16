@@ -2,7 +2,9 @@
 title: Troubleshooting
 description: The real first-run failures — local-model CORS, "no provider registered", the key-exposed warning, and how vendor errors surface as AparteError.
 sidebar:
-  order: 11
+  order: 2
+guide:
+  group: help
 ---
 
 The failures below are the ones that actually happen on a first run, in the order

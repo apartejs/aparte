@@ -25,8 +25,13 @@ const catalog = z
   })
   .optional();
 
+/** A guide names its group in the Docs sidebar; scripts/lib/guides.mjs reads the same field. */
+const guide = z
+  .object({ group: z.enum(['start', 'models', 'agents', 'conversations', 'look', 'help']) })
+  .optional();
+
 export const collections = {
-  docs: defineCollection({ loader: docsLoader(), schema: docsSchema({ extend: z.object({ catalog }) }) }),
+  docs: defineCollection({ loader: docsLoader(), schema: docsSchema({ extend: z.object({ catalog, guide }) }) }),
   // The path is relative to THIS Starlight project, so two levels up is the repo root.
   changelogs: defineCollection({
     loader: changelogsLoader([

@@ -2,7 +2,9 @@
 title: Asking the user a typed question
 description: "Pause a run and ask the user for typed input — a choice, a free-text answer, a small form — or for a decision (an approval, kind 'approval') — with requestUserInput and the built-in panel in the composer; replace the panel with your own presenter."
 sidebar:
-  order: 13
+  order: 3
+guide:
+  group: agents
 ---
 
 Sometimes a tool cannot finish without something only the user knows. Which of these

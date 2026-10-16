@@ -2,8 +2,10 @@
 title: 'The agent loop: running tools and streaming a reply'
 description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop AparteClient runs, plus the seam a host uses to wrap or replace it."
 sidebar:
-  order: 5
+  order: 6
   label: The agent engine
+guide:
+  group: agents
 ---
 
 `@aparte/core` runs a full **agent loop** when you drive a chat with `AparteClient`: it streams

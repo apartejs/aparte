@@ -2,8 +2,10 @@
 title: Docs for AI agents — llms.txt and the MCP server
 description: How a coding agent reads these docs — the llms.txt index and its per-topic files, and @aparte/docs-mcp, an MCP server that lets the agent search and read them.
 sidebar:
-  order: 99
+  order: 1
   label: Docs for AI agents
+guide:
+  group: help
 ---
 
 Two consumers' coding assistants could not find things these docs already had — the

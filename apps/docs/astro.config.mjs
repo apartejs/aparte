@@ -7,11 +7,15 @@ import starlightLlmsTxt from 'starlight-llms-txt';
 import starlightLinksValidator from 'starlight-links-validator';
 import { REDIRECTS } from './scripts/lib/redirects.mjs';
 import { catalogueSidebar } from './scripts/lib/catalogue.mjs';
+import { guideGroups } from './scripts/lib/guides.mjs';
 import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
 const isDev = process.env.npm_lifecycle_event === 'dev';
+
+// The Docs sidebar's groups, from each guide's own `guide.group` (scripts/lib/guides.mjs).
+const guides = guideGroups();
 
 /**
  * External links leave the site, so they open in their own tab.
@@ -132,11 +136,28 @@ export default defineConfig({
       // switched from a picker at the top (`starlight-sidebar-topics`): the reader saw a
       // quarter of the site at a time and had to know which quarter held the page, and
       // the maintainer named it as the thing that made the docs hard to read. The order
-      // inside each group still comes from each page's `sidebar.order` frontmatter,
-      // which is what keeps theming second in Guides. Groups a first visit does not need
-      // open start collapsed; Starlight opens whichever holds the current page.
+      // inside each group still comes from each page's `sidebar.order` frontmatter. Groups a
+      // first visit does not need open start collapsed; Starlight opens whichever holds the
+      // current page.
       sidebar: [
-        { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
+        // The Docs section, by what a reader came to do. Each guide names its own group
+        // (scripts/lib/guides.mjs); the framework and provider pages are listed by folder.
+        { label: 'Start here', items: guides.start },
+        { label: 'Frameworks', collapsed: true, items: [{ autogenerate: { directory: 'frameworks' } }] },
+        {
+          label: 'Models and agents',
+          collapsed: true,
+          items: [
+            { label: 'Overview', link: '/providers/' },
+            { label: 'Models', items: [{ autogenerate: { directory: 'providers/ai' } }] },
+            { label: 'Agent frameworks', items: [{ autogenerate: { directory: 'providers/agent' } }] },
+            ...guides.models,
+          ],
+        },
+        { label: 'Agents and tools', items: guides.agents },
+        { label: 'Conversations', items: guides.conversations },
+        { label: 'Look and content', items: guides.look },
+        { label: 'Help', items: guides.help },
         // Assembled, copy-me applications - the section the audit found missing: every
         // component was documented and nothing showed them put together.
         { label: 'Examples', items: [{ autogenerate: { directory: 'examples' } }] },
@@ -153,16 +174,6 @@ export default defineConfig({
             { label: 'Elements', link: '/components/elements/' },
             { label: 'Segments', link: '/segments/' },
             { label: 'UI kit', link: '/kit/' },
-          ],
-        },
-        { label: 'Frameworks', collapsed: true, items: [{ autogenerate: { directory: 'frameworks' } }] },
-        {
-          label: 'Providers',
-          collapsed: true,
-          items: [
-            { label: 'Overview', link: '/providers/' },
-            { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
-            { label: 'Agents', items: [{ autogenerate: { directory: 'providers/agent' } }] },
           ],
         },
         { label: 'Plugins', collapsed: true, items: [{ autogenerate: { directory: 'plugins' } }] },
