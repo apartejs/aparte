@@ -30,4 +30,11 @@ export const TITLER_RUNTIMES: TitlerRuntime[] = [
         installNote: 'Swift Package Manager',
         href: 'https://github.com/apartejs/aparte-titler-swift',
     },
+    {
+        language: 'Kotlin',
+        platforms: 'Android 5.0+, any JVM 8+ — from Kotlin or Java',
+        install: 'dev.apartejs:titler-latin',
+        installNote: 'Maven Central',
+        href: 'https://github.com/apartejs/aparte-titler-kotlin',
+    },
 ];
