@@ -166,6 +166,16 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
         <code>AparteTitler</code>, the runtime alone, reads any model file from the
         <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">model card</a>.
       </p>
+      <p class="sec-sub">In Kotlin, on Android or the JVM, <code>TitlerLatin</code> does the same:</p>
+      <div class="code"><pre><code><span class="kw">import</span> dev.apartejs.titler.latin.TitlerLatin
+
+<span class="kw">val</span> titler = TitlerLatin.<span class="fn">load</span>()
+titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la photosynthèse chez les plantes ?"</span>)</code></pre></div>
+      <p class="sec-note">
+        Add <code>dev.apartejs:titler-latin</code> to your Gradle dependencies; it is usable from Java
+        too. On Android, load it off the main thread. <code>dev.apartejs:titler</code>, the runtime
+        alone, reads any model file from the model card.
+      </p>
     </section>
 
     <!-- ── pick a model ─────────────────────────────────────────────────── -->
@@ -204,6 +214,7 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
         <a href="https://github.com/apartejs/aparte-titler-model" target="_blank" rel="noopener">The code &#8594;</a>
         <a href="https://www.npmjs.com/package/@aparte/titler-latin" target="_blank" rel="noopener">On npm &#8594;</a>
         <a href="https://github.com/apartejs/aparte-titler-swift" target="_blank" rel="noopener">For Swift &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-titler-kotlin" target="_blank" rel="noopener">For Kotlin &#8594;</a>
         <a href="/guides/titles/">The plugin &#8594;</a>
       </p>
     </section>
@@ -344,7 +355,7 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       .pick td:first-child { color: var(--text); white-space: nowrap; }
       .pick td:last-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
       .pick td em { display: block; font-style: normal; font-size: 12.5px; }
-      .runtimes + .sec-sub { margin-top: 22px; }
+      .runtimes + .sec-sub, .sec-note + .sec-sub { margin-top: 22px; }
       .runtimes .runtime-install { display: block; margin-top: 2px; }
       .runtimes code { overflow-wrap: anywhere; }
 
