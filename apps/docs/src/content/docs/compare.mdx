@@ -14,10 +14,11 @@ export const weight = (id) => kb(WEIGHTS.find((row) => row.id === id).total);
 If you are choosing a chat UI library for an LLM product, the libraries below are the ones you
 will shortlist. This page says what each is good at and where aparté differs — including
 the cases where you should pick the other one. Claims about other projects were checked
-against their public docs in **August 2026**; they move fast, so verify before deciding.
+against their public docs and npm packages in **October 2026**, the month the weights below were
+measured; they move fast, so verify before deciding.
 
 The short version: **aparté is the one that is a complete runtime *and* framework-agnostic
-*and* free of third-party dependencies.** The React kits have more components. The other
+*and* free of third-party dependencies.** The React kits have the larger ecosystems. The other
 web-component kits are presentational — you bring the loop. If you need neither
 framework freedom nor a runtime, you have better options than aparté, and they are named
 below.
@@ -33,16 +34,16 @@ run again.
 
 ## The matrix
 
-| | aparté | assistant-ui | AI Elements | deep-chat | Loquix | kitn |
+| Criterion | aparté | assistant-ui | AI Elements | deep-chat | Loquix | kitn |
 |---|---|---|---|---|---|---|
-| Frameworks | Web Components + React, Vue, Svelte, Angular wrappers | React | React | Web Component (+ React wrapper) | Web Component (Lit) | Web Component |
-| Runtime included (streaming, agent loop, tool calls) | **Yes** — [core](/why/) + [headless engine](/guides/engine/) | Runtime adapters (AI SDK, LangGraph, …) | Via the Vercel AI SDK | Built in, config-driven | No — presentational | No — presentational |
+| Frameworks | Web Components + React, Vue, Svelte, Angular wrappers | React (Vue bindings in early preview) | React | Web Component (+ React wrapper) | Web Components (Lit) | Web Components (+ React wrappers), built in SolidJS |
+| Runtime included (streaming, agent loop, tool calls) | **Yes** — [core](/why/) + [headless engine](/guides/engine/) | Runtime adapters (AI SDK, LangGraph, …) | Via the Vercel AI SDK | Built in, config-driven | No — presentational | No — reads a stream you open (OpenAI, Anthropic) |
 | Weight of a working chat (JavaScript and CSS, gzipped) | **{weight('aparte')}** | {weight('assistant-ui')}, React included | not measured: its components are copied into your app | {weight('deep-chat')} | {weight('loquix')}, no model client | not measured |
 | Framework you must adopt | **None** — and no third-party dependency in `@aparte/core` | React | React + the AI SDK | None | None (Lit is bundled) | None |
 | Human-in-the-loop: tool approval, typed questions | **Approval at the composer, [typed elicitation panel](/guides/elicitation/)** | Generic tool UI | Confirmation component | — | Rendered, not run | Rendered, not run |
 | Edit / retry / branch a conversation | **[Yes, with a version picker](/guides/conversations-branching/)** | Yes | Partial | — | Partial | — |
 | Persistence | [A storage interface you implement](/guides/conversation-persistence/) | A hosted cloud service (paid) | Your own | — | — | — |
-| Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables + online editor |
+| Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables (Shadow DOM) |
 | Run a model in the browser | Yes — the [transformers provider](/providers/ai/transformers/) | — | — | Yes (Web LLM) | — | — |
 | Scripted demo/test provider | **Yes — [the scenario provider](/providers/ai/scenario/)** (deterministic turns: thinking, tools, artifacts) | — | — | Demo mode (canned) | — | — |
 | Markdown, code, reasoning | Yes ([opt-in plugins](/guides/how-it-fits/#which-package-does-what)) | Yes | Yes | Yes | Yes | Yes |
@@ -59,7 +60,7 @@ halves are true.
 
 ## assistant-ui
 
-**The React reference.** A composable primitives kit (thread, composer, message, action bar,
+**The React reference**, with Vue bindings in early preview since October 2026 (`@assistant-ui/vue`, 0.0.x). A composable primitives kit (thread, composer, message, action bar,
 branch picker, chain of thought, attachments) with the widest set of runtime integrations
 in the category — the Vercel AI SDK, LangGraph, LangChain, Mastra, AG-UI, A2A and more —
 plus realtime voice, Mermaid and KaTeX rendering, and a hosted cloud for thread persistence.
@@ -106,7 +107,7 @@ is CSS and render hooks.
 
 ## Loquix
 
-**A presentational web-component kit.** A few dozen Lit components across reasoning,
+**A presentational web-component kit.** Fifty-odd Lit components, in Shadow DOM, across reasoning,
 trust, search and template categories, with accessibility as its headline. By design it
 ships no provider, no loop and no transport: it is a type-only interface you feed.
 
@@ -116,15 +117,16 @@ set of views to render its output.
 **Pick aparté when** you want the runtime too. aparté's core has no third-party dependency
 (Loquix carries Lit), and its [engine](/guides/engine/) runs the agent loop, the tool calls,
 the approval gate and the conversation compactor — the parts a presentational kit leaves
-to you. Loquix's catalogue is wider than aparté's; its roadmap points at provider
+to you. Loquix's catalogue is about as large as aparté's, with search and parameter panels aparté does not draw; its roadmap points at provider
 integrations, which is the ground aparté already covers.
 
 ## kitn
 
-**The presentational twin.** A single custom element that renders tool calls, reasoning
-traces and typed cards (confirmations, choices, forms) — "you bring the model" is the
-stated contract. Its theming is its strength: a small token set, dozens of presets and an
-online theme editor that exports CSS.
+**The presentational twin.** A set of web components written in SolidJS — a thread, a prompt
+input, a conversation list, layouts that compose them — with typed React wrappers, rendering tool
+calls, reasoning traces and typed cards (confirmations, choices, forms). It reads an OpenAI or
+Anthropic stream your app opened, and ships no HTTP client and no loop: "the kit parses, your app
+fetches". Theming is a token set (`--kai-color-*`), and its MCP server can brand it from a colour.
 
 **Pick kitn when** you want a drop-in view over a loop you run elsewhere, and a theme in
 five minutes.
@@ -151,12 +153,15 @@ aparté's [transport](/why/) is the seam that keeps it out.
 ## Also in the field
 
 - **CopilotKit** — a category above: app-state sync with agents, generative UI, LangGraph
-  co-agents, with React chat components of its own (CopilotChat, CopilotSidebar, CopilotPopup).
+  co-agents, with chat components of its own in React (CopilotChat, CopilotSidebar, CopilotPopup)
+  and now in Vue and Angular.
   If that framework is what you need, aparté is not it; aparté can still drive an agent that
   speaks its [AG-UI protocol](/providers/agent/ag-ui/).
-- **NLUX** — React and vanilla, with a modified MPL licence to read before adopting.
-- **TanStack AI** — type-safe, framework-agnostic hooks with no UI (alpha). Closer to
-  aparté's engine than to its components.
+- **NLUX** — React and vanilla, under the MPL-2.0 licence; no release since August 2024.
+- **TanStack AI** — a type-safe SDK that runs the agent loop on your server, with provider
+  adapters, MCP, durable streams and sandboxes, bindings for React, Vue, Svelte, Angular and Solid,
+  and headless chat components you style yourself. Closer to aparté's engine than to its
+  components — and aparté can [draw a TanStack AI route](/providers/agent/tanstack-ai/) as its UI.
 - **Chainlit** — Python full-stack; a different stack entirely.
 
 ## How to read this page
