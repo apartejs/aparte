@@ -1,0 +1,116 @@
+---
+title: Swap the icons and add avatars
+description: Your own icon set, the extra glyphs core ships, an avatar beside each message, and an element of your own kept in sync when the icons or the language change.
+sidebar:
+  order: 7
+  label: Icons and avatars
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import Variant from '../../../../components/catalog/Variant.astro';
+
+## Your own icons
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setIconProvider({
+  copy: () => '<svg class="aparte-icon" viewBox="0 0 24 24" aria-hidden="true">…</svg>',
+  send: () => '<i class="fa fa-paper-plane" aria-hidden="true"></i>',
+});
+```
+
+Give the icons you replace, by name; the others keep core's. Each call replaces the whole set, so
+give every icon you replace in one call. A value is markup you trust: an SVG, an icon font's
+element, an emoji, an `<img>`. An SVG or an `<img>` with `class="aparte-icon"` takes its size from
+the place it sits, through `--aparte-icon-size`, as core's glyphs do; an icon font or an emoji is
+text, and follows the `font-size` around it. The [icon names](/reference/icons/) are listed with
+every glyph; the inline message editor's save and cancel use `check` and `close`.
+
+## The extra glyphs
+
+```ts
+import { aparteGlobalConfig, type AparteIconProvider } from '@aparte/core';
+import { historyIcon, sparklesIcon } from '@aparte/core/icons';
+
+declare const myIcons: AparteIconProvider;   // the set you already gave
+
+aparteGlobalConfig.setIconProvider({ ...myIcons, retry: () => historyIcon });
+document.querySelector('#new-chat')?.insertAdjacentHTML('afterbegin', sparklesIcon);
+```
+
+`@aparte/core/icons` holds glyphs core does not draw itself, each imported by name, so a bundle
+carries the ones you use. Give one to a name core knows, or put it in your own markup.
+
+## Avatars
+
+<Variant id="message-avatars" caption="An avatar beside each message, drawn by the avatar provider." />
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setAvatarProvider({
+  render(role, host) {
+    host.setAttribute('aria-hidden', 'true');   // the message already names its author
+    host.textContent = role === 'assistant' ? 'AI' : 'Me';
+  },
+});
+```
+
+A message has no avatar until you set a provider: the slot shows once `render` fills it, and
+`setAvatarProvider(null)` stops them on the messages drawn after. Core empties the slot and calls
+`render` again
+whenever the configuration changes — a new language, a new icon set — or the message's role does.
+If `render` returns a function, core calls it before each new render and when the message goes
+away, so you can unmount a component you put there.
+
+`--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot,
+and `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` the background behind what your
+provider writes. For a picture alone, the provider still puts something in the slot, which shows
+only when filled: `host.innerHTML = '<span></span>'`.
+
+## Keep your own element in sync with the icons and language
+
+```ts
+import { subscribeConfigChange, resolveConfig } from '@aparte/core';
+
+class MySendButton extends HTMLElement {
+  private off: (() => void) | null = null;
+
+  connectedCallback(): void {
+    this.innerHTML = '<button type="button"></button>';
+    this.paint();
+    this.off = subscribeConfigChange(this, () => this.paint());
+  }
+
+  disconnectedCallback(): void {
+    this.off?.();
+    this.off = null;
+  }
+
+  private paint(): void {
+    const button = this.querySelector('button');
+    if (!button) return;
+    const config = resolveConfig(this);
+    button.innerHTML = config.getIcon('send');
+    button.setAttribute('aria-label', config.t('sendButton'));
+  }
+}
+
+customElements.define('my-send-button', MySendButton);
+```
+
+`subscribeConfigChange` calls you back when the configuration that governs your element changes —
+a new icon set, another language — and returns the function that stops it. `resolveConfig(this)`
+reads that configuration: the chat's own when the chat has one, the page-wide one otherwise, so
+place `<my-send-button>` inside the chat it should follow. Repaint the parts that change, rather
+than rebuilding the element, so its focus and its listeners stay.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/reference/icons/', title: 'Icons', line: 'Every glyph, its name, and the extra set.' },
+        { href: '/guides/localization/', title: 'Translate the chat', line: 'The labels your element reads with t().' },
+    ]}
+/>

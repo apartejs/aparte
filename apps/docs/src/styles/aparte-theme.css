@@ -25,8 +25,8 @@
 
   --aparte-plum: var(--brand-plum);     /* secondary voice, used by flourishes */
 
-  --sl-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --sl-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --sl-font: var(--brand-font-sans);
+  --sl-font-mono: var(--brand-font-mono);
   --sl-hairline-color: var(--sl-color-gray-5);
 }
 
@@ -56,54 +56,74 @@
 
 /* ── Brand polish ───────────────────────────────────────────────────────── */
 
-/* Editorial serif display on headings + the site title (matches the landing). */
+/* Headings in the one sans, set tight and semibold: the hierarchy comes from weight and
+   size, not from a second face. The serif is kept for the wordmark (site-frame.css). */
 :is(h1, h2, h3),
-.sl-markdown-content :is(h1, h2, h3),
-a.site-title {
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
-  font-weight: 400;
-  letter-spacing: -0.018em;
+.sl-markdown-content :is(h1, h2, h3) {
+  font-family: var(--brand-font-sans);
+  font-weight: 600;
+  letter-spacing: -0.022em;
 }
-/* The name itself: italic serif in the light text colour, exactly like the
-   landing wordmark (Starlight tints the site title with the accent otherwise).
-   `gap: 0` is the real fix for the wide gap: Starlight makes the title a flex
-   row (`sl-flex`) with a gap for an optional logo, which was pushing the
-   parenthesis pseudo-elements far from the name. */
-a.site-title { font-style: italic; color: var(--sl-color-white); gap: 0; }
-/* Match the landing wordmark: brass, UPRIGHT parentheses hugging the name.
-   Upright (font-style: normal) + a hair-thin gap — the default italic would
-   slant them and push them away from the word. */
-a.site-title::before { content: '('; color: var(--sl-color-accent); font-style: normal; margin-right: 0.03em; }
-a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: normal; margin-left: 0.03em; }
-
-/* Atmospheric spotlight behind the whole site (dark only, subtle). */
+/* One faint spotlight behind the top of the page (dark only). It used to be two washes,
+   brass and plum; on a reading page the second one was colour behind text. */
 :root:not([data-theme='light']) body::before {
   content: '';
   position: fixed;
   inset: 0 0 auto 0;
-  height: 60vh;
+  height: 50vh;
   pointer-events: none;
   z-index: 0;
-  background:
-    radial-gradient(48rem 30rem at 78% -12%, color-mix(in oklab, var(--sl-color-accent) 14%, transparent), transparent 62%),
-    radial-gradient(52rem 32rem at 12% -18%, color-mix(in oklab, var(--aparte-plum) 14%, transparent), transparent 60%);
+  background: radial-gradient(48rem 26rem at 72% -14%, color-mix(in oklab, var(--sl-color-accent) 9%, transparent), transparent 62%);
 }
 
-/* Links glow a touch on hover. */
-.sl-markdown-content a:hover {
-  text-shadow: 0 0 18px color-mix(in oklab, var(--sl-color-accent) 55%, transparent);
+/* Prose: a touch more air, and links that read as links without glowing. */
+.sl-markdown-content {
+  line-height: 1.75;
+}
+.sl-markdown-content a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 
-/* Inline code reads as a brass chip rather than default gray. */
+/* Inline code is a quiet chip in the page's own neutrals. In brass it was the loudest
+   thing on a page — a component page carries a dozen of them in its first paragraph,
+   and each one pulled the eye off the sentence it belonged to. Brass stays for what a
+   reader acts on: links, the current page, the primary button. */
 :not(pre) > code {
-  color: var(--sl-color-accent-high);
-  background-color: var(--sl-color-accent-low);
-  border: 1px solid color-mix(in oklab, var(--sl-color-accent) 30%, transparent);
+  color: var(--sl-color-gray-1);
+  background-color: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.3rem;
+  padding: 0.08em 0.35em;
+  font-size: 0.86em;
+}
+
+/* Asides: a neutral card with a coloured edge. Starlight paints the whole box in the
+   variant's colour, so a page that opens on two of them (getting-started) opened on a
+   purple block and an orange one before its first instruction. */
+.starlight-aside {
+  background-color: var(--sl-color-gray-6);
+  border-inline-start-width: 2px;
+  border-radius: 0 0.4rem 0.4rem 0;
+}
+/* Starlight's note is an electric blue and its tip a violet: two colours this palette
+   does not have. A note is the quiet one; a tip speaks in the brand's brass. */
+.starlight-aside--note {
+  --sl-color-asides-border: var(--sl-color-gray-4);
+  --sl-color-asides-text-accent: var(--sl-color-white);
+}
+.starlight-aside--tip {
+  --sl-color-asides-border: var(--sl-color-accent);
+  --sl-color-asides-text-accent: var(--sl-color-accent-high);
 }
 
 /* Text selection in brass. */
 ::selection {
   background: color-mix(in oklab, var(--sl-color-accent) 34%, transparent);
+}
+
+.aparte-doc-callout {
+  margin-block: 1.25rem;
 }
 
 /* Search (Pagefind): same brass focus as the chat composer — Pagefind defaults
@@ -149,36 +169,4 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
     .sl-markdown-content table :is(th, td) > code {
         white-space: nowrap;
     }
-}
-
-/* The frame stops growing at 96rem and centres as a whole. Starlight pins its sidebar
-   to the viewport's start edge (`position: fixed; inset-inline-start: 0`) and centres
-   only the article, so on a wide screen the two drift apart — at 2560px the sidebar sat
-   600px from the text it navigates. Above 96rem the three columns (sidebar, article,
-   "on this page") travel together: the fixed sidebar takes the frame's start edge as
-   its inset, the main frame caps and centres itself, and the header's row narrows to
-   match so the title and search stay over the columns they belong to. Below 96rem
-   nothing changes. The width appears twice because a media query cannot read a custom
-   property — keep the two in step. */
-:root {
-  --aparte-docs-frame: 96rem;
-}
-
-@media (min-width: 96rem) {
-  .sidebar-pane {
-    inset-inline-start: max(0px, calc(50% - var(--aparte-docs-frame) / 2));
-  }
-
-  .main-frame {
-    /* A flex item that takes auto margins stops stretching and shrinks to its content;
-       the width pins it back to the column before the cap applies. */
-    width: 100%;
-    max-width: var(--aparte-docs-frame);
-    margin-inline: auto;
-  }
-
-  header.header > .header {
-    max-width: calc(var(--aparte-docs-frame) - 2 * var(--sl-nav-pad-x));
-    margin-inline: auto;
-  }
 }

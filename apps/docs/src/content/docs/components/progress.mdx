@@ -1,0 +1,40 @@
+---
+title: Progress
+description: A progress bar, filled to a value, or moving across while the length of the wait is unknown.
+catalog:
+  group: kit
+  order: 10
+  claims:
+    classes: [progress]
+  demos: [kit-progress]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/progress.classes.mdx';
+import Vars from '../../../generated/api/kit/progress.vars.mdx';
+
+<Variant id="kit-progress" />
+
+`.aparte-progress` is the track and `.aparte-progress__bar` the part that fills, to a width you
+set. `--indeterminate` moves the bar across when you cannot say how far along the wait is. The
+[context gauge](/components/context-gauge/) is drawn with this recipe.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The recipe paints; the meaning is yours to give. A bar with a value takes
+  `role="progressbar"` with `aria-valuenow`, `aria-valuemin` and `aria-valuemax`, and a name
+  saying what is progressing.
+- The bar is drawn with a border, so it stays visible in forced-colours mode.
+
+## Related
+
+- [Spinner](/components/spinner/) — the same wait, in a ring.
+- [Context gauge](/components/context-gauge/) — a bar that measures the context window.

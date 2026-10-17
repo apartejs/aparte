@@ -123,6 +123,23 @@ export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStr
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
 const NOOP = (): void => { /* deliberately empty */ };
 
+/**
+ * Everything a chat is configured with: the providers and the selected model, the
+ * transport and the keys, the tools, the renderers and render hooks, the Markdown and
+ * highlight providers, the locale, the icons, the avatars, the actions.
+ *
+ * {@link aparteGlobalConfig} is the one every chat on the page reads. A chat that needs a
+ * configuration of its own takes a `new AparteConfig()` attached to its element or to an
+ * ancestor with {@link attachConfig}; the framework wrappers take it as their `config` prop.
+ *
+ * A change to what is drawn — providers, the model, the locale, icons, avatars, actions,
+ * renderers — reaches the components already on the page: {@link AparteConfig.subscribe | subscribe()} listeners are
+ * called, and `aparte-config-change` is dispatched on `window` with the instance that changed.
+ * The Markdown, streaming-Markdown and highlight providers, the sanitizer, segment defaults,
+ * tools, tool renderers and summaries apply to what is drawn after they are set, so set them
+ * before the chat renders; the transport, the keys and the system prompt apply from the next
+ * request.
+ */
 export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
@@ -393,7 +410,7 @@ export class AparteConfig {
      * @param sanitizer A sanitizer function (e.g. a DOMPurify wrapper) for
      *   hardened coverage, or `null` to DISABLE sanitization. Disabling exposes
      *   you to XSS from LLM-authored content — only do so for content you fully
-     *   trust and have already sanitized upstream.
+     *   trust and have already sanitized upstream. `null` prints a console warning, once.
      * @example aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
@@ -656,28 +673,22 @@ export class AparteConfig {
     }
 
     /**
-     * Add a key source, without replacing the one `setKeyProvider` holds. Returns a
-     * teardown.
-     *
-     * This is how `AparteClient({ keyResolver })` — the channel the docs teach as
-     * primary — reaches everything that needs a key rather than the chat alone. It
-     * used to reach the chat ONLY, so the model selector, whose one data path is
-     * `refreshProviderModels`, showed an empty list on every cloud provider while
-     * the chat worked: `fetchModels` returns `[]` without a key, so there was
-     * nothing to see and nothing said.
-     *
-     * The direction matters (decision #9): the client registers a source ON the
-     * config, so the capability is never hostage to the client — a page that only
-     * ever calls `setKeyProvider` is unchanged, and a page that constructs no
-     * client at all still lists models.
-     *
-     * Every call is its own source, even when the same function is handed in
-     * twice: two panes sharing one module-level resolver are two mounts, and the
-     * first one to unmount must not take the second one's key with it. A `Set`
-     * keyed by the function itself made them one entry, which either teardown
-     * removed.
+     * Add a key source beside the one {@link AparteConfig.setKeyProvider | setKeyProvider()}
+     * holds, and return the function that removes it. The sources are asked in the order they
+     * were added, then `setKeyProvider`'s, and the first answer wins. `AparteClient`'s
+     * `keyResolver` is registered this way, so the model selector can list a cloud provider's
+     * models too. Each call is a source of its own, even with the same function.
+     * @example
+     * const release = aparteGlobalConfig.registerKeyProvider((providerId) =>
+     *     providerId === 'openrouter' ? localStorage.getItem('openrouter-key') : undefined);
+     * // when what owns the key goes away:
+     * release();
      */
     registerKeyProvider(provider: AparteKeyProvider): () => void {
+        // A source on the CONFIG, not an answer from the client: the model selector reads
+        // keys through `refreshProviderModels`, and a page with no client still lists models.
+        // Wrapped, so the same function handed in twice is two sources: two panes sharing one
+        // resolver are two mounts, and the first to unmount must not take the other's key.
         const entry: AparteKeyProvider = (providerId) => provider(providerId);
         this._extraKeyProviders.add(entry);
         return () => { this._extraKeyProviders.delete(entry); };
@@ -711,9 +722,10 @@ export class AparteConfig {
     }
 
     /**
-     * Refresh models for a specific provider
-     * Orchestrates: Key Retrieval -> Fetch -> Return
-     * This keeps UI components unaware of keys.
+     * Fetch a provider's models, with the key and endpoint its key sources answer, so a
+     * component that lists models never handles a key. The list is kept, and
+     * `getCurrentModel()` reads the selected model's capabilities from it. Answers `[]` for an
+     * unknown provider, one with no `fetchModels`, or a fetch that fails (with a console warning).
      */
     async refreshProviderModels(providerId: string): Promise<AparteAIModel[]> {
         const provider = this._aiProviders.get(providerId);
@@ -741,7 +753,13 @@ export class AparteConfig {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register one or more AI providers (e.g., OpenRouter, Gemini, Anthropic)
+     * Register one or more AI providers (e.g., OpenRouter, Gemini, Anthropic).
+     *
+     * When this leaves exactly one provider registered, offering exactly one model it knows
+     * without a request (a scripted or an in-browser provider), and no model is selected,
+     * that model is selected. A provider that lists its models over the network selects
+     * nothing: name one with {@link AparteConfig.setModelConfig | setModelConfig()}, or let the
+     * person pick in `<aparte-model-selector>`.
      * @param providers AparteAIProvider implementations
      * @example
      * aparteGlobalConfig.registerAIProvider(OpenRouterProvider);
@@ -882,7 +900,8 @@ export class AparteConfig {
     /**
      * Restore previously saved model preference via the registered provider.
      * Should be called once at app startup, before any component mounts.
-     * No-op if no provider is registered or nothing was saved.
+     * No-op if no provider is registered or nothing was saved. The saved selection is
+     * applied without being saved again.
      */
     restoreModelPreference(): AparteModelPreference | null {
         if (!this._modelPreferenceProvider) return null;
@@ -897,7 +916,8 @@ export class AparteConfig {
     }
 
     /**
-     * Set model selection configuration
+     * Select the default provider and model, merged over the current selection. With a
+     * model-preference provider registered and both set, the selection is saved through it.
      */
     setModelConfig(config: AparteModelConfig): void {
         this._modelConfig = { ...this._modelConfig, ...config };
@@ -953,12 +973,6 @@ export class AparteConfig {
         return !!(this._modelConfig.defaultProvider && this._modelConfig.defaultModel);
     }
 
-    /**
-     * Opt-in UX: when enabled, `<aparte-composer>` blocks sending and greys out
-     * until {@link hasSelectedModel} is true (e.g. while the model selector is
-     * still fetching its list). Off by default so single-model / backend setups
-     * that never select a model are unaffected.
-     */
     /**
      * Elicitation policy: whether a choice offers a free-text "Other…" escape.
      *
@@ -1021,6 +1035,12 @@ export class AparteConfig {
         return this._elicitationFieldRenderer;
     }
 
+    /**
+     * Opt-in UX: when enabled, `<aparte-composer>` blocks sending and greys out
+     * until {@link hasSelectedModel} is true (e.g. while the model selector is
+     * still fetching its list). Off by default so single-model / backend setups
+     * that never select a model are unaffected.
+     */
     setRequireModelSelection(required: boolean): void {
         if (this._requireModelSelection === required) return;
         this._requireModelSelection = required;
@@ -1067,7 +1087,8 @@ export class AparteConfig {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Get translated string by key
+     * The locale's string for `key`, or the default (English) locale's when the locale
+     * leaves it out; `''` for a key neither declares.
      */
     t(key: keyof AparteLocale): string {
         const val = this._locale[key] || APARTE_DEFAULT_LOCALE[key];
@@ -1114,7 +1135,7 @@ export class AparteConfig {
 
     /**
      * Highlight code block
-     * Fallback: Returns raw code wrapped in <pre><code>
+     * Fallback: Returns raw code wrapped in `<pre><code>`
      * Supports Promise if provider is async/streaming
      */
     async highlightCode(code: string, lang: string): Promise<string> {
@@ -1156,18 +1177,11 @@ export class AparteConfig {
     }
 
     /**
-     * The registered tools' own `systemPrompt`s, joined, or `null` if none set one.
-     *
-     * `AparteTool.systemPrompt` has always been documented as "injected automatically when
-     * this tool is registered", on the type and in the tools guide — and nothing read it.
-     * A field that is documented and dead is worse than one that does not exist: a caller
-     * writes it, sees the tool work (the model has the schema either way), and never learns
-     * that the sentence explaining WHEN to reach for it was dropped. `@aparte/plugin-ask-user`
-     * sets one, so a shipped plugin was losing its instructions.
-     *
-     * Registration order, blank line between, because two tools' instructions are two
-     * paragraphs and not one run-on sentence. The app's own template stays a separate
-     * message — see `resolveSystemPrompt`, which is about the app and not about the tools.
+     * The registered tools' own `systemPrompt`s, in registration order with a blank line
+     * between, or `null` if none sets one. `AparteClient` sends them with every request, as a
+     * system message after the app's own ({@link AparteConfig.resolveSystemPrompt | resolveSystemPrompt()});
+     * a request you assemble yourself should send them the same way, or the model loses the
+     * tools' instructions.
      */
     resolveToolSystemPrompts(): string | null {
         const prompts = Array.from(this._tools.values())
@@ -1353,6 +1367,12 @@ export class AparteConfig {
      * confirmation, a text field, a form) and resolves with the user's answer.
      * The `<aparte-elicitation>` Web Component registers itself here; an app can
      * override with its own framework-native presenter. Pass `null` to clear.
+     *
+     * Several can be registered, one per chat: `owner` is an element of the chat the
+     * presenter belongs to (`<aparte-elicitation>` passes itself). A request whose `target`
+     * is inside that chat reaches its presenter; a request with no `target`, or from a chat
+     * with no presenter of its own, reaches the most recently registered one. Registering a
+     * presenter again makes it the most recent.
      */
     setElicitationPresenter(presenter: AparteElicitationPresenter | null, owner?: HTMLElement): void {
         if (presenter === null) {
@@ -1412,37 +1432,28 @@ export class AparteConfig {
     }
 
     /**
-     * Ask the user for typed input mid-run and await their response. This is the
-     * generic primitive behind `ask_user` and tool approval — the KIND of
-     * question is the schema, not a bespoke tool.
+     * Ask the person for typed input in the middle of a run, and wait for the answer. The
+     * primitive behind `ask_user` and tool approval: the kind of question is its schema.
      *
-     * **Resolves** `accept` with the value, or `decline` when the user declines.
+     * **Resolves** `accept` with the value, or `decline` when the person declines.
      *
-     * **Rejects** — it does not resolve — when the request ends without an answer, with
-     * an {@link AparteElicitationAbortError} whose `name` is `'AbortError'` and whose
-     * `reason` is `'aborted'` (the turn was stopped, the signal fired, or another request
-     * took the question away) or `'no-presenter'` (nothing was mounted to ask it). So
-     * `await` it inside a `try`, or attach a `.catch()`.
+     * **Rejects**, with no answer, with an {@link AparteElicitationAbortError} (its `name` is
+     * `'AbortError'`) whose `reason` is `'aborted'` — the turn was stopped, the signal fired,
+     * or another request took the question away — or `'no-presenter'`, when nothing is mounted
+     * to ask it (with a console warning, once). `await` it in a `try`, or attach a `.catch()`.
      *
-     * That is a change, and this block described the old behaviour for a whole release:
-     * "resolves `cancel` when the turn is cancelled", and "with NO presenter registered it
-     * resolves `cancel` rather than hanging". Both were false the moment `cancel` was
-     * removed — and the second is the one that bites, because a developer who reads
-     * "rather than hanging" writes no `.catch()` and gets an unhandled rejection. It ships
-     * in the `.d.ts` and in the custom-elements manifest, which is the API surface the
-     * docs site renders, so it was the most-read wrong sentence in the library.
-     *
-     * A value was removed rather than renamed on purpose: `cancel` was easy to handle as
-     * though it were an answer, and the approval gate did exactly that — it read a stopped
-     * turn as the user refusing a tool they were never shown.
-     *
-     * With no presenter it rejects `'no-presenter'` and warns once, because a request
-     * nobody could see is a setup mistake only the developer can fix. The default
-     * presenter is `<aparte-elicitation>`, which registers itself from its
-     * `connectedCallback` — so it has to be IN THE DOM. A docs page of ours claimed it
-     * "installs itself — nothing to register", which is how that was found.
+     * The question goes to the presenter of the chat that holds `request.target` (see
+     * {@link AparteConfig.setElicitationPresenter | setElicitationPresenter()});
+     * `<aparte-elicitation>` is the default one, and registers itself once it is in the DOM.
+     * A chat shows one question at a time: a second request in the same chat waits until the
+     * first is answered or ends, and requests with no `target` share one queue.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
+        /*
+         * There is no `cancel` result. It was easy to handle as though it were an answer,
+         * and the approval gate did: it read a stopped turn as the person refusing a tool
+         * they were never shown. A request that ends without an answer rejects instead.
+         */
         const queue = this._elicitationQueueKey(request);
         const previous = this._elicitationQueue.get(queue);
         /*
@@ -1514,12 +1525,17 @@ export class AparteConfig {
     }
 
     /**
-     * Reset ALL configuration back to defaults — providers, registries, model
-     * selection and bubble actions. Previously left `_aiProviders` / `_tools` /
-     * `_toolRenderers` / `_modelConfig` behind, which leaked across SPA
-     * navigations (registries only ever grew). Now a full reset.
+     * Put the configuration back to its defaults: the providers and the selected model,
+     * the tools with their renderers and summaries, the renderers and render hooks, the
+     * Markdown and highlight providers, the sanitizer, the system prompt, the locale, icons,
+     * avatars, actions and host handlers, the conversation manager, the question presenters
+     * and their queue. Three things stay: the transport, the key sources added with
+     * {@link AparteConfig.registerKeyProvider | registerKeyProvider()} (an `AparteClient`'s
+     * `keyResolver` among them), and the {@link AparteConfig.subscribe | subscribe()} listeners.
      */
     reset(): void {
+        // Every registry is cleared, not only the selection: they used to survive a reset
+        // and grew across single-page navigations.
         this._markdownProvider = undefined;
         this._streamingMarkdownProvider = undefined;
         this._highlightProvider = undefined;
@@ -1617,8 +1633,10 @@ function getGlobalConfig(): AparteConfig {
 }
 
 /**
- * Global configuration singleton for Aparte.
- * Use this to register providers and configure behavior.
+ * The page-wide configuration: every chat reads it unless an ancestor carries an instance of
+ * its own ({@link attachConfig}). There is one per window, kept on `window`, so two copies of
+ * the package on one page share it; off the browser (a server render, a test) each import
+ * creates its own.
  */
 export const aparteGlobalConfig = getGlobalConfig();
 

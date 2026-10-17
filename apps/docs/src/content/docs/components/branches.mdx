@@ -1,0 +1,52 @@
+---
+title: Branches
+description: Every version of a reply is kept — retry forks the conversation instead of overwriting it, and a ‹1/2› picker walks between the versions.
+catalog:
+  group: chat
+  order: 5
+  demos: [branch-picker]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="branch-picker" />
+
+Retrying a reply does not throw the old version away: it forks the conversation. The reply gets a
+sibling, and a `‹1/2›` picker appears on it as soon as there is more than one version. Editing a
+question rewrites it in place and drops the replies under it. Moving between them shows the whole conversation that followed each
+version, because the [transcript](/components/conversation/) keeps the tree and renders one path
+through it.
+
+With `AparteClient` running and retry turned on (see
+[Message actions](/components/message-actions/)), you write nothing more: the client forks, the
+viewport keeps the tree, the picker appears.
+
+## Usage
+
+The picker is drawn from the tree, so markup alone never places it. On a message you draw
+yourself, `setSiblings(count, index)` says how many versions exist and which one is shown, and
+`aparte-branch-navigate` tells you when the reader moves:
+
+```js
+bubble.setSiblings(2, 0);
+bubble.addEventListener('aparte-branch-navigate', (e) => showVersion(e.detail));
+```
+
+On the transcript, `addBranch()`, `addSiblingOf()` and `navigateBranch()` build and walk the
+tree; `exportTree()` and `importTree()` save and restore it with the conversation. The
+[conversations and branching guide](/guides/conversations-branching/) shows the whole flow.
+
+## Customize
+
+`setSiblingNavRenderer()` draws the counter between the arrows your way, for a product that writes
+"Version 2 of 3" or draws dots; the arrows stay.
+
+## Accessibility
+
+- The previous and next buttons are named from the locale (`previousResponse`, `nextResponse`).
+- The position (2 of 3) is announced through a polite live region when the reader moves.
+
+## Related
+
+- [Message actions](/components/message-actions/) — the retry and edit that create versions.
+- [Conversation](/components/conversation/) — the tree behind the picker.

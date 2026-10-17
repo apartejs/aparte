@@ -1,0 +1,49 @@
+---
+title: Tabs
+description: A row of tabs and the panel under it, underlined or segmented, on the markup of the ARIA tab pattern.
+catalog:
+  group: kit
+  order: 17
+  claims:
+    classes: [tabs]
+  demos: [kit-tabs]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/tabs.classes.mdx';
+import Vars from '../../../generated/api/kit/tabs.vars.mdx';
+
+<Variant id="kit-tabs" />
+
+Two looks, one behaviour. `--underline` marks the current tab with a rule beneath it, the quieter
+of the two, for switching views; `--segmented` puts the row in a track and fills the current tab,
+which reads as a control. The artifact card's Code and Preview are underlined tabs; this site's
+theme switch is segmented.
+
+The recipe draws the state; `aria-selected` says which tab is current, and your code sets it.
+
+## Usage
+
+The markup of the tab pattern is the whole contract: one tab stop for the row (`tabindex="0"` on
+the selected tab, `-1` on the others), `aria-controls` from each tab to its `role="tabpanel"`, and
+`aria-labelledby` back. Moving between tabs with the arrow keys is your script's; the
+[artifact plugin's card](/components/artifact/) does it in a few lines.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Use `role="tablist"`, `role="tab"` and `role="tabpanel"` with the attributes above, and the
+  arrow keys between tabs: that is what a screen reader announces and expects.
+- Hide the panels that are not selected with `hidden`.
+
+## Related
+
+- [Accordion](/components/accordion/) — several sections open at once, stacked.
+- [Artifact](/components/artifact/) — tabs in a card.

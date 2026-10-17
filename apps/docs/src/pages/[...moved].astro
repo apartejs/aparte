@@ -1,0 +1,46 @@
+---
+/**
+ * A page that moved: one small document per old address in `src/data/redirects.mjs`.
+ *
+ * Astro's own `redirects` emit a meta refresh to a fixed URL, which drops the `#anchor` a
+ * published link carries. This page forwards path, query AND anchor with `location.replace`
+ * (so the old URL does not stay in the history), and keeps the meta refresh for a reader
+ * without script. `noindex` + `canonical` tell a crawler where the page lives now.
+ */
+import { getCollection } from 'astro:content';
+import legacy from '../data/legacy-urls.json';
+import { MOVED, catalogueRedirects } from '../data/redirects.mjs';
+
+export async function getStaticPaths() {
+    // The catalogue's moves, from the collection rather than the files: this module is bundled,
+    // and scripts/lib/catalogue.mjs reads the files relative to its own location.
+    const pages = (await getCollection('docs'))
+        .filter((entry) => entry.data.catalog)
+        .map((entry) => ({ slug: entry.id.replace(/^components\//, ''), claims: entry.data.catalog!.claims }));
+    const redirects = { ...MOVED, ...catalogueRedirects(pages, legacy.urls) };
+    return Object.entries(redirects).map(([from, to]) => ({
+        params: { moved: from.replace(/^\/|\/$/g, '') },
+        props: { to },
+    }));
+}
+
+const { to } = Astro.props;
+const canonical = new URL(to, Astro.site ?? 'https://apartejs.dev').href;
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Moved to {to}</title>
+        <meta name="robots" content="noindex" />
+        <link rel="canonical" href={canonical} />
+        <script is:inline define:vars={{ to }}>
+            location.replace(to + location.search + location.hash);
+        </script>
+        <meta http-equiv="refresh" content={`0;url=${to}`} />
+    </head>
+    <body>
+        <p>This page moved to <a href={to}>{to}</a>.</p>
+    </body>
+</html>

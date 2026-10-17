@@ -167,13 +167,13 @@
    Three of them reach neither 4.5 with either colour (primary 4.46, info 4.37,
    danger 4.27); that is the palette's mid-luminance, not this file's doing. */
 .aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); --aparte-btn-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-primary-ink); }
-.aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); --aparte-btn-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); }
+.aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); --aparte-btn-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-secondary-ink); }
 /* `--neutral` no longer forces an ink. It used to set `--aparte-on-primary` (white),
    which was right on the light fill `#6d6479` (5.60) and WRONG on the dark one
    `#a89bb6` (2.62) — because the fill flips with the theme and the forced ink did not.
    The derivation below flips with it: 5.60 light, 8.03 dark. Same deletion in
    `display/badge.css` and `field.css`, which had copied this line. */
-.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); }
+.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-neutral-ink); }
 .aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); --aparte-btn-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-info-ink); }
 .aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); --aparte-btn-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-success-ink); }
 .aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); --aparte-btn-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-warning-ink); }

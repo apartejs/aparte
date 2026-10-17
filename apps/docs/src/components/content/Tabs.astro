@@ -1,0 +1,123 @@
+---
+/**
+ * Tabs in a page — the kit's `.aparte-tabs` with its panels, in place of Starlight's.
+ *
+ * The wrapper is named `starlight-tabs` on purpose, and no element is defined under that
+ * name: it is the tag starlight-llms-txt looks for when it turns tabs into a list
+ * ("label", then the panel) in llms-full.txt, and that file is read by the docs MCP server
+ * a published package ships. The rest is ours: each tab's label is its direct text, which
+ * is what the same generator reads.
+ *
+ * `syncKey` ties every group that shares it — pick React once and every framework switch
+ * on the site shows React. The choice is stored, and an inline script right after the
+ * group applies it before the page paints, so a returning reader never sees Vanilla flash
+ * first. Arrows, Home and End move between tabs; the panel follows the focus.
+ */
+interface Props {
+    syncKey?: string;
+}
+
+const { syncKey } = Astro.props;
+
+// Only links a tab to its own panel, so unique is all it has to be.
+const uid = `tabs-${Math.random().toString(36).slice(2, 8)}`;
+const html = await Astro.slots.render('default');
+const labels: string[] = [];
+const decode = (s: string) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const panels = html.replace(/<div class="site-tabs__panel" role="tabpanel" data-tab-label="([^"]*)"/g, (_match, raw: string) => {
+    const i = labels.push(decode(raw)) - 1;
+    return `<div class="site-tabs__panel" role="tabpanel" data-tab-label="${raw}" id="${uid}-panel-${i}" aria-labelledby="${uid}-tab-${i}" tabindex="0"${i ? ' hidden' : ''}`;
+});
+---
+
+<starlight-tabs class="site-tabs" data-sync-key={syncKey}>
+    {/* not-content: Starlight spaces every block of a page apart, and would push each tab but the first down. */}
+    <div class="aparte-tabs aparte-tabs--underline not-content" role="tablist">
+        {
+            labels.map((label, i) => (
+                <button
+                    class="aparte-tabs__tab"
+                    role="tab"
+                    type="button"
+                    id={`${uid}-tab-${i}`}
+                    aria-controls={`${uid}-panel-${i}`}
+                    aria-selected={i === 0 ? 'true' : 'false'}
+                    tabindex={i === 0 ? 0 : -1}
+                >{label}</button>
+            ))
+        }
+    </div>
+    <Fragment set:html={panels} />
+</starlight-tabs>
+{
+    syncKey && (
+        <script is:inline data-site-tabs-restore>
+            (() => {
+                const group = document.currentScript.previousElementSibling;
+                let want = null;
+                try { want = localStorage.getItem('site-tabs:' + group.dataset.syncKey); } catch {}
+                const tabs = [...group.querySelectorAll(':scope > [role="tablist"] > [role="tab"]')];
+                const at = tabs.findIndex((t) => t.textContent.trim() === want);
+                if (at < 1) return;
+                const panels = [...group.querySelectorAll(':scope > [role="tabpanel"]')];
+                tabs.forEach((t, i) => { t.setAttribute('aria-selected', String(i === at)); t.tabIndex = i === at ? 0 : -1; });
+                panels.forEach((p, i) => { p.hidden = i !== at; });
+            })();
+        </script>
+    )
+}
+
+<script>
+    const KEY = 'site-tabs:';
+
+    function show(group: Element, label: string): boolean {
+        const tabs = [...group.querySelectorAll<HTMLElement>(':scope > [role="tablist"] > [role="tab"]')];
+        const at = tabs.findIndex((t) => t.textContent?.trim() === label);
+        if (at < 0) return false;
+        const panels = [...group.querySelectorAll<HTMLElement>(':scope > [role="tabpanel"]')];
+        tabs.forEach((t, i) => {
+            t.setAttribute('aria-selected', String(i === at));
+            t.tabIndex = i === at ? 0 : -1;
+        });
+        panels.forEach((p, i) => (p.hidden = i !== at));
+        return true;
+    }
+
+    function choose(tab: HTMLElement): void {
+        const group = tab.closest('starlight-tabs');
+        const label = tab.textContent?.trim() ?? '';
+        if (!group) return;
+        const key = (group as HTMLElement).dataset.syncKey;
+        if (!key) {
+            show(group, label);
+            return;
+        }
+        // Every group with the same key follows. The tab that was clicked stays where it
+        // is on screen, whatever the groups above it now measure.
+        const before = tab.getBoundingClientRect().top;
+        for (const other of document.querySelectorAll(`starlight-tabs[data-sync-key="${CSS.escape(key)}"]`)) show(other, label);
+        scrollBy(0, tab.getBoundingClientRect().top - before);
+        try {
+            localStorage.setItem(KEY + key, label);
+        } catch {
+            // Without storage the choice holds for this page only.
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const tab = (event.target as Element | null)?.closest<HTMLElement>('starlight-tabs > [role="tablist"] > [role="tab"]');
+        if (tab) choose(tab);
+    });
+    document.addEventListener('keydown', (event) => {
+        const tab = (event.target as Element | null)?.closest<HTMLElement>('starlight-tabs > [role="tablist"] > [role="tab"]');
+        if (!tab) return;
+        const tabs = [...tab.parentElement!.querySelectorAll<HTMLElement>('[role="tab"]')];
+        const at = tabs.indexOf(tab);
+        const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[event.key];
+        if (to === undefined) return;
+        event.preventDefault();
+        const next = tabs[(to + tabs.length) % tabs.length]!;
+        next.focus();
+        choose(next);
+    });
+</script>

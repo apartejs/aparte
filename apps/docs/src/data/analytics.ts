@@ -20,3 +20,10 @@ export const UMAMI_SRC = 'https://analytics.paulrichez.fr/script.js';
 
 /** The `apartejs.dev` website in Umami. Public: it ships in the page. */
 export const UMAMI_WEBSITE_ID = 'd95776e4-9093-4a26-9a27-4dbc4ecf0bc1';
+
+/**
+ * The hostnames a visit is counted on (Umami's `data-domains`). Without it a built site served
+ * anywhere else — `astro preview`, a local check of the production build — counts as a visit.
+ * www.apartejs.dev answers with a redirect to this one, so it needs no entry.
+ */
+export const UMAMI_DOMAINS = 'apartejs.dev';

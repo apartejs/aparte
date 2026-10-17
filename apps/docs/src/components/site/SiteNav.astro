@@ -1,0 +1,52 @@
+---
+/**
+ * The site's navigation, as the library's own `<aparte-sidebar>`: a sticky column beside a
+ * docs page from 48rem, a drawer under it on every page.
+ *
+ * The drawer holds the sections first — the header has no room for them on a phone — then
+ * the current section's pages (the default slot). A page with no section, like the home,
+ * gets the drawer with the sections alone, and no column on a wide screen.
+ *
+ * The element's JS is the library's, and it arrives only where the drawer is needed: under
+ * 48rem, or the moment a window narrows to it. A wide screen reads a column that needs no
+ * behaviour, so it never pays for one; before the upgrade, the narrow drawer stays hidden
+ * (site-frame.css) rather than flashing open as a column.
+ */
+import { SECTIONS } from './sections';
+
+interface Props {
+    section?: string | undefined;
+    /** The accessible name of the section's page list. */
+    label?: string | undefined;
+    /** Whether the section has a page list to show (the default slot). */
+    hasTree: boolean;
+}
+
+const { section, label, hasTree } = Astro.props;
+---
+
+<aparte-sidebar class="aparte-sidebar site-nav" id="site-nav" data-has-tree={hasTree ? '' : undefined} data-pagefind-ignore>
+    <nav class="site-nav__sections" aria-label="Sections">
+        {
+            SECTIONS.map((s) => (
+                <a class="site-nav__section" href={s.href} aria-current={s.id === section ? 'true' : undefined}>
+                    {s.label}
+                </a>
+            ))
+        }
+    </nav>
+    {
+        hasTree && (
+            <nav class="aparte-sidebar__body site-nav__tree" aria-label={label}>
+                <slot />
+            </nav>
+        )
+    }
+</aparte-sidebar>
+
+<script>
+    const narrow = matchMedia('(max-width: 48rem)');
+    const upgrade = () => void import('@aparte/core');
+    if (narrow.matches) upgrade();
+    else narrow.addEventListener('change', (event) => { if (event.matches) upgrade(); }, { once: true });
+</script>

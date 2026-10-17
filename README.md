@@ -1,10 +1,16 @@
 # aparté
 
-**Framework-agnostic AI Chat Web Components.** Drop an
-`<aparte-chat>` onto any page — React, Vue, Svelte, Angular, or none at all —
-wire it to any LLM through a pluggable transport, and restyle everything with CSS
+**AI chat and agent UI components, built as Web Components — with the runtime inside.**
+Everything an AI chat shows, each piece [on its own page with live variants](https://apartejs.dev/components/):
+the conversation, messages with Markdown and code, reasoning, tool calls a human approves,
+the questions an agent asks, the composer and its model picker — then the layout around it
+(app shell, sidebar, conversation list) and a UI kit for the rest of your app. Use them in
+React, Vue, Svelte, Angular or plain HTML, connect any model, restyle everything with CSS
 variables. **Zero third-party dependencies** at the core.
-See [how it compares](https://apartejs.dev/compare/) with assistant-ui, Deep Chat and Loquix.
+
+Start from a [template](https://apartejs.dev/templates/) — an assistant, an agent workshop, a
+support widget, a research assistant — or see [how it compares](https://apartejs.dev/compare/)
+with assistant-ui, AI Elements, Deep Chat and Loquix.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![npm (beta)](https://img.shields.io/npm/v/@aparte/core/beta?label=npm%20beta&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/beta)
@@ -24,6 +30,16 @@ See [how it compares](https://apartejs.dev/compare/) with assistant-ui, Deep Cha
 
 ## Why aparté
 
+- **The whole chat, as components.** Conversation, message actions and branches,
+  attachments, reasoning, code blocks, tool calls, artifacts, errors, approvals, questions,
+  suggestions, a model picker, a context gauge — and the shell around them. Each one is
+  documented with its variants running live, not as a screenshot.
+- **The runtime is included.** Streaming, the agent loop (`@aparte/engine`) and tool calls
+  come with the components — or keep your own loop and
+  [stream its replies](https://apartejs.dev/guides/bring-your-own-loop/) into the chat.
+- **A human in the loop.** Mark a tool `needsApproval` and the user approves or rejects the
+  call; the agent can ask typed questions; and with the
+  [server loop](https://apartejs.dev/guides/server-loop/) an approval survives a reload.
 - **Framework-agnostic core.** One engine — vanilla Web Components — renders the
   *same* chat everywhere. Thin wrappers give React/Vue/Svelte/Angular an
   ergonomic component; with no framework, use the `<aparte-*>` custom elements
@@ -35,9 +51,6 @@ See [how it compares](https://apartejs.dev/compare/) with assistant-ui, Deep Cha
   `AparteBackendTransport` (your `/api/chat`, key stays server-side). Providers cover
   the OpenAI-compatible family, the Vercel AI SDK (25+ vendors), and in-browser
   Transformers.js.
-- **Streaming, typed segments, tools.** Replies stream as typed segments — text,
-  markdown, code, chain-of-thought — including a `tool_call` segment with a
-  built-in **human-in-the-loop** approve/reject gate.
 - **Yours to restyle.** Theme everything through CSS variables (no forking), swap
   icons and render hooks, and localise the UI strings (English built-in, French
   shipped).
@@ -79,7 +92,7 @@ chat.addEventListener('aparte-send', (e) =>
 ```
 
 A real streaming, bring-your-own-key chat — no backend, no build magic.
-→ **[Getting started](./apps/docs/src/content/docs/guides/getting-started.md)**
+→ **[Getting started](./apps/docs/src/content/docs/guides/getting-started.mdx)**
 
 ## Any framework
 
@@ -108,10 +121,10 @@ export function Chat() {
 
 | Framework | Package | Guide |
 |---|---|---|
-| React 18 / 19 | `@aparte/react` | [React](./apps/docs/src/content/docs/frameworks/react.md) |
-| Vue 3 | `@aparte/vue` | [Vue](./apps/docs/src/content/docs/frameworks/vue.md) |
-| Svelte | `@aparte/svelte` | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.md) |
-| Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.md) |
+| React 18 / 19 | `@aparte/react` | [React](./apps/docs/src/content/docs/frameworks/react.mdx) |
+| Vue 3 | `@aparte/vue` | [Vue](./apps/docs/src/content/docs/frameworks/vue.mdx) |
+| Svelte | `@aparte/svelte` | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.mdx) |
+| Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.mdx) |
 
 Runnable examples for every framework (plus vanilla) live in
 [`apps/examples`](./apps/examples).
@@ -138,15 +151,15 @@ Runnable examples for every framework (plus vanilla) live in
 Live at **[apartejs.dev](https://apartejs.dev/)** — a [Starlight](https://starlight.astro.build/)
 site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
-- **[Getting started](./apps/docs/src/content/docs/guides/getting-started.md)** — your first streaming chat, no framework
-- **[Providers](./apps/docs/src/content/docs/providers/index.md)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
-- **[Theming](./apps/docs/src/content/docs/guides/theming.md)** — restyle everything through CSS variables
-- **[Customization](./apps/docs/src/content/docs/guides/customization.md)** — icons, render hooks, action registries
-- **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.md)** — retry, edit, branches, persistence
-- **[The agent engine](./apps/docs/src/content/docs/guides/engine.md)** — the headless `runStreamAgent` loop
-- **[Tools & human-in-the-loop](./apps/docs/src/content/docs/guides/tools.md)** — function calling with an approve/reject gate
-- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.md)** — your `/api/chat`, key stays server-side
-- **[Bring your own loop](./apps/docs/src/content/docs/guides/bring-your-own-loop.md)** — display-only mode for an external agent loop
+- **[Getting started](./apps/docs/src/content/docs/guides/getting-started.mdx)** — your first streaming chat, no framework
+- **[Providers](./apps/docs/src/content/docs/providers/index.mdx)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
+- **[Theming](./apps/docs/src/content/docs/guides/theming.mdx)** — restyle everything through CSS variables
+- **[Customization](./apps/docs/src/content/docs/guides/customization/index.mdx)** — icons, render hooks, action registries
+- **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.mdx)** — retry, edit, branches, persistence
+- **[The agent engine](./apps/docs/src/content/docs/guides/engine.mdx)** — the headless `runStreamAgent` loop
+- **[Tools & human-in-the-loop](./apps/docs/src/content/docs/guides/tools.mdx)** — function calling with an approve/reject gate
+- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.mdx)** — your `/api/chat`, key stays server-side
+- **[Bring your own loop](./apps/docs/src/content/docs/guides/bring-your-own-loop.mdx)** — display-only mode for an external agent loop
 
 ## Status
 

@@ -12,6 +12,7 @@
  * properties to resolve.
  */
 import { getCollection } from 'astro:content';
+import { TEMPLATES } from '../../templates/registry';
 import { OGImageRoute } from 'astro-og-canvas';
 import { ogSlug } from '../../lib/og-slug';
 
@@ -42,6 +43,10 @@ const pages = Object.fromEntries([
     // og:image:alt strings (in each page) are written FROM these two entries.
     ['models', { title: 'Small models, one task each', description: 'The models aparté publishes: built for one job in a chat, light enough to run in the browser, with no API call.' }],
     ['models/titler', { title: 'A title for every conversation, as you type', description: 'aparte-titler picks 3 to 6 words out of the first message. 133 KB for 17 languages, a few milliseconds per title, nothing leaves the page.' }],
+    // /templates/ and each template's page are Astro pages too; a template's card is read from
+    // its own meta.ts, so a template that joins the grid gets its card with nothing to add here.
+    ['templates', { title: 'Templates', description: 'Whole apps built with aparté, running live. Open one, use it, copy its code.' }],
+    ...TEMPLATES.map((t) => [`templates/${t.slug}`, { title: t.title, description: t.description }]),
     ...docs.map(({ id, data }) => [ogSlug(id), { title: data.title, description: data.description }]),
 ]);
 

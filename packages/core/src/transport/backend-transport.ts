@@ -36,7 +36,7 @@ export interface BackendTransportOptions {
  * NDJSON of `AparteStreamEvent` (see `parseAparteEventStream`).
  *
  * The matching `/api/chat` handler ships as a real, framework-free function —
- * {@link createAparteChatHandler} (Web `fetch` API, same @aparte adapters run
+ * {@link createAparteChatHandler} (Web `fetch` API, same `@aparte/*` adapters run
  * server-side, key held server-side). Drop it into a Next.js route handler,
  * Deno, Bun, or a Worker rather than hand-rolling one.
  */

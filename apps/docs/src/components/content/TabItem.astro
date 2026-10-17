@@ -1,0 +1,10 @@
+---
+/** One panel of a `<Tabs>`: its label names the tab. Tabs.astro numbers and wires it. */
+interface Props {
+    label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<div class="site-tabs__panel" role="tabpanel" data-tab-label={label}><slot /></div>

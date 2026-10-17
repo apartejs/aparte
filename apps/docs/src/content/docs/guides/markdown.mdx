@@ -1,0 +1,176 @@
+---
+title: Render Markdown and highlight code
+description: Turn the Markdown a model writes into formatted text and coloured code, while the reply streams and once it is done.
+sidebar:
+  order: 3
+  label: Markdown and code
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="response-streaming" caption="Markdown formatted as it streams: the list grows item by item." />
+
+## Install and register
+
+```bash
+npm install @aparte/plugin-streaming-markdown streaming-markdown @aparte/plugin-marked marked @aparte/plugin-shiki shiki
+```
+
+```ts
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupShikiProvider } from '@aparte/plugin-shiki';
+
+setupStreamingMarkdownProvider();
+setupMarkedProvider();
+setupShikiProvider({ theme: { light: 'github-light', dark: 'github-dark' } });
+```
+
+Core has no Markdown of its own: with no renderer set, a reply shows its text as written, escaped.
+Each plugin needs its library installed beside it — `streaming-markdown`, `marked`, `shiki` — and
+none of it reaches a page that does not install the plugin. Register them before the chat
+renders: a message drawn earlier keeps the plain text it was drawn with.
+
+## Which one formats what
+
+- **`@aparte/plugin-streaming-markdown`** formats the reply while it streams, adding what each
+  chunk brings instead of formatting the whole reply again. Alone, it formats finished and
+  restored messages too.
+- **`@aparte/plugin-marked`** formats a finished or restored message at full fidelity. Beside the
+  streaming plugin, it formats a reply again once it finishes; alone, it formats a streaming reply
+  too, from the start at each chunk.
+- **`@aparte/plugin-shiki`** colours code: the code blocks of a reply — the stream parser makes
+  each fence its own block — the fences in a message given as plain content and in reasoning, and
+  the JSON a tool call shows. A fence inside a `text` segment you build yourself stays plain: send
+  it as a `code` segment.
+
+To pass marked its options, give them to the setup: `setupMarkedProvider({ gfm: true, breaks: true })`.
+With options it uses a marked of its own, so two configurations can format differently. Another
+parser plugs into the same place: `aparteGlobalConfig.setMarkdownProvider((markdown) => html)`,
+a synchronous function from the Markdown to its HTML.
+
+## Light and dark code
+
+The theme pair above follows the page: the dark theme under `data-aparte-theme="dark"` on any
+element around the code, or under a dark system unless `<html>` carries
+`data-aparte-theme="light"`; the light one otherwise. A chat set light inside a dark page therefore
+keeps dark code. A single theme name, such as `{ theme: 'github-dark' }`, keeps that look in both,
+and with no `theme` at all code uses `github-dark` in both. A language shiki does not know shows as
+plain text.
+
+## Ship only the grammars you need
+
+```bash
+npm install @shikijs/langs @shikijs/themes
+```
+
+```ts
+import { createHighlighterCore } from 'shiki/core';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+import ts from '@shikijs/langs/typescript';
+import bash from '@shikijs/langs/bash';
+import githubDark from '@shikijs/themes/github-dark';
+import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
+
+createHighlighterCore({
+  themes: [githubDark],
+  langs: [ts, bash],
+  engine: createJavaScriptRegexEngine(),
+}).then((highlighter) => setupShikiProviderFromHighlighter(highlighter, { theme: 'github-dark' }));
+```
+
+This replaces the `setupShikiProvider` call of the first step: an import of `@aparte/plugin-shiki`
+anywhere in your app brings every grammar back. That entry loads each grammar the first time a
+reply needs it, but your bundler cannot know which ones that will be, so it emits a file for every
+language shiki knows. The `/core` entry takes a highlighter you build with the grammars you choose,
+and your build carries those alone; a language it lacks shows as plain text. For a light and dark
+pair, load both themes into it: `themes: [githubLight, githubDark]`.
+
+The options are typed: `ShikiProviderOptions` for `setupShikiProvider`, `ShikiCoreProviderOptions`
+for the `/core` entry, `ShikiThemePair` for a light and a dark theme. A highlighter of your own
+passed to `/core` is a `ShikiHighlighterLike`, called with `ShikiRenderOptions`.
+
+## Use another highlighter
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare const myHighlighter: { toHtml(code: string, lang: string): Promise<string> };
+
+aparteGlobalConfig.setHighlightProvider((code, lang) => myHighlighter.toHtml(code, lang));
+```
+
+The provider gets the code and its language, and returns the whole block as HTML, `<pre>` included,
+as a string or a promise of one.
+
+## Keep it safe
+
+{/* doc-check: skip dompurify is the reader's install, not one of this repo's */}
+```ts
+import DOMPurify from 'dompurify';
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+```
+
+What marked and a highlighter return goes through the chat's HTML sanitizer before it reaches the
+page, and so does a streamed reply once it finishes, so the Markdown a model writes cannot run
+script. While a reply streams, a link or an image with an unsafe address is dropped, and a link to
+another site opens in a new tab. The built-in sanitizer needs no dependency;
+[`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer) swaps in one of yours, such as
+DOMPurify.
+
+## Route the links a model writes
+
+```ts
+declare const router: { push(path: string): void };   // your app's router
+
+const chat = document.querySelector('aparte-chat');
+
+chat?.addEventListener('aparte-link-click', (event) => {
+  const url = new URL(event.detail.href, location.href);
+  if (url.origin !== location.origin) return;   // another site: let the browser open it
+  event.preventDefault();                       // this one is yours
+  router.push(url.pathname + url.search);
+});
+```
+
+Before the browser follows a link in a reply, the message fires `aparte-link-click`. It bubbles, so
+one listener on the chat covers every message, and it can be cancelled: call `preventDefault()` and
+the navigation is yours — your router, a webview, a question first. The detail is
+`{ href, anchor, messageId }`.
+
+## Two chats, two setups
+
+```ts
+import { AparteConfig, attachConfig } from '@aparte/core';
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupShikiProvider } from '@aparte/plugin-shiki';
+
+const support = new AparteConfig();
+setupStreamingMarkdownProvider(support);
+setupMarkedProvider({ breaks: true }, support);
+setupShikiProvider({ theme: 'github-dark' }, support);
+
+const chat = document.querySelector<HTMLElement>('#support-chat');
+if (chat) attachConfig(chat, support);
+```
+
+Every setup takes a configuration as its last argument, the page-wide one by default. A
+configuration of your own starts from the built-in defaults and reads nothing the page-wide one
+registered, so set up on it every formatter that chat uses; attached to a chat, it formats that chat
+alone. The framework packages take it as their `config` prop.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/response/', title: 'Response', line: 'The formatted reply, its variants and its options.' },
+        { href: '/components/code-block/', title: 'Code block', line: 'Code as its own part of a reply, with its language and copy button.' },
+        { href: '/guides/customization/', title: 'Customization', line: 'Your own way to draw a part of a message.' },
+    ]}
+/>

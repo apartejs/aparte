@@ -1,0 +1,7 @@
+---
+/** Starlight's header, replaced by the one every page of the site wears. */
+import SiteHeader from '../site/SiteHeader.astro';
+import { sectionOf } from '../site/sections';
+---
+
+<SiteHeader section={sectionOf(Astro.url.pathname)?.id} />

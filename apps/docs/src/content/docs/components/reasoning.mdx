@@ -1,0 +1,92 @@
+---
+title: Reasoning
+description: The model's reasoning, folded above its answer — streamed while it thinks, closed once it is done, opened by the reader who wants to know why.
+catalog:
+  group: chat
+  order: 9
+  claims:
+    segments: [thinking]
+  demos: [thinking, thinking-streaming, thinking-open]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/thinking.fields.mdx';
+
+<Variant id="thinking" />
+
+A reasoning block is a `thinking` segment, drawn as a disclosure above the answer. It is closed
+by default: the answer is what a reader came for, and the reasoning is one click away. A model
+that streams its reasoning (a `<think>` block, or a provider's reasoning channel) produces the
+segment during the turn; you can also build one yourself, as these demos do.
+
+## Variants
+
+### While it streams
+
+<Variant id="thinking-streaming" />
+
+The block takes tokens as they arrive. `isStreaming: true` marks it open-ended; the client
+settles it with `isStreaming: false` when the reasoning ends.
+
+### Opened on purpose
+
+<Variant id="thinking-open" />
+
+Leave `collapsed` out and the block is closed. Set `collapsed: false` for a reply whose
+reasoning is the point, such as a worked answer.
+
+## Customize
+
+The label reads "Thinking" until you set `label` on the segment. The library measures how long
+the block streamed but writes no duration of its own, because products phrase it differently
+("Thought for 8s", "8.2s · 1.2k tokens"). Write yours by wrapping the built-in renderer:
+
+```ts
+import { getSegmentRenderer, registerSegmentRenderer, isSegmentSettled, segmentDuration } from '@aparte/core';
+import type { AparteThinkingSegment } from '@aparte/core';
+
+const builtIn = getSegmentRenderer('thinking')!;
+
+function writeDuration(el: HTMLElement, segment: AparteThinkingSegment): void {
+  const ms = isSegmentSettled(segment) ? segmentDuration(segment) : undefined;
+  const label = el.querySelector('.aparte-thinking-label');
+  if (label && ms !== undefined) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+}
+
+registerSegmentRenderer<AparteThinkingSegment>({
+  type: 'thinking',
+  render(segment) {
+    // The built-in returns an HTML string; keep its root element as the segment's root.
+    const out = builtIn.render(segment);
+    const template = document.createElement('template');
+    if (typeof out === 'string') template.innerHTML = out;
+    const el = typeof out === 'string' ? (template.content.firstElementChild as HTMLElement) : out;
+    writeDuration(el, segment);
+    return el;
+  },
+  setup: (el, segment) => builtIn.setup?.(el, segment),
+  update(el, segment) {
+    builtIn.update?.(el, segment);
+    writeDuration(el, segment); // a block settles through update, never a second render
+  },
+});
+```
+
+Keep the root the built-in returns, and delegate `setup` and `update`: they carry the
+incremental Markdown writer and the scroll anchoring.
+
+## Fields
+
+<Fields />
+
+## Accessibility
+
+- The block is a native `<details>`: its summary opens with Enter or Space and announces
+  whether it is expanded.
+- The opened panel is a focusable region named by the block's label, so a screen reader can
+  find the reasoning and step into it.
+
+## Related
+
+- [Tool call](/components/tool/) — the other segment a reasoning model often emits.
+- [Markdown and code](/guides/markdown/) — how the reasoning's text is rendered.

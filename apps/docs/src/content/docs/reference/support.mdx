@@ -1,0 +1,89 @@
+---
+title: Where aparté runs
+description: The browsers, Node versions, frameworks, bundlers and TypeScript settings @aparte/* supports — the lowest browser version each feature it uses sets, and what CI runs.
+sidebar:
+  order: 8
+  label: Support matrix
+---
+
+import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { CI_BROWSERS, CI_NODE_VERSIONS, E2E_APPS, NODE_FLOOR, TYPESCRIPT } from '../../../lib/facts';
+
+export const codeList = (names) => names.map((name, i) => (<span key={name}>{i > 0 ? (i === names.length - 1 ? ' and ' : ', ') : ''}<code>{name}</code></span>));
+
+## Browsers
+
+| Engine | Lowest version | What sets it | Run in CI |
+| --- | --- | --- | --- |
+| Chrome, Edge | **119** | relative colour syntax | Chromium <code>{CI_BROWSERS.chromium}</code> |
+| Safari, iOS Safari | **16.4** | relative colour syntax, the `lh` unit | WebKit <code>{CI_BROWSERS.webkit}</code> |
+| Firefox | **128** | relative colour syntax | Firefox <code>{CI_BROWSERS.firefox}</code> |
+| Samsung Internet | **25** | relative colour syntax | — |
+
+The lowest version is declared from the features the code uses with no fallback: it is the oldest
+in which all of them draw. CI runs only the builds in the last column: every example app in
+Chromium, {codeList(E2E_APPS.webkit)} in WebKit, and {codeList(E2E_APPS.firefox)} in Firefox, each on
+a part of the suites. The JavaScript is ES2022 and is not compiled lower.
+
+- **Relative colour syntax** (`oklch(from …)`) draws each accent as text: the active
+  conversation's mark, a success sign, a button's text in its accent colour.
+- **`color-mix()`** draws the soft buttons, the alerts and badges, the person's message bubble and
+  the control borders.
+- **`:has()`** draws the focus ring and the checked mark on a choice row, the focus ring on a
+  conversation row, and the invalid border on a field group.
+
+What degrades instead:
+
+- **A filled button's ink** — the text on a solid brand colour — is computed with relative colour
+  syntax under `@supports`; without it, the fixed `--aparte-on-intent` is used, readable on the
+  default palette ([the text on a fill](/guides/theming/#the-text-on-a-fill)).
+- **`:dir()`** places the active conversation's mark on the right in a right-to-left page; Chrome
+  before 120 keeps it on the left.
+- **`content-visibility`** is a rendering hint, ignored where it is not supported.
+
+## On a plain `http://` address
+
+`crypto.randomUUID` and `navigator.clipboard` exist only on `https://` and `localhost`. Core
+reaches both through a fallback, `uuid()` and `copyText()`, both exported: on a plain `http://`
+address — a model on a machine of your network — the copy buttons use `execCommand('copy')` and ids
+come from a non-cryptographic generator
+([the pieces core exports](/guides/bring-your-own-loop/#the-pieces-core-exports-for-this)).
+
+## Node
+
+Every package declares `engines.node` <code>{NODE_FLOOR}</code>, and CI runs Node
+{CI_NODE_VERSIONS.join(' and ')}. In Node, `@aparte/core` resolves to an entry without elements —
+the types, the parsers, `AparteClient`, the transports and the server handlers — that touches no
+DOM at import, so a server render can import it; `@aparte/engine` has no DOM at all. A test runner
+on Node takes the same entry, so under jsdom no element upgrades: alias it to `@aparte/core/browser`
+([Testing your components](/frameworks/elements/#testing-your-components)).
+
+## Frameworks
+
+| Wrapper | Peer dependencies |
+| --- | --- |
+| [`@aparte/react`](/frameworks/react/) | `react` and `react-dom` <code>{WRAPPER_PEERS.react}</code> |
+| [`@aparte/vue`](/frameworks/vue/) | `vue` <code>{WRAPPER_PEERS.vue}</code> |
+| [`@aparte/svelte`](/frameworks/svelte/) | `svelte` <code>{WRAPPER_PEERS.svelte}</code> |
+| [`@aparte/angular`](/frameworks/angular/) | `@angular/core` and `@angular/common` <code>{WRAPPER_PEERS.angular}</code>, `rxjs` <code>{WRAPPER_PEERS.rxjs}</code> |
+
+Each wrapper also takes `@aparte/core` <code>{WRAPPER_PEERS.core}</code> as a peer: install the two
+from the same release. Each wrapper's example runs in the browser suite — one for Svelte 4 and one
+for Svelte 5 — and the React wrapper is typechecked against React 18 as well.
+[`@aparte/plugin-model-selector`](/components/model-selector/) takes the four frameworks as
+optional peers.
+
+## Bundlers and TypeScript
+
+The packages are ES modules only, with no CommonJS build: a `require()` of one works only where
+Node loads ES modules synchronously — 20.19 and 22.12 onwards — and not on Node 18. Each ships an
+`exports` map, which Vite, webpack 5, Rollup and esbuild follow, and Parcel 2 with
+`packageExports` on. Core's `sideEffects` names its CSS and its element entry, so a bundler keeps
+those and drops what you do not import; most other packages declare none, and the approval,
+ask-user and model-selector plugins are kept whole. In TypeScript, use `moduleResolution`
+`bundler`, `node16` or `nodenext`, not `node`. The declarations are emitted with TypeScript
+<code>{TYPESCRIPT}</code>. Without a bundler, the packages load from a CDN
+([From a CDN](/guides/getting-started/#from-a-cdn)).
+
+At or above a lowest version, a break is a bug: [open an issue](https://github.com/apartejs/aparte/issues)
+with the engine and its version. Below it, nothing is run.

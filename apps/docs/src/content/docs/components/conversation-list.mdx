@@ -1,0 +1,67 @@
+---
+title: Conversation list
+description: The reader's past conversations, grouped by date, each with a menu to rename, pin, archive or delete it.
+catalog:
+  group: layout
+  order: 4
+  claims:
+    elements: [aparte-conversation-list]
+  demos: [conversation-list, conversation-list-loading]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-conversation-list.usage.mdx';
+import ListApi from '../../../generated/api/elements/aparte-conversation-list.api.mdx';
+
+<Variant id="conversation-list" />
+
+`<aparte-conversation-list>` draws the rows; it is not a store. You assign the `conversations`
+property and set `active-id`, it renders them and tells you what the reader picked. As soon as an
+item carries `updatedAt`, the rows are grouped by date: Pinned, Today, Yesterday, Previous 7 days,
+Previous 30 days, then one heading per month. `flat` keeps your order with no headings.
+
+Each row is two buttons: its title, which selects it, and a `⋯` that opens its menu.
+
+## Variants
+
+### The row's menu
+
+Press `⋯` on a row above: rename, pin or unpin, archive or unarchive, delete. Every item fires an
+event and stops. Rename turns the title into a field (Enter or leaving it commits, Escape cancels); delete asks first,
+inside the menu, because it is the one action you cannot undo.
+
+### While it loads
+
+<Variant id="conversation-list-loading" />
+
+`loading` shows skeleton rows until your store answers: a list that is not there yet is not an
+empty list. An empty list draws nothing.
+
+## Usage
+
+<Usage />
+
+The events carry the conversation's id (and the new title, for a rename); the array stays as it
+was until you assign it again. To have the list carry out the menu's actions itself, register a
+conversation manager with `setConversationManager()` and set `manage`: renaming, pinning,
+archiving and deleting then happen on that manager, and `preventDefault()` on the event still
+takes the gesture back. `manage` does not select: a click sends `aparte-conversation-select`, which
+a chat bound to the manager answers by opening that conversation.
+
+The rows come from the array, so the element takes no children: put the new-chat button and the
+search field around it, in the [sidebar](/components/sidebar/).
+
+## API
+
+<ListApi />
+
+## Accessibility
+
+- Each date group is a group named by its heading; the selected row is marked `aria-current`.
+- The `⋯` button announces a menu and whether it is open; the menu's items are menu items.
+- While loading, the list is `aria-busy` and a status line says the conversations are loading.
+
+## Related
+
+- [Sidebar](/components/sidebar/) — the column that holds the list, and filters it.
+- [Conversations guide](/guides/conversations-branching/) — saving and restoring conversations.

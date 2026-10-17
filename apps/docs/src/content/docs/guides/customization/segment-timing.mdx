@@ -1,0 +1,123 @@
+---
+title: Show how long a segment took
+description: Write "Thought for 8s" on a reasoning block or a tool call from the timing every segment carries, and attach numbers of your own to a segment.
+sidebar:
+  order: 6
+  label: Durations
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+
+## What a segment carries
+
+| Field | What it holds |
+| --- | --- |
+| `messageId` | the message it belongs to |
+| `index` | its place in that message's `segments` |
+| `meta.aparte.startedAt` | when it arrived, in milliseconds since the epoch |
+| `meta.aparte.endedAt` | when its content last arrived — it moves while the segment streams |
+| `meta` | yours: token counts, cost, anything else |
+
+Core measures the span and draws none of it: you write the label. Read it with
+`segmentDuration(segment)`, ask `isSegmentSettled(segment)` whether it is final, and take the two
+numbers with `segmentTiming(segment)`. A segment you built by hand has not arrived yet, so it has
+no start. While a segment streams, its end moves with each piece of content, so the duration grows
+until the segment settles. A segment restored from storage keeps what you saved with it.
+
+## Write the duration on a reasoning block
+
+```ts
+import { getSegmentRenderer, registerSegmentRenderer, installDefaultRenderersOnce, isSegmentSettled, segmentDuration } from '@aparte/core';
+import type { AparteThinkingSegment } from '@aparte/core';
+
+installDefaultRenderersOnce();
+const builtIn = getSegmentRenderer('thinking')!;
+
+function parseRoot(html: string): HTMLElement {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  return t.content.firstElementChild as HTMLElement;
+}
+
+function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
+  if (!isSegmentSettled(segment)) return;
+  const ms = segmentDuration(segment);
+  if (ms === undefined) return;
+  const label = host.querySelector('.aparte-thinking-label');
+  if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
+}
+
+registerSegmentRenderer<AparteThinkingSegment>({
+  type: 'thinking',
+  render(segment) {
+    const out = builtIn.render(segment);
+    const host = typeof out === 'string' ? parseRoot(out) : out;
+    writeDuration(host, segment);
+    return host;
+  },
+  setup: (el, segment) => builtIn.setup?.(el, segment),
+  update(el, segment) {
+    builtIn.update?.(el, segment);
+    writeDuration(el, segment);
+  },
+  relabel(el, segment) {
+    builtIn.relabel?.(el, segment);
+    writeDuration(el, segment);
+  },
+});
+```
+
+The built-in renderer keeps drawing the block; yours rewrites its label. Three places, because a
+block appears with `render`, settles later through `update`, and gets the built-in's label back on
+a language switch through `relabel` — a label written in `render` only would read "Thinking" for
+good. The example writes English: take the words from your own translations inside
+`writeDuration`. Keep the root the built-in returned, without a wrapper of yours around it. For a
+chat with its own configuration, pass it to `getSegmentRenderer` and `registerSegmentRenderer` as
+their last argument.
+
+A block settles as soon as the stream closes it — its closing tag, or the first word of the answer
+for reasoning sent on its own channel — so the duration shows while the answer is still streaming.
+On a loop of your own, a segment settles when you update it with `isStreaming: false` or complete
+its message.
+
+## Write the duration on a tool call
+
+```ts
+import { aparteGlobalConfig, isSegmentSettled, segmentDuration } from '@aparte/core';
+
+aparteGlobalConfig.registerToolSummary('read_file', (segment) => {
+  const ms = segmentDuration(segment);
+  return isSegmentSettled(segment) && ms !== undefined ? `${(ms / 1000).toFixed(1)}s` : '';
+});
+```
+
+A tool's summary is the line the default row writes after the tool's name, read again each time
+the call changes. A call settles once its status leaves `pending` and `awaiting-approval`, so its
+span runs from the moment the call appears to its result, the time a person took to approve it
+included.
+
+## Attach numbers of your own
+
+```ts
+import type { AparteChatImperativeApi } from '@aparte/core';
+
+declare const chat: AparteChatImperativeApi;
+
+const last = chat.getMessages().at(-1);
+const thinking = last?.segments?.find((segment) => segment.type === 'thinking');
+if (thinking) chat.updateSegment(thinking.id, { meta: { outputTokens: 1_240, device: 'webgpu' } });
+```
+
+`getMessages()` returns the segments with everything on them, and `updateSegment` merges `meta`,
+so a key of yours never erases the timing. On a framework chat it reaches the last message; the
+viewport's `updateSegment(messageId, segmentId, updates)` reaches any. Core has no channel from a
+provider to a segment's `meta`: write it from your app, after the turn.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/reasoning/', title: 'Reasoning', line: 'The reasoning block, live, open and closed.' },
+        { href: '/guides/customization/segments/', title: 'Your own content', line: 'Renderers of your own, and the four callbacks they answer.' },
+    ]}
+/>

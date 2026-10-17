@@ -1,0 +1,135 @@
+---
+title: Put a chat on an AG-UI agent
+description: Connect an agent served over AG-UI — Agno, LangGraph, Mastra, CrewAI, Pydantic AI — and the chat draws its replies, its reasoning, its tool calls and its approvals while the agent runs on its own server.
+sidebar:
+  order: 1
+  label: AG-UI agents
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+
+## Connect the agent
+
+```bash
+npm install @aparte/runner-ag-ui @aparte/core
+```
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+new AparteClient({
+  streamRunner: createAgUiRunner({ endpoint: 'https://agents.example.com/agui' }),
+}).start();
+```
+
+[AG-UI](https://docs.ag-ui.com) is the protocol many agent frameworks serve their agents over:
+Agno, LangGraph, Mastra, CrewAI, Pydantic AI, and [TanStack AI](/providers/agent/tanstack-ai/).
+The agent runs its loop and its tools on its server, so the page registers no provider and picks
+no model. The runner is the client's `streamRunner`: the chat, Stop, the conversation manager and
+the approval panel work as they do with aparté's own loop.
+
+## What the agent's stream becomes
+
+| The agent sends | The chat shows |
+| --- | --- |
+| `TEXT_MESSAGE_*` | the reply's text |
+| `REASONING_*` | a [reasoning block](/components/reasoning/) |
+| `TOOL_CALL_START`, `TOOL_CALL_ARGS` or `TOOL_CALL_CHUNK`, `TOOL_CALL_END` | a [tool row](/components/tool/), drawn with its whole arguments once the call ends |
+| `TOOL_CALL_RESULT` | the row's result |
+| `RUN_FINISHED` | the end of the reply, with its usage — or, with an interrupt, a decision to make or a tool the page runs |
+| `RUN_ERROR` | the reply's error, with the agent's message |
+| an HTTP error | the reply's error, with the start of the response body — keep secrets out of it |
+
+Each model step of the run is a turn of its own in the reply, and the usage of every step is
+added up and reported with the reply. A stream that ends without `RUN_FINISHED` ends the reply
+with an error. `STEP_*`, `STATE_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`, `CUSTOM` and
+sub-agent events are not drawn. The runner reads the answer as server-sent events, or as NDJSON
+when its content type says so.
+
+## Tools the page runs
+
+A tool registered in the page — `ask_user` through `setupAskUser()`, your own through
+`registerTool` — is sent to the agent as an AG-UI frontend tool. When the agent calls it, the run
+pauses with the call open; the page runs the tool, shows its result in the row, and calls the agent
+again with it. For an agent server, the pause is an interrupt whose reason contains
+`client_tool`, or a call the agent leaves without a result. The page runs the tool as soon as the
+agent calls it: its `needsApproval` and your approval policy are not consulted, so a tool that
+needs a person asks in its own handler, as `ask_user` does.
+
+## Approvals
+
+When the agent pauses on a call that needs a person — an interrupt whose reason is `tool_call` or
+`confirmation` — the page asks with the same
+[approval panel](/guides/tools/#require-approval-human-in-the-loop) as for its own tools, and your
+[approval policy](/components/approval-mode/) can answer first. Every answer goes back to the
+agent in one `resume`, and the run goes on on the agent's server, in the same reply. The pause is
+part of the conversation, so a [saved conversation](/guides/conversation-persistence/) brings the
+question back after a reload.
+
+## Options
+
+```ts
+import { uuid } from '@aparte/core';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+let conversationId = uuid();   // set it when your app opens a conversation
+
+const runner = createAgUiRunner({
+  endpoint: '/agui',
+  headers: async () => ({ authorization: `Bearer ${sessionStorage.getItem('token') ?? ''}` }),
+  threadId: () => conversationId,   // read on every turn
+});
+```
+
+| Option | What it does |
+| --- | --- |
+| `endpoint` | the agent's AG-UI URL; required |
+| `headers` | sent with every request; a function is called for each, for a fresh token |
+| `fetch` | the `fetch` the runner calls; the global one by default |
+| `credentials` | for a cross-origin endpoint that authenticates by cookie |
+| `threadId` | the AG-UI thread a turn runs in: a string, or a function of the run's options |
+| `forwardedProps` | `RunAgentInput.forwardedProps`: settings your agent reads from the request |
+| `context` | `RunAgentInput.context`: `{ description, value }` entries for the agent |
+
+These are the `AgUiRunnerOptions`. By default every turn runs in a new thread with the whole
+history, which suits a stateless agent; give `threadId` when the agent keeps state per thread, as
+Agno does with its session — the conversation's id is the usual choice. A paused run resumes in
+its own thread, whatever `threadId` answers. An agent on another origin than the page has to allow
+it: answer the preflight (`OPTIONS`) with `Access-Control-Allow-Origin` (the page's origin) and
+`Access-Control-Allow-Headers: content-type` plus the headers you send, and with
+`Access-Control-Allow-Credentials: true` when `credentials` is `'include'`.
+
+## Agno
+
+{/* doc-check: skip excerpt — Python, from Agno's AG-UI example */}
+```py
+from agno.agent.agent import Agent
+from agno.models.openai import OpenAIResponses
+from agno.os import AgentOS
+from agno.os.interfaces.agui import AGUI
+
+chat_agent = Agent(model=OpenAIResponses(id="gpt-5.4"))
+agent_os = AgentOS(agents=[chat_agent], interfaces=[AGUI(agent=chat_agent)])
+app = agent_os.get_app()  # POST /agui
+```
+
+Agno serves an agent or a team over AG-UI with the `AGUI` interface of its `AgentOS`, at
+`POST /agui`; give that URL to `createAgUiRunner`. This is
+[Agno's AG-UI example](https://docs.agno.com/agent-os/interfaces/ag-ui/introduction).
+
+## What is not supported
+
+- A person's message goes as text: images and files are left out.
+- An interrupt the page cannot answer ends the reply with an error that names its reason: one
+  such as `input_required`, or one that names no `toolCallId`.
+- A refusal reaches the agent as `{ approved: false }`, without the words the person wrote.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/agent/tanstack-ai/', title: 'TanStack AI', line: 'A TanStack AI chat route, through the same runner.' },
+        { href: '/guides/server-loop/', title: 'Run the loop on your server', line: 'aparté\'s own loop next to your tools, instead of an agent framework.' },
+    ]}
+/>

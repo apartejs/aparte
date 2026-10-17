@@ -1,0 +1,209 @@
+---
+title: Run a model in the browser
+description: Run a language model inside the page with Transformers.js, on the graphics card through WebGPU or on the processor through WASM — no server, no key — with its download shown, its cache kept and its memory released.
+sidebar:
+  order: 4
+  label: In the browser
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+
+## Register a model
+
+```bash
+npm install @aparte/core @aparte/provider-transformers @huggingface/transformers
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+import { TransformersProvider, registerModel } from '@aparte/provider-transformers';
+
+registerModel({
+  id: 'onnx-community/Qwen2.5-0.5B-Instruct',
+  name: 'Qwen2.5 0.5B',
+  capabilities: ['streaming'],
+  dtype: 'q4',
+});
+aparteGlobalConfig.registerAIProvider(TransformersProvider);
+new AparteClient({ requestInterceptor: (request) => ({ ...request, maxTokens: request.maxTokens ?? 1024 }) }).start();
+```
+
+The model runs in a Web Worker, off the page's main thread, through the
+[Transformers.js](https://huggingface.co/docs/transformers.js) you install beside the provider;
+its weights download once into the browser's cache. `capabilities` is required: `['streaming']`
+for a chat model. With one model registered, the chat uses it; with several, name one with
+`aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultModel })`, or let
+the person pick in the [model selector](/components/model-selector/). A reply stops at 512 new
+tokens unless the request asks for more, which the `requestInterceptor` above does.
+
+This provider sends a model no tools, and a conversation that already holds tool calls runs with
+those calls and their results left out of the prompt; the console says so once.
+
+## Bundler, CDN and security policy
+
+The package starts its worker with `new Worker(new URL('./worker.js', import.meta.url))`, the
+form Vite and webpack recognise. From a CDN, map `@huggingface/transformers` in the page's import
+map beside the provider. When the package is served from another origin than the page — a CDN, an
+asset host — the provider starts its worker from a `blob:` URL. A Content-Security-Policy then
+allows `blob:` in `worker-src` (or `script-src`), and, for the model itself, the hosts it comes
+from in `connect-src` — huggingface.co, and cdn.jsdelivr.net, where Transformers.js fetches its
+WASM runtime by default — with `'wasm-unsafe-eval'` in `script-src`.
+
+## Show the download
+
+```ts
+import { TransformersProvider } from '@aparte/provider-transformers';
+
+declare const bar: HTMLProgressElement;
+bar.max = 100;
+
+await TransformersProvider.prepareModel('onnx-community/Qwen2.5-0.5B-Instruct', (p) => {
+  if (p.progress !== undefined) bar.value = p.progress;   // this file's percentage: each file starts at 0
+  bar.title = p.file ?? p.status;                         // 'downloading' (from the network or the cache), 'loading', 'ready'
+});
+```
+
+A first load downloads the whole model. `prepareModel` downloads and loads it before the first
+message, reporting each file as a `ModelLoadProgress`, and rejects if the load fails; without it,
+the first message loads the model and the reply waits with no progress to show.
+`TransformersProvider.getModelStatus(id)` answers `'ready'` once the model is loaded, `'cached'`
+when its files are in the cache or while it loads, and `'not-downloaded'` otherwise. The
+[model selector](/components/model-selector/) lists the registered models and the ones already in
+the cache.
+
+## The cache and the memory
+
+| Function | What it does |
+| --- | --- |
+| `listCachedModels()` | the models in the browser's cache, each a `CachedModelEntry`: `modelId`, `name`, `sizeBytes`, `loaded` |
+| `deleteCachedModel(id)` | deletes the cached files whose address holds that id — those of a model whose id extends it too — ending the worker first if the model is loaded; `TransformersProvider.deleteModel` does the same |
+| `setMaxCachedModels(n)` | how many models the cache keeps: `1` by default, `0` for no limit |
+| `getLoadedModelId()` | the model in the worker's memory, or `null` |
+| `terminateWorker()` | ends the worker and the model in memory; a reply still streaming ends with an error |
+
+The worker holds one model in memory at a time, for the whole page: two chats on the same model
+share it, and two chats on different models take turns, each reply loading its own model again —
+the console warns once. Another model replaces the one in memory; closing a chat does not release
+it. `terminateWorker()` does, on leaving the route or behind an "unload" button, and the next
+message starts a new worker.
+
+When a model finishes loading and the cache holds more models than `setMaxCachedModels` allows,
+the others are deleted, the earliest downloaded first. The count takes in every Hugging Face model
+in the site's browser cache, ones your app downloaded with Transformers.js for something else
+included. At the default of one, switching to another model deletes the previous one's weights, so
+switching back downloads it again; `setMaxCachedModels(2)` keeps both, and `0` keeps everything.
+
+## Choose the device
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { detectHardware, registerModel, setComputeDevice, setHardwareTierModels } from '@aparte/provider-transformers';
+
+registerModel({ id: 'onnx-community/Qwen2.5-0.5B-Instruct', name: 'Qwen2.5 0.5B', capabilities: ['streaming'], dtype: 'q4' });
+registerModel({ id: 'onnx-community/Qwen3-0.6B-ONNX', name: 'Qwen3 0.6B', capabilities: ['streaming'], dtype: 'q4' });
+setHardwareTierModels({ low: 'onnx-community/Qwen2.5-0.5B-Instruct', high: 'onnx-community/Qwen3-0.6B-ONNX' });
+
+const { hasGpu, recommendedModelId } = await detectHardware();
+setComputeDevice(hasGpu ? 'webgpu' : 'wasm');
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultModel: recommendedModelId });
+```
+
+`setComputeDevice` sets where the page's models run, a `ComputeDevice`: `'webgpu'` on the
+graphics card, `'wasm'` on the processor, and `getComputeDevice()` reads it back. Left at
+`'auto'`, the default, a model runs on WASM unless its own repository names a device, so turn the
+graphics card on yourself, as above. It is one setting for the page — a `device` on a registered
+model is not read — and it applies when a model loads: to change it afterwards, call
+`terminateWorker()`, and the next message loads the model on the new device.
+
+`detectHardware()` answers a `HardwareProfile`: it looks for a WebGPU adapter and sorts the
+machine into a `low`, `mid` or `high` tier — no WebGPU adapter, whatever the hardware, or under
+4 GB of memory is low, under 8 GB is mid — then answers the model you gave that tier, or the
+`high` one for a tier you left out. Only Chromium reports the memory, and at most 8 GB; in other
+browsers the machine counts as 4 GB.
+
+## A model that reads images
+
+```ts
+import { registerModel } from '@aparte/provider-transformers';
+
+registerModel({
+  id: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+  name: 'SmolVLM 256M',
+  task: 'image-text-to-text',
+  capabilities: ['streaming', 'vision'],
+  dtype: { embed_tokens: 'fp16', vision_encoder: 'q4', decoder_model_merged: 'q4' },
+});
+```
+
+`task` picks the runner that loads the model: `'text-generation'`, the default, for a chat model,
+and `'image-text-to-text'` for one that reads the images the person
+[attaches](/guides/attachments/) — SmolVLM, Qwen2-VL, Gemma 3 and the other models Transformers.js
+loads as `AutoModelForImageTextToText`. `dtype` is one precision for the whole model, or one per
+part, as here. A text model sent an image answers without it, and the console says the image was
+left out. Stop interrupts the model itself, not only the reply on screen.
+
+## A runner of your own
+
+```ts
+import { registerModel } from '@aparte/provider-transformers';
+
+registerModel({ id: 'my-org/my-model', name: 'Mine', capabilities: ['streaming'], runner: '/runners/mine.js' });
+```
+
+```js
+// /runners/mine.js — served as it is (from public/ under a bundler); the worker imports it by URL
+export async function createRunner(ctx) {
+  const { AutoTokenizer, AutoModelForCausalLM, TextStreamer, InterruptableStoppingCriteria } = ctx.transformers;
+  const tokenizer = await AutoTokenizer.from_pretrained(ctx.modelId);
+  const model = await AutoModelForCausalLM.from_pretrained(ctx.modelId, {
+    dtype: ctx.dtype,
+    ...(ctx.device && ctx.device !== 'auto' ? { device: ctx.device } : {}),
+  });
+  return {
+    async generate({ messages, options, emit, signal }) {
+      if (signal.aborted) return;
+      const turns = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
+        .map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.filter((p) => p.type === 'text').map((p) => p.text).join('') }));
+      const inputs = tokenizer.apply_chat_template(turns, { add_generation_prompt: true, return_dict: true });
+      const stopping = new InterruptableStoppingCriteria();
+      signal.addEventListener('abort', () => stopping.interrupt(), { once: true });
+      await model.generate({
+        ...inputs,
+        max_new_tokens: options.maxTokens ?? 512,
+        streamer: new TextStreamer(tokenizer, {
+          skip_prompt: true, skip_special_tokens: true,
+          callback_function: (text) => emit({ type: 'text', delta: text }),
+        }),
+        stopping_criteria: stopping,
+      });
+    },
+    async command(name, payload) { /* what is not a reply: swap an adapter, warm a cache */ },
+    dispose() { return model.dispose(); },
+  };
+}
+```
+
+`runner` names an ES module that exports `createRunner`, and it wins over `task`. Give it an
+absolute path: a relative one is resolved against the current page's URL. The module runs in the
+worker, where neither your bundler nor your import map applies, so it imports nothing by package
+name: it gets the same Transformers.js as the built-in runners as `ctx.transformers`, and a model
+they cannot load keeps the worker, the queue, the progress, Stop and the cache. `messages` arrive
+with their content parts, and the runner decides what the model reads. `emit` sends `text`,
+`thinking`, `tool_use`, `done` or `error`; `signal` fires on Stop; `ctx.progress` and `ctx.warn`
+reach the page; `ctx.device` is `'auto'`, `'webgpu'` or `'wasm'`.
+
+`runnerCommand(modelId, name, payload)` calls a runner's `command` from the page, after the
+replies already waiting; when that model is not the one in memory, it is loaded first, in its
+place, with no progress to show. The contract's types are exported — `TransformersRunner`,
+`RunnerContext`, `RunnerGenerateInput`, `RunnerProgress`, `CreateRunner`, `RunnerModule`,
+`BuiltInRunner`, `TransformersModule` — and a model's options are a `TransformersModelConfig`.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/local-models/', title: 'Local models', line: 'A model on a server of your own machine instead: Ollama, LM Studio, llama.cpp.' },
+        { href: '/components/model-selector/', title: 'Model selector', line: 'Let the person pick the model, cached ones included.' },
+    ]}
+/>

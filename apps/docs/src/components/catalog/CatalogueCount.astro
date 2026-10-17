@@ -1,0 +1,15 @@
+---
+/**
+ * The catalogue's size, counted from its pages at build time, so the sentence that says it cannot
+ * drift from the grid below it.
+ */
+import { getCollection } from 'astro:content';
+
+const entries = (await getCollection('docs')).filter((entry) => entry.data.catalog);
+const count = (group: string) => entries.filter((entry) => entry.data.catalog?.group === group).length;
+---
+
+<p class="catalogue-count">
+    <strong>{entries.length} components</strong>: {count('chat')} for the chat itself, {count('layout')} for the
+    page around it, and {count('kit')} in the kit for the rest of the app.
+</p>

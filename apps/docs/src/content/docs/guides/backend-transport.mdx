@@ -1,0 +1,199 @@
+---
+title: Keep the key on your server
+description: Send each request through your own /api/chat — the page names a provider, your server holds the key, calls the model and streams the reply back — with the chat unchanged.
+sidebar:
+  order: 2
+  label: Key on your server
+guide:
+  group: models
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## Write the route
+
+```bash
+npm install @aparte/core @aparte/provider-openai-compat
+```
+
+```ts
+// app/api/chat/route.ts (Next.js)
+import { createAparteChatHandler } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+declare function getSession(req: Request): Promise<{ userId: string } | null>;   // your session lookup
+
+export const POST = createAparteChatHandler({
+  providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  resolveKey: (providerId) => process.env[`${providerId.toUpperCase()}_KEY`],
+  authorize: async (req) => Boolean(await getSession(req)),   // required: this route spends your key
+});
+```
+
+`createAparteChatHandler` returns a Fetch handler, `Request` to `Response`, for a Next.js route in
+the Node runtime, Node, Deno or Bun. It reads `{ providerId, request }`, runs that provider on the server — the
+request, the key, the vendor call, the stream — and streams the reply back as NDJSON, one event
+per line; a request with `stream: false` gets a `{ text }` body. On those runtimes `@aparte/core`
+resolves to its `node` entry, which has no DOM
+([On the server](/frameworks/elements/#on-the-server)); a Worker or an edge runtime does not ask for
+that entry.
+
+| Option | What it does |
+| --- | --- |
+| `providers` | the providers, keyed by the `providerId` the page sends: an unknown id is a 400, a provider that is not a [format adapter](/providers/#write-your-own-provider) a 500 |
+| `authorize(req)` | required, run before anything else: `false` answers 401, a `Response` answers itself, `true` goes on |
+| `resolveKey(providerId)` | the vendor key, from your environment or a secret store; `undefined` for a keyless server |
+| `fetchImpl` | the `fetch` that calls the vendor |
+
+These are the `AparteChatHandlerOptions`.
+
+:::caution[`authorize` has to authenticate]
+`Boolean(req.headers.get('cookie'))` passes any request that carries any cookie, a cross-site one
+included, and the route then spends your key for anyone who can load it. Call the session lookup
+that guards your other routes.
+:::
+
+## What the route accepts
+
+The page sends a `providerId`, never a URL: the vendor's address comes from the provider in your
+map, so no request can point your server at another host. A vendor's error keeps its status, and
+its body reaches the page as `{ error: { message, code?, type? } }`, without the vendor's own text.
+
+The rest of the request is the page's: `modelId`, the messages, the system prompt, the tools and
+`maxTokens` reach the provider as sent, so `authorize` decides who calls the route, not what they
+send. To limit the models or the size, check the body in a wrapper of yours, or in `authorize`
+through `req.clone().json()`: clone it, because the handler reads the body itself.
+
+## Point the page at it
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteBackendTransport } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENAI));   // the id the route knows, no key
+aparteGlobalConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'openai', defaultModel: 'gpt-4.1-mini' });
+new AparteClient().start();
+```
+
+The page posts `{ providerId, request }` to your route and streams the reply into the chat; no key
+is in it. Register a provider under each id the route knows: the page reads what a model can do
+from it, and refuses to send to an id it does not have. `BackendTransportOptions` takes the
+`endpoint`, `headers` sent with every request, and `buildBody(request, providerId)` for a route
+that expects another body. A cookie goes along only to a route on the page's own origin, so a
+route on another origin is authenticated through `headers`.
+
+The tools and the loop stay in the page: the route makes one model call at a time. When the tools
+live on your server, move the loop there too, with [the server loop](/guides/server-loop/).
+
+## If your server already uses the AI SDK
+
+```bash
+npm install @aparte/core @aparte/provider-ai-sdk ai @ai-sdk/anthropic
+```
+
+```ts
+// app/api/chat/route.ts (Next.js) — the AI SDK on your server, aparté in the page
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { streamText } from 'ai';
+import type { AparteChatRequest, AparteStreamEvent } from '@aparte/core';
+import { fullStreamToAparteEvents, toModelMessages, toToolChoice, toToolSet } from '@aparte/provider-ai-sdk';
+
+declare function getSession(req: Request): Promise<{ userId: string } | null>;   // your session lookup
+
+const MODELS = ['claude-sonnet-4-5', 'claude-haiku-4-5'];
+
+export async function POST(req: Request): Promise<Response> {
+  if (!(await getSession(req))) return new Response('Unauthorized', { status: 401 });
+
+  const { request } = (await req.json()) as { request: AparteChatRequest };
+  if (!MODELS.includes(request.modelId)) return new Response('Unknown model', { status: 400 });
+
+  const result = streamText({
+    model: createAnthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] })(request.modelId),
+    messages: toModelMessages(request.messages),
+    temperature: request.temperature,
+    maxOutputTokens: request.maxTokens,
+    seed: request.seed,
+    abortSignal: req.signal,
+    ...(request.tools?.length
+      ? { tools: toToolSet(request.tools), toolChoice: toToolChoice(request.toolChoice) ?? 'auto' }
+      : {}),
+  });
+
+  if (request.stream === false) {
+    try {
+      return Response.json({ text: await result.text });
+    } catch (err) {
+      console.error('[api/chat] vendor request failed', err);
+      return Response.json({ error: { message: 'Vendor request failed.' } }, { status: 502 });
+    }
+  }
+
+  const ndjson = fullStreamToAparteEvents(result.fullStream)
+    .pipeThrough(new TransformStream<AparteStreamEvent, AparteStreamEvent>({
+      transform: (event, controller) => {
+        if (event.type === 'error') {
+          console.error('[api/chat] vendor stream error', event.message);   // the vendor's words stay in your log
+          controller.enqueue({ type: 'error', message: 'Vendor request failed.' });
+          return;
+        }
+        controller.enqueue(event);
+      },
+    }))
+    .pipeThrough(new TransformStream<AparteStreamEvent, string>({
+      transform: (event, controller) => controller.enqueue(`${JSON.stringify(event)}\n`),
+    }))
+    .pipeThrough(new TextEncoderStream());
+
+  return new Response(ndjson, { headers: { 'content-type': 'application/x-ndjson' } });
+}
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteBackendTransport } from '@aparte/core';
+import { createAiSdkProvider } from '@aparte/provider-ai-sdk';
+
+// The id the page sends, and what the model can do; the call itself is the route's.
+aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
+  id: 'anthropic',
+  name: 'Anthropic',
+  languageModel: () => { throw new Error('This provider runs on the server.'); },
+}));
+aparteGlobalConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-4-5' });
+new AparteClient().start();
+```
+
+The handler above runs format adapters, and the [AI SDK bridge](/providers/ai/ai-sdk/) is not
+one: it makes its own call through `streamText`. Its four helpers make the same route by hand —
+`toModelMessages` and `toToolChoice` translate the request, `toToolSet` gives the SDK the tools
+as declarations, which the page's loop runs, and `fullStreamToAparteEvents` turns the SDK's
+stream into the events the page reads. The page registers a provider under the id it sends and
+names one of the route's models; its `languageModel` is never called, since the route makes the
+call. Two things in this route are what the handler does for you: the
+vendor's error replaced before it leaves the server, and the `{ text }` answer to a request with
+`stream: false`. The check on the model is one the handler does not make; add it to either route.
+
+## Write the stream yourself
+
+```text
+{"type":"text","delta":"Hel"}
+{"type":"text","delta":"lo."}
+{"type":"done","usage":{"inputTokens":12,"outputTokens":3,"totalTokens":15}}
+```
+
+A route of your own answers `AparteBackendTransport` with NDJSON, one `AparteStreamEvent` per
+line — aparté's events, not the AI SDK's data stream protocol. `parseAparteEventStream(body)`
+reads that stream back into events. A transport of your own is set with
+`aparteGlobalConfig.setTransport`, like the two built in
+([`AparteTransport`](/reference/core/transports/#apartetransport)).
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/', title: 'Connect a model', line: 'The providers your route\'s map takes.' },
+        { href: '/guides/server-loop/', title: 'Run the loop on your server', line: 'The tools on your server too, next to the loop.' },
+    ]}
+/>

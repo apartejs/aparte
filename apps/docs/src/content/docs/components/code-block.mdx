@@ -1,0 +1,68 @@
+---
+title: Code block
+description: A block of code in a reply — its file name, its language, a copy button — highlighted as it streams when a highlighter is installed.
+catalog:
+  group: chat
+  order: 10
+  claims:
+    segments: [code]
+  demos: [code-block, code-block-plain]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/code.fields.mdx';
+
+<Variant id="code-block" />
+
+A fenced block in a model's reply becomes a `code` segment of its own, with a header that shows
+the file name when there is one, the language, and a copy button. The button copies the source,
+never the highlighting markup.
+
+Highlighting is a plugin. With one installed, the block is coloured while it streams, not only
+once the reply has ended.
+
+## Variants
+
+### With no highlighter installed
+
+<Variant id="code-block-plain" />
+
+The block keeps its header and its copy button, and still wraps its long lines; only the
+colours are missing.
+
+## Usage
+
+```ts
+import { setupShikiProvider } from '@aparte/plugin-shiki';
+
+await setupShikiProvider({ theme: { light: 'github-light', dark: 'github-dark' } });
+```
+
+A theme pair follows the chat's light and dark themes. `shiki` is a peer dependency. This entry
+brings every grammar Shiki has, each loaded when first needed; to ship only the languages you
+use, build a highlighter yourself and pass it to `setupShikiProviderFromHighlighter()` from
+`@aparte/plugin-shiki/core`. [Markdown and code](/guides/markdown/#ship-only-the-grammars-you-need)
+has both.
+
+## Customize
+
+Another highlighter (Prism, highlight.js) plugs in with
+`aparteGlobalConfig.setHighlightProvider(fn)`, which takes the code and its language and returns
+HTML, now or as a promise. The header is drawn from `--aparte-code-header-bg`,
+`--aparte-code-header-text` and `--aparte-code-border`; the
+[CSS variables reference](/reference/css-variables/) lists the rest.
+
+## Fields
+
+<Fields />
+
+## Accessibility
+
+- The copy button is named from the `copy` locale key, and from `copied` for a moment after a
+  click, so the confirmation is heard as well as seen.
+- The language is written in the header as text.
+
+## Related
+
+- [Response](/components/response/) — the text around the block.
+- [Artifact](/components/artifact/) — a whole file the reader can preview and download.

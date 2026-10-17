@@ -29,3 +29,14 @@ export function bundled(pkg: string, languages: string[] = []): BundledModel {
     const version: string = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
     return { pkg, languages, version, kb: Math.round(statSync(file).size / 1000) };
 }
+
+const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
+
+/** The three bundled aparte-titler models the site installs, with the languages each reads. */
+export function titlerModels(): { latin: BundledModel; mini: BundledModel; efigsp: BundledModel } {
+    return {
+        latin: bundled('@aparte/titler-latin', LATIN_LANGS),
+        mini: bundled('@aparte/titler-latin-mini', LATIN_LANGS),
+        efigsp: bundled('@aparte/titler-efigsp', ['en', 'fr', 'es', 'de', 'pt', 'it']),
+    };
+}

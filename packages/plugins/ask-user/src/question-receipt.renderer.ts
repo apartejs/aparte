@@ -85,8 +85,9 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
 }
 /* The question yields the room, the answer keeps it: an answer cut in half is a
    receipt that records nothing, and the question is usually the re-readable half. */
+/* The neutral as text, not the muted token: muted on the success mark is 4.29:1. */
 .aparte-question-receipt__question {
-    color: var(--aparte-text-muted);
+    color: var(--aparte-neutral-ink, var(--aparte-text-muted));
     flex-shrink: 1;
     min-width: 0;
 }

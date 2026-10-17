@@ -1,0 +1,23 @@
+/*
+ * The pieces a page's content uses, drawn with the kit: tabs (src/components/content/Tabs.astro).
+ * The recipe draws the tab row and the selected tab; this places the group in the prose.
+ */
+starlight-tabs.site-tabs {
+  display: block;
+  margin-block: var(--aparte-space-5);
+}
+/* Five framework names fit a phone only if the row may scroll. */
+.site-tabs > [role='tablist'] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.site-tabs__panel {
+  padding-block-start: var(--aparte-space-3);
+}
+.site-tabs__panel > :first-child {
+  margin-block-start: 0;
+}
+.site-tabs__panel:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}

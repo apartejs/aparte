@@ -1,48 +1,89 @@
 ---
 /**
- * The frame itself: the box, its width presets, and the three things an iframe cannot do
- * on its own. `ElementPreview` and `SegmentPreview` are the two lookups that point it at a
- * document; everything visible lives here so the two cannot drift apart.
+ * The frame itself: the box, its bar, and the three things an iframe cannot do on its own.
+ * `ElementPreview`, `SegmentPreview`, `Demo` and the catalogue's `Variant` point it at a
+ * document; everything visible lives here so they cannot drift apart.
+ *
+ * Given `code`, the bar carries Preview / Code: the catalogue shows a variant and the string
+ * that renders it in one box, the code a click away. Without it the frame is the preview alone
+ * and the page prints the code itself (the guides, the generated pages).
+ *
+ * The bar is the kit's: segmented `.aparte-btn-group`s — `aria-selected` under a tablist for
+ * the view, `aria-pressed` for the width.
+ * The intent is named (`--neutral`) rather than left to the default: a selected segment with no
+ * intent class is painted neutral but keeps the default dark ink, 3.38:1 in the light theme.
  *
  * ONE RENDER, FIVE FRAMEWORKS, and it is deliberate. Every wrapper mounts the same custom
  * elements, so five frames would render five identical documents and prove the same thing
- * five times; claiming the rendering differs is the lie worth avoiding. The code below the
- * frame is per-framework and derived from the wrappers' own binding rules — the frame shows
- * WHAT you get, the tabs show how YOUR framework asks for it. Each caption says so, because
- * a reader should not have to infer it.
+ * five times; claiming the rendering differs is the lie worth avoiding.
  */
+import { externalLinkIcon } from '@aparte/core/icons';
+import Code from './content/Code.astro';
+
 interface Props {
     /** The preview document to load. */
     src: string;
     /** What the frame is announced as to a screen reader. */
     label: string;
     /** One sentence under the frame saying what is being shown. */
-    caption: string;
+    caption?: string;
+    /** The string that renders this preview: adds a Code view to the bar. */
+    code?: string;
+    /** The code's language (default `html`). */
+    lang?: string;
+    /**
+     * The frame's height before its document reports one, in px. Without it the frame starts at
+     * the 10rem floor and grows when the demo loads, pushing everything under it down.
+     */
+    height?: number;
+    /** The 375 / 768 / Full presets (default on); off where the frame is narrower than 768 anyway. */
+    widths?: boolean;
 }
 
-const { src, label, caption } = Astro.props;
+const { src, label, caption, code, lang = 'html', height, widths = true } = Astro.props;
+const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
-{/* `not-content` is Starlight's own opt-out of the prose flow, and this figure is not
-    prose: it is a control bar and a frame. Without it Starlight's `* + *` rule — whose
-    exclusion list covers a, strong, em, del, span, input, code and br, but not button —
-    gave every button after the first a `margin-top: 1rem`, so "375" sat 8px above "768"
-    and "Full" in a row that had asked for `align-items: center`. */}
+{/* `not-content` is Starlight's own opt-out of the prose flow, and this figure is not prose:
+    Starlight's `* + *` rule would push every button after the first down by 1rem. */}
 <figure class="aparte-preview not-content">
     <div class="aparte-preview-bar">
-        {/* Presets over a free drag handle: the point is to reach the breakpoints core
-            actually declares, and 375 is the one a reader cannot hit by dragging inside a
-            documentation column. The handle stays for everything in between. */}
-        <span class="aparte-preview-label">Width</span>
-        <button type="button" data-width="375">375</button>
-        <button type="button" data-width="768">768</button>
-        <button type="button" data-width="0" aria-pressed="true">Full</button>
-        <a href={src} target="_blank" rel="noopener">Open in a tab</a>
+        {
+            code && (
+                <div class="aparte-btn-group" role="tablist" aria-label="View">
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" role="tab" id={`${id}-tab-preview`} aria-controls={`${id}-preview`} aria-selected="true" data-view="preview">Preview</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" role="tab" id={`${id}-tab-code`} aria-controls={`${id}-code`} aria-selected="false" tabindex="-1" data-view="code">Code</button>
+                </div>
+            )
+        }
+        {/* Presets over a free drag handle: the point is to reach the breakpoints core actually
+            declares, and 375 is the one a reader cannot hit by dragging inside a documentation
+            column. The handle stays for everything in between. */}
+        {
+            widths && (
+                <div class="aparte-btn-group aparte-preview-widths" role="group" aria-label="Preview width">
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="375" aria-pressed="false">375</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="768" aria-pressed="false">768</button>
+                    <button class="aparte-btn aparte-btn--surface aparte-btn--neutral aparte-btn--sm" type="button" data-width="0" aria-pressed="true">Full</button>
+                </div>
+            )
+        }
+        <a class="aparte-btn aparte-btn--ghost aparte-btn--sm aparte-preview-open" href={src} target="_blank" rel="noopener">
+            Open
+            <span class="aparte-preview-open__glyph" set:html={externalLinkIcon} />
+        </a>
     </div>
-    <div class="aparte-preview-frame">
-        <iframe title={label} loading="lazy" src={src}></iframe>
+    <div class="aparte-preview-frame" id={`${id}-preview`} role={code ? 'tabpanel' : undefined} aria-labelledby={code ? `${id}-tab-preview` : undefined}>
+        <iframe title={label} loading="lazy" src={src} style={height ? `height: ${height}px` : undefined}></iframe>
     </div>
-    <figcaption>{caption}</figcaption>
+    {
+        code && (
+            <div class="aparte-preview-code" id={`${id}-code`} role="tabpanel" aria-labelledby={`${id}-tab-code`} hidden>
+                <Code code={code} lang={lang} />
+            </div>
+        )
+    }
+    {caption && <figcaption>{caption}</figcaption>}
 </figure>
 
 <style>
@@ -52,35 +93,20 @@ const { src, label, caption } = Astro.props;
 
     .aparte-preview-bar {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 0.4rem;
-        margin-bottom: 0.4rem;
-        font-size: var(--sl-text-xs);
+        gap: var(--aparte-space-2);
+        margin-bottom: var(--aparte-space-2);
     }
 
-    .aparte-preview-label {
-        color: var(--sl-color-gray-3);
-        margin-inline-end: 0.1rem;
-    }
-
-    .aparte-preview-bar button {
-        font: inherit;
-        color: var(--sl-color-gray-2);
-        background: none;
-        border: 1px solid var(--sl-color-gray-5);
-        border-radius: 0.25rem;
-        padding: 0.1rem 0.45rem;
-        cursor: pointer;
-    }
-
-    .aparte-preview-bar button[aria-pressed='true'] {
-        color: var(--sl-color-text-accent);
-        border-color: var(--sl-color-text-accent);
-    }
-
-    .aparte-preview-bar a {
+    .aparte-preview-open {
         margin-inline-start: auto;
-        color: var(--sl-color-gray-3);
+        gap: var(--aparte-space-1);
+    }
+
+    .aparte-preview-open__glyph {
+        display: inline-flex;
+        --aparte-icon-size: 0.85rem;
     }
 
     /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
@@ -90,48 +116,45 @@ const { src, label, caption } = Astro.props;
         resize: horizontal;
         min-width: 20rem;
         max-width: 100%;
-        border: 1px solid var(--sl-color-gray-5);
-        border-radius: 0.5rem;
-        background: var(--sl-color-bg);
+        border: var(--aparte-border-width) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-lg);
+        background: var(--aparte-bg);
+    }
+
+    .aparte-preview-frame[hidden] {
+        display: none;
+    }
+
+    /* Its height is the preview's when the view switches (in script); longer code scrolls here. */
+    .aparte-preview-code {
+        overflow: auto;
+    }
+
+    .aparte-preview-code :global(.aparte-doc-code) {
+        margin: 0;
     }
 
     .aparte-preview-frame iframe {
         display: block;
         width: 100%;
         /* A floor until the frame reports its own height, so the box never collapses to
-           nothing on a slow load. The cap is applied in script, not here: it has to beat the
-           height the frame asks for. 10rem and not 22: most previews are shorter, and a
-           placeholder taller than the demo read as a big box that then shrinks. */
+           nothing on a slow load. The cap is applied in script: it has to beat the height the
+           frame asks for. And no transition on the height: a frame that trails its content by
+           200ms is the wrong height for 200ms, which showed as a scrollbar mid-drag. */
         height: 10rem;
         border: 0;
-        /*
-         * NO transition on the height. It used to animate over 0.2s, to make the correction
-         * from the placeholder "a settle rather than a jump" — and it bought that at the
-         * cost of the frame being the WRONG height for 200ms after every change.
-         *
-         * Two symptoms, one line. Dragging the resize handle reflows the document
-         * continuously, and the frame trailed it: measured at 9px behind mid-drag on the
-         * artifact preview. Trailing SHORT means the document is taller than its frame, so
-         * the reader gets a scrollbar for as long as the drag lasts. And on the artifact,
-         * where switching Code/Preview moves the height by hundreds of pixels, the same
-         * 200ms reads as the frame slowly growing rather than showing the tab.
-         *
-         * A frame that lands on its content's height does not read as a jump — nothing else
-         * on the page moved, only the empty space below the demo. The placeholder above is
-         * what keeps the load from collapsing.
-         */
     }
 
     .aparte-preview figcaption {
-        margin-top: 0.5rem;
-        font-size: var(--sl-text-xs);
-        color: var(--sl-color-gray-3);
+        margin-top: var(--aparte-space-2);
+        font-size: var(--aparte-font-size-sm);
+        color: var(--aparte-text-muted);
     }
 </style>
 
 <script>
     /*
-     * Three jobs, none of which an iframe does on its own.
+     * Four jobs, none of which an iframe does on its own.
      *
      * The height, because the frame is the only one that knows it and a fixed height either
      * crops the demo or leaves a band of empty stage under it.
@@ -141,7 +164,7 @@ const { src, label, caption } = Astro.props;
      * light demo inside a dark page.
      *
      * The width presets, because core declares breakpoints and a preview that cannot reach
-     * them does not demonstrate them.
+     * them does not demonstrate them. And the view, Preview or Code, where the bar has one.
      */
     const MIN_HEIGHT = 96;
     const MAX_HEIGHT = 640;
@@ -156,20 +179,18 @@ const { src, label, caption } = Astro.props;
         }
     });
 
-    /* Ask, rather than wait to be told. This script is a module and therefore deferred,
-       while a frame above the fold starts loading during parse — so its first height
-       message can be sent before the listener above exists, and the box keeps its
-       placeholder for good. Asking on load covers the frames that beat us to it; asking
-       again immediately covers the ones that had already finished. */
+    /* Ask, rather than wait to be told. This script is a module and therefore deferred, while
+       a frame above the fold starts loading during parse — so its first height message can be
+       sent before the listener above exists. Asking on load covers the frames that beat us to
+       it; asking again immediately covers the ones that had already finished. */
     for (const frame of document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')) {
         const ask = () => frame.contentWindow?.postMessage({ aparteWantHeight: true }, '*');
         frame.addEventListener('load', ask);
         ask();
     }
 
-    /* Starlight writes the reader's choice to `data-theme` on the root; core reads
-       `data-aparte-theme`. Watching the attribute rather than the toggle's click keeps this
-       working whatever Starlight's own control turns out to be. */
+    /* The site writes the reader's choice to `data-theme` on the root. Watching the attribute
+       rather than a control's click keeps this working whatever the control is. */
     new MutationObserver(() => {
         const theme = document.documentElement.dataset.theme ?? 'auto';
         for (const frame of document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')) {
@@ -179,12 +200,39 @@ const { src, label, caption } = Astro.props;
 
     for (const figure of document.querySelectorAll<HTMLElement>('.aparte-preview')) {
         const box = figure.querySelector<HTMLElement>('.aparte-preview-frame');
-        const buttons = figure.querySelectorAll<HTMLButtonElement>('.aparte-preview-bar button');
-        for (const button of buttons) {
+        const widths = figure.querySelectorAll<HTMLButtonElement>('[data-width]');
+        for (const button of widths) {
             button.addEventListener('click', () => {
                 const width = Number(button.dataset.width);
                 if (box) box.style.width = width ? `${width}px` : '';
-                for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+                for (const other of widths) other.setAttribute('aria-pressed', String(other === button));
+            });
+        }
+
+        const views = [...figure.querySelectorAll<HTMLButtonElement>('[data-view]')];
+        const code = figure.querySelector<HTMLElement>('.aparte-preview-code');
+        const show = (view: HTMLButtonElement) => {
+            // The code takes the preview's height and scrolls inside it, so switching views never
+            // moves what is under the figure (nor the column beside it).
+            if (code && box && view.dataset.view === 'code' && box.offsetHeight) code.style.height = `${box.offsetHeight}px`;
+            for (const tab of views) {
+                const on = tab === view;
+                tab.setAttribute('aria-selected', String(on));
+                tab.tabIndex = on ? 0 : -1;
+                const panel = document.getElementById(tab.getAttribute('aria-controls') ?? '');
+                if (panel) panel.hidden = !on;
+            }
+            // Widths only mean something on the preview.
+            figure.querySelector<HTMLElement>('.aparte-preview-widths')?.toggleAttribute('hidden', view.dataset.view !== 'preview');
+        };
+        for (const tab of views) {
+            tab.addEventListener('click', () => show(tab));
+            tab.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+                event.preventDefault();
+                const next = views[(views.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1) + views.length) % views.length]!;
+                next.focus();
+                show(next);
             });
         }
     }

@@ -1,0 +1,64 @@
+---
+title: Field
+description: Text fields, text areas, checkboxes, radios, switches, ranges and choice cards, with their labels, hints and errors, on native form controls.
+catalog:
+  group: kit
+  order: 2
+  claims:
+    classes: [field]
+  demos: [kit-field, kit-field-states, kit-field-choices]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/field.classes.mdx';
+import Vars from '../../../generated/api/kit/field.vars.mdx';
+
+<Variant id="kit-field" />
+
+Every form control a settings screen needs, drawn on the browser's own elements. `.aparte-field`
+is one recipe for `<input>`, `<textarea>` and `<select>` alike: border, background, radius,
+padding, focus ring, placeholder. `.aparte-checkbox`, `.aparte-radio`, `.aparte-switch` and
+`.aparte-range` repaint the native controls, so they keep their keyboard behaviour and their form
+value.
+
+Around them: `.aparte-field-label`, `.aparte-field-hint`, `.aparte-field-warning`,
+`.aparte-field-error`, a `.aparte-field-group` that puts a prefix or a suffix against the field,
+and `.aparte-fieldset` for a set of choices.
+
+## Variants
+
+### Sizes, an error, a disabled field
+
+<Variant id="kit-field-states" />
+
+`--sm` and `--lg` follow the [button](/components/button/) sizes, so a field and a button in one
+row line up. An error is `aria-invalid` on the field, which draws it, and a message the field
+points to.
+
+### Choices as cards
+
+<Variant id="kit-field-choices" />
+
+`.aparte-field-choice--boxed` turns a radio or a checkbox and its text into a card the whole of
+which can be clicked.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- These are native controls: labels, keyboard, form submission and validation work as the browser
+  makes them work. Tie each label to its field with `for` and `id`.
+- An error is announced through `aria-invalid` and `aria-describedby` pointing at the message.
+- A switch is a checkbox with `role="switch"`.
+
+## Related
+
+- [Select](/components/select/) — a dropdown with groups and search, when a native `<select>` is
+  not enough.
+- [Button](/components/button/) — the sizes fields follow.

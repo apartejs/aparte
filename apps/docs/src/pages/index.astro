@@ -1,1487 +1,656 @@
 ---
-import { readFileSync, readdirSync } from 'node:fs';
-import { pathToFileURL, fileURLToPath } from 'node:url';
-import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
+/**
+ * The home page: what aparté is in one screen, the product running under it, then one section
+ * per thing a visitor weighs — the pieces of a chat, the human in the loop, how it fits between
+ * a framework and a model, the look, whole apps, and what is checked.
+ *
+ * Every number comes from src/lib/facts.ts, measured at build time; every demo is the library
+ * itself, running in a frame (no screenshot anywhere on the site).
+ */
+import { arrowRightIcon, checkIcon, copyIcon } from '@aparte/core/icons';
+import Variant from '../components/catalog/Variant.astro';
+import Code from '../components/content/Code.astro';
+import { TabItem, Tabs } from '../components/content/tabs';
+import ComponentCarousel from '../components/home/ComponentCarousel.astro';
+import HowItFits from '../components/home/HowItFits.astro';
+import ProductFrame from '../components/home/ProductFrame.astro';
+import WeightChart from '../components/home/WeightChart.astro';
+import { REPO_URL } from '../components/site/sections';
+import TemplateGrid from '../components/templates/TemplateGrid.astro';
+import { LANDING_DESCRIPTION, LANDING_IMAGE_ALT, LANDING_TITLE } from '../data/landing-meta';
 import Landing from '../layouts/Landing.astro';
-import { SEGMENT_KINDS } from '../data/segment-kinds';
-// The same list `check:derived-vars` and the CSS-variables reference read, so this page
-// cannot count a corpus the rest of the repo has stopped using.
-import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
-// Same helper `models/titler.astro` measures its models with, so the two pages cannot
-// quote two different weights for the one file the site installs.
-import { bundled } from '../lib/bundled-model';
+import { BROWSER_ENGINES, COMPONENTS, CORE_THIRD_PARTY_DEPS, CORE_VERSION, TESTS } from '../lib/facts';
+import { findTemplate } from '../templates/registry';
 
-/*
- * The landing page.
- *
- * It used to say ONE thing, four times: "framework-agnostic", in the eyebrow, the
- * lede, the facts row and a whole section of framework tabs. That is portability —
- * a property, not a benefit — and it is also, word for word, the closest
- * competitor's own positioning, so leading with it put aparté second on someone
- * else's argument. Meanwhile the things no presentational component kit can have
- * (a tool loop that pauses for a human, every kind of content in one turn, a
- * sandboxed artifact preview, branch-and-retry) were nowhere on the page.
- *
- * Every number and capability below was verified against the source before it was
- * written here, and several drafts were cut for failing that check: there is no
- * bundle-size figure (nothing in the repo measures one), the CSS-variable count is
- * 249 and not 250, `provider-openai-compat` ships six presets and not eight, and
- * the wrappers' slots are equivalent but not identical, so the page does not claim
- * they are. When in doubt the sentence says what is opt-in.
- */
-/**
- * Everything below is read from the repo at build time, so the anchor has to survive
- * BUNDLING. It used to count `../` from `import.meta.url`, which worked only while that
- * URL was this source file: Astro 7 prerenders from bundled chunks in
- * `dist/.prerender/chunks/`, so the same four levels landed on `apps/packages/core` and
- * the landing page failed to render at all.
- *
- * `process.cwd()` is the Astro project root (`apps/docs`) for every way this builds —
- * `pnpm --filter`, `nx run`, or `astro build` by hand — and it is not rewritten by the
- * bundler, so two levels up is the repo root wherever the code ends up.
- */
-// `.href` rather than the URL object: `pathToFileURL` is typed against @types/node's
-// own `URL`, which no longer matches the global one (the iterator-helper methods on
-// `searchParams`), and a string base sidesteps the clash without a cast.
-const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
-const at = (p: string) => new URL(p, REPO);
+const assistant = findTemplate('assistant');
+if (!assistant) throw new Error('The home shows the Assistant template, and the registry has none.');
 
-/** The shipped version, read at build time — the JSON-LD below is what still needs it
- *  here. The nav chip has its own read, in the layout, of this same file: two reads of
- *  one file at build time, not two copies of a value, so they cannot disagree. */
-const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
+/** The chat pages the carousel shows: one per kind of thing a turn holds, the composer last. */
+const MOSAIC = ['message', 'reasoning', 'tool', 'code-block', 'artifact', 'approval', 'question', 'composer'];
 
-/**
- * The numbers this page quotes, MEASURED at build time.
- *
- * They were hardcoded first, which is the exact failure this repo keeps finding:
- * a line that describes the code has to be re-measured, not trusted. Everything
- * below is counted from the filesystem on every build, so the page cannot drift
- * from the repo — and anything that could only be counted approximately was
- * dropped rather than printed as if it were exact.
- */
+/** The same chat in each framework: the first snippet of each framework page, cut to its core. */
+const MOUNT = [
+    {
+        label: 'Vanilla',
+        blocks: [
+            { lang: 'ts', code: `import '@aparte/core';\nimport '@aparte/core/styles.css';` },
+            { lang: 'html', code: `<aparte-chat></aparte-chat>` },
+        ],
+    },
+    {
+        label: 'React',
+        blocks: [
+            {
+                lang: 'tsx',
+                code: `import { AparteChat, useAparteChat } from '@aparte/react';
+import '@aparte/core/styles.css';
 
-/** Gate steps and how many of them are `check:*` guards. */
-const gate: string = JSON.parse(readFileSync(at('package.json'), 'utf8')).scripts.gate;
-const GATE_STEPS = gate.split('&&').length;
-const GATE_GUARDS = gate.split('&&').filter((s) => /pnpm check/.test(s)).length;
+export function Chat() {
+  const chat = useAparteChat();
+  return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />;
+}`,
+            },
+        ],
+    },
+    {
+        label: 'Vue',
+        blocks: [
+            {
+                lang: 'vue',
+                code: `<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import '@aparte/core/styles.css';
 
-/** Playwright spec files. */
-const E2E_SPECS = readdirSync(at('e2e/tests')).filter((f) => f.endsWith('.spec.ts')).length;
+const chat = useAparteChat();
+</script>
 
-/** Vitest files across every package (not individual `it()`s — that count can
- *  only be had by running the suite, and an approximation printed as a fact is
- *  the same rot in a different coat). */
-function countTestFiles(dir: URL): number {
-    let n = 0;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (entry.isDirectory()) {
-            if (['node_modules', 'dist', '.svelte-kit', '.angular'].includes(entry.name)) continue;
-            n += countTestFiles(new URL(`${entry.name}/`, dir));
-        } else if (/\.(test|spec)\.ts$/.test(entry.name)) n++;
-    }
-    return n;
-}
-const TEST_FILES = countTestFiles(at('packages/'));
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+</template>`,
+            },
+        ],
+    },
+    {
+        label: 'Svelte',
+        blocks: [
+            {
+                lang: 'svelte',
+                code: `<script lang="ts">
+  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
+  import '@aparte/core/styles.css';
 
-/**
- * How many tests actually RAN, stamped by `scripts/stamp-test-count.mjs` on every
- * `pnpm test`. Individual `it()`s cannot be counted statically here — several
- * suites are table-driven and a `grep` undercounts them badly — so this is the one
- * number that has to come from an execution.
- *
- * Absent (a fresh clone that has never run the suite), the page falls back to a
- * FLOOR rather than a guess: an inequality cannot go stale downward while the
- * suite only grows, which is the one honest thing to say without having measured.
- */
-let TESTS_RAN: number | null = null;
-let FILES_RAN: number | null = null;
-try {
-    const stamp = JSON.parse(readFileSync(at('apps/docs/src/data/test-counts.json'), 'utf8'));
-    TESTS_RAN = stamp.tests ?? null;
-    FILES_RAN = stamp.files ?? null;
-} catch { /* never measured here — the fallbacks below are used instead */ }
-const TESTS_LABEL = TESTS_RAN ? `${TESTS_RAN.toLocaleString('en-US')} tests, all green` : 'more than 1,000 tests';
-/* The RUN is the authority on how many files there are: the walk above and vitest
-   disagreed by three (121 against 118), because the workspace picks up test files
-   the walk's exclusions miss. Prefer the measurement, keep the walk as the answer
-   for a clone that has never run the suite. */
-const FILES = FILES_RAN ?? TEST_FILES;
+  const chat = createAparteChat();
+  const { messages } = chat;
+  let comp: AparteChatImperativeApi | null = null;
+  $: chat.connect(comp);
+</script>
 
-/** Published packages. */
-function countPackages(dir: URL): number {
-    let n = 0;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || ['node_modules', 'dist'].includes(entry.name)) continue;
-        const child = new URL(`${entry.name}/`, dir);
-        const names = readdirSync(child);
-        if (names.includes('package.json')) {
-            const pkg = JSON.parse(readFileSync(new URL('package.json', child), 'utf8'));
-            if (!pkg.private && pkg.name) n++;
-        }
-        n += countPackages(child);
-    }
-    return n;
-}
-const PACKAGES = countPackages(at('packages/'));
+<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} />`,
+            },
+        ],
+    },
+    {
+        label: 'Angular',
+        blocks: [
+            {
+                lang: 'ts',
+                code: `import { Component } from '@angular/core';
+import { AparteChatComponent, type AparteMessage } from '@aparte/angular';
+import '@aparte/core/styles.css';
 
-/** Keys in `AparteLocale` — i.e. how many strings a language is. Counted because
- *  adding ONE key made five hand-written "forty"s on this page wrong in the same
- *  commit that added it. */
-const LOCALE_KEYS = (readFileSync(at('packages/core/src/config/locale.ts'), 'utf8')
-    .match(/^\s+[a-zA-Z]+\??:\s*string/gm) ?? []).length;
-
-/** Distinct `--aparte-*` custom properties declared in core's stylesheet. */
-/**
- * The mark in the browser tab, as the artifact demo's payload.
- *
- * READ rather than copied: a second copy of an SVG in a demo is a second thing to
- * update, and the claim the panel makes — "this is the file in your tab" — stops being
- * true the moment the favicon changes. 353 bytes, so the data attribute that carries it
- * to the script costs nothing.
- */
-const LOGO_SVG = readFileSync(at('apps/docs/public/favicon.svg'), 'utf8').trim();
-
-/** Every knob core exposes, counted from the sheet that owns them. Read rather than
- *  hardcoded, for the same reason as the logo above — and behind a floor, because this
- *  page located the stylesheet by PATH and went down the day the sheets were split by
- *  family. It was the fourth reader to do exactly that. */
-const CSS_VARS = new Set(
-    (readFileSync(at('packages/core/src/styles/theme.css'), 'utf8')
-        .match(/^\s*--aparte-[a-z0-9-]+(?=\s*:)/gm) ?? []).map((s) => s.trim()),
-).size;
-if (CSS_VARS < 250) {
-    throw new Error(
-        `The landing page counted only ${CSS_VARS} CSS variables in theme.css. A sheet moved `
-        + 'and this number is now wrong — fix the path rather than publishing a short count.',
-    );
-}
-
-/**
- * The facts row's dependency claim, asserted like every other measured fact (#63).
- *
- * It used to be the ONE fact on this page left as prose, and it is the one that went
- * false: D1 gave core a first-party dependency (@aparte/engine) and the row said
- * "Zero runtime dependencies" for two days. The claim that is true — and stays
- * assertable — is "zero THIRD-PARTY dependencies": every entry in core's
- * `dependencies` is an @aparte/* package. If that ever stops holding, the build
- * fails here with the claim in hand, instead of publishing it.
- */
-const CORE_DEPS = Object.keys(
-    (JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')) as { dependencies?: Record<string, string> })
-        .dependencies ?? {},
-);
-const THIRD_PARTY = CORE_DEPS.filter((d) => !d.startsWith('@aparte/'));
-if (THIRD_PARTY.length > 0) {
-    throw new Error(
-        `The landing claims "Zero third-party dependencies", but @aparte/core now depends on: `
-        + `${THIRD_PARTY.join(', ')}. Change the claim or the dependency — this page does not ship the lie.`,
-    );
-}
-
-/**
- * What ships, counted from what ships: the elements from core's custom-elements
- * manifest (the docs build depends on core's build, so dist is always fresh here),
- * the kit families from the pages their generator wrote just before this build.
- * Floors, like CSS_VARS above: a count that silently collapses must fail the build,
- * not publish a small number.
- */
-const ELEMENTS = (JSON.parse(readFileSync(at('packages/core/dist/custom-elements.json'), 'utf8')) as {
-    modules: { declarations?: { customElement?: boolean }[] }[];
-}).modules.flatMap((m) => m.declarations ?? []).filter((d) => d.customElement).length;
-if (ELEMENTS < 20) {
-    throw new Error(`The landing counted only ${ELEMENTS} custom elements in core's manifest — the manifest moved or shrank; fix that rather than publishing a small count.`);
-}
-const KIT_FAMILIES = readdirSync(at('apps/docs/src/content/docs/kit/'))
-    .filter((f) => f.endsWith('.mdx') && f !== 'index.mdx').length;
-if (KIT_FAMILIES < 15) {
-    throw new Error(`The landing counted only ${KIT_FAMILIES} kit family pages — the generator moved or failed; fix that rather than publishing a small count.`);
-}
-
-/**
- * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
- *
- * This bullet used to say "ninety-five of them derive from it" — the one hand-written
- * number on a page whose own header promises every figure was verified against the
- * source. Measured: twelve variables derive from it and forty-nine places read it. The
- * claim was wrong on both readings, on the page most people see first.
- *
- * Counted here rather than guarded elsewhere, for the reason the rest of this file
- * already follows: a number computed at build time cannot drift from the thing it
- * describes.
- */
-const PRIMARY = (() => {
-    // The shared list gives the RULE — the import order of `index.ts` — and this page gives
-    // the ROOT, because `coreStylesheets()` derives its own from `import.meta.url`, which
-    // points inside `dist/.prerender` once Astro has bundled this frontmatter.
-    const css = coreStylesheets(true, fileURLToPath(REPO))
-        .map((p: string) => readFileSync(p, 'utf8'))
-        .join('\n');
-    const reads = (css.match(/var\(--aparte-primary[,)]/g) ?? []).length;
-    const derived = (css.match(/^\s+--aparte-[\w-]+\s*:[^;]*var\(--aparte-primary[,)]/gm) ?? []).length;
-    if (!reads || !derived) {
-        throw new Error(
-            'The landing page found no reader of --aparte-primary. The matcher broke or the '
-            + 'token was renamed — either way this bullet would publish a zero.',
-        );
-    }
-    return { reads, derived };
-})();
-const PRIMARY_READS = PRIMARY.reads;
-const PRIMARY_DERIVED = PRIMARY.derived;
-
-/** The page already numbers its facts row in serif italic roman; the segment
- *  cards echo it, which is what makes ten boxes read as one enumeration. */
-const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
-
-/** The titler model's weight, read from the same file `models/titler.astro` measures —
- *  one hand-typed "132 KB" here once disagreed with that page's own 133. */
-const TITLER = bundled('@aparte/titler-latin');
-
-/** The five demo tabs. `caption` is what the panel is showing; the source for
- *  each lives as a real <pre> in the markup, not a string built in JS. */
-const DEMOS = [
-    { key: 'chat', label: 'Chat' },
-    { key: 'tools', label: 'Tools & approval' },
-    { key: 'segments', label: 'Segments' },
-    { key: 'artifact', label: 'Artifacts' },
-    { key: 'branch', label: 'Branching' },
+@Component({
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: \`<aparte-chat (messagesChange)="messages = $event"></aparte-chat>\`,
+})
+export class Chat {
+  messages: AparteMessage[] = [];
+}`,
+            },
+        ],
+    },
 ];
 
-
-const FAMILIES = [
-  {
-    name: 'Core', count: 'two packages', items: [
-      { pkg: '@aparte/core', line: 'The web components, the renderers, the transports. Zero third-party dependencies.' },
-      { pkg: '@aparte/engine', line: 'The agent loop on its own, drivable from your code. A test proves both loops behave identically.' },
-    ],
-  },
-  {
-    name: 'Frameworks', count: 'four wrappers, published', items: [
-      { pkg: '@aparte/react', line: 'Component, hooks, a conversation-manager hook.' },
-      { pkg: '@aparte/vue', line: 'Component, composables.' },
-      { pkg: '@aparte/svelte', line: 'Component, stores.' },
-      { pkg: '@aparte/angular', line: 'Standalone component, services, one-call provideAparte().' },
-    ],
-  },
-  {
-    name: 'Providers', count: 'four', items: [
-      { pkg: '@aparte/provider-openai-compat', line: 'One zero-dependency adapter for the whole OpenAI-compatible family, with presets for OpenAI, Mistral, Z.AI, OpenRouter, LM Studio and Ollama.' },
-      { pkg: '@aparte/provider-ai-sdk', line: 'A bridge to any Vercel AI SDK model — install that vendor’s own adapter and it runs under aparté’s loop.' },
-      { pkg: '@aparte/provider-transformers', line: 'The model runs in the browser. WebGPU with a WASM fallback, in a worker, weights cached and evicted through the Cache API. No server, no key.' },
-      { pkg: '@aparte/provider-scenario', line: 'Scripted turns played as a real stream — thinking, tool calls, artifacts, paced. Every demo on this page runs on it; your demos and e2e can too.' },
-    ],
-  },
-  {
-    name: 'Plugins', count: 'nine', items: [
-      { pkg: '@aparte/plugin-marked', line: 'Markdown, rendered once at the end of a message.' },
-      { pkg: '@aparte/plugin-streaming-markdown', line: 'Markdown while it streams — and it strips a javascript: href mid-stream, not only at the final render.' },
-      { pkg: '@aparte/plugin-shiki', line: 'Syntax highlighting, with a second entry point for consumers who want to control what their bundler emits.' },
-      { pkg: '@aparte/plugin-model-selector', line: 'A real ARIA combobox, grouped by provider, keyboard-operable.' },
-      { pkg: '@aparte/plugin-ask-user', line: 'The ask_user tool: the model asks a structured question, the answer stays in the transcript.' },
-      { pkg: '@aparte/plugin-approval', line: 'Approval modes for tool calls — plan, ask, auto-edit, auto — from a classification of your own tool names.' },
-      { pkg: '@aparte/plugin-artifacts', line: 'A document the model writes, shown as a Code/Preview card; the preview runs in a sandboxed iframe.' },
-      { pkg: '@aparte/plugin-compaction', line: 'Context compaction: the transcript is summarised in place when the window fills, on request or automatically.' },
-      { pkg: '@aparte/plugin-titler', line: `A title for every conversation from its first message, in 17 languages, from a model that weighs ${TITLER.kb} KB and runs in the browser.` },
-    ],
-  },
-  {
-    name: 'Locales', count: `one shipped — and any language is ${LOCALE_KEYS} strings`, items: [
-      { pkg: '@aparte/locale-fr', line: 'French, complete. Hand it to setLocale() at runtime; resetLocale() goes back to English.' },
-      { pkg: 'setLocale({ … })', line: `Your own language needs no package, no build step and no PR here: a locale is a plain object of ${LOCALE_KEYS} strings, and English ships inside core as the default.` },
-    ],
-  },
+const LOOP = [
+    { title: 'Approve each tool call', line: 'The call waits, its arguments on screen, until someone allows or rejects it.', href: '/components/approval/' },
+    { title: 'Ask the person a question', line: 'The model asks with choices or a short form; the answer stays in the transcript.', href: '/components/question/' },
+    { title: 'Decide how much it does alone', line: 'Plan, ask before every change, or act: one switch in the composer.', href: '/components/approval-mode/' },
+    { title: 'Keep the loop on your server', line: 'A turn that waits for a person survives a reload and picks up where it stopped.', href: '/guides/server-loop/' },
 ];
 
+const PROOF = [
+    { figure: String(CORE_THIRD_PARTY_DEPS), label: 'third-party dependencies', line: 'in @aparte/core. Markdown, highlighting and the rest are plugins you add.' },
+    TESTS
+        ? { figure: TESTS.tests.toLocaleString('en-US'), label: 'tests', line: `in ${TESTS.files} files, green on the last run.` }
+        : { figure: '1,000+', label: 'tests', line: 'across every package.' },
+    { figure: String(BROWSER_ENGINES.length), label: 'browser engines', line: `drive the examples end to end: ${BROWSER_ENGINES.join(', ')}.` },
+    { figure: 'axe', label: 'on every example', line: 'an accessibility scan in the end-to-end suite, idle and mid-turn.' },
+];
 ---
 
 <Landing
-  title={LANDING_TITLE}
-  description={LANDING_DESCRIPTION}
-  canonical="https://apartejs.dev/"
-  ogImage="https://apartejs.dev/og/index.png"
-  ogImageAlt={LANDING_IMAGE_ALT}
-  current="index"
+    title={LANDING_TITLE}
+    description={LANDING_DESCRIPTION}
+    canonical="https://apartejs.dev/"
+    ogImage="https://apartejs.dev/og/index.png"
+    ogImageAlt={LANDING_IMAGE_ALT}
 >
-  <Fragment slot="head">
-    <!-- What the software IS, said in a vocabulary a machine can read rather than
-         inferred from marketing prose. `SoftwareSourceCode` is the type for a
-         library one reads and depends on; the runnable product it targets is nested
-         rather than flattened, because `applicationCategory` and `softwareVersion`
-         belong to `SoftwareApplication` and mixing the two vocabularies on one node
-         is invalid. Description and version come from the same places the tags
-         above do, so this cannot become a fifth copy that drifts. -->
-    <script is:inline type="application/ld+json" set:html={JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareSourceCode',
-      name: 'aparté',
-      description: LANDING_DESCRIPTION,
-      url: 'https://apartejs.dev/',
-      codeRepository: 'https://github.com/apartejs/aparte',
-      license: 'https://opensource.org/licenses/MIT',
-      programmingLanguage: 'TypeScript',
-      targetProduct: {
-        '@type': 'SoftwareApplication',
-        name: '@aparte/core',
-        applicationCategory: 'DeveloperApplication',
-        softwareVersion: CORE_VERSION,
-        operatingSystem: 'Any',
-      },
-    })} />
+    <Fragment slot="head">
+        {/* What the software IS, for a machine: the library (SoftwareSourceCode, with the product
+            it targets nested), then the site, whose `alternateName` carries the string people
+            type ("apartejs") while the brand is written "aparté". */}
+        <script
+            is:inline
+            type="application/ld+json"
+            set:html={JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'SoftwareSourceCode',
+                name: 'aparté',
+                description: LANDING_DESCRIPTION,
+                url: 'https://apartejs.dev/',
+                codeRepository: REPO_URL,
+                license: 'https://opensource.org/licenses/MIT',
+                programmingLanguage: 'TypeScript',
+                targetProduct: {
+                    '@type': 'SoftwareApplication',
+                    name: '@aparte/core',
+                    applicationCategory: 'DeveloperApplication',
+                    softwareVersion: CORE_VERSION,
+                    operatingSystem: 'Any',
+                },
+            })}
+        />
+        <script
+            is:inline
+            type="application/ld+json"
+            set:html={JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'WebSite',
+                name: 'aparté',
+                alternateName: ['apartejs', 'aparte'],
+                url: 'https://apartejs.dev/',
+                description: LANDING_DESCRIPTION,
+                publisher: {
+                    '@type': 'Organization',
+                    name: 'aparté',
+                    url: 'https://apartejs.dev/',
+                    sameAs: ['https://github.com/apartejs', 'https://www.npmjs.com/org/aparte'],
+                },
+            })}
+        />
+    </Fragment>
 
-    <!-- The node above describes the LIBRARY; this one describes the SITE, and exists
-         for one reason: `alternateName`. The brand is written "aparté" everywhere —
-         a dictionary word in three languages — while the string people actually type
-         is "apartejs", which appeared nowhere on the page as text, only inside URLs.
-         `WebSite` is also what lets a result show the site name on its own line, so
-         the title no longer has to spend its first nine characters on the brand. -->
-    <script is:inline type="application/ld+json" set:html={JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: 'aparté',
-      alternateName: ['apartejs', 'aparte'],
-      url: 'https://apartejs.dev/',
-      description: LANDING_DESCRIPTION,
-      publisher: {
-        '@type': 'Organization',
-        name: 'aparté',
-        url: 'https://apartejs.dev/',
-        sameAs: ['https://github.com/apartejs', 'https://www.npmjs.com/org/aparte'],
-      },
-    })} />
-  </Fragment>
-
-      <section class="hero">
-       <div class="hero-grid">
-        <div class="hero-copy">
-          <!-- The H1 carries the category words a search weighs; the signature line
-               keeps the display type. The TAGS swapped, the visual roles did not. -->
-          <h1 class="eyebrow">Open-source AI chat and agent UI, <b>built as Web Components</b></h1>
-          <p class="thesis serif">Chat, spoken <em>aside.</em></p>
-          <p class="lede">
-            Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,
-            <b>human-in-the-loop tools</b>, branch-and-retry on any
-            reply &#8212; with <b>zero third-party dependencies</b>. React, Vue, Svelte, Angular, or
-            nothing at all.
-          </p>
-          <div class="cta-row">
-            <a class="btn btn-primary" href="/guides/getting-started/">Read the docs &#8594;</a>
-            <a class="btn btn-ghost" href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">Star on GitHub</a>
-          </div>
-          <div class="install">
-            <pre class="mono"><span class="prompt">$</span> npm i @aparte/core</pre>
-            <button class="install-copy" id="copyInstall" type="button" aria-label="Copy install command" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          </div>
-          <p class="reassure">
-            Drop <code>&lt;aparte-chat&gt;</code> into any web app, point it at a model, and the
-            defaults are a working chat. Customize only what you need.
-          </p>
-        </div>
-
-        <!-- The thesis, in the shape it actually has. This column held the chat
-             before the chat got its own section; a code card states the same
-             claim as the lede without repeating any section below it. -->
-        <div class="hero-aside">
-          <div class="code mono" aria-label="The shape of one assistant reply">
-<pre><span class="cm">// an assistant reply is not a string</span>
-message.segments = [
-  &#123; type: <span class="st">'thinking'</span>,  &#8230; &#125;,
-  &#123; type: <span class="st">'tool_call'</span>,
-    status: <span class="tg">'awaiting-approval'</span> &#125;,
-  &#123; type: <span class="st">'code'</span>,      &#8230; &#125;,
-  &#123; type: <span class="st">'text'</span>,      &#8230; &#125;,
-]</pre>
-          </div>
-        </div>
-       </div>
-
-        <div class="facts">
-          <span><span class="k">i.</span><b>Zero</b> third-party dependencies</span>
-          <span><span class="k">ii.</span><b>{SEGMENT_KINDS.length}</b> kinds of content in one turn</span>
-          <span><span class="k">iii.</span><b>{CSS_VARS}</b> CSS variables, no shadow DOM</span>
-          <span><span class="k">iv.</span>Your key (BYOK), your server &#8212; <b>or no server at all</b></span>
-          <span><span class="k">v.</span><b>{ELEMENTS}</b> chat components, <b>{KIT_FAMILIES}</b> UI-kit families</span>
-        </div>
-      </section>
-
-      <!-- The real @aparte/core, given the whole width and five things to show.
-           It sat in a 380px column beside the hero copy, where a reasoning block
-           and a tool call could not both be on screen — which is the one thing
-           this page needs to show. The source sits beside each panel because that
-           answers the second question a developer has ("what do I write") on the
-           same pixels as the first. -->
-      <!-- The measured counts ride on the element: this page's client script is a
-           bundled module, so it cannot read the frontmatter, and hardcoding the
-           numbers a second time is how two copies of one fact start disagreeing. -->
-      <section class="stage" id="demo" data-kinds={SEGMENT_KINDS.length} data-vars={CSS_VARS} data-locale={LOCALE_KEYS} data-logo={LOGO_SVG}>
-        <div class="demo-tabs" role="tablist" aria-label="What the chat can do" id="demoTabs">
-          {DEMOS.map((d, i) => (
-            <button class="tab" role="tab" type="button" data-demo={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>
-          ))}
-        </div>
-        <p class="demo-cap" id="demoCap"></p>
-
-        <div class="demo-split">
-          <div class="aside-stage">
-            <div class="gutter" aria-hidden="true">
-              <span class="rule"></span>
-              <span class="tag">apart&eacute;</span>
-              <span class="rule"></span>
-            </div>
-            <div class="chat" aria-label="Live aparte chat — the real component, running in this page.">
-              <div class="chat-head">
-                <span class="dot"></span> assistant &middot; running here, in this page
-                <span class="hint" id="demoHint"></span>
-              </div>
-              <div class="aparte-demo">
-                <!-- No `placeholder` attribute on purpose. An attribute WINS over the locale
-                     (attribute -> composer property -> `t('inputPlaceholder')`), which is right —
-                     the app owns its own copy — but it also meant the Language lever could not
-                     move the one string a visitor is looking straight at. Letting the locale
-                     drive it costs a branded sentence and buys an honest demo. -->
-                <aparte-chat attachments></aparte-chat>
-              </div>
-            </div>
-          </div>
-
-          <div class="demo-code">
-            <div class="code-head">
-              source
-              <span class="frameworks">
-                only the two lines that mount it differ &#8212; everything here is the same in
-                React, Vue, Svelte and Angular. <a href="#mount">See the mount &#8594;</a>
-              </span>
-            </div>
-            <div class="code mono">
-<pre class="pane is-on" data-pane="chat"><span class="cm">// the whole chat, plus the files the composer collects</span>
-<span class="kw">import</span> <span class="st">'@aparte/core'</span>;
-<span class="kw">import</span> <span class="st">'@aparte/core/styles.css'</span>;
-
-<span class="tg">&lt;aparte-chat attachments&gt;&lt;/aparte-chat&gt;</span>
-
-composer.<span class="fn">addEventListener</span>(<span class="st">'aparte-send'</span>, (e) =&gt; &#123;
-  <span class="kw">const</span> &#123; content, files &#125; = e.detail;
-  viewport.<span class="fn">appendMessage</span>(&#123; id, role: <span class="st">'user'</span>, content &#125;);
-  <span class="cm">// …then stream your model's reply back in</span>
-  viewport.<span class="fn">appendToken</span>(id, chunk);
-  viewport.<span class="fn">completeMessage</span>(id);
-&#125;);</pre>
-<pre class="pane" data-pane="tools"><span class="cm">// a tool that stops the turn until a person decides</span>
-aparteGlobalConfig.<span class="fn">registerTool</span>(&#123;
-  name: <span class="st">'delete_file'</span>,
-  description: <span class="st">'Delete a file from the project'</span>,
-  inputSchema: &#123; <span class="cm">/* JSON Schema */</span> &#125;,
-  <span class="kw">needsApproval</span>: <span class="tg">true</span>,
-&#125;, <span class="kw">async</span> (&#123; path &#125;) =&gt; remove(path));
-
-<span class="cm">// AparteClient asks at the composer and resumes for you.</span>
-<span class="cm">// Ask it yourself the same way — no client, no loop:</span>
-<span class="kw">const</span> answer = <span class="kw">await</span> aparteGlobalConfig.<span class="fn">requestUserInput</span>(&#123;
-  kind: <span class="st">'approval'</span>,
-  message: <span class="st">'Run delete_file?'</span>,
-  options: [
-    &#123; value: <span class="st">'allow'</span>, label: <span class="st">'Approve'</span>, tone: <span class="st">'affirm'</span> &#125;,
-    &#123; value: <span class="st">'deny'</span>, label: <span class="st">'Reject'</span>, tone: <span class="st">'deny'</span> &#125;,
-  ],
-&#125;);</pre>
-<pre class="pane" data-pane="segments"><span class="cm">// two kinds in one reply, both streamed:</span>
-<span class="cm">// open empty, append, then settle</span>
-viewport.<span class="fn">appendMessage</span>(&#123; id, role: <span class="st">'assistant'</span> &#125;);
-
-viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s1'</span>, type: <span class="st">'thinking'</span>,
-  content: <span class="st">''</span>, isStreaming: <span class="tg">true</span> &#125;);
-viewport.<span class="fn">appendToSegment</span>(id, <span class="st">'s1'</span>, chunk);
-viewport.<span class="fn">updateSegment</span>(id, <span class="st">'s1'</span>, &#123; isStreaming: <span class="tg">false</span> &#125;);
-<span class="cm">// closed by default: `collapsed` is the reader's</span>
-<span class="cm">// business, never the model's. You never write</span>
-<span class="cm">// messageId or index either — the owner stamps</span>
-<span class="cm">// them, and its measurements land in meta.aparte.</span></pre>
-<pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; the artifacts plugin renders the card</span>
-viewport.<span class="fn">addSegment</span>(mid, &#123;
-  id: <span class="st">'a1'</span>, type: <span class="st">'artifact'</span>,
-  artifactType: <span class="st">'svg'</span>,
-  mimeType: <span class="st">'image/svg+xml'</span>,
-  title: <span class="st">'Turn latency by segment'</span>,
-  content: svgTheModelWrote,
-&#125;);
-
-<span class="cm">// The Preview tab mounts a sandboxed iframe —</span>
-<span class="cm">// sandbox="allow-scripts", a CSP delivered twice, and</span>
-<span class="cm">// ONLY on a human press. Reloading a saved thread</span>
-<span class="cm">// never re-runs what a model wrote.</span></pre>
-<pre class="pane" data-pane="branch"><span class="cm">// only `copy` is on by default — a button nobody</span>
-<span class="cm">// answers is a lie told to the user</span>
-aparteGlobalConfig.<span class="fn">setBubbleActions</span>(&#123; retry: <span class="tg">true</span> &#125;);
-
-<span class="cm">// retry forks a sibling instead of overwriting,</span>
-<span class="cm">// and the ‹1/2› picker appears on its own</span>
-document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry'</span>, (e) =&gt; &#123;
-  <span class="kw">const</span> id = viewport.<span class="fn">addSiblingOf</span>(e.detail.messageId, &#123;
-    id: next, role: <span class="st">'assistant'</span>, content: <span class="st">''</span>,
-  &#125;);
-  <span class="cm">// …then stream the new version into `id`</span>
-&#125;);</pre>
-            </div>
-          </div>
-        </div>
-        <!-- The levers, BELOW the demo and on ONE line. They were above it, and as
-             three stacked rows of pills, which is a slab of chrome between the
-             visitor and the thing they came for however it is styled. Selects say
-             "settings" in one row and one glance.
-
-             They apply to EVERY panel and they SURVIVE a tab switch — the point of a
-             live lever is watching your own palette land on the approval gate and
-             the artifact card. Three seams, deliberately separate: the palette is
-             CSS variables, the icons are a provider object, the language is a plain
-             object of strings. Any one without the others.
-
-             They replace a "Themes & icons" TAB, which existed to mix a palette and
-             an icon set — a thing the page now does at all times, on every panel.
-             A tab for it was a tab for the controls beside it. -->
-        <!-- The library's own select, not the browser's: a page that sells a chat UI
-             kit and then reaches for a native <select> beside it is showing two
-             designs. `aria-label` carries the name (a <label> cannot target a custom
-             element); the visible word stays for the eye. -->
-        <div class="levers">
-          <span class="lever"><span>Palette</span>
-            <aparte-select id="lvPalette" aria-label="Palette" value="stage">
-              <aparte-option value="stage">Stage &mdash; follows this page</aparte-option>
-              <aparte-option value="violet">Violet &mdash; pinned dark</aparte-option>
-              <aparte-option value="paper">Paper &mdash; pinned light</aparte-option>
-            </aparte-select>
-          </span>
-          <span class="lever"><span>Icons</span>
-            <aparte-select id="lvIcons" aria-label="Icons" value="default">
-              <aparte-option value="default">Default &mdash; what core ships</aparte-option>
-              <aparte-option value="solid">Solid</aparte-option>
-              <aparte-option value="hard">Hard-edged</aparte-option>
-            </aparte-select>
-          </span>
-          <span class="lever"><span>Language</span>
-            <aparte-select id="lvLocale" aria-label="Language" value="en">
-              <aparte-option value="en">English</aparte-option>
-              <aparte-option value="fr">Fran&ccedil;ais</aparte-option>
-            </aparte-select>
-          </span>
-        </div>
-
-        <!-- The stage tells you what plays it: the strongest trust line this page
-             has is that the demo above is the real component on a published,
-             deterministic provider — not a video. -->
-        <p class="demo-credit">
-          Everything above runs on <a href="/providers/ai/scenario/"><code>@aparte/provider-scenario</code></a>
-          &#8212; scripted turns played as a real stream, no key, no network, deterministic.
-          Ship your own demos and e2e on it.
-        </p>
-      </section>
-
-      <section class="band" id="turn">
-        <div class="sec-head">
-          <h2 class="serif">What a turn <span class="paren">(</span>contains<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          A reply is not a string &#8212; it is a structured turn. A list of <b>segments</b>, and {SEGMENT_KINDS.length} kinds ship
-          registered by default &#8212; mixable in a single message, each with its own renderer you
-          can replace. This is the unit a presentational component kit has no way to express.
-        </p>
-        <div class="kinds">
-          {SEGMENT_KINDS.map((k, i) => (
-            <div class="kind">
-              <span class="idx" aria-hidden="true">{ROMAN[i]}</span>
-              <h3><code>{k.tag}</code></h3>
-              <p>{k.body}</p>
-              {k.states.length > 0 && (
-                <div class="states">{k.states.map((s) => <span>{s}</span>)}</div>
-              )}
-            </div>
-          ))}
-        </div>
-        <p class="sec-note">
-          Every segment also knows where it is &#8212; its message, its index, and a span that
-          advances while it streams and freezes when it settles, so &#8220;Thought for 1.4s&#8221;
-          is data you read rather than a timer you keep. Core stamps it and renders none of it.
-          <a href="/guides/customization/">Register your own kind &#8594;</a>
-        </p>
-      </section>
-
-      <section class="band" id="human">
-        <div class="sec-head">
-          <h2 class="serif">A human, <span class="paren">(</span>in the loop<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          The part that makes this a library and not a widget: the turn can <b>stop and wait for
-          a person</b>, and core draws that pause itself.
-        </p>
-        <div class="split">
-          <div class="prose">
-            <ul>
-              <li>Mark a tool <b>needsApproval</b> and the loop pauses before the handler runs. Core asks at the composer, where every request for the user is answered, and the row in the transcript is the anchor. A refusal skips the rest of the turn and then the model gets a turn to answer it &#8212; and it can carry your own words.</li>
-              <li><b>Ten tool round-trips</b> per turn by default, overridable per run and per tool.</li>
-              <li>A turn can also <b>ask a structured question</b> &#8212; a schema-driven panel in the composer, and the question with its answer stays in the transcript afterwards.</li>
-              <li><b>Abort</b> is checked on both sides of every stream read, and each tool call can race its own timeout.</li>
-            </ul>
-          </div>
-          <div class="code mono">
-<pre><span class="cm">// the loop stops before the handler and asks in the composer;</span>
-<span class="cm">// a refusal skips the rest of the turn, then the model answers it</span>
-aparteGlobalConfig.<span class="fn">registerTool</span>(
-  &#123;
-    name: <span class="st">'delete_file'</span>,
-    description: <span class="st">'Delete a file from the project'</span>,
-    inputSchema: &#123; <span class="cm">/* JSON Schema */</span> &#125;,
-    <span class="kw">needsApproval</span>: <span class="tg">true</span>,
-  &#125;,
-  <span class="kw">async</span> (&#123; path &#125;) =&gt; remove(path),
-);</pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="band" id="branch">
-        <div class="sec-head">
-          <h2 class="serif">Branch <span class="paren">(</span>any turn<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          Retry does not overwrite an answer. It <b>forks a sibling</b>, and a picker appears so a
-          reader can move between versions &#8212; the same behaviour every serious chat product has,
-          built in rather than rebuilt.
-        </p>
-        <div class="split">
-          <div class="prose">
-            <p>
-              Try it on the chat above: send a message, hover the reply, press retry. The two
-              versions stay side by side behind the counter, and nothing is lost.
+    <div class="home">
+        <section class="home-hero">
+            <h1 class="home-hero__title">{COMPONENTS.total} components for AI chat and agents, built as Web Components</h1>
+            <p class="home-hero__lede">
+                The transcript, the tools, the approvals and the composer of an AI app, streaming any model or agent — in
+                React, Vue, Svelte, Angular or vanilla JS, with zero third-party dependencies.
             </p>
-            <p>
-              Bubble actions are <b>off until you handle them</b>, which is the rule the whole
-              library follows: a button nobody answers is a lie told to the user. Copy works with
-              core alone, so copy is the only one on by default.
-            </p>
-          </div>
-          <div class="code mono">
-<pre><span class="cm">// retry is honoured by whoever runs the loop —</span>
-<span class="cm">// AparteClient, or this page's own listener</span>
-aparteGlobalConfig.<span class="fn">setBubbleActions</span>(&#123; retry: <span class="tg">true</span> &#125;);
-
-<span class="cm">// and a fork is one call on the viewport</span>
-viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="band" id="style">
-        <div class="sec-head">
-          <h2 class="serif">Make it <span class="paren">(</span>yours<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          <b>{CSS_VARS} custom properties</b>, and <b>no shadow DOM anywhere</b> in core &#8212; so
-          there is no boundary to pierce. A plain selector reaches any node, and devtools shows you
-          the real one. Four levers, in order of how far they go:
-        </p>
-        <div class="split">
-          <div class="prose">
-            <ul>
-              <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, read in {PRIMARY_READS} places across the stylesheets: {PRIMARY_DERIVED} other variables derive from it, and the rest of the library reads it directly. Set it on <code>:root</code> and the whole accent follows.</li>
-              <li><b>Icons.</b> An icon provider, not a hardcoded set: <code>setIconProvider()</code> takes yours and re-renders what is already on screen, so a set can be swapped live.</li>
-              <li><b>Language.</b> A locale is a plain object of {LOCALE_KEYS} strings handed to <code>setLocale()</code>. Your own language needs no package and no pull request here.</li>
-              <li><b>Renderers.</b> When a variable is not enough &#8212; a reasoning block you want as one line rather than an accordion &#8212; replace the renderer. Structure is not hostage to a stylesheet.</li>
-            </ul>
-          </div>
-          <div class="code mono">
-<pre><span class="cm">/* one instance, three variables */</span>
-<span class="tg">aparte-chat</span> &#123;
-  <span class="kw">--aparte-accent</span>: <span class="st">#c9a227</span>;
-  <span class="kw">--aparte-bg</span>: <span class="st">#14101c</span>;
-  <span class="kw">--aparte-avatar-radius-ratio</span>: <span class="st">0.2</span>;
-&#125;
-
-<span class="cm">/* light DOM: an ordinary selector, no ::part() */</span>
-<span class="tg">.aparte-segment-tool-call .aparte-tool-label</span> &#123;
-  <span class="kw">font-variant</span>: <span class="st">small-caps</span>;
-&#125;</pre>
-          </div>
-        </div>
-        <p class="sec-note">
-          <a href="/reference/css-variables/">Every variable, listed &#8594;</a>
-        </p>
-      </section>
-
-      <section class="band" id="mount">
-        <div class="sec-head">
-          <h2 class="serif">Five ways to <span class="paren">(</span>mount it<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          It is one web component underneath, so the rendered chat is identical everywhere. What
-          changes is the two lines you write.
-        </p>
-        <div class="tabs" role="tablist" id="tabs">
-          <button class="tab" role="tab" aria-selected="true" data-fw="vanilla">Vanilla</button>
-          <button class="tab" role="tab" aria-selected="false" data-fw="react">React</button>
-          <button class="tab" role="tab" aria-selected="false" data-fw="vue">Vue</button>
-          <button class="tab" role="tab" aria-selected="false" data-fw="svelte">Svelte</button>
-          <button class="tab" role="tab" aria-selected="false" data-fw="angular">Angular</button>
-        </div>
-        <div class="code tabbed mono"><pre id="snippet"></pre></div>
-        <p class="sec-note">
-          All four wrappers are published today, and the same browser suite drives them next to
-          the vanilla build. Core also ships a Node entry point, so importing types on a server
-          does not need a DOM.
-        </p>
-      </section>
-
-      <section class="band" id="plug">
-        <div class="sec-head">
-          <h2 class="serif">What you <span class="paren">(</span>plug in<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          {PACKAGES} packages, {FAMILIES.length} families. Everything past the core is something
-          you choose &#8212; nothing arrives because it might be useful.
-        </p>
-        <div class="families">
-          {FAMILIES.map((f) => (
-            <div class="family">
-              <h3>{f.name}</h3>
-              <span class="count">{f.count}</span>
-              <ul>
-                {f.items.map((i) => (
-                  <li><code>{i.pkg}</code><em>{i.line}</em></li>
-                ))}
-              </ul>
+            <div class="home-hero__actions">
+                <a class="aparte-btn aparte-btn--solid aparte-btn--primary aparte-btn--lg" href="/guides/getting-started/">
+                    Get started <span class="home-icon" set:html={arrowRightIcon} />
+                </a>
+                <a class="aparte-btn aparte-btn--outline aparte-btn--lg" href="/components/">Browse the components</a>
+                <div class="home-install">
+                <code class="home-install__line"><span class="home-install__prompt" aria-hidden="true">$</span> npm i @aparte/core</code>
+                <button class="aparte-btn aparte-btn--ghost aparte-btn--icon aparte-btn--sm home-install__copy" type="button" aria-label="Copy the install command" data-copy="npm i @aparte/core">
+                    <span class="home-icon home-install__idle" set:html={copyIcon} />
+                    <span class="home-icon home-install__done" set:html={checkIcon} />
+                </button>
+                </div>
             </div>
-          ))}
-        </div>
-      </section>
+        </section>
 
-      <section class="band" id="proof">
-        <div class="sec-head">
-          <h2 class="serif">And it is <span class="paren">(</span>checked<span class="paren">)</span></h2>
-        </div>
-        <p class="sec-sub">
-          A beta, said plainly &#8212; the declared surface is frozen, and a change to it comes
-          with a notice release. What does not change is how it is verified.
-        </p>
-        <div class="proof">
-          <div><strong>{FILES}</strong><span>test files, over all {PACKAGES} published packages<em>{TESTS_LABEL}</em></span></div>
-          <div><strong>{E2E_SPECS}</strong><span>Playwright specs in real Chromium, WebKit and Firefox</span></div>
-          <div><strong>{GATE_STEPS}</strong><span>gate steps, {GATE_GUARDS} of them guards &#8212; one checks the CI runs the rest</span></div>
-          <div><strong>axe</strong><span>accessibility scans on an idle chat, a stream, an open dropdown, a failure</span></div>
-        </div>
-        <p class="sec-note">
-          The API reference on this site is generated from the components themselves at build
-          time, so it cannot drift from the code.
-          <a href="/components/">Read the reference &#8594;</a>
-        </p>
-        <p class="sec-note">
-          And it runs somewhere real: bonaparte, a local-AI harness on the React wrapper, is the
-          first consumer and the source of most of the frictions this library fixed &#8212;
-          private, so no link. <a href="https://paulrichez.fr/" target="_blank" rel="noopener">paulrichez.fr</a>
-          is next: Angular 19, the agent loop server-side over its own SSE events, moving onto
-          0.17.0 &#8212; not yet live on it.
-        </p>
-      </section>
+        <section class="home-fits" aria-labelledby="fits">
+            <h2 id="fits" class="home-fits__title">Between your framework and your model</h2>
+            <HowItFits />
+        </section>
 
-    <script>
-      // The real library — registers <aparte-*> elements + pulls in the theme.
-      import '@aparte/core';
-      import '@aparte/core/styles.css';
-      import { registerDefaultRenderers, aparteGlobalConfig, filesToAttachments } from '@aparte/core';
-      import { setupArtifacts } from '@aparte/plugin-artifacts';
-      // The real package, not a French object typed into this page: a lever that
-      // demonstrates localisation has to be the thing a consumer would install.
-      import { fr } from '@aparte/locale-fr';
-      // Syntax colour for the two languages this page actually renders: `ts` in the
-      // Segments panel's code block, `svg` in the Artifact card. Through the SECOND
-      // entry point, which this page's own package list advertises and did not use:
-      // measured on a build whose only import was the plugin, the convenience entry
-      // emits 302 files / 11 MB and this one emits 1 file / 560 kB, because the
-      // grammars are the ones you hand it rather than everything shiki ships.
-      import { createHighlighterCore } from 'shiki/core';
-      import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
-      import tsGrammar from '@shikijs/langs/typescript';
-      import xmlGrammar from '@shikijs/langs/xml';
-      import githubDark from '@shikijs/themes/github-dark';
-      import githubLight from '@shikijs/themes/github-light';
-      import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
-      registerDefaultRenderers();
-      // The artifact card is the plugin's, not core's: the demo below streams an
-      // `artifact` segment, and this is what gives it a renderer.
-      setupArtifacts();
-      // Bubble actions are decided PER PANEL, in `showDemo` — not here. The rule is
-      // that an action must be honoured by someone: copy is honoured by core alone,
-      // so it stays on everywhere; retry is honoured by the `aparte-retry` listener
-      // at the bottom of this file, which only knows how to fork a chat reply.
-      // edit/feedback/info stay off: nothing here would answer them.
+        <section class="home-product" aria-label="The Assistant template, live">
+            <ProductFrame meta={assistant} />
+        </section>
 
-      // ── theme, as this page's business ─────────────────────────────────
-      // The frame (src/layouts/Landing.astro) owns the toggle: it flips
-      // `data-theme`, persists to the SAME key Starlight reads — so light/dark
-      // stays in sync across landing ↔ docs ↔ roadmap — and then SAYS so, with a
-      // `site-theme-change` event on `document`. What is left here is the half only
-      // this page has: mirroring the theme onto the live chat and its levers, which
-      // a shared frame has no business knowing about.
-      const root = document.documentElement;
-      const currentTheme = () =>
-        root.getAttribute('data-theme') ||
-        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      function applyTheme(theme: string) {
-        root.setAttribute('data-theme', theme);
-        // The CHAT's palette is not set here: a theme preset may pin it light or
-        // dark independently of the page, so `applySkin` owns that attribute and
-        // is re-run below once it exists. The levers row is not the chat: its
-        // `<aparte-select>`s follow the PAGE, and core's dark palette is keyed on
-        // this attribute, whose absence is light.
-        const levers = document.querySelector('.levers');
-        if (theme === 'dark') levers?.setAttribute('data-aparte-theme', 'dark');
-        else levers?.removeAttribute('data-aparte-theme');
-      }
-      applyTheme(currentTheme());
-      document.addEventListener('site-theme-change', (e) => {
-        const { theme } = (e as CustomEvent<{ theme: string }>).detail;
-        applyTheme(theme);
-        applySkin(skin);   // a "follow the page" preset has to follow it
-      });
+        <section class="home-band" aria-labelledby="pieces">
+            <header class="home-band__head">
+                <h2 id="pieces">Every piece of an AI chat</h2>
+                <p>
+                    {COMPONENTS.chat} chat components, each on its own page with live variants: the transcript, everything a
+                    turn can hold, the person in the loop and the composer.
+                </p>
+            </header>
+            <ComponentCarousel only={MOSAIC} label="Chat components" />
+            <a class="home-more" href="/components/">All {COMPONENTS.total} components <span class="home-icon" set:html={arrowRightIcon} /></a>
+        </section>
 
-      // ── copy install command (icon copy → check) ──
-      const copyBtn = document.getElementById('copyInstall');
-      copyBtn?.addEventListener('click', () => {
-        navigator.clipboard?.writeText('npm i @aparte/core');
-        const original = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-        setTimeout(() => { copyBtn.innerHTML = original; }, 1400);
-      });
+        <section class="home-band" aria-labelledby="loop">
+            <header class="home-band__head">
+                <h2 id="loop">A person stays in the loop</h2>
+                <p>An agent that acts asks first. The chat draws every step of that conversation, and the loop keeps it.</p>
+            </header>
+            <div class="home-split">
+                <ul class="home-points">
+                    {
+                        LOOP.map((point) => (
+                            <li>
+                                <a href={point.href}>{point.title}</a>
+                                <p>{point.line}</p>
+                            </li>
+                        ))
+                    }
+                </ul>
+                <div class="home-split__demo">
+                    <Variant id="approval" />
+                </div>
+            </div>
+        </section>
 
-      // ── the real chat ──
-      const viewport = document.querySelector('aparte-chat-viewport') as any;
-      // Awaited BEFORE any demo runs: core highlights a code block when it settles
-      // and an artifact pane asynchronously, so a provider registered a moment later
-      // would miss the first render and leave one panel grey.
-      const shiki = await createHighlighterCore({
-        themes: [githubDark, githubLight],
-        langs: [tsGrammar, xmlGrammar],
-        engine: createJavaScriptRegexEngine(),
-      });
-      // A wrapper, which is what `ShikiHighlighterLike` exists for — its own docs say
-      // "a wrapper of your own" satisfies it. It does two things shiki will not:
-      //
-      //  1. `svg` is not a shiki grammar. There is no `@shikijs/langs/svg` — measured,
-      //     not assumed — and core's artifact card asks for `svg` because that is what
-      //     it SHOWS as the language chip. Mapping it to `xml` here keeps the chip
-      //     honest and the colours real; the alternative was making core call an SVG
-      //     artifact "xml" to everyone.
-      //  2. Dual-theme output. The provider passes one theme name; this page has three
-      //     palettes and one of them is light, so a single dark theme would render
-      //     light text on a light bubble — the same class of bug as a hardcoded colour.
-      //     `defaultColor: false` emits `--shiki-light` / `--shiki-dark` and the CSS
-      //     picks, which means it also follows a palette switched at runtime.
-      setupShikiProviderFromHighlighter({
-        getLoadedLanguages: () => [...shiki.getLoadedLanguages(), 'svg'],
-        codeToHtml: (code, { lang }) => shiki.codeToHtml(code, {
-          lang: lang === 'svg' ? 'xml' : lang,
-          themes: { light: 'github-light', dark: 'github-dark' },
-          defaultColor: false,
-        }),
-      });
+        <section class="home-band" aria-labelledby="mount">
+            <header class="home-band__head">
+                <h2 id="mount">Two lines in your framework</h2>
+                <p>The same elements in React, Vue, Svelte, Angular or vanilla JS: install the core and place the chat.</p>
+            </header>
+            <div class="home-mount">
+                <Tabs syncKey="framework">
+                    {
+                        MOUNT.map((framework) => (
+                            <TabItem label={framework.label}>
+                                {framework.blocks.map((block) => (
+                                    <Code code={block.code} lang={block.lang} />
+                                ))}
+                            </TabItem>
+                        ))
+                    }
+                </Tabs>
+                <p class="home-note">
+                    The four wrappers are published, typed, and driven in a browser by the same suite as the plain build.
+                    <a href="/frameworks/">The framework guides</a> · <a href="/providers/">Models and agents</a>
+                </p>
+            </div>
+        </section>
 
-      const chatHost = document.querySelector('aparte-chat') as HTMLElement | null;
-      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let msgId = 0;
+        <section class="home-band" aria-labelledby="yours">
+            <header class="home-band__head">
+                <h2 id="yours">Make it yours</h2>
+                <p>
+                    The same chat three times. Tokens set the palette and the shapes, an icon set and an avatar provider change
+                    the glyphs, and since nothing hides in a shadow root, a plain selector reaches the rest.
+                </p>
+            </header>
+            <div class="home-skins">
+                <Variant id="home-skin-default" widths={false} />
+                <Variant id="home-skin-messenger" widths={false} />
+                <Variant id="home-skin-terminal" widths={false} />
+            </div>
+            <p class="home-note">
+                The rest of your app wears the same tokens: a kit of {COMPONENTS.kit} recipes — buttons, fields, menus, dialogs,
+                tabs. <a href="/guides/theming/">Theme it</a> · <a href="/components/button/">The kit</a>
+            </p>
+        </section>
 
-      // Every panel below is a chain of timers. Switching tabs has to be able to
-      // STOP the chain that was running, or two scripted demos write into the same
-      // transcript and the result is nonsense that looks like a bug in the library.
-      // `after` has setTimeout's argument order on purpose — it is a drop-in — and
-      // it drops its callback if the run it belongs to is no longer the current one.
-      let timers: number[] = [];
-      let run = 0;
-      const after = (fn: () => void, ms: number) => {
-        const mine = run;
-        timers.push(window.setTimeout(() => { if (mine === run) fn(); }, ms));
-      };
-      /**
-       * The turn lifecycle, which this page never emitted.
-       *
-       * A composer does not take `streaming` as a property: it listens for
-       * `aparte-message-start` / `aparte-message-done` on `window`, which is exactly
-       * what a real host dispatches. Because this page never did, the send button never
-       * became the Stop button — so the one affordance core gives a host for free was
-       * invisible on the page that sells it, and a visitor clicking send mid-reply had
-       * their click swallowed by the `busy` flag with no feedback at all.
-       */
-      let streamingId: string | null = null;
-      function beginTurn(id: string) {
-        streamingId = id;
-        window.dispatchEvent(new CustomEvent('aparte-message-start'));
-      }
-      function endTurn() {
-        streamingId = null;
-        window.dispatchEvent(new CustomEvent('aparte-message-done'));
-      }
+        <section class="home-band" aria-labelledby="templates">
+            <header class="home-band__head">
+                <h2 id="templates">Start from a template</h2>
+                <p>Whole apps built only from aparté, running. Open one, then take its code.</p>
+            </header>
+            <TemplateGrid />
+        </section>
 
-      /** One scripted reply at a time, whichever panel asked for it. */
-      let busy = false;
-      function resetDemo() {
-        run++;
-        timers.forEach((t) => clearTimeout(t));
-        timers = [];
-        busy = false;
-        // A tab switch mid-reply would otherwise leave the composer showing Stop for a
-        // turn that no longer exists.
-        if (streamingId) endTurn();
-        viewport?.setMessages([]);
-      }
+        <section class="home-band" aria-labelledby="checked">
+            <header class="home-band__head">
+                <h2 id="checked">Checked, not claimed</h2>
+                <p>A beta: the public surface is frozen, and a change to it ships with a notice. Every figure here is read from the repository when the site builds.</p>
+            </header>
+            <div class="home-weight">
+                <h3 class="home-weight__title">What a working chat weighs</h3>
+                <WeightChart compact />
+            </div>
+            <dl class="home-proof">
+                {
+                    PROOF.map((fact) => (
+                        <div class="home-proof__fact">
+                            <dt>
+                                <span class="home-proof__figure">{fact.figure}</span> {fact.label}
+                            </dt>
+                            <dd>{fact.line}</dd>
+                        </div>
+                    ))
+                }
+            </dl>
+        </section>
 
-      /** Stream into ONE segment of a message (the panels that build segments). */
-      /**
-       * A segment demo's turn boundary, so Stop appears for these panels too.
-       *
-       * Not inside `streamSegment`: a turn spans SEVERAL segments — a reasoning block,
-       * then a tool call, then the answer — and opening a turn per segment would flash
-       * the Stop button on and off between them. So the boundary is where it really is:
-       * the assistant message appearing, and its completion.
-       */
-      function completeTurn(mid: string) {
-        viewport.completeMessage(mid);
-        endTurn();
-      }
-
-      function streamSegment(mid: string, sid: string, text: string, done?: () => void) {
-        const toks = reduce ? [text] : text.split(/(\s+)/);
-        let i = 0;
-        const tick = () => {
-          if (i < toks.length) { viewport.appendToSegment(mid, sid, toks[i++]); after(tick, reduce ? 200 : 26 + Math.random() * 40); }
-          else { viewport.updateSegment(mid, sid, { isStreaming: false }); done?.(); }
-        };
-        after(tick, 200);
-      }
-
-      // Stream text into an EXISTING assistant message (fresh replies and retry
-      // branches share this).
-      function streamInto(id: string, text: string, done?: () => void) {
-        beginTurn(id);
-        // Reduced motion means "stop moving things", NOT "stop showing progress":
-        // dumping the whole reply at once removed the two things this page exists to
-        // demonstrate — the waiting state and the streaming — for every visitor with
-        // the setting on. So keep both, minus the motion: the same opening pause (so
-        // the built-in waiting indicator is seen; core already freezes its dots via
-        // its own reduced-motion rule), then three steady chunks instead of ~40
-        // jittered tokens.
-        if (reduce) {
-          const cuts = [Math.floor(text.length / 3), Math.floor((text.length * 2) / 3), text.length];
-          let c = 0, from = 0;
-          const step = () => {
-            if (c < cuts.length) {
-              viewport.appendToken(id, text.slice(from, cuts[c]));
-              from = cuts[c++];
-              after(step, 180);
-            } else { viewport.completeMessage(id); endTurn(); done?.(); }
-          };
-          after(step, 320);
-          return;
-        }
-        const toks = text.split(/(\s+)/); let i = 0;
-        const tick = () => {
-          if (i < toks.length) { viewport.appendToken(id, toks[i++]); after(tick, 30 + Math.random() * 48); }
-          else { viewport.completeMessage(id); endTurn(); done?.(); }
-        };
-        after(tick, 220);
-      }
-      function streamAssistant(text: string, done?: () => void) {
-        const id = 'a' + ++msgId;
-        viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-        streamInto(id, text, done);
-      }
-      function replyTo(q: string) {
-        q = q.toLowerCase();
-        if (/approv|human|tool|loop|agent/.test(q))
-          return 'A tool marked needsApproval pauses the turn before its handler runs, and the decision is asked at the composer. A refusal can carry your own words, which the model reads on the turn it gets back. Up to ten tool round-trips per turn by default.';
-        if (/frame|react|vue|svelte|angular|vanilla/.test(q))
-          return 'React, Vue, Svelte, Angular — or none at all. It’s one web component underneath, so the chat renders identically everywhere; only the two lines that mount it change.';
-        if (/style|css|theme|token|variable/.test(q))
-          return `There are ${N_VARS} CSS variables, and no shadow DOM anywhere in core — so no ::part(), no piercing. Icons are a provider you can swap live, a language is ${N_LOCALE} strings in an object, and when none of that is enough the renderer itself is replaceable.`;
-        if (/stream|token|type|render|reply/.test(q))
-          return 'Exactly like this — token by token. aparte streams your model’s replies through a transport, and your API key can stay on your server.';
-        if (/depend|size|zero|bundle|weight/.test(q))
-          return 'Zero third-party dependencies in the core. Markdown, syntax highlighting and icons are opt-in plugins you add only if you want them.';
-        if (/browser|local|offline|server|privacy/.test(q))
-          return 'With @aparte/provider-transformers the model runs in the browser itself — WebGPU with a WASM fallback, in a worker, weights cached locally. No server, no key. Or point a transport at your own /api/chat and the key never leaves it.';
-        if (/branch|retry|fork|version/.test(q))
-          return 'Hover this reply and press retry: it forks a sibling instead of overwriting, and a picker appears so you can move between the two versions.';
-        if (/what|who|aparte|hello|hi|hey/.test(q))
-          return 'aparte is an AI-chat library in vanilla web components, zero third-party dependencies — with the agent loop inside: tools, human-in-the-loop, branching. This chat you’re using is the component itself, running right here.';
-        return 'In the real thing I’d relay that to your model. Here I’m a small scripted stand-in, so you can feel the interaction — the streaming, the bubbles, the composer, and retry forking a branch.';
-      }
-      function send(text: string, files: File[] = []) {
-        text = (text || '').trim();
-        if ((!text && !files.length) || busy) return;
-        busy = true;
-        // The files go ON the message, which is what makes the chips appear above it.
-        // `aparte-send` hands over `File[]` and a message wants `AparteAttachment[]`;
-        // `filesToAttachments` is the exported converter for exactly that step, and the
-        // vanilla example has always used this same line.
-        //
-        // This page used to append the message WITHOUT them and then describe them in
-        // the assistant's reply — "I received 2 files — a.pdf, b.png". It proved it had
-        // received them while showing nothing, which reads as "the library cannot
-        // display an attachment". The right answer to "do not drop them silently" is to
-        // render them, not to narrate them.
-        viewport.appendMessage({
-          id: 'u' + ++msgId,
-          role: 'user',
-          content: text,
-          timestamp: Date.now(),
-          ...(files.length ? { attachments: filesToAttachments(files) } : {}),
-        });
-        const reply = files.length
-          ? `Those are on your message above — core renders the chips from \`message.attachments\`. `
-            + 'A real host would forward the files to the model from the same array.'
-          : replyTo(text);
-        after(() => streamAssistant(reply, () => { busy = false; }), 240);
-      }
-      // Stop. `aparte-cancel` is what core's send button dispatches once it has become
-      // the stop button, and answering it is the host's half — nothing in the library
-      // can know what to abort. Reuses the run token the tab switcher already relies on:
-      // bumping it drops every queued callback of the chain in flight.
-      document.querySelector('aparte-composer')?.addEventListener('aparte-cancel', () => {
-        const id = streamingId;
-        run++;
-        timers.forEach((t) => clearTimeout(t));
-        timers = [];
-        busy = false;
-        // Settle what was mid-flight: a stopped turn keeps what it produced — that is
-        // the whole point of stopping rather than resetting — but it must stop LOOKING
-        // like it is still arriving, caret and all.
-        if (id) viewport.completeMessage(id);
-        endTurn();
-      });
-
-      // `e: Event` spelled out: under the nx task graph `astro check` sometimes runs
-      // before core's HTMLElementEventMap augmentation is visible to it, and this
-      // parameter then fell to an implicit `any` — a pre-commit that failed one run
-      // in three on a line that had not changed. The cast below already does the work.
-      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e: Event) => {
-        const detail = (e as any).detail || {};
-        send(detail.content || '', Array.from(detail.files || []));
-      });
-      // Retry forks a BRANCH instead of appending: addSiblingOf() creates a new
-      // sibling of the retried answer, and the built-in ‹1/2› picker appears so
-      // you can flip between versions — what a real app gets from AparteClient.
-      document.addEventListener('aparte-retry', (e) => {
-        if (busy) return;
-        const messageId = (e as any).detail?.messageId;
-        const id = viewport.addSiblingOf(messageId, { id: 'a' + ++msgId, role: 'assistant', content: '', timestamp: Date.now() });
-        if (!id) return;
-        busy = true;
-        streamInto(id, 'Here’s another take — retry forked a new branch instead of overwriting. Use the ‹1/2› picker above to compare versions.', () => { busy = false; });
-      });
-      // ── the five panels ───────────────────────────────────────────────────
-      // Segments are always created with `addSegment`, never by seeding a
-      // `segments: [...]` array on appendMessage(). That shortcut looks equivalent
-      // and is not: streaming into a seeded segment with appendToSegment() DOUBLES
-      // its content in the model — measured, "ThatThat  deletesdeletes  aa  filefile"
-      // — because the bubble and the repository end up advancing the same object.
-      // `addSegment` gives each view a value it owns.
-
-      function demoChat() {
-        // Opens on the empty state, composer at the bottom where it stays.
-        after(() => streamAssistant('Hi — I’m aparté, streaming this to you token by token. Attach a file, or ask about tool approval, branching or styling.'), 800);
-      }
-
-      function demoTools() {
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'src/legacy.ts is dead code — remove it.', timestamp: Date.now() });
-        const mid = 'a' + ++msgId;
-        after(() => {
-          viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
-          beginTurn(mid);
-          viewport.addSegment(mid, { id: 'tl-say', type: 'text', content: '', isStreaming: true });
-          streamSegment(mid, 'tl-say', 'That deletes a file, so I’ll ask before I run it.', () => {
-            after(() => {
-              viewport.addSegment(mid, {
-                id: 'tl-call', type: 'tool_call', status: 'awaiting-approval',
-                toolCall: { id: 'tc-1', name: 'delete_file', input: { path: 'src/legacy.ts' } },
-              });
-              // The row above is the ANCHOR; the decision is asked at the composer.
-              // `requestUserInput` is a plain function on the config — no AparteClient,
-              // no loop — which is the whole of what a host owes the gate.
-              askApproval(mid, 'tl-call', 'delete_file');
-            }, 260);
-          });
-        }, 420);
-      }
-
-      function demoSegments() {
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'What can one reply actually contain?', timestamp: Date.now() });
-        const mid = 'a' + ++msgId;
-        after(() => {
-          viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
-          beginTurn(mid);
-          // Both segments STREAM, and they used to arrive whole — the code pane on this
-          // panel even said "no streaming needed". Which made two of five demos
-          // contradict the page's own headline: a reply lands token by token.
-          //
-          // The reasoning block streams CLOSED, `collapsed` absent, which is core's
-          // default: plenty of assistants never show reasoning open and you click to
-          // read it. It is not a rendering trick either way — no wire format timestamps
-          // or unfolds a content block, so a page that opened it, or that printed a
-          // duration next to it, would be inventing a behaviour the model never sent.
-          viewport.addSegment(mid, {
-            id: 'sg-think', type: 'thinking', isStreaming: true, content: '',
-          });
-          streamSegment(mid, 'sg-think',
-            'Two kinds in one reply — this reasoning block and a code fence. Neither of them is a chat bubble.',
-            () => {
-              after(() => {
-                viewport.addSegment(mid, {
-                  id: 'sg-code', type: 'code', language: 'ts', filename: 'segments.ts',
-                  isStreaming: true, content: '',
-                });
-                streamSegment(mid, 'sg-code',
-                'export function isSegmentSettled(s: AparteSegment) {\n'
-                  + '  return s.type === \'tool_call\'\n'
-                  + '    ? s.status !== \'pending\'\n'
-                  + '    : s.isStreaming === false;\n}',
-                  () => completeTurn(mid));
-              }, 260);
-            });
-        }, 420);
-      }
-
-      function demoArtifact() {
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'Draw the aparté mark as an SVG.', timestamp: Date.now() });
-        const mid = 'a' + ++msgId;
-        after(() => {
-          viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
-          beginTurn(mid);
-          viewport.addSegment(mid, { id: 'ar-say', type: 'text', content: '', isStreaming: true });
-          streamSegment(mid, 'ar-say', 'Here it is. Press Preview to run it — nothing executes until you do.', () => {
-            after(() => {
-              // The artifact STREAMS too. It arrived complete, which skipped the state
-              // the card is built for: `data-streaming` on the card, its tabs disabled
-              // so nothing can be previewed mid-write, and the code pane growing. The
-              // panel demonstrated the finished object and none of the behaviour.
-              viewport.addSegment(mid, {
-                id: 'ar-doc', type: 'artifact', isStreaming: true,
-                artifactType: 'svg', mimeType: 'image/svg+xml',
-                title: 'aparté mark', content: '',
-              });
-              // An SVG rather than React on purpose: core previews html/svg/js/css with
-              // its own CDN-free fallback, so this needs no host builder — what you see
-              // is the library, not this page's scaffolding.
-              //
-              // And it is THIS SITE'S OWN favicon, read from public/favicon.svg at build
-              // time rather than pasted here. Five elements against the thirty of the
-              // invented bar chart it replaces, so the Code tab reads at a glance — and
-              // it is a file the visitor can verify, sitting in their own browser tab.
-              //
-              // Read at call time, not from a module-scope const: this function is
-              // declared long before the block that reads the data attributes, and a
-              // forward reference that works because of WHEN the call lands is the
-              // temporal-dead-zone trap this page has already set for me once.
-              streamSegment(mid, 'ar-doc',
-                document.getElementById('demo')?.dataset.logo ?? '',
-                () => completeTurn(mid));
-            }, 300);
-          });
-        }, 420);
-      }
-
-      function demoBranch() {
-        after(() => streamAssistant('Hover this reply and press retry. It forks a sibling instead of overwriting, and a ‹1/2› picker appears so you can move between the two versions — nothing is lost.'), 700);
-      }
-
-      // ── theme presets ─────────────────────────────────────────────────────
-      // The FIRST version of this hand-picked four variables and produced light
-      // bubbles with light text on them, because the text is painted through
-      // `--aparte-text` which it never touched. The mechanism core actually ships
-      // is an attribute: `:root` IS the light palette and `[data-aparte-theme="dark"]`
-      // is the override — so "light" is the ABSENCE of the attribute, not a list of
-      // colours. Each preset therefore picks a base with the attribute and then
-      // spends a handful of variables on top of a palette that is already coherent.
-      // Icons are a PROVIDER of `() => string`, every key optional with a built-in
-      // fallback — so a preset can ship three and inherit the rest, and switching
-      // one re-renders what is already on screen. Showing that beats claiming it.
-      const fill = (d: string) =>
-        `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">${d}</svg>`;
-      // Square caps and miter joins, no rounded corner anywhere: a hard-edged
-      // family, deliberately far from both core's round-cap default and the solid
-      // set above. An icon swap a viewer cannot see reads as a broken feature.
-      const line = (d: string) =>
-        `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter">${d}</svg>`;
-      const ICONS: Record<string, Record<string, () => string>> = {
-        // Every icon the demo actually puts on screen: the send button, the
-        // paperclip in the composer, copy and retry in the action bar, stop while a
-        // turn streams, and check/close on a settled tool call. Three would have
-        // left four unchanged, and a tab called "Themes & icons" that only moves
-        // three of seven is the kind of half-claim this page spent the day removing.
-        //
-        // The two sets are deliberately far apart — SOLID versus HAIRLINE — because
-        // an icon swap a viewer cannot see reads as a broken feature, not a theme.
-        default: {},   // whatever core ships — an empty provider falls back
-        solid: {     // filled, chunky, rounded: a product-app feel
-          send: () => fill('<path d="M3.4 20.4 21 12 3.4 3.6 3.4 10.2 15 12 3.4 13.8Z"/>'),
-          paperclip: () => fill('<path d="M8 5.5a4.5 4.5 0 0 1 9 0V15a3 3 0 0 1-6 0V7.5a1.5 1.5 0 0 1 3 0V15h-1.5V7.5h-.5V15a1.5 1.5 0 0 0 3 0V5.5a3 3 0 0 0-6 0V15a4.5 4.5 0 0 0 9 0V7h1.5v8a6 6 0 0 1-12 0Z"/>'),
-          copy: () => fill('<rect x="9" y="9" width="12" height="12" rx="3"/><path d="M6 3h7a3 3 0 0 1 3 3v1h-2V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1v2H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/>'),
-          retry: () => fill('<path d="M12 4a8 8 0 1 0 7.4 5h-2.2A6 6 0 1 1 12 6V4Z"/><path d="M13 2.5 18 6l-5 3.5Z"/>'),
-          stop: () => fill('<rect x="6" y="6" width="12" height="12" rx="3"/>'),
-          check: () => fill('<path d="M9.6 16.2 5.4 12l-1.8 1.8 6 6 12-12L19.8 6Z"/>'),
-          close: () => fill('<path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3Z"/>'),
-        },
-        hard: {      // hard-edged outline: square caps, miter joins, no rounding
-          send: () => line('<path d="M3 11l18-8-8 18-2-8-8-2z"/>'),
-          paperclip: () => line('<path d="M8 11l7-7a4 4 0 1 1 6 6l-9 9a6 6 0 1 1-8-8l8-8"/>'),
-          // Two offset rectangles where the front one OCCLUDES the back one, which
-          // is what makes the glyph read as "a copy" rather than as a muddle of
-          // crossing lines. It fills with `--aparte-bg` — core's own variable, so
-          // the punch-through follows whatever palette the preset picked. (The
-          // version this was taken from filled with a variable from another
-          // project's stylesheet, which would have rendered black here.)
-          copy: () => line('<rect x="4" y="4" width="12" height="14"/><rect x="8" y="6" width="12" height="14" fill="var(--aparte-bg)"/>'),
-          retry: () => line('<path d="M4 12a8 8 0 1 1 2.6 5.9"/><path d="M4 20v-6h6"/>'),
-          stop: () => line('<rect x="6" y="6" width="12" height="12"/>'),
-          check: () => line('<path d="M4 12l5 6 11-14"/>'),
-          close: () => line('<path d="M5 5l14 14"/><path d="M19 5L5 19"/>'),
-        },
-      };
-
-      const SKINS: Record<string, { base: 'page' | 'dark' | 'light'; card?: string; vars: Record<string, string> }> = {
-        stage: { base: 'page', vars: {} },
-        // These presets used to restate `--aparte-accent`, `--aparte-avatar-bg-user`
-        // and `--aparte-border-focus` alongside the master they derive from, and the
-        // comment here said that was "the only thing that works". It was: the derived
-        // layer was declared on `:root` alone, so it had been substituted there and
-        // setting `--aparte-primary` on THIS element could only be inherited past it.
-        // That is fixed in core — the layer now re-anchors on `aparte-chat`, among
-        // other places — so those three are gone from every preset, and what is left
-        // is a master and the handful of genuinely independent choices: a bubble
-        // radius, an assistant avatar that derives from a surface rather than the
-        // accent, a user bubble.
-        violet: { base: 'dark', card: '#15111f', vars: {
-          '--aparte-primary': '#7c5cff',
-          '--aparte-primary-hover': '#9a80ff',
-          '--aparte-avatar-bg-assistant': '#2a2140',
-          '--aparte-message-content-bg-user': '#241d3d',
-          '--aparte-radius-bubble': '14px',
-        } },
-        paper: { base: 'light', card: '#f7f3ea', vars: {
-          '--aparte-primary': '#8a6d1f',
-          '--aparte-primary-hover': '#6f5716',
-          '--aparte-avatar-bg-assistant': '#ded2ba',
-          '--aparte-bg': '#f7f3ea',
-          '--aparte-message-content-bg-user': '#eee4d0',
-          '--aparte-radius-bubble': '5px',
-        } },
-      };
-      const SKIN_VARS = [...new Set(Object.values(SKINS).flatMap((s) => Object.keys(s.vars)))];
-      const cardEl = document.querySelector('.chat') as HTMLElement | null;
-      let skin = 'stage';
-      function applySkin(key: string) {
-        if (!chatHost) return;
-        skin = key;
-        const spec = SKINS[key] ?? SKINS.stage;
-        const base = spec.base === 'page' ? currentTheme() : spec.base;
-        // `light` is the ABSENCE of the attribute — core's default palette is light
-        // and only dark is an override.
-        if (base === 'dark') chatHost.setAttribute('data-aparte-theme', 'dark');
-        else chatHost.removeAttribute('data-aparte-theme');
-        for (const v of SKIN_VARS) chatHost.style.removeProperty(v);
-        for (const [k, v] of Object.entries(spec.vars)) chatHost.style.setProperty(k, v);
-        // The CARD is this page's chrome, not the component's: core paints no
-        // background of its own so it can adopt any host surface. Which means a
-        // light palette left on a dark card renders dark text on dark — exactly
-        // what "Paper" did before this line existed.
-        if (cardEl) {
-          if (spec.card) cardEl.style.setProperty('--demo-card-bg', spec.card);
-          else cardEl.style.removeProperty('--demo-card-bg');
-        }
-      }
-      /** The second lever: a provider object, no CSS involved. */
-      let iconSet = 'default';
-      function applyIcons(key: string) {
-        iconSet = key;
-        // An empty provider is the reset: every key is optional and falls back
-        // to core's own glyph, so `{}` means "use yours".
-        aparteGlobalConfig.setIconProvider(ICONS[key] ?? {});
-      }
-      /** The third: a plain object of strings. `resetLocale()` is the way back. */
-      let localeKey = 'en';
-      function applyLocale(key: string) {
-        localeKey = key;
-        if (key === 'fr') aparteGlobalConfig.setLocale(fr);
-        else aparteGlobalConfig.resetLocale();
-      }
-      /** One select per seam — the library's `<aparte-select>`, whose change event is
-       *  `aparte-select-change` and whose `value` reads and writes like a native one. */
-      type Lever = HTMLElement & { value: string };
-      const lvPalette = document.getElementById('lvPalette') as Lever;
-      const lvIcons = document.getElementById('lvIcons') as Lever;
-      const lvLocale = document.getElementById('lvLocale') as Lever;
-      lvPalette.addEventListener('aparte-select-change', () => applySkin(lvPalette.value));
-      lvIcons.addEventListener('aparte-select-change', () => applyIcons(lvIcons.value));
-      lvLocale.addEventListener('aparte-select-change', () => applyLocale(lvLocale.value));
-      /** Put the row back in step with what is actually applied. */
-      const syncLevers = (): void => {
-        lvPalette.value = skin;
-        lvIcons.value = iconSet;
-        lvLocale.value = localeKey;
-      };
-
-      /**
-       * Ask for the decision, at the composer, and act on what comes back.
-       *
-       * This used to listen for `aparte-tool-decision` on `document` — the event core
-       * dispatched from the Approve / Reject buttons it drew inside the bubble. Those
-       * buttons are gone: a request for the user is answered where the user answers, and
-       * the transcript keeps the row as the anchor. `requestUserInput` is the same
-       * function a tool handler calls, so this page and a real agent loop ask
-       * identically.
-       */
-      async function askApproval(mid: string, sid: string, tool: string) {
-        try {
-          const t = () => aparteGlobalConfig.getLocale();
-          const answer = await aparteGlobalConfig.requestUserInput({
-            kind: 'approval',
-            // Read from the locale, not hardcoded — and the labels are FUNCTIONS, so
-            // they follow a language switch while the question is open. A plain string
-            // is treated as the host's own and left alone, which is right for an app's
-            // wording and wrong here, where the host is this page demonstrating core.
-            message: () => (t().approvalAsk ?? 'Run {tool}?').replace('{tool}', tool),
-            options: [
-              { value: 'allow', label: () => t().approveTool ?? 'Approve', tone: 'affirm' },
-              { value: 'deny', label: () => t().rejectTool ?? 'Reject', tone: 'deny' },
-            ],
-          });
-          const picked = answer.action === 'accept' ? (answer.content as any) : undefined;
-          const instruction: string | undefined = picked?.instruction?.trim() || undefined;
-          const approved = !instruction && picked?.option === 'allow';
-
-          const closing = 'tl-end';
-          const reply = () => {
-            after(() => {
-              viewport.addSegment(mid, { id: closing, type: 'text', content: '', isStreaming: true });
-              streamSegment(mid, closing, approved
-                ? 'Done — the file is gone and the turn carried on from there.'
-                : instruction
-                  ? `Understood — “${instruction}”. A refusal can carry your words, and the model gets a turn to read them.`
-                  : 'Understood, I left it alone. A refusal skips the rest of the turn, then the model answers it.',
-                () => completeTurn(mid));
-            }, 340);
-          };
-
-          if (!approved) {
-            // A refused tool never runs, so there is nothing to wait for.
-            viewport.updateSegment(mid, sid, { status: 'rejected' });
-            reply();
-            return;
-          }
-
-          /*
-           * The RUNNING phase, which this demo used to skip.
-           *
-           * It jumped straight from the decision to the result, so the tool looked
-           * instantaneous and the spinner — which only shows while `pending` — was
-           * never visible on the page that sells it. A real loop runs the handler
-           * between the approval and the result, and that gap is exactly what the
-           * spinner is for.
-           */
-          viewport.updateSegment(mid, sid, { status: 'pending' });
-          after(() => {
-            viewport.updateSegment(mid, sid, { status: 'resolved', result: 'Deleted src/legacy.ts' });
-            reply();
-          }, 900);
-        } catch {
-          // The request ended without an answer — the panel was taken away, or the tab
-          // was switched. Nobody refused anything, so the row says aborted.
-          viewport.updateSegment(mid, sid, { status: 'aborted' });
-          completeTurn(mid);
-        }
-      }
-
-      // ── panel switching ───────────────────────────────────────────────────
-      const RUNNERS: Record<string, () => void> = {
-        chat: demoChat, tools: demoTools, segments: demoSegments, artifact: demoArtifact, branch: demoBranch,
-      };
-      // Measured at build time, handed over on the element (see the comment there).
-      const stageEl = document.getElementById('demo')!;
-      const N_KINDS = stageEl.dataset.kinds ?? '';
-      const N_VARS = stageEl.dataset.vars ?? '';
-      const N_LOCALE = stageEl.dataset.locale ?? '';
-      const CAPTIONS: Record<string, string> = {
-        chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
-        tools: 'A tool marked <b>needsApproval</b> pauses the turn and asks at the composer. Press a choice &#8212; or type what to do instead &#8212; and watch the reply come back either way.',
-        segments: `One assistant reply holding <b>reasoning and code</b> in the same message. ${N_KINDS} kinds ship registered by default, mixable in any order.`,
-        artifact: 'The model wrote a document, and the artifacts plugin renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
-        branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',
-      };
-      const HINTS: Record<string, string> = {
-        chat: 'type below, or attach a file',
-        tools: 'press Approve or Reject',
-        segments: 'expand the reasoning block',
-        artifact: 'press Preview — nothing runs before you do',
-        branch: 'hover a reply, press retry',
-      };
-      const capEl = document.getElementById('demoCap')!;
-      const hintEl = document.getElementById('demoHint')!;
-      function showDemo(key: string) {
-        resetDemo();
-        document.querySelectorAll<HTMLElement>('#demoTabs .tab')
-          .forEach((t) => t.setAttribute('aria-selected', String(t.dataset.demo === key)));
-        document.querySelectorAll<HTMLElement>('.pane')
-          .forEach((p) => p.classList.toggle('is-on', p.dataset.pane === key));
-        capEl.innerHTML = CAPTIONS[key];
-        hintEl.textContent = HINTS[key];
-        // The levers KEEP their setting across a tab switch. They used to reset to
-        // Stage / Default on every switch, on the reasoning that a visitor should
-        // meet the page's own look first — true for the first paint, and wrong for
-        // every one after it: picking Violet and then opening the approval panel to
-        // see it reset teaches that the palette belongs to one tab. It belongs to the
-        // page. `applySkin` still has to RE-run, because a preset writes inline
-        // variables on the chat element and this rebuilds the transcript under it.
-        applySkin(skin);
-        applyIcons(iconSet);
-        applyLocale(localeKey);
-        // Retry belongs to the two panels that can honour it.
-        //
-        // It was on everywhere, so retrying the segment, tool or artifact panel
-        // replaced their content with a chat-shaped line about forking a branch —
-        // an affordance promising something the panel does not do. Copy stays on
-        // throughout: core honours it by itself, on any content.
-        aparteGlobalConfig.setBubbleActions({ retry: key === 'chat' || key === 'branch' });
-        syncLevers();
-        RUNNERS[key]();
-      }
-      document.getElementById('demoTabs')?.addEventListener('click', (e) => {
-        const t = (e.target as HTMLElement).closest('.tab') as HTMLElement | null;
-        if (!t || t.getAttribute('aria-selected') === 'true') return;
-        showDemo(t.dataset.demo!);
-      });
-      showDemo('chat');
-
-      // ── framework code tabs ────────────────────────
-      const snippets: Record<string, string> = {
-        vanilla:
-          '<span class="cm">// nothing to wrap — it’s a web component</span>\n' +
-          '<span class="kw">import</span> <span class="st">\'@aparte/core\'</span>;\n\n' +
-          '<span class="tg">&lt;aparte-chat&gt;&lt;/aparte-chat&gt;</span>',
-        react:
-          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/react\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> messages={messages} <span class="tg">/&gt;</span>',
-        vue:
-          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/vue\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> :messages="messages" <span class="tg">/&gt;</span>',
-        svelte:
-          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/svelte\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> {messages} <span class="tg">/&gt;</span>',
-        angular:
-          '<span class="cm">// provideAparte() once at bootstrap, then</span>\n' +
-          '<span class="kw">import</span> { AparteChatComponent } <span class="kw">from</span> <span class="st">\'@aparte/angular\'</span>;\n\n' +
-          '<span class="tg">&lt;aparte-chat</span> [messages]="messages"<span class="tg">&gt;&lt;/aparte-chat&gt;</span>',
-      };
-      const snip = document.getElementById('snippet')!;
-      const render = (fw: string) => { snip.innerHTML = snippets[fw]; };
-      document.getElementById('tabs')?.addEventListener('click', (e) => {
-        const t = (e.target as HTMLElement).closest('.tab') as HTMLElement | null; if (!t) return;
-        document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-        render(t.dataset.fw!);
-      });
-      render('vanilla');
-    </script>
+        <section class="home-end" aria-labelledby="start">
+            <h2 id="start">Start with one element</h2>
+            <p>Install the core, drop a chat in a page, point it at a model.</p>
+            <div class="home-hero__actions">
+                <a class="aparte-btn aparte-btn--solid aparte-btn--primary aparte-btn--lg" href="/guides/getting-started/">
+                    Get started <span class="home-icon" set:html={arrowRightIcon} />
+                </a>
+                <a class="aparte-btn aparte-btn--outline aparte-btn--lg" href={REPO_URL} target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </section>
+    </div>
 </Landing>
+
+<script>
+    // The install line's copy button: the command to the clipboard, a check for a moment.
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
+        button.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(button.dataset.copy ?? '');
+            } catch {
+                return;
+            }
+            button.dataset.copied = '';
+            setTimeout(() => delete button.dataset.copied, 1600);
+        });
+    }
+</script>
+
+<style>
+    .home {
+        --home-gap: clamp(4rem, 9vw, 7.5rem);
+        display: grid;
+        gap: var(--home-gap);
+        padding-block: clamp(2rem, 4.5vw, 3.25rem) var(--home-gap);
+        font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    }
+    .home a {
+        text-underline-offset: 3px;
+    }
+    .home-icon {
+        display: inline-flex;
+        --aparte-icon-size: 1.1em;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────────── */
+    .home-hero {
+        display: grid;
+        justify-items: center;
+        gap: 1.25rem;
+        max-width: 58rem;
+        margin-inline: auto;
+        text-align: center;
+    }
+    .home-hero__version {
+        text-decoration: none;
+    }
+    .home-hero__title {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: clamp(2.125rem, 4.6vw, 3.375rem);
+        font-weight: 650;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        text-wrap: balance;
+    }
+    .home-hero__lede {
+        max-width: 50rem;
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+        line-height: 1.55;
+        text-wrap: pretty;
+    }
+    .home-hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    .home-install {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.375rem 0.375rem 1rem;
+        border: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-full);
+        background: var(--aparte-surface-1);
+    }
+    .home-install__line {
+        color: var(--aparte-text);
+        font-family: 'Geist Mono Variable', ui-monospace, monospace;
+        font-size: 0.9375rem;
+    }
+    .home-install__prompt {
+        color: var(--aparte-primary);
+    }
+    .home-install__done,
+    .home-install__copy[data-copied] .home-install__idle {
+        display: none;
+    }
+    .home-install__copy[data-copied] .home-install__done {
+        display: inline-flex;
+    }
+
+    /* ── The architecture, then the product, both close under the hero ── */
+    .home-fits {
+        display: grid;
+        gap: 0.75rem;
+        width: 100%;
+        max-width: 62rem;
+        margin: calc(var(--home-gap) * -0.62) auto 0;
+        min-width: 0;
+    }
+    .home-fits__title {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-align: center;
+        text-transform: uppercase;
+    }
+    /* The weights, in the proof section. */
+    .home-weight {
+        display: grid;
+        gap: 0.5rem;
+        width: 100%;
+        max-width: 46rem;
+        margin-inline: auto;
+        min-width: 0;
+    }
+    .home-weight__title {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: 1.125rem;
+        font-weight: 650;
+        text-align: center;
+    }
+    .home-product {
+        margin-block-start: calc(var(--home-gap) * -0.45);
+    }
+
+    /* ── Bands ────────────────────────────────────────────────────────── */
+    .home-band {
+        display: grid;
+        gap: 2rem;
+        min-width: 0;
+    }
+    .home-band__head {
+        display: grid;
+        justify-items: center;
+        gap: 0.75rem;
+        max-width: 44rem;
+        margin-inline: auto;
+        text-align: center;
+    }
+    .home-band__head h2 {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+        font-weight: 650;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+        text-wrap: balance;
+    }
+    .home-band__head p {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 1.0625rem;
+        line-height: 1.6;
+        text-wrap: pretty;
+    }
+    /* The templates two by two, large enough to read. */
+    @media (min-width: 64rem) {
+        .home-band :global(.template-grid) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin: 0;
+        }
+    }
+    .home-more {
+        justify-self: center;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--aparte-text);
+        font-weight: 550;
+        text-decoration-color: var(--aparte-primary);
+    }
+    .home-note {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 0.9375rem;
+        text-align: center;
+    }
+    .home-note a {
+        color: var(--aparte-text);
+        text-decoration-color: var(--aparte-primary);
+    }
+
+    /* ── The loop ─────────────────────────────────────────────────────── */
+    .home-split {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: clamp(1.5rem, 4vw, 3.5rem);
+        align-items: center;
+    }
+    .home-points {
+        display: grid;
+        gap: 1.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .home-points li {
+        display: grid;
+        gap: 0.25rem;
+        padding-inline-start: 1rem;
+        border-inline-start: 2px solid var(--aparte-border);
+    }
+    .home-points a {
+        color: var(--aparte-text);
+        font-size: 1.0625rem;
+        font-weight: 600;
+        text-decoration-color: var(--aparte-primary);
+    }
+    .home-points p {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        line-height: 1.55;
+    }
+    .home-split__demo {
+        min-width: 0;
+    }
+
+    /* ── How it fits ──────────────────────────────────────────────────── */
+    .home-mount {
+        display: grid;
+        gap: 1rem;
+        width: 100%;
+        max-width: 50rem;
+        min-width: 0;
+        margin-inline: auto;
+    }
+    /* A grid item is as wide as its longest line unless told otherwise: without this, the
+       framework tabs widened with whichever code they showed. */
+    .home-mount > :global(*) {
+        min-width: 0;
+    }
+
+    /* ── Skins ────────────────────────────────────────────────────────── */
+    .home-skins {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    /* ── Proof ────────────────────────────────────────────────────────── */
+    .home-proof {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin: 0;
+    }
+    .home-proof__fact {
+        display: grid;
+        align-content: start;
+        gap: 0.5rem;
+        padding: 1.25rem;
+        border: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-lg);
+        background: var(--aparte-surface-1);
+    }
+    .home-proof dt {
+        color: var(--aparte-text-muted);
+    }
+    .home-proof__figure {
+        display: block;
+        color: var(--aparte-text);
+        font-size: 2rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }
+    .home-proof dd {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: 0.9375rem;
+        line-height: 1.5;
+    }
+
+    /* ── The end ──────────────────────────────────────────────────────── */
+    .home-end {
+        display: grid;
+        justify-items: center;
+        gap: 1rem;
+        padding: clamp(2.5rem, 6vw, 4rem) 1.5rem;
+        border: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-xl);
+        background: var(--aparte-surface-1);
+        text-align: center;
+    }
+    .home-end h2 {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+        font-weight: 650;
+        letter-spacing: -0.025em;
+    }
+    .home-end p {
+        margin: 0 0 0.5rem;
+        color: var(--aparte-text-muted);
+        font-size: 1.0625rem;
+    }
+
+    @media (max-width: 64rem) {
+        .home-skins {
+            grid-template-columns: minmax(0, 1fr);
+            max-width: 32rem;
+            margin-inline: auto;
+            width: 100%;
+        }
+        .home-proof {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 48rem) {
+        .home-split {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .home-proof {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>

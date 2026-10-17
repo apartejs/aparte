@@ -1,0 +1,43 @@
+---
+/**
+ * One level of a section's page list. A group is a native `<details>` — open when it holds
+ * the current page or when the config does not ask for it collapsed — and the current page
+ * wears the kit's `.aparte-mark`, the tint and bar the library uses to say "this one".
+ */
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import { expandIcon } from '@aparte/core/icons';
+import { groupLabel } from './sections';
+
+type Entry = StarlightRouteData['sidebar'][number];
+
+interface Props {
+    entries: Entry[];
+}
+
+const { entries } = Astro.props;
+const holdsCurrent = (e: Entry): boolean => (e.type === 'link' ? e.isCurrent : e.entries.some(holdsCurrent));
+---
+
+<ul class="site-tree">
+    {
+        entries.map((e) =>
+            e.type === 'link' ? (
+                <li>
+                    <a class:list={['site-tree__link', { 'aparte-mark': e.isCurrent }]} href={e.href} aria-current={e.isCurrent ? 'page' : undefined}>
+                        {e.label}
+                    </a>
+                </li>
+            ) : (
+                <li>
+                    <details class="site-tree__group" open={!e.collapsed || holdsCurrent(e)}>
+                        <summary class="site-tree__summary">
+                            <span>{groupLabel(e.label)}</span>
+                            <span class="site-tree__chevron" set:html={expandIcon} />
+                        </summary>
+                        <Astro.self entries={e.entries} />
+                    </details>
+                </li>
+            ),
+        )
+    }
+</ul>

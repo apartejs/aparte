@@ -1,0 +1,44 @@
+---
+title: Popover
+description: A floating box with a border and a shadow, for a small form, a filter or a card of details above the page.
+catalog:
+  group: kit
+  order: 20
+  claims:
+    classes: [popover]
+  demos: [kit-popover]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/popover.classes.mdx';
+import Vars from '../../../generated/api/kit/popover.vars.mdx';
+
+<Variant id="kit-popover" />
+
+`.aparte-popover` is deliberately just a box: the surface, border and shadow that say "this
+floats above the page". What goes inside (a form, a colour picker, a card of details) and where
+the box sits are yours. Its one limit is `--aparte-popover-max-width`, so that its content cannot
+grow it without bound.
+
+The browser's own `popover` attribute pairs well with it: `popover` on the box and
+`popovertarget` on its button open and close it with no script, above everything, and close it on
+Escape or a click outside.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- A popover holding a form is a non-modal dialog: give it `role="dialog"` and a name
+  (`aria-label` or `aria-labelledby`), and move the focus into it when it opens.
+
+## Related
+
+- [Menu](/components/menu/) — the floating surface for a list of commands.
+- [Dialog](/components/dialog/) — a modal box that blocks the page.
+- [Tooltip](/components/tooltip/) — a short label, not a box to act in.

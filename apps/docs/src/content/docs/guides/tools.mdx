@@ -1,30 +1,23 @@
 ---
-title: 'AI tool calling UI, with human approval'
-description: Register a tool the model can call, render its status, and gate it behind a built-in human approval step — approve or reject before it runs.
+title: Let the model call your code, and ask a person first
+description: Register a tool the model can call, show each call as it runs, say what it targets, and make a person approve it before it runs.
 sidebar:
-  order: 9
-  label: Tools & human-in-the-loop
+  order: 1
+  label: Tools and approval
+guide:
+  group: agents
 ---
 
-import Demo from '../../../components/Demo.astro';
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
 
-A **tool** is a function the model can ask to run — read a file, hit an API, delete
-something. Register a definition plus a handler and `AparteClient` does the rest: it
-offers the tool to the model, runs your handler when it's called, feeds the result back,
-and renders the call as a row you can open. For anything sensitive, one flag makes the model
-wait for a human to click **Approve** before your handler ever runs. Why the row shows what
-it shows is its own page: [What a tool-call UI has to show](/guides/tool-call-ui/).
-
-## Define and register a tool
-
-A tool is a plain `AparteTool` object plus an `AparteToolHandler`, registered together
-with `aparteGlobalConfig.registerTool`:
+## Register a tool
 
 ```ts
-import { aparteGlobalConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
 import type { AparteTool, AparteToolHandler } from '@aparte/core';
 
-const getTimeTool: AparteTool = {
+const getTime: AparteTool = {
   name: 'get_time',
   description: 'Return the current time in a given IANA timezone.',
   inputSchema: {
@@ -34,458 +27,226 @@ const getTimeTool: AparteTool = {
   },
 };
 
-const getTimeHandler: AparteToolHandler = async (call) => ({
+const handleGetTime: AparteToolHandler = async (call) => ({
   toolCallId: call.id,
-  content: new Date().toLocaleString('en-US', { timeZone: call.input.timezone as string }),
+  content: new Date().toLocaleString('en-US', { timeZone: String(call.input['timezone']) }),
 });
 
-aparteGlobalConfig.registerTool(getTimeTool, getTimeHandler);
-```
-
-- **`inputSchema`** is a plain JSON Schema object, sent to the model as-is.
-- The handler receives an `AparteToolCall` (`{ id, name, input }`) and an `AbortSignal`
-  (fires on a timeout or a stream abort), and must resolve an `AparteToolResult`
-  (`{ toolCallId, content }`).
-- **`systemPrompt?`** on the tool is injected automatically once registered — tell the
-  model *when* to use it without touching your main prompt. **`maxTurns?`** overrides the
-  client's global `maxTurns` for this tool only.
-
-## The model → tool_call → result loop
-
-Register the tool, register the default renderers, and start a client:
-
-```ts
-import { registerDefaultRenderers, AparteClient } from '@aparte/core';
-
-registerDefaultRenderers();
+aparteGlobalConfig.registerTool(getTime, handleGetTime);
 new AparteClient().start();
 ```
 
-`AparteClient` sends every registered tool with the request. The one case where it does
-not is a model that declares its `capabilities` and leaves `function_calling` out — a
-statement the client respects. A model that says nothing (which is what a
-`GET /models` listing usually amounts to) gets the tools: registering one is an explicit
-act, and dropping it silently because a listing is terse would turn your registration
-into a no-op with nothing to read anywhere. When the model calls one:
+`AparteClient` offers every registered tool to the model, runs your handler when the model calls
+it, gives the result back, and lets the model go on. `inputSchema` is a JSON Schema, sent as it is.
+The handler gets the call — `{ id, name, input }` — an `AbortSignal` that fires when the turn is
+stopped or the tool runs too long, and a context whose `target` is the chat the turn belongs to.
+It answers `{ toolCallId, content }`: `content` is what the model reads, and an optional
+`structuredContent` reaches a [renderer of yours](#custom-tool-renderer) as
+`segment.structuredResult`, never the model.
 
-1. A **[`tool_call`](/segments/tool-call/)** segment is added (`status: 'pending'`) — the built-in renderer shows
-   a row with the tool name and a spinner.
-2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
-   on resolve flips the segment to `status: 'resolved'`.
-3. An `assistant` message carrying the call and a `tool` message carrying its result are appended
-   to history, and the provider is re-called automatically, so the model sees the outcome and
-   continues.
-4. If `maxTurns` (per-tool or global) is hit first, the segment becomes `'aborted'`.
+A tool's `systemPrompt` tells the model when to use it, and its `maxTurns` is the last turn of a
+reply in which it may still run. On the client, `toolTimeoutMs` is the time a handler may take,
+five minutes by default: a call past its turns or its time is stopped, and the reply ends with it.
+The client's `maxTurns` caps the model's turns in one reply, ten by default, and a reply that
+reaches it ends on an error message. A model whose declared `capabilities` leave out
+`function_calling` gets no tools; a model that declares nothing gets them.
 
-`AparteToolCallSegment.status` is one of
-`'pending' | 'resolved' | 'aborted' | 'awaiting-approval' | 'rejected'` — the last two
-only apply to approval-gated tools.
+## What the row shows
 
-### What the row shows
+<Variant id="tool-statuses" caption="A tool call in each of its states." />
 
-One line per call: the tool's name, a spinner while it runs, and the state as a word at
-the far end — `Running`, `Done`, `Rejected`, `Stopped`. When the call has arguments or a
-result, that line becomes a disclosure, and opening it shows both — the arguments the
-model chose under **Input**, pretty-printed, and whatever your handler returned under
-**Output**. A registered [highlight provider](/plugins/shiki/) colours them; without one
-they are escaped text, because a tool's arguments are model-authored and are never
-injected as HTML.
+Each call is one line in the reply, in the order it happened: the tool's name and its state.
+Opened, it shows the arguments the model chose under **Input** and the result under **Output**, as
+formatted JSON, coloured when a [highlighter](/guides/markdown/) is registered.
 
-It opens on a click and never on its own, including while a decision is pending. The
-reasoning block stays closed while it is being produced, which is the most live moment
-there is, so a tool call has no stronger claim to unroll itself.
+| State | Word | When |
+| --- | --- | --- |
+| `awaiting-approval` | Waiting | a person has not decided yet |
+| `pending` | Running | the handler runs, with a spinner |
+| `resolved` | Done | the handler answered |
+| `rejected` | Rejected | a person, or a [policy](#decide-in-code), refused it |
+| `aborted` | Stopped | the reply was stopped, or the call could not run — no handler, no one to ask, past its time or its turns — and the reply ends there |
+| `failed` | Failed | the handler threw |
 
-Every word is a locale key:
+A handler that throws marks its call failed and ends the reply on the error. A failure the model
+should read and work around is a result instead: return it as `content`. The words are locale keys,
+and `extendLocale` changes them:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
 aparteGlobalConfig.extendLocale({
-  toolInput: 'Arguments',
-  toolOutput: 'Result',
-  toolRunning: 'Working…',
-  toolCompleted: 'Done',
-  toolRejected: 'Refused',
-  toolStopped: 'Stopped',
+  toolRunning: 'Working…', toolCompleted: 'Done', toolRejected: 'Refused',
+  toolStopped: 'Stopped', toolFailed: 'Failed', approvalWaiting: 'Waiting',
+  toolInput: 'Arguments', toolOutput: 'Result',
 });
 ```
 
-And every part is a class, so restyling needs no renderer:
+The row is `.aparte-segment-tool-call`: its line `.aparte-tool-summary`, rounded by
+`--aparte-tool-row-radius`, the word `.aparte-tool-state`, and the opened part
+`.aparte-tool-detail`. The [class reference](/reference/classes/) lists them all.
 
-| Class | The part |
-| --- | --- |
-| `.aparte-tool-summary` | the clickable line |
-| `.aparte-tool-toggle` | the chevron |
-| `.aparte-tool-label` | the call's identity — holds `.aparte-tool-icon` and `.aparte-tool-name` |
-| `.aparte-tool-spinner` | shown only while `pending` |
-| `.aparte-tool-state` | the state word, pushed to the far end |
-| `.aparte-tool-detail` | the opened body |
-| `.aparte-tool-part` | one of Input / Output — holds `.aparte-tool-part-label` and `.aparte-tool-part-body` |
-
-```css
-aparte-chat { --aparte-tool-row-radius: 0; } /* the row's corner */
-
-.aparte-tool-summary:hover { background: none; }
-.aparte-tool-state { font-variant: small-caps; }
-```
-
-Replacing the markup outright is [a custom tool renderer](#custom-tool-renderer) instead.
-
-## Require approval (human-in-the-loop)
-
-What the reader sees when the loop stops. The row is the anchor — it opens onto the
-arguments the model sent — and the decision itself is asked at the composer.
-
-<Demo id="tool-approval" caption="A tool call in `awaiting-approval`: the turn is paused and nothing has run yet." />
-
-Set `needsApproval: true` on the tool:
-
-```ts
-const deleteFilesTool: AparteTool = {
-  name: 'delete_files',
-  description: 'Delete a file from the workspace. Destructive — always ask first.',
-  inputSchema: {
-    type: 'object',
-    properties: { path: { type: 'string' } },
-    required: ['path'],
-  },
-  needsApproval: true,
-};
-
-aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
-  // ... actually delete call.input.path ...
-  return { toolCallId: call.id, content: `Deleted ${call.input.path}` };
-});
-```
-
-Before running the handler, `AparteClient` flips the segment to
-`status: 'awaiting-approval'` and **asks at the composer** — the same place every other
-request for the user is answered, through the same `requestUserInput` a tool handler
-calls. The panel carries the question, the call's **arguments** under it, the choices and
-a free-text field; the row in the transcript is the **anchor**, saying which tool is
-waiting, and holds nothing clickable.
-
-The arguments are on the panel because they are what is being approved — the same text
-the row shows, from the same function, so the two surfaces cannot disagree about what is
-about to run. The panel is capped at half the viewport and the block inside it scrolls,
-so a diff or a plan does not push the buttons off the surface they are asked on; the full
-version stays in the thread, which is already scrollable, copyable and persisted.
-
-Set `details` on your own `requestUserInput({ kind: 'approval' })` call to put text
-there — it is rendered through `textContent`, never as markup, so a model-chosen path
-cannot become markup on the surface someone clicks Approve on:
+## Show what a call targets
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
-const answer = await aparteGlobalConfig.requestUserInput({
-  kind: 'approval',
-  message: 'Run delete_file?',
-  // The call being approved, shown under the question. Text, never markup.
-  details: JSON.stringify({ path: 'src/index.ts' }, null, 2),
-  options: [
-    { value: 'allow', label: 'Approve', tone: 'affirm' },
-    { value: 'deny', label: 'Reject', tone: 'deny' },
-  ],
+aparteGlobalConfig.registerToolSummary('read_file', (segment) =>
+  String(segment.toolCall.input['path'] ?? ''));
+```
+
+<Variant id="tool-summary" caption="read_file with the file it read, without opening the row." />
+
+A summary is the line the row writes after the tool's name: `read_file skills.json` rather than
+`read_file` alone. It is read again each time the call changes and when the language switches,
+and written as text; an empty string, or a summary that throws, shows nothing. A tool drawn by a
+[renderer of its own](#custom-tool-renderer) shows no summary.
+
+## Require approval (human-in-the-loop)
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerTool(
+  {
+    name: 'delete_file',
+    description: 'Delete a file from the workspace.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    needsApproval: true,
+  },
+  async (call) => ({ toolCallId: call.id, content: `Deleted ${String(call.input['path'])}` }),
+);
+```
+
+<Variant id="approval" caption="The decision, asked at the composer: the question, the arguments, the choices." />
+
+With `needsApproval`, the call waits before its handler runs. The row says which tool waits, and
+the decision is asked at the composer: the question, the arguments the model chose, the choices,
+and a field to write something else. The panel is `<aparte-elicitation>`, which `<aparte-chat>`
+and the framework wrappers already hold; a layout you compose yourself has to include it, or, with
+no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` (`Run {tool}?`),
+`approveTool`, `rejectTool` and `approvalInstructionPlaceholder`.
+
+- **Approve** runs the handler.
+- **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
+  and the model gets a turn to answer it.
+- **Writing instead of choosing** is a refusal that carries your words, which the model reads —
+  except with an [AG-UI agent](/providers/agent/ag-ui/), which gets only `{ approved: false }`.
+- **Stop** ends the reply, and the call shows Stopped; the model is told nothing.
+
+Each time a call starts to wait, the chat sends `aparte-tool-approval-request` with
+`{ toolCallId, toolName, input }`, for a notification of yours. When the loop runs on your server,
+the same panel answers its tools, even after a reload:
+[approvals across the network](/guides/server-loop/#approvals-across-the-network).
+
+:::caution[Approval is not authorization]
+The approval runs in the browser: it spares the person a surprise, it does not protect your
+system. A tool that acts on your backend is checked there, in the endpoint it calls, every time:
+who is calling, and whether they may. When the loop runs on your server, the handler reads the
+caller from `context.request` ([server loop](/guides/server-loop/)).
+:::
+
+## Decide in code
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setApprovalPolicy((call) => {
+  if (call.name === 'run_command' && String(call.input['cmd']).startsWith('rm '))
+    return { verdict: 'deny', reason: 'Deleting is off in this workspace.' };
+  if (call.name.startsWith('read_')) return { verdict: 'allow' };
+  return undefined;   // the tool's own needsApproval decides
 });
 ```
 
-The [complete example](#complete-example-approvereject-with-no-backend) below passes it
-the same way.
+A policy rules on each call before anyone is asked: `allow` runs it, `ask` asks the person as
+`needsApproval` would, and `deny` refuses it, with the `reason` the model reads. The modes people
+know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
+[`@aparte/plugin-approval`](/components/approval-mode/).
 
-It also dispatches **`aparte-tool-approval-request`** on the target element
-(`detail: { toolCallId, toolName, input }`) — observation only, for an app that wants to
-raise an OS notification when a gate opens.
-
-:::note[`aparte-tool-decision` is gone]
-The Approve / Reject buttons used to live in the transcript and dispatch
-`aparte-tool-decision`, which the client answered with a `document` listener. Both are
-removed. The event existed only because a segment renderer has no reference to the client,
-and two seams that can disagree about who answers a decision are one too many. To answer
-programmatically, pass an `approvalResolver` (below) or register your own presenter — each
-sees the whole request rather than an id on an event.
-:::
-
-- On **reject**, the handler never runs. A synthetic *"rejected by user"* result is fed
-  back, the turn's **remaining** tool calls are skipped — the model may have asked for
-  several, and refusing one cannot license the others — and then the model is given
-  another turn, so it actually reads the refusal and can answer it. It could not before:
-  the turn simply ended there, and telling the assistant what you wanted instead meant
-  retyping it as a new message it then read out of order.
-- A **stop** is not a reject. Pressing Stop while a tool waits for approval marks the
-  segment `aborted` and appends nothing: there is nothing true to tell the model. The two
-  used to be indistinguishable, so a stopped turn was reported as a refusal.
-- On **approve**, the handler runs with the original input, unless the decision carries a
-  plain-object `payload`, which is merged onto the input first — so a custom approval
-  surface can edit the arguments (fix a path, tighten a query) before the tool runs. The
-  built-in panel sends no payload.
-- **Typing instead of choosing** is a refusal that carries your words: the instruction
-  becomes the `tool` message the model reads on the turn it gets back. That is only useful
-  because a refusal hands the model a turn — before, whatever you wrote had nowhere to go.
-
-To drive approval from something with no DOM — a CLI, a webhook, an ops channel — or to
-decide without asking at all, pass an `approvalResolver` in `AparteClientOptions`. It
-replaces the panel entirely:
+To answer with no panel at all — from a command line, a webhook, a team channel — give the client
+an `approvalResolver`. It answers every call of a `needsApproval` tool, and a policy set with
+`setApprovalPolicy`, the approval modes included, is then not consulted: rule on the call in the
+resolver, or use a policy, not both.
 
 ```ts
+import { AparteClient } from '@aparte/core';
+
+declare function askTheTeam(name: string, input: Record<string, unknown>, signal: AbortSignal): Promise<boolean>;
+
 new AparteClient({
-  // The whole CALL, not just its id: you cannot ask "run this?" without naming what.
   approvalResolver: async (call, signal) => ({
-    approved: await confirmWithOpsTeam(call.name, call.input, signal),
-    // Optional, on a refusal: the words the model reads back.
-    instruction: 'use the staging bucket instead',
+    approved: await askTheTeam(call.name, call.input, signal),
+    instruction: 'Use the staging bucket instead.',   // read by the model on a refusal
   }),
 }).start();
 ```
 
-An "auto" mode is this and nothing more: a resolver that answers without asking anybody.
-
-### A policy, per call — modes
-
-`needsApproval` is a declaration about a **tool**; a mode — *plan* (read-only), *ask*,
-*auto-edit*, *auto* — is a decision about each **call**, and the same `run_command` can be
-a read or an execution. That decision has a seam of its own: an `AparteApprovalPolicy`
-registered with `setApprovalPolicy()` rules on every call, before the panel is involved.
-
-```ts
-aparteGlobalConfig.setApprovalPolicy((call, tool) => {
-  if (call.name === 'run_command' && String(call.input.cmd).startsWith('rm '))
-    return { verdict: 'deny', reason: 'Deleting is off in this workspace.' };
-  if (call.name.startsWith('read_')) return { verdict: 'allow' };
-  return undefined;                       // no opinion: the tool's own flag decides
-});
-```
-
-The ruling is an `AparteApprovalRuling`: `allow` runs without asking and never pauses the
-row; `ask` puts the call to the person exactly as a `needsApproval` tool is; `deny` refuses
-it, and its `reason` is what the model reads — verbatim, not "the user rejected this",
-because nobody did. `getApprovalPolicy()` reads it back and `ruleOnToolCall(call)` is the
-one place the policy and the flag are combined. A host's own `approvalResolver` is not
-affected: it already owns the decision. The four modes, a read/write/exec classification of
-your tool names and a switch for the composer's toolbar are
-[`@aparte/plugin-approval`](/plugins/approval/).
-
-:::caution[Approval is UX, not authorization]
-`needsApproval` runs **in the browser** — it protects the user from surprising tool runs,
-not your system from a malicious client. Anything a tool actually does against your backend
-must be re-validated server-side as if the approval never happened: is the caller
-authenticated, allowed to use this tool, allowed on *this* resource, and are the arguments
-valid? If you proxy through `createAparteChatHandler`, its
-[`authorize()` hook](/guides/backend-transport/) is the place for that check.
-:::
-
-When the loop runs on your **server** (`createAparteAgentHandler`), the gate moves there: a
-server tool's `needsApproval` suspends the run, this same panel answers it, and the answer
-crosses the network with a ticket the server signed — the user can even leave and answer
-later. See [Run the agent loop on your server](/guides/server-loop/#approvals-across-the-network).
+A resolver may also answer a `payload`, an object merged into the arguments before the handler
+runs, to correct a path while approving; the row still shows what the model sent.
 
 ## Custom tool renderer
-
-Replace the generic row for a specific tool name with `registerToolRenderer`. `render`
-returns either an HTML string or a ready DOM element (`''` renders nothing — e.g. a
-UI-only tool); `setup` runs once after injection for listeners; `getStyles` is injected
-into `document.head` once per tool. For a `needsApproval` tool this only takes over
-*after* approval:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
-const webSearchRenderer: AparteToolRenderer = {
-  render: (segment) => `<div class="aparte-tool-label">Searching the web…</div>`,
-  setup: (element, segment) => { /* wire listeners after injection, if any */ },
+const searchRenderer: AparteToolRenderer = {
+  render(segment) {
+    const el = document.createElement('div');
+    el.className = 'my-search';
+    el.textContent = `Searching for ${String(segment.toolCall.input['query'] ?? '')}`;
+    return el;
+  },
+  update(el, segment) {
+    if (segment.status === 'awaiting-approval') el.textContent = 'Waiting for your approval';
+    else if (segment.status === 'pending') el.textContent = 'Searching…';
+    else if (segment.status === 'resolved') el.textContent = segment.result ?? '';
+    else el.textContent = `Search ${segment.status}`;   // rejected, aborted, failed
+  },
 };
 
-aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
+aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
 ```
 
-### A popover needs to live outside the bubble
+<Variant id="tool-renderer" caption="A tool drawn by a renderer of its own, in place of the row." />
 
-The bubble element carries `content-visibility: auto` for its streaming/scroll
-performance, and that containment makes the bubble the containing block for
-`position: fixed` descendants. A renderer that opens a popover inside the row — an
-`<aparte-select>`, a menu — gets it clipped to the bubble's own box, not the window.
-There is no portal helper for this today; mount the popover on `document.body` and
-position it from the trigger's rect instead:
+A renderer draws every call of one tool in place of the row, in every state: `render` when the
+call appears, `update` when it changes — a decision is made, its result lands — and `relabel` when
+the language or the icons change. Without `update`, the call is drawn again from `render` at each
+change. Read `segment.status`, as above: the renderer shows the wait for approval itself, and a
+refused or failed call carries the refusal or the error in `segment.result`.
+
+Return one element or a string of markup. An empty string returned as the call starts keeps it
+out of the reply; returned at any other time — a later change, a stored conversation drawn again —
+it brings back the default row.
+
+The arguments and the result come from the model and the tool: never write them into markup as
+they are. Set them as `textContent`, as above, or pass them through `escapeHtml` and `escapeAttr`.
+A result meant to be shown as a thing — a document, a form, a receipt — comes as the handler's
+`structuredContent`, which the renderer reads as `segment.structuredResult`; the
+[question](/components/question/) and [artifact](/components/artifact/) plugins draw their cards so.
+
+A message clips what its parts draw outside it, so a renderer's menu or popover goes on
+`document.body`, placed from its trigger's position:
 
 ```ts
 function openMenu(trigger: HTMLElement): HTMLElement {
   const menu = document.createElement('div');
   menu.className = 'aparte-menu';
-  document.body.append(menu);
   const r = trigger.getBoundingClientRect();
-  menu.style.cssText = `position:fixed; left:${r.left}px; top:${r.bottom}px;`;
+  menu.style.cssText = `position: fixed; left: ${r.left}px; top: ${r.bottom}px;`;
+  document.body.append(menu);
   return menu;
 }
 ```
 
-Nothing in this repo needs it yet — core puts no popover inside a bubble (the
-elicitation panel is a sibling of the viewport, the conversation list's menu lives in
-the sidebar). The trigger to build a portal helper instead of hand-rolling this is a
-real `registerToolRenderer` here that needs one.
+## Next
 
-A call changes several times in one turn — its result lands, a decision is made, it
-fails — and on each change core rebuilds your markup from `render()` unless you declare
-**`update`**, which patches the element in place instead. Rebuilding is right for a
-receipt and wrong for anything with state: a mounted preview, an opened disclosure or a
-focused control is lost in a rebuild. **`relabel`** is called on every config change
-(`setLocale`, `setIconProvider`, `reset()`) so the strings you drew follow the locale;
-replace text and glyphs, add or remove no node. Both are the contracts a segment
-renderer already has, so one object can serve as both:
-
-```ts
-import { aparteGlobalConfig } from '@aparte/core';
-import type { AparteToolRenderer } from '@aparte/core';
-
-const reportRenderer: AparteToolRenderer = {
-  render: (segment) => {
-    const el = document.createElement('div');
-    el.className = 'my-report';
-    el.dataset['status'] = segment.status ?? 'pending';
-    return el;
-  },
-  // The result landed: mark it, keep the element.
-  update: (element, segment) => {
-    element.dataset['status'] = segment.status ?? 'pending';
-    if (segment.result) element.textContent = segment.result;
-  },
-  relabel: (element) => { element.setAttribute('aria-label', aparteGlobalConfig.t('toolOutput')); },
-};
-
-aparteGlobalConfig.registerToolRenderer('build_report', reportRenderer);
-```
-
-:::danger[The segment carries model-chosen data]
-`segment.toolCall.input` is whatever the **model** decided to pass, and
-`segment.result` is whatever the tool returned. Both are untrusted. The
-obvious first thing to write is the one that breaks:
-
-```ts
-// DON'T — a direct model-to-DOM XSS in your page's origin.
-render: (segment) => `<div>Searching for ${segment.toolCall?.input?.['query']}</div>`,
-```
-
-Two ways out. **Return an element** and there is no `innerHTML` surface at all:
-
-```ts
-import { aparteGlobalConfig } from '@aparte/core';
-import type { AparteToolRenderer } from '@aparte/core';
-
-const searchRenderer: AparteToolRenderer = {
-  render: (segment) => {
-    const el = document.createElement('div');
-    el.className = 'aparte-tool-label';
-    // textContent, so the value is text no matter what it contains.
-    el.textContent = `Searching for ${String(segment.toolCall?.input?.['query'] ?? '')}`;
-    return el;
-  },
-};
-
-aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
-```
-
-Or **keep the string and escape every interpolation** — `escapeHtml` in text
-position, `escapeAttr` inside an attribute, exactly as in
-[Customization](/guides/customization/):
-
-```ts
-import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
-import type { AparteToolRenderer } from '@aparte/core';
-
-const searchRenderer: AparteToolRenderer = {
-  render: (segment) => {
-    const query = String(segment.toolCall?.input?.['query'] ?? '');
-    return `<div class="aparte-tool-label" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
-  },
-};
-
-aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
-```
-:::
-
-## Complete example: approve/reject with no backend
-
-This runs with no model and no API key — it drives the viewport the same way
-`AparteClient` would, so you can see the whole mechanic. Adapted from
-`apps/examples/vanilla-dist`:
-
-```ts
-import '@aparte/core';
-import '@aparte/core/styles.css';
-import { registerDefaultRenderers, aparteGlobalConfig } from '@aparte/core';
-
-registerDefaultRenderers();
-
-const chat = document.querySelector('aparte-chat')!;
-const vp = () => chat.viewport!;
-
-let n = 0;
-
-function reply(text: string) {
-  // `status` is part of the shape, not decoration: a finished assistant turn says so.
-  vp().appendMessage({ id: `a-${++n}`, role: 'assistant', content: text, timestamp: Date.now(), status: 'completed' });
-}
-
-// Human-in-the-loop with no client and no loop: the row is the anchor in the
-// transcript, and `requestUserInput` asks at the composer. This is the same function
-// the built-in gate calls, so a page and a real agent loop ask identically.
-async function askApproval() {
-  const id = `a-${++n}`;
-  const segId = `seg-${n}`;
-  vp().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now(), status: 'streaming' });
-  vp().addSegment(id, {
-    id: segId,
-    type: 'tool_call',
-    status: 'awaiting-approval',
-    toolCall: { id: `tc-${n}`, name: 'delete_files', input: { path: '~/notes/todo.md' } },
-  });
-
-  try {
-    const answer = await aparteGlobalConfig.requestUserInput({
-      kind: 'approval',
-      message: 'Run delete_files?',
-      // What is being approved, under the question. Rendered through `textContent`,
-      // never as markup — a model-chosen path is not trusted here either.
-      details: JSON.stringify({ path: '~/notes/todo.md' }, null, 2),
-      // The options are YOURS. Core cannot write "and always for this tool" or know
-      // that your app has somewhere to remember it.
-      options: [
-        { value: 'allow', label: 'Approve', tone: 'affirm' },
-        { value: 'deny', label: 'Reject', tone: 'deny' },
-      ],
-    });
-    const picked = answer.action === 'accept'
-      ? (answer.content as { option?: string; instruction?: string })
-      : {};
-    const approved = !picked.instruction && picked.option === 'allow';
-    vp().updateSegment(id, segId, { status: approved ? 'resolved' : 'rejected' });
-    reply(approved
-      ? 'Approved — the file would be deleted here.'
-      : picked.instruction
-        ? `Understood: ${picked.instruction}`
-        : 'Rejected — nothing happened.');
-  } catch {
-    // It ended without an answer: a stopped turn, or nothing mounted to ask it.
-    vp().updateSegment(id, segId, { status: 'aborted' });
-  }
-}
-
-chat.addEventListener('aparte-send', (e) => {
-  const text = (e as CustomEvent).detail.content as string;
-  vp().appendMessage({ id: `u-${++n}`, role: 'user', content: text, timestamp: Date.now() });
-  if (text.trim().toLowerCase().includes('delete')) askApproval();
-  else reply(`You said: "${text}". Type "delete" to see a human-in-the-loop tool approval.`);
-});
-```
-
-Type a message containing "delete" and the row appears in the transcript while the
-choices appear in the composer — the same panel `AparteClient` raises. Swap
-the manual `addSegment` call for a registered `delete_files` tool (`needsApproval: true`)
-plus a started `AparteClient`, and a real model drives the exact same segment and events.
-
-## Next steps
-
-- **[Customization](/guides/customization)** — render hooks and the action registry for
-  everything outside tool segments.
-- **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop, for running
-  this same tool + approval flow off the main thread or on a server.
+<Cards
+    cards={[
+        { href: '/guides/elicitation/', title: 'Ask the user a question', line: 'A choice, a yes or no, some text or a small form, in the middle of a run.' },
+        { href: '/guides/server-loop/', title: 'Run the loop on your server', line: 'The same tools and approvals, with the loop and the key on your server.' },
+        { href: '/components/tool/', title: 'Tool', line: 'The row in every state, its parts and its options.' },
+    ]}
+/>

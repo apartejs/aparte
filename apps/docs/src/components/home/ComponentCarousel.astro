@@ -1,0 +1,291 @@
+---
+/**
+ * A few catalogue pages, one at a time and large enough to read: each slide is the page's hero
+ * demo running at its real size beside the page's name, its line and a link to it. It moves on by
+ * itself every few seconds, with arrows, a dot per slide and a pause button; it holds still while
+ * the reader points at it or has focus in it, and under reduced motion it never moves on its own.
+ *
+ * Built on the WAI-ARIA carousel pattern: the region names itself a carousel, each slide is a
+ * group that says "3 of 8", slides out of view are inert, and the announcement is polite only
+ * when the reader moved it. A slide's frame loads when it is about to be shown, not before.
+ */
+import { chevronLeftIcon, chevronRightIcon, pauseIcon } from '@aparte/core/icons';
+import { getCollection } from 'astro:content';
+
+interface Props {
+    /** The chat pages to show, by slug, in order. */
+    only: string[];
+    /** What the carousel holds, for its region's name. */
+    label: string;
+}
+
+const { only, label } = Astro.props;
+const pages = (await getCollection('docs')).filter((entry) => entry.data.catalog?.group === 'chat');
+const slides = only.map((slug) => {
+    const entry = pages.find((page) => page.id === `components/${slug}`);
+    const demo = entry?.data.catalog?.demos?.[0];
+    if (!entry || !demo) throw new Error(`<ComponentCarousel>: no chat page with a demo named "${slug}".`);
+    return { slug, title: entry.data.title, line: entry.data.description ?? '', href: `/${entry.id}/`, src: `/preview/demo/${demo}/?tile` };
+});
+// A play glyph: core draws a pause, not its pair, and this is the only place that needs one.
+const playIcon = '<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+---
+
+<section class="carousel" aria-roledescription="carousel" aria-label={label} data-carousel>
+    <div class="carousel__viewport">
+        <div class="carousel__track" aria-live="off">
+            {
+                slides.map((slide, i) => (
+                    <div
+                        class="carousel__slide"
+                        role="group"
+                        aria-roledescription="slide"
+                        aria-label={`${i + 1} of ${slides.length}: ${slide.title}`}
+                        inert={i !== 0}
+                    >
+                        <div class="carousel__text">
+                            <h3 class="carousel__title">{slide.title}</h3>
+                            <p class="carousel__line">{slide.line}</p>
+                            <a class="carousel__link" href={slide.href}>
+                                Its page, its variants <span class="carousel__arrow" set:html={chevronRightIcon} />
+                            </a>
+                        </div>
+                        <div class="carousel__frame">
+                            {/* The first frame loads with the page; the others when their turn is near. */}
+                            <iframe
+                                title={`${slide.title}, live`}
+                                tabindex="-1"
+                                aria-hidden="true"
+                                inert
+                                {...(i === 0 ? { src: slide.src } : { 'data-src': slide.src })}
+                            />
+                        </div>
+                    </div>
+                ))
+            }
+        </div>
+    </div>
+    <div class="carousel__controls">
+        <button class="aparte-btn aparte-btn--icon aparte-btn--ghost carousel__step" type="button" aria-label="Previous" data-carousel-prev set:html={chevronLeftIcon} />
+        <div class="carousel__dots">
+            {
+                slides.map((slide, i) => (
+                    <button class="carousel__dot" type="button" aria-label={`Show ${slide.title}`} aria-current={i === 0 ? 'true' : undefined} data-carousel-dot={i}>
+                        <span />
+                    </button>
+                ))
+            }
+        </div>
+        <button class="aparte-btn aparte-btn--icon aparte-btn--ghost carousel__step" type="button" aria-label="Next" data-carousel-next set:html={chevronRightIcon} />
+        <button class="aparte-btn aparte-btn--icon aparte-btn--ghost carousel__toggle" type="button" aria-label="Pause the slides" data-carousel-toggle>
+            <span class="carousel__glyph carousel__glyph--pause" set:html={pauseIcon} />
+            <span class="carousel__glyph carousel__glyph--play" set:html={playIcon} />
+        </button>
+    </div>
+</section>
+
+<script>
+    const DELAY = 6000;
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+
+    for (const root of document.querySelectorAll<HTMLElement>('[data-carousel]')) {
+        const track = root.querySelector<HTMLElement>('.carousel__track')!;
+        const slides = [...root.querySelectorAll<HTMLElement>('.carousel__slide')];
+        const dots = [...root.querySelectorAll<HTMLButtonElement>('[data-carousel-dot]')];
+        const toggle = root.querySelector<HTMLButtonElement>('[data-carousel-toggle]')!;
+        let index = 0;
+        // Stopped by the reader (the pause button), or held for a moment (pointer over it, focus in it).
+        let stopped = still.matches;
+        let held = false;
+        let visible = false;
+
+        const load = (i: number): void => {
+            const frame = slides[i]?.querySelector<HTMLIFrameElement>('iframe[data-src]');
+            if (!frame) return;
+            frame.src = frame.dataset.src ?? '';
+            frame.removeAttribute('data-src');
+        };
+        const show = (next: number, byReader: boolean): void => {
+            index = (next + slides.length) % slides.length;
+            track.style.transform = `translateX(-${index * 100}%)`;
+            // A moved-by-hand carousel announces its slide; a moving one would talk every few seconds.
+            track.setAttribute('aria-live', byReader ? 'polite' : 'off');
+            slides.forEach((slide, i) => (slide.inert = i !== index));
+            dots.forEach((dot, i) => (i === index ? dot.setAttribute('aria-current', 'true') : dot.removeAttribute('aria-current')));
+            load(index);
+            load(index + 1);
+        };
+        const paint = (): void => {
+            root.toggleAttribute('data-stopped', stopped);
+            toggle.setAttribute('aria-label', stopped ? 'Play the slides' : 'Pause the slides');
+        };
+
+        root.querySelector('[data-carousel-prev]')?.addEventListener('click', () => show(index - 1, true));
+        root.querySelector('[data-carousel-next]')?.addEventListener('click', () => show(index + 1, true));
+        dots.forEach((dot, i) => dot.addEventListener('click', () => show(i, true)));
+        toggle.addEventListener('click', () => {
+            stopped = !stopped;
+            paint();
+        });
+        root.addEventListener('pointerenter', () => (held = true));
+        root.addEventListener('pointerleave', () => (held = false));
+        root.addEventListener('focusin', () => (held = true));
+        root.addEventListener('focusout', (event) => {
+            if (!root.contains(event.relatedTarget as Node | null)) held = false;
+        });
+        new IntersectionObserver((entries) => (visible = entries.some((entry) => entry.isIntersecting)), { threshold: 0.4 }).observe(root);
+
+        // A finger swipes it: a horizontal stroke longer than it is tall moves one slide.
+        const viewport = root.querySelector<HTMLElement>('.carousel__viewport')!;
+        let start: { x: number; y: number } | null = null;
+        viewport.addEventListener('pointerdown', (event) => (start = { x: event.clientX, y: event.clientY }));
+        viewport.addEventListener('pointerup', (event) => {
+            if (!start) return;
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            start = null;
+            if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) show(index + (dx < 0 ? 1 : -1), true);
+        });
+
+        setInterval(() => {
+            if (!stopped && !held && visible && document.visibilityState === 'visible') show(index + 1, false);
+        }, DELAY);
+        load(1);
+        paint();
+    }
+</script>
+
+<style>
+    .carousel {
+        display: grid;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+    .carousel__viewport {
+        overflow: hidden;
+        touch-action: pan-y;
+        border: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        border-radius: var(--aparte-radius-xl);
+        background: var(--aparte-surface-1);
+    }
+    .carousel__track {
+        display: flex;
+        transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .carousel__track {
+            transition: none;
+        }
+    }
+    .carousel__slide {
+        flex: 0 0 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+        min-width: 0;
+    }
+    .carousel__text {
+        display: grid;
+        align-content: center;
+        gap: 0.75rem;
+        padding: clamp(1.5rem, 3vw, 2.5rem);
+    }
+    .carousel__title {
+        margin: 0;
+        color: var(--aparte-text);
+        font-size: clamp(1.375rem, 2.4vw, 1.75rem);
+        font-weight: 650;
+        letter-spacing: -0.02em;
+    }
+    .carousel__line {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        line-height: 1.55;
+    }
+    .carousel__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        width: fit-content;
+        color: var(--aparte-text);
+        font-weight: 550;
+        text-decoration-color: var(--aparte-primary);
+        text-underline-offset: 3px;
+    }
+    .carousel__arrow {
+        display: inline-flex;
+        --aparte-icon-size: 1em;
+    }
+    .carousel__frame {
+        height: 27.5rem;
+        border-inline-start: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        background: var(--aparte-bg);
+    }
+    .carousel__frame iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        pointer-events: none;
+    }
+    .carousel__controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .carousel__dots {
+        display: flex;
+        align-items: center;
+    }
+    /* A 24px target around a small mark; the current one stretches into a bar. */
+    .carousel__dot {
+        display: inline-grid;
+        place-items: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+    }
+    .carousel__dot span {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: var(--aparte-radius-full);
+        background: color-mix(in oklab, var(--aparte-text-muted) 45%, transparent);
+        transition: width 0.25s, background-color 0.25s;
+    }
+    .carousel__dot[aria-current] span {
+        width: 1.25rem;
+        background: var(--aparte-primary);
+    }
+    .carousel__dot:focus-visible {
+        outline: var(--aparte-focus-outline-width, 2px) solid var(--aparte-border-focus, var(--aparte-primary));
+        outline-offset: 0;
+        border-radius: var(--aparte-radius-full);
+    }
+    .carousel__glyph {
+        display: inline-flex;
+    }
+    .carousel__glyph--play,
+    [data-stopped] .carousel__glyph--pause {
+        display: none;
+    }
+    [data-stopped] .carousel__glyph--play {
+        display: inline-flex;
+    }
+    @media (max-width: 48rem) {
+        .carousel__slide {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .carousel__text {
+            order: 2;
+            padding: 1.25rem;
+        }
+        .carousel__frame {
+            height: 22rem;
+            border-inline-start: 0;
+            border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+        }
+    }
+</style>

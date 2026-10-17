@@ -1,0 +1,91 @@
+---
+title: Put a chat on a TanStack AI route
+description: Give a TanStack AI chat route a UI — the chat draws its stream, its tool calls and its approvals, and a tool can run in the page — in React, Vue, Svelte, Angular or plain HTML.
+sidebar:
+  order: 2
+  label: TanStack AI
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import pkg from '../../../../../../../packages/providers/agent/ag-ui/package.json';
+
+export const TANSTACK_RANGE = pkg.devDependencies['@tanstack/ai'];
+
+## Pass the run's fields in your route
+
+{/* doc-check: skip excerpt — TanStack AI and its adapter are your packages */}
+```ts
+// app/api/chat/route.ts
+import { chat, chatParamsFromRequest, mergeAgentTools, toServerSentEventsResponse } from '@tanstack/ai';
+import { openaiText } from '@tanstack/ai-openai';
+import { serverTools } from './tools';
+
+export async function POST(request: Request) {
+  let params;
+  try { params = await chatParamsFromRequest(request); }
+  catch (error) { if (error instanceof Response) return error; throw error; }   // a malformed body
+  return toServerSentEventsResponse(chat({
+    adapter: openaiText('gpt-5.5'),   // your adapter: any TanStack AI text adapter
+    messages: params.messages,
+    threadId: params.threadId,
+    runId: params.runId,
+    parentRunId: params.parentRunId,
+    resume: params.resume,
+    tools: mergeAgentTools(serverTools, params.tools),
+  }));
+}
+```
+
+[TanStack AI](https://tanstack.com/ai) runs the model, the tools and the approvals, and leaves
+the interface to you. Read the request with `chatParamsFromRequest` and hand `chat()` the run's
+fields with the messages: `resume`, `threadId`, `runId` and `parentRunId` are what let a paused
+run continue. A route that passes only `messages` streams, but an approval or a tool the page ran
+never reaches the run. `mergeAgentTools` adds the tools the page declares to yours; a page tool
+must not share a name with a server tool, since the server's wins.
+
+## Connect the page
+
+```bash
+npm install @aparte/runner-ag-ui @aparte/core
+```
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+new AparteClient({
+  streamRunner: createAgUiRunner({ endpoint: '/api/chat' }),
+}).start();
+```
+
+The route streams AG-UI, so [`@aparte/runner-ag-ui`](/providers/agent/ag-ui/) draws it as it is:
+text, reasoning, tool rows, the approval panel. Your route stays a TanStack AI route. Under a
+framework, hand the same runner to the wrapper's client: `useAparteClient({ streamRunner })` in
+React and Vue, `createAparteClient({ streamRunner })` in Svelte,
+`provideAparte({ clientOptions: { streamRunner } })` in Angular.
+
+## Approvals and tools in the page
+
+- **`needsApproval: true`** on a server tool pauses the run. The page asks with its
+  [approval panel](/guides/tools/#require-approval-human-in-the-loop), and its
+  [approval policy](/components/approval-mode/) can answer first. Approve runs the tool on your
+  server; Reject sends `{ approved: false }`, without the words the person wrote, and the row stays
+  refused.
+- **A tool that needs the page** — `ask_user` through `setupAskUser()`, your own through
+  `registerTool` — reaches your route as a declared tool, which `mergeAgentTools` adds. TanStack
+  AI pauses on it, the page runs it, and its result resumes the run: TanStack's `.client()`
+  implementation is not needed, the page's handler is the implementation. As with any
+  [AG-UI agent](/providers/agent/ag-ui/#tools-the-page-runs), the page asks nobody before running
+  it.
+
+It works with `@tanstack/ai` <code>{TANSTACK_RANGE}</code>. TanStack AI is on 0.x, where a minor
+can change its wire: check that range when you upgrade it.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/agent/ag-ui/', title: 'AG-UI agents', line: 'What the stream becomes, the options, and what is not supported.' },
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'The tool rows and the approval panel the route\'s calls use.' },
+    ]}
+/>

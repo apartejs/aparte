@@ -10,11 +10,11 @@
  * decides.
  *
  * The order itself: the JS API first, then the styling surface, then the adjacent
- * packages. `config.md` is hand-written and carries its own `order: 1` in frontmatter —
- * it is listed here so this table is the whole picture rather than most of it.
+ * packages. `core/` is a folder of pages (gen-core-api.mjs); the folder sits where its
+ * lowest order puts it, so its pages take 1, 1.1, 1.2…
  */
 export const REFERENCE_ORDER = {
-    'config.md': 1,          // aparteGlobalConfig, AparteClient, the transports
+    'core/': 1,              // the core JS API, one page per area
     'events.md': 2,          // the other half of the JS surface
     'css-variables.md': 3,   // the tokens
     'classes.mdx': 4,        // the classes those tokens paint

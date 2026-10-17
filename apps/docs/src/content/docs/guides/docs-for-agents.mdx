@@ -1,0 +1,68 @@
+---
+title: Let a coding agent read these docs
+description: Point a coding agent at the docs — the llms.txt index and its files, one per topic, or @aparte/docs-mcp, an MCP server that searches and reads them.
+sidebar:
+  order: 1
+  label: Docs for AI agents
+guide:
+  group: help
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { LLMS_SETS, llmsSetPath } from '../../../data/llms-sets.mjs';
+
+## Give it the index
+
+[`/llms.txt`](/llms.txt) is the library in a paragraph and a file per topic, each named in a
+sentence. Hand the index to a model that can fetch, or only the file of the topic at hand:
+
+<table>
+  <thead>
+    <tr><th>Topic</th><th>Holds</th></tr>
+  </thead>
+  <tbody>
+    {LLMS_SETS.map((set) => (
+      <tr><td><a href={llmsSetPath(set.label)}>{set.label}</a></td><td>{set.description}</td></tr>
+    ))}
+  </tbody>
+</table>
+
+[`/llms-small.txt`](/llms-small.txt) is every page but the element pages and the generated
+references — classes, CSS variables, events, icons — shortened, for a small context window;
+[`/llms-full.txt`](/llms-full.txt) is everything.
+
+## Or give it the MCP server
+
+```bash
+claude mcp add aparte-docs -- npx -y @aparte/docs-mcp
+```
+
+```json
+{ "mcpServers": { "aparte-docs": { "command": "npx", "args": ["-y", "@aparte/docs-mcp"] } } }
+```
+
+A client that speaks the Model Context Protocol — Claude Code, Claude Desktop, Cursor and the
+others — gets the same text through four tools:
+
+| Tool | Ask it for |
+| --- | --- |
+| `list_sets` | the topics, a sentence each: start here |
+| `search_docs` | the pages that match plain words — `"approve a tool call"`, `"systemPrompt false"` — with a snippet |
+| `get_page` | one page's Markdown, by its title or a distinctive part of it |
+| `get_set` | a whole topic at once |
+
+The server reads https://apartejs.dev, so it serves the docs online, and it needs the network.
+`APARTE_DOCS_URL` points it at another docs build, served over http — for an offline or a staging
+setup: `claude mcp add aparte-docs -e APARTE_DOCS_URL=http://localhost:4321 -- npx -y @aparte/docs-mcp`,
+or `"env": { "APARTE_DOCS_URL": "http://localhost:4321" }` in the JSON entry. To embed it
+in a host of yours, `createDocsMcpServer({ baseUrl })` returns the `McpServer`, and `DocsSource`,
+`parseIndex`, `splitPages` and `searchPages` give the text without the protocol.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/troubleshooting/', title: 'Troubleshooting', line: 'The errors people meet first, and what each one means.' },
+        { href: '/guides/getting-started/', title: 'Installation and first chat', line: 'What an agent should start from.' },
+    ]}
+/>

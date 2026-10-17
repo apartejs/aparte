@@ -1,0 +1,65 @@
+---
+title: Error
+description: A turn that failed, shown inside that turn — what went wrong in words, the technical detail beneath — with whatever had already arrived kept above it.
+catalog:
+  group: chat
+  order: 13
+  claims:
+    segments: [error]
+  demos: [error, error-after-text]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/error.fields.mdx';
+
+<Variant id="error" />
+
+When a turn fails (the provider rejects the request, the network drops, a limit is reached), the
+failure is an `error` segment in the reply that failed, not a toast somewhere else on the page.
+The reader sees which question went unanswered.
+
+With `AparteClient`, you write nothing: a failed turn gets this card, its message from the error,
+its detail from the error's code, and the full error still reaches your code on the
+`aparte-message-error` event.
+
+## Variants
+
+### A reply cut off midway
+
+<Variant id="error-after-text" />
+
+The card is added after what had already streamed; the partial reply stays.
+
+## Customize
+
+`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the message and the
+detail and returns an element or an HTML string, for a product that adds a "Try again" button
+or a link to its status page:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setErrorRenderer(({ message }) => {
+  const card = document.createElement('div');
+  card.className = 'aparte-alert aparte-alert--danger';
+  card.textContent = `${message} — see status.example.com`;
+  return card;
+});
+```
+
+The built-in card wears the kit's [Alert](/components/alert/) recipe, so its colours are the alert's.
+
+## Fields
+
+<Fields />
+
+## Accessibility
+
+- The card's heading comes from the `error` locale key and is translated with the rest of the
+  chat; the message is shown as it arrived, since it is the model's or the server's text.
+- The failure is written, not only coloured: a reader who cannot see red still reads "Error".
+
+## Related
+
+- [Message](/components/message/) — the reply the card belongs to.
+- [Message actions](/components/message-actions/) — retry, once your app turns it on.

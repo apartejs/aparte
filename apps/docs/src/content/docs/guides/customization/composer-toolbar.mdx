@@ -1,0 +1,185 @@
+---
+title: Put controls under the composer
+description: The row under the composer, for a mode picker, a model selector or a counter — in plain HTML and in each framework — and the slot above it for a banner.
+sidebar:
+  order: 4
+  label: The composer toolbar
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../../components/content/tabs';
+import Variant from '../../../../components/catalog/Variant.astro';
+
+<Variant id="composer-toolbar" caption="Two buttons of your own, and the model selector pushed to the end of the toolbar." />
+
+## The toolbar
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```html
+<aparte-chat>
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <aparte-elicitation></aparte-elicitation>
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+      <aparte-composer-toolbar>
+        <my-mode-picker></my-mode-picker>
+        <aparte-model-selector persist style="margin-inline-start: auto"></aparte-model-selector>
+      </aparte-composer-toolbar>
+    </div>
+  </aparte-composer>
+</aparte-chat>
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+<AparteChat
+  messages={chat.messages}
+  onMessagesChange={chat.setMessages}
+  toolbar={<>
+    <ModePicker value={mode} onChange={setMode} />
+    <aparte-model-selector persist="" style={{ marginInlineStart: 'auto' }} />
+  </>}
+/>
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
+  <template #toolbar>
+    <ModePicker v-model="mode" />
+    <aparte-model-selector persist style="margin-inline-start: auto" />
+  </template>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
+  <svelte:fragment slot="toolbar">
+    <ModePicker bind:value={mode} />
+    <aparte-model-selector persist style="margin-inline-start: auto"></aparte-model-selector>
+  </svelte:fragment>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat [messages]="messages" (messagesChange)="messages = $event">
+  <app-mode-picker slot="toolbar"></app-mode-picker>
+  <aparte-model-selector slot="toolbar" persist style="margin-inline-start: auto"></aparte-model-selector>
+</aparte-chat>
+```
+
+</TabItem>
+</Tabs>
+
+[`<aparte-composer-toolbar>`](/components/composer/) is the row under the input. Its controls sit
+in the order you write them, and `margin-inline-start: auto` pushes one, with everything after it,
+to the end — on the right, or on the left in a right-to-left language. An empty toolbar draws
+nothing. The mode picker stands for a control of your own.
+
+The default chat has no toolbar. In plain HTML, write the whole chat: the message list, the
+`<aparte-elicitation>` panel where [questions and approvals](/guides/elicitation/) appear, and the
+composer. An `<aparte-chat>` with no message list inside replaces its children with the default
+chat, toolbar and all. The framework packages draw the row from their `toolbar` slot; in Angular,
+each node you project carries `slot="toolbar"` itself. The slot belongs to the default composer,
+so a composer of your own, put in through the `composer` slot, writes its own
+`<aparte-composer-toolbar>`.
+
+`<aparte-model-selector>` comes from `@aparte/plugin-model-selector`, and draws nothing until that
+package is imported. Its `/react`, `/vue` and `/svelte` entries type the tag, and `/angular` exports
+`AparteModelSelectorDirective` for a standalone component's `imports`; `persist` makes its pick the
+model the next message goes to. The
+[model selector](/components/model-selector/) and the [approval mode](/components/approval-mode/)
+are two controls made for this row.
+
+## Above the composer
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```html
+<aparte-chat>
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <p class="my-notice">Replies can be wrong. Check what matters.</p>
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+    </div>
+  </aparte-composer>
+</aparte-chat>
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+<AparteChat
+  messages={chat.messages}
+  onMessagesChange={chat.setMessages}
+  aboveComposer={<p className="my-notice">Replies can be wrong. Check what matters.</p>}
+/>
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
+  <template #above-composer>
+    <p class="my-notice">Replies can be wrong. Check what matters.</p>
+  </template>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
+  <p slot="above-composer" class="my-notice">Replies can be wrong. Check what matters.</p>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat [messages]="messages" (messagesChange)="messages = $event">
+  <p slot="above-composer" class="my-notice">Replies can be wrong. Check what matters.</p>
+</aparte-chat>
+```
+
+</TabItem>
+</Tabs>
+
+Between the messages and the composer goes a banner, a row of suggestions or a notice. In plain
+HTML it is one more child of the chat, before the composer; the framework packages take it as
+`aboveComposer` in React and the `above-composer` slot elsewhere. The
+[Wrapper surface](/reference/wrappers/) lists every slot in each framework's syntax.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/customization/actions/', title: 'Buttons', line: 'A button of your own inside the composer row.' },
+        { href: '/components/composer/', title: 'Composer', line: 'Every part of the composer, live.' },
+    ]}
+/>

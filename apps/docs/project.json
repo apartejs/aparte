@@ -5,18 +5,28 @@
     "gen": {
       "outputs": [
         "{projectRoot}/src/content/docs/reference",
-        "{projectRoot}/src/content/docs/components",
+        "{projectRoot}/src/content/docs/components/conversation",
+        "{projectRoot}/src/content/docs/components/input",
+        "{projectRoot}/src/content/docs/components/shell",
+        "{projectRoot}/src/content/docs/components/utility",
+        "{projectRoot}/src/content/docs/components/index.mdx",
         "{projectRoot}/src/content/docs/kit",
-        "{projectRoot}/src/content/docs/segments"
+        "{projectRoot}/src/content/docs/segments",
+        "{projectRoot}/src/generated"
       ]
     },
     "build": {
       "outputs": [
         "{projectRoot}/dist",
         "{projectRoot}/src/content/docs/reference",
-        "{projectRoot}/src/content/docs/components",
+        "{projectRoot}/src/content/docs/components/conversation",
+        "{projectRoot}/src/content/docs/components/input",
+        "{projectRoot}/src/content/docs/components/shell",
+        "{projectRoot}/src/content/docs/components/utility",
+        "{projectRoot}/src/content/docs/components/index.mdx",
         "{projectRoot}/src/content/docs/kit",
-        "{projectRoot}/src/content/docs/segments"
+        "{projectRoot}/src/content/docs/segments",
+        "{projectRoot}/src/generated"
       ]
     }
   }

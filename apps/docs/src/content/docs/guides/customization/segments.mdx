@@ -1,0 +1,186 @@
+---
+title: Show your own content in a reply
+description: A chart, a map or a form inside a message — the renderer that draws it, the ways it reaches a message, a tag the model writes turned into one, and defaults per type.
+sidebar:
+  order: 5
+  label: Your own content
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import Variant from '../../../../components/catalog/Variant.astro';
+
+<Variant id="custom-view" caption="A segment of a type of its own, drawn by its renderer inside the reply." />
+
+## Register a renderer
+
+```ts
+import { registerSegmentRenderer } from '@aparte/core';
+import type { AparteSegment, AparteSegmentBase } from '@aparte/core';
+
+interface ChartSegment extends AparteSegmentBase {
+  type: 'chart';
+  values: number[];
+}
+
+registerSegmentRenderer<ChartSegment>({
+  type: 'chart',
+  render(segment) {
+    const el = document.createElement('div');
+    el.className = 'my-chart';
+    el.textContent = segment.values.join(' · ');
+    return el;
+  },
+  getStyles: () => '.my-chart { font-variant-numeric: tabular-nums; }',
+});
+
+// A chart in the reply a1, once it is on screen:
+const chart: ChartSegment = { id: 'c1', type: 'chart', values: [3, 5, 2] };
+document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart as unknown as AparteSegment);
+```
+
+A reply is a list of typed parts, segments, and a renderer draws every segment of its type. It
+returns an element, or a string of markup with a single root element that you escape yourself.
+`getStyles()` hands the renderer's CSS to the page once. The methods that take a segment are typed
+for core's own types, hence the cast for one of yours.
+
+## How a segment reaches a message
+
+- **In the message itself**: a message you add or restore with `segments: [...]` draws each one.
+- **Added later**: `viewport.addSegment(messageId, segment)` puts one into a message on screen,
+  during a reply or after it; on a framework chat, `chat.addSegment(segment)` adds it to the last
+  message.
+- **From a tag the model writes**, such as `<chart>…</chart>`: see
+  [Turn a tag into a segment](#turn-a-tag-into-a-segment).
+- **From a tool's result**: a tool renderer draws a tool call the way a segment renderer draws a
+  segment ([Tools](/guides/tools/#custom-tool-renderer)).
+
+## One type, several views
+
+```ts
+import { registerSegmentRenderer, type AparteCustomSegment } from '@aparte/core';
+
+declare function renderWeather(data: unknown): HTMLElement;
+declare function renderOnboarding(data: unknown): HTMLElement;
+
+registerSegmentRenderer<AparteCustomSegment>({
+  type: 'custom',
+  render(segment) {
+    switch (segment.subType) {
+      case 'weather': return renderWeather(segment.data);
+      case 'onboarding': return renderOnboarding(segment.data);
+      default: {
+        const el = document.createElement('p');
+        el.textContent = segment.fallback ?? '';
+        return el;
+      }
+    }
+  },
+});
+```
+
+The built-in `custom` type carries a `subType` and its `data`, so one renderer can draw a family
+of small views. A configuration has one renderer per type, so two sets of views cannot both own
+`custom`: give a set of your own its own `type`.
+
+Any segment can carry a `fallback`, a sentence drawn as text when no renderer claims its type — in
+an app that does not know your view, or a conversation replayed elsewhere. Without one, the chat
+shows `[Unknown segment type: chart]` and warns in the console.
+
+## What a renderer is called for
+
+| Callback | When | Rule |
+| --- | --- | --- |
+| `render` | the segment appears, and again on every change when there is no `update` | returns the element, or markup |
+| `setup` | right after `render` | wire listeners |
+| `update` | the segment changes: new content, settling, a field you update | change what is there; add or remove no child |
+| `relabel` | the language or the icon set changed | the same rule as `update` |
+
+Keep the root that `render` returned: the message finds a segment by it to update it in place.
+Implement `relabel` when your segment shows words or icons that come from the configuration.
+
+## Turn a tag into a segment
+
+```ts
+import { aparteGlobalConfig, isSafeUrl, registerSegmentRenderer } from '@aparte/core';
+import type { AparteSegmentBase, AparteStreamBlockMatch } from '@aparte/core';
+
+interface CitationSegment extends AparteSegmentBase {
+  type: 'citation';
+  url: string;
+  content: string;
+}
+
+aparteGlobalConfig.registerStreamBlock({
+  tag: 'cite',
+  toSegment: ({ attrs, id }: AparteStreamBlockMatch): CitationSegment =>
+    ({ id, type: 'citation', url: attrs['url'] ?? '', content: '' }),
+});
+
+registerSegmentRenderer<CitationSegment>({
+  type: 'citation',
+  render(segment) {
+    const a = document.createElement('a');
+    a.href = segment.url && isSafeUrl(segment.url, 'a') ? segment.url : '#';
+    a.textContent = segment.content;
+    return a;
+  },
+});
+```
+
+When the model writes `<cite url="…">…</cite>`, the stream parser calls `toSegment` at the opening
+tag, with the attributes as written and an id, and streams the tag's body into `content` until the
+closing tag. The attributes come from the model: treat them as untrusted, and pass an address
+through `isSafeUrl` before it becomes a link. The tag matches whole and by case — `<cites>` is not
+`<cite>` — and a tag registered while the model is writing applies from its next turn.
+`unregisterStreamBlock(tag)` removes it. Tags belong to a configuration: a chat with its own
+reads the tags registered on that one.
+
+## Defaults for a type
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });   // a <think> block arrives open
+aparteGlobalConfig.setSegmentDefaults('chart', { values: [] });
+```
+
+A default fills the fields a segment arrives without: one the producer set, even to `undefined`,
+keeps its value, and the identity fields — `id`, `type`, `messageId`, `index` — are never
+defaulted. Reasoning a provider sends on its own channel arrives folded, and folds again when the
+answer starts, whatever the default says. Defaults apply as segments arrive in a live reply or are
+added to one; a restored conversation keeps its segments as saved, and a segment already on screen
+does not change. A chat with its own configuration reads that configuration's defaults.
+`getSegmentDefaults` reads them back and `clearSegmentDefaults` drops them.
+
+## Drive the registry
+
+Draw every type yourself, before the first message renders:
+
+```ts
+import { declineDefaultRenderers } from '@aparte/core';
+
+declineDefaultRenderers();
+```
+
+Or install the built-ins now, which the first message would do, and list what is registered — in
+Node too:
+
+```ts
+import { installDefaultRenderersOnce, getAllRenderers } from '@aparte/core';
+
+installDefaultRenderersOnce();
+const types = getAllRenderers().map((r) => r.type);
+```
+
+Declined, the built-ins stay out for good, so text, reasoning, code, errors and tool calls need
+renderers of yours. Each function takes a configuration as its last argument, to act on one chat's
+registry. `new AparteClient({ autoRegister: false })` declines the built-ins the same way.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/custom-view/', title: 'Custom view', line: 'A segment of your own, live, with its variants.' },
+        { href: '/guides/customization/segment-timing/', title: 'Durations', line: 'How long a segment took, and numbers of your own on it.' },
+    ]}
+/>

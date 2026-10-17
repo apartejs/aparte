@@ -1,0 +1,44 @@
+---
+title: Dialog
+description: A modal box on the native dialog element — header, body, footer — opened and closed by two attributes, with no script of your own.
+catalog:
+  group: kit
+  order: 21
+  claims:
+    classes: [dialog]
+  demos: [kit-dialog]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/dialog.classes.mdx';
+import Vars from '../../../generated/api/kit/dialog.vars.mdx';
+
+<Variant id="kit-dialog" />
+
+`.aparte-dialog` styles the browser's own `<dialog>`, which already does what a modal needs:
+opened with `showModal()`, it sits above everything, keeps the focus inside, closes on Escape,
+gives the focus back and dims the page behind a backdrop. The recipe draws a `__header` with a
+`__title` and a `__close` button, a `__body` and a `__footer` for the actions.
+
+Core adds the wiring. A control with `data-aparte-dialog-open="settings"` opens the dialog whose
+id is `settings`; a control inside with `data-aparte-dialog-close` closes it; a click on the
+backdrop closes it too, unless the dialog carries `data-aparte-dialog-static`.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Name the dialog with `aria-labelledby` pointing at its title.
+- The close button shows a cross: give it an `aria-label`.
+- Keyboard, focus and Escape are the browser's, through `showModal()`.
+
+## Related
+
+- [Popover](/components/popover/) — a box that floats without blocking the page.
+- [Field](/components/field/) — the controls a settings dialog holds.

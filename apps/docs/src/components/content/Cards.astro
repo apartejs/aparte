@@ -1,0 +1,65 @@
+---
+/**
+ * Where to go next, as cards: a page's name and the line that says what is there. The pager at
+ * the foot of every page offers the sidebar's previous and next; these are the page's own
+ * picks, at the point where it ends.
+ */
+interface Card {
+    href: string;
+    title: string;
+    line: string;
+}
+
+interface Props {
+    cards: Card[];
+}
+
+const { cards } = Astro.props;
+---
+
+<ul class="site-cards not-content">
+    {
+        cards.map((card) => (
+            <li>
+                <a class="aparte-card site-cards__card" href={card.href}>
+                    <span class="site-cards__title">{card.title}</span>
+                    <span class="site-cards__line">{card.line}</span>
+                </a>
+            </li>
+        ))
+    }
+</ul>
+
+<style>
+    .site-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: var(--aparte-space-3);
+        margin-block: var(--aparte-space-5) 0;
+        padding: 0;
+        list-style: none;
+    }
+    .site-cards li {
+        display: grid;
+        margin: 0;
+    }
+    .site-cards__card {
+        display: grid;
+        align-content: start;
+        gap: var(--aparte-space-1);
+        padding: var(--aparte-space-4) var(--aparte-space-5);
+        color: var(--aparte-text);
+        text-decoration: none;
+    }
+    .site-cards__card:hover {
+        border-color: var(--aparte-primary);
+    }
+    .site-cards__title {
+        font-weight: var(--aparte-font-weight-semibold);
+    }
+    .site-cards__line {
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+        line-height: 1.5;
+    }
+</style>

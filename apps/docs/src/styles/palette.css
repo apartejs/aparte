@@ -1,14 +1,20 @@
 /*
- * aparté brand palette — the SINGLE source of truth for the brand colours.
- * Both consumers reference these tokens (they never re-declare a hex):
- *   - the landing      (src/styles/landing.css)      via its --ground/--accent/… aliases
- *   - the Starlight docs (src/styles/aparte-theme.css) via --sl-color-*
+ * aparté brand palette, for the landing (src/styles/landing.css, through its
+ * --ground/--accent/… aliases) and the Starlight docs (src/styles/aparte-theme.css,
+ * through --sl-color-*).
  *
- * Dark is the default; light applies on explicit [data-theme="light"] and, before
- * JS runs, on system-light. Change a colour HERE → landing + docs both follow.
+ * The site is themed the way a consumer themes the library: the brand IS core's own
+ * default palette, so the shared colours below are READ from `--aparte-*` rather than
+ * written again. They used to be the same eight hex values twice, once here and once in
+ * core's theme.css, in two places nothing kept in step; now a change to core's palette
+ * shows on the site, which is the point of a site drawn with the library. Core switches
+ * on `data-aparte-theme`, which every page mirrors from `data-theme` before it paints
+ * (src/components/Head.astro for the docs, src/layouts/Landing.astro for the rest).
  *
- * Namespaced `--brand-*` on purpose: distinct from the core component's own
- * `--aparte-*` theme tokens (which live in @aparte/core) and from Starlight's
+ * What stays literal is what core has no token for: the accent as TEXT on light, the
+ * second accent tone, the plum voice, the user bubble, and the type.
+ *
+ * Namespaced `--brand-*` on purpose: distinct from `--aparte-*` and from Starlight's
  * `--sl-*`, so nothing collides on a page that loads all three.
  *
  * THREE brass tokens, because one colour cannot do three jobs.
@@ -31,46 +37,42 @@
  * a dark stage and as unreadable on a light one.
  */
 :root {
-  --brand-brass: #d9a24b;        /* the spotlight — a fill, and text on a dark ground */
+  /* Core's palette, read. */
+  --brand-brass: var(--aparte-primary);      /* the spotlight — a fill, and text on a dark ground */
+  --brand-ground: var(--aparte-bg);          /* page background */
+  --brand-surface: var(--aparte-surface-1);
+  --brand-surface-2: var(--aparte-surface-2);
+  --brand-line: var(--aparte-border);
+  --brand-text: var(--aparte-text);          /* brightest text */
+  --brand-dim: var(--aparte-text-muted);     /* muted text */
+
+  /* The site's own. */
   --brand-brass-soft: #e7c588;   /* the second accent tone */
   --brand-brass-text: #d9a24b;   /* the accent as TEXT — see the note above */
-  --brand-ground: #17141c;       /* page background */
-  --brand-surface: #211b28;
-  --brand-surface-2: #2a2333;
-  --brand-line: #342a40;
-  --brand-text: #f2eee7;         /* brightest text */
-  --brand-dim: #a89bb6;          /* muted text */
   --brand-plum: #a48fc0;         /* secondary voice */
   --brand-user-bubble: #2f2740;
+  /* Type, shared by the landing and the docs. ONE sans for everything a reader reads —
+     headings, prose, the UI — because a single face held with care is what makes the
+     docs this site is measured against look finished; Georgia was a proxy that rendered
+     differently on every OS. The serif stays for the wordmark and one accent word: the
+     brand's voice, used where it is a signature rather than a texture. Self-hosted
+     (fontsource), so no third-party request and no CSP change. */
+  --brand-font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --brand-font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --brand-font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
-
 :root[data-theme="light"] {
-  --brand-brass: #b07d33;
   --brand-brass-soft: #7d6440;
   --brand-brass-text: #8a6228;
-  --brand-ground: #f6f2ea;
-  --brand-surface: #fffdf8;
-  --brand-surface-2: #f1ebdf;
-  --brand-line: #e5ddce;
-  --brand-text: #241f2b;
-  --brand-dim: #6d6479;
   --brand-plum: #6e5a8a;
   --brand-user-bubble: #efe7f6;
 }
-
 /* Same light values before/without JS, when the OS prefers light and no explicit
    theme has been chosen. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --brand-brass: #b07d33;
     --brand-brass-soft: #7d6440;
     --brand-brass-text: #8a6228;
-    --brand-ground: #f6f2ea;
-    --brand-surface: #fffdf8;
-    --brand-surface-2: #f1ebdf;
-    --brand-line: #e5ddce;
-    --brand-text: #241f2b;
-    --brand-dim: #6d6479;
     --brand-plum: #6e5a8a;
     --brand-user-bubble: #efe7f6;
   }

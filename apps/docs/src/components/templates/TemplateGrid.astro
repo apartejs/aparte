@@ -1,0 +1,115 @@
+---
+/**
+ * The /templates/ grid: each template running in a frame, scaled down, frozen (`?thumb`, see
+ * src/templates/runtime.ts), with its name, its line and its code. The frames load as they near the
+ * screen and take no input — the tile is a link to the template's own page, where it is an app.
+ */
+import { REPO_URL } from '../site/sections';
+import { TEMPLATES } from '../../templates/registry';
+---
+
+<ul class="template-grid">
+    {
+        TEMPLATES.map((t) => (
+            <li class="template-tile aparte-card">
+                <div class="template-tile__frame">
+                    <iframe src={`/templates/${t.slug}/?thumb`} title={`${t.title}, live`} loading="lazy" tabindex="-1" aria-hidden="true" inert />
+                </div>
+                <div class="template-tile__text">
+                    <a class="template-tile__link" href={`/templates/${t.slug}/`}>
+                        {t.title}
+                    </a>
+                    <p class="template-tile__line">{t.description}</p>
+                    <a class="template-tile__code" href={`${REPO_URL}/tree/main/apps/docs/src/templates/${t.slug}`} target="_blank" rel="noopener">
+                        View the code ↗
+                    </a>
+                </div>
+            </li>
+        ))
+    }
+</ul>
+
+<script>
+    // The tiles follow the page's theme toggle: the frames read the stored choice at load, and the
+    // page tells them when it changes.
+    const tell = (): void => {
+        const theme = document.documentElement.dataset.theme;
+        for (const frame of document.querySelectorAll<HTMLIFrameElement>('.template-tile iframe')) {
+            frame.contentWindow?.postMessage({ aparteTheme: theme }, '*');
+        }
+    };
+    new MutationObserver(tell).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+
+<style>
+    .template-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+        gap: var(--aparte-space-8);
+        margin: var(--aparte-space-8) 0 var(--aparte-space-12, 4rem);
+        padding: 0;
+        list-style: none;
+    }
+    .template-tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .template-tile:focus-within {
+        outline: var(--aparte-focus-outline-width, 2px) solid var(--aparte-border-focus, var(--aparte-primary));
+        outline-offset: 2px;
+    }
+    /* The template laid out as a desktop window (a third of it, scaled back up to the tile). */
+    .template-tile__frame {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        overflow: hidden;
+        background: var(--aparte-bg);
+        border-block-end: var(--aparte-border-width, 1px) solid var(--aparte-border);
+    }
+    .template-tile__frame iframe {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: calc(100% / 0.3);
+        height: calc(100% / 0.3);
+        border: 0;
+        transform: scale(0.3);
+        transform-origin: 0 0;
+        pointer-events: none;
+    }
+    .template-tile__text {
+        display: grid;
+        gap: var(--aparte-space-2);
+        padding: var(--aparte-space-6);
+    }
+    .template-tile__link {
+        color: var(--aparte-text);
+        font-size: var(--aparte-font-size-lg, 1.125rem);
+        font-weight: var(--aparte-font-weight-semibold, 600);
+        text-decoration: none;
+    }
+    .template-tile__link:focus-visible {
+        outline: none;
+    }
+    .template-tile__link::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+    }
+    .template-tile__line {
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+    }
+    /* Above the tile's stretched link, so it can be pressed on its own. */
+    .template-tile__code {
+        position: relative;
+        z-index: 1;
+        justify-self: start;
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-sm);
+        text-decoration-color: var(--aparte-primary);
+        text-underline-offset: 3px;
+    }
+</style>

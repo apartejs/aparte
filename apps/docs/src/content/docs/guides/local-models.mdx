@@ -1,0 +1,154 @@
+---
+title: Put a chat on a model on your machine
+description: Put a chat on Ollama, LM Studio or llama.cpp through their OpenAI-compatible endpoint — the browser calls the server directly, with no key and no backend.
+sidebar:
+  order: 3
+  label: Local models
+guide:
+  group: models
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
+
+## Start the server and wire the chat
+
+```bash
+npm install @aparte/core @aparte/provider-openai-compat
+```
+
+<Tabs syncKey="local-server">
+<TabItem label="Ollama">
+
+```bash
+OLLAMA_ORIGINS=* ollama serve      # PowerShell: $env:OLLAMA_ORIGINS = "*"; ollama serve
+ollama pull llama3.2               # in a second terminal
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import '@aparte/core/styles.css';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));   // http://localhost:11434/v1
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2:latest' });
+new AparteClient().start();
+```
+
+</TabItem>
+<TabItem label="LM Studio">
+
+Load a model, start the server in the Developer tab, and turn on **Enable CORS** there.
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import '@aparte/core/styles.css';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));   // http://localhost:1234/v1
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'lmstudio', defaultModel: 'qwen2.5-7b-instruct' });   // the id LM Studio shows
+new AparteClient().start();
+```
+
+</TabItem>
+<TabItem label="llama.cpp">
+
+```bash
+llama-server -m ./models/qwen2.5-7b-instruct-q4_k_m.gguf
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+import { createOpenAICompatProvider } from '@aparte/provider-openai-compat';
+import '@aparte/core/styles.css';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({
+  id: 'llamacpp',
+  name: 'llama.cpp',
+  baseURL: 'http://localhost:8080/v1',   // llama-server's default port
+  isLocal: true,
+}));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'llamacpp', defaultModel: 'default' });   // it answers with the model it loaded
+new AparteClient().start();
+```
+
+</TabItem>
+</Tabs>
+
+```html
+<aparte-chat style="height: 32rem"></aparte-chat>
+```
+
+The three servers speak OpenAI's chat completions at `/v1`, so
+[`@aparte/provider-openai-compat`](/providers/ai/openai-compat/) reaches them all, and the browser
+calls the server itself — the default transport — with no key to hold and no backend to write.
+`presets.OLLAMA` and `presets.LMSTUDIO` are marked local, so no key is asked for; llama.cpp has no
+preset, and an `id`, a `baseURL` and `isLocal: true` make one, `name` labelling it.
+
+A reply the server logs but the page never shows is the browser refusing it: the server has to
+allow the page's origin, which is what `OLLAMA_ORIGINS` and **Enable CORS** do
+([CORS on a local server](/guides/troubleshooting/#cors-on-local-byok-lm-studio--ollama)).
+
+## Let the person pick the model
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import '@aparte/plugin-model-selector';
+
+aparteGlobalConfig.setModelPreferenceProvider({
+  save: (provider, model) => localStorage.setItem('model', JSON.stringify({ provider, model })),
+  load: () => JSON.parse(localStorage.getItem('model') ?? 'null'),
+});
+aparteGlobalConfig.restoreModelPreference();   // before the chat mounts
+```
+
+```html
+<aparte-chat style="height: 32rem">
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <aparte-elicitation></aparte-elicitation>
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+      <aparte-composer-toolbar>
+        <aparte-context variant="ring" window="8192"></aparte-context>
+        <aparte-model-selector auto-select persist style="margin-inline-start: auto"></aparte-model-selector>
+      </aparte-composer-toolbar>
+    </div>
+  </aparte-composer>
+</aparte-chat>
+```
+
+A local server lists the models it holds at `/v1/models`, and a local provider fetches that list
+with no key; `llama-server` lists the one it was started with. The
+[model selector](/components/model-selector/) shows the list, `auto-select` picks the first model
+when none is selected, and `persist` makes the pick the model the next message goes to — without
+it, the selector shows a choice nothing sends. The preference provider above keeps the pick across
+reloads. A toolbar needs the chat written out, as here: an `<aparte-chat>` with no
+`<aparte-chat-viewport>` inside replaces its children with the default chat.
+
+## Show how full the context is
+
+The `<aparte-context>` in the toolbar above is the [context gauge](/components/context-gauge/). The
+model list gives it a window only when the server returns a `context_length` for each model, which
+a local server usually does not, so `window` gives it yourself, in tokens: the context size the
+server runs the model with. It fills in after the first reply, from the usage the server reports.
+
+## Tools
+
+The tools you register go with every request: every model the server lists is marked able to call
+them, and so is a model you list without `capabilities`; whether it uses them is the model's call.
+[Tools and approval](/guides/tools/) work the same, the approval panel included, with a model that
+supports function calling.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/ai/transformers/', title: 'Run a model in the browser', line: 'No server at all: the model runs inside the page.' },
+        { href: '/guides/backend-transport/', title: 'Keep the key on your server', line: 'A model behind your own /api/chat, local or not.' },
+        { href: '/guides/engine/#own-the-history', title: 'Own the history', line: 'A prefix cache — llama.cpp slots, vLLM — that wants each turn to extend the last.' },
+    ]}
+/>

@@ -1,0 +1,38 @@
+---
+title: Tag
+description: A small chip for a label, a filter or a model name, with an optional button to remove it.
+catalog:
+  group: kit
+  order: 7
+  claims:
+    classes: [tag]
+  demos: [kit-tag]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/tag.classes.mdx';
+import Vars from '../../../generated/api/kit/tag.vars.mdx';
+
+<Variant id="kit-tag" />
+
+`.aparte-tag` is a chip: a label in a quiet outline, `--sm` for a smaller one. A
+`.aparte-tag__remove` button inside it removes it, for a list of filters or of chosen items. The
+[header](/components/header/) uses one for the model's name, and the question receipt is a tag
+with a [mark](/components/mark/).
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The remove button shows only a cross: name it after what it removes ("Remove typescript").
+
+## Related
+
+- [Badge](/components/badge/) — a status or a count rather than a label.
+- [Mark](/components/mark/) — the tint a settled choice carries.

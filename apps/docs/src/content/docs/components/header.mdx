@@ -1,0 +1,64 @@
+---
+title: Header
+description: The bar above the chat — a button for the sidebar, the conversation's title, and room for actions at the end.
+catalog:
+  group: layout
+  order: 2
+  claims:
+    classes: [app-header]
+  demos: [app-header, chat-composed]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/app-header.classes.mdx';
+
+<Variant id="app-header" />
+
+`.aparte-app-header` is a recipe: a header has no behaviour of its own. It holds three things.
+A toggle for the sidebar, which needs no script because `<aparte-sidebar>` listens for any
+control carrying `data-aparte-sidebar-toggle`. The conversation's title. And an actions zone
+pushed to the end, for a model name, a share button, whatever the page needs.
+
+The toggle shows only when it is useful: under 48rem of window, where the sidebar is a drawer, and
+at any width while the sidebar is closed, since it is then the one control that can bring it back.
+
+## Variants
+
+### Inside a chat
+
+<Variant id="chat-composed" />
+
+The same header can sit inside [`<aparte-chat>`](/components/chat/), above the transcript, when
+there is no page around the chat to hold it.
+
+## Usage
+
+```html
+<header class="aparte-app-header">
+  <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
+          aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+    <aparte-icon name="menu"></aparte-icon>
+  </button>
+  <span class="aparte-app-header__title">Deploy checklist</span>
+  <div class="aparte-app-header__actions">…</div>
+</header>
+```
+
+In an [app shell](/components/app-shell/), it takes the top of the second column. A toggle aimed at
+one sidebar among several names it: `data-aparte-sidebar-toggle="history"`.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The toggle is an icon button: give it an `aria-label`. The sidebar keeps its `aria-expanded`
+  and `aria-controls` in step with the state, whoever opened or closed it.
+- A `<header>` element makes the bar a banner landmark.
+
+## Related
+
+- [App shell](/components/app-shell/) — the grid the header sits in.
+- [Sidebar](/components/sidebar/) — what the toggle opens.
+- [Model selector](/components/model-selector/) — one thing the actions zone can hold.

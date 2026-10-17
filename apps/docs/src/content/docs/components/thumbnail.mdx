@@ -1,0 +1,42 @@
+---
+title: Thumbnail
+description: A square tile for a file — an image's picture, or another file's type — with room for a remove button in a corner.
+catalog:
+  group: kit
+  order: 8
+  claims:
+    classes: [thumbnail]
+  demos: [kit-thumbnail]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/thumbnail.classes.mdx';
+import Vars from '../../../generated/api/kit/thumbnail.vars.mdx';
+
+<Variant id="kit-thumbnail" />
+
+`.aparte-thumbnail` is a fixed square that clips what you put in it: an image, or a label with
+the file's type when there is no picture. It is the tile [attachments](/components/attachments/)
+are drawn with, in the composer and in a message.
+
+It looks like an [avatar](/components/avatar/) and is a different thing: an avatar stands for a
+person and falls back to initials; a thumbnail stands for a file, falls back to its type, and
+leaves room in a corner for a remove button or a badge.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- An image needs an `alt`, or the file's name next to it; a remove button needs a name that says
+  which file it removes.
+
+## Related
+
+- [Attachments](/components/attachments/) — the files a message carries, drawn with these tiles.
+- [Avatar](/components/avatar/) — the same shape for a person.

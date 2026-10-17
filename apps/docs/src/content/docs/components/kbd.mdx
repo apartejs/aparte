@@ -1,0 +1,37 @@
+---
+title: Keyboard key
+description: A key drawn as a key, for shortcuts in a hint or a menu — Ctrl + K, Esc, Enter.
+catalog:
+  group: kit
+  order: 15
+  claims:
+    classes: [kbd]
+  demos: [kit-kbd]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/kbd.classes.mdx';
+import Vars from '../../../generated/api/kit/kbd.vars.mdx';
+
+<Variant id="kit-kbd" />
+
+`.aparte-kbd` draws a key: a small raised label in the code typeface, for a shortcut written in a
+hint, a menu or a placeholder. The search field of this site shows one.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Put the class on a `<kbd>` element, which says to a screen reader that this is keyboard input.
+  Write the key's name as text ("Ctrl", "Esc"), not as a symbol alone.
+
+## Related
+
+- [Tag](/components/tag/) — a label chip.
+- [Menu](/components/menu/) — where shortcuts are often shown.

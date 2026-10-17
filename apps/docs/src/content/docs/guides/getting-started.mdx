@@ -1,153 +1,67 @@
 ---
-title: AI chat in Web Components — getting started
-description: Install @aparte/core and render your first streaming chat — vanilla web components, no framework, no backend required.
+title: Installation and first chat
+description: Install @aparte/core, put an AI chat on a page and stream a reply — first from a scripted model that needs no key, then from a real one.
+head:
+  - tag: title
+    content: AI chat in Web Components — getting started | aparté
 sidebar:
-  order: 1
+  order: 2
   label: Getting started
+guide:
+  group: start
 ---
 
-import { Code } from '@astrojs/starlight/components';
-import Demo from '../../../components/Demo.astro';
+import Cards from '../../../components/content/Cards.astro';
+import Code from '../../../components/content/Code.astro';
+import Variant from '../../../components/catalog/Variant.astro';
 import { CORE_VERSION } from '../../../data/core-version';
 
-`@aparte/core` is a set of **framework-agnostic web components** for AI chat. You
-drop `<aparte-*>` elements onto a page, stream tokens into them, and style
-everything with CSS variables — no framework, and zero third-party dependencies.
-
-By the end of this page you'll have a working chat that streams a reply, running
-entirely in the browser — any browser from 2023 on, or Node 18+ on the server side; the
-exact floors are in the [support matrix](/reference/support/).
-
 :::tip[On React, Vue, Svelte or Angular?]
-Start from your framework's page instead — [React](/frameworks/react/),
-[Vue](/frameworks/vue/), [Svelte](/frameworks/svelte/), [Angular](/frameworks/angular/):
-the same chat as an idiomatic component, with the install and a first render in your own
-syntax. This page is the vanilla path, and it is also where the wrappers send you for what
-they leave alone — providers, transports and the client, which are the same in every
-framework.
-:::
-
-:::caution[Beta]
-Every `@aparte/*` package is a plain `0.x`. Since 0.17.0 the declared surface — elements,
-attributes, events, exports, locale keys, tokens — is [frozen](/reference/stability/): a
-name leaves it only through a notice release. Below that surface a rename still lands as a
-rename rather than behind a deprecated alias, so a minor can ask you to change a line — pin
-an exact version if that matters to you, and read
-[where it is in its life](/why/#where-it-is-in-its-life) before you commit to it.
+Your framework's page has the same steps in its own syntax: [React](/frameworks/react/),
+[Vue](/frameworks/vue/), [Svelte](/frameworks/svelte/), [Angular](/frameworks/angular/).
 :::
 
 ## Install
 
 ```bash
-npm install @aparte/core
+npm install @aparte/core @aparte/provider-scenario
 ```
 
-:::note[These snippets assume a bundler]
-Every import below uses a bare specifier (`@aparte/core`), which a browser cannot
-resolve on its own — Vite, Next, Astro, Parcel, esbuild and friends all can. "No
-framework" means no React/Vue/Svelte/Angular, not no build step.
-
-**In TypeScript, set `"moduleResolution"` to `"bundler"`, `"node16"` or `"nodenext"`.**
-The package declares its entry points through an `exports` map — including a Node build
-without a DOM, and the second entry point `@aparte/core/icons` — and the older
-`"node"`/`"classic"` resolvers do not read one. On those, the import resolves to nothing
-and every symbol is `any`.
-
-For a single `index.html` with no build at all — no npm either — load the packages from a
-CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
-`@aparte/engine` bundled into core's. One package asks for a little more:
-[`@aparte/provider-transformers`](/providers/ai/transformers/) runs its inference in a
-worker, and a worker reads no import map of its own — its page says how the two meet.
-
-{/* The version in these URLs is read from core's package.json at build time (see
-    src/data/core-version.ts), so the page follows every release on its own. */}
-<Code lang="html" code={`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/dist/index.css">
-<aparte-chat style="height: 600px"></aparte-chat>
-<script type="module">
-  import { aparteGlobalConfig, AparteClient, AparteDirectTransport, registerDefaultRenderers }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/+esm';
-  import { createOpenAICompatProvider, presets }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@${CORE_VERSION}/+esm';
-
-  registerDefaultRenderers();
-  aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
-  // Ollama lists its models over the network, so nothing is selected yet: name one.
-  // (A provider with a single model known up front — the scripted one, an in-browser
-  // one — is selected on its own; mount <aparte-model-selector auto-select> to let
-  // the user pick instead.)
-  aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
-  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-  new AparteClient().start();
-</script>`} />
-
-A send with no model selected is **dropped**, and the console says so once — that line is
-what it points to.
-
-**Pin the same exact version on every URL.** A provider's bundle imports core at the exact
-version jsDelivr resolved for it (<code>/npm/@aparte/core@{CORE_VERSION}/+esm</code>); a different string on
-your side — `@beta`, `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
-second copy of core with a registry of its own, so the provider you register lands in the
-wrong one. Every package ships at the same version, which makes this one number to keep.
-:::
+`@aparte/provider-scenario` is a scripted model for the first reply; drop it once a real model
+answers. In TypeScript, set `moduleResolution` to `bundler`, `node16` or `nodenext`: those read
+the package's `exports` map. No build step at all? See [From a CDN](#from-a-cdn).
 
 ## Register the components
 
-Import the package once (it registers the `<aparte-*>` custom elements), pull in
-the stylesheet, and call `registerDefaultRenderers()`.
-
 ```ts
-import '@aparte/core';               // registers the <aparte-*> custom elements
-import '@aparte/core/styles.css';    // theme variables + component styles
-import { registerDefaultRenderers } from '@aparte/core';
-
-registerDefaultRenderers();          // turns raw text/markdown into rendered bubbles
+import '@aparte/core';
+import '@aparte/core/styles.css';
 ```
 
-:::note[A static shell wants the stylesheet in the head]
-Importing the stylesheet from JavaScript is fine when the framework renders your page:
-the markup and the styles arrive together. If your page ships its shell as **static
-HTML** — a sidebar, a header, the chat's tags in `index.html` — load the stylesheet
-from the head instead, with a `<link>` or an `@import` at the top of your own CSS:
-in development, Vite injects a JavaScript-imported sheet only after the module graph
-has loaded, and the shell paints bare for a moment on every reload. A production build
-extracts it into a `<link>` either way; the difference is what you see while you work.
-:::
-
-:::note[It's optional now]
-Core installs its built-in renderers the first time a segment needs one, so a chat
-renders out of the box whichever path you take. Calling `registerDefaultRenderers()`
-explicitly is still fine — it just makes the moment visible, and it's what the
-examples do. `AparteClient({ autoRegister: false })` still keeps the built-ins out
-if you mean to bring your own.
-:::
+The first import defines the `<aparte-*>` elements, the second brings their styles. When your
+page's markup is static HTML, import the styles from a stylesheet the `<head>` links instead —
+`@import '@aparte/core/styles.css';` — so the page never paints without them.
 
 ## Add the markup
 
-**[`<aparte-chat>`](/components/conversation/aparte-chat/)** is the container. It lays out a message viewport and a composer
-as a flex column, and — with `center-empty` — keeps the composer centered as a
-welcome state until the first message, then slides to the normal layout. Size it
-(a height, or let it fill a parent) and you're done.
-
-Left empty, it fills in a default composition — a viewport, and a composer with an input
-and a send button. Add `attachments` for the file picker too (opt-in, see
-[Attachments](/guides/attachments/)):
-
 ```html
-<aparte-chat center-empty placeholder="Say something…" style="height: 600px"></aparte-chat>
+<aparte-chat placeholder="Ask anything" style="height: 32rem"></aparte-chat>
 ```
 
-Need full control — a custom composer, extra buttons? Put your own primitives
-**inside** the same element. It still lays them out and runs `center-empty`, so you
-keep the behaviour without a hand-written container:
+Left empty, [`<aparte-chat>`](/components/chat/) builds the default chat: a message list, and a
+composer with an input and a send button. Give it a height, or let it fill its parent.
+`center-empty` holds the composer in the middle until the first message, and `attachments` adds
+a file picker ([Attachments](/guides/attachments/)).
+
+To choose the parts yourself, write them inside it:
 
 ```html
-<aparte-chat center-empty style="height: 600px">
+<aparte-chat style="height: 32rem">
   <aparte-chat-viewport></aparte-chat-viewport>
-
-  <aparte-composer>
+  <aparte-composer placeholder="Ask anything">
     <div class="aparte-composer-shell">
       <div class="aparte-composer-row">
-        <aparte-composer-input placeholder="Say something…" style="flex:1"></aparte-composer-input>
+        <aparte-composer-input></aparte-composer-input>
         <aparte-composer-send></aparte-composer-send>
       </div>
     </div>
@@ -155,159 +69,139 @@ keep the behaviour without a hand-written container:
 </aparte-chat>
 ```
 
-`center-empty` is opt-in — drop it and the composer sits at the bottom from the
-start. The `.aparte-composer-shell` / `.aparte-composer-row` helpers give the
-bordered input-with-a-send-button look; the composer itself is headless.
+Keep an `<aparte-chat-viewport>` somewhere inside: a chat that holds none replaces its content
+with the default one. The [Composer](/components/composer/) page has the other parts — a
+toolbar, attachments, a stop button.
 
-Add an [`<aparte-composer-toolbar>`](/components/input/aparte-composer/) inside that shell and you get the bottom strip a
-model selector or a mode picker belongs in — the wrappers expose it as one `toolbar`
-slot. See [The composer toolbar](/guides/customization/#the-composer-toolbar).
-
-## Make it stream
-
-The fastest way to see a reply stream is a model that needs no key and no network.
-`@aparte/provider-scenario` is a real `AparteAIProvider` that replays turns you wrote —
-text at a typing pace, thinking, tool calls, errors. Install it, register it, start the
-client:
-
-```bash
-npm install @aparte/provider-scenario
-```
+## Stream a reply
 
 ```ts
-import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 
-// `showcase` is a ready-made set of turns: a haiku, a table, some code, the weather
-// (a real tool round-trip), an artifact.
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
-aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-new AparteClient().start();   // .start() attaches the listeners — without it nothing streams
+new AparteClient().start();
 ```
 
-<Demo
-    id="getting-started-scripted"
-    caption="A real reply, streaming, with no key and no backend: the scripted model. Ask it for a haiku, a table, some code or the weather."
-/>
+A **provider** talks to a model. This one replays turns written in advance, with no key and no
+network, and since it offers one model, that model is selected. The **client** answers the
+composer: it sends the conversation to the model and streams the reply into the chat. Nothing
+streams until `start()` is called.
 
-Swap `createScenarioProvider` for a provider that talks to a real model and the rest of
-this page is unchanged — that is [Wire a real model](#wire-a-real-model), below.
+## Render Markdown
 
-### Streaming it yourself, with no provider
-
-If the reply comes from something aparté does not talk to — your own SSE endpoint, a
-worker, a websocket — drive the viewport by hand. The composer fires an
-**`aparte-send`** event when the user submits. It bubbles, so you can listen on
-`<aparte-chat>`, and `chat.viewport` is the message list. Three methods are all you
-need:
-
-- `appendMessage({ id, role, content, timestamp })` — create a bubble
-- `appendToken(id, chunk)` — stream text into it, token by token
-- `completeMessage(id)` — mark it done (stops the streaming caret)
+```bash
+npm install @aparte/plugin-marked @aparte/plugin-streaming-markdown
+```
 
 ```ts
-// `!` because the import above has already upgraded the element, so both lookups
-// succeed — but TypeScript cannot know that, and neither can a reader who moves
-// this code above the markup. If in doubt, use `?.` instead of asserting.
-const chat = document.querySelector('aparte-chat')!;
-const viewport = chat.viewport!;
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 
-let n = 0;
-
-// Stream a string into a fresh assistant bubble, a few characters at a time.
-function streamReply(text: string) {
-  const id = 'a' + ++n;
-  viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-
-  const tokens = text.split(/(\s+)/);       // keep the whitespace as its own tokens
-  let i = 0;
-  const timer = setInterval(() => {
-    if (i >= tokens.length) {
-      clearInterval(timer);
-      viewport.completeMessage(id);
-      return;
-    }
-    // `?? ''` because indexing an array yields `string | undefined` under
-    // `noUncheckedIndexedAccess`, which this project — and this snippet — compile
-    // with. The loop above already guarantees the index is in range; the compiler
-    // cannot see that, and neither can a reader who moves the code.
-    viewport.appendToken(id, tokens[i++] ?? '');
-  }, 40);
-}
-
-chat.addEventListener('aparte-send', (e) => {
-  const text = e.detail.content;
-
-  // 1. Echo the user's message into the conversation.
-  viewport.appendMessage({ id: 'u' + ++n, role: 'user', content: text, timestamp: Date.now() });
-
-  // 2. Reply. Here we fake it; next you'll wire a real model.
-  streamReply(`You said: “${text}”. Now wire a transport to get a real answer.`);
-});
+setupMarkedProvider();
+setupStreamingMarkdownProvider();
 ```
 
-*(Using the primitives instead? Same code — just `document.querySelector('aparte-chat-viewport')`
-for the viewport and listen on the composer.)*
+<Variant
+    id="getting-started-scripted"
+    caption="The chat these steps build, with Shiki colouring its code. Ask it for a haiku, a table or some code."
+/>
 
-:::note
-Streamed replies land in `message.segments` (typed text / code / thinking
-blocks), not `message.content`. You only need to know this if you render your own
-bubbles — the default renderers handle it for you.
-:::
-
-That is the shape [Bring your own loop](/guides/bring-your-own-loop/) develops. The rest
-of this page assumes the client above.
+Models answer in Markdown, and core shows it as plain text until a renderer is set: the first
+plugin formats a finished message, the second formats it while it streams. Set them before the
+chat renders. [Shiki](/guides/markdown/) colours the code blocks.
 
 ## Wire a real model
 
-Faking the reply is fine for a first look. To talk to a real LLM, you configure core
-with two things and let **`AparteClient`** drive the streaming loop for you:
-
-1. **A provider** — the wire-format adapter for your model (an opt-in
-   `@aparte/provider-*` package), registered with `aparteGlobalConfig.registerAIProvider(…)`.
-2. **A transport** — *where* the request goes and *how* the key is handled:
-   - **`AparteDirectTransport`** — the browser talks to the provider directly (bring-your-own-key
-     or a local model): `aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }))`.
-   - **`AparteBackendTransport`** — the browser calls *your* endpoint, and the key stays
-     server-side.
-
-Once a provider and transport are set, **construct an `AparteClient` and call `.start()`** —
-it then listens for `aparte-send` (and `aparte-retry`, `aparte-edit`) globally and streams
-the assistant's typed segments into your bubbles for you (no manual `appendToken`):
+Replace the scripted lines with these:
 
 ```ts
-new AparteClient().start();   // .start() attaches the listeners — without it nothing streams
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'openrouter', defaultModel: 'openai/gpt-4o-mini' });
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+
+new AparteClient({ keyResolver: () => localStorage.getItem('openrouter-key') }).start();
 ```
 
-The client owns the **whole** exchange: it echoes your **user** message too, files
-included. If you wrote the `aparte-send` handler from
-[Streaming it yourself](#streaming-it-yourself-with-no-provider), drop it — the two would
-both answer the same send. A host that keeps its own transcript passes
-`echoUserMessage: false`.
+Three things change from the scripted chat:
 
-Now that something can honour them, switch the retry and edit buttons on — core ships them
-off precisely because without a client they would do nothing:
+- **The provider.** [`@aparte/provider-openai-compat`](/providers/ai/openai-compat/) talks to any
+  OpenAI-compatible API, with presets for OpenAI, Mistral, OpenRouter, Z.ai, LM Studio and
+  Ollama. [Models and agents](/providers/) has the others: the Vercel AI SDK, a model running in
+  the browser, an agent over AG-UI.
+- **The model.** A provider that lists its models over the network selects none, and a message
+  sent with no model selected goes nowhere: name one with `setModelConfig`, or let the person
+  pick with the [model selector](/components/model-selector/).
+- **The key.** `keyResolver` says where the key comes from — here, one the person saved from a
+  field of yours, with `localStorage.setItem('openrouter-key', key)`. `byok: true` says the
+  browser sends it on purpose: the person's own key, or none for a local model. To keep a key
+  on your server, use [`AparteBackendTransport`](/guides/backend-transport/).
+
+For a model on your own machine — Ollama, LM Studio, llama.cpp — see
+[Local models](/guides/local-models/).
+
+## Turn on retry and edit
 
 ```ts
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
-The full list of what ships enabled and why is in
-[Customization](/guides/customization/#what-ships-enabled).
+A message shows a copy button by default. Retry and edit need a client to send the conversation
+again, so they are yours to turn on; [Conversations and branches](/guides/conversations-branching/)
+shows the versions of a reply that retry keeps.
 
-Provider adapters ship as opt-in `@aparte/provider-*` packages — see the
-**[Providers](/providers/)** section for the OpenAI-compatible adapter (OpenAI, Mistral, OpenRouter,
-Groq, LM Studio, Ollama…), the Vercel AI SDK bridge (Anthropic, Google, 25+ vendors), and the
-in-browser Transformers.js provider. You can also register any object implementing the
-`AparteAIProvider` interface yourself.
+## From a CDN
 
-## Next steps
+<Code lang="html" code={`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/dist/index.css">
+<aparte-chat style="height: 32rem"></aparte-chat>
+<script type="module">
+  import { aparteGlobalConfig, AparteClient }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/+esm';
+  import { createScenarioProvider }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-scenario@${CORE_VERSION}/+esm';
 
-- **[Theming](/guides/theming)** — restyle everything through CSS variables, no forking.
-- **[Customization](/guides/customization)** — icons, render hooks, action registries.
-- **[Conversations & branching](/guides/conversations-branching)** — retry / edit, branches, persistence.
-- **[Layout](/guides/layout)** and **[the app shell](/guides/app-shell)** — the five shapes a chat takes, and the sidebar, header and grid of a whole page.
-- **[Providers](/providers/)** — connect a real model: OpenAI-compatible, the AI SDK bridge, or in-browser Transformers.js.
-- **[Local models](/guides/local-models)** — the chat on a model running on your machine: Ollama, LM Studio, llama.cpp.
-- **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop and the `streamRunner` seam.
+  aparteGlobalConfig.registerAIProvider(createScenarioProvider({ turns: ['Hello from a page with no build step.'] }));
+  new AparteClient().start();
+</script>`} />
+
+One HTML file, no npm: jsDelivr serves each package as one module, and the chat answers with
+nothing else installed. A real provider and the Markdown plugins load the same way, from their
+own URLs. Give every `@aparte/*` URL the same version, so the page loads a single copy of core.
+
+## Stream from your own code
+
+```ts
+const chat = document.querySelector('aparte-chat');
+let n = 0;
+
+chat?.addEventListener('aparte-send', async (event) => {
+  const viewport = chat?.viewport;
+  if (!viewport) return;
+  viewport.appendMessage({ id: `u${++n}`, role: 'user', content: event.detail.content, timestamp: Date.now() });
+
+  const id = `a${++n}`;
+  viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  for await (const token of yourStream(event.detail.content)) viewport.appendToken(id, token);
+  viewport.completeMessage(id);
+});
+```
+
+When the reply comes from something aparté does not talk to — your endpoint, a worker, a
+websocket — leave the client out and drive the chat yourself: `aparte-send` fires when the person
+sends, you add their message, and the viewport takes the reply token by token.
+[Use your own loop](/guides/bring-your-own-loop/) goes further: reasoning, tool calls, stopping.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/theming/', title: 'Theme', line: 'Colours, shapes and fonts, through CSS variables.' },
+        { href: '/guides/how-it-fits/', title: 'How it fits', line: 'The pieces between your page and your model, and the package that holds each.' },
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'Let the model call your functions, with the person approving what matters.' },
+        { href: '/guides/troubleshooting/', title: 'Troubleshooting', line: 'When nothing streams, or the console warns about a key.' },
+    ]}
+/>

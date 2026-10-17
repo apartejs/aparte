@@ -1,0 +1,67 @@
+---
+title: Scroll rail
+description: A rail of ticks beside a long conversation, one per question, that shows where you are and jumps back to any turn.
+catalog:
+  group: chat
+  order: 23
+  claims:
+    elements: [aparte-scroll-rail]
+  demos: [scroll-rail, scroll-rail-every]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-scroll-rail.usage.mdx';
+import RailApi from '../../../generated/api/elements/aparte-scroll-rail.api.mdx';
+
+<Variant id="scroll-rail" />
+
+A scrollbar says how far down you are, not which question you are under. The rail does: one
+tick per question, the current one longer, and a click jumps back to it. It is the minimap of a
+code editor reduced to its ticks, applied to turns.
+
+It only reads the conversation: which messages exist, which one is in view, and the first words
+of each to name its tick. The transcript keeps its own scrolling and its own markup. With fewer
+than two ticks it shows nothing.
+
+## Variants
+
+### A tick for every message
+
+<Variant id="scroll-rail-every" />
+
+`every="message"` marks replies too. The default marks only questions, because a tick per reply
+makes a long thread unreadable.
+
+## Usage
+
+Place it as a direct child of [`<aparte-chat>`](/components/chat/): it floats along the
+transcript's edge, clear of the scrollbar. Outside the chat, `target` names the chat it follows.
+
+<Usage />
+
+Before a jump, it fires `aparte-scroll-rail-jump`, which is cancelable: an app that loads older
+history in pages can fetch the turn first, then scroll.
+
+## Customize
+
+The rail takes the height of its ticks, up to a share of the transcript
+(`--aparte-scroll-rail-share`, 60%). When there are more turns than fit, the ticks draw closer
+together, then the rail scrolls itself so the current one stays in view. It is hidden on touch
+screens, where a thin tick is no target.
+
+## API
+
+<RailApi />
+
+## Accessibility
+
+- The rail is a navigation landmark named from the `scrollRailLabel` key ("Conversation
+  outline"); each tick is a button named by the first words of its message.
+- The tick in view carries `aria-current`; arrow keys walk every tick.
+- A tick's target is 24px tall, wider than the drawn line, as long as the rail has room for
+  every tick (WCAG 2.5.8); past that, the ticks draw closer together.
+
+## Related
+
+- [Conversation](/components/conversation/) — the transcript the rail follows.
+- [Chat](/components/chat/) — where it is placed.

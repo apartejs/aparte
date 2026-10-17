@@ -1,0 +1,52 @@
+---
+/**
+ * /templates/: whole apps built with aparté, each one running in its tile. A template opens on its
+ * own page as an app, with a link to its code; it is a starting point to copy, not a component.
+ */
+import Landing from '../../layouts/Landing.astro';
+import TemplateGrid from '../../components/templates/TemplateGrid.astro';
+import { TEMPLATES } from '../../templates/registry';
+
+const description =
+    'Whole apps built with aparté, running live. Open one to use it as an app, then copy its code: plain HTML and a script, every piece from the catalogue.';
+// Written from the card's entry in src/pages/og/[...slug].ts, which is what the image shows.
+const OG_ALT = 'aparté — Templates: whole apps built with aparté, running live.';
+---
+
+<Landing
+    title="AI chat app templates — aparté"
+    description={description}
+    canonical="https://apartejs.dev/templates/"
+    ogImage="https://apartejs.dev/og/templates.png"
+    ogImageAlt={OG_ALT}
+>
+    <section class="templates-page">
+        <header class="templates-page__head">
+            <h1>Templates</h1>
+            <p class="templates-page__lede">
+                {TEMPLATES.length} whole apps built with the library, each running below. Open one to use it as an app,
+                then take its code: a template is a starting point to copy, plain HTML and a script, with every piece
+                from the catalogue.
+            </p>
+        </header>
+        <TemplateGrid />
+    </section>
+</Landing>
+
+<style>
+    .templates-page {
+        padding-block: var(--aparte-space-10, 3rem) 0;
+    }
+    .templates-page__head h1 {
+        margin: 0 0 var(--aparte-space-4);
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1.1;
+    }
+    .templates-page__lede {
+        max-width: 42rem;
+        margin: 0;
+        color: var(--aparte-text-muted);
+        font-size: var(--aparte-font-size-lg, 1.125rem);
+        line-height: 1.6;
+    }
+</style>

@@ -1,0 +1,155 @@
+---
+title: Composer
+description: Where the user writes the next message — a field that grows, a send button that turns into stop, attached files and a toolbar, assembled from parts.
+catalog:
+  group: chat
+  order: 17
+  claims:
+    elements:
+      - aparte-composer
+      - aparte-composer-input
+      - aparte-composer-send
+      - aparte-composer-cancel
+      - aparte-composer-action
+      - aparte-composer-add-attachment
+      - aparte-composer-attachments
+      - aparte-composer-toolbar
+  demos: [composer, composer-attachments, composer-toolbar, composer-streaming]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Anatomy from '../../../components/catalog/Anatomy.astro';
+import Usage from '../../../generated/api/elements/aparte-composer.usage.mdx';
+import ComposerApi from '../../../generated/api/elements/aparte-composer.api.mdx';
+import InputApi from '../../../generated/api/elements/aparte-composer-input.api.mdx';
+import SendApi from '../../../generated/api/elements/aparte-composer-send.api.mdx';
+import CancelApi from '../../../generated/api/elements/aparte-composer-cancel.api.mdx';
+import ActionApi from '../../../generated/api/elements/aparte-composer-action.api.mdx';
+import AddAttachmentApi from '../../../generated/api/elements/aparte-composer-add-attachment.api.mdx';
+import AttachmentsApi from '../../../generated/api/elements/aparte-composer-attachments.api.mdx';
+import ToolbarApi from '../../../generated/api/elements/aparte-composer-toolbar.api.mdx';
+
+<Variant id="composer" />
+
+The composer is a set of parts you arrange yourself. `<aparte-composer>` holds the state — the
+text, the pending files, whether a reply is streaming — and every part reads it from there, at
+any depth. It draws nothing of its own: the two classes in the example, `.aparte-composer-shell`
+and `.aparte-composer-row`, give it the usual look, and without them the parts still work
+wherever your layout puts them.
+
+Inside an [`<aparte-chat>`](/components/chat/), the message goes to the chat's client. On its
+own, listen for `aparte-send` on the composer.
+
+## Anatomy
+
+<Anatomy
+  demo="composer-anatomy"
+  parts={[
+    { selector: 'aparte-composer-attachments', label: 'Pending files', href: '#aparte-composer-attachments' },
+    { selector: 'aparte-composer-add-attachment', label: 'Attach', href: '#aparte-composer-add-attachment' },
+    { selector: 'aparte-composer-input', label: 'Input', href: '#aparte-composer-input' },
+    { selector: 'aparte-composer-send', label: 'Send and stop', href: '#aparte-composer-send' },
+    { selector: 'aparte-composer-toolbar', label: 'Toolbar', href: '#aparte-composer-toolbar' },
+    { selector: 'aparte-composer-action', label: 'Action', href: '#aparte-composer-action' },
+  ]}
+/>
+
+## Variants
+
+### With files attached
+
+<Variant id="composer-attachments" />
+
+`<aparte-composer-add-attachment>` opens the file picker and makes the whole composer a drop
+target; `<aparte-composer-attachments>` shows the files waiting to be sent. They reach you on
+`aparte-send`, as `event.detail.files`: reading or uploading them is your app's job.
+
+### With a toolbar
+
+<Variant id="composer-toolbar" />
+
+`<aparte-composer-toolbar>` is the row under the field for a model picker, a mode switch or your
+own buttons. Children keep their DOM order; `margin-inline-start: auto` on one pushes it, and
+everything after it, to the end of the row. An `<aparte-composer-action>` is an icon button that
+only emits `aparte-action-click`: what it does is up to you.
+
+### While a reply streams
+
+<Variant id="composer-streaming" />
+
+The send button becomes a stop button, and a click cancels the turn. The client sets
+`streaming` for you; this demo sets it by hand. If stop should live somewhere else as well,
+add `<aparte-composer-cancel>`.
+
+## Usage
+
+<Usage />
+
+## Customize
+
+The field and the button read the input and button tokens, so a theme reaches them with no
+selector: `--aparte-input-bg`, `--aparte-input-border`, `--aparte-radius-input` and
+`--aparte-input-focus-border` for the field, `--aparte-primary` for the button, and
+`--aparte-composer-control-size` for the height they share. Every variable is listed under
+API below.
+
+Enter sends and Shift+Enter starts a new line; `submit-on-enter="false"` swaps the two. A
+button of your own can send or stop through `composer.submit()`, which cancels instead while a
+reply streams:
+
+```js
+composer.addEventListener('aparte-composer-change', (e) => {
+  const { streaming, disabled, value, attachments } = e.detail.state;
+  myButton.textContent = streaming ? 'Stop' : 'Send';
+  myButton.disabled = disabled || (!streaming && !value.trim() && attachments.length === 0);
+});
+myButton.addEventListener('click', () => composer.submit());
+```
+
+## API
+
+### `<aparte-composer>`
+
+<ComposerApi />
+
+### `<aparte-composer-input>`
+
+<InputApi />
+
+### `<aparte-composer-send>`
+
+<SendApi />
+
+### `<aparte-composer-cancel>`
+
+<CancelApi />
+
+### `<aparte-composer-action>`
+
+<ActionApi />
+
+### `<aparte-composer-add-attachment>`
+
+<AddAttachmentApi />
+
+### `<aparte-composer-attachments>`
+
+<AttachmentsApi />
+
+### `<aparte-composer-toolbar>`
+
+<ToolbarApi />
+
+## Accessibility
+
+- The field is a multi-line `textbox`, named by its placeholder.
+- The send button's name follows what it does: Send, Stop while a reply streams, Submit when a
+  question panel is open. All three are locale keys (`sendButton`, `stopButton`, `submitButton`).
+- Enter never sends in the middle of an IME composition, so confirming a Chinese or Japanese
+  candidate does not send the message.
+
+## Related
+
+- [Chat](/components/chat/) — the composer inside a full conversation.
+- [Suggestions](/components/suggestions/) — starters that fill the composer.
+- [Model selector](/components/model-selector/) — the picker for the toolbar.

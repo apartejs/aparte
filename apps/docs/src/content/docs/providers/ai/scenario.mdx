@@ -1,0 +1,183 @@
+---
+title: Script a model for demos and tests
+description: Replay turns you wrote — text at a typing pace, reasoning, tool calls, errors — with no key and no network, the same way every time, for a demo page or your own tests.
+sidebar:
+  order: 5
+  label: Scripted (scenario)
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import { SHOWCASE_ROWS, SHOWCASE_TOOLS } from '../../../../data/scenario-showcase';
+
+## Script the replies
+
+```bash
+npm install @aparte/core @aparte/provider-scenario @aparte/plugin-marked marked
+```
+
+```html
+<aparte-chat style="height: 32rem"></aparte-chat>
+```
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+
+setupMarkedProvider();   // draws the **markdown** below; without it, text streams plain
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+  turns: [
+    'Hello! Ask me anything.',
+    [{ thinking: 'Let me see…' }, { text: 'Here is my **answer**, with *markdown*.' }],
+  ],
+}));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+new AparteClient().start();
+```
+
+The provider never calls a model: it replays the turns you wrote, and everything around it — the
+loop, your tools, the transcript — runs for real. `turns` answers the calls in order and repeats
+the last one; every call advances, a retry and the second half of a tool round-trip included.
+Given both `turns` and `scenarios`, `turns` answers. The client adds the person's message itself. A turn, a `ScenarioTurn`, is a string — one text step —
+or a list of `ScenarioStep`s:
+
+| Step | What it does |
+| --- | --- |
+| `{ text }` | streams the text, drawn as [Markdown](/guides/markdown/) once a Markdown plugin is set up |
+| `{ thinking }` | streams reasoning |
+| `{ tool, input?, id? }` | calls the tool of that name: the loop runs the handler you registered and calls the provider again with its result |
+| `{ error }` | fails the turn with that message; the steps after it do not run |
+| `{ wait }` | pauses for that many milliseconds |
+| `{ usage }` | replaces fields of the usage reported at the end |
+
+## Answer by what was asked
+
+```ts
+import { createScenarioProvider } from '@aparte/provider-scenario';
+
+createScenarioProvider({
+  scenarios: {
+    default:  'Ask me for a haiku, or the weather.',
+    haiku:    { when: /haiku/i, turn: 'Web components hum —  \nno framework in the wind,  \njust the page, alive.' },
+    weather:  { when: 'weather', turn: [{ text: 'Let me check.' }, { tool: 'get_weather', input: { city: 'Lille' } }] },
+    forecast: { after: 'get_weather', turn: 'Cloudy, 14 °C. Bring a jacket.' },
+  },
+});
+```
+
+A `Scenario` is `{ when?, after?, turn }`, or a bare turn. Each call picks one: after a tool, the
+one whose `after` names it; otherwise the first whose `when` matches the last message — the
+person's, or a tool's result that no `after` claims — a string as a substring, any case, a RegExp
+as it is; otherwise `default`, or the first one declared. A tool called here only runs if the app
+registered one of that name; one that is not fails the call, as it would with a real model.
+
+A tool with no `after` route hands its result to whatever that rule picks next. When that is the
+scenario that called the tool, the call repeats until the client's `maxTurns` stops it, so the
+provider warns when you create it.
+
+## Branch on the person's answer
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { setupAskUser } from '@aparte/plugin-ask-user';
+
+setupAskUser();   // registers ask_user, and draws its question
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+  scenarios: {
+    start:   { turn: [{ tool: 'ask_user', input: { question: 'Where do you run?', options: [{ title: 'browser' }, { title: 'server' }] } }] },
+    browser: { turn: 'In the browser, then: the direct transport, your key stays local.' },
+    server:  { turn: 'On a server: the backend transport, the key never leaves it.' },
+    other:   { turn: 'Either works: start with the direct transport.' },
+  },
+  match: (request, scenarios) => {
+    const last = request.messages[request.messages.length - 1];
+    if (last?.role !== 'tool') return 'start';          // a message from the person
+    const picked = String(last.content).trim();          // the tool's result: "browser" or "server"
+    return Object.hasOwn(scenarios, picked) ? picked : 'other';   // a decline, an answer of their own
+  },
+}));
+```
+
+`after` routes on which tool ran, not on what it answered. To pick the next scenario from the
+answer — the option chosen in an `ask_user` question, a step of a wizard — read the tool's result
+in a `match` of your own, from the last message: earlier results stay in the history of every
+later call. It returns a scenario's key, or `undefined` to leave the call to the rule above, which
+ships as `defaultMatch`; a key it does not know streams an empty turn and says so in the console.
+Here the creation warning is expected: your `match` routes the result.
+
+## Pace, usage and models
+
+`pacing`, a `ScenarioPacing`, is `{ chunk: 12, delay: 24 }` by default — twelve characters every
+24 ms — and `pacing: 'instant'` gives a test the whole reply at once. A turn ends with its usage, estimated at
+four characters a token with its duration, so a [context gauge](/components/context-gauge/) given
+a `window` moves; a failed turn reports none.
+
+The provider is local and needs no key. It offers one model, `scripted`, which streams and calls
+tools, and the [model selector](/components/model-selector/) lists it. `models` replaces that list;
+with more than one, pick one with the selector or `setModelConfig`. Its
+`id` is `scenario` and its `name` `Scripted model` unless its `ScenarioProviderOptions` say
+otherwise. The `turns` cursor belongs
+to the provider, so two chats on one provider take turns from the same script: create one per
+chat, or use `scenarios`, which answers from the request and keeps nothing.
+
+## The ready-made showcase
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+
+aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+```
+
+`showcase` is the set this site's live examples run on: Markdown, a table, code, reasoning, tool
+calls, questions, an artifact, a slow turn and a failure. It ships on its own entry point, so your
+own scenarios never bring it into your bundle. It answers what the person types:
+
+<table>
+  <thead>
+    <tr><th>Scenario</th><th>Starts when the message matches</th></tr>
+  </thead>
+  <tbody>
+    {SHOWCASE_ROWS.map((row) => (
+      <tr><td><code>{row.key}</code></td><td><code>{row.when}</code></td></tr>
+    ))}
+  </tbody>
+</table>
+
+It calls {SHOWCASE_TOOLS.map((tool, i) => <>{i > 0 && (i === SHOWCASE_TOOLS.length - 1 ? ' and ' : ', ')}<code>{tool}</code></>)}:
+register those tools with `aparteGlobalConfig.registerTool` for its tool turns to run,
+`ask_user` through `setupAskUser()` from
+[`@aparte/plugin-ask-user`](/guides/elicitation/#let-the-model-ask), and `setupArtifacts()` from
+the [artifacts plugin](/components/artifact/) for its artifact to be drawn as a card.
+
+## In your tests
+
+```ts
+import type { AparteChatRequest } from '@aparte/core';
+import { playTurn } from '@aparte/provider-scenario';
+
+const request: AparteChatRequest = { messages: [{ role: 'user', content: 'Hi' }], modelId: 'scripted' };
+const reader = playTurn([{ text: 'Hello.' }, { tool: 'search', input: { q: 'docs' } }], request, 'instant').getReader();
+
+const events = [];
+for (let next = await reader.read(); !next.done; next = await reader.read()) events.push(next.value);
+// { type: 'text', delta: 'Hello.' }, then { type: 'tool_use', name: 'search', … }, then { type: 'done', usage }
+```
+
+A chat on this provider behaves the same at every run, which is what a test of your app around the
+chat needs; `playTurn` gives the events of one turn with no provider at all. It stands in for the
+whole provider: what sits above it runs for real, and what sits below — a wire format, the
+network, a provider of yours — does not run at all, so test that layer with a fake of its own.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'The tools a scripted turn calls, and the approval asked before they run.' },
+        { href: '/providers/', title: 'Connect a model', line: 'The providers that reach a real model, when the script is done.' },
+    ]}
+/>

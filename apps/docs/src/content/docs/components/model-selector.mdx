@@ -1,0 +1,143 @@
+---
+title: Model selector
+description: A picker for the provider and model a conversation uses, grouped by provider, searchable, for apps where the reader brings their own key or picks a model.
+catalog:
+  group: chat
+  order: 19
+  claims:
+    elements: [aparte-model-selector]
+    plugin: '@aparte/plugin-model-selector'
+  demos: [model-selector]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
+import SelectorApi from '../../../generated/api/elements/aparte-model-selector.api.mdx';
+
+<Variant id="model-selector" />
+
+`<aparte-model-selector>` lists the providers your config knows, one group per provider, with
+the models each one fetches; a provider with no list to fetch, such as the Vercel AI SDK bridge,
+is left out. With a single provider it is a flat list. With `persist`, the choice is what the
+next message is sent to: the pick is written into the config. Without it, the element only sends
+`aparte-model-change`, for code of yours to act on.
+
+It is built on core's [select](/components/select/), and it reads the config of the chat it sits in,
+so two chats on one page each list their own models.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-model-selector @aparte/core
+```
+
+```ts
+import '@aparte/plugin-model-selector'; // registers the element
+```
+
+Its place is the composer's toolbar. `margin-inline-start: auto` pushes it to the end of the
+row; the four framework wrappers take it through their `toolbar` slot (see
+[the composer toolbar](/guides/customization/composer-toolbar/)).
+
+```html
+<aparte-composer-toolbar>
+  <aparte-model-selector auto-select persist searchable style="margin-inline-start: auto"></aparte-model-selector>
+</aparte-composer-toolbar>
+```
+
+The plugin types its own element, one subpath per framework, so the tag is checked as soon as
+you import that subpath once:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+Nothing to import: the tag is in `HTMLElementTagNameMap` once the plugin is imported, and
+`aparte-model-change` is typed through `HTMLElementEventMap`.
+
+```html
+<aparte-model-selector persist searchable placeholder="Pick a model"></aparte-model-selector>
+```
+
+</TabItem>
+<TabItem label="React">
+
+```ts
+import '@aparte/plugin-model-selector/react';
+```
+
+```tsx
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```ts
+import '@aparte/plugin-model-selector/vue';
+```
+
+```vue
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```ts
+import '@aparte/plugin-model-selector/svelte';
+```
+
+```svelte
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+A directive, because Angular's template compiler needs a class claiming the selector to turn
+`[persist]` into a real binding.
+
+```ts
+import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
+// @Component({ imports: [AparteModelSelectorDirective], … })
+```
+
+```html
+<aparte-model-selector [persist]="true" [searchable]="true" (modelChange)="use($event.modelId)" />
+```
+
+</TabItem>
+</Tabs>
+
+Outside Angular, a presence attribute is `''` to set and `null` to remove, never `false`
+([the rule](/frameworks/elements/#presence-attributes)). The
+framework packages are optional peer dependencies: you carry only the one you use.
+
+## Customize
+
+The list loads asynchronously, so for a moment the chat can be mounted with no model chosen.
+To keep the composer from sending until one is:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setRequireModelSelection(true);
+```
+
+The composer greys out and comes back once `auto-select`, or the reader, picks a model.
+
+## API
+
+<SelectorApi />
+
+## Accessibility
+
+- The button is named by its placeholder and the current model, and opens a list box;
+  `searchable` adds a filter field.
+- Providers are option groups, so a screen reader names the provider of each model.
+
+## Related
+
+- [Approval mode](/components/approval-mode/) — the other switch that lives in the toolbar.
+- [Composer](/components/composer/) — the toolbar it sits in.
+- [Select](/components/select/) — the control it is built on.

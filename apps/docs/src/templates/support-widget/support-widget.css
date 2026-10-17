@@ -1,0 +1,384 @@
+/*
+ * The Support widget's look. The page behind is Kilnhouse's website, laid out here and drawn
+ * with the kit's recipes; the widget floats over it, bottom and inline-end. Every colour is a
+ * --aparte-* token, so both themes come from core.
+ */
+.support-widget {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: var(--aparte-bg);
+    color: var(--aparte-text);
+    font-family: var(--aparte-font-family);
+}
+
+/* ── The website ────────────────────────────────────────────────────────────────────────── */
+.sw-site {
+    height: 100%;
+    overflow-y: auto;
+}
+
+.sw-site__header,
+.sw-hero,
+.sw-section,
+.sw-site__footer {
+    box-sizing: border-box;
+    max-inline-size: 72rem;
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+}
+
+.sw-site__header {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-6);
+    padding-block: var(--aparte-space-7);
+}
+
+.sw-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--aparte-space-4);
+    color: var(--aparte-text);
+    font-size: var(--aparte-font-size-lg);
+    font-weight: var(--aparte-font-weight-semibold);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+}
+
+.sw-logo__mark {
+    display: grid;
+    place-items: center;
+    inline-size: 2rem;
+    block-size: 2rem;
+    border-radius: var(--aparte-radius-lg);
+    background: color-mix(in srgb, var(--aparte-primary) 20%, var(--aparte-surface-1));
+    color: var(--aparte-primary-ink);
+}
+
+.sw-logo__mark svg {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+}
+
+.sw-nav {
+    display: flex;
+    gap: var(--aparte-space-2);
+}
+
+.sw-site__actions {
+    display: flex;
+    gap: var(--aparte-space-3);
+    margin-inline-start: auto;
+}
+
+.sw-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--aparte-space-8);
+    padding-block: clamp(2.5rem, 7vw, 5rem) clamp(2rem, 5vw, 3.5rem);
+}
+
+.sw-hero__title {
+    max-inline-size: 15ch;
+    margin: 0;
+    font-size: clamp(2.25rem, 5vw, 3.5rem);
+    font-weight: var(--aparte-font-weight-semibold);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+}
+
+.sw-hero__lede {
+    max-inline-size: 34rem;
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-lg);
+    line-height: var(--aparte-line-height-relaxed);
+}
+
+.sw-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--aparte-space-5);
+}
+
+.sw-hero__proof,
+.sw-site__footer {
+    margin-block: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.sw-section {
+    padding-block: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.sw-section__title {
+    margin: 0 0 var(--aparte-space-8);
+    font-size: var(--aparte-font-size-2xl);
+    font-weight: var(--aparte-font-weight-semibold);
+    letter-spacing: -0.02em;
+}
+
+.sw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+    gap: var(--aparte-space-8);
+}
+
+.sw-card__title {
+    margin: 0 0 var(--aparte-space-3);
+    font-size: var(--aparte-font-size-base);
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.sw-card__text {
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-md);
+    line-height: var(--aparte-line-height-normal);
+}
+
+.sw-plan__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sw-price {
+    margin: 0 0 var(--aparte-space-3);
+    font-size: var(--aparte-font-size-2xl);
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.sw-price__unit {
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-md);
+    font-weight: var(--aparte-font-weight-normal);
+}
+
+.sw-site__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--aparte-space-6);
+    padding-block: var(--aparte-space-8) 6rem;
+}
+
+.sw-site__footer a {
+    color: inherit;
+}
+
+/* ── The widget ─────────────────────────────────────────────────────────────────────────── */
+/* A column pinned to the corner: the panel above, the launcher below. The column spans the
+   height so the panel can shrink to a short window; only its two children take the pointer. */
+.sw-widget {
+    position: absolute;
+    inset-block: var(--aparte-space-8) 1.25rem;
+    inset-inline-end: 1.25rem;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: var(--aparte-space-6);
+    pointer-events: none;
+}
+
+.sw-widget > * {
+    pointer-events: auto;
+}
+
+.sw-panel {
+    flex: 0 1 37.5rem;
+    min-block-size: 0;
+    inline-size: 23.75rem;
+    box-shadow: var(--aparte-popover-shadow);
+    transition: opacity 160ms ease, translate 160ms ease;
+}
+
+@starting-style {
+    .sw-panel {
+        opacity: 0;
+        translate: 0 0.5rem;
+    }
+}
+
+.sw-panel__header {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-5);
+}
+
+.sw-panel__who {
+    flex: 1;
+    min-inline-size: 0;
+}
+
+.sw-panel__title {
+    margin: 0;
+    font-size: var(--aparte-font-size-base);
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.sw-panel__status {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-normal);
+}
+
+/* The chat takes what the header leaves, in a widget's smaller type. The question panel gets
+   room for its options, and the gap under the composer is a compact one. */
+.sw-chat {
+    --aparte-content-font-size: var(--aparte-font-size-md);
+    --aparte-content-line-height: var(--aparte-line-height-normal);
+    --aparte-chat-bottom-gap: var(--aparte-space-5);
+    --aparte-elic-max-height: 24rem;
+    --aparte-avatar-size: var(--aparte-avatar-size-sm);
+    flex: 1;
+    min-block-size: 0;
+}
+
+.sw-launcher {
+    box-shadow: var(--aparte-popover-shadow);
+}
+
+/* One button, two faces: a chat bubble and "Help" while the panel is closed, a cross and
+   "Close" while it is open. */
+.sw-launcher[aria-expanded='true'] .sw-launcher__closed,
+.sw-launcher[aria-expanded='false'] .sw-launcher__open {
+    display: none;
+}
+
+/* A face in an avatar: the assistant's mark, or the person's initials. Each fills the
+   avatar it sits in, on a wash of its own accent. */
+.sw-face {
+    display: grid;
+    place-items: center;
+    inline-size: 100%;
+    block-size: 100%;
+}
+
+.sw-face svg {
+    inline-size: 62%;
+    block-size: 62%;
+}
+
+.sw-face--assistant {
+    background: color-mix(in srgb, var(--aparte-primary) 22%, var(--aparte-surface-1));
+    color: var(--aparte-primary-ink);
+}
+
+.sw-face--agent {
+    background: color-mix(in srgb, var(--aparte-info) 22%, var(--aparte-surface-1));
+    color: var(--aparte-info-ink);
+}
+
+/* ── The help-center results ───────────────────────────────────────────────────────────── */
+.sw-search {
+    --aparte-card-body-padding: var(--aparte-space-5) var(--aparte-space-6);
+    margin-block: var(--aparte-space-2) var(--aparte-space-6);
+}
+
+.sw-search__lead {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-4);
+    margin: 0 0 var(--aparte-space-4);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.sw-articles {
+    display: grid;
+    gap: var(--aparte-space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sw-article {
+    color: var(--aparte-text);
+    text-decoration: none;
+}
+
+.sw-article:hover {
+    border-color: var(--aparte-border-control);
+}
+
+.sw-article:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.sw-article__body {
+    display: grid;
+    gap: var(--aparte-space-2);
+}
+
+.sw-article__title {
+    font-size: var(--aparte-font-size-md);
+    font-weight: var(--aparte-font-weight-semibold);
+    line-height: var(--aparte-line-height-snug);
+}
+
+.sw-article__summary {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-line-height-normal);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.sw-article__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-4);
+    margin-block-start: var(--aparte-space-1);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+}
+
+/* ── A phone: the nav folds away and the panel becomes a full-screen sheet ──────────────── */
+@media (max-width: 40rem) {
+    .sw-nav {
+        display: none;
+    }
+}
+
+@media (max-width: 30rem) {
+    .sw-widget {
+        inset-block: auto 1rem;
+        inset-inline-end: 1rem;
+    }
+
+    .sw-widget:has(.sw-panel:not([hidden])) {
+        inset: 0;
+    }
+
+    .sw-panel {
+        --aparte-card-radius: 0;
+        flex: 1 1 auto;
+        inline-size: 100%;
+        border: 0;
+        box-shadow: none;
+    }
+
+    /* The sheet has its own close button; the launcher comes back once it is closed. */
+    .sw-panel:not([hidden]) + .sw-launcher {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sw-panel {
+        transition: none;
+    }
+}

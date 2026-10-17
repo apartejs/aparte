@@ -1,24 +1,20 @@
 ---
-title: Attachments
-description: File attachments in the aparté composer — the built-in picker, the programmatic API, and how files reach your provider.
+title: Let people attach files and send them to the model
+description: Show the paperclip, read the files when the message is sent, choose what reaches the model, and open an image full size.
 sidebar:
-  order: 6
+  order: 3
+  label: Attachments
+guide:
+  group: conversations
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
-The composer handles **file attachments** with one flag — and nothing shows the user a paperclip
-until you set it.
+<Variant id="composer-attachments" caption="Files waiting in the composer, before the message is sent." />
 
-## Turning them on
-
-Two elements make the UI:
-
-- **[`<aparte-composer-add-attachment>`](/components/input/aparte-composer/)** — the picker button (opens the file dialog).
-- **[`<aparte-composer-attachments>`](/components/input/aparte-composer/)** — the chips row showing the pending files.
-
-The default composer shell mounts **neither**. Add `attachments` and it mounts both, in their
-canonical positions:
+## Show the paperclip
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
@@ -58,93 +54,34 @@ canonical positions:
 </TabItem>
 </Tabs>
 
-Composing your own composer? The flag doesn't apply — drop the two elements in wherever you
-want them, as with any other primitive.
+The chat has no paperclip until you set `attachments`: set it when something reads the files —
+`AparteClient` does, and so does a loop of yours that reads them on send. It adds the button and
+the row of files waiting to go. In a composer you write yourself, place the two elements where
+you want them, and choose what the file dialog offers:
 
-## Dragging files in
-
-`<aparte-composer-add-attachment>` installs drag & drop on the composer **root**, not on
-itself — so a drop anywhere over the composer attaches, not only onto the paperclip. While
-a drag is over it the root carries `aparte-is-dragover`, and the dashed outline is drawn on
-`.aparte-composer-shell` when your markup has one and on the composer element when it does
-not. It reads `--aparte-focus-outline-width`, `--aparte-primary` and
-`--aparte-radius-input`, so it follows your theme with nothing to set.
-
-Two behaviours worth knowing, because they are asymmetric on purpose:
-
-- `disabled` on the composer removes the drop target and greys the button out. `streaming`
-  does neither: attaching a file while a reply arrives is part of preparing the next
-  message, so the button and the drop target stay live mid-turn — only the send is gated.
-- The drop handler calls `preventDefault()` even while disabled, so a missed drop can never
-  navigate the page away to the file.
-
-The button is what installs it, so a composer you compose yourself gets drag & drop by
-including `<aparte-composer-add-attachment>` — and gets none without it.
-
-:::note[Why opt-in]
-A picker is a promise: whatever the user attaches gets used. That promise is only kept if
-something consumes the files. An `AparteClient` does (see [What gets sent](#what-gets-sent-to-the-model)),
-but an app driving [its own loop](/guides/bring-your-own-loop/) has to read them from the send
-event — and a loop that forwards only `content` drops them in silence, with the UI still showing
-the file went out. Setting `attachments` is you saying the files are handled.
-
-It's the same rule everywhere in aparté — see
-[What ships enabled](/guides/customization/#what-ships-enabled).
-:::
-
-## Clicking a picture — the preview is yours
-
-An image attachment renders as a thumbnail, in the composer and in the sent message. Clicking
-one **asks** for a full-size view by emitting `aparte-attachment-preview` — core has no
-lightbox, no modal, no opinion about how a picture should open.
-
-So the tile is inert until you say you can open something:
-
-```ts
-aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
-
-document.addEventListener('aparte-attachment-preview', (e) => {
-  const { url, name } = e.detail;      // open your own dialog / router / gallery
-});
+```html
+<aparte-composer>
+  <aparte-composer-attachments></aparte-composer-attachments>
+  <div class="aparte-composer-row">
+    <aparte-composer-add-attachment accept="image/*,.pdf"></aparte-composer-add-attachment>
+    <aparte-composer-input></aparte-composer-input>
+    <aparte-composer-send></aparte-composer-send>
+  </div>
+</aparte-composer>
 ```
 
-Declared, the image is a real button — `role="button"`, a tab stop, Enter and Space. Which
-element carries that differs between the two strips, and both are right. In a **sent
-message** the tile has no ✕, so the tile itself is the whole control and wears the role. In
-the **composer's pending strip** the tile wraps the remove button, and no role permits a
-button inside a button — so the role, the tab stop and the `aria-label` sit on the `<img>`,
-with the ✕ beside it. Style `.aparte-thumbnail__image[role='button']` for the composer's,
-`.aparte-thumb--image[role='button']` for a sent message's.
+`accept` and `multiple="false"` shape the file dialog only: a drop or a paste can still add other
+types and more files, and each pick adds to the files already waiting. To hold a limit, watch
+`aparte-composer-change` and call `removeAttachment`, below.
 
-Undeclared, it is a plain picture: no role, no tab stop, not even a pointer cursor, because
-looking clickable is the same promise in a quieter voice. The event itself is always public;
-the declaration only decides whether the trigger is rendered.
-
-The vanilla and React examples do exactly this in ~15 lines with a `<dialog>` — see
-[`apps/examples`](https://github.com/apartejs/aparte/tree/main/apps/examples).
-
-## Programmatic API
-
-The [`<aparte-composer>`](/components/input/aparte-composer/) element exposes attachments directly:
-
-```ts
-composer.addAttachments(files);      // FileList | File[]
-composer.removeAttachment(file);
-composer.clearAttachments();
-composer.attachments;                // File[] (current selection)
-```
-
-## Getting the files on send
-
-When the user submits, the pending files ride along on the **`aparte-send`** event detail.
-Each wrapper surfaces that same detail under its own convention — one event, five spellings.
+## Read the files on send
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
 
 ```ts
-composer.addEventListener('aparte-send', (e) => {
-  const { content, files } = e.detail;   // files?: File[]
+document.querySelector('aparte-chat')?.addEventListener('aparte-send', (event) => {
+  const { content, files } = event.detail;   // files: File[] | undefined
 });
 ```
 
@@ -152,124 +89,141 @@ composer.addEventListener('aparte-send', (e) => {
 <TabItem label="React">
 
 ```tsx
-<AparteChat onMessageSent={(e) => { if (e.files) upload(e.files); }} />
+<AparteChat attachments onMessageSent={(detail) => { if (detail.files) upload(detail.files); }} />
 ```
 
 </TabItem>
 <TabItem label="Vue">
 
 ```vue
-<AparteChat @message-sent="(e) => { if (e.files) upload(e.files); }" />
+<AparteChat attachments @message-sent="(detail) => { if (detail.files) upload(detail.files); }" />
 ```
 
 </TabItem>
 <TabItem label="Svelte">
 
 ```svelte
-<AparteChat on:messageSent={(e) => { if (e.detail.files) upload(e.detail.files); }} />
+<AparteChat attachments on:messageSent={(e) => { if (e.detail.files) upload(e.detail.files); }} />
 ```
 
 </TabItem>
 <TabItem label="Angular">
 
 ```html
-<aparte-chat (messageSent)="onSent($event)"></aparte-chat>
+<aparte-chat attachments (messageSent)="$event.files && upload($event.files)"></aparte-chat>
 ```
 
 </TabItem>
 </Tabs>
 
-One difference worth keeping straight: React, Vue and Angular hand you the **detail**
-directly, while Svelte re-wraps it in a `CustomEvent` the way the DOM event itself is —
-so it is `e.detail.files` in the Vanilla and Svelte tabs and `e.files` in the other three.
+The files leave with the message, on `aparte-send`. React, Vue and Angular hand you its detail;
+Svelte's `on:messageSent` hands you an event, as the DOM does, hence `e.detail`. To follow the
+files while they wait — to enable a button, say — listen for `aparte-composer-change`, whose
+`detail.state.attachments` is the current list. The composer element also takes them from code:
+`addAttachments(files)`, `removeAttachment(file)`, `clearAttachments()`, and `attachments` to
+read them.
 
-To observe the pending selection live (e.g. to enable a send button), listen for
-**`aparte-composer-change`** — its `detail.state.attachments` is the current `File[]`.
+## What the model receives
 
-Driving your own loop? `filesToAttachments(files)` converts that `File[]` into the
-`attachments` an `AparteChatMessage` renders — the same conversion the built-in send path
-does, so your user bubble shows the chips instead of a bare line of text:
+```ts
+import { AparteClient } from '@aparte/core';
 
-{/* doc-check: skip excerpt — `id`, `content` and `files` come from the surrounding send handler */}
+new AparteClient({
+  rawFileInject: 'all',   // or 'images-only', or 'none'
+  fileInjectFilter: (file) => !/(^|\.)env$|\.(pem|key)$/i.test(file.name),
+}).start();
+```
+
+`AparteClient` puts the files into the request itself:
+
+- **an image** goes as an image part, for a model that reads images;
+- **a text file** — Markdown, JSON, CSV, source code, a log, an `.env` — is read in the browser
+  and goes **in full**, under a `// File: name` line;
+- **anything else**, a PDF or a spreadsheet, does not go: the file stays on screen and on the
+  send event for an upload of yours, and the console says so once per file name.
+
+`'images-only'` sends the images alone, and `'none'` sends no file, for an app that uploads them
+or retrieves what it needs from them itself. `fileInjectFilter` is called for each file the mode
+lets through — every file, in `'all'` — and `false` keeps that one out: the example keeps out
+`.env`, `.pem` and `.key` files, and yours can test whatever your users might attach by mistake.
+The files go with that one request: on the next turns, a retry included, the history carries the
+message's text, not its files, so keep what the model needs in your app — an upload, a retrieval
+step. Whether the model reads an image depends on the [provider](/providers/) and the model.
+
+## With your own loop
+
 ```ts
 import { filesToAttachments } from '@aparte/core';
 
-// The VIEWPORT owns `appendMessage`, not `<aparte-chat>`. The shell matches the
-// host selectors but delegates rendering to the viewport inside it, so calling
-// `appendMessage` on the shell is a runtime `TypeError` — this snippet used to.
-const viewport = document.querySelector('aparte-chat-viewport')!;
+const chat = document.querySelector('aparte-chat');
 
-viewport.appendMessage({
-  id, role: 'user', content, timestamp: Date.now(),
-  ...(files?.length ? { attachments: filesToAttachments(files) } : {}),
+chat?.addEventListener('aparte-send', (event) => {
+  const { content, files } = event.detail;
+  chat.viewport?.appendMessage({
+    id: crypto.randomUUID(), role: 'user', content, timestamp: Date.now(),
+    ...(files?.length ? { attachments: filesToAttachments(files) } : {}),
+  });
 });
 ```
 
-### Releasing the previews
+This is for plain HTML without `AparteClient`: the client and the framework packages already add
+the person's message with its files, so do not append it again there. `filesToAttachments` turns
+the sent files into the `attachments` a message shows. Call `appendMessage` on the message list,
+`chat.viewport`, not on the chat itself.
 
-Each attachment's `url` comes from `URL.createObjectURL`, which keeps the underlying
-`File` alive for as long as the document. That is what you want while the attachment is
-on screen — and a leak once it is not: a long session that sends many files holds on to
-every one of them.
-
-`revokeAttachmentUrls(attachments)` releases them. Only you know when an attachment
-stops being rendered (a persisted conversation may re-render one much later), so it is a
-call you make rather than something the conversion can schedule:
+## Open an image full size
 
 ```ts
-import { revokeAttachmentUrls } from '@aparte/core';
-import type { AparteMessage } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
-function dropConversation(messages: AparteMessage[]): void {
+declare function openLightbox(url: string, name: string): void;
+
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
+
+document.addEventListener('aparte-attachment-preview', (event) => {
+  openLightbox(event.detail.url, event.detail.name);
+});
+```
+
+<Variant id="attachments-chat" caption="Files on a sent message: an image tile and a file chip." />
+
+Once you say you open them, an image becomes a button, by click, <kbd>Enter</kbd> or
+<kbd>Space</kbd>, that sends `aparte-attachment-preview` with its `url` and `name`; until then it is
+a picture, with no pointer and no tab stop. Core draws no lightbox: the view is yours. A chat with
+its own configuration takes `setHostHandlers` on that configuration.
+
+## Drag, drop and paste
+
+A file dropped anywhere on the composer attaches. While a file is dragged over it, the composer
+carries `aparte-is-dragover`, and its outline follows your theme. Drag and drop comes with the
+paperclip button, so a composer without the button takes no drop. A `disabled` composer takes no
+drop and greys the button; a composer streaming a reply still takes files. An image pasted into the
+input attaches too, on any composer, with or without the `attachments` flag, and leaves with the
+message.
+
+## Release memory and save the files
+
+```ts
+import { revokeAttachmentUrls, type AparteMessage } from '@aparte/core';
+
+function forget(messages: AparteMessage[]): void {
   for (const message of messages) revokeAttachmentUrls(message.attachments);
 }
 ```
 
-Calling it twice is harmless, and the `blob` is left in place so a storage adapter can
-still rebuild the url. [`<aparte-chat-viewport>`](/components/conversation/aparte-chat-viewport/)'s `clearAll()` already does this for the
-messages it drops.
+Each attachment's `url` keeps its file in memory for as long as the page lives. When attachments
+leave the screen for good, `revokeAttachmentUrls` lets the memory go; calling it twice is harmless,
+and the message list's `clearAll()` does it for the messages it drops. The file itself stays on the
+attachment as `blob`: your storage adapter saves it as an `AparteAttachmentRow`, with its
+conversation and message ids, and builds a new `url` when it loads the message
+([Save conversations](/guides/conversation-persistence/#what-comes-back-after-a-reload)).
 
-## What gets sent to the model
+## Next
 
-Before the provider sees anything, `AparteClient` decides which pending files are inlined into
-the request, via its `rawFileInject` option:
-
-- **`'all'`** (default) — images *and* recognized text files (`.md`, `.json`, `.csv`, source
-  code, `.env`, `.log`, …): images become image parts, text files are read client-side and
-  injected **in full** as text.
-- **`'images-only'`** — only images are inlined. Pair it with a `requestInterceptor` that
-  retrieves relevant chunks (RAG) instead of flooding the context with whole files.
-- **`'none'`** — nothing is inlined; your `requestInterceptor` owns all file handling.
-
-A file that is neither an image nor a recognized text file — a PDF, a spreadsheet, an archive —
-is inlined in no mode: aparté sends nothing for it, while the chip stays on screen for your own
-upload or RAG layer to act on. In the default `'all'` mode it says so once with a `console.warn`
-naming the file; `'images-only'` and `'none'` stay silent, since dropping the file is what you
-asked for.
-
-:::caution[Text files are sent in full]
-In the default `'all'` mode a dropped text file — a `.env` or a log included — goes to the
-model verbatim. That's the intended batteries-included behavior for a user deliberately
-attaching a file; if your host shouldn't forward such content (secrets, PII), pick
-`'images-only'` or `'none'`, or veto individual files with `fileInjectFilter` (below).
-:::
-
-For per-file control on top of the mode, `fileInjectFilter` is called for each file the mode
-would inject — return `false` to keep it out of the request (the file still rides on the
-`aparte-send` event for your upload/RAG layer):
-
-```ts
-new AparteClient({
-  // keep the inline UX, but never forward env files or keys
-  fileInjectFilter: (f) => !/(^|\.)env$|\.(pem|key)$/i.test(f.name),
-});
-```
-
-## Reaching the model
-
-Whether files are actually sent to the model is the **provider's** job (multimodal support varies):
-the OpenAI-compatible adapter maps image parts to the vendor's `image_url` format, for example. A
-provider that doesn't support a given file type simply ignores it. See [Providers](/providers/).
-
-Attachment chips inherit the surface and border tokens like everything else — see
-[Theming](/guides/theming/).
+<Cards
+    cards={[
+        { href: '/components/attachments/', title: 'Attachments', line: 'The tiles and chips, in the composer and on a message.' },
+        { href: '/components/composer/', title: 'Composer', line: 'Every part of the composer, the paperclip among them.' },
+        { href: '/guides/bring-your-own-loop/', title: 'Your own loop', line: 'Send the files to a model yourself.' },
+    ]}
+/>

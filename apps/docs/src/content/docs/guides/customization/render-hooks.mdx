@@ -1,0 +1,126 @@
+---
+title: Replace one piece of the chat
+description: Your own markup for the error card, an attachment chip, the status line and the position between the version arrows — and the waiting dots, restyled.
+sidebar:
+  order: 1
+  label: Render hooks
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+
+## Return an element
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setErrorRenderer(({ message, details }) => {
+  const el = document.createElement('div');
+  el.className = 'my-error';
+  el.textContent = details ? `${message} (${details})` : message;
+  return el;
+});
+
+aparteGlobalConfig.setAttachmentRenderer((attachment) => {
+  const el = document.createElement('span');
+  el.className = 'my-chip';
+  el.textContent = attachment.name;
+  return el;
+});
+```
+
+| Hook | Replaces | Receives |
+| --- | --- | --- |
+| `setErrorRenderer` | the error card in a reply | `{ message, details }` |
+| `setAttachmentRenderer` | one attachment's chip | the attachment |
+| `setSiblingNavRenderer` | the position between the version arrows, such as 2/3 | `{ count, index }` |
+| `setStatusRenderer` | the inside of your status line, `<aparte-chat-status>` | its text |
+| `setBubbleShellRenderer` | the frame of the whole message | see [The message](/guides/customization/bubble/) |
+
+Each hook takes a function that returns an element or a string, and `null` puts the built-in
+back. A string holds one root element for the error and attachment hooks: plain text draws nothing
+there. A hook replaces markup only: the version arrows and the event they send stay core's, and so
+does the status line's showing and hiding. Set the error and attachment hooks before the chat
+renders — a message already drawn keeps the markup it was drawn with. The status line redraws at
+once, and the position between the arrows at its next change.
+
+`setStatusRenderer` receives the line's text when the line draws, `'Typing'` when it has none. A
+later change of that text does not call it again, so an element of yours that shows live text
+reads it from your own state.
+
+## If you return a string
+
+```ts
+import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
+
+aparteGlobalConfig.setAttachmentRenderer((attachment) => `
+  <span class="my-chip" title="${escapeAttr(attachment.name)}">${escapeHtml(attachment.name)}</span>
+`);
+```
+
+A string is inserted as HTML, without sanitizing: a file name or a model's message written into it
+unescaped can run script on your page. Escape every value — `escapeHtml` between tags, `escapeAttr`
+inside an attribute written in quotes, never an unquoted one — or return an element and set its
+`textContent`. To put a value in a CSS selector, use `cssEscape`.
+
+## A chip of yours is yours to open
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setAttachmentRenderer((attachment) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'my-chip';
+  button.textContent = attachment.name;
+  button.addEventListener('click', () => {
+    button.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
+      bubbles: true,
+      composed: true,
+      detail: { url: attachment.url, name: attachment.name },
+    }));
+  });
+  return button;
+});
+```
+
+The built-in image tile becomes a button that asks for a preview, with `aparte-attachment-preview`,
+once you declare that you answer it ([Buttons](/guides/customization/actions/#let-image-tiles-open-a-preview)).
+A chip you draw yourself gets none of that: make it a button and send the event, or open your own
+preview from it.
+
+## The waiting dots
+
+While a reply has nothing in it yet, its message shows three dots, with a label a screen reader
+reads, and drops them with the first word. It decides from the message itself: `status: 'streaming'`
+or `'pending'`, or an assistant message with no status and nothing in it — so an empty message you
+mean as finished needs `status: 'completed'`. `isAwaitingReply(message)` gives the same answer to
+your own code.
+
+```css
+aparte-chat.chat {
+  --aparte-waiting-height: 1.5rem;
+  --aparte-waiting-dot-gap: 6px;
+  --aparte-status-dot-size: 7px;
+  --aparte-status-color: var(--aparte-primary);
+}
+```
+
+Set them on a chat given `class="chat"` — `[data-aparte-chat].chat` in React, Vue and Svelte, as
+the [Theme](/guides/theming/#small-recipes) recipes do. The dot's size and colour are the status
+line's dot too. The dots stop moving under reduced motion. To draw them differently, give the
+message a frame of your own, where the dots are your markup
+([The message](/guides/customization/bubble/)).
+
+The status line, `<aparte-chat-status>`, is something else: a channel for your own status, such as
+searching the web or reading the files. Core never turns it on. The framework packages expose it
+as `isTyping` and `typingText`, and turn it off when the first word of the reply arrives;
+`setStatusRenderer` draws its inside.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/customization/bubble/', title: 'The message', line: 'A frame of your own around the message, or your own element in its place.' },
+        { href: '/guides/customization/actions/', title: 'Buttons', line: 'Retry, edit, feedback and buttons of your own.' },
+    ]}
+/>

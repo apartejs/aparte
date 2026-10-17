@@ -1,7 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "aparté",
-  "description": "Framework-agnostic AI-chat library: vanilla web components with zero third-party dependencies (@aparte/core), an agent loop (@aparte/engine), React/Vue/Svelte/Angular wrappers, and opt-in providers and plugins. Talks to any LLM through a transport, browser-direct or via your backend.",
+  "description": "AI chat and agent UI components built as Web Components, with the runtime inside: the conversation, messages, reasoning, tool calls a human approves, questions, the composer and model picker, the layout around the chat and a UI kit — React/Vue/Svelte/Angular wrappers, any LLM through a provider and a transport, zero third-party dependencies in @aparte/core.",
   "folders": [
     "apps/docs/src/content/docs",
     "packages"
@@ -16,7 +16,9 @@
   ],
   "excludeFiles": [
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "CLAUDE.md",
+    "AGENTS.md"
   ],
   "rules": [
     "Install @aparte/core and import '@aparte/core' once (side-effect import registers every <aparte-*> element); load '@aparte/core/styles.css' for the default look.",
@@ -24,6 +26,8 @@
     "Every package is 0.x: pin an exact version, a minor may rename an API and the changeset says so; there are no deprecated aliases.",
     "Markdown, syntax highlighting, model selection, approval, artifacts and compaction are opt-in plugins (@aparte/plugin-*); core renders plain text until a plugin is set up.",
     "An LLM is reached through a provider (@aparte/provider-openai-compat, @aparte/provider-ai-sdk, @aparte/provider-transformers) and a transport: AparteDirectTransport for browser-direct calls, AparteBackendTransport when the key must stay on your server.",
-    "Every CSS class and custom property is prefixed aparte-; theme by overriding the --aparte-* variables, never by editing the shipped stylesheet."
+    "Every CSS class and custom property is prefixed aparte-; theme by overriding the --aparte-* variables, never by editing the shipped stylesheet.",
+    "Every visible piece has a page with live variants at https://apartejs.dev/components/<name>/, and whole apps to start from are at https://apartejs.dev/templates/.",
+    "A tool that needs a human: set needsApproval on it and the user approves or rejects the call; an agent asks the user typed questions with @aparte/plugin-ask-user."
   ]
 }

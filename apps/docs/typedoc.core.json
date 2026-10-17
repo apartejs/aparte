@@ -1,0 +1,32 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": ["../../packages/core/src/index.ts"],
+  "tsconfig": "../../packages/core/tsconfig.json",
+  // Outside src/content/docs, like the engine's: TypeDoc writes a bare README.md, and
+  // scripts/gen-core-api.mjs splits it into pages with frontmatter before deleting it.
+  "out": ".typedoc/core",
+  "readme": "none",
+  // Core's own `typecheck` target type-checks this source; TypeDoc would do it again with
+  // the docs app's TypeScript and lib, and stop the docs build on a disagreement between
+  // two compilers about `BufferSource` that core's build does not have.
+  "skipErrorChecking": true,
+  "githubPages": false,
+  // Source links: the same template as typedoc.engine.json, for the reasons written there
+  // (the docs image has no .git, and a SHA from a local branch resolves for nobody).
+  "disableGit": true,
+  "displayBasePath": "../..",
+  "sourceLinkTemplate": "https://github.com/apartejs/aparte/blob/main/{path}#L{line}",
+  "hideGenerator": true,
+  "excludeExternals": true,
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "sort": ["source-order"],
+  "outputFileStrategy": "modules",
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "useCodeBlocks": true,
+  "expandObjects": true,
+  "parametersFormat": "table"
+}

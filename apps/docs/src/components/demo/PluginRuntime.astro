@@ -1,0 +1,39 @@
+---
+/**
+ * The plugins a demo frame can load, each only on the frames whose demo names it.
+ *
+ * Every plugin's module is handed to the demo's own classic script on `window.apartePlugins`
+ * — a classic script cannot `import`, and the setup call is part of what a demo shows, so the
+ * demo makes it itself and its code says which import a real app writes instead. Two are
+ * installed here because a demo has nothing to choose about them: the question panel
+ * (`setupAskUser()` takes no options) and the model picker (the import defines the element).
+ *
+ * One component per plugin, each with its own module script: Astro emits a script only on the
+ * pages that render its component, so a frame pays for the plugins its demo names and for no
+ * other — one unconditional import here would put every plugin in every element, class and
+ * demo frame on the site.
+ */
+import ApprovalPlugin from './plugins/ApprovalPlugin.astro';
+import ArtifactsPlugin from './plugins/ArtifactsPlugin.astro';
+import AskUserPlugin from './plugins/AskUserPlugin.astro';
+import CompactionPlugin from './plugins/CompactionPlugin.astro';
+import MarkdownRuntime from './MarkdownRuntime.astro';
+import ModelSelectorPlugin from './plugins/ModelSelectorPlugin.astro';
+import ScenarioRuntime from '../ScenarioRuntime.astro';
+import type { DemoPlugin } from './plugins';
+
+interface Props {
+    plugins: readonly DemoPlugin[];
+}
+
+const { plugins } = Astro.props;
+const has = (name: DemoPlugin) => plugins.includes(name);
+---
+
+{has('markdown') && <MarkdownRuntime />}
+{has('ask-user') && <AskUserPlugin />}
+{has('approval') && <ApprovalPlugin />}
+{has('model-selector') && <ModelSelectorPlugin />}
+{has('compaction') && <CompactionPlugin />}
+{has('artifacts') && <ArtifactsPlugin />}
+{has('scenario') && <ScenarioRuntime />}

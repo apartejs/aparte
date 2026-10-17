@@ -121,7 +121,9 @@ const MAX_UNMENTIONED = new Map([
     // Ratcheted 76 → 66 by the generated events reference. It names every event-detail
     // interface in one place, which is ten types that were exported, typed in the event
     // map, and named on no page a reader opens.
-    ['@aparte/core', 44],      // of 200 exports checked
+    // Ratcheted 44 → 0 by the generated core API reference (reference/core/, TypeDoc), the
+    // same credit the engine's reference gets; see the note below.
+    ['@aparte/core', 0],       // of 220 exports checked
     ['@aparte/react', 6],
     ['@aparte/vue', 2],
     ['@aparte/svelte', 3],
@@ -132,7 +134,7 @@ const MAX_UNMENTIONED = new Map([
     // more than a type, and the ratchet is only the first step: it makes the number
     // visible and stops it growing. Writing the pages is a lot of its own.
     ['@aparte/plugin-marked', 0],
-    ['@aparte/plugin-shiki', 3],
+    ['@aparte/plugin-shiki', 0],   // its five types are named on the Markdown and code guide
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
     ['@aparte/plugin-ask-user', 6],
@@ -169,6 +171,9 @@ const MAX_UNMENTIONED = new Map([
  * Recording the disagreement rather than silently picking a side: if a future round
  * decides a TypeDoc dump does not count, this ceiling jumps by 36 and the fix is 36
  * pages, not a number.
+ *
+ * Core has a TypeDoc reference too since the docs were rewritten (reference/core/), and the
+ * same holds: the 44 core exports it alone names would come back.
  */
 
 /** How far below its ceiling a count may sit before the ceiling must be lowered. */
@@ -249,7 +254,25 @@ function* walk(dir) {
  */
 const NOT_DOCUMENTATION = ['changelog.md'];
 
-const corpus = [...walk(DOCS), 'README.md', ...BARRELS.map(b => b.readme).filter(existsSync)]
+/**
+ * The generated pieces a page imports. A catalogue page writes its prose and imports its
+ * tables from `src/generated/api/`, so the names in those tables are on the page a reader
+ * opens without being in its source. A piece counts only when a page imports it: one that
+ * nobody imports is on no page.
+ */
+function importedPieces(pages) {
+    const out = new Set();
+    for (const page of pages) {
+        for (const m of readFileSync(page, 'utf8').matchAll(/^import\s+\w+\s+from\s+'([^']*\/generated\/[^']+\.mdx)'/gm)) {
+            const target = resolve(dirname(page), m[1]);
+            if (existsSync(target)) out.add(target);
+        }
+    }
+    return [...out];
+}
+
+const pages = [...walk(DOCS)];
+const corpus = [...pages, ...importedPieces(pages), 'README.md', ...BARRELS.map(b => b.readme).filter(existsSync)]
     .filter(f => !NOT_DOCUMENTATION.some(n => f.endsWith(n)))
     .map(f => readFileSync(f, 'utf8'))
     .join('\n');

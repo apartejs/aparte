@@ -1,12 +1,13 @@
 ---
 import Landing from '../../layouts/Landing.astro';
-import { bundled } from '../../lib/bundled-model';
+import { titlerModels } from '../../lib/bundled-model';
+import { TITLER_RUNTIMES } from '../../data/titler-runtimes';
 
 /*
  * The product page of aparte-titler, the first model aparté publishes.
  *
  * An Astro page on the landing's frame, beside /roadmap/ — not a docs entry. The docs
- * carry the plugin (/plugins/titler/); the Hugging Face card carries the science (every
+ * carry the plugin (/guides/titles/); the Hugging Face card carries the science (every
  * file, the benchmark, the charts). This page carries the one thing neither of them can:
  * the model running, under the reader's fingers, in the first screen. The demo is the
  * top of the page and `#demo` is the address given everywhere — the card, the npm
@@ -24,11 +25,9 @@ import { bundled } from '../../lib/bundled-model';
  *      demo that let the reader believe otherwise would be selling something else.
  */
 
-/** The three bundled models the site installs, measured by the shared `bundled()` helper. */
-const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
-const LATIN = bundled('@aparte/titler-latin', LATIN_LANGS);
-const MINI = bundled('@aparte/titler-latin-mini', LATIN_LANGS);
-const EFIGSP = bundled('@aparte/titler-efigsp', ['en', 'fr', 'es', 'de', 'pt', 'it']);
+/** The three bundled models the site installs, measured by the shared helper. */
+const { latin: LATIN, mini: MINI, efigsp: EFIGSP } = titlerModels();
+const LATIN_LANGS = LATIN.languages;
 
 /** Six first messages, six languages. Their titles are the model's, computed live. */
 const EXAMPLES = [
@@ -40,10 +39,10 @@ const EXAMPLES = [
     { lang: 'fi', text: 'Miten voin parantaa uneni laatua ilman lääkkeitä?' },
 ];
 
-const TITLE = 'aparte-titler — a title for every conversation, as you type, in the browser';
+const TITLE = 'aparte-titler — chat titles in the browser, no API call';
 const DESCRIPTION =
-    `aparte-titler picks 3 to 6 words out of a conversation's first message and makes them its title. `
-    + `${LATIN.kb} KB for 17 languages, a few milliseconds per title, no API call — try it in your browser.`;
+    `Picks 3 to 6 words of a conversation's first message as its title: `
+    + `${LATIN.kb} KB for 17 languages, a few milliseconds, no API call — try it in your browser.`;
 /** Written from the entry in src/pages/og/[...slug].ts; change one and change the other. */
 const IMAGE_ALT =
     'A dark card with a brass edge and the aparté mascot, headed “A title for every conversation, '
@@ -57,7 +56,6 @@ const IMAGE_ALT =
   canonical="https://apartejs.dev/models/titler/"
   ogImage="https://apartejs.dev/og/models/titler.png"
   ogImageAlt={IMAGE_ALT}
-  current="models"
 >
   <div class="tl">
     <header class="tl-head">
@@ -121,7 +119,7 @@ const IMAGE_ALT =
     <section class="band">
       <h2 class="serif">In apart&eacute;, <span class="paren">(</span>three lines<span class="paren">)</span></h2>
       <p class="sec-sub">
-        The <a href="/plugins/titler/">titler plugin</a> binds the model to the conversation
+        The <a href="/guides/titles/">titler plugin</a> binds the model to the conversation
         manager: the first message of every conversation is titled by it, and the title lands in
         the list. The model loads once, the first time a title is needed.
       </p>
@@ -137,6 +135,36 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       <p class="sec-note">
         <code>npm install @aparte/titler-latin</code> &#8212; the file ships inside the package
         and your bundler copies it as an asset, so the page fetches it from your own origin.
+      </p>
+    </section>
+
+    <!-- ── where it runs: one runtime per platform, same titles ──────────── -->
+    <section class="band" id="runtimes">
+      <h2 class="serif">Where it <span class="paren">(</span>runs<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        One model, one runtime per language. Each reads the same files and gives the same title,
+        character for character.
+      </p>
+      <dl class="tl-facts runtimes">
+        {TITLER_RUNTIMES.map((runtime) => (
+          <>
+            <dt><a href={runtime.href} target="_blank" rel="noopener">{runtime.language}</a></dt>
+            <dd>
+              {runtime.platforms}
+              <span class="runtime-install">{runtime.installNote && `${runtime.installNote}: `}<code>{runtime.install}</code></span>
+            </dd>
+          </>
+        ))}
+      </dl>
+      <p class="sec-sub">In Swift, <code>AparteTitlerLatin</code> brings the runtime and the 17-language model:</p>
+      <div class="code"><pre><code><span class="kw">import</span> AparteTitlerLatin
+
+<span class="kw">let</span> titler = <span class="kw">try</span> AparteTitlerLatin.<span class="fn">load</span>()
+titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la photosynthèse chez les plantes ?"</span>)</code></pre></div>
+      <p class="sec-note">
+        In Xcode, <i>File &#8594; Add Package Dependencies&#8230;</i> and paste the repository URL.
+        <code>AparteTitler</code>, the runtime alone, reads any model file from the
+        <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">model card</a>.
       </p>
     </section>
 
@@ -175,15 +203,16 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
         <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">The model card &#8594;</a>
         <a href="https://github.com/apartejs/aparte-titler-model" target="_blank" rel="noopener">The code &#8594;</a>
         <a href="https://www.npmjs.com/package/@aparte/titler-latin" target="_blank" rel="noopener">On npm &#8594;</a>
-        <a href="/plugins/titler/">The plugin &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-titler-swift" target="_blank" rel="noopener">For Swift &#8594;</a>
+        <a href="/guides/titles/">The plugin &#8594;</a>
       </p>
     </section>
   </div>
 
   <script>
-    // The real library — the row the title lands in is the sidebar's own element.
+    // The real library — the row the title lands in is the sidebar's own element. Its
+    // stylesheet comes with the frame (src/layouts/Landing.astro).
     import '@aparte/core';
-    import '@aparte/core/styles.css';
     // The real package, the one a consumer installs: the model file ships inside it and
     // the bundler copied it as an asset of this site, so the fetch below is same-origin.
     import { loadTitler } from '@aparte/titler-latin';
@@ -194,24 +223,9 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
     const figure = document.querySelector('[data-tl-ms]');
     const field = document.getElementById('tl-msg') as HTMLTextAreaElement;
     const state = section.querySelector('[data-tl-state]')!;
-    const side = section.querySelector('[data-tl-side]')!;
-    // Typed by core's element map: `conversations` is the list's own property.
+    // Typed by core's element map: `conversations` is the list's own property. Its theme
+    // is the page's: the frame writes it on the root as `data-aparte-theme`.
     const list = section.querySelector('aparte-conversation-list')!;
-
-    // ── theme: the frame owns the toggle, this page mirrors it onto the list ──
-    // Core's dark palette is keyed on `data-aparte-theme`, whose absence is light.
-    const root = document.documentElement;
-    const currentTheme = () =>
-      root.getAttribute('data-theme') ||
-      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const mirror = (theme: string) => {
-      if (theme === 'dark') side.setAttribute('data-aparte-theme', 'dark');
-      else side.removeAttribute('data-aparte-theme');
-    };
-    mirror(currentTheme());
-    document.addEventListener('site-theme-change', (e) => {
-      mirror((e as CustomEvent<{ theme: string }>).detail.theme);
-    });
 
     // ── the row ──
     const show = (title: string) => {
@@ -309,8 +323,11 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       .band h2 { font-size: clamp(26px, 3.2vw, 36px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 14px; }
       .band h2 .paren { color: var(--accent); }
       .sec-sub { margin: 0 0 18px; color: var(--dim); font-size: 16px; line-height: 1.62; max-width: 64ch; }
-      .sec-sub a, .sec-note a, .tl-facts a, .pick a { color: var(--accent-text); text-decoration: none; }
-      .sec-sub a:hover, .sec-note a:hover, .tl-facts a:hover, .pick a:hover { text-decoration: underline; }
+      /* `.band` outweighs the landing's `a:not(.aparte-btn) { color: inherit }`, which weighs the same
+         and comes later. The underline is what tells a link inside a sentence apart: its colour
+         against the text around it is 1.02:1. */
+      .band :is(.sec-sub, .sec-note, .tl-facts, .pick) a { color: var(--accent-text); text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--accent-text) 40%, transparent); text-underline-offset: .2em; }
+      .band :is(.sec-sub, .sec-note, .tl-facts, .pick) a:hover { text-decoration-color: currentColor; }
       .sec-note { margin: 16px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
       .band code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; color: color-mix(in oklab, var(--text) 82%, var(--accent-text)); }
       .code + .sec-sub { margin-top: 22px; }
@@ -327,6 +344,9 @@ titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la ph
       .pick td:first-child { color: var(--text); white-space: nowrap; }
       .pick td:last-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
       .pick td em { display: block; font-style: normal; font-size: 12.5px; }
+      .runtimes + .sec-sub { margin-top: 22px; }
+      .runtimes .runtime-install { display: block; margin-top: 2px; }
+      .runtimes code { overflow-wrap: anywhere; }
 
       .tl-facts { display: grid; grid-template-columns: minmax(0, .5fr) minmax(0, 1.5fr); gap: 0; margin: 4px 0 0; }
       .tl-facts dt { padding: 12px 0; border-top: 1px solid var(--line); color: var(--text); font-size: 15px; line-height: 24px; }

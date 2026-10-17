@@ -1,0 +1,109 @@
+---
+/**
+ * The Agent workshop template: a coding agent in a split, the chat on one side and the workspace
+ * it works in on the other (Files, Terminal, Changes). The markup is the library's elements and
+ * recipes; the behaviour is app.ts, the agent's tools are tools.ts, the panel is workspace.ts.
+ */
+import './agent-workshop.css';
+---
+
+<div class="agent-workshop aparte-app-shell">
+    <header class="aparte-app-header agent-workshop__header">
+        <span class="aparte-app-header__title agent-workshop__repo">
+            <span class="agent-workshop__owner">fernhollow /</span> spanwise
+        </span>
+        <span class="aparte-tag agent-workshop__branch">
+            <svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="6" cy="5" r="2"></circle>
+                <circle cx="6" cy="19" r="2"></circle>
+                <circle cx="18" cy="7" r="2"></circle>
+                <path d="M6 7v10M18 9c0 5-12 3-12 8"></path>
+            </svg>
+            <span class="aparte-sr-only">Branch</span>
+            fix/decimal-hours
+        </span>
+        <div class="aparte-app-header__actions">
+            <!-- Under the split's breakpoint one pane shows at a time; these switch it, with no script. -->
+            <div class="aparte-btn-group agent-workshop__panes" role="group" aria-label="Pane">
+                <button class="aparte-btn aparte-btn--sm aparte-btn--primary aparte-btn--outline" type="button" data-aparte-split-pane="start" aria-pressed="true">Chat</button>
+                <button class="aparte-btn aparte-btn--sm aparte-btn--primary aparte-btn--outline" type="button" data-aparte-split-pane="end" aria-pressed="false">Workspace</button>
+            </div>
+        </div>
+    </header>
+    <div class="aparte-app-shell__main">
+        <aparte-split position="44" class="agent-workshop__split" label="Resize the chat and the workspace">
+            <aparte-chat center-empty>
+                <aparte-chat-viewport></aparte-chat-viewport>
+                <aparte-scroll-rail></aparte-scroll-rail>
+                <!-- What the agent is doing while a tool runs; tools are wired to it in app.ts. -->
+                <aparte-chat-status></aparte-chat-status>
+                <aparte-composer placeholder="Ask the agent about spanwise">
+                    <!-- Shown while the conversation is empty (agent-workshop.css). -->
+                    <div class="agent-workshop__welcome">
+                        <h2 class="agent-workshop__welcome-title">What should we work on?</h2>
+                        <p class="agent-workshop__welcome-text">The agent reads and searches spanwise, edits its files and runs its tests. It asks before it writes or runs anything: the switch under the input says how much it may do alone.</p>
+                    </div>
+                    <aparte-suggestions empty-only></aparte-suggestions>
+                    <!-- Where an approval, or a question, is asked: above the input. -->
+                    <aparte-elicitation></aparte-elicitation>
+                    <div class="aparte-composer-shell">
+                        <div class="aparte-composer-row">
+                            <aparte-composer-input></aparte-composer-input>
+                            <aparte-composer-send></aparte-composer-send>
+                        </div>
+                        <!-- app.ts puts the approval-mode switch first, once the policy is set up. -->
+                        <aparte-composer-toolbar>
+                            <aparte-context variant="ring" class="agent-workshop__gauge"></aparte-context>
+                        </aparte-composer-toolbar>
+                    </div>
+                </aparte-composer>
+            </aparte-chat>
+
+            <section class="aparte-split__pane" aria-label="Workspace">
+                <div class="agent-workshop__workspace">
+                    <div class="aparte-tabs aparte-tabs--underline agent-workshop__tabs" role="tablist" aria-label="Workspace">
+                        <button class="aparte-tabs__tab" role="tab" type="button" id="aw-tab-files" aria-controls="aw-panel-files" aria-selected="true" tabindex="0" data-tab="files">
+                            <aparte-icon name="file"></aparte-icon> Files
+                        </button>
+                        <button class="aparte-tabs__tab" role="tab" type="button" id="aw-tab-terminal" aria-controls="aw-panel-terminal" aria-selected="false" tabindex="-1" data-tab="terminal">
+                            <aparte-icon name="terminal"></aparte-icon> Terminal
+                        </button>
+                        <button class="aparte-tabs__tab" role="tab" type="button" id="aw-tab-changes" aria-controls="aw-panel-changes" aria-selected="false" tabindex="-1" data-tab="changes">
+                            <aparte-icon name="edit"></aparte-icon> Changes
+                            <span class="aparte-badge aparte-badge--warning aparte-badge--sm" data-workspace="change-count" hidden></span>
+                        </button>
+                    </div>
+
+                    <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-files" aria-labelledby="aw-tab-files">
+                        <div class="agent-workshop__files">
+                            <nav class="agent-workshop__tree" aria-label="Repository files" data-workspace="tree"></nav>
+                            <div class="agent-workshop__viewer">
+                                <div class="agent-workshop__viewer-head">
+                                    <span class="agent-workshop__path" id="aw-file-path" data-workspace="path"></span>
+                                    <span data-workspace="note" hidden></span>
+                                </div>
+                                <div class="agent-workshop__code" role="region" tabindex="0" aria-labelledby="aw-file-path" data-workspace="code"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-terminal" aria-labelledby="aw-tab-terminal" hidden>
+                        <div class="agent-workshop__terminal" role="log" tabindex="0" aria-label="Terminal output" data-workspace="terminal">
+                            <p class="agent-workshop__empty" data-workspace="terminal-empty">The commands the agent runs, and what they print, appear here.</p>
+                        </div>
+                    </div>
+
+                    <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-changes" aria-labelledby="aw-tab-changes" hidden>
+                        <div class="agent-workshop__changes" data-workspace="changes">
+                            <p class="agent-workshop__empty">No changes yet. What the agent edits shows here as a diff.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aparte-split>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>

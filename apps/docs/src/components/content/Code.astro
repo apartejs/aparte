@@ -1,0 +1,26 @@
+---
+/**
+ * A code block written from a string, drawn exactly like a fenced one in Markdown: the code
+ * segment's own markup, coloured at build time for both themes (src/lib/markdown.mjs).
+ *
+ * It replaces Starlight's `<Code>`, which belongs to Expressive Code — switched off, since the
+ * site's code blocks are the library's.
+ */
+import { Code as AstroCode } from 'astro:components';
+import { aparteCodeBlock } from '../../lib/markdown.mjs';
+
+interface Props {
+    code: string;
+    lang?: string;
+}
+
+const { code, lang = 'plaintext' } = Astro.props;
+---
+
+<AstroCode
+    code={code}
+    lang={lang as never}
+    themes={{ light: 'github-light-high-contrast', dark: 'github-dark-default' }}
+    defaultColor={false}
+    transformers={[aparteCodeBlock()]}
+/>

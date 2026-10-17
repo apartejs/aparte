@@ -1,0 +1,82 @@
+---
+title: Tool call
+description: The row a reply shows when the model calls one of your tools — its name, what it was asked, what it returned, and whether it is running, waiting for a person or done.
+catalog:
+  group: chat
+  order: 11
+  claims:
+    segments: [tool_call]
+  demos: [tool, tool-statuses, tool-summary, tool-renderer]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Fields from '../../../generated/api/segments/tool_call.fields.mdx';
+
+<Variant id="tool" />
+
+When the model calls a tool, the reply gets a `tool_call` segment and the bubble draws it as a
+quiet row: the tool's name and its status. Opening the row shows the input the model chose and
+the result your handler returned. The row is drawn for you; a tool registered with
+`aparteGlobalConfig.registerTool()` produces it during a turn without any code of yours.
+
+## Variants
+
+### Every status
+
+<Variant id="tool-statuses" />
+
+A call is `pending` while your handler runs, `awaiting-approval` when the tool is marked
+`needsApproval` and a person has to decide (see [Tools and approval](/guides/tools/)), then
+`resolved`, `rejected`, `aborted` or `failed`. Only the first two are still open.
+
+### A summary of what it ran on
+
+<Variant id="tool-summary" />
+
+`registerToolSummary(name, summary)` adds one line after the tool's name, so `read_file` reads
+`read_file docs/release.md` without opening the row. It returns plain text; the row, its states
+and its disclosure stay the library's.
+
+### Your own rendering
+
+<Variant id="tool-renderer" />
+
+`registerToolRenderer(name, renderer)` replaces the row for one tool. Return an element rather
+than an HTML string: the input and the result come from the model and your tool, so a string
+would have to escape every value it interpolates. Add an `update()` to patch the element when
+the result lands, instead of rebuilding it.
+
+## Usage
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerTool(
+  {
+    name: 'get_weather',
+    description: 'Current weather for a city.',
+    inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+  },
+  async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${call.input.city}.` }),
+);
+```
+
+The client offers the tool to the model, runs the handler when it is called and draws the row
+for each call. Building a segment by hand, as these demos do, is for a reply your own code
+assembles.
+
+## Fields
+
+<Fields />
+
+## Accessibility
+
+- When there is an input or a result to show, the row is a native `<details>`: its summary opens
+  with Enter or Space and announces whether it is expanded. With nothing behind it, it is a
+  plain row and takes no tab stop.
+- The status is written in words (locale keys such as `toolRunning`, `toolCompleted`,
+  `toolFailed`), not only shown as a colour or an icon.
+
+## Related
+
+- [Tools and approval](/guides/tools/) — registering tools, what the row shows, and asking a person first.

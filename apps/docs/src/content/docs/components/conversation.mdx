@@ -1,0 +1,61 @@
+---
+title: Conversation
+description: The transcript — it keeps the messages, renders each as a bubble, streams replies token by token and stays at the bottom while you are there.
+catalog:
+  group: chat
+  order: 2
+  claims:
+    elements: [aparte-chat-viewport]
+  demos: [conversation, conversation-streaming, conversation-loading]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-chat-viewport.usage.mdx';
+import ViewportApi from '../../../generated/api/elements/aparte-chat-viewport.api.mdx';
+
+<Variant id="conversation" />
+
+`<aparte-chat-viewport>` is the conversation as a list of messages. It renders a bubble for each,
+keeps the view at the bottom while new text arrives, and stops following as soon as the reader
+scrolls up; a button brings them back. It also holds the branches a retry creates, so moving
+between two versions of a reply is the viewport re-rendering a different path.
+
+Inside an [`<aparte-chat>`](/components/chat/) it is `chat.viewport`. On its own, it is the
+transcript of a page that lays out the rest itself.
+
+## Variants
+
+### A reply streaming in
+
+<Variant id="conversation-streaming" />
+
+A turn is `appendMessage()`, then `appendToken()` for each chunk, then `completeMessage()`.
+`AparteClient` does exactly this for you; drive it by hand when your own code runs the loop.
+
+### While the messages load
+
+<Variant id="conversation-loading" />
+
+`loading` says a conversation was chosen and its messages are on their way: the viewport shows
+the outline of a conversation rather than an empty column, and says so to a screen reader.
+
+## Usage
+
+<Usage />
+
+## API
+
+<ViewportApi />
+
+## Accessibility
+
+- The transcript is a focusable `role="log"`, named by the `transcript` locale key.
+- While `loading`, it is `aria-busy` and a visually hidden line names the wait, because screen
+  readers ignore `aria-busy` alone.
+- The scroll-to-bottom button is named by the `scrollToBottom` locale key.
+
+## Related
+
+- [Message](/components/message/) — one bubble of the transcript.
+- [Branches](/components/branches/) — the versions a retry leaves behind.
+- [Scroll rail](/components/scroll-rail/) — an outline of the conversation beside it.

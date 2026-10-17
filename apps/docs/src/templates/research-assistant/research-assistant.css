@@ -1,0 +1,378 @@
+/*
+ * The Research assistant's look. The library's parts are themed through their --aparte-* knobs
+ * on the root; the rest of this sheet lays out what the template draws itself: the report
+ * pane, the source cards, the report receipt and the chart. Every colour is a library token,
+ * so both themes follow.
+ */
+.research {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --aparte-split-min: 20rem;
+    --aparte-split-max: 64%;
+    /* The chart's ink: one series, one hue, a recessive grid. */
+    --research-chart-bar: var(--aparte-primary);
+    --research-chart-grid: var(--aparte-border);
+    --research-chart-ink: var(--aparte-text-muted);
+    height: 100%;
+}
+
+/* The header's Chat / Report pair: only on a window narrow enough that the split shows one
+   pane, the split's own 48rem breakpoint. Above it there is nothing to switch. */
+.research__panes {
+    display: none;
+}
+
+@media (max-width: 48rem) {
+    .research__panes {
+        display: inline-flex;
+    }
+}
+
+/* The welcome above the starters on a new thread, centred over the composer. */
+.research-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    padding-block-end: var(--aparte-space-4);
+    padding-inline: var(--aparte-space-4);
+    text-align: center;
+}
+
+.research-welcome__title {
+    margin: 0;
+    font-size: var(--aparte-font-size-2xl);
+    font-weight: var(--aparte-font-weight-semibold);
+    letter-spacing: -0.01em;
+}
+
+.research-welcome__lede {
+    max-inline-size: 30rem;
+    margin: 0;
+    color: var(--aparte-text-muted);
+}
+
+/* It belongs to the empty state, and the chat says when it is empty (`data-empty`). */
+.research aparte-chat:not([data-empty]) .research-welcome {
+    display: none;
+}
+
+.research__gauge {
+    flex: 1;
+    max-inline-size: 18rem;
+}
+
+/* ─── Tool rows of a research run ─────────────────────────────────────────── */
+
+.research-tool {
+    margin-block: var(--aparte-space-2);
+}
+
+.research-tool__head {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.research-tool__icon {
+    --aparte-icon-size: 0.95rem;
+    display: inline-flex;
+    flex: none;
+    inline-size: var(--aparte-icon-size);
+    block-size: var(--aparte-icon-size);
+}
+
+.research-tool__query {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--aparte-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.research-tool__meta::before {
+    content: "·";
+    margin-inline-end: var(--aparte-space-2);
+}
+
+.research-tool__meta {
+    flex: none;
+}
+
+/* Search results: cards that wrap to the bubble's width, so none is cut off. */
+.research-search__results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: var(--aparte-space-2);
+    margin: var(--aparte-space-2) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.research-source {
+    position: relative;
+    min-width: 0;
+    gap: var(--aparte-space-1);
+    padding: var(--aparte-space-3);
+}
+
+.research-source:hover {
+    background: var(--aparte-surface-hover);
+}
+
+.research-source:focus-within {
+    outline: 2px solid var(--aparte-border-focus);
+    outline-offset: -2px;
+}
+
+.research-source__site {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+    min-width: 0;
+    overflow: hidden;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.research-source__title {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--aparte-text);
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-medium);
+    line-height: var(--aparte-line-height-snug);
+    text-decoration: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+/* The whole card is the link's target; the focus ring is drawn on the card above. */
+.research-source__title::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.research-source__title:focus-visible {
+    outline: none;
+}
+
+.research-source__snippet {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+    line-height: var(--aparte-line-height-normal);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+/* The report receipt: what was written, and the way back to it. */
+.research-receipt {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    max-inline-size: 26rem;
+    padding: var(--aparte-space-3);
+}
+
+.research-receipt__icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: var(--aparte-radius-md);
+    background: var(--aparte-surface-2);
+    color: var(--aparte-primary);
+}
+
+.research-receipt__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.research-receipt__title {
+    overflow: hidden;
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.research-receipt__meta {
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+}
+
+/* ─── The report pane ─────────────────────────────────────────────────────── */
+
+/* No `display` here: the split shows and hides its panes with one, and this sheet is
+   unlayered, so it would win over the library's layered rule whatever its specificity. */
+.research-pane {
+    min-width: 0;
+    overflow: auto;
+    background: var(--aparte-surface-1);
+}
+
+.research-pane__bar {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    padding: var(--aparte-space-2) var(--aparte-space-4) var(--aparte-space-2) var(--aparte-space-6);
+    border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+    background: var(--aparte-surface-1);
+}
+
+.research-pane__bar[hidden] {
+    display: none;
+}
+
+.research-pane__title {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.research-pane__meta {
+    flex: none;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+/* The copy button's announcement, for screen readers only. */
+.research-pane__status {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.research-pane__copy {
+    margin-inline-start: auto;
+    flex: none;
+}
+
+.research-pane__close {
+    flex: none;
+}
+
+.research-report {
+    --aparte-prose-h1-size: 1.75em;
+    --aparte-prose-h1-margin: 0 0 0.35em;
+    --aparte-prose-h2-size: 1.15em;
+    --aparte-prose-h2-margin: 1.75em 0 0.5em;
+    --aparte-prose-p-margin: 0.6em 0;
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 46rem;
+    margin-inline: auto;
+    padding: var(--aparte-space-6) var(--aparte-space-8) var(--aparte-space-8);
+}
+
+/* The line under the title: where, when, and that the data is illustrative. */
+.research-report h1 + p {
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.research-pane__empty {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-block-size: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: var(--aparte-space-2);
+    padding: var(--aparte-space-8);
+    color: var(--aparte-text-muted);
+    text-align: center;
+}
+
+.research-pane__empty[hidden] {
+    display: none;
+}
+
+.research-pane__empty p {
+    max-inline-size: 22rem;
+    margin: 0;
+}
+
+.research-pane__empty-title {
+    color: var(--aparte-text);
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+/* ─── The chart ───────────────────────────────────────────────────────────── */
+
+.research-chart {
+    margin: var(--aparte-space-4) 0 var(--aparte-space-2);
+}
+
+.research-chart__svg {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    overflow: visible;
+}
+
+.research-chart__bar {
+    fill: var(--research-chart-bar);
+}
+
+.research-chart__bar:hover {
+    fill: color-mix(in srgb, var(--research-chart-bar) 78%, var(--aparte-text));
+}
+
+.research-chart__grid {
+    stroke: var(--research-chart-grid);
+    stroke-width: 1;
+}
+
+.research-chart__base {
+    stroke: var(--research-chart-ink);
+    stroke-width: 1;
+}
+
+.research-chart__axis {
+    fill: var(--research-chart-ink);
+    font-size: 11px;
+}
+
+.research-chart__value {
+    fill: var(--aparte-text);
+    font-size: 11px;
+    font-weight: var(--aparte-font-weight-semibold);
+}
+
+.research-chart__caption {
+    margin-block-start: var(--aparte-space-2);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+}
+
+@media (max-width: 48rem) {
+    .research-pane__bar {
+        padding-inline-start: var(--aparte-space-4);
+    }
+
+    .research-report {
+        padding: var(--aparte-space-5) var(--aparte-space-4) var(--aparte-space-6);
+    }
+}

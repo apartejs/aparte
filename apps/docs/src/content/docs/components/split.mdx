@@ -1,0 +1,75 @@
+---
+title: Split
+description: Two panes and a seam you can drag — the chat beside a preview, an editor or a document.
+catalog:
+  group: layout
+  order: 5
+  claims:
+    elements: [aparte-split]
+    classes: [split]
+  demos: [layout-split, split-vertical]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-split.usage.mdx';
+import SplitApi from '../../../generated/api/elements/aparte-split.api.mdx';
+import Classes from '../../../generated/api/kit/split.classes.mdx';
+
+<Variant id="layout-split" />
+
+When the chat builds something, the result needs room beside it. `<aparte-split>` puts two panes
+side by side with a seam between them: drag it, or focus it and use the arrow keys. A pane holds a
+chat; a chat never holds a split.
+
+The size is CSS: `--aparte-split-position` is the first pane's size, and `--aparte-split-min` and
+`--aparte-split-max` bound it in any unit, so the browser does the clamping. Without the element,
+the `.aparte-split` classes give the same two panes with no drag.
+
+## Variants
+
+### Stacked
+
+<Variant id="split-vertical" />
+
+`orientation="vertical"` puts the panes one above the other. `primary="end"` makes the second pane
+the one `position` sizes.
+
+## Usage
+
+<Usage />
+
+The split stores nothing: `position` goes in, and `aparte-split-resize` comes out once the reader
+lets go. Save the value from the event, and restore it by setting `position`.
+
+On a narrow window (under `breakpoint`, 48rem by default, or `none`), the split shows one pane at a
+time; buttons carrying `data-aparte-split-pane="start"` or `"end"` switch between them, with no
+script. `single` shows one pane at any width, and `collapsed` folds the first pane to its minimum.
+
+## Customize
+
+| Variable | What it sets |
+| --- | --- |
+| `--aparte-split-position` | The first pane's size (38%). |
+| `--aparte-split-min`, `--aparte-split-max` | Its bounds, in any unit. |
+| `--aparte-split-handle-size` | The seam's width. |
+
+## API
+
+<SplitApi />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The seam is a separator with its current value, named from the `splitHandleLabel` key (or
+  `label`). It follows the window splitter pattern: arrow keys move it, Shift moves it by 10%,
+  Home and End go to the bounds, Enter folds the first pane.
+- Its grab zone grows to a touch-sized target on a coarse pointer.
+
+## Related
+
+- [App shell](/components/app-shell/) — the main area a split fills.
+- [Artifact](/components/artifact/) — a document that belongs in the second pane.
+- [Layout guide](/guides/layout/) — the builder layout, step by step.

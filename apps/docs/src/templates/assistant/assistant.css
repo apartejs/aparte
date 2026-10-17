@@ -1,0 +1,65 @@
+/*
+ * The Assistant's look: the site's type and the library's tokens, set on the template's root.
+ * The only layout of its own is the greeting above the starters on a new chat.
+ */
+.assistant {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --aparte-message-max-width: 46rem;
+    height: 100%;
+}
+
+/* The model picker as a quiet switch at the end of the toolbar, the way chat apps show it:
+   no box, the name in the muted ink, a chevron. */
+.assistant aparte-composer-toolbar {
+    --aparte-select-min-width: 0;
+    --aparte-select-bg: transparent;
+    --aparte-select-border: transparent;
+    --aparte-select-border-hover: transparent;
+    --aparte-select-text: var(--aparte-text-muted);
+}
+
+.assistant aparte-model-selector {
+    margin-inline-start: auto;
+}
+
+.assistant-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+}
+
+/* The greeting above the starters, centred over the composer. */
+.assistant-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--aparte-space-4);
+    padding-block-end: var(--aparte-space-4);
+    padding-inline: var(--aparte-space-4);
+    text-align: center;
+}
+
+.assistant-welcome__title {
+    margin: 0;
+    font-size: var(--aparte-font-size-2xl);
+    font-weight: var(--aparte-font-weight-semibold);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+}
+
+/* It belongs to the empty state, and the chat says when it is empty (`data-empty`). */
+.assistant aparte-chat:not([data-empty]) .assistant-welcome {
+    display: none;
+}
+
+/* On a phone the starters wrap onto several rows, which read better from the start edge. */
+@media (max-width: 48rem) {
+    .assistant-welcome {
+        align-items: stretch;
+        text-align: start;
+    }
+
+    .assistant-welcome__title {
+        font-size: var(--aparte-font-size-xl);
+    }
+}

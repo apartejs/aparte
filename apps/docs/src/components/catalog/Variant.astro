@@ -1,0 +1,29 @@
+---
+/**
+ * One variant on a catalogue page: the live demo and, a click away, the string that renders
+ * it — one entry of src/data/demos/, read once, so the two cannot disagree.
+ *
+ * An unknown id fails the build: a catalogue page promising a variant must show one. (The
+ * guides' `<Demo>` renders nothing instead, a rule older than the catalogue.)
+ */
+import PreviewFrame from '../PreviewFrame.astro';
+import { findDemo } from '../../data/demos';
+import { frameHeight } from './frame-height';
+
+interface Props {
+    /** The demo's id in src/data/demos/. */
+    id: string;
+    /** One sentence under the frame, when the heading above it does not say enough. */
+    caption?: string;
+    /** The frame's width presets (see PreviewFrame). */
+    widths?: boolean;
+    /** A message the frame types and sends itself once it is on screen (ScenarioRuntime's `?play=`). */
+    play?: string;
+}
+
+const { id, caption, widths, play } = Astro.props;
+const demo = findDemo(id);
+if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
+---
+
+<PreviewFrame src={`/preview/demo/${demo.id}/${play ? `?play=${encodeURIComponent(play)}` : ''}`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} />

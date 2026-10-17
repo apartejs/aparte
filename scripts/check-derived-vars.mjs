@@ -758,7 +758,7 @@ for (const [name, count] of declaredFrames) {
  * generated fragment there would break the sentence rather than maintain it. Stating the
  * number and checking it is the smaller of the two mechanisms.
  */
-const THEMING_GUIDE = 'apps/docs/src/content/docs/guides/theming.md';
+const THEMING_GUIDE = 'apps/docs/src/content/docs/guides/theming.mdx';
 if (existsSync(THEMING_GUIDE)) {
     const guide = readFileSync(THEMING_GUIDE, 'utf8');
     if (!new RegExp(`\\b${anchored.length}\\b[^.]*variables? read another`).test(guide)) {
@@ -801,7 +801,7 @@ let proseNames = 0;
     for (const name of cssPropDeclared.keys()) known.add(name);
 
     const PROSE_MARKER = 'undeclared-on-purpose';
-    const PROSE_PAGES = ['apps/docs/src/content/docs/guides/theming.md', 'apps/docs/src/pages/index.astro'];
+    const PROSE_PAGES = ['apps/docs/src/content/docs/guides/theming.mdx', 'apps/docs/src/pages/index.astro'];
     /** `--prose <file>` adds one more page to the corpus — how this rule's own test feeds it a fixture. */
     const extraProse = process.argv.slice(2).filter((a, i, all) => all[i - 1] === '--prose');
     /** A collapsed corpus is a broken matcher, not a clean repo — same reasoning as every floor here. */

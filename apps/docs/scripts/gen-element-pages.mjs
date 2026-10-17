@@ -34,6 +34,7 @@ import { writeIfChanged } from './write-if-changed.mjs';
 import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readCatalogue } from './lib/catalogue.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CEM = resolve(here, '../../../packages/core/dist/custom-elements.json');
@@ -41,6 +42,8 @@ const CONTENT = resolve(here, '../src/content/docs/components');
 const PLUGIN_DIR = resolve(here, '../../../packages/plugins');
 const PARTIALS = resolve(here, '../src/generated/element-api');
 const GENERATED = resolve(here, '../src/generated');
+/** Every file this script writes says so; the sweep removes only those. */
+const MARKER = 'apps/docs/scripts/gen-element-pages.mjs';
 
 if (!existsSync(CEM)) {
   console.error(
@@ -120,6 +123,9 @@ function humanName(tag) {
 // mdxSafe here and not only on the prose: a table cell carries descriptions too, and a bare
 // `<aparte-composer>` in one of them fails the MDX parse exactly the same way.
 const esc = (s) => mdxSafe(String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim());
+/** For a cell's code span: MDX reads nothing inside backticks, so only the table's pipe and line
+ *  breaks matter — mdxSafe's entities would print verbatim there (`&#123;` for `{`). */
+const escCode = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n+/g, ' ').replace(/`/g, "'").trim();
 const typeText = (t) => (t && t.text ? t.text : '');
 const isPublic = (m) => m.privacy !== 'private' && m.privacy !== 'protected' && !m.name.startsWith('_');
 
@@ -132,10 +138,25 @@ function methodSig(m) {
 
 /** First sentence, for the frontmatter description — that is the meta-description slot. */
 function firstSentence(text) {
-  const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+  // The first PARAGRAPH, then its first sentence: flattening the whole description first ran
+  // a short opening paragraph into the next one, and this sentence is the lede under the
+  // page's title as well as its meta description.
+  const para = String(text ?? '').trim().split(/\n\s*\n/)[0] ?? '';
+  const flat = para.replace(/\s+/g, ' ').trim();
   if (!flat) return '';
   const cut = flat.match(/^(.{20,240}?[.!?])(\s|$)/);
   return (cut ? cut[1] : flat.slice(0, 200)).trim();
+}
+
+/**
+ * A JSDoc that opens on the class's own name (`AparteChat - The Shell`, `AparteIcon`) says in
+ * code form what the page title already says in words, and it became the page's first line
+ * AND its lede. The class is stated once, plainly, on its own line under the preview.
+ */
+function withoutClassHeadline(text, className) {
+  const [first = '', ...rest] = String(text ?? '').trim().split(/\n\s*\n/);
+  const isHeadline = first.startsWith(className) && first.length < 60 && !/[.!?]\s/.test(first);
+  return (isHeadline ? rest.join('\n\n') : String(text ?? '')).trim();
 }
 
 /** YAML-safe single-quoted scalar. Tags carry `<`/`>`, descriptions carry apostrophes. */
@@ -174,8 +195,14 @@ function exampleBlocks(decl) {
     .join('');
 }
 
+/**
+ * A sub-section's title: a heading of level `h`, or — `h` is 0 — a bold label, for a partial
+ * a catalogue page imports under headings of its own (Starlight's outline only sees the
+ * headings written in the page itself, never those an imported file brings).
+ */
+const head = (h, title) => (h ? `\n${'#'.repeat(h)} ${title}\n\n` : `\n**${title}**\n\n`);
+
 function apiTables(decl, h) {
-  const H = '#'.repeat(h);
   const members = (decl.members ?? []).filter(isPublic);
   const props = members.filter((m) => m.kind === 'field');
   const methods = members.filter((m) => m.kind === 'method');
@@ -184,26 +211,26 @@ function apiTables(decl, h) {
   let md = '';
 
   if (attrs.length) {
-    md += `\n${H} Attributes\n\n| Attribute | Description |\n| --- | --- |\n`;
-    for (const a of attrs) md += `| \`${esc(a.name)}\` | ${esc(a.description)} |\n`;
+    md += `${head(h, 'Attributes')}| Attribute | Description |\n| --- | --- |\n`;
+    for (const a of attrs) md += `| \`${escCode(a.name)}\` | ${esc(a.description)} |\n`;
   }
   if (props.length) {
-    md += `\n${H} Properties\n\n| Property | Type | Description |\n| --- | --- | --- |\n`;
+    md += `${head(h, 'Properties')}| Property | Type | Description |\n| --- | --- | --- |\n`;
     for (const p of props) {
-      md += `| \`${esc(p.name)}\`${p.readonly ? ' _(readonly)_' : ''} | \`${esc(typeText(p.type))}\` | ${esc(p.description)} |\n`;
+      md += `| \`${escCode(p.name)}\`${p.readonly ? ' _(readonly)_' : ''} | \`${escCode(typeText(p.type))}\` | ${esc(p.description)} |\n`;
     }
   }
   if (methods.length) {
-    md += `\n${H} Methods\n\n| Method | Description |\n| --- | --- |\n`;
-    for (const m of methods) md += `| \`${esc(methodSig(m))}\` | ${esc(m.description)} |\n`;
+    md += `${head(h, 'Methods')}| Method | Description |\n| --- | --- |\n`;
+    for (const m of methods) md += `| \`${escCode(methodSig(m))}\` | ${esc(m.description)} |\n`;
   }
   if (events.length) {
     // The Type column is what tells a consumer the shape of `e.detail`, and what a typed wrapper
     // derives its output from. An event with no detail renders as a bare `CustomEvent` — that
     // absence is information too.
-    md += `\n${H} Events\n\n| Event | Type | Description |\n| --- | --- | --- |\n`;
+    md += `${head(h, 'Events')}| Event | Type | Description |\n| --- | --- | --- |\n`;
     for (const ev of events) {
-      md += `| \`${esc(ev.name)}\` | \`${esc(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
+      md += `| \`${escCode(ev.name)}\` | \`${escCode(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
     }
   }
   return md;
@@ -212,16 +239,15 @@ function apiTables(decl, h) {
 function cssTable(decl, h) {
   const cssProps = decl.cssProperties ?? [];
   if (!cssProps.length) return '';
-  const H = '#'.repeat(h);
   // ONE table. Some of these are the element's own knob and some are a site-wide token that
   // merely styles it, and the difference matters — but it is not DERIVABLE. Two tests were
   // measured and both are wrong: ":root-declared" catches every knob, since aparté gives all of
   // them a root default; "declared by more than one element" catches shared regional knobs like
   // `--aparte-thumb-*` while missing `--aparte-primary`, which one element declares. Asserting
   // it would be the confident-but-wrong kind of sentence this lot exists to remove.
-  let md = `\n${H} \`<${decl.tagName}>\`\n\n| Variable | Default | Description |\n| --- | --- | --- |\n`;
+  let md = `${head(h, h ? `\`<${decl.tagName}>\`` : 'CSS variables')}| Variable | Default | Description |\n| --- | --- | --- |\n`;
   for (const p of cssProps) {
-    md += `| \`${esc(p.name)}\` | ${p.default ? `\`${esc(p.default)}\`` : '—'} | ${esc(p.description)} |\n`;
+    md += `| \`${escCode(p.name)}\` | ${p.default ? `\`${escCode(p.default)}\`` : '—'} | ${esc(p.description)} |\n`;
   }
   return md;
 }
@@ -293,7 +319,8 @@ function angularSymbols() {
 
 const ANGULAR = angularSymbols();
 
-function frameworkTabs(decl) {
+/** `bare`: the tabs alone, for a catalogue page that writes its own heading and sentence. */
+function frameworkTabs(decl, { bare = false } = {}) {
   const tag = decl.tagName;
   const attrs = decl.attributes ?? [];
   // A presence attribute is the one worth showing: it is where the four frameworks differ most,
@@ -309,7 +336,9 @@ function frameworkTabs(decl) {
   const openTag = (syntax) => `<${tag}${attr ? ` ${syntax}` : ''}></${tag}>`;
   const plain = attr ? (bool ? `${attr.name}=""` : `${attr.name}="…"`) : '';
 
-  let md = `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
+  let md = bare
+    ? `\n<Tabs syncKey="framework">\n`
+    : `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
 
   md += `<TabItem label="Vanilla">\n\n\`\`\`html\n${openTag(plain)}\n\`\`\`\n`;
   if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
@@ -353,7 +382,7 @@ function flatSections(decl) {
 function page(tag) {
   const { decl, path } = byTag.get(tag);
   const parts = (PARTS[tag] ?? []).filter((p) => byTag.has(p));
-  const description = String(decl.description ?? '').trim();
+  const description = withoutClassHeadline(decl.description, decl.name);
   const order = LEAD.indexOf(tag);
   const all = [decl, ...parts.map((p) => byTag.get(p).decl)];
   const hasCss = all.some((d) => d.cssProperties?.length);
@@ -363,19 +392,23 @@ title: ${yaml(humanName(tag))}
 description: ${yaml(firstSentence(description) || `The <${tag}> custom element.`)}
 ${order === -1 ? '' : `sidebar:\n  order: ${order + 1}\n`}---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '../../../../components/content/tabs';
 import ElementPreview from '../../../../components/ElementPreview.astro';
 
 `;
 
-  // The tag before the prose: the page is titled in human words, so the identifier a reader
-  // types has to be stated once, plainly, at the top.
-  md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''}\n\n`;
+  // The element first, then the words about it — the order every component library's docs
+  // use. The preview sat under "## Usage", after the description, so on the bigger elements
+  // it arrived 58 to 81 lines down and a reader met a wall of architecture before seeing
+  // the thing. ElementPreview renders nothing for an element with no example, so a page
+  // without one simply starts with its tag.
+  md += `<ElementPreview tag="${tag}" />\n\n`;
 
-  // Named once, plainly: the export guard's Tier 1 measures the DOM-free barrel and
-  // cannot see an element class, so the only way a reader (or a future widening of that
-  // guard) finds the class this tag is backed by is a page saying so in words.
-  md += `Class: \`${decl.name}\`\n\n`;
+  // The tag and its class on one line: the page is titled in human words, so the
+  // identifier a reader types has to be stated once, plainly. The class is named because
+  // the export guard's Tier 1 measures the DOM-free barrel and cannot see an element
+  // class, so a page saying so in words is the only place a reader finds it.
+  md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''} · class \`${decl.name}\`\n\n`;
 
   if (description) md += `${mdxSafe(description)}\n\n`;
 
@@ -389,9 +422,10 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
   // to a document outline, in every framework. Stacked, the outline IS the navigation.
   //
   // The FRAMEWORK tabs below stay: they carry no headings, so they cost the outline nothing.
-  md += `## Usage\n\n<ElementPreview tag="${tag}" />\n`;
-
+  // A heading only when something sits under it: with the preview moved to the top, an
+  // element with no example and no parts would otherwise keep an empty "Usage".
   const ex = exampleBlocks(decl);
+  if (ex || parts.length) md += `## Usage\n`;
   md += ex ? `\n### Example\n${ex}` : '';
   for (const p of parts) {
     const pDecl = byTag.get(p).decl;
@@ -428,23 +462,22 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
 
 function indexPage(pagesByGroup) {
   let md = `---
-title: 'Chatbot UI Components'
-description: 'Every element aparté ships — what each one is for, in one line.'
+title: 'Every element'
+description: 'Every custom element aparté ships, by tag — what each one is for, in one line, and the catalogue page that shows it.'
 sidebar:
-  order: 0
-  label: Overview
+  label: Elements
 ---
 
 Every element is a plain custom element: no framework, no runtime dependency, and the same
 object whatever you mount it with. A component made of parts is documented on one page, with its
-parts as sections. [Segments](/segments/text/) are the other family and a different kind of
+parts as sections. [Segments](/segments/) are the other family and a different kind of
 thing — data somebody renders, with no tag at all.
 
 :::tip[There is a third family: the UI kit]
 Buttons, fields, switches, tags, alerts, menus, tabs and avatars ship as **plain classes on
 plain elements** — no tag, themed by the same variables as the chat — for the controls your
 own page puts around it. They are listed with their HTML in
-[the UI kit](/kit/button/), one page per family with its live preview; a consumer who started here rewrote his own
+[the UI kit](/kit/), one page per family with its live preview; a consumer who started here rewrote his own
 before finding them.
 :::
 
@@ -456,7 +489,8 @@ before finding them.
     for (const tag of list) {
       const { decl } = byTag.get(tag);
       const parts = (PARTS[tag] ?? []).length;
-      md += `| [${humanName(tag)}](/components/${group}/${tag}/)${parts ? ` _(+${parts} parts)_` : ''} | ${esc(firstSentence(decl.description))} |\n`;
+      const href = claimedBy.has(tag) ? `/components/${claimedBy.get(tag)}/` : `/components/${group}/${tag}/`;
+      md += `| [${humanName(tag)}](${href})${parts ? ` _(+${parts} parts)_` : ''} | ${esc(firstSentence(decl.description))} |\n`;
     }
   }
   md += `\n{/* Generated by apps/docs/scripts/gen-element-pages.mjs — do not edit by hand. */}\n`;
@@ -465,14 +499,23 @@ before finding them.
 
 // ── write ────────────────────────────────────────────────────────────────────
 
+// An element a catalogue page claims is documented THERE: its generated page goes (the sweep
+// below removes the file) and src/data/redirects.mjs sends the old URL to the new page.
+const claimedBy = new Map(readCatalogue().flatMap((e) => e.claims.elements.map((tag) => [tag, e.slug])));
+const claimed = new Set(claimedBy.keys());
+
+// Two lists: the pages this script writes (unclaimed elements only), and the index, which lists
+// EVERY element and links a claimed one to its catalogue page.
 const pagesByGroup = {};
+const indexByGroup = {};
 for (const tag of byTag.keys()) {
   if (isPart.has(tag)) continue;
   const group = GROUP[tag] ?? 'other';
   if (!GROUP[tag]) console.warn(`[gen-element-pages] <${tag}> is in no purpose group — filed under "other"`);
-  (pagesByGroup[group] ??= []).push(tag);
+  (indexByGroup[group] ??= []).push(tag);
+  if (!claimed.has(tag)) (pagesByGroup[group] ??= []).push(tag);
 }
-for (const list of Object.values(pagesByGroup)) {
+for (const list of [...Object.values(pagesByGroup), ...Object.values(indexByGroup)]) {
   list.sort((a, b) => {
     const ia = LEAD.indexOf(a);
     const ib = LEAD.indexOf(b);
@@ -493,7 +536,8 @@ for (const [group, tags] of Object.entries(pagesByGroup)) {
   }
 }
 mkdirSync(CONTENT, { recursive: true });
-writeIfChanged(join(CONTENT, 'index.mdx'), indexPage(pagesByGroup));
+// The tag index lives at /components/elements/: /components/ is the catalogue's own overview, written by hand.
+writeIfChanged(join(CONTENT, 'elements.mdx'), indexPage(indexByGroup));
 
 /*
  * The live preview's data, written HERE — beside the page that shows the same example as
@@ -543,11 +587,40 @@ writeIfChanged(
 );
 
 /*
+ * The API as DATA, for the catalogue's hand-written pages. A page about "Prompt input" decides
+ * what it says and asks for the composer's tables; the tables still come from the manifest, so
+ * there is one source, but the manifest no longer decides what a page IS. Every element is here,
+ * core's and the plugins', parts included — a catalogue page picks the ones it shows.
+ */
+function apiEntry(d, pkg) {
+  const members = (d.members ?? []).filter(isPublic);
+  return {
+    tag: d.tagName,
+    name: humanName(d.tagName),
+    package: pkg,
+    className: d.name,
+    description: String(d.description ?? '').trim(),
+    attributes: (d.attributes ?? []).map((a) => ({ name: a.name, type: typeText(a.type), description: a.description ?? '' })),
+    properties: members
+      .filter((m) => m.kind === 'field')
+      .map((p) => ({ name: p.name, type: typeText(p.type), readonly: Boolean(p.readonly), description: p.description ?? '' })),
+    methods: members
+      .filter((m) => m.kind === 'method')
+      .map((m) => ({ name: m.name, signature: methodSig(m), description: m.description ?? '' })),
+    events: (d.events ?? []).map((ev) => ({ name: ev.name, type: typeText(ev.type), description: ev.description ?? '' })),
+    cssProperties: (d.cssProperties ?? []).map((p) => ({ name: p.name, default: p.default ?? '', description: p.description ?? '' })),
+    examples: examplesOf(d).map((ex) => String(ex).trim()),
+  };
+}
+const apiElements = [...byTag.values()].map(({ decl }) => apiEntry(decl, '@aparte/core'));
+
+/*
  * A plugin's element gets a PARTIAL rather than a page. Its own page is the plugin's, where the
  * hand-written prose explains what installing the package gets you — so only the tables are
  * generated, and the plugin page imports them.
  */
 let partials = 0;
+const pluginDecls = [];
 if (existsSync(PLUGIN_DIR)) {
   mkdirSync(PARTIALS, { recursive: true });
   const seen = new Set();
@@ -555,9 +628,12 @@ if (existsSync(PLUGIN_DIR)) {
     const file = join(PLUGIN_DIR, plugin, 'dist', 'custom-elements.json');
     if (!existsSync(file)) continue;
     const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    const pkg = JSON.parse(readFileSync(join(PLUGIN_DIR, plugin, 'package.json'), 'utf8')).name;
     for (const mod of manifest.modules ?? []) {
       for (const d of mod.declarations ?? []) {
         if (!d.customElement || !d.tagName) continue;
+        apiElements.push(apiEntry(d, pkg));
+        pluginDecls.push(d);
         seen.add(`${d.tagName}.mdx`);
         writeIfChanged(
           join(PARTIALS, `${d.tagName}.mdx`),
@@ -571,25 +647,62 @@ if (existsSync(PLUGIN_DIR)) {
   for (const f of readdirSync(PARTIALS)) if (f.endsWith('.mdx') && !seen.has(f)) rmSync(join(PARTIALS, f));
 }
 
+apiElements.sort((a, b) => a.tag.localeCompare(b.tag));
+mkdirSync(join(GENERATED, 'api'), { recursive: true });
+writeIfChanged(
+  join(GENERATED, 'api', 'elements.json'),
+  `${JSON.stringify(apiElements, null, 2)}\n`,
+);
+
 /*
- * Sweep. These directories hold nothing but generated pages, so a removed element — or one that
- * became a PART of another — must take its page with it. Without this, folding the composer's
- * seven parts in would have left seven pages documenting elements the catalogue no longer lists.
+ * The pieces a catalogue page imports, per element, core's and the plugins' alike:
+ * `<tag>.api.mdx` (its tables) and `<tag>.usage.mdx` (the five framework tabs). No headings in
+ * either — the page writes its own, because the outline only sees headings written in the
+ * page — and an element with nothing to show writes no file, so a page cannot import an
+ * empty one by mistake (the import fails the build instead).
  */
+const ELEMENT_PIECES = join(GENERATED, 'api', 'elements');
+mkdirSync(ELEMENT_PIECES, { recursive: true });
+const pieces = new Set();
+const piece = (name, body) => {
+  pieces.add(name);
+  writeIfChanged(join(ELEMENT_PIECES, name), body);
+};
+for (const d of [...[...byTag.values()].map(({ decl }) => decl), ...pluginDecls]) {
+  const tables = apiTables(d, 0) + cssTable(d, 0);
+  // The class is named, as the generated page did on its first line: it is what a reader
+  // imports to type a reference to the element.
+  if (tables.trim()) piece(`${d.tagName}.api.mdx`, `{/* Generated by ${MARKER}. */}\n\n\`<${d.tagName}>\` · class \`${d.name}\`\n${tables}`);
+  piece(
+    `${d.tagName}.usage.mdx`,
+    `import { Tabs, TabItem } from '../../../components/content/tabs';\n\n{/* Generated by ${MARKER}. */}\n${frameworkTabs(d, { bare: true })}`,
+  );
+}
+for (const f of readdirSync(ELEMENT_PIECES)) if (!pieces.has(f)) rmSync(join(ELEMENT_PIECES, f));
+
+/*
+ * Sweep — of what THIS script wrote, and nothing else. A removed element, or one that became a
+ * PART of another, must take its page with it: folding the composer's seven parts in would
+ * otherwise have left seven pages documenting elements the catalogue no longer lists.
+ *
+ * It used to delete every `.mdx` it did not write in this directory, on the premise that the
+ * directory held nothing else. The catalogue's hand-written pages now live here too (flat files
+ * beside the generated group folders), so a file is only ever removed when it carries this
+ * script's own footer — a page somebody wrote is never this script's to delete.
+ */
+const ours = (file) => readFileSync(file, 'utf8').includes(MARKER);
 let swept = 0;
 for (const entry of readdirSync(CONTENT, { withFileTypes: true })) {
   if (entry.isDirectory()) {
     const dir = join(CONTENT, entry.name);
     const wanted = keep.get(entry.name);
     for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.mdx')) continue;
-      if (!wanted || !wanted.has(f)) {
-        rmSync(join(dir, f));
-        swept++;
-      }
+      if (!f.endsWith('.mdx') || (wanted && wanted.has(f)) || !ours(join(dir, f))) continue;
+      rmSync(join(dir, f));
+      swept++;
     }
-    if (!wanted) rmSync(dir, { recursive: true });
-  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx') {
+    if (!wanted && readdirSync(dir).length === 0) rmSync(dir, { recursive: true });
+  } else if (entry.name.endsWith('.mdx') && entry.name !== 'index.mdx' && entry.name !== 'elements.mdx' && ours(join(CONTENT, entry.name))) {
     rmSync(join(CONTENT, entry.name));
     swept++;
   }

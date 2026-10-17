@@ -172,6 +172,47 @@ has to be read twice — while `Single-choice questions now answer on the click;
 submit button to press` says the same thing to someone who is skimming. The rigour that
 makes the work good is what makes it hard to scan, and only the ORDER fixes that.
 
+### Changing a frozen name
+
+The names on [What will not change under you](https://apartejs.dev/reference/stability/) are a
+snapshot, `apps/docs/src/data/frozen-surface.json`, that `scripts/frozen-surface.mjs` takes from
+the built tree — the custom-elements manifests, the typed event map, the built barrels,
+`AparteLocale`, and core's stylesheets and source for the tokens — and `pnpm check:frozen-surface`
+re-measures it in the gate and on every pull request. Both commands read `dist/`, so build first:
+
+```bash
+pnpm build                  # both read dist/ — a package without one drops out of the snapshot
+pnpm check:frozen-surface   # in the gate, and on every pull request
+pnpm frozen:update          # re-take the snapshot, then commit it with the change
+```
+
+A `note:` line in their output means a package was not measured: the snapshot is incomplete.
+
+- **An addition** — a new element, attribute, event, export, locale key or token — is allowed, and
+  the guard fails until the snapshot is re-taken: run `pnpm frozen:update` and commit the JSON
+  with the change.
+- **A removal or a rename** takes two pull requests, a minor apart.
+  1. *The notice.* Keep the name working, mark it `@deprecated` in its JSDoc, and add a changeset
+     that says so, with the release it disappears in and its replacement. The guard checks
+     nothing here: the name is still in the tree.
+  2. *The removal*, at least one minor later. Remove the name, add a changeset that names it and
+     contains the word "deprecated", and run `pnpm frozen:update` in the same pull request, so the
+     name leaves the snapshot before the release consumes that changeset:
+
+     ```md
+     ---
+     '@aparte/core': minor
+     ---
+
+     `aparte-old-name`, deprecated in 0.X.0, is removed — use `aparte-new-name`.
+     ```
+
+  The guard matches loosely: any changeset in `.changeset/` that contains "deprecat" and the name
+  — for an attribute, the bare attribute name — counts as a notice. And `pnpm frozen:update`
+  writes whatever the tree has, removals included, with no check: a name that disappears from
+  `frozen-surface.json` in a diff is a removal, and its reviewer checks the deprecation came a
+  minor earlier.
+
 ## Releasing
 
 Every `@aparte/*` package moves **together, at one version** (`fixed` in

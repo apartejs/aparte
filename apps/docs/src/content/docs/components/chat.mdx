@@ -1,0 +1,72 @@
+---
+title: Chat
+description: The whole chat in one tag — a transcript that scrolls, the question panel and a composer — composed for you, or from your own children.
+head:
+  - tag: title
+    content: Chat — an AI chatbot UI in one tag | aparté
+catalog:
+  group: chat
+  order: 1
+  claims:
+    elements: [aparte-chat]
+  demos: [chat, chat-conversation, chat-overlay, chat-composed]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Usage from '../../../generated/api/elements/aparte-chat.usage.mdx';
+import ChatApi from '../../../generated/api/elements/aparte-chat.api.mdx';
+
+<Variant id="chat" />
+
+`<aparte-chat>` lays its children out as a column: the transcript takes the space left and
+scrolls, the composer keeps its own height below it. Left empty, it composes itself — a
+transcript, the panel where questions and approvals appear, and a composer with a field and a
+send button. Put an `<aparte-chat-viewport>` inside and it uses your children as they are.
+
+The tag draws the chat; something has to answer it. `AparteClient` listens for the messages it
+sends and streams the replies back (see [Getting started](/guides/getting-started/)).
+
+## Variants
+
+### With a conversation
+
+<Variant id="chat-conversation" />
+
+`chat.viewport` is the transcript. Restoring a conversation is appending its messages; the
+client does the same during a turn.
+
+### The composer floating over the transcript
+
+<Variant id="chat-overlay" />
+
+`overlay-composer` lets the transcript scroll under the composer, which floats at the bottom:
+the layout of ChatGPT, where the scrollbar runs the whole height of the column.
+
+### Composed by hand
+
+<Variant id="chat-composed" />
+
+Anything you add is another row of the column, in DOM order: a header, a banner above the
+composer. `center-empty` keeps the composer centred as a welcome screen until the first message
+lands, then slides it down; `attachments` adds the file picker to the composed composer.
+
+## Usage
+
+<Usage />
+
+## API
+
+<ChatApi />
+
+## Accessibility
+
+- The transcript is a named, focusable `role="log"`, so a screen reader reaches the
+  conversation with the keyboard and hears new messages.
+- Everything inside keeps its own semantics: see [Conversation](/components/conversation/),
+  [Message](/components/message/) and [Composer](/components/composer/).
+
+## Related
+
+- [Composer](/components/composer/) — the part of the chat you type in.
+- [Conversation](/components/conversation/) — the transcript on its own.
+- [Layouts](/guides/layout/) — the chat in a full page, beside a preview, or under a floating composer.

@@ -45,6 +45,18 @@ for (const file of pages) {
     idsByRoute.set(routeOf(file), ids);
 }
 
+/*
+ * A REDIRECT is not an orphan, and the first run of the reachability pass below called two
+ * of them one. A redirect page's whole job is a meta refresh, so the shape is detectable and
+ * needs no list: nothing SHOULD link to a redirect — that is what makes it a redirect.
+ *
+ * Detected rather than named, because a name is a list somebody has to maintain and the
+ * next redirect would fail the build for being correct.
+ */
+const isRedirectStub = (file) =>
+    /<meta\s+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'));
+const redirects = new Set(pages.filter(isRedirectStub).map(routeOf));
+
 const broken = [];
 let checked = 0;
 /** Every route some page links TO — the other half of "the links resolve". */
@@ -53,6 +65,10 @@ const linkedTo = new Set();
 for (const file of pages) {
     const from = routeOf(file);
     const html = readFileSync(file, 'utf8');
+    // A redirect page links to its destination, and that link must resolve like any other —
+    // but it does not make the destination REACHABLE: a hundred redirect pages pointing at a
+    // page nothing else links to would otherwise hide exactly the orphan the pass below hunts.
+    const countsAsInbound = !redirects.has(from);
     for (const m of html.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)) {
         const href = m[1];
         // External, in-page-only, and non-navigational hrefs are out of scope.
@@ -66,7 +82,10 @@ for (const file of pages) {
         }
         if (!href.startsWith('/')) continue; // relative asset links: not routes
         checked++;
-        const [rawPath, hash] = href.split('#');
+        const [beforeHash, hash] = href.split('#');
+        // A query string never changes which static page is served (`?anatomy=`, `?fill` on a
+        // preview's Open link): the route is the path before it.
+        const rawPath = beforeHash.split('?')[0];
         const path = rawPath.endsWith('/') || /\.[a-z0-9]+$/i.test(rawPath) ? rawPath : `${rawPath}/`;
         if (!idsByRoute.has(path)) {
             // Could be a static asset (og image, txt, xml) rather than a page.
@@ -74,7 +93,7 @@ for (const file of pages) {
             broken.push(`${from} → ${href} (no such page)`);
             continue;
         }
-        linkedTo.add(path);
+        if (countsAsInbound) linkedTo.add(path);
         if (hash && !idsByRoute.get(path).has(decodeURIComponent(hash))) {
             broken.push(`${from} → ${href} (page exists, anchor does not)`);
         }
@@ -112,22 +131,7 @@ if (broken.length) {
 // model, not navigated; '/404' is served on a miss and by definition nothing links to it.
 const REACH_EXEMPT = new Set(['/', '/llms.txt/', '/llms-full.txt/', '/404']);
 
-/*
- * A REDIRECT is not an orphan, and the first run of this pass called two of them one.
- *
- * `astro.config.mjs` keeps `/reference/release-notes` → `/changelog/` because the first
- * release of that page used the old URL, and `/404` is served on a miss rather than
- * navigated to. Astro emits a redirect as a stub whose whole body is a meta refresh, so
- * the shape is detectable and needs no list: nothing SHOULD link to a redirect — that is
- * what makes it a redirect.
- *
- * Detected rather than named, because a name is a list somebody has to maintain and the
- * next redirect would fail the build for being correct.
- */
-const isRedirectStub = (file) =>
-    /<meta\s+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'));
-const redirects = new Set(pages.filter(isRedirectStub).map(routeOf));
-
+// Redirect pages (detected above) are exempt here too: nothing should link to them.
 const orphans = [...idsByRoute.keys()]
     .filter((route) => !REACH_EXEMPT.has(route) && !redirects.has(route) && !linkedTo.has(route))
     .sort();
@@ -155,9 +159,11 @@ if (orphans.length) {
  * notice. Collected here: every quoted absolute route ('/why/'), every route cited
  * inside prose strings (', /compare/.'), and every `paths: […]` entry of the llms
  * customSets (plain entries as routes, `dir/**` globs as prefixes that must match at
- * least one built page).
+ * least one built page) — those live in `src/data/llms-sets.mjs`, which the config imports.
  */
-const configSrc = readFileSync('apps/docs/astro.config.mjs', 'utf8');
+const configSrc = ['apps/docs/astro.config.mjs', 'apps/docs/src/data/llms-sets.mjs']
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n');
 const citedRoutes = new Set();
 const citedPrefixes = new Set();
 for (const m of configSrc.matchAll(/'(\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)'/g)) citedRoutes.add(m[1]);
@@ -172,14 +178,14 @@ for (const [, body] of pathArrays) {
 if (pathArrays.length === 0) {
     // A corpus that silently shrinks is the failure worth catching: the llms
     // customSets moved or changed shape, and this pass would be reading nothing.
-    console.error('\n[doc-links] FAIL: no `paths: […]` arrays found in astro.config.mjs — the llms customSets moved; update this check rather than letting it go blind.\n');
+    console.error('\n[doc-links] FAIL: no `paths: […]` arrays found in astro.config.mjs or src/data/llms-sets.mjs — the llms customSets moved; update this check rather than letting it go blind.\n');
     process.exit(1);
 }
 const missingCited = [...citedRoutes].filter((r) => !idsByRoute.has(r) && !redirects.has(r)).sort();
 const emptyPrefixes = [...citedPrefixes].filter((p) => ![...idsByRoute.keys()].some((r) => r.startsWith(p))).sort();
 if (missingCited.length || emptyPrefixes.length) {
     console.error('\n[doc-links] the site\'s own config cites what the build does not contain:\n');
-    for (const r of missingCited) console.error(`  ${r} — cited in astro.config.mjs, no built page`);
+    for (const r of missingCited) console.error(`  ${r} — cited in the site config, no built page`);
     for (const p of emptyPrefixes) console.error(`  ${p}** — a customSets glob that matches nothing`);
     console.error('\nA route named in the llms preamble or the sidebar is a promise to a reader\nthe link walk cannot see. Build the page, or stop citing it.\n');
     process.exit(1);

@@ -5,10 +5,18 @@ import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import starlightLinksValidator from 'starlight-links-validator';
+import { REDIRECTS } from './scripts/lib/redirects.mjs';
+import { catalogueSidebar } from './scripts/lib/catalogue.mjs';
+import { guideGroups } from './scripts/lib/guides.mjs';
+import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
+import { LLMS_SETS } from './src/data/llms-sets.mjs';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
 const isDev = process.env.npm_lifecycle_event === 'dev';
+
+// The Docs sidebar's groups, from each guide's own `guide.group` (scripts/lib/guides.mjs).
+const guides = guideGroups();
 
 /**
  * External links leave the site, so they open in their own tab.
@@ -73,34 +81,49 @@ export default defineConfig({
   // Astro 7 deprecated `markdown.remarkPlugins` / `rehypePlugins` / `remarkRehype` in
   // favour of naming the processor: the pipeline is now an object you build, not a set of
   // loose keys Astro assembles. Warned only at build time, not by `astro check`.
-  markdown: { processor: unified({ rehypePlugins: [rehypeExternalLinksInOwnTab] }) },
+  markdown: {
+    processor: unified({ rehypePlugins: [rehypeExternalLinksInOwnTab, rehypeAparteAsides] }),
+    // Code blocks come out as the code segment's own markup (src/lib/markdown.mjs), coloured at
+    // build time for both themes: `defaultColor: false` writes `--shiki-light`/`--shiki-dark`
+    // on every token and the site's CSS picks one per theme.
+    shikiConfig: {
+      // Measured on the site's code grounds (axe, 2026-10-16): github-light's red, green and grey and
+      // github-dark's comment grey fell under 4.5:1; these two keep every token colour above it.
+      themes: { light: 'github-light-high-contrast', dark: 'github-dark-default' },
+      defaultColor: false,
+      transformers: [aparteCodeBlock()],
+    },
+  },
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',
-  // /changelog is the guessable URL; the first release of this page used
-  // /reference/release-notes/, which is already in the sitemap. Keep it alive.
-  // Both are URLs that shipped and are in the sitemap. /reference/api was one 752-line
-  // page listing every element; it is now one page per element under /components/, so the
-  // old URL points at the catalogue rather than 404ing on a reader's bookmark.
-  redirects: {
-    '/reference/release-notes': '/changelog/',
-    '/reference/api': '/components/',
-  },
+  // Moved pages are NOT Astro `redirects`: those emit a meta refresh to a fixed URL and drop
+  // the `#anchor` published links carry. Each old address gets its own page instead —
+  // src/data/redirects.mjs (the map) and src/pages/[...moved].astro (the page).
   integrations: [
     /*
      * Ours rather than Starlight's: Starlight adds `@astrojs/sitemap` itself unless
      * the integration is already in this array, and its copy takes no filter.
      *
-     * What the filter removes: the 59 frame routes, one per element and per
-     * kit family. Each is the document of an <iframe> — it carries
+     * What the filter removes: the frame routes, one per element and per kit family,
+     * and the pages that moved. Each frame is the document of an <iframe> — it carries
      * `<meta name="robots" content="noindex, nofollow">` on purpose, because it
      * would otherwise compete in search with the real page that frames it and say
-     * far less. Listing a noindex URL in a sitemap is a contradiction a crawler
-     * reports back: 227 URLs were submitted, 59 of them asking not to be indexed.
+     * far less. A moved page is `noindex` too. Listing a noindex URL in a sitemap is a
+     * contradiction a crawler reports back: 227 URLs were submitted, 59 of them asking
+     * not to be indexed.
      */
-    sitemap({ filter: (page) => !PREVIEW_FRAME.test(new URL(page).pathname) }),
+    sitemap({
+      filter: (page) => {
+        const path = new URL(page).pathname;
+        return !PREVIEW_FRAME.test(path) && !(path in REDIRECTS);
+      },
+    }),
     starlight({
       title: 'aparté',
+      // Code blocks are drawn by the library's own code-segment markup (see `markdown` above),
+      // not by Expressive Code; no page used its options (titles, highlighted lines).
+      expressiveCode: false,
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
       // The mascot: `( '.' )` — the wordmark's brass parentheses, with a face.
       // SVG for browsers; the raster set below is for search engines and older
@@ -114,39 +137,44 @@ export default defineConfig({
       // switched from a picker at the top (`starlight-sidebar-topics`): the reader saw a
       // quarter of the site at a time and had to know which quarter held the page, and
       // the maintainer named it as the thing that made the docs hard to read. The order
-      // inside each group still comes from each page's `sidebar.order` frontmatter,
-      // which is what keeps theming second in Guides. Groups a first visit does not need
-      // open start collapsed; Starlight opens whichever holds the current page.
+      // inside each group still comes from each page's `sidebar.order` frontmatter. Groups a
+      // first visit does not need open start collapsed; Starlight opens whichever holds the
+      // current page.
       sidebar: [
-        { label: 'Why aparté', link: '/why/' },
-        // The page the category's intent queries land on ("X alternative"): named,
-        // fair, and the one place the runtime/catalogue split is said in full.
-        { label: 'Compare', link: '/compare/' },
-        { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
-        // Assembled, copy-me applications - the section the audit found missing: every
-        // component was documented and nothing showed them put together.
-        { label: 'Examples', items: [{ autogenerate: { directory: 'examples' } }] },
-        // The catalogue. One autogenerate over `components/`, whose subdirectories ARE
-        // the groups — conversation, input, utility. Every page here is GENERATED from
-        // the manifest, so shipping an element ships its page.
-        { label: 'Components', items: [{ autogenerate: { directory: 'components' } }] },
-        // The kit of plain classes, one page per family with its live preview first — the
-        // top-level place the maintainer and the first consumer both said was missing.
-        // Generated by gen-css-classes.mjs from the sheets' own banners.
-        { label: 'UI kit', items: [{ autogenerate: { directory: 'kit' } }] },
-        // Segments are data with no tag, so a different page shape entirely.
-        { label: 'Segments', collapsed: true, items: [{ autogenerate: { directory: 'segments' } }] },
-        { label: 'Frameworks', items: [{ autogenerate: { directory: 'frameworks' } }] },
+        // The Docs section, by what a reader came to do. Each guide names its own group
+        // (scripts/lib/guides.mjs); the framework and provider pages are listed by folder.
+        // The look comes right after the start, and the models last but for help.
+        { label: 'Start here', items: guides.start },
+        { label: 'Look and content', items: guides.look },
+        { label: 'Frameworks', collapsed: true, items: [{ autogenerate: { directory: 'frameworks' } }] },
+        { label: 'Conversations', items: guides.conversations },
+        { label: 'Agents and tools', items: guides.agents },
         {
-          label: 'Providers',
+          label: 'Models and agents',
           collapsed: true,
           items: [
             { label: 'Overview', link: '/providers/' },
-            { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
-            { label: 'Agents', items: [{ autogenerate: { directory: 'providers/agent' } }] },
+            { label: 'Models', items: [{ autogenerate: { directory: 'providers/ai' } }] },
+            { label: 'Agent frameworks', items: [{ autogenerate: { directory: 'providers/agent' } }] },
+            ...guides.models,
           ],
         },
-        { label: 'Plugins', collapsed: true, items: [{ autogenerate: { directory: 'plugins' } }] },
+        { label: 'Help', items: guides.help },
+        // The catalogue, by what a reader sees: Chat, Layout, Kit, one page per thing, read
+        // from each page's own `catalog` block (scripts/lib/catalogue.mjs). Every element,
+        // segment type and kit family now has its page there.
+        ...catalogueSidebar(),
+        // The generated indexes, by kind: every element, every segment type, every kit family,
+        // each linking to its catalogue page.
+        {
+          label: 'Indexes',
+          collapsed: true,
+          items: [
+            { label: 'Elements', link: '/components/elements/' },
+            { label: 'Segments', link: '/segments/' },
+            { label: 'UI kit', link: '/kit/' },
+          ],
+        },
         { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'reference' } }] },
         {
           label: 'Changelog',
@@ -160,6 +188,19 @@ export default defineConfig({
             { type: 'all', base: 'changelog', label: 'All versions' },
             { type: 'recent', base: 'changelog', count: 50 },
           ]),
+        },
+        // The two pages that argue for the library rather than teach it. The header links
+        // them on a wide screen; the group keeps them in the phone's menu, where the
+        // header's links are hidden.
+        {
+          label: 'About aparté',
+          collapsed: true,
+          items: [
+            { label: 'Why aparté', link: '/why/' },
+            // The page the category's intent queries land on ("X alternative"): named,
+            // fair, and the one place the runtime/catalogue split is said in full.
+            { label: 'Compare', link: '/compare/' },
+          ],
         },
       ],
       // Renders the release notes as a paginated version LIST at /changelog/ plus one
@@ -189,7 +230,7 @@ export default defineConfig({
           // outside Starlight's collection, and the plugin reports a link to one as
           // "invalid link to custom page" although the route is built. `check:doc-links`
           // walks the BUILT pages, so a link into /models/ is still verified, by that guard.
-          exclude: ['/changelog/**', '/models/**', '/roadmap/'],
+          exclude: ['/changelog/**', '/models/**', '/roadmap/', '/templates/', '/templates/**'],
         }),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather
@@ -249,43 +290,7 @@ export default defineConfig({
             + 'turn — is documented at /guides/bring-your-own-loop/. Plain `content` and '
             + '`segments` are mutually exclusive on a message.',
           ].join('\n\n'),
-          customSets: [
-            {
-              label: 'Getting started, frameworks and guides',
-              description: 'Install, first render in vanilla or a framework, and every guide (theming, tools, persistence, branching, localisation, accessibility, troubleshooting).',
-              paths: ['guides/**', 'frameworks/**', 'why', 'compare'],
-            },
-            {
-              label: 'Tools, approval and asking the user',
-              description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
-              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'plugins/approval', 'plugins/artifacts', 'segments/tool-call'],
-            },
-            {
-              label: 'Run the agent loop on your server',
-              description: 'createAparteAgentHandler on the server and createAgentStreamRunner in the page: tools run next to your server, approvals cross the network and survive a reload, browser tools still run in the page.',
-              paths: ['guides/server-loop'],
-            },
-            {
-              label: 'Bring your own loop (display-only)',
-              description: 'Driving the transcript from a loop you own: appendMessage, segments, token streams, finishing a turn, the wrappers\' imperative API, the backend transport.',
-              paths: ['guides/bring-your-own-loop', 'guides/backend-transport', 'guides/engine', 'reference/wrappers', 'reference/engine'],
-            },
-            {
-              label: 'Theming and the UI kit',
-              description: 'CSS variables, dark mode, the customization hooks, and the kit of plain classes (buttons, fields, alerts, tags, menus, tabs) with their HTML.',
-              paths: ['guides/theming', 'guides/layout', 'guides/customization', 'kit/**', 'reference/classes', 'reference/css-variables'],
-            },
-            {
-              label: 'Providers and transports',
-              description: 'OpenAI-compatible endpoints, the AI SDK bridge, a model in the browser, the scripted scenario provider, local models, writing your own provider.',
-              paths: ['providers/**', 'guides/local-models'],
-            },
-            {
-              label: 'Reference: components, segments, events, config',
-              description: 'Every custom element with its attributes, events and CSS properties; every segment shape; the event map; the config object; the icons.',
-              paths: ['components/**', 'segments/**', 'reference/events', 'reference/config', 'reference/icons', 'reference/support', 'reference'],
-            },
-          ],
+          customSets: LLMS_SETS,
           // The generated references are exhaustive by construction (471 variables, every
           // class, every event) and the changelog is history: neither belongs in the file a
           // small context window is meant to swallow whole.
@@ -293,6 +298,10 @@ export default defineConfig({
           // the "Reference" set and in the full file. Measured: the small file went from
           // 700 KB to 582 KB without them, and the guides are what a small window needs.
           exclude: ['reference/css-variables', 'reference/classes', 'reference/events', 'reference/icons', 'components/**', 'changelog/**'],
+          // What a model reading the text gains nothing from: the copy button and language
+          // label of a code block (the language is on the fence), and the width bar of a live
+          // preview ("Width 375 768 Full" was printed 85 times in llms-full.txt).
+          customSelectors: { all: ['.aparte-code-header', '.aparte-preview-bar'] },
           optionalLinks: [
             { label: 'Source and issues', url: 'https://github.com/apartejs/aparte', description: 'The monorepo — open an issue here.' },
             { label: 'npm', url: 'https://www.npmjs.com/package/@aparte/core', description: 'Every @aparte/* package ships at one version.' },
@@ -302,8 +311,34 @@ export default defineConfig({
       // Adds the `og:image` Starlight's own `twitter:card: summary_large_image`
       // already asks for and never provided (see the component for why an override
       // rather than a `head` entry).
-      components: { Head: './src/components/Head.astro' },
-      customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
+      // SocialIcons: the site's sections as links beside the search, the way UI libraries
+      // present themselves (the slot sits in the header AND the phone's menu). PageTitle:
+      // the page's own description under its title, the one sentence a reader needs
+      // before the first heading.
+      // Starlight is the engine; what a reader sees is drawn with the library. The frame,
+      // header, outline and pager below are the site's own (src/components/site/), so the
+      // same header and footer also serve the pages Starlight does not build.
+      components: {
+        Head: './src/components/Head.astro',
+        Header: './src/components/overrides/Header.astro',
+        PageFrame: './src/components/overrides/PageFrame.astro',
+        TwoColumnContent: './src/components/overrides/TwoColumnContent.astro',
+        PageSidebar: './src/components/overrides/PageSidebar.astro',
+        PageTitle: './src/components/PageTitle.astro',
+        Footer: './src/components/overrides/Footer.astro',
+      },
+      customCss: [
+        '@fontsource-variable/geist',
+        '@fontsource-variable/geist-mono',
+        // The library's stylesheet on every page, in its own cascade layer: the site is
+        // drawn with its recipes. See the file for why the layer.
+        './src/styles/library.css',
+        './src/styles/palette.css',
+        './src/styles/aparte-theme.css',
+        './src/styles/code.css',
+        './src/styles/site-frame.css',
+        './src/styles/content.css',
+      ],
     }),
   ],
   // Dev only: resolve @aparte/core (and its /styles.css) to TS/CSS source instead of

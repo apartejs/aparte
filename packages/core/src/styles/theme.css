@@ -81,8 +81,8 @@
 
      Measured across 80 combinations — 5 intents x 4 palettes (ours light, ours dark, and
      two invented) x 4 grounds (bg, surface-1/2/3) — the worst case is 4.80. */
-  /* The target lightness itself is a literal and stays here; the five inks that read
-     it are derived, so they live on the anchored layer below. */
+  /* The target lightness itself is a literal and stays here; the inks that read it
+     are derived, so they live on the anchored layer below. */
   --aparte-ink-l: 0.40;
 
   /* Masters — one knob each. Every step of every scale is COMPUTED from these
@@ -649,8 +649,8 @@
      clears AA there; error and info do not — 4.46 and 4.56 on `--aparte-surface-1`
      and 3.60 / 3.68 on `--aparte-surface-3` — so they take the lighter tone the
      alert family already ships. */
-  /* Only the target lightness flips. The five inks derive from it and from each
-     accent's own hue — see the note in the light block. */
+  /* Only the target lightness flips. The inks derive from it and from each
+     intent's own hue — see the note in the light block. */
   --aparte-ink-l: 0.85;
 
   --aparte-error-bg: #2d1b1b;
@@ -694,6 +694,11 @@ aparte-chat {
   --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
   --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
   --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+  /* Secondary and neutral as text too, for the same reason: a ghost, outline or soft
+     button paints its label with its intent, and those two were reading their fill —
+     2.71:1 for secondary on the page, 4.19:1 for neutral on its own soft wash. */
+  --aparte-secondary-ink: oklch(from var(--aparte-secondary) var(--aparte-ink-l) c h);
+  --aparte-neutral-ink: oklch(from var(--aparte-neutral) var(--aparte-ink-l) c h);
 
   /* The scales, computed from the masters above.
 

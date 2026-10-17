@@ -1,0 +1,47 @@
+---
+title: Mark
+description: The tint a settled choice carries — a chosen option, the conversation you are in, an approved call — as one class on your own elements.
+catalog:
+  group: kit
+  order: 16
+  claims:
+    classes: [mark]
+  demos: [kit-mark]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/mark.classes.mdx';
+import Vars from '../../../generated/api/kit/mark.vars.mdx';
+
+<Variant id="kit-mark" />
+
+Among items of the same kind, one is the one a decision landed on: the option picked in a
+[select](/components/select/), the conversation open in the
+[list](/components/conversation-list/), a question answered in the transcript. The library marks
+it the same way everywhere, with a tint of its intent, and `.aparte-mark` puts that tint on an
+element of yours.
+
+The intent says what the choice was: primary by default, `--success` for something given or
+approved, `--danger` for a destructive outcome, `--neutral` for where you merely are. `--quiet`
+is the outcome that did not happen, a declined request: no tint, the muted voice.
+
+## Customize
+
+<Vars />
+
+A bar along the start edge is off by default; `--aparte-mark-bar: 3px` in a theme puts it back,
+on every mark at once.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The tint is a visual cue. Say the state in the markup as well: `aria-selected` on an option,
+  `aria-current` on the item you are in, or the outcome in words.
+
+## Related
+
+- [Select](/components/select/) — its chosen option.
+- [Question](/components/question/) — the receipt, a tag with a mark.

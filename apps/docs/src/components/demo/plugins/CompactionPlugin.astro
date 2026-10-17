@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-compaction` for a demo frame: the demo calls `setupCompaction()` itself. */
+---
+
+<script>
+    import * as compaction from '@aparte/plugin-compaction';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).compaction = compaction;
+</script>

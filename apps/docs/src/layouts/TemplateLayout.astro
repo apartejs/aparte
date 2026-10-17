@@ -1,0 +1,106 @@
+---
+/**
+ * A template on its own page: a thin bar (back to the grid, the template's name, its code) and the
+ * template in the rest of the window, as the app it is.
+ *
+ * The same page is the grid's tile (`?thumb`, frozen) and the landing's showcase (`?play`):
+ * src/templates/runtime.ts reads the mode, and the script below hides the bar before paint
+ * whenever the page is framed, so neither ever flashes it.
+ */
+import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import FontPreload from '../components/site/FontPreload.astro';
+import { REPO_URL } from '../components/site/sections';
+import type { TemplateMeta } from '../templates/types';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+// The library's sheet, layered like everywhere else on the site, then the frame's own rules.
+import '../styles/library.css';
+import '../templates/frame.css';
+
+interface Props {
+    meta: TemplateMeta;
+}
+
+const { meta } = Astro.props;
+const site = Astro.site ?? new URL('https://apartejs.dev');
+const canonical = new URL(`/templates/${meta.slug}/`, site).href;
+const ogImage = new URL(`/og/templates/${meta.slug}.png`, site).href;
+const title = meta.pageTitle ?? `${meta.title} — an aparté template`;
+const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <FontPreload />
+        <title>{title}</title>
+        <meta name="description" content={meta.description} />
+        <link rel="canonical" href={canonical} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="aparté" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={meta.description} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={`aparté — ${meta.title}: ${meta.description}`} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content={ogImage} />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.ico" sizes="48x48 32x32 16x16" />
+        <script is:inline>
+            // Before paint: the site's theme (the same key the docs use), and whether the page is
+            // framed, so a tile or the landing's showcase never shows the bar for a frame.
+            (() => {
+                let stored = '';
+                try { stored = localStorage.getItem('starlight-theme') || ''; } catch {}
+                const theme = stored === 'light' || stored === 'dark'
+                    ? stored
+                    : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.dataset.aparteTheme = theme;
+                if (window !== parent) document.documentElement.classList.add('template-framed');
+                if (new URLSearchParams(location.search).has('thumb')) document.documentElement.classList.add('template-thumb');
+                // Framed (a tile, the landing's showcase), nothing inside takes the focus before the
+                // reader touches the frame: a focus() in a frame scrolls the parent page to it.
+                if (window !== parent) {
+                    const nativeFocus = HTMLElement.prototype.focus;
+                    let engaged = false;
+                    const engage = () => { engaged = true; };
+                    addEventListener('pointerdown', engage, { capture: true, once: true });
+                    addEventListener('keydown', engage, { capture: true, once: true });
+                    HTMLElement.prototype.focus = function (options) { if (engaged) nativeFocus.call(this, options); };
+                }
+            })();
+        </script>
+        {
+            import.meta.env.PROD && (
+                <script is:inline define:vars={{ src: UMAMI_SRC, id: UMAMI_WEBSITE_ID, domains: UMAMI_DOMAINS }}>
+                    // A visit is the template on its own page: a tile in the grid or the landing's
+                    // showcase is part of another page's visit, and would count four times over.
+                    if (window === parent) {
+                        const s = document.createElement('script');
+                        s.defer = true;
+                        s.src = src;
+                        s.dataset.websiteId = id;
+                        s.dataset.domains = domains;
+                        document.head.appendChild(s);
+                    }
+                </script>
+            )
+        }
+    </head>
+    <body>
+        <header class="template-bar" aria-label="Template">
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="/templates/">← Templates</a>
+            <h1 class="template-bar__name">{meta.title}</h1>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm template-bar__code" href={code} target="_blank" rel="noopener">View the code ↗</a>
+        </header>
+        <main class="template-stage" aria-label={meta.title}>
+            <slot />
+        </main>
+    </body>
+</html>

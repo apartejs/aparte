@@ -1,0 +1,34 @@
+---
+/**
+ * Starlight's page frame, replaced: the site's header, its navigation, the page, the
+ * site's footer. The page scrolls as a document (no app-shell grid); the header sticks.
+ *
+ * The navigation is built here rather than through Starlight's `Sidebar` slot because the
+ * frame needs to know whether there is a page list at all — a page in no section gets no
+ * column — and the slot is only a render. The list is Starlight's own sidebar data,
+ * narrowed to the groups whose pages belong to the current section.
+ */
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import SiteFooter from '../site/SiteFooter.astro';
+import SiteNav from '../site/SiteNav.astro';
+import SiteTree from '../site/SiteTree.astro';
+import { sectionOf } from '../site/sections';
+
+type Entry = StarlightRouteData['sidebar'][number];
+
+const { sidebar } = Astro.locals.starlightRoute;
+const section = sectionOf(Astro.url.pathname);
+const hrefs = (e: Entry): string[] => (e.type === 'link' ? [e.href] : e.entries.flatMap(hrefs));
+const groups = section ? sidebar.filter((e) => hrefs(e).some((href) => sectionOf(href) === section)) : [];
+---
+
+<div class="site-frame">
+    <header class="site-frame__header" aria-label="Site"><slot name="header" /></header>
+    <div class="site-frame__body" data-has-tree={groups.length ? '' : undefined}>
+        <SiteNav section={section?.id} label={section?.label} hasTree={groups.length > 0}>
+            <SiteTree entries={groups} />
+        </SiteNav>
+        <div class="site-frame__main"><slot /></div>
+    </div>
+    <SiteFooter />
+</div>

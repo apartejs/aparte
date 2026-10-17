@@ -1,0 +1,189 @@
+---
+/**
+ * Search: a button in the header, the kit's dialog, and Pagefind's index behind it.
+ *
+ * The index is the one Starlight builds (`pagefind/`, from every page's `data-pagefind-body`);
+ * this only reads it, through Pagefind's own JS API, and only once the dialog first opens —
+ * the reader who never searches never downloads it. The rows are the kit's menu items:
+ * the page's title, then the passage that matched, with Pagefind's own `<mark>`s.
+ *
+ * Ctrl+K (⌘K on a Mac) and `/` open it from anywhere; the arrows move through the rows and
+ * Enter follows one. In `astro dev` there is no index — Pagefind runs after a build — so the
+ * dialog says so instead of searching nothing.
+ */
+import { closeIcon, searchIcon } from '@aparte/core/icons';
+---
+
+{/* Two openers, one shown at a time (site-frame.css): a field-shaped one with its shortcut
+    on a wide screen, an icon among the header's other icons on a phone. */}
+<button class="aparte-btn aparte-btn--surface aparte-btn--sm site-search__open" type="button" aria-haspopup="dialog" aria-controls="site-search" data-site-search-open>
+    <span class="site-search__glyph" set:html={searchIcon} />
+    <span>Search</span>
+    <kbd class="aparte-kbd site-search__keys" data-site-search-keys>Ctrl K</kbd>
+</button>
+<button class="aparte-btn aparte-btn--icon aparte-btn--ghost site-search__open-icon" type="button" aria-label="Search" aria-haspopup="dialog" aria-controls="site-search" data-site-search-open set:html={searchIcon} />
+
+<dialog class="aparte-dialog aparte-dialog--lg site-search" id="site-search" aria-label="Search the docs">
+    <div class="aparte-dialog__header site-search__header">
+        <span class="site-search__glyph" set:html={searchIcon} />
+        <input
+            class="aparte-field site-search__input"
+            type="search"
+            placeholder="Search the docs"
+            aria-label="Search the docs"
+            aria-controls="site-search-results"
+            aria-autocomplete="list"
+            autocomplete="off"
+            spellcheck="false"
+            data-site-search-input
+        />
+        <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-site-search-close set:html={closeIcon} />
+    </div>
+    <div class="aparte-dialog__body site-search__body">
+        <p class="site-search__status" role="status" data-site-search-status></p>
+        <div class="site-search__results" id="site-search-results" role="listbox" aria-label="Results" data-site-search-results></div>
+    </div>
+    <div class="aparte-dialog__footer site-search__footer" aria-hidden="true">
+        <span><kbd class="aparte-kbd">↑</kbd> <kbd class="aparte-kbd">↓</kbd> to move</span>
+        <span><kbd class="aparte-kbd">Enter</kbd> to open</span>
+        <span><kbd class="aparte-kbd">Esc</kbd> to close</span>
+    </div>
+</dialog>
+
+<script>
+    interface PagefindResult {
+        url: string;
+        meta: { title?: string };
+        excerpt: string;
+        sub_results?: { title: string; url: string; excerpt: string }[];
+    }
+    interface Pagefind {
+        options(o: Record<string, unknown>): Promise<void>;
+        debouncedSearch(q: string, o?: Record<string, unknown>, ms?: number): Promise<{ results: { data(): Promise<PagefindResult> }[] } | null>;
+    }
+
+    const dialog = document.getElementById('site-search') as HTMLDialogElement | null;
+    const input = dialog?.querySelector<HTMLInputElement>('[data-site-search-input]');
+    const list = dialog?.querySelector<HTMLElement>('[data-site-search-results]');
+    const status = dialog?.querySelector<HTMLElement>('[data-site-search-status]');
+
+    if (dialog && input && list && status) {
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+        if (isMac) for (const keys of document.querySelectorAll('[data-site-search-keys]')) keys.textContent = '⌘K';
+
+        let pagefind: Promise<Pagefind | null> | null = null;
+        const load = () =>
+            (pagefind ??= import(/* @vite-ignore */ `${import.meta.env.BASE_URL.replace(/\/$/, '')}/pagefind/pagefind.js`)
+                .then(async (module: Pagefind) => {
+                    await module.options({ excerptLength: 16 });
+                    return module;
+                })
+                .catch(() => null));
+
+        const rows = () => [...list.querySelectorAll<HTMLAnchorElement>('[role="option"]')];
+        const select = (row: HTMLAnchorElement | undefined) => {
+            for (const r of rows()) r.setAttribute('aria-selected', String(r === row));
+            if (row) {
+                input.setAttribute('aria-activedescendant', row.id);
+                row.scrollIntoView({ block: 'nearest' });
+            } else input.removeAttribute('aria-activedescendant');
+        };
+
+        const option = (id: string, url: string, title: string, excerpt: string, nested: boolean) => {
+            const a = document.createElement('a');
+            a.className = 'aparte-menu__item site-search__result';
+            if (nested) a.classList.add('site-search__result--section');
+            a.id = id;
+            a.href = url;
+            a.setAttribute('role', 'option');
+            a.setAttribute('aria-selected', 'false');
+            a.tabIndex = -1;
+            const body = document.createElement('span');
+            body.className = 'aparte-menu__body';
+            body.append(title);
+            const passage = document.createElement('span');
+            passage.className = 'aparte-menu__description';
+            // Pagefind escapes the page text itself and adds only its own <mark>s.
+            passage.innerHTML = excerpt;
+            body.append(passage);
+            a.append(body);
+            return a;
+        };
+
+        let asked = 0;
+        const run = async (query: string): Promise<void> => {
+            const ticket = ++asked;
+            if (!query.trim()) {
+                list.replaceChildren();
+                status.textContent = '';
+                return;
+            }
+            const engine = await load();
+            if (ticket !== asked) return;
+            if (!engine) {
+                status.textContent = import.meta.env.DEV
+                    ? 'No index in dev: Pagefind builds it with the site, so search works on the built site.'
+                    : 'Search could not load. Try again in a moment.';
+                return;
+            }
+            const found = await engine.debouncedSearch(query, {}, 120);
+            if (found === null || ticket !== asked) return;
+            const pages = await Promise.all(found.results.slice(0, 8).map((r) => r.data()));
+            if (ticket !== asked) return;
+            const nodes: HTMLElement[] = [];
+            pages.forEach((page, i) => {
+                nodes.push(option(`site-search-${i}`, page.url, page.meta.title ?? page.url, page.excerpt, false));
+                (page.sub_results ?? [])
+                    // The page's own title comes back as a section too (): it is the row above.
+                    .filter((sub) => sub.url !== page.url && !sub.url.endsWith('#_top'))
+                    .slice(0, 2)
+                    .forEach((sub, j) => nodes.push(option(`site-search-${i}-${j}`, sub.url, sub.title, sub.excerpt, true)));
+            });
+            list.replaceChildren(...nodes);
+            status.textContent = pages.length ? `${found.results.length} page${found.results.length === 1 ? '' : 's'}` : `Nothing matches “${query}”.`;
+            select(rows()[0]);
+        };
+
+        const openDialog = () => {
+            if (dialog.open) return;
+            dialog.showModal();
+            input.select();
+            void load();
+        };
+        for (const opener of document.querySelectorAll('[data-site-search-open]')) opener.addEventListener('click', openDialog);
+        dialog.querySelector('[data-site-search-close]')?.addEventListener('click', () => dialog.close());
+        // A click on the backdrop lands on the dialog element itself.
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) dialog.close();
+        });
+
+        input.addEventListener('input', () => void run(input.value));
+        input.addEventListener('keydown', (event) => {
+            const all = rows();
+            const at = all.findIndex((r) => r.getAttribute('aria-selected') === 'true');
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (all.length) select(all[(at + (event.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length]);
+            } else if (event.key === 'Enter' && at >= 0) {
+                event.preventDefault();
+                all[at]!.click();
+            }
+        });
+        list.addEventListener('mousemove', (event) => {
+            const row = (event.target as Element).closest<HTMLAnchorElement>('[role="option"]');
+            if (row && row.getAttribute('aria-selected') !== 'true') select(row);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            const typing = event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName));
+            if ((event.key === 'k' || event.key === 'K') && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                if (dialog.open) dialog.close();
+                else openDialog();
+            } else if (event.key === '/' && !typing && !dialog.open) {
+                event.preventDefault();
+                openDialog();
+            }
+        });
+    }
+</script>

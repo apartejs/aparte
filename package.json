@@ -7,7 +7,7 @@
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
     "prepare": "node scripts/install-hooks.mjs",
-    "gate": "pnpm check:lockfile && pnpm check:peer-ranges && pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm build && pnpm check:dist-freshness && pnpm test:coverage && pnpm check:coverage-floors && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:text-escaping && pnpm check:secure-context && pnpm check:segment-stamp && pnpm check:derived-vars && pnpm check:locale-keys && pnpm check:engine-consumer && pnpm check:doc-snippets && pnpm check:export-mentions && pnpm check:node-barrel-types && pnpm check:bundle-entries && pnpm check:event-map && pnpm check:frozen-surface && pnpm check:cross-refs && pnpm check:gate-in-ci && pnpm --filter @aparte-workspace/docs build && pnpm check:doc-links",
+    "gate": "pnpm check:lockfile && pnpm check:peer-ranges && pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm build && pnpm check:dist-freshness && pnpm test:coverage && pnpm check:coverage-floors && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:text-escaping && pnpm check:secure-context && pnpm check:segment-stamp && pnpm check:derived-vars && pnpm check:locale-keys && pnpm check:engine-consumer && pnpm check:doc-snippets && pnpm check:export-mentions && pnpm check:node-barrel-types && pnpm check:bundle-entries && pnpm check:event-map && pnpm check:frozen-surface && pnpm check:cross-refs && pnpm check:gate-in-ci && pnpm --filter @aparte-workspace/docs build && pnpm check:catalogue && pnpm check:doc-links && pnpm check:legacy-urls",
     "check:readmes": "node scripts/check-published-readmes.mjs",
     "check:node-import": "node scripts/check-node-import.mjs",
     "check:wrapper-slots": "node scripts/check-wrapper-slots.mjs",
@@ -45,7 +45,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-peer-ranges.mjs && node scripts/gen-root-changelog.mjs",
     "release": "pnpm prerelease-checks && pnpm -r --filter \"./packages/**\" run build && changeset publish --tag beta && node scripts/align-dist-tags.mjs && node scripts/tag-release.mjs",
-        "seo:indexnow": "node scripts/ping-indexnow.mjs",
+    "seo:indexnow": "node scripts/ping-indexnow.mjs",
     "prerelease-checks": "node scripts/prerelease-checks.mjs",
     "check:node-barrel-types": "node scripts/check-node-barrel-types.mjs",
     "check:bundle-entries": "node scripts/check-bundle-entries.mjs",
@@ -61,7 +61,9 @@
     "frozen:update": "node scripts/frozen-surface.mjs --write",
     "check:cross-refs": "node scripts/check-cross-refs.mjs",
     "check:gate-in-ci": "node scripts/check-gate-in-ci.mjs",
-    "check:coverage-floors": "node scripts/check-coverage-floors.mjs"
+    "check:coverage-floors": "node scripts/check-coverage-floors.mjs",
+    "check:catalogue": "node apps/docs/scripts/check-catalogue.mjs",
+    "check:legacy-urls": "node scripts/check-legacy-urls.mjs"
   },
   "devDependencies": {
     "@aparte/core": "workspace:*",

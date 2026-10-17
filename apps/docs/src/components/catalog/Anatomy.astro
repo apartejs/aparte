@@ -1,0 +1,78 @@
+---
+/**
+ * The anatomy of a component: the real component in a frame, its parts outlined and numbered, and
+ * under it a legend that names each number and leads to the section that documents it.
+ *
+ * The numbers are drawn inside the frame (`?anatomy=` on the demo document, see PreviewDocument),
+ * the words stay here: a reader can select them, follow them, and a screen reader reads them as
+ * the ordered list they are. The demo is one entry of src/data/demos/, so its Code view is the
+ * markup the frame runs.
+ */
+import PreviewFrame from '../PreviewFrame.astro';
+import { findDemo } from '../../data/demos';
+
+interface Part {
+    /** A selector for the part inside the demo; the first match is outlined. */
+    selector: string;
+    /** What the reader calls it. */
+    label: string;
+    /** Where it is documented: a section of this page or another page. */
+    href?: string;
+}
+
+interface Props {
+    /** The demo's id in src/data/demos/. */
+    demo: string;
+    parts: Part[];
+}
+
+const { demo: id, parts } = Astro.props;
+const demo = findDemo(id);
+if (!demo) throw new Error(`<Anatomy demo="${id}">: no such demo in src/data/demos/.`);
+const src = `/preview/demo/${demo.id}/?anatomy=${encodeURIComponent(JSON.stringify(parts.map((p) => p.selector)))}`;
+---
+
+<div class="anatomy">
+    <PreviewFrame src={src} label={demo.title} code={demo.html} />
+    <ol class="anatomy__legend not-content">
+        {parts.map((part) => <li>{part.href ? <a href={part.href}>{part.label}</a> : part.label}</li>)}
+    </ol>
+</div>
+
+<style>
+    .anatomy__legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--aparte-space-3) var(--aparte-space-7);
+        margin: var(--aparte-space-4) 0 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: part;
+        font-size: var(--aparte-font-size-sm);
+    }
+    .anatomy__legend li {
+        display: flex;
+        align-items: center;
+        gap: var(--aparte-space-3);
+        counter-increment: part;
+    }
+    .anatomy__legend a {
+        color: var(--aparte-text);
+        text-decoration-color: var(--aparte-primary);
+        text-underline-offset: 3px;
+    }
+    /* The same badge as the one drawn in the frame, so number and name read as a pair. */
+    .anatomy__legend li::before {
+        content: counter(part);
+        min-width: 1.25rem;
+        height: 1.25rem;
+        padding: 0 0.3rem;
+        border-radius: 999px;
+        background: var(--aparte-primary);
+        color: var(--aparte-text-inverse, #fff);
+        font-weight: 600;
+        font-size: 0.75rem;
+        line-height: 1.25rem;
+        text-align: center;
+    }
+</style>

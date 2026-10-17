@@ -1,74 +1,39 @@
 ---
-title: Use your own agent loop with a chat UI
-description: "Drive <aparte-chat> display-only from an agent loop you own (a backend, your own SSE) — appendMessage, injectTokenStream or segments (addSegment, appendToSegment, a tool_call per tool), and updateMessage to finish the turn; no AparteClient."
+title: Show a loop of your own in the chat
+description: Drive the chat from a loop that runs elsewhere — your backend, a worker, an Electron process — without AparteClient, streaming text, reasoning and tool calls into it.
 sidebar:
-  order: 12
-  label: Bring your own loop
+  order: 5
+  label: Your own loop
+guide:
+  group: agents
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
-Everything so far assumed `AparteClient` runs the agent loop in the page. But sometimes the loop
-lives **somewhere else**: a backend you fully own, a worker, or an Electron main process talking to
-a local model. The chat component then becomes **display-only** — your code pushes messages and
-tokens in, and aparté renders, streams, scrolls and brands them exactly as if the client were
-driving.
+When the loop lives somewhere else, the chat only shows it: your code puts messages and tokens in,
+and the chat draws, streams and scrolls them as it does for `AparteClient`. No client, no provider,
+no transport.
 
-No `AparteClient`, no provider, no transport. Two methods from the
-[imperative API](/frameworks/) (identical on all four wrappers) do all the work:
-
-- `appendMessage(message)` — add a message to the thread.
-- `injectTokenStream(messageId, tokens)` — stream an `AsyncIterable<string>` into a message,
-  token by token, with the live-streaming UI (cursor, auto-scroll). Resolves when the iterable
-  completes; `stopTokenStream()` cancels.
-
-:::note[Renderers install themselves]
-Rich replies are made of **segments** (text, thinking, code, tool calls…), and each
-one needs a renderer. Core installs its built-in set the first time a segment
-arrives, so this path needs no setup call — you'll see the real content, not
-`[Unknown segment type: text]`.
-
-This used to be a trap worth naming: `registerDefaultRenderers()` had exactly one
-caller, `new AparteClient()` — the object this page tells you not to construct. A
-display-only app got working bubbles, working streaming, working scroll, and no
-content, which reads as a bug in your own loop. If you're on an older version, call
-it once at startup:
-
-```ts
-import { registerDefaultRenderers } from '@aparte/core';
-registerDefaultRenderers();
-```
-
-Registering your own renderer for a type still wins — the built-in sweep only fills
-what nobody claimed. See [Custom segment types](/guides/customization/#custom-segment-types).
-:::
-
-## The pattern
-
-1. Listen to `onMessageSent` for the user's message and forward it to your loop. The user bubble
-   is appended **automatically** on send — don't add it yourself.
-2. When your loop starts answering, `appendMessage` an **empty assistant message** with a fresh id.
-3. `injectTokenStream(id, tokens)` with your token source.
+## Stream tokens in
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
 
-`injectTokenStream` is something the **wrappers** add: it is built on the chat host, not on
-any element. Driving the raw elements, the three steps are three viewport calls — which is
-the same loop, written out.
-
 {/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page */}
 ```ts
-const viewport = document.querySelector('aparte-chat-viewport')!;
+import { uuid } from '@aparte/core';
 
-document.addEventListener('aparte-send', async (event) => {
-  const id = crypto.randomUUID();
-  // Explicit append BEFORE streaming — see the caveat below.
+const chat = document.querySelector('aparte-chat')!;
+
+chat.addEventListener('aparte-send', async (event) => {
+  const viewport = chat.viewport!;
+  viewport.appendMessage({ id: uuid(), role: 'user', content: event.detail.content, timestamp: Date.now() });
+
+  const id = uuid();
   viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-  for await (const token of myAgentLoop(event.detail.content)) {
-    viewport.appendToken(id, token);
-  }
-  viewport.completeMessage(id);   // stops the streaming caret
+  for await (const token of myAgentLoop(event.detail.content)) viewport.appendToken(id, token);
+  viewport.completeMessage(id);
 });
 ```
 
@@ -79,27 +44,20 @@ document.addEventListener('aparte-send', async (event) => {
 ```tsx
 import { useCallback } from 'react';
 import { AparteChat, useAparteChat } from '@aparte/react';
+import { uuid } from '@aparte/core';
 import '@aparte/core/styles.css';
 
 export function Chat() {
   const chat = useAparteChat();
 
   const onMessageSent = useCallback(async (event: { content: string }) => {
-    const id = crypto.randomUUID();
-    // Explicit append BEFORE injecting — see the caveat below.
-    chat.ref.current?.appendMessage({
-      id, role: 'assistant', content: '', timestamp: Date.now(),
-    });
+    const id = uuid();
+    chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
     await chat.ref.current?.injectTokenStream(id, myAgentLoop(event.content));
   }, [chat.ref]);
 
   return (
-    <AparteChat
-      ref={chat.ref}
-      messages={chat.messages}
-      onMessagesChange={chat.setMessages}
-      onMessageSent={onMessageSent}
-    />
+    <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} onMessageSent={onMessageSent} />
   );
 }
 ```
@@ -110,25 +68,20 @@ export function Chat() {
 ```vue
 <script setup lang="ts">
 import { AparteChat, useAparteChat } from '@aparte/vue';
+import { uuid } from '@aparte/core';
 import '@aparte/core/styles.css';
 
 const chat = useAparteChat();
 
 async function onMessageSent(event: { content: string }) {
-  const id = crypto.randomUUID();
-  // Explicit append BEFORE injecting — see the caveat below.
+  const id = uuid();
   chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
   await chat.injectTokenStream(id, myAgentLoop(event.content));
 }
 </script>
 
 <template>
-  <AparteChat
-    :ref="chat.chatRef"
-    :messages="chat.messages.value"
-    @messages-change="chat.onMessagesChange"
-    @message-sent="onMessageSent"
-  />
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @message-sent="onMessageSent" />
 </template>
 ```
 
@@ -137,62 +90,47 @@ async function onMessageSent(event: { content: string }) {
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat } from '@aparte/svelte';
+  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
+  import { uuid } from '@aparte/core';
   import '@aparte/core/styles.css';
 
   const chat = createAparteChat();
   const { messages } = chat;
-  let comp: AparteChat | null = null;
+  let comp: AparteChatImperativeApi | null = null;
   $: chat.connect(comp);
 
-  async function onMessageSent(event: CustomEvent<{ content: string }>) {
-    const id = crypto.randomUUID();
-    // Explicit append BEFORE injecting — see the caveat below.
+  async function onMessageSent(event: { content: string }) {
+    const id = uuid();
     chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-    await chat.injectTokenStream(id, myAgentLoop(event.detail.content));
+    await chat.injectTokenStream(id, myAgentLoop(event.content));
   }
 </script>
 
-<AparteChat
-  bind:this={comp}
-  messages={$messages}
-  on:messagesChange={(e) => chat.onMessagesChange(e.detail)}
-  on:messageSent={onMessageSent}
-/>
+<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} onmessageSent={onMessageSent} />
 ```
 
 </TabItem>
 <TabItem label="Angular">
 
-The imperative API lives on the component instance, so it is reached with a `viewChild`
-rather than through a helper. `injectTokenStream` also accepts an RxJS `Observable<string>`
-here — the same call, in the shape Angular already speaks.
-
 {/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page */}
 ```ts
 import { Component, viewChild } from '@angular/core';
 import { AparteChatComponent } from '@aparte/angular';
+import { uuid } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail } from '@aparte/core';
 
 @Component({
   selector: 'app-chat',
   standalone: true,
   imports: [AparteChatComponent],
-  template: `
-    <aparte-chat
-      [messages]="messages"
-      (messagesChange)="messages = $event"
-      (messageSent)="onMessageSent($event)"
-    ></aparte-chat>
-  `,
+  template: `<aparte-chat [messages]="messages" (messagesChange)="messages = $event" (messageSent)="onMessageSent($event)"></aparte-chat>`,
 })
 export class ChatComponent {
   readonly chat = viewChild.required(AparteChatComponent);
   messages: AparteMessage[] = [];
 
   async onMessageSent(event: AparteSendEventDetail) {
-    const id = crypto.randomUUID();
-    // Explicit append BEFORE injecting — see the caveat below.
+    const id = uuid();
     this.chat().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
     await this.chat().injectTokenStream(id, myAgentLoop(event.content));
   }
@@ -202,80 +140,17 @@ export class ChatComponent {
 </TabItem>
 </Tabs>
 
-`myAgentLoop` is any `AsyncIterable<string>` — an async generator over a fetch stream, a model
-SDK, whatever produces tokens.
+`myAgentLoop` is any `AsyncIterable<string>`: an async generator over a fetch stream, a model's
+SDK, whatever produces tokens. The framework packages add the person's message when it is sent; in
+plain HTML, add it yourself, as above. Then add an empty assistant message, which shows the waiting
+dots until the first token, and stream into it: `injectTokenStream` in a framework, which also
+accepts an RxJS `Observable` in Angular, `appendToken` and `completeMessage` on the message list in
+plain HTML. Add the message before streaming into it: an id the framework does not know is kept by
+the message list alone, out of your `messages`. A new `injectTokenStream` cancels the one before, and
+`stopTokenStream()` cancels it; the source is closed, so a generator's `finally` runs. None of this
+sends the turn's events, so the send button stays Send: [Make Stop work](#make-stop-work) adds them.
 
-That empty assistant message from step 2 needs no `status`: an assistant message with no status
-and nothing in it *is* a reply on its way, so the bubble shows the [waiting
-indicator](/guides/customization/#the-waiting-state) and keeps its action bar away until the
-first token. As the stream runs, your framework's message list is kept in sync (once per frame),
-so `getMessages()`, persistence and a [custom bubble](/guides/customization/#custom-bubbles) all
-see the text — not just the DOM.
-
-:::caution[Append before injecting]
-If the `messageId` doesn't exist yet, the viewport auto-creates an empty assistant message — but
-only in its **internal** repo, not in your framework's message state. In a wrapper, always
-`appendMessage` explicitly first (step 2 above) so both stay in sync.
-:::
-
-:::caution[Attachments: only enable them if your loop consumes them]
-The default composer has **no** file picker; `attachments` adds it (see
-[Attachments](/guides/attachments/)). Leave it off unless your loop reads the files from the
-send event — `detail.files`, or `event.files` in the wrappers. Without an `AparteClient`
-nothing consumes them for you, so a loop that forwards only `content` **discards them
-silently** while the UI suggests they were sent. When you do handle them,
-`filesToAttachments(files)` turns them into the `attachments` your user bubble renders.
-:::
-
-Your own controls go **in** the composer, not in a bar below the chat: the toolbar row takes
-a mode picker, a model selector or a token counter. Driving the loop yourself is exactly the
-case where you have such controls — see
-[The composer toolbar](/guides/customization/#the-composer-toolbar).
-
-## Richer replies: segments instead of plain text
-
-`injectTokenStream` writes plain text into a message's `content`. For a thinking block,
-a tool call or anything the bubble renders as a typed block, stream **segments** instead:
-
-```ts
-chat.ref.current?.addSegment({ id: 'think-1', type: 'thinking', content: '' });
-for await (const chunk of reasoning) chat.ref.current?.appendToSegment('think-1', chunk);
-```
-
-`appendToSegment` writes each chunk straight into the bubble and syncs the framework's
-message list once per frame, so a fast local model costs roughly one render per frame
-rather than one per token — you don't need your own batching layer.
-
-:::note[Segments and `content` don't mix]
-As soon as a message has segments, the bubble stops rendering its plain `content`. So a
-message you filled with `injectTokenStream` can't also show a [`thinking`](/segments/thinking/) segment — give
-the answer its own [`text`](/segments/text/) segment if you need both in one message.
-:::
-
-:::caution[A segments-driven turn has to be finished]
-`injectTokenStream` marks the message complete when its iterable ends. Segments do not: a
-message you fill with `addSegment` / `appendToSegment` stays "a reply on its way" until you say
-otherwise — and while it does, the viewport carries `data-busy` and keeps the transcript
-read-only (branch pickers, retry and edit disabled), for good. End the turn yourself:
-
-```ts
-chat.updateMessage(id, { status: 'completed' });   // or 'error'
-```
-
-That one call also closes the segments still open (`isStreaming: false`, their `endedAt`).
-:::
-
-Two levels of the same call, not a contradiction: a wrapper's `chat.addSegment(segment)`,
-`updateSegment(id, patch)` and `appendToSegment(id, chunk)` always target the **last** message,
-while the raw viewport's `viewport.addSegment(messageId, segment)` and
-`viewport.updateSegment(messageId, segmentId, patch)` take the message id. Driving a wrapper,
-use the first — and don't append another message while a turn is still being written, or the
-next segment lands on the newcomer.
-
-## Push-based sources: the queue adapter
-
-`injectTokenStream` *pulls* from an iterable, but IPC-style sources *push* events at you
-(Electron `ipcRenderer`, WebSocket, `postMessage`). Bridge with a small async queue:
+## From a source that pushes
 
 ```ts
 function createTokenQueue() {
@@ -289,7 +164,7 @@ function createTokenQueue() {
       for (;;) {
         while (buffer.length) yield buffer.shift()!;
         if (done) return;
-        await new Promise<void>((r) => { notify = r; });
+        await new Promise<void>((resolve) => { notify = resolve; });
         notify = null;
       }
     },
@@ -297,260 +172,193 @@ function createTokenQueue() {
 }
 ```
 
-Wire it to the pushing side, hand `queue.stream()` to `injectTokenStream`:
+A WebSocket, an Electron bridge or `postMessage` pushes its tokens rather than being pulled: push
+them into the queue, call `end()` when the reply is done, and stream `queue.stream()` into the
+message.
 
+## Show reasoning and tool calls
+
+{/* doc-check: skip excerpt — `chat` is the framework ref above, `reasoning` your loop's stream */}
 ```ts
-// Your own bridge — an Electron preload, a WebSocket wrapper, whatever pushes tokens.
-declare const myBridge: {
-  onToken(cb: (token: string) => void): void;
-  onDone(cb: () => void): void;
-};
+const id = uuid();
+chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });   // the reply the parts go into
 
-const queue = createTokenQueue();
-myBridge.onToken((t) => queue.push(t));
-myBridge.onDone(() => queue.end());
+chat.addSegment({ id: 'think-1', type: 'thinking', content: '' });
+for await (const chunk of reasoning) chat.appendToSegment('think-1', chunk);
+chat.updateSegment('think-1', { isStreaming: false });
 
-chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-await chat.ref.current?.injectTokenStream(id, queue.stream());
+chat.addSegment({ id: 'call-1', type: 'tool_call', status: 'pending', toolCall: { id: 'tc-1', name: 'search', input: { q: 'pricing' } } });
+chat.updateSegment('call-1', { status: 'resolved', result: '3 pages found.' });
+
+chat.updateMessage(id, { status: 'completed' });   // or 'error': the turn is over
 ```
 
-Starting a new `injectTokenStream` cancels the previous one, and `stopTokenStream()` cancels
-explicitly (a stop button) — the source iterable is `return()`ed, so a generator's `finally`
-runs and can tear down the underlying request.
+A reply made of parts — reasoning, a tool call, an answer — is made of segments, each drawn by its
+renderer. On a framework chat, `addSegment`, `appendToSegment`, `updateSegment` and
+`removeSegment` act on the last message, so add the assistant message first: after a send, the
+last message is the person's. On the message list, the message is named first:
+`addSegment(messageId, segment)`, `appendToSegment(messageId, segmentId, chunk)`,
+`updateSegment(messageId, segmentId, patch)`. Once a message has segments, its plain `content` is
+no longer drawn: give the answer a `text` segment of its own.
 
-## Running aparté's own loop out of process
+A turn of segments does not end by itself: give it a final status with `updateMessage`, which also
+closes the segments still open. In plain HTML the transcript stays read-only until you do; on a
+framework chat it is read-only between `aparte-message-start` and the event that ends the turn.
 
-If the external loop is yours to write, you don't have to reinvent it:
-[`runStreamAgent` from `@aparte/engine`](/guides/engine/) is the exact agent loop core runs
-inline — headless, zero dependencies, no DOM. It runs fine in Node, a worker, or an Electron
-main process.
-
-On a **server**, you do not have to drive the chat display-only either:
-`createAparteAgentHandler` runs that loop next to your tools and `createAgentStreamRunner`
-plugs `AparteClient` into it, so tool rows, Stop, approvals across the network and browser
-tools come with it — see [Run the agent loop on your server](/guides/server-loop/). What
-follows is for a loop that is not aparté's.
-
-## The pieces core exports for this
-
-Driving your own loop means doing by hand what `AparteClient` does for you. These are
-exported so you do not have to reimplement them:
-
-| Export | What it does | When you want it |
-| --- | --- | --- |
-| `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, and the tagged blocks you registered (`blocks` option / `registerStreamBlock`) | You are feeding raw deltas and want the same rendering the client produces |
-| `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You want the segments in hand before they reach a bubble — to store them, inspect them, or edit them. Not to render: `appendMessage` and `setMessages` already split an assistant's markdown string this way |
-| `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
-| `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
-| `uuid` | An id that works on plain `http://` — `crypto.randomUUID` first, a cheap fallback where it does not exist | You generate message or host ids and your app also runs on a LAN address |
-| `copyText` | Copies to the clipboard on plain `http://` too — `navigator.clipboard` first, `execCommand('copy')` where it does not exist | You add a copy button of your own; core's three use it |
-| `registerAllComponents` | References all 24 element classes so a bundler cannot tree-shake their `customElements.define` away, then warns naming any tag that is still not in the registry | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
-| `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
-| `populateBubbleFromMessage` | Fills an [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
-| `parseAparteEventStream` | Reads the NDJSON wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
-
-Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:
+## Make Stop work
 
 ```ts
-import {
-  registerAllComponents,
-  AparteChatHost,
-  populateBubbleFromMessage,
-  parseAparteEventStream,
-  readableToAsyncIterable,
-  uuid,
-  type AparteMessage,
-} from '@aparte/core';
+import { uuid } from '@aparte/core';
+import type { AparteChatImperativeApi } from '@aparte/core';
 
-registerAllComponents();                       // safe to call more than once
+declare const chat: AparteChatImperativeApi;                    // the framework ref, as above
+declare function myAgentLoop(prompt: string): AsyncIterable<string>;
 
-// The host takes its binding up front: you own the message list, it drives the DOM.
+const host = document.getElementById('support-chat')!;          // the id you gave the chat component
+const lifecycle = (name: string, detail: object) =>
+  host.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: { targetId: host.id, ...detail } }));
+let stopped = false;
+
+async function onMessageSent(event: { content: string }) {
+  const id = uuid();
+  chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  stopped = false;
+  lifecycle('aparte-message-start', { messageId: id, role: 'assistant' });
+  try {
+    await chat.injectTokenStream(id, myAgentLoop(event.content));
+  } finally {
+    lifecycle(stopped ? 'aparte-message-aborted' : 'aparte-message-done', { messageId: id, role: 'assistant' });
+  }
+}
+
+window.addEventListener('aparte-abort', (event) => {
+  if (event.detail?.targetId && event.detail.targetId !== host.id) return;
+  stopped = true;
+  chat.stopTokenStream();
+});
+```
+
+The send button becomes Stop while a turn runs, and the turn is events you send:
+`aparte-message-start` turns the button to Stop, and `aparte-message-done`, `-error` or `-aborted`
+turns it back. Give the chat component an `id` — `<AparteChat id="support-chat" …>` — and send
+them on its element, bubbling, as above: the composer follows, and so does the
+[conversation manager](/guides/conversation-persistence/), which saves a reply when it ends. Stop
+sends `aparte-abort` on `window`, with the chat's `id` as `targetId`, for your loop to cancel. The
+[events reference](/reference/events/) types each detail.
+
+In plain HTML, the same events go on the `<aparte-chat>`, and the stream of the first example sits
+in the same `try`, its `completeMessage` in the `finally`:
+
+{/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which ends when its signal fires */}
+```ts
+import { uuid } from '@aparte/core';
+
 const chat = document.querySelector('aparte-chat')!;
-let messages: AparteMessage[] = [];
-let waiting = false;                            // your own wait indicator, e.g. a spinner
-const setWaiting = (on: boolean) => { waiting = on; };
+const lifecycle = (name: string, detail: object) =>
+  chat.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: { targetId: chat.id, ...detail } }));
+let controller = new AbortController();
 
-const host = new AparteChatHost({
-  hostId: uuid(),
-  host: chat,
-  viewport: chat.viewport,
-  getMessages: () => messages,
-  setMessages: (next) => { messages = next; },
-  // Required: run `cb` once your framework has painted. With no framework, the
-  // next frame is the honest answer — the host uses it to measure, not to poll.
-  afterRender: (cb) => void requestAnimationFrame(() => cb()),
-  onMessagesChange: (next) => void next,       // your framework's re-render
-  onLoadingChange: (on) => setWaiting(on),     // draw your own wait; the viewport's `loading` attribute is set either way
-});
-const release = host.bind();                   // returns its own unbind
-
-// Rendering a bubble yourself instead of letting the viewport own it:
-const bubble = document.createElement('aparte-chat-bubble');
-populateBubbleFromMessage(bubble, { id: 'a1', role: 'assistant', content: 'hi', timestamp: Date.now() });
-
-// Reading an aparté backend's NDJSON stream without AparteClient. Note the wrapper:
-// parseAparteEventStream returns a ReadableStream, and Chromium does not
-// async-iterate those — the signal is how a user's "stop" cuts the read.
-async function consume(body: ReadableStream<Uint8Array>, signal: AbortSignal) {
-  for await (const event of readableToAsyncIterable(parseAparteEventStream(body), signal)) void event;
-}
-void consume;
-
-release();
-```
-
-```ts
-import { AparteStreamParser, contentToText } from '@aparte/core';
-
-const parser = new AparteStreamParser();
-for (const delta of ['Here: ', '```', 'ts\n', 'const x = 1;\n', '```']) {
-  const { segments } = parser.parse(delta);
-  for (const segment of segments) void segment; // render as they complete
-}
-const trailing = parser.finalize();            // flush whatever is still buffered
-void trailing;
-
-void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
-```
-
-### Structure a reply without rendering it
-
-`parseMarkdownToSegments` is core's zero-dependency markdown structurer: a complete reply
-in, typed segments out — text, fenced code with its language, thinking blocks, and the
-block grammars you hand it. It reads no config of its own, so a grammar you registered
-with `registerStreamBlock` reaches it only through the `blocks` option. No plugin, no
-`marked`, no DOM. It is what you want *around* the chat: the code blocks a reply
-contained, a reply stored as structure rather than as a string, two replies diffed
-segment by segment.
-
-```ts
-import { aparteGlobalConfig, parseMarkdownToSegments, type AparteStreamParserOptions } from '@aparte/core';
-
-// The same options the streaming parser takes.
-const options: AparteStreamParserOptions = {
-  thinkingDelimiters: { start: '<think>', end: '</think>' },
-  blocks: aparteGlobalConfig.getStreamBlocks(),   // the grammars registered on the config
-};
-
-const segments = parseMarkdownToSegments('Here is the fix:\n\n```ts\nexport const x = 1;\n```\n', options);
-const code = segments.filter((segment) => segment.type === 'code');
-void code;
-```
-
-### Reasoning models: `thinkingDelimiters`
-
-By default the parser recognises `<think>…</think>` **and** `<thinking>…</thinking>`.
-Models that mark their reasoning differently need the delimiters spelled out — pass one
-pair, or several. Passing any **replaces** the defaults, so re-list the ones you still
-want:
-
-```ts
-import { AparteStreamParser } from '@aparte/core';
-import type { AparteThinkingDelimiterPair } from '@aparte/core';
-
-const pairs: AparteThinkingDelimiterPair[] = [
-  { start: '<think>', end: '</think>' },
-  { start: '<|begin_of_thought|>', end: '<|end_of_thought|>' },
-];
-
-const parser = new AparteStreamParser({ thinkingDelimiters: pairs });
-void parser;
-```
-
-Matched content becomes a `thinking` segment, which renders collapsed instead of as
-part of the reply. The delimiters are read on every path — while a reply streams and
-when a stored reply is loaded again — so a message that merely quotes `<think>` in its
-prose is read as reasoning too, and reasoning is not sent back to the model.
-
-:::note[Only on this path]
-`AparteClient` does not forward parser options today, so `thinkingDelimiters` is
-reachable only when you construct the parser yourself — that is, on this page's path.
-There is no response-side interceptor to rewrite the deltas on the way in either
-(`requestInterceptor` only touches the outgoing request). So if you use the client and
-your model marks reasoning with something other than `<think>` or `<thinking>`, the
-options are to normalise the delimiters in your transport before core sees them, or to
-drive the loop yourself as above.
-:::
-
-## Make the composer follow your turn
-
-The send button turns into **Stop** while `composer.streaming` is true, and that flag is
-not something you set: it follows four lifecycle events, filtered by `detail.targetId`.
-`AparteClient` dispatches them for you; a host with its own loop dispatches two of them
-itself — that is the whole contract:
-
-| Event | What the composer does |
-| --- | --- |
-| `aparte-message-start` | `streaming = true` — the button becomes Stop |
-| `aparte-message-done`, `aparte-message-error`, `aparte-message-aborted` | `streaming = false` — and an open elicitation panel is evicted |
-
-Dispatch them **on the chat host element, bubbling** — the `<aparte-chat>` (the Angular
-wrapper's tag too), or the `[data-aparte-chat]` element the React, Vue and Svelte wrappers
-render. That is what `AparteClient` does (`bubbles: true, composed: true`), and it is the one
-dispatch that reaches every reader: the composer and `<aparte-context>` listen on `window`,
-which a bubbling event reaches; the [conversation controller](/components/conversation/aparte-conversation-list/)
-and `AparteChatHost` (the wrappers' binding) listen on the host itself, which a `window`
-dispatch never reaches — so a host with its own loop that dispatched on `window` saw the button
-follow and the conversation list not. `targetId` is the host's `id`, which is also what the
-composer's `target` names; leave it out only on a page with one chat. Setting
-`status: 'streaming'` on the assistant bubble does nothing for the composer: the bubble and the
-button are two readers of the same turn, and the turn is the events.
-
-{/* doc-check: skip excerpt — `myAgentLoop` / `cancelMyLoop` are the reader's own loop */}
-```ts
-import type {
-  AparteAbortEventDetail,
-  AparteMessageAbortedEventDetail,
-  AparteMessageDoneEventDetail,
-  AparteMessageStartEventDetail,
-} from '@aparte/core';
-
-const host = document.querySelector<HTMLElement>('aparte-chat, [data-aparte-chat]')!;
-const targetId = host.id;
-const lifecycle = <T>(name: string, detail: T) =>
-  host.dispatchEvent(new CustomEvent<T>(name, { bubbles: true, composed: true, detail }));
-
-document.addEventListener('aparte-send', async (event) => {
-  const id = crypto.randomUUID();
-  lifecycle<AparteMessageStartEventDetail>('aparte-message-start', { targetId, messageId: id, role: 'assistant' });
+chat.addEventListener('aparte-send', async (event) => {
+  const viewport = chat.viewport!;
+  // …the person's message, added as in the first example
+  const id = uuid();
+  controller = new AbortController();
   viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-  for await (const token of myAgentLoop(event.detail.content)) viewport.appendToken(id, token);
-  viewport.completeMessage(id);
-  lifecycle<AparteMessageDoneEventDetail>('aparte-message-done', { targetId, messageId: id, role: 'assistant' });
+  lifecycle('aparte-message-start', { messageId: id, role: 'assistant' });
+  try {
+    for await (const token of myAgentLoop(event.detail.content, controller.signal)) viewport.appendToken(id, token);
+  } finally {
+    viewport.completeMessage(id);
+    lifecycle(controller.signal.aborted ? 'aparte-message-aborted' : 'aparte-message-done', { messageId: id, role: 'assistant' });
+  }
 });
 
-// The other direction. Stop dispatches `aparte-abort` on window — a command, not a
-// notification — scoped by `targetId`, so a page with two chats checks it. The composer
-// resets itself; the host-bound readers still need the turn closed on the host.
-window.addEventListener('aparte-abort', (e: CustomEvent<AparteAbortEventDetail>) => {
-  if (e.detail?.targetId && e.detail.targetId !== targetId) return;
-  cancelMyLoop();
-  lifecycle<AparteMessageAbortedEventDetail>('aparte-message-aborted', { targetId });
+window.addEventListener('aparte-abort', (event) => {
+  if (!event.detail?.targetId || event.detail.targetId === chat.id) controller.abort();
 });
 ```
 
-All four payloads are typed in the [events reference](/reference/events/), and the readers
-are the same ones `AparteClient` drives — dispatching on the host makes each of them follow
-your turn, not only the button.
+## Replay a stored conversation
+
+```ts
+import type { AparteChatImperativeApi, AparteMessage } from '@aparte/core';
+
+declare const chat: AparteChatImperativeApi;
+declare const stored: AparteMessage[];   // from your backend
+
+chat.clearMessages();
+for (const message of stored) chat.appendMessage(message, { historical: true });
+```
+
+A historical message is a record, not a turn: its segments are taken as they are and nothing on it
+streams, so a tool call saved while it ran does not come back spinning. In plain HTML,
+`viewport.setMessages(stored)` replaces the whole conversation the same way.
 
 ## What you give up
 
-Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in
-tool-approval flow, no retry/edit re-sending, no request building. Your loop owns those.
+The parts `AparteClient` drives do not run: no tool calls or approvals of its own, no retry or edit
+sending again, no request to build. The retry and edit buttons are off, and when you turn them on
+with `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` they only send
+`aparte-retry` and `aparte-edit`, which your loop answers as in
+[Conversations and branches](/guides/conversations-branching/#with-your-own-loop). Files the
+person attaches arrive on the send event, for your loop to read, as in
+[Attachments](/guides/attachments/#with-your-own-loop). `requestUserInput` still asks the person
+anything, from your code ([Ask the user a question](/guides/elicitation/)).
 
-Concretely, for retry and edit: the **buttons exist**, and clicking one emits `aparte-retry`
-/ `aparte-edit` and nothing else. Nobody re-sends, and on edit the editor closes and the
-original text comes back. That is why core ships both **off** — so a display-only
-integration shows no button it can't honour. Either handle those two events in your loop and
-switch them on:
+## The pieces core exports for this
 
 ```ts
-aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+import { aparteGlobalConfig, AparteStreamParser } from '@aparte/core';
+
+const parser = new AparteStreamParser({
+  blocks: aparteGlobalConfig.getStreamBlocks(),
+  thinkingDelimiters: [
+    { start: '<think>', end: '</think>' },
+    { start: '<|begin_of_thought|>', end: '<|end_of_thought|>' },
+  ],
+});
+
+for (const delta of ['Here: ', '```', 'ts\n', 'const x = 1;\n', '```']) {
+  const { segments } = parser.parse(delta);   // the segments each delta completes
+}
+parser.finalize();                             // and whatever is still buffered
 ```
 
-…or leave them off, which is the default and costs you nothing. Same story for the ⓘ details
-popover and the image-tile preview — see
-[What ships enabled](/guides/customization/#what-ships-enabled). For
-tool-call rows, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
-`updateSegment` (same imperative API) stream structured segments the same way
-`injectTokenStream` streams plain text.
+`AparteStreamParser` turns a model's text into segments as it streams — text, code fences,
+reasoning, and the tags registered with `aparteGlobalConfig.registerStreamBlock` when you pass
+them as its `blocks`, as above. Its reasoning delimiters replace the default `<think>` and
+`<thinking>`: list every pair you want. They are this parser's own: `AparteClient` reads the
+defaults, so a model that marks its reasoning another way needs this parser in a loop of yours, or
+a provider that sends the reasoning as its own events. The rest, each one line:
+
+- `parseMarkdownToSegments(text, options)` — the same, for a whole reply at once, to store or
+  inspect it.
+- `readableToAsyncIterable(events, signal)` — the event stream `parseAparteEventStream` returns,
+  as something you can `for await`, stopped by a signal.
+- `parseAparteEventStream(body)` — the stream a [backend transport](/guides/backend-transport/)
+  endpoint answers, read back into events.
+- `contentToText(content)` — the text of a message whose content has several parts.
+- `uuid()` and `copyText(text)` — an id and a copy that work on a plain `http://` address too,
+  where `crypto.randomUUID` does not.
+- `registerAllComponents()` — keeps every element in a bundle whose bundler drops side-effect
+  imports, and warns naming any tag that is not registered.
+- `populateBubbleFromMessage(bubble, message)` — a message element filled from a message.
+- `AparteChatHost` — what the framework packages bind to, for a framework of your own; the
+  [client reference](/reference/core/client/) has its binding.
+
+## aparté's loop, elsewhere
+
+If the loop is yours to write, `runStreamAgent` from [`@aparte/engine`](/guides/engine/) is the loop
+`AparteClient` runs — headless, with no DOM — in Node, a worker or an Electron process. On a server,
+[the server loop](/guides/server-loop/) runs it next to your tools and keeps the page's tool rows,
+Stop and approvals.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/engine/', title: 'The agent engine', line: 'The loop on its own, in any JavaScript runtime.' },
+        { href: '/guides/server-loop/', title: 'Run the loop on your server', line: 'The same loop, with the page drawing it.' },
+        { href: '/frameworks/', title: 'Frameworks', line: 'The chat in React, Vue, Svelte and Angular, and its ref.' },
+    ]}
+/>

@@ -1,0 +1,72 @@
+---
+title: Attachments
+description: Files a message carries — images shown as pictures, other files as their name and type — and the pending files in the composer before they are sent.
+catalog:
+  group: chat
+  order: 6
+  demos: [attachments, attachments-chat, composer-attachments]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="attachments" />
+
+A message can carry files. An image shows its picture; any other file shows a tile with its name
+and its type. They are the same tiles before sending, in the composer, and after, in the
+message.
+
+Attachments are opt-in, because the library only collects the files: reading them, uploading
+them or sending them to a model is your app's job. Until your app takes that job, the chat shows
+no attach button.
+
+## Variants
+
+### A chat that accepts files
+
+<Variant id="attachments-chat" />
+
+`attachments` on [`<aparte-chat>`](/components/chat/) adds the file picker and the pending files
+to the composer it composes. The files reach you on `aparte-send`, as `event.detail.files`, and
+`filesToAttachments()` turns them into what a message carries.
+
+### In the composer, before sending
+
+<Variant id="composer-attachments" />
+
+In a composer you assemble yourself, `<aparte-composer-add-attachment>` opens the picker and
+accepts drops, and `<aparte-composer-attachments>` shows what is waiting. See
+[Composer](/components/composer/).
+
+## Usage
+
+```ts
+import { filesToAttachments } from '@aparte/core';
+import type { AparteSendEventDetail } from '@aparte/core';
+
+const chat = document.querySelector('aparte-chat')!;
+chat.addEventListener('aparte-send', (e) => {
+  const { files = [] } = (e as CustomEvent<AparteSendEventDetail>).detail;
+  const attachments = filesToAttachments(files); // what a message carries
+});
+```
+
+A message from your store sets them with `bubble.setAttachments()`, or the `attachments` field
+of the message you append.
+
+## Customize
+
+Clicking an image can open it full size: declare it with
+`aparteGlobalConfig.setHostHandlers({ attachmentPreview: true })` and open your own lightbox on
+`aparte-attachment-preview`. Until you declare it, the tile is not a button. To draw the tiles
+yourself, `setAttachmentRenderer()` replaces them.
+
+## Accessibility
+
+- An image tile becomes a keyboard-reachable button only when your app opens previews.
+- The remove button on a pending file is named after the file.
+
+## Related
+
+- [Composer](/components/composer/) — where files are picked and dropped.
+- [Thumbnail](/components/thumbnail/) — the kit recipe the tiles wear.
+- [Attachments guide](/guides/attachments/) — the full flow, upload included.

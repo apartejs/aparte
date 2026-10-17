@@ -1,0 +1,41 @@
+---
+title: Accordion
+description: Stacked sections, each a header you press and the panel it reveals, on native details or the ARIA disclosure pattern.
+catalog:
+  group: kit
+  order: 18
+  claims:
+    classes: [accordion]
+  demos: [kit-accordion]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/accordion.classes.mdx';
+import Vars from '../../../generated/api/kit/accordion.vars.mdx';
+
+<Variant id="kit-accordion" />
+
+A column of items, each a header and the panel it reveals. The header can be a native `<summary>`
+inside `<details>`, and then the browser opens and closes it, or a `<div role="button"
+aria-expanded>`, and then your code does. The chevron turns when the item is open, either way.
+The chat's [reasoning](/components/reasoning/) block is an accordion item on `<details>`.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- `<details>` and `<summary>` need nothing more: they are keyboard-operable and announce whether
+  they are open.
+- With `role="button"`, keep `aria-expanded` in step with the panel, and make the header
+  focusable with `tabindex="0"` and Enter or Space.
+
+## Related
+
+- [Tabs](/components/tabs/) — one section at a time, side by side.
+- [Reasoning](/components/reasoning/) — a disclosure in a reply.

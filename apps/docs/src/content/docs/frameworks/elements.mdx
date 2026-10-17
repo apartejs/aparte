@@ -1,0 +1,279 @@
+---
+title: Place any aparté element, typed, in your framework
+description: Put a single element — a select, the conversation list, a composer of your own — in React, Vue, Svelte or Angular, its attributes and events checked by your compiler, and type an element of your own the same way.
+sidebar:
+  order: 6
+  label: Elements, typed
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
+
+## Place an element
+
+<Tabs syncKey="framework">
+<TabItem label="React">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+<aparte-select ref={select} searchable="" placeholder="Pick a model">
+  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+</aparte-select>
+
+// events are read by ref, typed through the DOM
+useEffect(() => {
+  const el = select.current;
+  const onChange = (e: HTMLElementEventMap['aparte-select-change']) => pick(e.detail.value);
+  el?.addEventListener('aparte-select-change', onChange);
+  return () => el?.removeEventListener('aparte-select-change', onChange);
+}, []);
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<aparte-select placeholder="Pick a model" searchable="" @aparte-select-change="(e) => pick(e.detail.value)">
+  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+</aparte-select>
+```
+
+Tell Vue's compiler these tags are custom elements:
+`vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('aparte-') } } })`
+in `vite.config.ts`, or `vue.compilerOptions.isCustomElement` in `nuxt.config.ts`.
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<aparte-select placeholder="Pick a model" searchable="" on:aparte-select-change={(e) => pick(e.detail.value)}>
+  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+</aparte-select>
+```
+
+In Svelte 5's runes mode, write the event as an attribute and type it yourself:
+`onaparte-select-change={(e: CustomEvent<AparteSelectChangeDetail>) => pick(e.detail.value)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { APARTE_ELEMENT_DIRECTIVES } from '@aparte/angular';
+
+@Component({
+  selector: 'app-picker',
+  standalone: true,
+  imports: [...APARTE_ELEMENT_DIRECTIVES],
+  template: `
+    <aparte-select searchable placeholder="Pick a model" (selectChange)="pick($event.value)">
+      <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+    </aparte-select>
+  `,
+})
+export class PickerComponent {
+  pick(value: string) { console.info(value); }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Importing a wrapper types every element of core in that framework: JSX intrinsics in React,
+`GlobalComponents` in Vue, `SvelteHTMLElements` in Svelte. The attribute names are the HTML ones and
+a wrong value is a compile error; the events are typed through the DOM, since `@aparte/core`
+augments `HTMLElementEventMap`, so a handler's `e.detail` has the event's own type where the
+framework reads that map.
+
+In Angular, each element has a standalone directive whose selector is its tag —
+`Aparte<Element>Directive`, all of them in `APARTE_ELEMENT_DIRECTIVES` — so the template is checked
+without `CUSTOM_ELEMENTS_SCHEMA`, inputs take a `boolean`, and outputs emit the event's detail.
+`<aparte-chat>` has none: `AparteChatComponent` is that tag. Each
+[component page](/components/) shows its element in the four frameworks.
+
+## Presence attributes
+
+```ts
+import type { AparteAttrValue, AparteSelectAttributes, AparteTemplateAttrs } from '@aparte/core';
+
+type InATemplate = AparteTemplateAttrs<AparteSelectAttributes>;
+//   searchable?: '' | null | undefined
+//   placeholder?: string
+type Presence = AparteAttrValue<boolean>;   // '' | null | undefined
+```
+
+An aparté element reacts to an attribute being there, not to a property's value. In React, Vue
+and Svelte a presence attribute is typed `'' | null | undefined`: write `''` to set it and `null`
+or `undefined` to remove it, never `false`. A few are on unless told otherwise —
+`submit-on-enter`, `multiple` — and take `'false'` as well, the one value that turns them off.
+Angular's directives take a `boolean`, and write or remove the attribute for you.
+`AparteTemplateAttrs` turns any attribute interface into that template spelling, for an
+integration of your own.
+
+## The types you can import
+
+```ts
+import type { AparteElementAttributes, AparteElementTagName } from '@aparte/core';
+
+type SidebarAttrs = AparteElementAttributes['aparte-sidebar'];
+type EveryTag = AparteElementTagName;   // 'aparte-chat' | 'aparte-select' | …
+```
+
+`AparteElementAttributes` maps each of core's tags to its attributes, keyed by
+`AparteElementTagName`: index it for any element. Most interfaces are exported by name too —
+`AparteChatAttributes`, `AparteChatViewportAttributes`, `AparteChatBubbleAttributes`,
+`AparteChatStatusAttributes`, `AparteComposerAttributes`, `AparteComposerInputAttributes`,
+`AparteComposerActionAttributes`, `AparteComposerAddAttachmentAttributes`,
+`AparteComposerToolbarAttributes`, `AparteConversationListAttributes`, `AparteSelectAttributes`,
+`AparteOptionAttributes`, `AparteOptgroupAttributes`, `AparteProgressSpinnerAttributes` — and
+`AparteNoAttributes` types the elements that observe none.
+
+## Your own element, or a plugin's
+
+Core types its own elements only: an element is typed by whoever owns it. A plugin ships its
+bindings — `import '@aparte/plugin-model-selector/react'`, or `/vue`, `/svelte`, `/angular`, types
+the [model selector](/components/model-selector/) — and an element of yours is typed through one of
+two mechanisms.
+
+### React, Vue and Svelte: type the tag from your own package
+
+<Tabs syncKey="framework">
+<TabItem label="React">
+
+{/* doc-check: skip augments 'react', a module the snippet compiler does not load */}
+```ts
+import type * as React from 'react';
+import type { AparteTemplateAttrs } from '@aparte/core';
+
+interface MyWidgetAttributes { label?: string; compact?: boolean }
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'my-widget': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & AparteTemplateAttrs<MyWidgetAttributes>;
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+{/* doc-check: skip augments 'vue', which the snippet compiler has no resolution for */}
+```ts
+import type { AparteTemplateAttrs } from '@aparte/core';
+
+interface MyWidgetAttributes { label?: string; compact?: boolean }
+
+declare module 'vue' {
+  interface GlobalComponents {
+    'my-widget': import('vue').DefineComponent<AparteTemplateAttrs<MyWidgetAttributes>>;
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+{/* doc-check: skip augments 'svelte/elements', which the snippet compiler has no resolution for */}
+```ts
+import type { HTMLAttributes } from 'svelte/elements';
+import type { AparteTemplateAttrs } from '@aparte/core';
+
+interface MyWidgetAttributes { label?: string; compact?: boolean }
+
+declare module 'svelte/elements' {
+  interface SvelteHTMLElements {
+    'my-widget': HTMLAttributes<HTMLElement> & AparteTemplateAttrs<MyWidgetAttributes> & {
+      'on:my-widget-change'?: (e: CustomEvent<{ value: string }>) => void;
+    };
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+The three learn a tag through module augmentation, from a `.d.ts` of your own package, the
+framework's own HTML attributes beside yours. For an event, augment `HTMLElementEventMap` with its
+detail type: React reads it by ref and Angular through your directive's output, both typed from
+that map, and Svelte from the `on:` entry above.
+
+### Angular: a directive of your own
+
+```ts
+import { Directive, ElementRef, Input, booleanAttribute, inject } from '@angular/core';
+import { applyElementProps } from '@aparte/core';
+
+@Directive({ selector: 'my-widget', standalone: true })
+export class MyWidget {
+  private readonly host = inject(ElementRef<HTMLElement>);
+  @Input() set label(v: string | undefined) { this.write('label', v); }
+  @Input({ transform: booleanAttribute }) set compact(v: boolean) { this.write('compact', v); }
+  private write(name: string, value: unknown): void {
+    applyElementProps(this.host.nativeElement, { [name]: value });
+  }
+}
+```
+
+`applyElementProps` is core's rule for writing a value to an element — an attribute, a presence
+attribute or a property — which is what makes `compact` land as `compact=""` and `false` remove
+it. A hyphenated tag nothing defines mounts empty and upgrades when its definition arrives, so the
+types promise a shape, not a definition: import the package that defines the element.
+
+For a one-off with no types, `AparteUi` — `<aparte-ui>`, `AparteUiComponent`, in Angular — mounts
+any element by name and sets its `props`. It forwards core's events only, so name your element's
+own in `events`: `<AparteUi name="my-widget" props={{ label: 'Hi' }} events={['my-widget-change']}
+onElementEvent={log} />`. A ref to it is an `AparteUiHandle`: `getElement()` returns the element,
+and `callMethod(name, ...args)` calls one of its methods.
+
+## On the server
+
+```ts
+// Same specifier: under the `node` condition, the entry without elements.
+const { AparteClient, createAparteChatHandler, contentToText } = await import('@aparte/core');
+```
+
+A custom element needs a DOM, and importing `@aparte/core` on a server is fine all the same: the
+`node` export condition resolves the same specifier to an entry without elements, in Node, an
+Electron main process or a server render — Next, Nuxt, SvelteKit, Angular. It keeps the client, the
+chat host, the transports and the server handlers, the conversations and messages, the config, the
+parsers and every type; it has no elements, and `registerAllComponents()` does nothing there. A
+Worker or an edge runtime takes the browser entry instead, which needs a DOM, and fails to import
+it: run code that imports `@aparte/core` on a Node runtime.
+
+| Wrapper | On a server |
+| --- | --- |
+| React | `'use client'` lets a Server Component render it; its server render imports the entry without elements, and they upgrade in the browser |
+| Angular | `provideAparte` starts the client only in a browser; render the chat in a `@defer` block |
+| Vue | nothing: under Nuxt, render the chat on the client only |
+| Svelte | nothing: under SvelteKit, render the chat on the client only |
+
+## Testing your components
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    alias: [{ find: /^@aparte\/core$/, replacement: '@aparte/core/browser' }],
+  },
+});
+```
+
+A test runner on Node takes the `node` condition, so no element upgrades: under jsdom,
+`document.createElement('aparte-chat')` is a plain `HTMLElement`. `@aparte/core/browser` is the
+entry with the elements in it. Alias the bare specifier to it with a regular expression, as above,
+so `@aparte/core/icons` and `@aparte/core/styles.css` keep their own paths. Call
+`registerAllComponents()` in your setup file to be told when the alias is missing: it warns.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/', title: 'Components', line: 'Every element, with its attributes and events in the four frameworks.' },
+        { href: '/frameworks/', title: 'Frameworks', line: 'The chat component in React, Vue, Svelte and Angular.' },
+    ]}
+/>

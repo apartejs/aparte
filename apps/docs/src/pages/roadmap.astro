@@ -77,8 +77,9 @@ const CSS_CLASSES = count(() => {
     const md = readFileSync(at('apps/docs/src/content/docs/reference/classes.mdx'), 'utf8');
     return new Set(md.match(/`\.?aparte-[a-z0-9_-]+`/g) ?? []).size;
 }, 350);
+// From the generator's data, not its pages: a family claimed by the catalogue has no kit page.
 const KIT_FAMILIES = count(() =>
-    readdirSync(at('apps/docs/src/content/docs/kit/')).filter((f) => f.endsWith('.mdx') && f !== 'index.mdx').length, 25);
+    (JSON.parse(readFileSync(at('apps/docs/src/generated/api/kit.json'), 'utf8')) as unknown[]).length, 25);
 const PLUGINS = count(() =>
     readdirSync(at('packages/plugins/'), { withFileTypes: true }).filter((e) => e.isDirectory()).length, 9);
 
@@ -144,7 +145,6 @@ const ROADMAP_IMAGE_ALT =
   canonical="https://apartejs.dev/roadmap/"
   ogImage="https://apartejs.dev/og/roadmap.png"
   ogImageAlt={ROADMAP_IMAGE_ALT}
-  current="roadmap"
 >
       <div class="rd">
         <header class="rd-head">
@@ -308,7 +308,7 @@ const ROADMAP_IMAGE_ALT =
                 <h3>On the site, and on the project</h3>
                 <ul>
                   <li>A live demo per <a href="/guides/layout/">layout family</a>: reading column, feed, builder split, side panel, empty state, an artifact in a pane.</li>
-                  <li>A <a href="/kit/button/">UI kit</a> section &#8212; twenty-five families, live preview first.</li>
+                  <li>A <a href="/components/button/">UI kit</a> section &#8212; twenty-five families, live preview first.</li>
                   <li>The <a href="/components/">components</a> grouped by purpose: conversation, input, shell, utility.</li>
                   <li>The <a href="/compare/">compare</a> page, and the <a href="/reference/support/">support matrix</a>.</li>
                   <li><code>SECURITY.md</code>, and <code>main</code> protected.</li>

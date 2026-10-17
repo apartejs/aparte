@@ -1,0 +1,39 @@
+---
+title: 'Chatbot UI Components'
+description: 'Every component for an AI chat and its agents — the conversation, the layout around it, and a kit for the rest of the app — each shown live.'
+sidebar:
+  order: 0
+  label: Overview
+---
+
+import CatalogueCount from '../../../components/catalog/CatalogueCount.astro';
+import CatalogueGrid from '../../../components/catalog/CatalogueGrid.astro';
+
+<CatalogueCount />
+
+Each one is shown running below, and each page has its variants, its code and its API. The chat's
+pieces are custom elements and segments: they work in plain HTML and in every framework. The kit
+is plain CSS classes for the controls your own page puts around the chat, themed by the same
+variables.
+
+## Chat
+
+The conversation and everything in it: messages, replies, tools, questions, approvals, and the
+composer.
+
+<CatalogueGrid group="chat" />
+
+## Layout
+
+The page around a chat: the shell, its header and sidebar, the list of conversations, a split.
+
+<CatalogueGrid group="layout" />
+
+## Kit
+
+Buttons, fields, menus, dialogs and the rest, as plain classes on plain elements.
+
+<CatalogueGrid group="kit" />
+
+Looking for a tag rather than a picture? [Every element](/components/elements/), by tag, links to
+its page; [every segment type](/segments/) and [every kit family](/kit/) too.

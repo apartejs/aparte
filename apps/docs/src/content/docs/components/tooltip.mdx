@@ -1,0 +1,44 @@
+---
+title: Tooltip
+description: A short label with an arrow, beside the control it describes, legible over any background in either theme.
+catalog:
+  group: kit
+  order: 22
+  claims:
+    classes: [tooltip]
+  demos: [kit-tooltip]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/tooltip.classes.mdx';
+import Vars from '../../../generated/api/kit/tooltip.vars.mdx';
+
+<Variant id="kit-tooltip" />
+
+`.aparte-tooltip` is a short label in a dark chip with an arrow. Its colours are fixed rather
+than themed, on purpose: it has to stay legible over whatever it covers, a bright image or a dark
+code block, in either theme.
+
+Wrap the trigger and the tooltip in `.aparte-tooltip-anchor` and set `data-side` (`top`,
+`bottom`, `start` or `end`): the tooltip sits on that side, `--aparte-tooltip-gap` away, with its
+arrow turned to match. Showing it on hover and focus is your script's or your CSS's, and so is
+keeping it on screen near an edge. It never catches the pointer itself.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Give the tooltip `role="tooltip"` and an id, and point the trigger at it with
+  `aria-describedby`; show it on focus as well as on hover, and hide it on Escape.
+- A tooltip is a hint: anything the reader must know belongs in the page.
+
+## Related
+
+- [Popover](/components/popover/) — a floating box you can act in.
+- [Button](/components/button/) — the icon buttons tooltips usually describe.

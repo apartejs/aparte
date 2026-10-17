@@ -222,8 +222,20 @@ jobs:
       - name: Build the docs site
         run: pnpm --filter @aparte-workspace/docs build
 
+      # The catalogue is written by hand and grouped by what a person sees; each page claims
+      # what it documents, and this holds what the generators used to guarantee by
+      # construction: every element, segment and kit family has exactly one page.
+      - name: Check every component has its catalogue page
+        run: pnpm check:catalogue
+
       - name: Check internal links and anchors
         run: pnpm check:doc-links
+
+      # Outside links (npm homepages, READMEs, JSDoc in published .d.ts) cannot be edited.
+      # Every URL the site ever published, and the anchors those links carry, must still
+      # lead to a page — the same one, or the one that replaced it.
+      - name: Check every published URL still leads somewhere
+        run: pnpm check:legacy-urls
 
       # CLAUDE.md requires a changeset for any package with an API or CSS change,
       # and nothing enforced it. In a `fixed` lockstep group a missing changeset does

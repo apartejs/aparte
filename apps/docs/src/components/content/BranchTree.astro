@@ -1,0 +1,129 @@
+---
+/**
+ * A conversation as the tree it is: one message, and the versions of its reply under it,
+ * the one on screen marked. A nested list, so a screen reader hears the same structure the
+ * lines draw, and it wraps at any width instead of shrinking like a drawing would.
+ */
+interface Version {
+    text: string;
+    note: string;
+    shown?: boolean;
+}
+
+interface Props {
+    question: string;
+    versions: Version[];
+    caption: string;
+}
+
+const { question, versions, caption } = Astro.props;
+---
+
+<figure class="site-branches not-content">
+    <ol class="site-branches__list" role="list">
+        <li>
+            <span class="site-branches__node site-branches__node--you"><span class="site-branches__who">You</span>{question}</span>
+            <ol class="site-branches__children" role="list">
+                {
+                    versions.map((v) => (
+                        <li>
+                            <span class:list={['site-branches__node', v.shown ? 'site-branches__node--shown' : 'site-branches__node--kept']}>
+                                <span class="site-branches__who">Assistant</span>
+                                {v.text}
+                            </span>
+                            <span class:list={['site-branches__note', v.shown && 'site-branches__note--shown']}>{v.note}</span>
+                        </li>
+                    ))
+                }
+            </ol>
+        </li>
+    </ol>
+    <figcaption class="site-branches__caption">{caption}</figcaption>
+</figure>
+
+<style>
+    .site-branches {
+        margin: 1.25rem 0 0;
+    }
+    .site-branches ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .site-branches li {
+        margin: 0;
+    }
+    .site-branches__node {
+        display: inline-block;
+        max-inline-size: 34rem;
+        padding: 0.5rem 0.875rem;
+        border: 1px solid var(--aparte-border);
+        border-radius: var(--aparte-radius-md);
+        background: var(--aparte-surface-1);
+        color: var(--aparte-text);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .site-branches__node--you {
+        background: var(--aparte-message-content-bg-user);
+    }
+    .site-branches__node--kept {
+        border-style: dashed;
+        color: var(--aparte-text-muted);
+    }
+    .site-branches__node--shown {
+        border-color: var(--aparte-primary);
+    }
+    .site-branches__who {
+        margin-inline-end: 0.5rem;
+        font-weight: var(--aparte-font-weight-semibold);
+    }
+    .site-branches__children {
+        display: grid;
+        gap: 0.75rem;
+        margin-inline-start: 1.25rem;
+        padding-block-start: 0.75rem;
+    }
+    .site-branches__children > li {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.75rem;
+        padding-inline-start: 1.75rem;
+    }
+    /* The elbow: down from the message above, then across to this version. */
+    .site-branches__children > li::before {
+        content: '';
+        position: absolute;
+        inset-inline-start: 0;
+        top: -0.75rem;
+        block-size: calc(0.75rem + 1.16rem);
+        inline-size: 1.25rem;
+        border-inline-start: 1.5px solid var(--aparte-border);
+        border-block-end: 1.5px solid var(--aparte-border);
+        border-end-start-radius: var(--aparte-radius-sm);
+    }
+    /* The trunk, carried past this version to the next one. */
+    .site-branches__children > li:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        inset-inline-start: 0;
+        top: 0;
+        bottom: -0.75rem;
+        border-inline-start: 1.5px solid var(--aparte-border);
+    }
+    .site-branches__note {
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+    }
+    .site-branches__note--shown {
+        color: var(--aparte-primary-ink);
+        font-weight: var(--aparte-font-weight-semibold);
+    }
+    .site-branches__caption {
+        margin-block-start: 0.75rem;
+        color: var(--aparte-text-muted);
+        font-size: 0.8125rem;
+    }
+</style>

@@ -1,0 +1,25 @@
+---
+/** One level of a page's outline. */
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+
+type Item = NonNullable<StarlightRouteData['toc']>['items'][number];
+
+interface Props {
+    items: Item[];
+}
+
+const { items } = Astro.props;
+---
+
+<ul class="site-toc__list">
+    {
+        items.map((item) => (
+            <li>
+                <a class="site-toc__link" href={`#${item.slug}`} data-toc-slug={item.slug}>
+                    {item.text}
+                </a>
+                {item.children.length > 0 && <Astro.self items={item.children} />}
+            </li>
+        ))
+    }
+</ul>
