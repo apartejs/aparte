@@ -13,7 +13,7 @@ export const fr: AparteLocale = {
     copy: "Copier",
     copied: "Copié !",
     retry: "Réessayer",
-    thinking: "Réflexion en cours...",
+    thinking: "Réflexion",
     elicitationOther: "Autre…",
     elicitationOtherPlaceholder: "Écrivez votre réponse…",
     elicitationOtherLabel: "Réponse libre",

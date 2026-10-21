@@ -41,8 +41,10 @@ export type AparteLocale = {
     retry: string;
 
     // --- Status Indicators ---
+    /** The label of a reasoning block, live or settled (default: "Thinking") */
     thinking: string;
-    typing: string; // Core status: "Typing..."
+    /** What the status line says while a reply is being written, when it carries no `text` (default: "Typing") */
+    typing: string;
     error: string;
     running: string; // Terminal running state
 
@@ -462,7 +464,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     copy: "Copy",
     copied: "Copied!",
     retry: "Retry",
-    thinking: "Thinking...",
+    thinking: "Thinking",
     elicitationOther: "Other…",
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
@@ -502,7 +504,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     code: "Code",
     generating: "Generating…",
     rebuildingPreview: "Rebuilding preview…",
-    typing: "Typing...",
+    typing: "Typing",
     error: "Error",
     running: "Running...",
     run: "Run",

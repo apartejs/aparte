@@ -85,6 +85,11 @@ export class AparteChatStatus extends HTMLElement {
     return resolveConfig(this);
   }
 
+  /** The word said when no `text` is set: the locale's `typing`, never an English literal. */
+  private _word(): string {
+    return this._cfg.t('typing');
+  }
+
   constructor() {
     super();
   }
@@ -161,7 +166,7 @@ export class AparteChatStatus extends HTMLElement {
   }
 
   private _render(): void {
-    const text = this.getAttribute('text') || 'Typing';
+    const text = this.getAttribute('text') || this._word();
     const visible = this.hasAttribute('visible');
 
     // Re-entrancy check
@@ -248,7 +253,7 @@ export class AparteChatStatus extends HTMLElement {
     const srEl = this.querySelector('.aparte-status-sr');
     if (!srEl) return;
     const dotsOnly = !this.getAttribute('text');
-    srEl.textContent = dotsOnly && this.hasAttribute('visible') ? 'Typing' : '';
+    srEl.textContent = dotsOnly && this.hasAttribute('visible') ? this._word() : '';
   }
 
   private _updateVisibility(visible: boolean): void {
@@ -266,7 +271,7 @@ export class AparteChatStatus extends HTMLElement {
     // Removing the attribute restores the dots-only default (no visible text, the
     // fallback word in the live region); the aria-label always keeps an accessible name.
     this._writeText(text);
-    container.setAttribute('aria-label', text || 'Typing');
+    container.setAttribute('aria-label', text || this._word());
   }
 }
 

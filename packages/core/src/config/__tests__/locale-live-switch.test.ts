@@ -96,7 +96,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
 
     it('re-labels the waiting indicator a screen reader is reading right now', () => {
         const bubble = mount('aparte-chat-bubble', { 'data-role': 'assistant', 'message-id': 'a3', streaming: '' });
-        expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Typing...');
+        expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Typing');
 
         aparteGlobalConfig.setLocale(FR);
 

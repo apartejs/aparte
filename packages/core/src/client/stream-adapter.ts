@@ -146,7 +146,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         type: 'thinking',
                         content: thinkingContent,
                         collapsed: true,
-                        label: 'Thinking',
                     };
                     thinkingId = seg.id;
                     streaming.add(seg.id);

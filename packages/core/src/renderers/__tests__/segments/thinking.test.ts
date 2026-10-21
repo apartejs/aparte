@@ -40,7 +40,7 @@ describe('default renderer: thinking (extra)', () => {
     it('falls back to the locale "thinking" string when no label is given', () => {
         const renderer = getSegmentRenderer('thinking')!;
         const html = renderer.render({ id: 't1', type: 'thinking', content: 'x' } as any);
-        expect(html).toContain('<span class="aparte-thinking-label">Thinking...</span>');
+        expect(html).toContain('<span class="aparte-thinking-label">Thinking</span>');
     });
 
     it('uses a custom label verbatim (escaped) when provided', () => {
