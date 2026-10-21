@@ -268,6 +268,25 @@ describe('AparteChatHost', () => {
         expect(starts).toEqual([]);
     });
 
+    it('a stream replaced mid-flight ends quietly: the new turn keeps its streaming id and no stale end reaches it', async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        h.ctl.appendMessage(msg('b', 'assistant', { content: '' }));
+        const ends: string[] = [];
+        h.host.addEventListener('aparte-message-aborted', (e) => ends.push('aborted:' + (e as CustomEvent).detail.messageId));
+        const idle: AsyncIterable<string> = { [Symbol.asyncIterator]: () => ({ next: () => new Promise<IteratorResult<string>>(() => {}) }) };
+        const first = h.ctl.streamTokens('a', idle);
+        let release!: () => void;
+        const gate = new Promise<void>((r) => { release = r; });
+        async function* second() { await gate; yield 'x'; }
+        const run = h.ctl.streamTokens('b', second());
+        await first;
+        expect(ends, 'the replaced stream says nothing').toEqual([]);
+        expect(h.ctl.streamingId).toBe('b');
+        release();
+        await run;
+    });
+
     it("another chat's Stop leaves this stream running", async () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));

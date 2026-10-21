@@ -727,6 +727,7 @@ export class AparteChatHost {
             if ((!target || target === hostId) && this._streamAbort === ac) this.stopTokenStream();
         };
         window.addEventListener('aparte-abort', onAbort);
+        const replaced = (): boolean => this._streamAbort !== undefined && this._streamAbort !== ac;
         dispatchLifecycleEvent(host, 'aparte-message-start', { messageId, role: 'assistant' }, hostId);
         try {
             for (;;) {
@@ -744,17 +745,24 @@ export class AparteChatHost {
             // as streaming — and everything read-only that hangs off that (the branch
             // arrows, retry, edit of every message) stayed disabled for good.
             this._vp()?.completeMessage?.(messageId);
-            this._setStreamingId(null);
-            dispatchLifecycleEvent(
-                host,
-                ac.signal.aborted ? 'aparte-message-aborted' : 'aparte-message-done',
-                ac.signal.aborted ? { messageId } : { messageId, role: 'assistant' },
-                hostId,
-            );
+            // Replaced by a newer stream (which stopped this one, then took the slot): the
+            // turn in flight is the newer one. Clearing the streaming id, or ending a turn
+            // the listeners now follow, would be this loop speaking for it.
+            if (!replaced()) {
+                this._setStreamingId(null);
+                dispatchLifecycleEvent(
+                    host,
+                    ac.signal.aborted ? 'aparte-message-aborted' : 'aparte-message-done',
+                    ac.signal.aborted ? { messageId } : { messageId, role: 'assistant' },
+                    hostId,
+                );
+            }
         } catch (err) {
             this._flushStreamState();
-            this._setStreamingId(null);
-            dispatchLifecycleEvent(host, 'aparte-message-error', { messageId, error: err }, hostId);
+            if (!replaced()) {
+                this._setStreamingId(null);
+                dispatchLifecycleEvent(host, 'aparte-message-error', { messageId, error: err }, hostId);
+            }
             throw err;
         } finally {
             window.removeEventListener('aparte-abort', onAbort);
