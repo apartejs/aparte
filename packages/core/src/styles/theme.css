@@ -670,9 +670,14 @@
    derived value on its light substitution.
 
    So the layer is declared again at each anchor where a palette can change:
-   the document root, a shadow host, any themed subtree, any aparté host, and
-   the `aparte-chat` element itself (per-instance theming). Substitution then
+   the document root, a shadow host, any themed subtree, any aparté host, the
+   `aparte-chat` element itself (per-instance theming) and the `[data-aparte-chat]`
+   root the React, Vue and Svelte wrappers render in its place. Substitution then
    re-runs there against that element's own masters.
+
+   Every anchor but `:host` weighs nothing (`:where()`), like the palette above: a
+   consumer's `aparte-chat { --aparte-primary-ink: … }` then wins whichever sheet
+   loads last, and on a chat that also carries `data-aparte-theme`.
 
    Only DERIVED values may live here. The literal palette stays in the block
    above with `:root, :host` alone — widening THAT list would re-declare the
@@ -680,11 +685,12 @@
    declaration beats the inherited dark value, and the chat would go light.
    `scripts/check-derived-vars.mjs` holds both halves of that rule.
    ========================================= */
-:root,
+:where(:root),
 :host,
-[data-aparte-theme],
-[data-aparte-host],
-aparte-chat {
+:where([data-aparte-theme]),
+:where([data-aparte-host]),
+:where([data-aparte-chat]),
+:where(aparte-chat) {
   /* The five accents AS TEXT, each derived from its own fill — see the long note in
      the literal block. Anchored, not declared once on `:root`, for the reason this
      whole layer exists: an <aparte-chat> that sets its own `--aparte-primary` only

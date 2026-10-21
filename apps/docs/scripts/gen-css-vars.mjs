@@ -108,7 +108,7 @@ const lines = css.split(/\r?\n/);
 // One of these blocks is also the ANCHORED layer: its selector list ends
 // `..., aparte-chat` (theme.css's own comment calls it "re-anchored, on purpose") and
 // core re-declares every token inside it on `:root, :host, [data-aparte-theme],
-// [data-aparte-host], aparte-chat` — so a `:root`-only override of one of THESE never
+// [data-aparte-host], [data-aparte-chat], aparte-chat` — so a `:root`-only override of one of THESE never
 // reaches inside a chat (a local declaration always beats an inherited one). Its lines
 // are captured separately so the reference can tell a reader which is which, the same
 // way it already marks a token nothing reads.
@@ -430,7 +430,7 @@ sidebar:
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
 in total: ${total - ANCHORED.size} declared once on \`:root\`, ${ANCHORED.size} declared on the
-**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat\`) and
+**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], [data-aparte-chat], aparte-chat\`) and
 ${componentTokens.length} read by a component with a built-in default. A row marked
 **anchored** must be overridden on \`aparte-chat\` or a theme boundary, not on \`:root\` — see
 [Theming](/guides/theming/). Both halves are swept from the source on every build.

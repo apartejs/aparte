@@ -129,9 +129,8 @@ the chat, in a rule with a class as above, which outweighs core's own declaratio
 order the stylesheets load in. The [CSS variables](/reference/css-variables/) reference marks
 those tokens **anchored**.
 
-In React, Vue and Svelte, the chat's root is a `<div data-aparte-chat>`, where nothing is worked
-out again: theme one of those chats through an element around it that carries the attribute, such
-as `<div class="sales" data-aparte-theme="light">`, with `div.sales { … }`.
+In React, Vue and Svelte, the chat's root is a `<div data-aparte-chat>`, and the same tokens are
+worked out again there: give it a class and write `[data-aparte-chat].sales { … }`.
 
 ## Make it denser, squarer or larger
 

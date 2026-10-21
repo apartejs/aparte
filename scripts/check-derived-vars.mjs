@@ -69,7 +69,7 @@ const REF_FLOOR = 500;
 const origin = [];
 
 /** Every place a palette can change, and therefore every place the layer re-anchors. */
-const ANCHORS = [':root', ':host', '[data-aparte-theme]', '[data-aparte-host]', 'aparte-chat'];
+const ANCHORS = [':where(:root)', ':host', ':where([data-aparte-theme])', ':where([data-aparte-host])', ':where([data-aparte-chat])', ':where(aparte-chat)'];
 /**
  * The literal palette's own selector list, which must stay exactly this. `:where(:root)`
  * and not `:root`: at zero weight, a host's rebrand wins whichever sheet loads last (#95).
