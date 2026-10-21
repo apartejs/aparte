@@ -258,3 +258,35 @@ describe('createWorkerHost — prepare, command, and the runner cache', () => {
         expect(loadTransformers).toHaveBeenCalledWith('https://cdn.example/transformers.js');
     });
 });
+
+describe('createWorkerHost — the device', () => {
+    it("'auto' becomes webgpu when an adapter answers, and is asked once", async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const hasWebGpu = vi.fn(async () => true);
+        const { h, flush } = host(createRunner, { hasWebGpu });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('webgpu');
+        h.onMessage(gen('g2', { device: 'auto', modelId: 'm2' }));
+        await flush();
+        expect(hasWebGpu).toHaveBeenCalledTimes(1);
+    });
+
+    it("'auto' becomes wasm when no adapter answers", async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const { h, flush } = host(createRunner, { hasWebGpu: async () => false });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('wasm');
+    });
+
+    it('a forced device is passed as it is, without asking', async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const hasWebGpu = vi.fn(async () => true);
+        const { h, flush } = host(createRunner, { hasWebGpu });
+        h.onMessage(gen('g1', { device: 'wasm' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('wasm');
+        expect(hasWebGpu).not.toHaveBeenCalled();
+    });
+});

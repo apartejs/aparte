@@ -60,6 +60,18 @@ export interface WorkerHostDeps {
     loadTransformers(moduleUrl?: string): Promise<TransformersModule>;
     /** Import the runner module a selection names: a built-in by `task`, a custom one by `runner` URL. */
     importRunner(spec: { task: BuiltInRunner; runner?: string }): Promise<RunnerModule>;
+    /**
+     * Whether this worker can run on WebGPU: an adapter answers. Asked once, the first time a
+     * model loads on `'auto'`. Defaults to `navigator.gpu.requestAdapter()`.
+     */
+    hasWebGpu?(): Promise<boolean>;
+}
+
+/** WebGPU is usable when the API exists AND an adapter answers — the API alone can be there with no GPU behind it. */
+async function defaultHasWebGpu(): Promise<boolean> {
+    const gpu = (globalThis.navigator as { gpu?: { requestAdapter(): Promise<unknown> } } | undefined)?.gpu;
+    if (!gpu) return false;
+    try { return (await gpu.requestAdapter()) != null; } catch { return false; }
 }
 
 const errorText = (err: unknown, fallback: string): string => (err instanceof Error && err.message) || fallback;
@@ -69,6 +81,15 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
     let current: { key: string; runner: TransformersRunner } | null = null;
     const generates = new Map<string, AbortController>();
     const warned = new Set<string>();
+    let webGpu: Promise<boolean> | undefined;
+
+    // `'auto'` is resolved here rather than passed on: Transformers.js would try WebNN before
+    // WebGPU, and dropping it (as the runners used to) left its browser default, WASM.
+    const resolveDevice = async (device: Device | undefined): Promise<Device | undefined> => {
+        if (device !== 'auto') return device;
+        webGpu ??= (deps.hasWebGpu ?? defaultHasWebGpu)();
+        return (await webGpu) ? 'webgpu' : 'wasm';
+    };
 
     const warn = (message: string): void => {
         if (warned.has(message)) return;
@@ -91,7 +112,7 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
             transformers,
             modelId: sel.modelId,
             dtype: sel.dtype,
-            device: sel.device,
+            device: await resolveDevice(sel.device),
             progress: (p) => { if (progressId) deps.post({ type: 'progress', id: progressId, ...p }); },
             warn,
         });
