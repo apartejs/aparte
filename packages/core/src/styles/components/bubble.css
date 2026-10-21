@@ -164,6 +164,12 @@ aparte-chat-bubble {
   margin-inline-start: calc((var(--aparte-icon-size-sm) - var(--aparte-btn-size-sm)) / 2);
 }
 
+/* …but only when the bar opens the row. After a visible branch picker that pull ran the
+   bar 1.5px over the picker's next arrow, under the 24px target (axe target-size). */
+.aparte-branch-picker:not([hidden]) + .aparte-action-bar {
+  margin-inline-start: 0;
+}
+
 .aparte-message:hover .aparte-action-bar,
 .aparte-message:focus-within .aparte-action-bar {
   opacity: 1;
