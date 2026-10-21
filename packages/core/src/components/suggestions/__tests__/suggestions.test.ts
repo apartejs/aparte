@@ -65,6 +65,19 @@ describe('<aparte-suggestions>', () => {
         warn.mockRestore();
     });
 
+    it('a chip that held the focus hands it to the composer once it has sent (#29)', () => {
+        const composer = fakeComposer();
+        composer.innerHTML = `<aparte-suggestions suggestions='["Haiku"]'></aparte-suggestions>`;
+        document.body.appendChild(composer);
+        const calls: string[] = [];
+        composer.submit.mockImplementation(() => calls.push('submit'));
+        composer.focus.mockImplementation(() => calls.push('focus'));
+        const chip = chips(composer)[0]!;
+        chip.focus();
+        chip.click();
+        expect(calls).toEqual(['submit', 'focus']);
+    });
+
     it('a click fills the nearest composer and submits it — in that order', () => {
         const composer = fakeComposer();
         composer.innerHTML = `<aparte-suggestions suggestions='[{"label": "Haiku", "prompt": "Write a haiku."}]'></aparte-suggestions>`;
