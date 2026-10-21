@@ -403,3 +403,38 @@ describe('aparte-model-selector — boundary attached AFTER mount (every wrapper
         detachConfig(host);
     });
 });
+
+describe('aparte-model-selector — providers that arrive late', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        aparteGlobalConfig.reset();
+    });
+
+    it('lists providers registered right after it connected (a static import beside the registration)', async () => {
+        // The order a bundler produces: the element connects first, the providers are
+        // registered by the same module a tick later, while the first load is in flight.
+        const sel = document.createElement('aparte-model-selector');
+        document.body.appendChild(sel);
+        aparteGlobalConfig.registerAIProvider(fakeProvider('late', 'Late One'));
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Late One'); });
+    });
+
+    it('lists a provider added after mount even when a model is already selected', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('first', 'First One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'first', defaultModel: 'first-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('second', 'Second One'));
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Second One'); });
+        expect(sel.textContent).toContain('First One');
+    });
+
+    it('lists a provider that only has a fixed getModels() list', async () => {
+        aparteGlobalConfig.registerAIProvider({
+            id: 'fixed',
+            getMetadata: () => ({ id: 'fixed', name: 'Fixed' }),
+            getModels: () => [{ id: 'f1', name: 'Fixed Model' }],
+        } as unknown as AparteAIProvider);
+        const sel = await mountSelector(document.createElement('div'));
+        expect(sel.textContent).toContain('Fixed Model');
+    });
+});

@@ -64,6 +64,10 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     private _aparteSelect: AparteSelect | null = null;
     private _isLoading = false;
     private _isRendering = false;
+    /** A load was asked for while one ran; the running one goes round again. */
+    private _reloadQueued = false;
+    /** The providers the current list was built from, as {@link _providersKey} gives them. */
+    private _loadedProvidersKey = '';
     private _expandedGroups: Set<string> = new Set();
 
     /**
@@ -114,10 +118,18 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._loadPersistedSelection();
         }
 
-        await this._loadAllProviderModels();
-        this._render();
-
+        // Subscribe BEFORE the first load, not after it. Importing this plugin defines the
+        // element, and a tag already in the page connects right then — before the module
+        // that imported it has run the rest of its body, which is where the providers get
+        // registered. Subscribed after the `await`, that registration fired into nothing
+        // and the picker stayed empty for the life of the page.
         this._subscribeToConfig();
+        if (await this._loadAllProviderModels()) this._render();
+    }
+
+    /** The registered providers, as one comparable string: what the list was built from. */
+    private _providersKey(): string {
+        return this._cfg.getAIProviders().map(p => p.id).join('\n');
     }
 
     /** Listen for configuration changes (e.g. from an onboarding flow). */
@@ -127,10 +139,13 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             void (async () => {
                 const cfg = this._cfg.getModelConfig();
 
-                // Guard: only react if the model config actually changed relative to our state
+                // Guard: only react if the model config actually changed relative to our
+                // state — the selection, or the set of providers the list was built from
+                // (an app that registers a provider once a key is typed in its settings).
                 if (cfg.defaultProvider === this._currentProviderId &&
                     cfg.defaultModel === this._currentModelId &&
-                    this._providerModels.length > 0) {
+                    this._providerModels.length > 0 &&
+                    this._providersKey() === this._loadedProvidersKey) {
                     // …but a config change is not only a MODEL change. A language
                     // switch fires this subscription too, hit this guard, and left
                     // the placeholder in the previous language — the one string this
@@ -147,8 +162,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 }
 
                 this._loadPersistedSelection();
-                await this._loadAllProviderModels();
-                this._render();
+                if (await this._loadAllProviderModels()) this._render();
             })();
         });
     }
@@ -197,9 +211,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             } else {
                 this._loadPersistedSelection();
             }
-            await this._loadAllProviderModels();
-            this._render();
             this._subscribeToConfig();
+            if (await this._loadAllProviderModels()) this._render();
         })();
     }
 
@@ -240,55 +253,76 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     // Data Loading
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async _loadAllProviderModels(): Promise<void> {
-        if (this._isLoading) return;
+    /**
+     * Load every provider's models. A call that arrives while a load runs does not start a
+     * second one and does not vanish either: the running load goes round again, reading
+     * what changed meanwhile, and answers `false` so its caller leaves the render to the
+     * load that is still running.
+     */
+    private async _loadAllProviderModels(): Promise<boolean> {
+        if (this._isLoading) {
+            this._reloadQueued = true;
+            return false;
+        }
         this._isLoading = true;
-
         try {
-            const providers = this._cfg.getAIProviders();
-
-            // Deduplicate providers by ID just in case
-            const uniqueProviders = Array.from(new Map(providers.map(p => [p.id, p])).values());
-
-            const config = this._cfg.getModelConfig();
-
-            // Store in a temporary list to avoid mid-render state corruption.
-            //
-            // Indexed by REGISTRATION order, not filled by completion order. The
-            // fetches run in parallel, so a `push` here ordered the dropdown — and
-            // therefore what `auto-select` picks — by whichever /models endpoint
-            // answered first. A cloud provider on a CDN beats a local server that
-            // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
-            // could silently land on the paid one, and land on a different one on
-            // the next reload. `auto-select` documents itself as "the first model";
-            // first has to mean first, not fastest.
-            const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
-
-            // Fetch all providers in parallel
-            await Promise.all(uniqueProviders.map(async (provider, i) => {
-                try {
-                    const models = await this._cfg.refreshProviderModels(provider.id);
-
-                    // Apply model filters if configured
-                    const filters = config.modelFilters?.[provider.id];
-                    const filteredModels = filters?.length
-                        ? models.filter(m => filters.includes(m.id))
-                        : models;
-
-                    if (filteredModels.length > 0) {
-                        tempList[i] = { provider, models: filteredModels };
-                    }
-                } catch (error) {
-                    console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
-                }
-            }));
-
-            // The holes are the providers that failed or returned nothing: dropped,
-            // which keeps the order of the survivors.
-            this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
+            do {
+                this._reloadQueued = false;
+                await this._loadOnce();
+            } while (this._reloadQueued && this.isConnected);
         } finally {
             this._isLoading = false;
         }
+        return true;
+    }
+
+    private async _loadOnce(): Promise<void> {
+        this._loadedProvidersKey = this._providersKey();
+        const providers = this._cfg.getAIProviders();
+
+        // Deduplicate providers by ID just in case
+        const uniqueProviders = Array.from(new Map(providers.map(p => [p.id, p])).values());
+
+        const config = this._cfg.getModelConfig();
+
+        // Store in a temporary list to avoid mid-render state corruption.
+        //
+        // Indexed by REGISTRATION order, not filled by completion order. The
+        // fetches run in parallel, so a `push` here ordered the dropdown — and
+        // therefore what `auto-select` picks — by whichever /models endpoint
+        // answered first. A cloud provider on a CDN beats a local server that
+        // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
+        // could silently land on the paid one, and land on a different one on
+        // the next reload. `auto-select` documents itself as "the first model";
+        // first has to mean first, not fastest.
+        const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
+
+        // Fetch all providers in parallel
+        await Promise.all(uniqueProviders.map(async (provider, i) => {
+            try {
+                // A provider with a fixed list has no `fetchModels`: its `getModels()` IS the
+                // list, and `refreshProviderModels` answers `[]` for it.
+                const models = provider.fetchModels
+                    ? await this._cfg.refreshProviderModels(provider.id)
+                    : provider.getModels();
+
+                // Apply model filters if configured
+                const filters = config.modelFilters?.[provider.id];
+                const filteredModels = filters?.length
+                    ? models.filter(m => filters.includes(m.id))
+                    : models;
+
+                if (filteredModels.length > 0) {
+                    tempList[i] = { provider, models: filteredModels };
+                }
+            } catch (error) {
+                console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
+            }
+        }));
+
+        // The holes are the providers that failed or returned nothing: dropped,
+        // which keeps the order of the survivors.
+        this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
     }
 
     private async _onOptgroupToggle(e: Event): Promise<void> {
