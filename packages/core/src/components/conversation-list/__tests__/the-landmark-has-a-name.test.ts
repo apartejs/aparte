@@ -40,4 +40,12 @@ describe('aparte-conversation-list — its name', () => {
         const byRef = await mount({ 'aria-labelledby': 'heading' });
         expect(byRef.hasAttribute('aria-label')).toBe(false);
     });
+
+    it('keeps a name the app sets after connect, through a re-render', async () => {
+        const el = await mount();
+        el.setAttribute('aria-label', 'Past chats');
+        aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, conversationList: 'Historique' });
+        await new Promise((r) => setTimeout(r, 0));
+        expect(el.getAttribute('aria-label')).toBe('Past chats');
+    });
 });

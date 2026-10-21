@@ -231,9 +231,6 @@ export class AparteConversationList extends HTMLElement {
         if (!this.getAttribute('role')) {
             this.setAttribute('role', 'navigation');
         }
-        // A landmark needs a name once a page has a second one (axe landmark-unique): the
-        // locale's, unless the app named it — an `aria-label` or `aria-labelledby` of its own wins.
-        this._ownsLabel = !this.hasAttribute('aria-label') && !this.hasAttribute('aria-labelledby');
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
         this.addEventListener('focusout', this._onFocusOut);
@@ -324,10 +321,17 @@ export class AparteConversationList extends HTMLElement {
         }, 0);
     };
 
-    private _ownsLabel = false;
+    /** The name this element last wrote, so one the app wrote — before or after connect — is left alone. */
+    private _ownLabel: string | null = null;
 
     private _render(): void {
-        if (this._ownsLabel) this.setAttribute('aria-label', this._t('conversationList'));
+        // A landmark needs a name once a page has a second one (axe landmark-unique): the
+        // locale's, unless the app named it — an `aria-label` or `aria-labelledby` of its own wins.
+        const current = this.getAttribute('aria-label');
+        if (!this.hasAttribute('aria-labelledby') && (current === null || current === this._ownLabel)) {
+            this._ownLabel = this._t('conversationList');
+            this.setAttribute('aria-label', this._ownLabel);
+        }
         if (this._pressed) {
             this._renderAfterPress = true;
             return;
