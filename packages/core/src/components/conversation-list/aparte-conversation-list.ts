@@ -56,7 +56,7 @@ interface OpenMenu {
 
 /** Locale keys this element reads; each falls back to the English default. */
 type ListLocaleKey =
-    | 'newChat' | 'loadingConversations' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
+    | 'newChat' | 'loadingConversations' | 'conversationList' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
@@ -321,7 +321,17 @@ export class AparteConversationList extends HTMLElement {
         }, 0);
     };
 
+    /** The name this element last wrote, so one the app wrote — before or after connect — is left alone. */
+    private _ownLabel: string | null = null;
+
     private _render(): void {
+        // A landmark needs a name once a page has a second one (axe landmark-unique): the
+        // locale's, unless the app named it — an `aria-label` or `aria-labelledby` of its own wins.
+        const current = this.getAttribute('aria-label');
+        if (!this.hasAttribute('aria-labelledby') && (current === null || current === this._ownLabel)) {
+            this._ownLabel = this._t('conversationList');
+            this.setAttribute('aria-label', this._ownLabel);
+        }
         if (this._pressed) {
             this._renderAfterPress = true;
             return;

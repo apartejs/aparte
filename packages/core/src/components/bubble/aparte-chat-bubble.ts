@@ -164,7 +164,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *
  * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)
  * @attr {string} content - Plain text content, for a bubble with no segments.
- * @attr {number | string} timestamp - Epoch milliseconds OR a date string: `_updateTimestamp` accepts either and only coerces when the value is numeric.
+ * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
  * @attr {string} name - The display name in the header.

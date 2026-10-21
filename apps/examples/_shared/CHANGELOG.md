@@ -1,5 +1,37 @@
 # @aparte-workspace/example-shared
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [d898de8]
+- Updated dependencies [866e468]
+- Updated dependencies [e57013a]
+- Updated dependencies [3e3a7ef]
+- Updated dependencies [ae56657]
+- Updated dependencies [4a4cad8]
+- Updated dependencies [ddfaaae]
+- Updated dependencies [2f69e76]
+- Updated dependencies [3e474c5]
+- Updated dependencies [04180a3]
+- Updated dependencies [778202f]
+- Updated dependencies [6231952]
+- Updated dependencies [44aaee4]
+- Updated dependencies [0320655]
+- Updated dependencies [34160c3]
+  - @aparte/core@0.19.3
+  - @aparte/plugin-ask-user@0.19.3
+  - @aparte/plugin-approval@0.19.3
+  - @aparte/plugin-artifacts@0.19.3
+  - @aparte/plugin-compaction@0.19.3
+  - @aparte/plugin-marked@0.19.3
+  - @aparte/plugin-model-selector@0.19.3
+  - @aparte/plugin-shiki@0.19.3
+  - @aparte/runner-ag-ui@0.19.3
+  - @aparte/provider-openai-compat@0.19.3
+  - @aparte/provider-scenario@0.19.3
+  - @aparte/engine@0.19.3
+
 ## 0.0.8
 
 ### Patch Changes

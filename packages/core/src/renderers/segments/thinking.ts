@@ -28,6 +28,14 @@ import type {
  */
 const THINKING_ANCHOR_SLACK = 24;
 
+/**
+ * A block's own label, else the locale's. `'Thinking'` counts as none: streamed blocks carried
+ * that English literal until 0.19.3, and a conversation saved then would keep it in every locale.
+ */
+function labelOf(segment: AparteThinkingSegment): string {
+    return segment.label && segment.label !== 'Thinking' ? segment.label : contextConfig().t('thinking');
+}
+
 export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
     type: 'thinking',
     /*
@@ -58,13 +66,13 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * only part that is genuinely about reasoning rather than about disclosure.
      * `.aparte-thinking-label` stays too: `relabel` below queries it.
      */
-    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(segment.label || contextConfig().t('thinking'))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(labelOf(segment))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(labelOf(segment))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.
      */
     relabel: (el, segment) => {
-        const text = segment.label || contextConfig().t('thinking');
+        const text = labelOf(segment);
         const label = el.querySelector('.aparte-thinking-label');
         if (label) label.textContent = text;
         el.querySelector('.aparte-thinking-content')?.setAttribute('aria-label', text);

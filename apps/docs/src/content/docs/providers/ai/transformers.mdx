@@ -97,21 +97,20 @@ switching back downloads it again; `setMaxCachedModels(2)` keeps both, and `0` k
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
-import { detectHardware, registerModel, setComputeDevice, setHardwareTierModels } from '@aparte/provider-transformers';
+import { detectHardware, registerModel, setHardwareTierModels } from '@aparte/provider-transformers';
 
 registerModel({ id: 'onnx-community/Qwen2.5-0.5B-Instruct', name: 'Qwen2.5 0.5B', capabilities: ['streaming'], dtype: 'q4' });
 registerModel({ id: 'onnx-community/Qwen3-0.6B-ONNX', name: 'Qwen3 0.6B', capabilities: ['streaming'], dtype: 'q4' });
 setHardwareTierModels({ low: 'onnx-community/Qwen2.5-0.5B-Instruct', high: 'onnx-community/Qwen3-0.6B-ONNX' });
 
-const { hasGpu, recommendedModelId } = await detectHardware();
-setComputeDevice(hasGpu ? 'webgpu' : 'wasm');
+const { recommendedModelId } = await detectHardware();
 aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultModel: recommendedModelId });
 ```
 
-`setComputeDevice` sets where the page's models run, a `ComputeDevice`: `'webgpu'` on the
-graphics card, `'wasm'` on the processor, and `getComputeDevice()` reads it back. Left at
-`'auto'`, the default, a model runs on WASM unless its own repository names a device, so turn the
-graphics card on yourself, as above. It is one setting for the page — a `device` on a registered
+A model runs on the graphics card when the browser has a WebGPU adapter, and on the processor
+through WASM otherwise; a model that fails to load on the graphics card is loaded again on WASM,
+and the console says so. `setComputeDevice` forces one, a `ComputeDevice`: `'webgpu'`, `'wasm'`,
+or `'auto'`, the default; `getComputeDevice()` reads it back. It is one setting for the page — a `device` on a registered
 model is not read — and it applies when a model loads: to change it afterwards, call
 `terminateWorker()`, and the next message loads the model on the new device.
 
@@ -157,7 +156,7 @@ export async function createRunner(ctx) {
   const tokenizer = await AutoTokenizer.from_pretrained(ctx.modelId);
   const model = await AutoModelForCausalLM.from_pretrained(ctx.modelId, {
     dtype: ctx.dtype,
-    ...(ctx.device && ctx.device !== 'auto' ? { device: ctx.device } : {}),
+    device: ctx.device,
   });
   return {
     async generate({ messages, options, emit, signal }) {
@@ -191,7 +190,7 @@ name: it gets the same Transformers.js as the built-in runners as `ctx.transform
 they cannot load keeps the worker, the queue, the progress, Stop and the cache. `messages` arrive
 with their content parts, and the runner decides what the model reads. `emit` sends `text`,
 `thinking`, `tool_use`, `done` or `error`; `signal` fires on Stop; `ctx.progress` and `ctx.warn`
-reach the page; `ctx.device` is `'auto'`, `'webgpu'` or `'wasm'`.
+reach the page; `ctx.device` is `'webgpu'` or `'wasm'`, `'auto'` already resolved.
 
 `runnerCommand(modelId, name, payload)` calls a runner's `command` from the page, after the
 replies already waiting; when that model is not the one in memory, it is loaded first, in its

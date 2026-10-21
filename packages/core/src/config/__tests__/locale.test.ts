@@ -31,7 +31,7 @@ describe('APARTE_DEFAULT_LOCALE', () => {
 
     it('should have English values', () => {
         expect(APARTE_DEFAULT_LOCALE.sendButton).toBe('Send');
-        expect(APARTE_DEFAULT_LOCALE.thinking).toBe('Thinking...');
+        expect(APARTE_DEFAULT_LOCALE.thinking).toBe('Thinking');
         expect(APARTE_DEFAULT_LOCALE.inputPlaceholder).toBe('Type a message...');
     });
 

@@ -24,12 +24,13 @@
    gives these declarations one step more specificity than core's, whatever the order;
    the dark halves below do the same, one step above core's dark rules.
    And the same declarations on core's ANCHORS ([data-aparte-theme], [data-aparte-host],
-   aparte-chat): core re-derives most tokens on each of them, so a value set on the root
+   aparte-chat, and [data-aparte-chat], the root the React, Vue and Svelte wrappers render): core re-derives most tokens on each of them, so a value set on the root
    alone is beaten by the chat element's own — the code card kept the surface colour
    until these selectors carried the skin's values too. */
 :root:root,
 :root:root [data-aparte-theme],
 :root:root [data-aparte-host],
+:root:root [data-aparte-chat],
 :root:root aparte-chat {
   /* Surfaces: primary #fff, secondary #f3f3f3, tertiary #e8e8e8, navigation #fff. */
   --aparte-bg: #ffffff;
@@ -115,6 +116,7 @@
   :root:root:not([data-aparte-theme="light"]),
   :root:root:not([data-aparte-theme="light"]) [data-aparte-theme],
   :root:root:not([data-aparte-theme="light"]) [data-aparte-host],
+  :root:root:not([data-aparte-theme="light"]) [data-aparte-chat],
   :root:root:not([data-aparte-theme="light"]) aparte-chat {
     --aparte-bg: #212121;
     --aparte-surface-1: #212121;
@@ -148,9 +150,11 @@
 :root:root[data-aparte-theme="dark"],
 :root:root[data-aparte-theme="dark"] [data-aparte-theme],
 :root:root[data-aparte-theme="dark"] [data-aparte-host],
+:root:root[data-aparte-theme="dark"] [data-aparte-chat],
 :root:root[data-aparte-theme="dark"] aparte-chat,
 :root:root [data-aparte-theme="dark"],
 :root:root [data-aparte-theme="dark"] [data-aparte-host],
+:root:root [data-aparte-theme="dark"] [data-aparte-chat],
 :root:root [data-aparte-theme="dark"] aparte-chat {
   --aparte-bg: #212121;
   --aparte-surface-1: #212121;

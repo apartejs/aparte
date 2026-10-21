@@ -147,8 +147,10 @@ dots until the first token, and stream into it: `injectTokenStream` in a framewo
 accepts an RxJS `Observable` in Angular, `appendToken` and `completeMessage` on the message list in
 plain HTML. Add the message before streaming into it: an id the framework does not know is kept by
 the message list alone, out of your `messages`. A new `injectTokenStream` cancels the one before, and
-`stopTokenStream()` cancels it; the source is closed, so a generator's `finally` runs. None of this
-sends the turn's events, so the send button stays Send: [Make Stop work](#make-stop-work) adds them.
+`stopTokenStream()` cancels it; the source is closed, so a generator's `finally` runs.
+`injectTokenStream` also sends the turn's events: the send button is Stop while it streams, Stop
+cancels it, and the [conversation manager](/guides/conversation-persistence/) saves the reply when
+it ends. In plain HTML, [Make Stop work](#make-stop-work) shows the events to send yourself.
 
 ## From a source that pushes
 
@@ -207,47 +209,14 @@ framework chat it is read-only between `aparte-message-start` and the event that
 
 ## Make Stop work
 
-```ts
-import { uuid } from '@aparte/core';
-import type { AparteChatImperativeApi } from '@aparte/core';
-
-declare const chat: AparteChatImperativeApi;                    // the framework ref, as above
-declare function myAgentLoop(prompt: string): AsyncIterable<string>;
-
-const host = document.getElementById('support-chat')!;          // the id you gave the chat component
-const lifecycle = (name: string, detail: object) =>
-  host.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: { targetId: host.id, ...detail } }));
-let stopped = false;
-
-async function onMessageSent(event: { content: string }) {
-  const id = uuid();
-  chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-  stopped = false;
-  lifecycle('aparte-message-start', { messageId: id, role: 'assistant' });
-  try {
-    await chat.injectTokenStream(id, myAgentLoop(event.content));
-  } finally {
-    lifecycle(stopped ? 'aparte-message-aborted' : 'aparte-message-done', { messageId: id, role: 'assistant' });
-  }
-}
-
-window.addEventListener('aparte-abort', (event) => {
-  if (event.detail?.targetId && event.detail.targetId !== host.id) return;
-  stopped = true;
-  chat.stopTokenStream();
-});
-```
-
-The send button becomes Stop while a turn runs, and the turn is events you send:
-`aparte-message-start` turns the button to Stop, and `aparte-message-done`, `-error` or `-aborted`
-turns it back. Give the chat component an `id` — `<AparteChat id="support-chat" …>` — and send
-them on its element, bubbling, as above: the composer follows, and so does the
-[conversation manager](/guides/conversation-persistence/), which saves a reply when it ends. Stop
-sends `aparte-abort` on `window`, with the chat's `id` as `targetId`, for your loop to cancel. The
+On a framework chat, `injectTokenStream` does it: nothing to add. A loop that writes segments
+rather than tokens, or a stream written with `appendToken` in plain HTML, is not a turn the
+composer can see: send the turn's events yourself, on the chat's element (the `<aparte-chat>`,
+or the framework component's root, given an `id`), bubbling: `aparte-message-start` turns the send button to Stop, and
+`aparte-message-done`, `-error` or `-aborted` turns it back. Stop sends `aparte-abort` on
+`window`, with the chat's `id` as `targetId`, for your loop to cancel, and the
+[conversation manager](/guides/conversation-persistence/) saves a reply when it ends. The
 [events reference](/reference/events/) types each detail.
-
-In plain HTML, the same events go on the `<aparte-chat>`, and the stream of the first example sits
-in the same `try`, its `completeMessage` in the `finally`:
 
 {/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which ends when its signal fires */}
 ```ts

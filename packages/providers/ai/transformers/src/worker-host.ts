@@ -60,6 +60,18 @@ export interface WorkerHostDeps {
     loadTransformers(moduleUrl?: string): Promise<TransformersModule>;
     /** Import the runner module a selection names: a built-in by `task`, a custom one by `runner` URL. */
     importRunner(spec: { task: BuiltInRunner; runner?: string }): Promise<RunnerModule>;
+    /**
+     * Whether this worker can run on WebGPU: an adapter answers. Asked once, the first time a
+     * model loads on `'auto'`. Defaults to `navigator.gpu.requestAdapter()`.
+     */
+    hasWebGpu?(): Promise<boolean>;
+}
+
+/** WebGPU is usable when the API exists AND an adapter answers — the API alone can be there with no GPU behind it. */
+async function defaultHasWebGpu(): Promise<boolean> {
+    const gpu = (globalThis.navigator as { gpu?: { requestAdapter(): Promise<unknown> } } | undefined)?.gpu;
+    if (!gpu) return false;
+    try { return (await gpu.requestAdapter()) != null; } catch { return false; }
 }
 
 const errorText = (err: unknown, fallback: string): string => (err instanceof Error && err.message) || fallback;
@@ -69,6 +81,15 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
     let current: { key: string; runner: TransformersRunner } | null = null;
     const generates = new Map<string, AbortController>();
     const warned = new Set<string>();
+    let webGpu: Promise<boolean> | undefined;
+
+    // `'auto'` is resolved here rather than passed on: Transformers.js would try WebNN before
+    // WebGPU, and dropping it (as the runners used to) left its browser default, WASM.
+    const resolveDevice = async (device: Device | undefined): Promise<Device | undefined> => {
+        if (device !== 'auto') return device;
+        webGpu ??= (deps.hasWebGpu ?? defaultHasWebGpu)();
+        return (await webGpu) ? 'webgpu' : 'wasm';
+    };
 
     const warn = (message: string): void => {
         if (warned.has(message)) return;
@@ -87,14 +108,27 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
         }
         const transformers = await deps.loadTransformers(moduleUrl);
         const { createRunner } = await deps.importRunner({ task, runner: sel.runner });
-        const runner = await createRunner({
+        const device = await resolveDevice(sel.device);
+        const create = (on: Device | undefined): Promise<TransformersRunner> => createRunner({
             transformers,
             modelId: sel.modelId,
             dtype: sel.dtype,
-            device: sel.device,
+            device: on,
             progress: (p) => { if (progressId) deps.post({ type: 'progress', id: progressId, ...p }); },
             warn,
         });
+        let runner: TransformersRunner;
+        try {
+            runner = await create(device);
+        } catch (err) {
+            // An adapter that answers is not a GPU that runs every model: a blocklisted driver,
+            // an operator the WebGPU backend lacks. When the page asked for `'auto'`, WASM is
+            // still an answer, as it always was before `'auto'` meant WebGPU. A forced
+            // `'webgpu'` fails as asked.
+            if (sel.device !== 'auto' || device !== 'webgpu') throw err;
+            warn(`[provider-transformers] ${sel.modelId} could not load on WebGPU (${errorText(err, 'unknown error')}); running it on WASM.`);
+            runner = await create('wasm');
+        }
         current = { key, runner };
         deps.post({ type: 'pipeline-ready', modelId: sel.modelId });
         return runner;

@@ -40,7 +40,7 @@ describe('default renderer: thinking (extra)', () => {
     it('falls back to the locale "thinking" string when no label is given', () => {
         const renderer = getSegmentRenderer('thinking')!;
         const html = renderer.render({ id: 't1', type: 'thinking', content: 'x' } as any);
-        expect(html).toContain('<span class="aparte-thinking-label">Thinking...</span>');
+        expect(html).toContain('<span class="aparte-thinking-label">Thinking</span>');
     });
 
     it('uses a custom label verbatim (escaped) when provided', () => {
@@ -241,5 +241,18 @@ describe('default renderer: thinking (extra)', () => {
             update('xx');
             expect(contentEl.scrollTop).toBe(0);
         });
+    });
+});
+
+describe('default renderer: thinking — a label saved before 0.19.3', () => {
+    afterEach(() => { aparteGlobalConfig.resetLocale(); });
+
+    it("reads the English literal 'Thinking' as no label, so the locale names the block", () => {
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), thinking: 'Réflexion' });
+        const renderer = getSegmentRenderer('thinking')!;
+        const legacy = renderer.render({ id: 'l1', type: 'thinking', label: 'Thinking', content: 'x' } as any);
+        expect(legacy).toContain('<span class="aparte-thinking-label">Réflexion</span>');
+        const own = renderer.render({ id: 'l2', type: 'thinking', label: 'Plan', content: 'x' } as any);
+        expect(own).toContain('<span class="aparte-thinking-label">Plan</span>');
     });
 });

@@ -15,18 +15,16 @@ export const codeList = (names) => names.map((name, i) => (<span key={name}>{i >
 
 | Engine | Lowest version | What sets it | Run in CI |
 | --- | --- | --- | --- |
-| Chrome, Edge | **119** | relative colour syntax | Chromium <code>{CI_BROWSERS.chromium}</code> |
-| Safari, iOS Safari | **16.4** | relative colour syntax, the `lh` unit | WebKit <code>{CI_BROWSERS.webkit}</code> |
-| Firefox | **128** | relative colour syntax | Firefox <code>{CI_BROWSERS.firefox}</code> |
-| Samsung Internet | **25** | relative colour syntax | — |
+| Chrome, Edge | **111** | `color-mix()` | Chromium <code>{CI_BROWSERS.chromium}</code> |
+| Safari, iOS Safari | **16.2** | `color-mix()` | WebKit <code>{CI_BROWSERS.webkit}</code> |
+| Firefox | **121** | `:has()` | Firefox <code>{CI_BROWSERS.firefox}</code> |
+| Samsung Internet | **22** | `color-mix()` | — |
 
 The lowest version is declared from the features the code uses with no fallback: it is the oldest
 in which all of them draw. CI runs only the builds in the last column: every example app in
 Chromium, {codeList(E2E_APPS.webkit)} in WebKit, and {codeList(E2E_APPS.firefox)} in Firefox, each on
 a part of the suites. The JavaScript is ES2022 and is not compiled lower.
 
-- **Relative colour syntax** (`oklch(from …)`) draws each accent as text: the active
-  conversation's mark, a success sign, a button's text in its accent colour.
 - **`color-mix()`** draws the soft buttons, the alerts and badges, the person's message bubble and
   the control borders.
 - **`:has()`** draws the focus ring and the checked mark on a choice row, the focus ring on a
@@ -34,9 +32,15 @@ a part of the suites. The JavaScript is ES2022 and is not compiled lower.
 
 What degrades instead:
 
+- **Each accent as text** — the active conversation's mark, a success sign, a button's text in
+  its accent colour — keeps its accent's hue at a set lightness with relative colour syntax
+  (Chrome 119, Safari 16.4, Firefox 128); before, it is the accent mixed with the text colour,
+  which still reads at 4.5:1 or more on the default palette, washes included.
+- **The editor's padding** is worked out from its line height with the `lh` unit (Safari 16.4,
+  Firefox 120); before, from `em`, to the same pixel.
 - **A filled button's ink** — the text on a solid brand colour — is computed with relative colour
   syntax under `@supports`; without it, the fixed `--aparte-on-intent` is used, readable on the
-  default palette ([the text on a fill](/guides/theming/#the-text-on-a-fill)).
+  default palette except on the neutral fill (3.38:1 in light) ([the text on a fill](/guides/theming/#the-text-on-a-fill)).
 - **`:dir()`** places the active conversation's mark on the right in a right-to-left page; Chrome
   before 120 keeps it on the left.
 - **`content-visibility`** is a rendering hint, ignored where it is not supported.

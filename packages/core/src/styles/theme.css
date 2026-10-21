@@ -670,9 +670,14 @@
    derived value on its light substitution.
 
    So the layer is declared again at each anchor where a palette can change:
-   the document root, a shadow host, any themed subtree, any aparté host, and
-   the `aparte-chat` element itself (per-instance theming). Substitution then
+   the document root, a shadow host, any themed subtree, any aparté host, the
+   `aparte-chat` element itself (per-instance theming) and the `[data-aparte-chat]`
+   root the React, Vue and Svelte wrappers render in its place. Substitution then
    re-runs there against that element's own masters.
+
+   Every anchor but `:host` weighs nothing (`:where()`), like the palette above: a
+   consumer's `aparte-chat { --aparte-primary-ink: … }` then wins whichever sheet
+   loads last, and on a chat that also carries `data-aparte-theme`.
 
    Only DERIVED values may live here. The literal palette stays in the block
    above with `:root, :host` alone — widening THAT list would re-declare the
@@ -680,25 +685,26 @@
    declaration beats the inherited dark value, and the chat would go light.
    `scripts/check-derived-vars.mjs` holds both halves of that rule.
    ========================================= */
-:root,
+:where(:root),
 :host,
-[data-aparte-theme],
-[data-aparte-host],
-aparte-chat {
+:where([data-aparte-theme]),
+:where([data-aparte-host]),
+:where([data-aparte-chat]),
+:where(aparte-chat) {
   /* The five accents AS TEXT, each derived from its own fill — see the long note in
      the literal block. Anchored, not declared once on `:root`, for the reason this
      whole layer exists: an <aparte-chat> that sets its own `--aparte-primary` only
      gets a matching ink if the ink is declared on that element too. */
-  --aparte-primary-ink: oklch(from var(--aparte-primary) var(--aparte-ink-l) c h);
-  --aparte-info-ink: oklch(from var(--aparte-info) var(--aparte-ink-l) c h);
-  --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
-  --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
-  --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+  --aparte-primary-ink: color-mix(in oklab, var(--aparte-primary) 40%, var(--aparte-text));
+  --aparte-info-ink: color-mix(in oklab, var(--aparte-info) 40%, var(--aparte-text));
+  --aparte-success-ink: color-mix(in oklab, var(--aparte-success) 40%, var(--aparte-text));
+  --aparte-warning-ink: color-mix(in oklab, var(--aparte-warning) 40%, var(--aparte-text));
+  --aparte-error-ink: color-mix(in oklab, var(--aparte-error) 40%, var(--aparte-text));
   /* Secondary and neutral as text too, for the same reason: a ghost, outline or soft
      button paints its label with its intent, and those two were reading their fill —
      2.71:1 for secondary on the page, 4.19:1 for neutral on its own soft wash. */
-  --aparte-secondary-ink: oklch(from var(--aparte-secondary) var(--aparte-ink-l) c h);
-  --aparte-neutral-ink: oklch(from var(--aparte-neutral) var(--aparte-ink-l) c h);
+  --aparte-secondary-ink: color-mix(in oklab, var(--aparte-secondary) 40%, var(--aparte-text));
+  --aparte-neutral-ink: color-mix(in oklab, var(--aparte-neutral) 40%, var(--aparte-text));
 
   /* The scales, computed from the masters above.
 
@@ -777,7 +783,7 @@ aparte-chat {
      44px beside 36px buttons and, the row aligning at the end, sat the send button 4px
      below the editor's centre. Derived from the editor's own line (1lh), so a coarse
      pointer's 44 and a changed font both keep the editor and its buttons on one centre. */
-  --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2);
+  --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - var(--aparte-input-line-height) * 1em) / 2);
   --aparte-conv-list-gap: var(--aparte-space-1);
   --aparte-conv-item-gap: var(--aparte-space-3);
   --aparte-elic-option-radius: var(--aparte-radius-md);
@@ -1131,5 +1137,37 @@ aparte-chat {
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium);
+}
+
+/* The inks and the editor's padding, in the form every browser of the last two years draws. The
+   anchored block above holds a fallback for the others: each ink is its accent mixed 40 / 60 with
+   the text colour (the worst case on this palette, a pressed soft wash on surface-3, measures
+   4.75:1 in light; on the page background it is 6.58:1), and the padding reads
+   the line height as `em`. Same anchors, so these re-derive wherever the block above does. */
+@supports (color: oklch(from red l c h)) {
+  :where(:root),
+  :host,
+  :where([data-aparte-theme]),
+  :where([data-aparte-host]),
+  :where([data-aparte-chat]),
+  :where(aparte-chat) {
+    --aparte-primary-ink: oklch(from var(--aparte-primary) var(--aparte-ink-l) c h);
+    --aparte-info-ink: oklch(from var(--aparte-info) var(--aparte-ink-l) c h);
+    --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
+    --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
+    --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+    --aparte-secondary-ink: oklch(from var(--aparte-secondary) var(--aparte-ink-l) c h);
+    --aparte-neutral-ink: oklch(from var(--aparte-neutral) var(--aparte-ink-l) c h);
+  }
+}
+@supports (height: 1lh) {
+  :where(:root),
+  :host,
+  :where([data-aparte-theme]),
+  :where([data-aparte-host]),
+  :where([data-aparte-chat]),
+  :where(aparte-chat) {
+    --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2);
+  }
 }
 

@@ -28,8 +28,8 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * the text node belong to the default path only.
  *
  * A `text` attribute renders the visible label and feeds the accessible name; with no
- * `text` the line is dots-only and the name falls back to the literal `Typing` — this
- * element does not read the locale. The container is a polite live region, and a live
+ * `text` the line is dots-only and the name falls back to the locale's `typing` word
+ * ("Typing" in English). The container is a polite live region, and a live
  * region announces its CONTENT, not its `aria-label`: so the word also goes INTO the
  * region, in the visible span when `text` is set and in a screen-reader-only span when
  * it is not. Exactly one of the two is ever populated — both would be read twice. That
@@ -54,7 +54,7 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * @element aparte-chat-status
  * @attr {boolean} visible - Shows or hides the indicator.
  * @attr {string} text - The line to show. Absent, the line is dots-only and the
- *   accessible name falls back to the literal `Typing` (not the locale's string).
+ *   accessible name falls back to the locale's `typing` word ("Typing" in English).
  *
  * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the label text and of the pulsing dot in the default line.
  * @cssprop [--aparte-status-font-size=var(--aparte-font-size-md)] - Size of the visible label (italic by default) in the default line.
@@ -83,6 +83,11 @@ export class AparteChatStatus extends HTMLElement {
    */
   private get _cfg(): AparteConfig {
     return resolveConfig(this);
+  }
+
+  /** The word said when no `text` is set: the locale's `typing`, never an English literal. */
+  private _word(): string {
+    return this._cfg.t('typing');
   }
 
   constructor() {
@@ -161,7 +166,7 @@ export class AparteChatStatus extends HTMLElement {
   }
 
   private _render(): void {
-    const text = this.getAttribute('text') || 'Typing';
+    const text = this.getAttribute('text') || this._word();
     const visible = this.hasAttribute('visible');
 
     // Re-entrancy check
@@ -248,7 +253,7 @@ export class AparteChatStatus extends HTMLElement {
     const srEl = this.querySelector('.aparte-status-sr');
     if (!srEl) return;
     const dotsOnly = !this.getAttribute('text');
-    srEl.textContent = dotsOnly && this.hasAttribute('visible') ? 'Typing' : '';
+    srEl.textContent = dotsOnly && this.hasAttribute('visible') ? this._word() : '';
   }
 
   private _updateVisibility(visible: boolean): void {
@@ -266,7 +271,7 @@ export class AparteChatStatus extends HTMLElement {
     // Removing the attribute restores the dots-only default (no visible text, the
     // fallback word in the live region); the aria-label always keeps an accessible name.
     this._writeText(text);
-    container.setAttribute('aria-label', text || 'Typing');
+    container.setAttribute('aria-label', text || this._word());
   }
 }
 

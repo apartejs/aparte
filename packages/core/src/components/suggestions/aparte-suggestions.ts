@@ -327,9 +327,15 @@ export class AparteSuggestions extends HTMLElement {
             return;
         }
         if (composer !== this._composer) this._watchComposer();
+        const chipHadFocus = this.contains(document.activeElement);
         composer.setValue(detail.prompt);
         if (this.getAttribute('mode') === 'fill') composer.focus();
-        else composer.submit();
+        else {
+            composer.submit();
+            // The chip that sent may go with its row (`empty-only`), and the focus with it,
+            // to <body>. The person's next move is the composer, so it goes there (#29).
+            if (chipHadFocus) composer.focus();
+        }
     }
 }
 

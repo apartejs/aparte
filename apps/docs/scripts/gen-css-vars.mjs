@@ -100,6 +100,22 @@ const css = CSS_SHEETS.map((p) => readFileSync(p, 'utf8')).join(String.fromCharC
 const DECLARED_FLOOR = 250;
 const lines = css.split(/\r?\n/);
 
+// A token theme.css declares again under `@supports (…)` (the inks, the editor padding) has TWO
+// values: the table's default is the fallback, and every browser that passes the test draws the
+// other. The column-zero scan below skips nested blocks on purpose (an override is not a
+// default), so the modern value is collected here and printed beside the row.
+const SUPPORTS = new Map();
+for (let i = 0; i < lines.length; i++) {
+  const m = /^@supports\s*\((.+)\)\s*\{\s*$/.exec(lines[i]);
+  if (!m) continue;
+  let depth = 1;
+  for (let j = i + 1; j < lines.length && depth > 0; j++) {
+    depth += (lines[j].match(/\{/g) ?? []).length - (lines[j].match(/\}/g) ?? []).length;
+    const d = /^\s*(--aparte-[a-z0-9-]+)\s*:\s*(.+?);\s*$/.exec(lines[j]);
+    if (d && !SUPPORTS.has(d[1])) SUPPORTS.set(d[1], { test: m[1], value: d[2] });
+  }
+}
+
 // Every top-level block whose selector list opens with `:root` — the literal palette
 // AND the derived layer split out of it. The dark block is correctly skipped: it holds
 // overrides, not the token list. Reading only the first block is what dropped ten
@@ -108,7 +124,7 @@ const lines = css.split(/\r?\n/);
 // One of these blocks is also the ANCHORED layer: its selector list ends
 // `..., aparte-chat` (theme.css's own comment calls it "re-anchored, on purpose") and
 // core re-declares every token inside it on `:root, :host, [data-aparte-theme],
-// [data-aparte-host], aparte-chat` — so a `:root`-only override of one of THESE never
+// [data-aparte-host], [data-aparte-chat], aparte-chat` — so a `:root`-only override of one of THESE never
 // reaches inside a chat (a local declaration always beats an inherited one). Its lines
 // are captured separately so the reference can tell a reader which is which, the same
 // way it already marks a token nothing reads.
@@ -430,7 +446,7 @@ sidebar:
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
 in total: ${total - ANCHORED.size} declared once on \`:root\`, ${ANCHORED.size} declared on the
-**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat\`) and
+**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], [data-aparte-chat], aparte-chat\`) and
 ${componentTokens.length} read by a component with a built-in default. A row marked
 **anchored** must be overridden on \`aparte-chat\` or a theme boundary, not on \`:root\` — see
 [Theming](/guides/theming/). Both halves are swept from the source on every build.
@@ -458,6 +474,8 @@ for (const g of groups) {
     const markers = [];
     if (unread.has(t.name)) markers.push('**palette only**');
     if (ANCHORED.has(t.name)) markers.push('**anchored**');
+    const modern = SUPPORTS.get(t.name);
+    if (modern) markers.push(`the fallback: under \`@supports (${modern.test})\` it is \`${modern.value}\``);
     const note = [t.note, ...markers].filter(Boolean).join(' — ');
     md += `| \`${esc(t.name)}\` | \`${esc(t.value)}\` | ${esc(note)} |\n`;
   }

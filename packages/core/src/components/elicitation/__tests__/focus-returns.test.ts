@@ -113,3 +113,103 @@ describe('elicitation focus (SC 2.4.3)', () => {
         expect(document.activeElement, 'the model finishing is not a reason to move the caret').toBe(elsewhere);
     });
 });
+
+describe('elicitation focus — whose turn it is (#22)', () => {
+    it('leaves the focus on a field elsewhere on the page when a script opened the panel', async () => {
+        mountChat();
+        const elsewhere = document.createElement('input');
+        document.body.appendChild(elsewhere);
+        elsewhere.focus();
+        const p = requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.querySelector('.aparte-elic-panel'), 'the panel is shown').not.toBeNull();
+        expect(document.activeElement, 'and the focus stays where the reader is').toBe(elsewhere);
+        clickOption('react');
+        await p;
+        expect(document.activeElement).toBe(elsewhere);
+    });
+
+    it('takes it when nobody holds the focus — a click in Safari, a screen reader — so the panel is announced', () => {
+        mountChat();
+        (document.activeElement as HTMLElement | null)?.blur();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.activeElement, 'the panel holds it').not.toBe(document.body);
+        expect(document.querySelector('.aparte-elic-panel')?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("takes it from a button of the app's own chrome beside the chat — its click started the turn", () => {
+        mountChat();
+        const appButton = document.createElement('button');
+        document.body.appendChild(appButton);
+        appButton.focus();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.querySelector('.aparte-elic-panel')?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("from the chat's own editor it focuses the panel itself, so the next Enter does not pick an option", () => {
+        mountChat();
+        const editor = document.querySelector<HTMLElement>('aparte-composer-input textarea, aparte-composer-input [contenteditable]')
+            ?? document.querySelector<HTMLElement>('aparte-composer-input')!;
+        if (!editor.hasAttribute('tabindex') && editor.tagName === 'APARTE-COMPOSER-INPUT') editor.setAttribute('tabindex', '0');
+        const field = document.createElement('textarea');
+        document.querySelector('aparte-composer')!.prepend(field);
+        field.focus();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        const panel = document.querySelector<HTMLElement>('.aparte-elic-panel')!;
+        expect(document.activeElement, 'the panel, not one of its options').toBe(panel);
+        expect(panel.getAttribute('aria-label')).toBe('Framework?');
+    });
+
+    it('says a question waits when the reader is busy elsewhere', async () => {
+        mountChat();
+        const elsewhere = document.createElement('input');
+        document.body.appendChild(elsewhere);
+        elsewhere.focus();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        await new Promise((r) => setTimeout(r, 80));
+        expect(document.querySelector('.aparte-elic-status[role="status"]')?.textContent).toBe('Framework?');
+        expect(document.activeElement).toBe(elsewhere);
+    });
+
+    it('counts a field inside a shadow root outside the chat as busy elsewhere', () => {
+        mountChat();
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const field = host.attachShadow({ mode: 'open' }).appendChild(document.createElement('input'));
+        field.focus();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.activeElement, 'still the shadow host').toBe(host);
+        expect(host.shadowRoot!.activeElement).toBe(field);
+    });
+
+    it('taken from nobody, the focus goes to the composer when the panel closes, not back to <body>', async () => {
+        mountChat();
+        (document.activeElement as HTMLElement | null)?.blur();
+        const p = requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        clickOption('react');
+        await p;
+        expect(document.activeElement).not.toBe(document.body);
+        expect(document.querySelector('aparte-composer')!.contains(document.activeElement)).toBe(true);
+    });
+});
+

@@ -105,6 +105,7 @@ export type {
 
 export type {
     AparteChatRequest,
+    AparteRequestMeta,
     AparteChatResponse,
     AparteChatMessage,
     AparteContentPart,
@@ -174,7 +175,13 @@ export type {
     AparteSelectAttributes,
     AparteOptionAttributes,
     AparteOptgroupAttributes,
-    AparteProgressSpinnerAttributes
+    AparteProgressSpinnerAttributes,
+    AparteContextAttributes,
+    AparteIconAttributes,
+    AparteScrollRailAttributes,
+    AparteSidebarAttributes,
+    AparteSplitAttributes,
+    AparteSuggestionsAttributes
 } from './element-attributes.js';
 
 // The canonical imperative surface every framework <AparteChat> exposes.

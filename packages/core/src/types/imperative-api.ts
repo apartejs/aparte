@@ -50,7 +50,9 @@ export interface AparteChatImperativeApi {
     // ── manual token streaming (agnostic AsyncIterable) ──
     /**
      * Stream tokens into a message from your own loop (no `AparteClient`
-     * involved) — the display-only / bring-your-own-loop mode. Resolves when
+     * involved). It sends the turn's lifecycle events itself — `aparte-message-start`,
+     * then `-done`, `-aborted` or `-error` — so the composer shows Stop, its Stop
+     * cancels the stream, and the conversation manager saves the reply. Resolves when
      * the iterable completes; the message is then marked complete.
      *
      * If `messageId` doesn't exist the viewport auto-creates an empty

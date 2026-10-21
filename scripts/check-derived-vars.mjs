@@ -69,7 +69,7 @@ const REF_FLOOR = 500;
 const origin = [];
 
 /** Every place a palette can change, and therefore every place the layer re-anchors. */
-const ANCHORS = [':root', ':host', '[data-aparte-theme]', '[data-aparte-host]', 'aparte-chat'];
+const ANCHORS = [':where(:root)', ':host', ':where([data-aparte-theme])', ':where([data-aparte-host])', ':where([data-aparte-chat])', ':where(aparte-chat)'];
 /**
  * The literal palette's own selector list, which must stay exactly this. `:where(:root)`
  * and not `:root`: at zero weight, a host's rebrand wins whichever sheet loads last (#95).
@@ -91,7 +91,7 @@ const LITERAL_SELECTORS = [':where(:root)', ':host'];
  * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
  * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 12; // #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse); then the pending attachment's ✕ (--aparte-thumb-remove-size), same modality rule.
+const AT_RULE_CEILING = 13; // the intent-less button's derived ink, under @supports (color: oklch(from …)) beside the derived ink it reads; #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse); then the pending attachment's ✕ (--aparte-thumb-remove-size), same modality rule.
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.
@@ -759,11 +759,14 @@ for (const [name, count] of declaredFrames) {
  * number and checking it is the smaller of the two mechanisms.
  */
 const THEMING_GUIDE = 'apps/docs/src/content/docs/guides/theming.mdx';
+// VARIABLES, as the sentence says, not declarations: a variable declared again under
+// `@supports` (the inks, the editor padding) is still one variable that reads another.
+const derivedVariables = new Set(anchored.map((d) => d.name)).size;
 if (existsSync(THEMING_GUIDE)) {
     const guide = readFileSync(THEMING_GUIDE, 'utf8');
-    if (!new RegExp(`\\b${anchored.length}\\b[^.]*variables? read another`).test(guide)) {
+    if (!new RegExp(`\\b${derivedVariables}\\b[^.]*variables? read another`).test(guide)) {
         problems.push(
-            `${THEMING_GUIDE} does not state the derived-variable count. It is ${anchored.length} now — `
+            `${THEMING_GUIDE} does not state the derived-variable count. It is ${derivedVariables} now — `
             + 'find the "N of core\'s variables read another one" sentence and update the number.',
         );
     }

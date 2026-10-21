@@ -15,6 +15,7 @@ import {
 import type { AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig, attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
+import { dispatchLifecycleEvent } from '../client/lifecycle-events.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
@@ -715,6 +716,19 @@ export class AparteChatHost {
             if (ac.signal.aborted) { resolve('aborted'); return; }
             ac.signal.addEventListener('abort', () => resolve('aborted'), { once: true });
         });
+        // Announced only now, past the setup that can throw (the source's iterator), so a
+        // start always meets the `finally` that ends it. The turn announces itself the way `AparteClient` does, so what listens for a turn
+        // works here too: the composer shows Stop, the conversation controller saves at the
+        // end. And the composer's Stop (`aparte-abort` for this chat, or for every chat when
+        // it names none) stops this stream.
+        const { host, hostId } = this.binding;
+        const onAbort = (e: Event): void => {
+            const target = ((e as CustomEvent).detail as { targetId?: string } | undefined)?.targetId;
+            if ((!target || target === hostId) && this._streamAbort === ac) this.stopTokenStream();
+        };
+        window.addEventListener('aparte-abort', onAbort);
+        const replaced = (): boolean => this._streamAbort !== undefined && this._streamAbort !== ac;
+        dispatchLifecycleEvent(host, 'aparte-message-start', { messageId, role: 'assistant' }, hostId);
         try {
             for (;;) {
                 const res = await Promise.race([iterator.next(), aborted]);
@@ -731,12 +745,27 @@ export class AparteChatHost {
             // as streaming — and everything read-only that hangs off that (the branch
             // arrows, retry, edit of every message) stayed disabled for good.
             this._vp()?.completeMessage?.(messageId);
-            this._setStreamingId(null);
+            // Replaced by a newer stream (which stopped this one, then took the slot): the
+            // turn in flight is the newer one. Clearing the streaming id, or ending a turn
+            // the listeners now follow, would be this loop speaking for it.
+            if (!replaced()) {
+                this._setStreamingId(null);
+                dispatchLifecycleEvent(
+                    host,
+                    ac.signal.aborted ? 'aparte-message-aborted' : 'aparte-message-done',
+                    ac.signal.aborted ? { messageId } : { messageId, role: 'assistant' },
+                    hostId,
+                );
+            }
         } catch (err) {
             this._flushStreamState();
-            this._setStreamingId(null);
+            if (!replaced()) {
+                this._setStreamingId(null);
+                dispatchLifecycleEvent(host, 'aparte-message-error', { messageId, error: err }, hostId);
+            }
             throw err;
         } finally {
+            window.removeEventListener('aparte-abort', onAbort);
             // On abort the source may still be mid-flight; return() triggers its
             // cleanup (generator finally / subscription teardown).
             if (ac.signal.aborted) { try { await iterator.return?.(); } catch { /* ignore */ } }

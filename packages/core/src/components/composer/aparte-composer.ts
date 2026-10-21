@@ -704,6 +704,7 @@ export class AparteComposer extends HTMLElement {
 
     // ── Internal pub/sub ────────────────────────────────────────────────────
 
+    /** @internal The composer parts' own bus. From outside, listen for `aparte-composer-change`. */
     _emit<K extends AparteComposerEventType>(event: K, payload: AparteComposerEventMap[K]): void {
         this._listeners.get(event)?.forEach(cb => cb(payload));
         // Mirror state changes to a public DOM event so elements outside the
@@ -717,6 +718,7 @@ export class AparteComposer extends HTMLElement {
         }
     }
 
+    /** @internal The composer parts' own bus. From outside, listen for `aparte-composer-change`. */
     _on<K extends AparteComposerEventType>(event: K, cb: (payload: AparteComposerEventMap[K]) => void): () => void {
         if (!this._listeners.has(event)) this._listeners.set(event, new Set());
         this._listeners.get(event)!.add(cb as unknown as (payload: unknown) => void);

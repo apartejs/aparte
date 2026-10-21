@@ -156,6 +156,9 @@ const TOOLBAR = /composer-toolbar\.spec\.ts/;
 // modes matter: vanilla is core mode (absolute button), react is framework-managed
 // (sticky inside the scrolling host) - where it floated `padding + spacer` too high.
 const SCROLL_BTN = /scroll-button\.spec\.ts/;
+// #105 — opening a tool row (a <details>) gives the spacer back the room it takes. Both
+// transcript modes, like SCROLL_BTN: core mode (vanilla) and framework-managed (react).
+const TOOL_ROW_SPACER = /tool-row-spacer\.spec\.ts/;
 // The scroll rail, on the one example that mounts it. Its unit suite runs in jsdom, where
 // nothing is laid out and the observers are stubs, which is how a rail that rebuilt itself
 // every frame and clipped past sixteen ticks stayed green for a release. Geometry, focus
@@ -249,7 +252,7 @@ const APPROVAL = /approval\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL];
 const suiteFor = (k: AppKey): RegExp[] =>
     // vanilla-dist also runs THEMING: its page has no skin at all (a bare
     // `<aparte-chat>`, core's own default composition), which is exactly where the

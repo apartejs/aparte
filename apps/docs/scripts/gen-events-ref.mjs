@@ -250,7 +250,7 @@ const GROUPS = [
     {
         id: 'host',
         title: 'On the chat host',
-        lead: 'The turn lifecycle, dispatched by `AparteClient` on the `<aparte-chat>` it drives — bubbling and composed, and **stamped with `targetId`** so two chats on one page stay apart. A composer treats an ABSENT `targetId` as "for me", which is what lets a single-chat page work with no wiring at all.',
+        lead: 'The turn lifecycle, dispatched by `AparteClient` on the `<aparte-chat>` it drives, and by `injectTokenStream` on the framework chat it streams into — bubbling and composed, and **stamped with `targetId`** so two chats on one page stay apart. A composer treats an ABSENT `targetId` as "for me", which is what lets a single-chat page work with no wiring at all.',
         of: (name) => primary(name) === 'host',
     },
     {
@@ -312,7 +312,7 @@ for (const group of GROUPS) {
         // The manifest first (an element that declares it fires it), else whoever the dispatch
         // scan saw — since 0.16.0 that can be a plugin package or an element dispatching on
         // `window`, and "AparteClient" was a lie for the four compaction events.
-        const by = inward ? 'your app' : tags.length ? tags.map((t) => `\`<${t}>\``).join(', ') : [...(credit.get(name) ?? ['`AparteClient`'])].join(', ');
+        const by = inward ? 'your app' : tags.length ? tags.map((t) => `\`<${t}>\``).join(', ') : [...(credit.get(name) ?? (/^aparte-message-(start|done|error|aborted)$/.test(name) ? ['`AparteClient`', '`injectTokenStream`'] : ['`AparteClient`']))].join(', ');
         md += `| \`${name}\` | ${detail ? `\`${esc(detail)}\`` : '—'} | ${targetsOf(name) || '`window`'} | ${by} |\n`;
     }
     md += `\n`;

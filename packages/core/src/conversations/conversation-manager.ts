@@ -5,7 +5,8 @@ import type { ExportedMessageRepository } from '../runtime/message-repository.js
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
 import { uuid } from '../utils/uuid.js';
 
-type Listener = (conversations: AparteConversation[]) => void;
+/** What {@link AparteConversationManager.subscribe} calls with the list, on every change. */
+export type AparteConversationsListener = (conversations: AparteConversation[]) => void;
 
 /**
  * Titles a conversation from its first user message.
@@ -126,7 +127,7 @@ export class AparteConversationManager {
     private _adapter: AparteStorageAdapter;
     private _conversations: AparteConversation[] = [];
     private _activeId: string | null = null;
-    private _listeners: Set<Listener> = new Set();
+    private _listeners: Set<AparteConversationsListener> = new Set();
     private _initialized = false;
     private _retention: { maxMessages: number } | null = null;
     private _titleProvider: AparteConversationTitleProvider | null = null;
@@ -572,7 +573,7 @@ export class AparteConversationManager {
 
     // ─── Observer ───────────────────────────────────────────────────────────
 
-    subscribe(listener: Listener): () => void {
+    subscribe(listener: AparteConversationsListener): () => void {
         this._listeners.add(listener);
         return () => this._listeners.delete(listener);
     }

@@ -46,6 +46,7 @@ export interface RunnerContext {
     transformers: TransformersModule;
     modelId: string;
     dtype?: Dtype;
+    /** Where the model runs: `'webgpu'` or `'wasm'` — the host resolves `'auto'` before a runner is created. */
     device?: Device;
     /** Download / load progress, forwarded to the page. */
     progress(p: RunnerProgress): void;

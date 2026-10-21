@@ -258,3 +258,86 @@ describe('createWorkerHost — prepare, command, and the runner cache', () => {
         expect(loadTransformers).toHaveBeenCalledWith('https://cdn.example/transformers.js');
     });
 });
+
+describe('createWorkerHost — the device', () => {
+    it("'auto' becomes webgpu when an adapter answers, and is asked once", async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const hasWebGpu = vi.fn(async () => true);
+        const { h, flush } = host(createRunner, { hasWebGpu });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('webgpu');
+        h.onMessage(gen('g2', { device: 'auto', modelId: 'm2' }));
+        await flush();
+        expect(hasWebGpu).toHaveBeenCalledTimes(1);
+    });
+
+    it("'auto' becomes wasm when no adapter answers", async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const { h, flush } = host(createRunner, { hasWebGpu: async () => false });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('wasm');
+    });
+
+    it('a forced device is passed as it is, without asking', async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const hasWebGpu = vi.fn(async () => true);
+        const { h, flush } = host(createRunner, { hasWebGpu });
+        h.onMessage(gen('g1', { device: 'wasm' }));
+        await flush();
+        expect(seen.ctx?.device).toBe('wasm');
+        expect(hasWebGpu).not.toHaveBeenCalled();
+    });
+
+    it("'auto' falls back to wasm, with a warning, when the model fails to load on webgpu", async () => {
+        const devices: (string | undefined)[] = [];
+        const createRunner = async (ctx: RunnerContext) => {
+            devices.push(ctx.device);
+            if (ctx.device === 'webgpu') throw new Error('unsupported op');
+            return { async generate() {}, async command() { return null; } } as TransformersRunner;
+        };
+        const { h, posted, flush } = host(createRunner, { hasWebGpu: async () => true });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(devices).toEqual(['webgpu', 'wasm']);
+        expect(posted.some((m) => (m as { type: string; message?: string }).type === 'warning'
+            && /could not load on WebGPU/.test((m as { message?: string }).message ?? ''))).toBe(true);
+    });
+
+    it('a forced webgpu that fails to load is not retried', async () => {
+        const devices: (string | undefined)[] = [];
+        const createRunner = async (ctx: RunnerContext) => { devices.push(ctx.device); throw new Error('no gpu'); };
+        const { h, flush } = host(createRunner, { hasWebGpu: async () => true });
+        h.onMessage(gen('g1', { device: 'webgpu' }));
+        await flush();
+        expect(devices).toEqual(['webgpu']);
+    });
+
+    describe('the default detection, navigator.gpu', () => {
+        const run = async (gpu: unknown): Promise<string | undefined> => {
+            vi.stubGlobal('navigator', gpu === undefined ? {} : { gpu });
+            try {
+                const { createRunner, seen } = scriptedRunner(() => {});
+                const { h, flush } = host(createRunner);
+                h.onMessage(gen('g1', { device: 'auto' }));
+                await flush();
+                return seen.ctx?.device;
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        };
+        it('an adapter that answers is webgpu', async () => {
+            expect(await run({ requestAdapter: async () => ({}) })).toBe('webgpu');
+        });
+        it('no adapter is wasm', async () => {
+            expect(await run({ requestAdapter: async () => null })).toBe('wasm');
+        });
+        it('a request that throws is wasm', async () => {
+            expect(await run({ requestAdapter: async () => { throw new Error('blocked'); } })).toBe('wasm');
+        });
+        it('no WebGPU API at all is wasm', async () => {
+            expect(await run(undefined)).toBe('wasm');
+        });
+    });
+});

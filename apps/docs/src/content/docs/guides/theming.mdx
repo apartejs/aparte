@@ -122,16 +122,15 @@ third block as it is: a bare `:root` inside the media query loses to core's dark
 
 A variable set on an element reaches everything inside it: one [chat](/components/chat/), a
 sidebar, a section of the page. A token that reads another one, such as `--aparte-avatar-bg-user`
-or `--aparte-radius-bubble`, is worked out again on every `aparte-chat` and every
-`[data-aparte-theme]` element, so a chat given its own `--aparte-primary` gets its own user bubble
+or `--aparte-radius-bubble`, is worked out again on every `aparte-chat`, every `[data-aparte-chat]` root the React, Vue and
+Svelte components render, and every `[data-aparte-theme]` element, so a chat given its own `--aparte-primary` gets its own user bubble
 and avatar too. The same rule stops a value you give such a token on `:root` at the chat: set it on
 the chat, in a rule with a class as above, which outweighs core's own declaration there whatever
 order the stylesheets load in. The [CSS variables](/reference/css-variables/) reference marks
 those tokens **anchored**.
 
-In React, Vue and Svelte, the chat's root is a `<div data-aparte-chat>`, where nothing is worked
-out again: theme one of those chats through an element around it that carries the attribute, such
-as `<div class="sales" data-aparte-theme="light">`, with `div.sales { … }`.
+In React, Vue and Svelte, the chat's root is a `<div data-aparte-chat>`, and the same tokens are
+worked out again there: give it a class and write `[data-aparte-chat].sales { … }`.
 
 ## Make it denser, squarer or larger
 

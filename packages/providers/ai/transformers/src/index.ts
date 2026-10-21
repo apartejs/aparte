@@ -121,7 +121,7 @@ export interface TransformersModelConfig {
     runner?: string;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */
     dtype?: Dtype;
-    /** Preferred device. Defaults to WebGPU when available, else WASM. */
+    /** Not read: where models run is one setting for the page, {@link setComputeDevice}. */
     device?: Device;
     metadata?: Record<string, unknown>;
 }
