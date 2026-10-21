@@ -304,13 +304,17 @@ function _warnIfContended(requested: string): void {
     const other = _contendingModelId(requested);
     if (!other) return;
     _warnedModelContention = true;
+    // Only a budget of one deletes a model the other chat needs: 0 is no limit, and two or
+    // more keep both chats' models downloaded.
+    const deletes = _maxCachedModels === 1
+        ? ` With a cache budget of 1, a switch also deletes the other model's downloaded weights `
+          + `and downloads them again; setMaxCachedModels(2) keeps both, if the browser's storage has room.`
+        : '';
     console.warn(
         `[Aparte] Two chats are driving different local models at once ("${requested}" behind `
         + `"${other}"). Transformers.js runs one pipeline per tab, so these generates are `
-        + `serialized: each switch unloads one model and loads the other. With a cache budget of `
-        + `${_maxCachedModels}, a switch can also delete the other model's downloaded weights and `
-        + `download them again. Point both chats at one model, or keep both downloaded with `
-        + `setMaxCachedModels(2) if the browser's storage has room. This warns once.`,
+        + `serialized: each switch unloads one model and loads the other.${deletes} Point both `
+        + `chats at one model to avoid it. This warns once.`,
     );
 }
 
