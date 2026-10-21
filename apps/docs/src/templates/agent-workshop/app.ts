@@ -34,8 +34,8 @@ const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 async function main(): Promise<void> {
     followTheme();
 
-    // Markdown and highlighting before anything renders: a bubble drawn before its renderer is
-    // set keeps its raw text. Shiki's /core entry with the three grammars this app shows, and a
+    // Markdown and highlighting before anything renders: a bubble drawn first would show its raw
+    // text, then be drawn again. Shiki's /core entry with the three grammars this app shows, and a
     // light/dark pair that follows the site's theme.
     setupMarkedProvider();
     setupStreamingMarkdownProvider();

@@ -42,7 +42,7 @@ const mode = templateMode();
 followTheme();
 
 // The page's language (the list's date groups follow it), then Markdown, before anything
-// renders: a bubble drawn before its renderer is set keeps its raw text.
+// renders: a bubble drawn first would show its raw text, then be drawn again.
 aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 setupMarkedProvider();
 setupStreamingMarkdownProvider();

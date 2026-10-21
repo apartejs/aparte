@@ -45,9 +45,8 @@ async function main(): Promise<void> {
     // English, dates included: the list's date groups follow the locale's tag.
     aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
-    // Every renderer before anything renders: a bubble drawn before its Markdown provider is set
-    // keeps its raw text, and a code block is highlighted when it settles, so a highlighter
-    // registered later would miss the seeded conversations' code.
+    // Every renderer before anything renders: a bubble drawn before its Markdown or highlight
+    // provider would show its raw text first and be drawn a second time when the provider lands.
     registerDefaultRenderers();
     setupStreamingMarkdownProvider();
     setupMarkedProvider();

@@ -171,9 +171,8 @@ export interface AparteAIProviderCore {
      * `getCurrentModel()`, silently disabling capability gates such as
      * `function_calling` (tools). For async fetching implement
      * {@link fetchModels} instead, which `aparteGlobalConfig.refreshProviderModels()`
-     * and the model-selector consume. Note: a provider without `fetchModels`
-     * shows no models in the model-selector — `getModels()` is only read for
-     * the current-model lookup.
+     * and the model-selector consume. A provider without `fetchModels` shows its
+     * `getModels()` list in the model-selector.
      */
     getModels(): AparteAIModel[];
 

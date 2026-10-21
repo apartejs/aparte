@@ -1340,7 +1340,7 @@ export class AparteClient {
                 console.warn(
                     '[AparteClient] Send dropped: no model is selected. Call '
                     + 'aparteGlobalConfig.setModelConfig({ defaultProvider, defaultModel }), mount '
-                    + '<aparte-model-selector auto-select>, or register one provider with a single '
+                    + '<aparte-model-selector auto-select persist>, or register one provider with a single '
                     + 'model — that one is selected on its own.',
                 );
             }

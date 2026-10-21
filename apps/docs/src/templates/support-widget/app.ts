@@ -17,7 +17,7 @@ import { match, PLAY_QUESTION, SCENARIOS, SEED, welcome } from './scenario';
 
 followTheme();
 
-// Markdown before anything renders: a bubble drawn before its renderer is set keeps its raw text.
+// Markdown before anything renders: a bubble drawn first would show its raw text, then be drawn again.
 setupMarkedProvider();
 setupStreamingMarkdownProvider();
 // The transcript names the assistant's messages after it.

@@ -114,8 +114,8 @@ async function run(): Promise<SiteSetup> {
     // Syntax highlighting, through the plugin's `/core` entry: the grammars are chosen
     // here, so the bundle carries six of them and not the three hundred the convenience
     // entry pulls in. A language outside this list renders as plain text. Awaited before
-    // the chat wires, because a block is highlighted when it settles and a provider
-    // registered later would miss the sample conversations' code. The light/dark pair
+    // the chat wires, so the sample conversations are drawn highlighted once, not plain
+    // first and again when the highlighter lands. The light/dark pair
     // follows `data-aparte-theme` on the root — the header's toggle.
     setupShikiProviderFromHighlighter(
         await createHighlighterCore({
