@@ -157,6 +157,11 @@
       0.02
       h
     );
+    /* A button with no intent class IS neutral, so it inks like `--neutral` does. It kept
+       the dark constant instead: a selected segment in an intent-less or `--surface`
+       group read dark on the neutral fill, 3.38:1 in light. The intent classes below
+       come later and still win. */
+    --aparte-btn-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink));
   }
 }
 
