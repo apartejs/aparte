@@ -21,7 +21,8 @@ setupTitler(manager, { titler: loadTitler });
 `loadTitler` is called once, the first time a conversation needs a title — the model is not on
 the page's critical path. A `Titler` instance or a promise of one (`loadTitler()`) is accepted
 in the same place, and so is any object with `title(message, budget?)` of your own
-(`TitlerLike`). `budget` caps the number of words (the model's default is 6).
+(`TitlerLike`). `budget` is the exact number of words; without it the model keeps, among its six best-scored words,
+those it is at least half sure of, never fewer than three.
 
 `setupTitler` returns a teardown that gives the manager back the provider it had. For a manager
 built with the `titleProvider` option, `createTitleProvider(options)` is the provider alone:

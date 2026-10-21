@@ -167,8 +167,8 @@ const [conversationId, setConversationId] = useState<string | null>(null);
 A conversation id opens that conversation in the chat, and `null` closes it. The first message
 sent with none open creates one and hands you its id, so a URL or a router can follow. From then
 on, the person's messages are saved as they are sent, and a reply when the chat hears it end —
-`aparte-message-done`, `-error` or `-aborted`, which `AparteClient` sends, and a loop of your own
-sends as in [Your own loop](/guides/bring-your-own-loop/). A new version is saved as it appears.
+`aparte-message-done`, `-error` or `-aborted`, which `AparteClient` and `injectTokenStream` send,
+and a plain-HTML loop of your own sends as in [Your own loop](/guides/bring-your-own-loop/#make-stop-work). A new version is saved as it appears.
 In plain HTML the controller does this work, and `bind()` returns the function that stops it;
 `setLoading`, `exportTree` and `importTree` are optional, and without one it does without the
 loading state or the branches.
