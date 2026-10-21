@@ -11,3 +11,5 @@ Three cases used to leave it empty or stale until a reload:
 - A provider with no `fetchModels`. Its `getModels()` list is now shown.
 
 The `void import('@aparte/plugin-model-selector')` placed after the registration, which some setups used to dodge the first case, is no longer needed.
+
+A fourth case, the normal order under every wrapper: the element connects on the global config, then the chat's own config is attached. A slow global `/models` that answered after the chat's load used to write the global models over the chat's. A load that a mount or a new config superseded now discards what it brings back.

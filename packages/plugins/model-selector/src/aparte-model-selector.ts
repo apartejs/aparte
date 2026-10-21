@@ -68,6 +68,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     private _isRendering = false;
     /** A load was asked for while one ran; the running one goes round again. */
     private _reloadQueued = false;
+    /** Bumped by {@link _restartLoading}: a load of an older generation discards its result. */
+    private _loadGeneration = 0;
     /** The providers the current list was built from, as {@link _providersKey} gives them. */
     private _loadedProvidersKey = '';
     private _expandedGroups: Set<string> = new Set();
@@ -100,9 +102,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
     async connectedCallback(): Promise<void> {
         this._cfg = resolveConfig(this);
-        // Reset loading flag so a fresh mount always does a full load
-        // (prevents a stale _isLoading=true from a previous mount blocking this one)
-        this._isLoading = false;
+        // A fresh mount always does a full load, whatever a previous mount left running.
+        this._restartLoading();
         this._providerModels = [];
 
         this._setupEventListeners();
@@ -204,7 +205,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._cfg = next;
         if (!this.isConnected) return;
         void (async () => {
-            this._isLoading = false;
+            this._restartLoading();
             this._providerModels = [];
             const model = this._cfg.getModelConfig();
             if (model.defaultProvider && model.defaultModel) {
@@ -266,20 +267,36 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._reloadQueued = true;
             return false;
         }
+        const generation = this._loadGeneration;
         this._isLoading = true;
         try {
             do {
                 this._reloadQueued = false;
-                await this._loadOnce();
-            } while (this._reloadQueued && this.isConnected);
+                await this._loadOnce(generation);
+            } while (this._reloadQueued && this.isConnected && generation === this._loadGeneration);
         } finally {
-            this._isLoading = false;
+            // A restart already handed the flag to the load that replaced this one.
+            if (generation === this._loadGeneration) this._isLoading = false;
         }
-        return true;
+        return generation === this._loadGeneration;
     }
 
-    private async _loadOnce(): Promise<void> {
-        this._loadedProvidersKey = this._providersKey();
+    /**
+     * Start over: a mount, or a new config above us. A load still in flight from before
+     * keeps running — its fetches cannot be called back — but it is now of an older
+     * generation, so it discards what it brings back instead of writing it over the list
+     * the new load builds. Under every wrapper this is the normal order: the element
+     * connects on the global config, then `bind()` attaches the chat's own, and a slow
+     * global `/models` used to land last and win.
+     */
+    private _restartLoading(): void {
+        this._loadGeneration++;
+        this._isLoading = false;
+        this._reloadQueued = false;
+    }
+
+    private async _loadOnce(generation: number): Promise<void> {
+        const providersKey = this._providersKey();
         const providers = this._cfg.getAIProviders();
 
         // Deduplicate providers by ID just in case
@@ -322,9 +339,11 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             }
         }));
 
+        if (generation !== this._loadGeneration) return;
         // The holes are the providers that failed or returned nothing: dropped,
         // which keeps the order of the survivors.
         this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
+        this._loadedProvidersKey = providersKey;
     }
 
     private async _onOptgroupToggle(e: Event): Promise<void> {

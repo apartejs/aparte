@@ -385,6 +385,27 @@ describe('aparte-model-selector — boundary attached AFTER mount (every wrapper
         });
     });
 
+    it('a slow global load that lands after the instance config does not overwrite it', async () => {
+        // The wrapper order with a global /models that is slow to answer: the element
+        // connects and starts loading the global, bind() attaches the instance before that
+        // load is back, the instance load finishes first — and the global one lands last.
+        aparteGlobalConfig.registerAIProvider(slowProvider('global', 'Global Model', 60));
+        const host = document.createElement('div');
+        const selector = document.createElement('aparte-model-selector');
+        host.appendChild(selector);
+        document.body.appendChild(host);
+
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+
+        await vi.waitFor(() => expect(selector.textContent).toContain('Scoped Model'));
+        await new Promise((r) => setTimeout(r, 120));   // the global load has landed by now
+        expect(selector.querySelector('aparte-option[value="scoped::scoped-model"]'), 'still the chat\'s models').toBeTruthy();
+        expect(selector.querySelector('aparte-option[value="global::global-model"]'), 'never the stale ones').toBeNull();
+        detachConfig(host);
+    });
+
     it('stops listening to the config it left behind', async () => {
         aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
         const host = document.createElement('div');
