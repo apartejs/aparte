@@ -85,6 +85,7 @@ export type {
     AparteFeedbackEventDetail,
     AparteActionEventDetail,
     AparteChatRequest,
+    AparteRequestMeta,
     AparteChatResponse,
     AparteChatMessage,
     AparteContentPart,
@@ -124,6 +125,12 @@ export type {
     AparteOptionAttributes,
     AparteOptgroupAttributes,
     AparteProgressSpinnerAttributes,
+    AparteContextAttributes,
+    AparteIconAttributes,
+    AparteScrollRailAttributes,
+    AparteSidebarAttributes,
+    AparteSplitAttributes,
+    AparteSuggestionsAttributes,
 } from './types/index.js';
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
@@ -179,6 +186,7 @@ export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
 export {
     AparteConversationManager,
     type ConversationManagerOptions,
+    type AparteConversationsListener,
     type AparteConversationTitleProvider,
 } from './conversations/index.js';
 export {

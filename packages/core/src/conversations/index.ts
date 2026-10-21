@@ -10,6 +10,7 @@ export {
     AparteConversationManager,
     applyRetention,
     type ConversationManagerOptions,
+    type AparteConversationsListener,
     type AparteConversationTitleProvider,
 } from './conversation-manager.js';
 export {
