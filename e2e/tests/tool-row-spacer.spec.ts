@@ -30,10 +30,18 @@ async function measure(page: Page): Promise<{ length: number; spacer: number; co
     });
 }
 
-/** Wait until two reads a poll apart agree: the layout has stopped moving. */
+/** Two frames: the spacer is recomputed in a frame queued by the change, never in the same task. */
+const twoFrames = (page: Page) => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+
+/**
+ * Wait until two reads a poll apart agree: the layout has stopped moving. The first read waits
+ * two frames, or two reads taken before the spacer's frame would agree on its OLD value.
+ */
 async function settled(page: Page): Promise<{ length: number; spacer: number; content: number }> {
+    await twoFrames(page);
     let last = await measure(page);
     await expect.poll(async () => {
+        await twoFrames(page);
         const now = await measure(page);
         const still = Math.abs(now.length - last.length) < 1 && Math.abs(now.spacer - last.spacer) < 1;
         last = now;
