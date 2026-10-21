@@ -34,13 +34,13 @@ What degrades instead:
 
 - **Each accent as text** — the active conversation's mark, a success sign, a button's text in
   its accent colour — keeps its accent's hue at a set lightness with relative colour syntax
-  (Chrome 119, Safari 16.4, Firefox 128); before, it is the accent mixed half-way with the text
-  colour, which still reads at 4.5:1 or more on the default palette.
+  (Chrome 119, Safari 16.4, Firefox 128); before, it is the accent mixed with the text colour,
+  which still reads at 4.5:1 or more on the default palette, washes included.
 - **The editor's padding** is worked out from its line height with the `lh` unit (Safari 16.4,
   Firefox 120); before, from `em`, to the same pixel.
 - **A filled button's ink** — the text on a solid brand colour — is computed with relative colour
   syntax under `@supports`; without it, the fixed `--aparte-on-intent` is used, readable on the
-  default palette ([the text on a fill](/guides/theming/#the-text-on-a-fill)).
+  default palette except on the neutral fill (3.38:1 in light) ([the text on a fill](/guides/theming/#the-text-on-a-fill)).
 - **`:dir()`** places the active conversation's mark on the right in a right-to-left page; Chrome
   before 120 keeps it on the left.
 - **`content-visibility`** is a rendering hint, ignored where it is not supported.
