@@ -865,11 +865,14 @@ export class AparteConfig {
     /**
      * Register a model preference provider for agnostic persistence.
      * The host app decides how/where to store the selected provider & model.
+     * `load` answers `{ provider, model }` — the names {@link AparteModelPreference} reads —
+     * and {@link AparteConfig.restoreModelPreference | restoreModelPreference()} applies it.
      * @example
      * aparteGlobalConfig.setModelPreferenceProvider({
-     *   save: (p, m) => localStorage.setItem('model', JSON.stringify({p, m})),
-     *   load: () => JSON.parse(localStorage.getItem('model') ?? 'null')
+     *   save: (provider, model) => localStorage.setItem('model', JSON.stringify({ provider, model })),
+     *   load: () => JSON.parse(localStorage.getItem('model') ?? 'null'),
      * });
+     * aparteGlobalConfig.restoreModelPreference();
      */
     setModelPreferenceProvider(provider: AparteModelPreferenceProvider): void {
         this._modelPreferenceProvider = provider;

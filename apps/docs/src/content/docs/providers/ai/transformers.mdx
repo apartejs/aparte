@@ -77,8 +77,8 @@ the cache.
 | Function | What it does |
 | --- | --- |
 | `listCachedModels()` | the models in the browser's cache, each a `CachedModelEntry`: `modelId`, `name`, `sizeBytes`, `loaded` |
-| `deleteCachedModel(id)` | deletes the cached files whose address holds that id — those of a model whose id extends it too — ending the worker first if the model is loaded; `TransformersProvider.deleteModel` does the same |
-| `setMaxCachedModels(n)` | how many models the cache keeps: `1` by default, `0` for no limit |
+| `deleteCachedModel(id)` | deletes that model's cached files, and only its own — a model whose id extends it keeps its weights — ending the worker first if the model is loaded; `TransformersProvider.deleteModel` does the same |
+| `setMaxCachedModels(n)` | how many of your registered models stay downloaded: `1` by default, `0` for no limit |
 | `getLoadedModelId()` | the model in the worker's memory, or `null` |
 | `terminateWorker()` | ends the worker and the model in memory; a reply still streaming ends with an error |
 
@@ -88,11 +88,13 @@ the console warns once. Another model replaces the one in memory; closing a chat
 it. `terminateWorker()` does, on leaving the route or behind an "unload" button, and the next
 message starts a new worker.
 
-When a model finishes loading and the cache holds more models than `setMaxCachedModels` allows,
-the others are deleted, the earliest downloaded first. The count takes in every Hugging Face model
-in the site's browser cache, ones your app downloaded with Transformers.js for something else
-included. At the default of one, switching to another model deletes the previous one's weights, so
-switching back downloads it again; `setMaxCachedModels(2)` keeps both, and `0` keeps everything.
+When a model finishes loading and the cache holds more of your registered models than
+`setMaxCachedModels` allows, the others are deleted, the earliest downloaded first. Only the models
+given to `registerModel` count: weights your app downloaded with Transformers.js for something
+else are neither counted nor deleted. The budget bounds what stays on disk, not memory, which
+holds one model whatever it says. At the default of one, switching to another model deletes the
+previous one's weights, so switching back downloads it again; `setMaxCachedModels(2)` keeps both,
+and `0` keeps everything.
 
 ## Choose the device
 

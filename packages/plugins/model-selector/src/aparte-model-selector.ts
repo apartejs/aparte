@@ -43,7 +43,9 @@ function esc(value: unknown): string {
  *
  * @element aparte-model-selector
  * @attr {boolean} auto-select - Selects the first model as soon as one is available.
- * @attr {boolean} persist - Writes the selection back through the config, so it survives a reload.
+ * @attr {boolean} persist - Writes the selection into the config, which is what the next message is sent with.
+ *   Without it the picker only fires `aparte-model-change`, and applying the choice is the app's. It does not
+ *   outlive a reload on its own: that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
  * @attr {boolean} searchable - Adds the dropdown's filter field.
  * @attr {string} placeholder - Overrides the text shown while nothing is selected.
  * @attr {boolean} disabled - Disables the picker. Inside an `<aparte-composer>` it also follows the

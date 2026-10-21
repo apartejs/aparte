@@ -83,6 +83,20 @@ from it, and refuses to send to an id it does not have. `BackendTransportOptions
 that expects another body. A cookie goes along only to a route on the page's own origin, so a
 route on another origin is authenticated through `headers`.
 
+Nothing of that provider runs in the page: no request is built from it and its `chat()` is never
+called. For an id no client package exists for, a stub that lists the models is enough:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerAIProvider({
+  id: 'internal',
+  getMetadata: () => ({ id: 'internal', name: 'Internal' }),
+  getModels: () => [{ id: 'house-model', name: 'House model', capabilities: ['streaming', 'tools'] }],
+  chat: () => { throw new Error('runs on the server'); },
+});
+```
+
 The tools and the loop stay in the page: the route makes one model call at a time. When the tools
 live on your server, move the loop there too, with [the server loop](/guides/server-loop/).
 

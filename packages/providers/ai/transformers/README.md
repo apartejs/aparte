@@ -121,14 +121,16 @@ one WebGPU pipeline, so a worker per chat would mean N copies resident in one ta
 the **same** model is the case this is for: they share the load, for free.
 
 Two chats on **different** models is the case that costs. They serialize on the one pipeline,
-and at the default budget of one cached model each turn can evict and reload gigabytes. The
-provider warns once when it sees it:
+so each turn unloads one model and loads the other. The cache budget adds to that: it is how
+many models stay **downloaded** in the browser's Cache API (disk, not memory: one model is
+loaded at a time whatever the budget), and at the default of one, a switch can delete the other
+model's weights and download them again. The provider warns once when it sees it:
 
 ```ts
 import { setMaxCachedModels, getMaxCachedModels } from '@aparte/provider-transformers';
 
-setMaxCachedModels(2);            // keep both resident, if the machine has the memory
-setMaxCachedModels(0);            // no limit — you are managing memory yourself
+setMaxCachedModels(2);            // keep both downloaded, if the browser's storage has room
+setMaxCachedModels(0);            // no limit — the browser's storage quota is the only bound
 getMaxCachedModels();             // the current budget
 ```
 

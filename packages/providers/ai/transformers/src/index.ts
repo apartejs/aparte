@@ -166,8 +166,9 @@ function _modelFromCacheEntry(modelId: string): AparteAIModel {
 let _maxCachedModels = 1;
 
 /**
- * Set the maximum number of models to keep in cache. When exceeded after a new
- * model is ready, the oldest models are evicted. 0 = unlimited.
+ * Set the maximum number of models to keep downloaded in the browser's Cache API. When
+ * exceeded after a new model is ready, the oldest models' weights are deleted. 0 = unlimited.
+ * It bounds disk, not memory: one model is loaded at a time whatever the budget.
  *
  * The budget counts and evicts only the models given to {@link registerModel} (and the
  * one just loaded). Other Transformers.js weights in the origin's cache, from your own
@@ -306,9 +307,10 @@ function _warnIfContended(requested: string): void {
     console.warn(
         `[Aparte] Two chats are driving different local models at once ("${requested}" behind `
         + `"${other}"). Transformers.js runs one pipeline per tab, so these generates are `
-        + `serialized, and with a cache budget of ${_maxCachedModels} each switch can evict and `
-        + `reload gigabytes of weights. Point both chats at one model, or raise the budget with `
-        + `setMaxCachedModels(2) if the machine has the memory. This warns once.`,
+        + `serialized: each switch unloads one model and loads the other. With a cache budget of `
+        + `${_maxCachedModels}, a switch can also delete the other model's downloaded weights and `
+        + `download them again. Point both chats at one model, or keep both downloaded with `
+        + `setMaxCachedModels(2) if the browser's storage has room. This warns once.`,
     );
 }
 
