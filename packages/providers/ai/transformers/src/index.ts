@@ -710,12 +710,11 @@ export const TransformersProvider: AparteAIProvider
         if (_preparingModelId === modelId) return 'cached';
         if ('caches' in globalThis) {
             try {
-                const encodedId = encodeURIComponent(modelId);
                 const names = await caches.keys();
                 for (const name of names) {
                     const cache = await caches.open(name);
                     const keys = await cache.keys();
-                    if (keys.some(r => r.url.includes(encodedId) || r.url.includes(modelId + '/'))) {
+                    if (keys.some(r => _modelIdOfUrl(r.url) === modelId)) {
                         return 'cached';
                     }
                 }
@@ -823,6 +822,20 @@ export function terminateWorker(): void {
     _warnedModelContention = false;
 }
 
+/**
+ * The model a cached file belongs to, read from its Hugging Face resolve path — or null.
+ * Every cache lookup matches on this, by equality: a substring match took a longer sibling
+ * with it (`Qwen2.5-0.5B` also matched `Qwen2.5-0.5B-Instruct`), so deleting one model
+ * deleted the other's weights.
+ *
+ * e.g. https://huggingface.co/onnx-community/Qwen2.5-0.5B/resolve/main/config.json
+ *   → onnx-community/Qwen2.5-0.5B
+ */
+function _modelIdOfUrl(url: string): string | null {
+    const m = url.match(/huggingface\.co\/([^/]+\/[^/]+)\/resolve\//);
+    return m ? decodeURIComponent(m[1]!) : null;
+}
+
 export interface CachedModelEntry {
     modelId: string;
     name: string;
@@ -841,13 +854,6 @@ export async function listCachedModels(): Promise<CachedModelEntry[]> {
 
     const found = new Map<string, { name: string; sizeBytes: number }>();
 
-    // e.g. https://huggingface.co/onnx-community/Qwen2.5-0.5B/resolve/main/config.json
-    //   → onnx-community/Qwen2.5-0.5B
-    function extractModelId(url: string): string | null {
-        const m = url.match(/huggingface\.co\/([^/]+\/[^/]+)\/resolve\//);
-        return m ? decodeURIComponent(m[1]!) : null;
-    }
-
     function modelName(modelId: string): string {
         const config = _registeredModels.get(modelId);
         if (config) return config.name;
@@ -861,7 +867,7 @@ export async function listCachedModels(): Promise<CachedModelEntry[]> {
                 const cache = await caches.open(cacheName);
                 const requests = await cache.keys();
                 for (const req of requests) {
-                    const modelId = extractModelId(req.url);
+                    const modelId = _modelIdOfUrl(req.url);
                     if (!modelId) continue;
                     if (!found.has(modelId)) {
                         found.set(modelId, { name: modelName(modelId), sizeBytes: 0 });
@@ -907,10 +913,9 @@ export async function deleteCachedModel(modelId: string): Promise<void> {
             try {
                 const cache = await caches.open(cacheName);
                 const requests = await cache.keys();
-                const encoded = encodeURIComponent(modelId);
                 await Promise.all(
                     requests
-                        .filter(r => r.url.includes(modelId) || r.url.includes(encoded))
+                        .filter(r => _modelIdOfUrl(r.url) === modelId)
                         .map(r => cache.delete(r)),
                 );
             } catch { /* skip */ }

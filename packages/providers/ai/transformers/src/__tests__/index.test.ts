@@ -331,6 +331,20 @@ describe('deleteCachedModel', () => {
         expect(deleteMock).toHaveBeenCalledTimes(2);
     });
 
+    it('leaves a sibling whose id starts with the same name', async () => {
+        const modelId = 'onnx-community/Qwen2.5-0.5B';
+        const sibling = 'onnx-community/Qwen2.5-0.5B-Instruct';
+        const { deleteMock } = stubCaches([
+            { url: `https://huggingface.co/${modelId}/resolve/main/config.json` },
+            { url: `https://huggingface.co/${sibling}/resolve/main/config.json` },
+            { url: `https://huggingface.co/${sibling}/resolve/main/onnx/model_q4.onnx` },
+        ]);
+
+        await deleteCachedModel(modelId);
+        expect(deleteMock).toHaveBeenCalledTimes(1);
+        expect((deleteMock.mock.calls[0]![0] as { url: string }).url).toContain(`${modelId}/resolve`);
+    });
+
     it('deletes nothing when no entries match the model', async () => {
         const { deleteMock } = stubCaches([
             { url: 'https://cdn.example.com/other-model/config.json' },
@@ -421,6 +435,12 @@ describe('getModelStatus', () => {
         stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/model.onnx` }]);
         const status = await TransformersProvider.getModelStatus!(modelId);
         expect(status).toBe('cached');
+    });
+
+    it('is not "cached" because a longer sibling is', async () => {
+        stubCaches([{ url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/model.onnx' }]);
+        const status = await TransformersProvider.getModelStatus!('onnx-community/Qwen2.5-0.5B');
+        expect(status).toBe('not-downloaded');
     });
 
     it('returns "ready" when the model is loaded in the worker', async () => {
