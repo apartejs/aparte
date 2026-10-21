@@ -62,8 +62,9 @@ const ringSvg = (): SVGSVGElement => {
  * it renders nothing — an affordance with nothing to show has no chrome to leave.
  *
  * Two thresholds turn it `warn` then `danger` (`data-level`), and crossing one fires
- * `aparte-context-threshold`. With `auto-compact`, reaching `danger` dispatches
- * `aparte-compact` for its chat — once, until the level drops again — which is what
+ * `aparte-context-threshold`. With `auto-compact`, a turn that ends in `danger` dispatches
+ * `aparte-compact` for its chat — one request at a time, asked again on the next turn in
+ * `danger` once the plugin has answered — which is what
  * a gauge that turns red and then does nothing was missing. What answers the command
  * is `@aparte/plugin-compaction` (`setupCompaction()`): it summarises what no longer
  * fits the window and keeps the recent turns. Core itself does not compact — the
@@ -80,14 +81,14 @@ const ringSvg = (): SVGSVGElement => {
  * @attr {number} window - The context window, in tokens. Overrides the current model's `contextWindow`.
  * @attr {number} warn - Fraction of the window at which the level turns `warn`. Default `0.75`.
  * @attr {number} danger - Fraction at which it turns `danger`. Default `0.9`.
- * @attr {boolean} auto-compact - Dispatch `aparte-compact` on reaching `danger` (once per crossing).
+ * @attr {boolean} auto-compact - Dispatch `aparte-compact` on each turn that ends in `danger`, one request at a time.
  * @attr {string} target - The id of the `<aparte-chat>` to watch, when the element is not under it.
  * @attr {string} variant - `bar` (default) or `ring`: a progress bar with the reading beside it, or a ring with the percentage.
  * @attr {string} data-level - Reflected BY the element: `ok`, `warn` or `danger`. Read-only.
  * @attr {boolean} data-empty - Reflected BY the element while it has nothing to show. Read-only.
  *
  * @fires {CustomEvent<AparteContextThresholdEventDetail>} aparte-context-threshold - The level changed. Bubbles.
- * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` when `auto-compact` is set and the gauge first reaches `danger`: compact this target's transcript. Once per crossing, and only while the attribute is present. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
+ * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` when `auto-compact` is set and a turn ends in `danger`: compact this target's transcript. One request at a time — the next turn in `danger` asks again once the plugin has answered — and only while the attribute is present. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
  *
  * @cssprop [--aparte-context-ring-size=22px] - Diameter of the ring variant.
  *

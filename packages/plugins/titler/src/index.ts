@@ -32,7 +32,10 @@ export interface TitlerOptions {
      * the page's critical path.
      */
     titler: TitlerLike | Promise<TitlerLike> | (() => TitlerLike | Promise<TitlerLike>);
-    /** Words to keep. Omitted, the model's own default applies (6). */
+    /**
+     * Words to keep, exactly. Omitted, the model decides: among its six best-scored words, those
+     * it is at least half sure of, never fewer than three.
+     */
     budget?: number;
 }
 
