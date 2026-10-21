@@ -2,6 +2,6 @@
 '@aparte/core': patch
 ---
 
-A question or approval panel opened by a turn the person did not start no longer steals the focus: it takes it only from someone who is in that chat.
+A question or approval panel no longer steals the focus from a reader writing elsewhere on the page or using another chat.
 
-The panel focused itself on every open, so a scripted run (a demo, a turn your code starts, an agent resuming on the server) scrolled the page to the chat and left the focus there. It now moves the focus into the panel only when it was inside the chat before (the composer, a suggestion chip, a button of the transcript), and gives it back on close as before. Elsewhere on the page, or nowhere, the focus stays where it is.
+The panel focused itself on every open, so a turn the reader did not start pulled the focus out of the field they were typing in, and the page with it. It now leaves the focus in place when it is in an editable field outside the chat or in another chat. Everywhere else it takes it as before, since the focus is how the panel is announced: from the chat, from a button of your own beside it, and from nowhere (a click in Safari, a screen reader's activation), in which case the page is not scrolled. It gives the focus back on close.

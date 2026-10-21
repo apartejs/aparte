@@ -131,14 +131,27 @@ describe('elicitation focus — whose turn it is (#22)', () => {
         expect(document.activeElement).toBe(elsewhere);
     });
 
-    it('takes nothing when nobody holds the focus', () => {
+    it('takes it when nobody holds the focus — a click in Safari, a screen reader — so the panel is announced', () => {
         mountChat();
         (document.activeElement as HTMLElement | null)?.blur();
         void requestUserInput({
             message: 'Framework?',
             schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
         });
-        expect(document.activeElement).toBe(document.body);
+        expect(document.activeElement, 'the panel holds it').not.toBe(document.body);
+        expect(document.querySelector('.aparte-elic-panel')?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("takes it from a button of the app's own chrome beside the chat — its click started the turn", () => {
+        mountChat();
+        const appButton = document.createElement('button');
+        document.body.appendChild(appButton);
+        appButton.focus();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.querySelector('.aparte-elic-panel')?.contains(document.activeElement)).toBe(true);
     });
 });
 

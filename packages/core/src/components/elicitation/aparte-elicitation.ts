@@ -283,13 +283,27 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              */
             const focusedBefore = document.activeElement;
             /*
-             * Taken only from someone who is IN this chat: the composer, a chip, a button of
-             * the transcript. A turn a script started — the focus somewhere else on the page,
-             * or nowhere — shows the panel and leaves the focus where it is; moving it would
-             * scroll the page to a chat the reader was not using (#22).
+             * The focus is how the panel is announced — it has no live region — so it is
+             * taken, unless the reader is busy elsewhere (#22): writing in a field outside
+             * this chat, or in another chat. A button of the app's own chrome beside the chat
+             * — a send or a starter it draws itself — is not "elsewhere": its click is what
+             * started the turn. From nobody (`<body>`: a click in Safari, a screen reader's
+             * activation, a script) it is taken too, without letting the page jump.
              */
-            const chatRoot = composer.closest('aparte-chat, [data-aparte-chat], [data-aparte-host]') ?? composer.parentElement ?? composer;
-            const takeFocus = focusedBefore instanceof Node && focusedBefore !== document.body && chatRoot.contains(focusedBefore);
+            const CHAT = 'aparte-chat, [data-aparte-chat], [data-aparte-host]';
+            const chatRoot = composer.closest(CHAT) ?? composer.parentElement ?? composer;
+            const fromNobody = !(focusedBefore instanceof HTMLElement) || focusedBefore === document.body;
+            const busyElsewhere = !fromNobody && !chatRoot.contains(focusedBefore) && (
+                (focusedBefore as HTMLElement).matches('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
+                || (focusedBefore as HTMLElement).closest(CHAT) !== null
+            );
+            const takeFocus = !busyElsewhere;
+            const focusPanel = (target: { focus(): void }): void => {
+                if (!takeFocus) return;
+                const x = window.scrollX, y = window.scrollY;
+                target.focus();
+                if (fromNobody && (window.scrollX !== x || window.scrollY !== y)) window.scrollTo(x, y);
+            };
             const close = (): boolean => {
                 if (done) return false;
                 done = true;
@@ -386,7 +400,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
                     onEvict: () => fail(),
                 });
-                if (takeFocus) panel.focus();
+                focusPanel(panel);
                 return;
             }
             // A question without a schema has nothing to collect; that is an approval,
@@ -439,7 +453,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });
-            if (takeFocus) panel.focus();
+            focusPanel(panel);
         });
     };
 
