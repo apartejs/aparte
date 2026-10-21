@@ -1,5 +1,76 @@
 # @aparte/core
 
+## 0.19.3
+
+### Patch Changes
+
+- d898de8: Per-chat theming now works on the React, Vue and Svelte chat root, and your own token overrides on `aparte-chat` win whatever order the stylesheets load in.
+
+  The derived layer (the inks, the scales, the bubble colours) is worked out again on `[data-aparte-chat]`, the root the three wrappers render, so a chat given its own `--aparte-primary` there gets its own user bubble and inks. Every anchor of that layer but `:host` now weighs nothing (`:where()`), like the palette: `aparte-chat { --aparte-primary-ink: … }` no longer loses when core's sheet loads after yours, or on a chat that carries `data-aparte-theme`.
+
+  If you theme a React, Vue or Svelte chat by setting a DERIVED token (a surface step, a radius or size step, `--aparte-link-color`, a scale) on `:root` or an element around the chat, list `[data-aparte-chat]` beside `aparte-chat` in that rule: the root now works those tokens out again, as `aparte-chat` always did, so a value set above it no longer reaches inside. Masters such as `--aparte-primary` or `--aparte-radius-unit` set on `:root` are unaffected.
+
+- 866e468: The action bar no longer overlaps the branch picker's next arrow, which is back to a full 24px target.
+
+  The bar pulls itself 6px toward the start of the line so its first icon lines up with the text above; after a visible branch picker that ran it 1.5px over the picker's last arrow (axe target-size: 22.5px instead of 24px). The pull now applies only when the bar opens the row.
+
+- e57013a: Chrome 111, Safari 16.2, Firefox 121 and Samsung Internet 22 are supported again: the accent inks and the composer's padding now fall back where relative colour syntax or the `lh` unit is missing.
+
+  Each `--aparte-*-ink` is declared first as its accent mixed 40 / 60 with the text colour (on the default palette the worst case, a pressed soft wash on surface-3, measures 4.75:1 in light, and 6.58:1 on the page background), then, under `@supports (color: oklch(from red l c h))`, as the accent at the set lightness it was before. The editor padding reads the line height as `em` before `@supports (height: 1lh)` takes over, to the same pixel. Browsers with both features draw exactly what they drew.
+
+- 3e3a7ef: The conversation list now has an accessible name, "Conversations" by default, taken from the new `conversationList` locale key.
+
+  `<aparte-conversation-list>` is a navigation landmark, and a page with a second one (a site's own nav) had two unnamed landmarks (axe landmark-unique). The name follows the locale; an `aria-label` or `aria-labelledby` the app sets, before or after the list connects, keeps priority. French: « Conversations ».
+
+- ae56657: `AparteCodeSegment.showLineNumbers` and `AparteErrorSegment.stack` are deprecated: nothing reads them, and they will be removed in a later minor.
+
+  No renderer or stylesheet draws line numbers, and the error renderer draws `content` and `details` only, so setting either field changed nothing. Put a stack trace in `details` to show it. Code that sets them keeps compiling until the removal, which a later changeset will announce.
+
+- 4a4cad8: Opening a tool row, a reasoning block or any `<details>` in the transcript no longer leaves a blank under the reply.
+
+  The bottom spacer, which lets the person's message rise to the top, is now recomputed when a disclosure opens or closes. It used to keep its closed-row size, so opening a tool row lengthened the transcript by the row's height (176px on the examples). Closes #105.
+
+- ddfaaae: A question or approval panel no longer steals the focus from a reader writing elsewhere, no longer lands on "Approve" while you type, and always announces itself.
+
+  - From a field outside the chat, an iframe or another chat, the focus stays where it is, and a polite status in the composer says the question.
+  - From the chat's own editor (typing the next message while a reply streams), the focus goes to the panel itself, named by the question, not to its first option: Enter no longer approves a tool call by accident.
+  - From a button (the chat's own or one of yours beside it) or from nowhere (a click in Safari, a screen reader's activation), the focus goes to the first control, without scrolling the page when it came from nowhere.
+  - The focus is followed through open shadow roots, so a field inside a web component counts as a field.
+  - On close it goes back to whoever had it, or to the composer when that is gone or was `<body>`.
+  - An approval's options are described by the question (`aria-describedby`).
+
+- 2f69e76: Eight types a public type already named are now exported: six element attribute interfaces, `AparteRequestMeta` and `AparteConversationsListener`.
+
+  `AparteContextAttributes`, `AparteIconAttributes`, `AparteScrollRailAttributes`, `AparteSidebarAttributes`, `AparteSplitAttributes` and `AparteSuggestionsAttributes` were generated but missing from the package entry; `AparteRequestMeta` is the type of `AparteChatRequest._meta`; `AparteConversationsListener` is what `AparteConversationManager.subscribe` takes. A consumer can now name all of them. Types only: nothing changes at run time.
+
+- 3e474c5: A framework chat streaming with `injectTokenStream` now shows Stop, stops on it, and saves the reply: the turn sends its own lifecycle events.
+
+  `injectTokenStream` (React, Vue, Svelte, Angular) dispatches `aparte-message-start` when it begins and `aparte-message-done`, `-aborted` or `-error` when it ends, on the chat, stamped with its id, as `AparteClient` does. The composer's Stop (`aparte-abort` for this chat) stops the stream; another chat's Stop does not. Code that sent these events by hand around `injectTokenStream` can drop them; left in place, the composer and the conversation manager see each event twice, which they tolerate.
+
+- 04180a3: Four doc comments now say what the code does: the auto-compact rule, the titler's default word count, the bubble's `timestamp`, and the composer's internal bus.
+
+  - `<aparte-context auto-compact>` asks for a compaction on each turn that ends in `danger`, one request at a time, not once per crossing.
+  - `setupTitler`'s `budget`, omitted, does not mean six words: the model keeps, among its six best-scored words, those it is at least half sure of, never fewer than three, and every word of a message of four words or fewer.
+  - The bubble's `timestamp` attribute no longer names a private method.
+  - The composer's `_on` / `_emit` are marked `@internal` and leave the generated reference; from outside, listen for `aparte-composer-change`.
+
+- 778202f: Neutral and secondary buttons draw their label in a darker ink on the ghost, outline and soft fills, so they meet AA contrast.
+
+  They were the two intents without an ink of their own, so their label read the fill colour: 4.19:1 for the neutral soft button, and 2.71:1 for secondary text on the page, against the 4.5:1 AA asks. They now derive `--aparte-neutral-ink` and `--aparte-secondary-ink` the way the five accents derive theirs; the neutral soft button measures 6.99:1 in light and 9.1:1 in dark. A button that sets only `--aparte-btn-intent` is unchanged.
+
+- 44aaee4: A button with no intent class now inks like a neutral one: an intent-less `--solid` button and the selected segment of an intent-less or `--surface` group meet AA contrast.
+
+  Such a button is neutral, but it kept the dark constant ink instead of the ink derived from its fill, so its label read dark on the neutral fill at 3.38:1 in light. It now measures 5.50:1 in light (white on the fill) and 7.27:1 in dark. If you set `--aparte-btn-ink` to change that label, set `--aparte-on-neutral` instead: where relative colour syntax exists, the intent-less button no longer reads `--aparte-btn-ink`. Browsers without it keep the previous ink.
+
+- 0320655: The status line and a live reasoning block now speak the chat's locale: no more English "Typing" or "Thinking" under a French locale.
+
+  `<aparte-chat-status>` without `text` names itself, and tells a screen reader, from the `typing` key instead of an English literal, and follows a locale change. A reasoning block streamed from a model no longer carries a hard-coded `label: 'Thinking'`, so the renderer names it from the `thinking` key and relabels it on a locale change, like a block restored from history. The English defaults lose their ellipsis, because they also name a block that is over: `thinking` is "Thinking", `typing` is "Typing"; in French, `thinking` is « Réflexion ». A `label` you set on a segment still wins. If you read `segment.label` on a streamed reasoning segment, it is now `undefined`: fall back to the locale's `thinking`, as the renderer does. A test matching "Thinking..." or "Typing..." (or « Réflexion en cours... ») reads the new words.
+
+- 34160c3: A suggestion chip that sends now hands the focus to the composer, instead of dropping it to the page when its row hides.
+
+  With `empty-only`, the row hides as soon as the message is on its way, and the chip a keyboard user had pressed went with it: the focus fell to `<body>`. When the chip held the focus, the composer now takes it after the send. A click that did not focus the chip changes nothing.
+  - @aparte/engine@0.19.3
+
 ## 0.19.2
 
 ### Patch Changes
