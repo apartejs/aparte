@@ -209,9 +209,10 @@ framework chat it is read-only between `aparte-message-start` and the event that
 
 ## Make Stop work
 
-On a framework chat, `injectTokenStream` does it: nothing to add. In plain HTML, a stream you
-write with `appendToken` is not a turn the composer can see, so send the turn's events yourself, on
-the `<aparte-chat>`, bubbling: `aparte-message-start` turns the send button to Stop, and
+On a framework chat, `injectTokenStream` does it: nothing to add. A loop that writes segments
+rather than tokens, or a stream written with `appendToken` in plain HTML, is not a turn the
+composer can see: send the turn's events yourself, on the chat's element (the `<aparte-chat>`,
+or the framework component's root, given an `id`), bubbling: `aparte-message-start` turns the send button to Stop, and
 `aparte-message-done`, `-error` or `-aborted` turns it back. Stop sends `aparte-abort` on
 `window`, with the chat's `id` as `targetId`, for your loop to cancel, and the
 [conversation manager](/guides/conversation-persistence/) saves a reply when it ends. The

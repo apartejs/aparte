@@ -28,8 +28,8 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * the text node belong to the default path only.
  *
  * A `text` attribute renders the visible label and feeds the accessible name; with no
- * `text` the line is dots-only and the name falls back to the literal `Typing` — this
- * element does not read the locale. The container is a polite live region, and a live
+ * `text` the line is dots-only and the name falls back to the locale's `typing` word
+ * ("Typing" in English). The container is a polite live region, and a live
  * region announces its CONTENT, not its `aria-label`: so the word also goes INTO the
  * region, in the visible span when `text` is set and in a screen-reader-only span when
  * it is not. Exactly one of the two is ever populated — both would be read twice. That
@@ -54,7 +54,7 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * @element aparte-chat-status
  * @attr {boolean} visible - Shows or hides the indicator.
  * @attr {string} text - The line to show. Absent, the line is dots-only and the
- *   accessible name falls back to the literal `Typing` (not the locale's string).
+ *   accessible name falls back to the locale's `typing` word ("Typing" in English).
  *
  * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the label text and of the pulsing dot in the default line.
  * @cssprop [--aparte-status-font-size=var(--aparte-font-size-md)] - Size of the visible label (italic by default) in the default line.

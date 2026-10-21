@@ -53,7 +53,8 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @cssprop [--aparte-input-font-size=var(--aparte-font-size-base)] - Editor font size.
  * @cssprop [--aparte-input-line-height=var(--aparte-line-height-normal)] - Editor line height — also what the
  *          auto-expand measures, so changing it changes the height the editor settles at
- *          (until `max-height` clamps it).
+ *          (until `max-height` clamps it). Keep it unitless (`1.5`, not `24px`): the editor's
+ *          padding reads it as a multiple of `1em` where the browser has no `lh` unit.
  * @cssprop --aparte-text - Text and caret colour of the editor.
  * @cssprop --aparte-input-placeholder - Colour of the placeholder drawn by
  *          `:empty::before` (falls back to `--aparte-text-muted`).

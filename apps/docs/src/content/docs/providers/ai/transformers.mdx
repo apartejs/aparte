@@ -108,7 +108,8 @@ aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultMode
 ```
 
 A model runs on the graphics card when the browser has a WebGPU adapter, and on the processor
-through WASM otherwise. `setComputeDevice` forces one, a `ComputeDevice`: `'webgpu'`, `'wasm'`,
+through WASM otherwise; a model that fails to load on the graphics card is loaded again on WASM,
+and the console says so. `setComputeDevice` forces one, a `ComputeDevice`: `'webgpu'`, `'wasm'`,
 or `'auto'`, the default; `getComputeDevice()` reads it back. It is one setting for the page — a `device` on a registered
 model is not read — and it applies when a model loads: to change it afterwards, call
 `terminateWorker()`, and the next message loads the model on the new device.

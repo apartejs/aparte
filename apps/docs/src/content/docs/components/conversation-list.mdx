@@ -57,6 +57,8 @@ search field around it, in the [sidebar](/components/sidebar/).
 
 ## Accessibility
 
+- The list is a navigation landmark named from the `conversationList` locale key ("Conversations"),
+  unless you give it an `aria-label` or `aria-labelledby` of your own.
 - Each date group is a group named by its heading; the selected row is marked `aria-current`.
 - The `⋯` button announces a menu and whether it is open; the menu's items are menu items.
 - While loading, the list is `aria-busy` and a status line says the conversations are loading.

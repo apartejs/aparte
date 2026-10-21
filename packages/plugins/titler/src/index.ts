@@ -33,8 +33,9 @@ export interface TitlerOptions {
      */
     titler: TitlerLike | Promise<TitlerLike> | (() => TitlerLike | Promise<TitlerLike>);
     /**
-     * Words to keep, exactly. Omitted, the model decides: among its six best-scored words, those
-     * it is at least half sure of, never fewer than three.
+     * At most this many words (a short message can give fewer). Omitted, the model decides: among
+     * its six best-scored words, those it is at least half sure of, never fewer than three — and
+     * every word of a message of four words or fewer.
      */
     budget?: number;
 }
