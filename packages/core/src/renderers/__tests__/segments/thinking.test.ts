@@ -243,3 +243,16 @@ describe('default renderer: thinking (extra)', () => {
         });
     });
 });
+
+describe('default renderer: thinking — a label saved before 0.19.3', () => {
+    afterEach(() => { aparteGlobalConfig.resetLocale(); });
+
+    it("reads the English literal 'Thinking' as no label, so the locale names the block", () => {
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), thinking: 'Réflexion' });
+        const renderer = getSegmentRenderer('thinking')!;
+        const legacy = renderer.render({ id: 'l1', type: 'thinking', label: 'Thinking', content: 'x' } as any);
+        expect(legacy).toContain('<span class="aparte-thinking-label">Réflexion</span>');
+        const own = renderer.render({ id: 'l2', type: 'thinking', label: 'Plan', content: 'x' } as any);
+        expect(own).toContain('<span class="aparte-thinking-label">Plan</span>');
+    });
+});
