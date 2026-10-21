@@ -45,10 +45,10 @@ SDK; a factory that already holds its key ignores `auth`. Stop cancels the vendo
 
 ## Choose the model
 
-The SDK has no list of models to fetch, so the [model selector](/components/model-selector/) shows
-none for this provider: choose the model with `setModelConfig`, as above, or from a control of
-your own. A `models` option gives the provider a list of its own, which the client reads for a
-model's capabilities; a model without `capabilities` is sent the tools.
+The SDK has no list of models to fetch. Choose the model with `setModelConfig`, as above, or give
+the provider a `models` option: the [model selector](/components/model-selector/) lists those, and
+the client reads a model's capabilities from them; a model without `capabilities` is sent the
+tools. Without `models`, the selector shows nothing for this provider.
 
 ## What maps to what
 

@@ -17,8 +17,9 @@ import SelectorApi from '../../../generated/api/elements/aparte-model-selector.a
 <Variant id="model-selector" />
 
 `<aparte-model-selector>` lists the providers your config knows, one group per provider, with
-the models each one fetches; a provider with no list to fetch, such as the Vercel AI SDK bridge,
-is left out. With a single provider it is a flat list. With `persist`, the choice is what the
+the models each one fetches. A provider with no list to fetch shows the models it was given (the
+Vercel AI SDK bridge's `models` option), and one given none is left out. With a single provider it
+is a flat list. With `persist`, the choice is what the
 next message is sent to: the pick is written into the config. Without it, the element only sends
 `aparte-model-change`, for code of yours to act on.
 
