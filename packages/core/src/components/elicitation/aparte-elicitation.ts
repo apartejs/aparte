@@ -56,6 +56,22 @@ interface Pending {
     relabel(): void;
 }
 
+
+/** The element that really holds the focus: through open shadow roots, down to the field. */
+function deepActiveElement(root: Document | ShadowRoot): Element | null {
+    let active = root.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+    return active;
+}
+
+/** `ancestor.contains(node)`, across shadow roots: a field inside a component inside the chat is in the chat. */
+function isWithin(node: Node, ancestor: Node): boolean {
+    for (let n: Node | null = node; n; n = n.parentNode ?? (n instanceof ShadowRoot ? n.host : null)) {
+        if (n === ancestor) return true;
+    }
+    return false;
+}
+
 /**
  * The default presenter for a request to the human. It renders nothing itself: it
  * registers as the presenter for the config governing its subtree, and mounts a panel
@@ -281,27 +297,55 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * branches that open a panel and one `close()` that ends both; a value read
              * once, before either, cannot disagree with itself.
              */
-            const focusedBefore = document.activeElement;
+            const focusedBefore = deepActiveElement(document);
             /*
-             * The focus is how the panel is announced — it has no live region — so it is
-             * taken, unless the reader is busy elsewhere (#22): writing in a field outside
-             * this chat, or in another chat. A button of the app's own chrome beside the chat
-             * — a send or a starter it draws itself — is not "elsewhere": its click is what
-             * started the turn. From nobody (`<body>`: a click in Safari, a screen reader's
-             * activation, a script) it is taken too, without letting the page jump.
+             * Where the focus goes, in one rule (#22 and the audit after it).
+             *
+             * The focus is how the panel is announced, so it is taken — unless the reader is
+             * busy elsewhere: writing in a field outside this chat, in another chat, or inside
+             * an iframe. Then it stays where it is and a polite status says a question waits.
+             *
+             * From a field of THIS chat (typing the next message while a reply streams), it
+             * goes to the panel itself, not to its first option: the next key the reader
+             * presses must not be Enter on "Approve". From a button (this chat's or the app's
+             * own beside it) or from nobody (`<body>`: a click in Safari, a screen reader's
+             * activation, a script), it goes to the first control, without the page jumping
+             * when it came from nobody.
              */
+            const messageText = (): string => { const m = request.message as unknown; return typeof m === 'function' ? String((m as () => unknown)()) : String(m ?? ''); };
             const CHAT = 'aparte-chat, [data-aparte-chat], [data-aparte-host]';
+            const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
             const chatRoot = composer.closest(CHAT) ?? composer.parentElement ?? composer;
             const fromNobody = !(focusedBefore instanceof HTMLElement) || focusedBefore === document.body;
-            const busyElsewhere = !fromNobody && !chatRoot.contains(focusedBefore) && (
-                (focusedBefore as HTMLElement).matches('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
-                || (focusedBefore as HTMLElement).closest(CHAT) !== null
-            );
-            const takeFocus = !busyElsewhere;
-            const focusPanel = (target: { focus(): void }): void => {
-                if (!takeFocus) return;
+            const before = fromNobody ? null : (focusedBefore as HTMLElement);
+            const inChat = before !== null && isWithin(before, chatRoot);
+            const typing = before !== null && before.matches(EDITABLE);
+            const busyElsewhere = before !== null && !inChat
+                && (typing || before.tagName === 'IFRAME' || before.closest(CHAT) !== null);
+            const status = (text: string): void => {
+                let region = composer.querySelector<HTMLElement>(':scope > .aparte-elic-status');
+                if (!region) {
+                    region = document.createElement('span');
+                    region.className = 'aparte-sr-only aparte-elic-status';
+                    region.setAttribute('role', 'status');
+                    composer.appendChild(region);
+                }
+                const live = region;
+                live.textContent = '';
+                // A region announces a CHANGE: filled a moment after it exists, not with it.
+                if (text) setTimeout(() => { if (live.isConnected) live.textContent = text; }, 60);
+            };
+            const focusPanel = (panel: { el: HTMLElement; focus(): void }, message: string): void => {
+                if (busyElsewhere) { status(message); return; }
                 const x = window.scrollX, y = window.scrollY;
-                target.focus();
+                if (typing && inChat) {
+                    if (!panel.el.hasAttribute('tabindex')) panel.el.setAttribute('tabindex', '-1');
+                    if (!panel.el.hasAttribute('role')) panel.el.setAttribute('role', 'group');
+                    if (message && !panel.el.hasAttribute('aria-label')) panel.el.setAttribute('aria-label', message);
+                    panel.el.focus();
+                } else {
+                    panel.focus();
+                }
                 if (fromNobody && (window.scrollX !== x || window.scrollY !== y)) window.scrollTo(x, y);
             };
             const close = (): boolean => {
@@ -318,22 +362,24 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * and pulling the focus back from wherever they went would be the same
                  * theft in the other direction.
                  */
-                const active = document.activeElement;
-                const focusWasInPanel = active instanceof Node && composer.contains(active);
+                const active = deepActiveElement(document);
+                const focusWasInPanel = active instanceof Node && isWithin(active, composer);
 
                 // Scoped to our own panel: finishing late must not tear down the panel
                 // that replaced ours.
                 composer.hidePanel(slot.token);
+                status('');
 
                 /*
-                 * `isConnected` because the element that had the focus may itself have
-                 * been inside what just closed. Nothing further if it is gone: inventing
-                 * a destination — the editor, the send button — would be a policy this
-                 * component has no standing to set, and `<body>` is where the browser
-                 * puts it anyway.
+                 * Back to whoever had it, when that is still a place to be: connected, not
+                 * `<body>`, not inside the composer whose panel just closed, and someone the
+                 * panel took it from. Otherwise the composer — the editor is where a reader
+                 * who just answered writes next, and `<body>` would drop a keyboard user at
+                 * the top of the page (2.4.3).
                  */
-                if (focusWasInPanel && focusedBefore instanceof HTMLElement && focusedBefore.isConnected) {
-                    focusedBefore.focus();
+                if (focusWasInPanel) {
+                    const back = !busyElsewhere && before !== null && before.isConnected && !isWithin(before, composer) ? before : null;
+                    (back ?? composer).focus();
                 }
                 return true;
             };
@@ -400,7 +446,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
                     onEvict: () => fail(),
                 });
-                focusPanel(panel);
+                focusPanel(panel, messageText());
                 return;
             }
             // A question without a schema has nothing to collect; that is an approval,
@@ -453,7 +499,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });
-            focusPanel(panel);
+            focusPanel(panel, messageText());
         });
     };
 

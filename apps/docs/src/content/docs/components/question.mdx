@@ -125,8 +125,11 @@ importing the plugin. Mount one or the other, never both.
 - A single choice is a radio group, several are a group of checkboxes, named by the question.
 - A form's chips are a tab list: arrow keys move between questions.
 - "Other…" and a text answer are labelled fields; nothing in the panel is a bare input.
-- The panel takes the focus and gives it back when it closes, unless the reader is writing in a
-  field elsewhere on the page or is in another chat. Taken from nowhere, it does not scroll the page.
+- The panel takes the focus and gives it back when it closes (to the composer when there is nothing
+  to go back to). From the chat's own editor it focuses the panel itself, named by the question, so
+  the next key does not pick an option. A reader writing in a field elsewhere on the page, or in
+  another chat, keeps the focus, and a polite status says a question waits. Taken from nowhere, it
+  does not scroll the page.
 
 ## Related
 

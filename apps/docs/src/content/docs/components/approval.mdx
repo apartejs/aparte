@@ -88,8 +88,11 @@ language changes while the question is open.
 - The options are buttons in a group named from the `approvalOptionsLabel` key ("Your
   decision"); a decision takes one click or one key press.
 - The instruction field is named by its placeholder ("Or tell it what to do instead…").
-- The panel takes the focus and gives it back when it closes, unless the reader is writing in a
-  field elsewhere on the page or is in another chat. Taken from nowhere, it does not scroll the page.
+- The panel takes the focus and gives it back when it closes (to the composer when there is nothing
+  to go back to). From the chat's own editor it focuses the panel itself, named by the question, so
+  the next key does not pick an option. A reader writing in a field elsewhere on the page, or in
+  another chat, keeps the focus, and a polite status says a question waits. Taken from nowhere, it
+  does not scroll the page.
 
 ## Related
 

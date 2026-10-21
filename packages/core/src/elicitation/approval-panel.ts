@@ -53,6 +53,9 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
     return node;
 }
 
+/** Ids for the question an approval's options point at. */
+let askSeq = 0;
+
 export function buildApprovalPanel(
     message: string | (() => string),
     options: readonly AparteApprovalOption[],
@@ -116,6 +119,8 @@ export function buildApprovalPanel(
     const row = el('div', 'aparte-approval-options');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', cfg.t('approvalOptionsLabel'));
+    // The group's name says what it is; the question says what is being decided.
+    if (ask) { ask.id ||= `aparte-approval-ask-${++askSeq}`; row.setAttribute('aria-describedby', ask.id); }
     /** Kept so `relabel` can reach each button and the label that owns it. */
     const labelled: Array<{ button: HTMLButtonElement; option: AparteApprovalOption }> = [];
     const textOf = (option: AparteApprovalOption): string =>
