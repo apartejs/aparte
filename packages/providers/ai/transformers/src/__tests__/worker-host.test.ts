@@ -289,4 +289,28 @@ describe('createWorkerHost — the device', () => {
         expect(seen.ctx?.device).toBe('wasm');
         expect(hasWebGpu).not.toHaveBeenCalled();
     });
+
+    it("'auto' falls back to wasm, with a warning, when the model fails to load on webgpu", async () => {
+        const devices: (string | undefined)[] = [];
+        const createRunner = async (ctx: RunnerContext) => {
+            devices.push(ctx.device);
+            if (ctx.device === 'webgpu') throw new Error('unsupported op');
+            return { async generate() {}, async command() { return null; } } as TransformersRunner;
+        };
+        const { h, posted, flush } = host(createRunner, { hasWebGpu: async () => true });
+        h.onMessage(gen('g1', { device: 'auto' }));
+        await flush();
+        expect(devices).toEqual(['webgpu', 'wasm']);
+        expect(posted.some((m) => (m as { type: string; message?: string }).type === 'warning'
+            && /could not load on WebGPU/.test((m as { message?: string }).message ?? ''))).toBe(true);
+    });
+
+    it('a forced webgpu that fails to load is not retried', async () => {
+        const devices: (string | undefined)[] = [];
+        const createRunner = async (ctx: RunnerContext) => { devices.push(ctx.device); throw new Error('no gpu'); };
+        const { h, flush } = host(createRunner, { hasWebGpu: async () => true });
+        h.onMessage(gen('g1', { device: 'webgpu' }));
+        await flush();
+        expect(devices).toEqual(['webgpu']);
+    });
 });

@@ -108,14 +108,27 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
         }
         const transformers = await deps.loadTransformers(moduleUrl);
         const { createRunner } = await deps.importRunner({ task, runner: sel.runner });
-        const runner = await createRunner({
+        const device = await resolveDevice(sel.device);
+        const create = (on: Device | undefined): Promise<TransformersRunner> => createRunner({
             transformers,
             modelId: sel.modelId,
             dtype: sel.dtype,
-            device: await resolveDevice(sel.device),
+            device: on,
             progress: (p) => { if (progressId) deps.post({ type: 'progress', id: progressId, ...p }); },
             warn,
         });
+        let runner: TransformersRunner;
+        try {
+            runner = await create(device);
+        } catch (err) {
+            // An adapter that answers is not a GPU that runs every model: a blocklisted driver,
+            // an operator the WebGPU backend lacks. When the page asked for `'auto'`, WASM is
+            // still an answer, as it always was before `'auto'` meant WebGPU. A forced
+            // `'webgpu'` fails as asked.
+            if (sel.device !== 'auto' || device !== 'webgpu') throw err;
+            warn(`[provider-transformers] ${sel.modelId} could not load on WebGPU (${errorText(err, 'unknown error')}); running it on WASM.`);
+            runner = await create('wasm');
+        }
         current = { key, runner };
         deps.post({ type: 'pipeline-ready', modelId: sel.modelId });
         return runner;
