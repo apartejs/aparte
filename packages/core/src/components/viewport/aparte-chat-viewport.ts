@@ -262,6 +262,13 @@ export class AparteChatViewport extends HTMLElement {
     private _maxRenderedBubbles: number = 1000;
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
+    /**
+     * Opening or closing a `<details>` — a tool row, a reasoning block, an artifact card, a host's
+     * own — changes the transcript's height through an ATTRIBUTE, which neither observer sees: the
+     * mutation observer watches children, and the resize observer leaves the wrapper out on
+     * purpose. `toggle` does not bubble, so it is caught on the way down (#105).
+     */
+    private _onDisclosureToggle = (): void => { this._scheduleSpacerUpdate(); };
     /** The `[overlay-composer]` shell this viewport floats in, if any. Read at observer setup, like `framework-managed`. */
     private _overlayRoot: HTMLElement | null = null;
     /** Watches the overlay shell's childList, so a stack child that mounts later (elicitation) gets observed too. */
@@ -1842,6 +1849,8 @@ export class AparteChatViewport extends HTMLElement {
         });
 
         // Framework-managed: bubbles are direct children of the host (no wrapper).
+        this.addEventListener('toggle', this._onDisclosureToggle, true);
+
         const observeTarget = this._frameworkManagedDOM ? this : wrapper;
         if (observeTarget) {
             this._mutationObserver.observe(observeTarget, {
@@ -2370,6 +2379,7 @@ export class AparteChatViewport extends HTMLElement {
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
+        this.removeEventListener('toggle', this._onDisclosureToggle, true);
         this._overlayObserver?.disconnect();
         this._overlayObserver = null;
         this._overlayRoot = null;
