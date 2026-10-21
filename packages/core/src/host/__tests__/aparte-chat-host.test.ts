@@ -232,6 +232,46 @@ describe('AparteChatHost', () => {
         expect(h.ctl.streamingId).toBeNull();
     });
 
+    it('streamTokens announces the turn: start, then done — so the composer shows Stop and the controller saves', async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        const seen: string[] = [];
+        for (const name of ['aparte-message-start', 'aparte-message-done', 'aparte-message-aborted']) {
+            h.host.addEventListener(name, (e) => seen.push(name + ':' + (e as CustomEvent).detail.targetId + ':' + (e as CustomEvent).detail.messageId));
+        }
+        async function* gen() { yield 'a'; }
+        await h.ctl.streamTokens('a', gen());
+        expect(seen).toEqual(['aparte-message-start:host-1:a', 'aparte-message-done:host-1:a']);
+    });
+
+    it("the composer's Stop (aparte-abort for this chat) stops the stream and ends it as aborted", async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        const ends: string[] = [];
+        h.host.addEventListener('aparte-message-aborted', () => ends.push('aborted'));
+        h.host.addEventListener('aparte-message-done', () => ends.push('done'));
+        const idle: AsyncIterable<string> = { [Symbol.asyncIterator]: () => ({ next: () => new Promise<IteratorResult<string>>(() => {}) }) };
+        const run = h.ctl.streamTokens('a', idle);
+        window.dispatchEvent(new CustomEvent('aparte-abort', { detail: { targetId: 'host-1' } }));
+        await run;
+        expect(ends).toEqual(['aborted']);
+        expect(h.ctl.streamingId).toBeNull();
+    });
+
+    it("another chat's Stop leaves this stream running", async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        let release!: () => void;
+        const gate = new Promise<void>((r) => { release = r; });
+        async function* gen() { await gate; yield 'x'; }
+        const run = h.ctl.streamTokens('a', gen());
+        window.dispatchEvent(new CustomEvent('aparte-abort', { detail: { targetId: 'another-chat' } }));
+        expect(h.ctl.streamingId).toBe('a');
+        release();
+        await run;
+        expect(h.vpApi.appendToken).toHaveBeenCalledWith('a', 'x');
+    });
+
     it('stopTokenStream unwinds an IDLE source and runs its cleanup (no zombie subscription)', async () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
