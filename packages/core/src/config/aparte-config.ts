@@ -124,6 +124,23 @@ export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStr
 const NOOP = (): void => { /* deliberately empty */ };
 
 /**
+ * How many times each config's Markdown, streaming-Markdown or highlight provider changed.
+ * A bubble records the count it drew with and draws again when it moves: a provider set
+ * after a message was drawn (a static bubble upgraded by core's own import, a restored
+ * conversation rendered before an un-awaited `setupShikiProvider()`) otherwise left it raw
+ * for good. Internal to core: not exported from the package.
+ */
+const renderingVersions = new WeakMap<AparteConfig, number>();
+
+export function renderingVersionOf(cfg: AparteConfig): number {
+    return renderingVersions.get(cfg) ?? 0;
+}
+
+function bumpRenderingVersion(cfg: AparteConfig): void {
+    renderingVersions.set(cfg, renderingVersionOf(cfg) + 1);
+}
+
+/**
  * Everything a chat is configured with: the providers and the selected model, the
  * transport and the keys, the tools, the renderers and render hooks, the Markdown and
  * highlight providers, the locale, the icons, the avatars, the actions.
@@ -135,10 +152,11 @@ const NOOP = (): void => { /* deliberately empty */ };
  * A change to what is drawn — providers, the model, the locale, icons, avatars, actions,
  * renderers — reaches the components already on the page: {@link AparteConfig.subscribe | subscribe()} listeners are
  * called, and `aparte-config-change` is dispatched on `window` with the instance that changed.
- * The Markdown, streaming-Markdown and highlight providers, the sanitizer, segment defaults,
- * tools, tool renderers and summaries apply to what is drawn after they are set, so set them
- * before the chat renders; the transport, the keys and the system prompt apply from the next
- * request.
+ * The Markdown, streaming-Markdown and highlight providers are among them: a message drawn
+ * before they were set is drawn again with them (one still streaming, once it ends). The
+ * sanitizer, segment defaults, tools, tool renderers and summaries apply to what is drawn
+ * after they are set, so set them before the chat renders; the transport, the keys and the
+ * system prompt apply from the next request.
  */
 export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
@@ -359,6 +377,8 @@ export class AparteConfig {
      */
     setMarkdownProvider(fn: AparteMarkdownProvider): void {
         this._markdownProvider = fn;
+        bumpRenderingVersion(this);
+        this._notify();
     }
 
     /**
@@ -374,6 +394,8 @@ export class AparteConfig {
      */
     setStreamingMarkdownProvider(fn: AparteStreamingMarkdownProvider): void {
         this._streamingMarkdownProvider = fn;
+        bumpRenderingVersion(this);
+        this._notify();
     }
 
     /**
@@ -391,6 +413,8 @@ export class AparteConfig {
      */
     setHighlightProvider(fn: AparteHighlightProvider): void {
         this._highlightProvider = fn;
+        bumpRenderingVersion(this);
+        this._notify();
     }
 
     /**

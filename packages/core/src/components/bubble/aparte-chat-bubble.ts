@@ -14,7 +14,7 @@ import type {
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
-import { AparteConfig } from '../../config/aparte-config.js';
+import { AparteConfig, renderingVersionOf } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
@@ -336,7 +336,16 @@ export class AparteChatBubble extends HTMLElement {
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
+    // A Markdown or highlight provider set after this message was drawn: draw it again.
+    // Not mid-stream — the stream reads the providers as it goes, and its end redraws.
+    if (!this._streaming && renderingVersionOf(this._cfg) !== this._drawnWithVersion) {
+      if (this._segments.length > 0) this._renderSegments();
+      else this._updateContent();
+    }
   };
+
+  /** The {@link renderingVersionOf} count the content was last drawn with. */
+  private _drawnWithVersion = 0;
 
   /**
    * Ask every rendered segment to re-read its config-derived text.
@@ -652,6 +661,8 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
+    // The first segment of a message drawn piece by piece sets the count it is drawn with.
+    if (this._segments.length === 1) this._drawnWithVersion = renderingVersionOf(this._cfg);
     const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
@@ -963,6 +974,7 @@ export class AparteChatBubble extends HTMLElement {
       this._updateWaiting();
       return;
     }
+    this._drawnWithVersion = renderingVersionOf(this._cfg);
 
     this._contentEl.style.display = '';
     /*
@@ -1024,6 +1036,7 @@ export class AparteChatBubble extends HTMLElement {
 
   private _renderSegments(): void {
     if (!this._segmentsEl) return;
+    this._drawnWithVersion = renderingVersionOf(this._cfg);
 
     // Clear existing segments
     this._segmentsEl.innerHTML = '';
@@ -1827,6 +1840,12 @@ export class AparteChatBubble extends HTMLElement {
      * highlight too.
      */
     if (wasStreaming && !streaming) this._updateContent();
+    // Segments have no such pass: if a Markdown or highlight provider arrived while they
+    // streamed, the finished message is drawn again with it.
+    if (wasStreaming && !streaming && this._segments.length > 0
+        && renderingVersionOf(this._cfg) !== this._drawnWithVersion) {
+      this._renderSegments();
+    }
   }
 }
 
