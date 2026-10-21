@@ -282,6 +282,14 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * once, before either, cannot disagree with itself.
              */
             const focusedBefore = document.activeElement;
+            /*
+             * Taken only from someone who is IN this chat: the composer, a chip, a button of
+             * the transcript. A turn a script started — the focus somewhere else on the page,
+             * or nowhere — shows the panel and leaves the focus where it is; moving it would
+             * scroll the page to a chat the reader was not using (#22).
+             */
+            const chatRoot = composer.closest('aparte-chat, [data-aparte-chat], [data-aparte-host]') ?? composer.parentElement ?? composer;
+            const takeFocus = focusedBefore instanceof Node && focusedBefore !== document.body && chatRoot.contains(focusedBefore);
             const close = (): boolean => {
                 if (done) return false;
                 done = true;
@@ -378,7 +386,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
                     onEvict: () => fail(),
                 });
-                panel.focus();
+                if (takeFocus) panel.focus();
                 return;
             }
             // A question without a schema has nothing to collect; that is an approval,
@@ -431,7 +439,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });
-            panel.focus();
+            if (takeFocus) panel.focus();
         });
     };
 

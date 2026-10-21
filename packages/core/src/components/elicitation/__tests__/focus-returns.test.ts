@@ -113,3 +113,32 @@ describe('elicitation focus (SC 2.4.3)', () => {
         expect(document.activeElement, 'the model finishing is not a reason to move the caret').toBe(elsewhere);
     });
 });
+
+describe('elicitation focus — whose turn it is (#22)', () => {
+    it('leaves the focus on a field elsewhere on the page when a script opened the panel', async () => {
+        mountChat();
+        const elsewhere = document.createElement('input');
+        document.body.appendChild(elsewhere);
+        elsewhere.focus();
+        const p = requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.querySelector('.aparte-elic-panel'), 'the panel is shown').not.toBeNull();
+        expect(document.activeElement, 'and the focus stays where the reader is').toBe(elsewhere);
+        clickOption('react');
+        await p;
+        expect(document.activeElement).toBe(elsewhere);
+    });
+
+    it('takes nothing when nobody holds the focus', () => {
+        mountChat();
+        (document.activeElement as HTMLElement | null)?.blur();
+        void requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(document.activeElement).toBe(document.body);
+    });
+});
+
