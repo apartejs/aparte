@@ -161,6 +161,10 @@ let _maxCachedModels = 1;
 /**
  * Set the maximum number of models to keep in cache. When exceeded after a new
  * model is ready, the oldest models are evicted. 0 = unlimited.
+ *
+ * The budget counts and evicts only the models given to {@link registerModel} (and the
+ * one just loaded). Other Transformers.js weights in the origin's cache, from your own
+ * pipelines or another library, are never counted and never deleted.
  */
 export function setMaxCachedModels(max: number): void {
     _maxCachedModels = max;
@@ -198,7 +202,11 @@ export function getComputeDevice(): ComputeDevice {
 async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
     if (_maxCachedModels === 0) return; // unlimited
     try {
-        const cached = await listCachedModels();
+        // Only the models this provider was given count: the Cache API is the origin's,
+        // and an app's own Transformers.js pipelines (an embedder, a second library) keep
+        // their weights there too. Counting them evicted a model we never loaded.
+        const cached = (await listCachedModels())
+            .filter(e => _registeredModels.has(e.modelId) || e.modelId === keepModelId);
         const inUse = new Set(_queuedModelIds.values());
         const others = cached.filter(e => e.modelId !== keepModelId && !inUse.has(e.modelId));
         const excess = cached.length - _maxCachedModels;

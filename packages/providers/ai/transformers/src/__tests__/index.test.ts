@@ -471,6 +471,7 @@ describe('cache eviction on pipeline-ready', () => {
         const keepId = 'onnx-community/Qwen2.5-0.5B-ONNX';
         const evictId = 'onnx-community/Llama-3.2-1B-ONNX';
 
+        registerModel({ id: evictId, name: 'Llama', capabilities: ['streaming'] });
         setMaxCachedModels(1);
         const { deleteMock } = stubCaches([
             { url: `https://huggingface.co/${keepId}/resolve/main/config.json`, size: 100 },
@@ -487,6 +488,24 @@ describe('cache eviction on pipeline-ready', () => {
         expect(deleteMock).toHaveBeenCalled();
         const deleted = deleteMock.mock.calls[0]![0] as { url: string };
         expect(deleted.url).toContain(evictId);
+    });
+
+    it('neither counts nor evicts a cached model nobody registered', async () => {
+        const keepId = 'onnx-community/Qwen2.5-0.5B-ONNX';
+        const foreignId = 'Xenova/all-MiniLM-L6-v2';   // the app's own embedder, say
+
+        setMaxCachedModels(1);
+        const { deleteMock } = stubCaches([
+            { url: `https://huggingface.co/${keepId}/resolve/main/config.json`, size: 100 },
+            { url: `https://huggingface.co/${foreignId}/resolve/main/config.json`, size: 200 },
+        ]);
+
+        void TransformersProvider.prepareModel!(keepId, vi.fn()).catch(() => {});
+        const [, msgHandler] = workerAddEventListener.mock.calls.find((args) => args[0] === 'message')!;
+        msgHandler({ data: { type: 'pipeline-ready', modelId: keepId } });
+
+        await new Promise(r => setTimeout(r, 0));
+        expect(deleteMock).not.toHaveBeenCalled();
     });
 
     it('does not evict when the limit is 0 (unlimited)', async () => {
