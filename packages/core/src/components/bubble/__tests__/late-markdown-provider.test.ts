@@ -4,12 +4,14 @@
  *
  * The setters did not notify, so a bubble drawn first kept its raw text for good: a static
  * `<aparte-chat-bubble content="**x**">` upgraded by core's own import before
- * `setupMarkedProvider()` ran, or a restored conversation drawn before an un-awaited
- * `setupShikiProvider()` resolved. The provider here is a stand-in — core cannot import a
+ * `setupMarkedProvider()` ran, or a restored conversation drawn while a highlighter was still
+ * loading (`setupShikiProviderFromHighlighter(await createHighlighterCore(…))`). The provider
+ * here is a stand-in — core cannot import a
  * plugin — that turns `**x**` into `<strong>x</strong>`.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import '../aparte-chat-bubble.js';
+import '../../composer/aparte-composer-input.js';
 import { aparteGlobalConfig } from '../../../config/index.js';
 
 interface BubbleEl extends HTMLElement {
@@ -63,6 +65,24 @@ describe('a Markdown provider set after the message was drawn', () => {
 
         el.updateMessage({ status: 'completed' });
         expect(el.querySelector('.aparte-segments strong')?.textContent).toBe('late');
+    });
+
+    it('waits for an open edit to end, instead of showing the message beside the editor', () => {
+        aparteGlobalConfig.setBubbleActions({ edit: true });
+        const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+        el.setAttribute('data-role', 'user');
+        el.setAttribute('message-id', 'u1');
+        document.body.appendChild(el);
+        el.updateMessage({ content: '**draft**' });
+        (el.querySelector('[data-action="edit"]') as HTMLButtonElement).click();
+        const content = el.querySelector('.aparte-content') as HTMLElement;
+        expect(content.style.display).toBe('none');
+
+        aparteGlobalConfig.setMarkdownProvider(bold);
+        expect(content.style.display, 'still hidden behind the editor').toBe('none');
+
+        (el.querySelector('[data-action="edit-cancel"]') as HTMLButtonElement).click();
+        expect(el.querySelector('.aparte-content strong')?.textContent, 'drawn once the edit ends').toBe('draft');
     });
 
     it('does not rebuild a message already drawn with the current providers', () => {

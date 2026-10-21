@@ -126,9 +126,10 @@ const NOOP = (): void => { /* deliberately empty */ };
 /**
  * How many times each config's Markdown, streaming-Markdown or highlight provider changed.
  * A bubble records the count it drew with and draws again when it moves: a provider set
- * after a message was drawn (a static bubble upgraded by core's own import, a restored
- * conversation rendered before an un-awaited `setupShikiProvider()`) otherwise left it raw
- * for good. Internal to core: not exported from the package.
+ * after a message was drawn otherwise left it raw for good: a static bubble upgraded by
+ * core's own import, or a restored conversation drawn while a highlighter was still
+ * loading (`setupShikiProviderFromHighlighter(await createHighlighterCore(…))`).
+ * Internal to core: not exported from the package.
  */
 const renderingVersions = new WeakMap<AparteConfig, number>();
 

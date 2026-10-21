@@ -336,16 +336,23 @@ export class AparteChatBubble extends HTMLElement {
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
-    // A Markdown or highlight provider set after this message was drawn: draw it again.
-    // Not mid-stream — the stream reads the providers as it goes, and its end redraws.
-    if (!this._streaming && renderingVersionOf(this._cfg) !== this._drawnWithVersion) {
-      if (this._segments.length > 0) this._renderSegments();
-      else this._updateContent();
-    }
+    this._redrawIfStale();
   };
 
   /** The {@link renderingVersionOf} count the content was last drawn with. */
   private _drawnWithVersion = 0;
+
+  /**
+   * A Markdown or highlight provider set after this message was drawn: draw it again.
+   * Not mid-stream — the stream reads the providers as it goes, and its end redraws — and
+   * not mid-edit, where the drawn message is hidden behind the editor and drawing it would
+   * show it again beside the editor; leaving the edit calls this.
+   */
+  private _redrawIfStale(): void {
+    if (this._streaming || this._editing || renderingVersionOf(this._cfg) === this._drawnWithVersion) return;
+    if (this._segments.length > 0) this._renderSegments();
+    else this._updateContent();
+  }
 
   /**
    * Ask every rendered segment to re-read its config-derived text.
@@ -1733,6 +1740,7 @@ export class AparteChatBubble extends HTMLElement {
     if (this._contentEl) this._contentEl.style.display = '';
     this.querySelector('.aparte-message')?.removeAttribute('data-editing');
     this._editing = false;
+    this._redrawIfStale();
     this._updateActionBar();
 
     // Both exits destroy the focused element — the editor is removed and the bar is
