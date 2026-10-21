@@ -83,6 +83,8 @@ export type AparteLocale = {
     newChat: string;
     /** Read by a screen reader while the conversation list is on its way (default: "Loading conversations") */
     loadingConversations: string;
+    /** Accessible name of the conversation list, a navigation landmark (default: "Conversations") */
+    conversationList?: string;
     /** Read by a screen reader while a conversation's messages are on their way (default: "Loading the conversation") */
     loadingConversation: string;
     /**
@@ -524,6 +526,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     messageInfo: "Details",
     newChat: "New Chat",
     loadingConversations: "Loading conversations",
+    conversationList: "Conversations",
     loadingConversation: "Loading the conversation",
     deleteConversation: "Delete",
     archiveConversation: "Archive",

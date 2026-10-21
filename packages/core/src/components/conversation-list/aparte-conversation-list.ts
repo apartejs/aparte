@@ -56,7 +56,7 @@ interface OpenMenu {
 
 /** Locale keys this element reads; each falls back to the English default. */
 type ListLocaleKey =
-    | 'newChat' | 'loadingConversations' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
+    | 'newChat' | 'loadingConversations' | 'conversationList' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
@@ -231,6 +231,9 @@ export class AparteConversationList extends HTMLElement {
         if (!this.getAttribute('role')) {
             this.setAttribute('role', 'navigation');
         }
+        // A landmark needs a name once a page has a second one (axe landmark-unique): the
+        // locale's, unless the app named it — an `aria-label` or `aria-labelledby` of its own wins.
+        this._ownsLabel = !this.hasAttribute('aria-label') && !this.hasAttribute('aria-labelledby');
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
         this.addEventListener('focusout', this._onFocusOut);
@@ -321,7 +324,10 @@ export class AparteConversationList extends HTMLElement {
         }, 0);
     };
 
+    private _ownsLabel = false;
+
     private _render(): void {
+        if (this._ownsLabel) this.setAttribute('aria-label', this._t('conversationList'));
         if (this._pressed) {
             this._renderAfterPress = true;
             return;
