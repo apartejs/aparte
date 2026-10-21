@@ -121,9 +121,8 @@ export interface TransformersModelConfig {
     runner?: string;
     /**
      * The most tokens a reply from this model may run to, unless the request sets its own
-     * `maxTokens`. Left unset, a reply runs until the model ends it or its context window is
-     * full (or to 4096 tokens, when the model's config names no window). Stop interrupts it
-     * either way.
+     * `maxTokens`. Left unset, 8192. Whatever the ceiling, a reply also ends where the model's
+     * context window does, prompt included, and Stop interrupts it.
      */
     maxTokens?: number;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */

@@ -26,6 +26,7 @@ function fakeTransformers(config?: Record<string, unknown>) {
         constructor(_tokenizer: unknown, options: { callback_function?: (t: string) => void }) { streamerCallback = options.callback_function; }
     }
     class InterruptableStoppingCriteria { interrupt() { calls.interrupted++; } }
+    class MaxLengthCriteria { constructor(public maxLength: number) {} }
     // The processor pairs a prompt with images; asked with none it throws, as the real one
     // does (Idefics3's processor reads `images.rows`). The tokenizer alone takes text.
     const tokenizer = Object.assign(
@@ -51,7 +52,7 @@ function fakeTransformers(config?: Record<string, unknown>) {
     const AutoModelForImageTextToText = { from_pretrained: vi.fn(async (...args: unknown[]) => { calls.modelArgs = args; return model; }) };
     const load_image = vi.fn(async (src: string) => { calls.loaded.push(src); return { image: src }; });
     return {
-        module: { AutoProcessor, AutoModelForImageTextToText, load_image, TextStreamer, InterruptableStoppingCriteria, env: {} } as never,
+        module: { AutoProcessor, AutoModelForImageTextToText, load_image, TextStreamer, InterruptableStoppingCriteria, MaxLengthCriteria, env: {} } as never,
         calls,
     };
 }
@@ -175,11 +176,13 @@ describe('image-text-to-text runner', () => {
         expect(calls.interrupted).toBe(1);
     });
 
-    it('without maxTokens, reads the window from the text half of a vision config', async () => {
-        const { module, calls } = fakeTransformers({ text_config: { max_position_embeddings: 8192 } });
+    it('reads the window from the text half of a vision config', async () => {
+        const { module, calls } = fakeTransformers({ text_config: { max_position_embeddings: 16384 } });
         const runner = await createRunner(ctxFor(module));
         await runner.generate({ messages: [{ role: 'user', content: 'hi' }], options: {}, emit: () => {}, signal: new AbortController().signal });
-        expect(calls.generateArgs).toMatchObject({ max_new_tokens: null, max_length: 8192 });
+        const args = calls.generateArgs as { max_new_tokens: number; stopping_criteria: unknown[] };
+        expect(args.max_new_tokens).toBe(8192);
+        expect(args.stopping_criteria[1]).toMatchObject({ maxLength: 16384 });
     });
 
     it('reports download progress through the context, and disposing the runner disposes the model', async () => {

@@ -15,7 +15,7 @@
 // `contentToText` shipped all of core, components included, in a 426 kB runner chunk.
 import type { AparteChatMessage, AparteContentPart } from '@aparte/core';
 import type { CreateRunner, RunnerContext, RunnerGenerateInput } from './types.js';
-import { TOOL_TURNS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
+import { TOOL_TURNS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, stoppingCriteria, textStreamer } from './shared.js';
 
 type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -74,9 +74,9 @@ export const createRunner: CreateRunner = async (ctx) => {
             const { stopping, release } = interruptOn(signal, ctx.transformers);
             try {
                 await pipe(flattenForChatTemplate(messages, ctx.warn), {
-                    ...generationOptions(options, contextSize),
+                    ...generationOptions(options),
                     streamer: textStreamer(ctx.transformers, pipe.tokenizer, emit),
-                    stopping_criteria: stopping,
+                    stopping_criteria: stoppingCriteria(stopping, ctx.transformers, contextSize),
                 });
             } finally {
                 release();

@@ -12,7 +12,7 @@
 
 import type { AparteChatMessage } from '@aparte/core';
 import type { CreateRunner, RunnerGenerateInput } from './types.js';
-import { TOOL_TURNS_DROPPED, UNSUPPORTED_PARTS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
+import { TOOL_TURNS_DROPPED, UNSUPPORTED_PARTS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, stoppingCriteria, textStreamer } from './shared.js';
 
 type HFPart = { type: 'image' } | { type: 'text'; text: string };
 type HFMessage = { role: 'user' | 'assistant' | 'system'; content: HFPart[] };
@@ -93,9 +93,9 @@ export const createRunner: CreateRunner = async (ctx) => {
                     : await processor.tokenizer(prompt);
                 await model.generate({
                     ...inputs,
-                    ...generationOptions(options, contextSize),
+                    ...generationOptions(options),
                     streamer: textStreamer(ctx.transformers, processor.tokenizer, emit),
-                    stopping_criteria: stopping,
+                    stopping_criteria: stoppingCriteria(stopping, ctx.transformers, contextSize),
                 });
             } finally {
                 release();
