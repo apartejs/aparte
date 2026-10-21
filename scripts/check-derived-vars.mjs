@@ -91,7 +91,7 @@ const LITERAL_SELECTORS = [':where(:root)', ':host'];
  * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
  * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 12; // #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse); then the pending attachment's ✕ (--aparte-thumb-remove-size), same modality rule.
+const AT_RULE_CEILING = 13; // the intent-less button's derived ink, under @supports (color: oklch(from …)) beside the derived ink it reads; #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse); then the pending attachment's ✕ (--aparte-thumb-remove-size), same modality rule.
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.
