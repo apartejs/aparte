@@ -119,6 +119,13 @@ export interface TransformersModelConfig {
      * the same Transformers.js instance the built-ins use. Wins over `task`.
      */
     runner?: string;
+    /**
+     * The most tokens a reply from this model may run to, unless the request sets its own
+     * `maxTokens`. Left unset, a reply runs until the model ends it or its context window is
+     * full (or to 4096 tokens, when the model's config names no window). Stop interrupts it
+     * either way.
+     */
+    maxTokens?: number;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */
     dtype?: Dtype;
     /** Not read: where models run is one setting for the page, {@link setComputeDevice}. */
@@ -614,7 +621,7 @@ export const TransformersProvider: AparteAIProvider
     ): Promise<AparteChatResponse> {
         const requestId = uuid();
         const options = {
-            maxTokens: request.maxTokens,
+            maxTokens: request.maxTokens ?? _registeredModels.get(request.modelId)?.maxTokens,
             temperature: request.temperature,
             seed: request.seed,
         };

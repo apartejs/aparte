@@ -25,7 +25,7 @@ registerModel({
   dtype: 'q4',
 });
 aparteGlobalConfig.registerAIProvider(TransformersProvider);
-new AparteClient({ requestInterceptor: (request) => ({ ...request, maxTokens: request.maxTokens ?? 1024 }) }).start();
+new AparteClient().start();
 ```
 
 The model runs in a Web Worker, off the page's main thread, through the
@@ -33,8 +33,9 @@ The model runs in a Web Worker, off the page's main thread, through the
 its weights download once into the browser's cache. `capabilities` is required: `['streaming']`
 for a chat model. With one model registered, the chat uses it; with several, name one with
 `aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultModel })`, or let
-the person pick in the [model selector](/components/model-selector/). A reply stops at 512 new
-tokens unless the request asks for more, which the `requestInterceptor` above does.
+the person pick in the [model selector](/components/model-selector/). A reply runs until the
+model ends it or its context window is full; Stop interrupts it. To cap it, give the model a
+`maxTokens` in `registerModel`, or set `maxTokens` on the request, which wins.
 
 This provider sends a model no tools, and a conversation that already holds tool calls runs with
 those calls and their results left out of the prompt; the console says so once.

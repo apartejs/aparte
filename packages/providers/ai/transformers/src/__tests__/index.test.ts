@@ -125,6 +125,21 @@ describe('chat() hands the worker the conversation, not a flattening of it', () 
         expect(generate.runner).toBe(new URL('./runners/mine.js', location.href).href);
         expect(generate.runner).toMatch(/^https?:\/\//);
     });
+
+    it('takes the model\'s maxTokens when the request sets none, and the request\'s when it does', async () => {
+        registerModel({ id: 'Test/Capped', name: 'Capped', capabilities: ['streaming'], maxTokens: 300 });
+        void TransformersProvider.chat({ modelId: 'Test/Capped', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const first = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(first.options.maxTokens).toBe(300);
+
+        terminateWorker();
+        workerPostMessage.mockClear();
+        void TransformersProvider.chat({ modelId: 'Test/Capped', maxTokens: 50, messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const second = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(second.options.maxTokens).toBe(50);
+    });
 });
 
 describe('what comes back from the worker', () => {

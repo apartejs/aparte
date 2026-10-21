@@ -66,11 +66,45 @@ export function textStreamer(transformers: TransformersModule, tokenizer: unknow
     });
 }
 
-/** Sampling options in Transformers.js' vocabulary, from the request's. */
-export function generationOptions(options: { maxTokens?: number; temperature?: number }): Record<string, unknown> {
+/**
+ * The reply's ceiling when no `maxTokens` is set and the model's config names no context
+ * size: long enough that an answer is not cut, short enough that a looping model stops.
+ */
+export const FALLBACK_MAX_NEW_TOKENS = 4096;
+
+/**
+ * How many tokens the model's window holds, prompt and reply together, read from its
+ * config — a vision model keeps it on the text half. `undefined` when the config says nothing.
+ */
+export function contextLength(config: unknown): number | undefined {
+    const c = config as Record<string, unknown> | undefined;
+    const text = c?.['text_config'] as Record<string, unknown> | undefined;
+    for (const value of [c?.['max_position_embeddings'], text?.['max_position_embeddings'], c?.['n_positions']]) {
+        if (typeof value === 'number' && value > 0) return value;
+    }
+    return undefined;
+}
+
+/**
+ * Sampling options in Transformers.js' vocabulary, from the request's.
+ *
+ * A `maxTokens` the caller set is the reply's ceiling. Without one, the reply runs until the
+ * model ends it or its window is full: `max_length` counts the prompt too, so it is what the
+ * window has left. `max_new_tokens: null` is load-bearing — the text-generation pipeline
+ * defaults it to 256, and when set it wins over `max_length`.
+ */
+export function generationOptions(
+    options: { maxTokens?: number; temperature?: number },
+    contextSize?: number,
+): Record<string, unknown> {
     const temperature = options.temperature ?? 0;
+    const ceiling = options.maxTokens !== undefined
+        ? { max_new_tokens: options.maxTokens }
+        : contextSize !== undefined
+            ? { max_new_tokens: null, max_length: contextSize }
+            : { max_new_tokens: FALLBACK_MAX_NEW_TOKENS };
     return {
-        max_new_tokens: options.maxTokens ?? 512,
+        ...ceiling,
         do_sample: temperature > 0,
         temperature: temperature > 0 ? temperature : undefined,
     };

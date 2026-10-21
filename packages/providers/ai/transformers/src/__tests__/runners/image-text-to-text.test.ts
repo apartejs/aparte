@@ -15,7 +15,7 @@ import { createRunner } from '../../runners/image-text-to-text.js';
 import type { RunnerContext, RunnerGenerateInput } from '../../runners/types.js';
 import type { AparteContentPart, AparteStreamEvent } from '@aparte/core';
 
-function fakeTransformers() {
+function fakeTransformers(config?: Record<string, unknown>) {
     const calls: {
         processorArgs?: unknown[]; modelArgs?: unknown[];
         templateArgs?: unknown[]; processArgs?: unknown[]; tokenizerArgs?: unknown[]; generateArgs?: unknown;
@@ -45,6 +45,7 @@ function fakeTransformers() {
     const model = {
         generate: async (args: unknown) => { calls.generateArgs = args; streamerCallback?.('A '); streamerCallback?.('cat.'); return []; },
         dispose: async () => { calls.disposed++; },
+        config,
     };
     const AutoProcessor = { from_pretrained: vi.fn(async (...args: unknown[]) => { calls.processorArgs = args; return processor; }) };
     const AutoModelForImageTextToText = { from_pretrained: vi.fn(async (...args: unknown[]) => { calls.modelArgs = args; return model; }) };
@@ -172,6 +173,13 @@ describe('image-text-to-text runner', () => {
         ac.abort();
         await p;
         expect(calls.interrupted).toBe(1);
+    });
+
+    it('without maxTokens, reads the window from the text half of a vision config', async () => {
+        const { module, calls } = fakeTransformers({ text_config: { max_position_embeddings: 8192 } });
+        const runner = await createRunner(ctxFor(module));
+        await runner.generate({ messages: [{ role: 'user', content: 'hi' }], options: {}, emit: () => {}, signal: new AbortController().signal });
+        expect(calls.generateArgs).toMatchObject({ max_new_tokens: null, max_length: 8192 });
     });
 
     it('reports download progress through the context, and disposing the runner disposes the model', async () => {
