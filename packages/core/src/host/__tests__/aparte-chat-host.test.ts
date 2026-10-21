@@ -258,6 +258,16 @@ describe('AparteChatHost', () => {
         expect(h.ctl.streamingId).toBeNull();
     });
 
+    it('a source that throws on setup announces no turn — the composer is not left on Stop', async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        const starts: string[] = [];
+        h.host.addEventListener('aparte-message-start', () => starts.push('start'));
+        const broken = { [Symbol.asyncIterator]() { throw new Error('not iterable'); } } as unknown as AsyncIterable<string>;
+        await expect(h.ctl.streamTokens('a', broken)).rejects.toThrow('not iterable');
+        expect(starts).toEqual([]);
+    });
+
     it("another chat's Stop leaves this stream running", async () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));

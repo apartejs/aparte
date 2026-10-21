@@ -706,17 +706,6 @@ export class AparteChatHost {
         this._setStreamingId(messageId);
         const ac = new AbortController();
         this._streamAbort = ac;
-        // The turn announces itself the way `AparteClient` does, so what listens for a turn
-        // works here too: the composer shows Stop, the conversation controller saves at the
-        // end. And the composer's Stop (`aparte-abort` for this chat, or for every chat when
-        // it names none) stops this stream.
-        const { host, hostId } = this.binding;
-        const onAbort = (e: Event): void => {
-            const target = ((e as CustomEvent).detail as { targetId?: string } | undefined)?.targetId;
-            if ((!target || target === hostId) && this._streamAbort === ac) this.stopTokenStream();
-        };
-        window.addEventListener('aparte-abort', onAbort);
-        dispatchLifecycleEvent(host, 'aparte-message-start', { messageId, role: 'assistant' }, hostId);
         const iterator = tokens[Symbol.asyncIterator]();
         // Resolve as soon as the stream is aborted, so an IDLE source (e.g. the
         // Angular Observable→AsyncIterable adapter parked on a pending next())
@@ -727,6 +716,18 @@ export class AparteChatHost {
             if (ac.signal.aborted) { resolve('aborted'); return; }
             ac.signal.addEventListener('abort', () => resolve('aborted'), { once: true });
         });
+        // Announced only now, past the setup that can throw (the source's iterator), so a
+        // start always meets the `finally` that ends it. The turn announces itself the way `AparteClient` does, so what listens for a turn
+        // works here too: the composer shows Stop, the conversation controller saves at the
+        // end. And the composer's Stop (`aparte-abort` for this chat, or for every chat when
+        // it names none) stops this stream.
+        const { host, hostId } = this.binding;
+        const onAbort = (e: Event): void => {
+            const target = ((e as CustomEvent).detail as { targetId?: string } | undefined)?.targetId;
+            if ((!target || target === hostId) && this._streamAbort === ac) this.stopTokenStream();
+        };
+        window.addEventListener('aparte-abort', onAbort);
+        dispatchLifecycleEvent(host, 'aparte-message-start', { messageId, role: 'assistant' }, hostId);
         try {
             for (;;) {
                 const res = await Promise.race([iterator.next(), aborted]);
