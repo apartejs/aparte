@@ -50,7 +50,7 @@ export interface BackendTransportOptions {
  * aparteGlobalConfig.registerAIProvider({
  *     id: 'internal',
  *     getMetadata: () => ({ id: 'internal', name: 'Internal' }),
- *     getModels: () => [{ id: 'house-model', name: 'House model', capabilities: ['streaming', 'tools'] }],
+ *     getModels: () => [{ id: 'house-model', name: 'House model', capabilities: ['streaming', 'function_calling'] }],
  *     chat: () => { throw new Error('runs on the server'); },
  * });
  */
