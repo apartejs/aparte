@@ -313,4 +313,31 @@ describe('createWorkerHost — the device', () => {
         await flush();
         expect(devices).toEqual(['webgpu']);
     });
+
+    describe('the default detection, navigator.gpu', () => {
+        const run = async (gpu: unknown): Promise<string | undefined> => {
+            vi.stubGlobal('navigator', gpu === undefined ? {} : { gpu });
+            try {
+                const { createRunner, seen } = scriptedRunner(() => {});
+                const { h, flush } = host(createRunner);
+                h.onMessage(gen('g1', { device: 'auto' }));
+                await flush();
+                return seen.ctx?.device;
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        };
+        it('an adapter that answers is webgpu', async () => {
+            expect(await run({ requestAdapter: async () => ({}) })).toBe('webgpu');
+        });
+        it('no adapter is wasm', async () => {
+            expect(await run({ requestAdapter: async () => null })).toBe('wasm');
+        });
+        it('a request that throws is wasm', async () => {
+            expect(await run({ requestAdapter: async () => { throw new Error('blocked'); } })).toBe('wasm');
+        });
+        it('no WebGPU API at all is wasm', async () => {
+            expect(await run(undefined)).toBe('wasm');
+        });
+    });
 });
