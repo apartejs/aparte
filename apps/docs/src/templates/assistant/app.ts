@@ -16,6 +16,7 @@ import {
 import type { AparteChatViewport, AparteConversationList, AparteSidebar } from '@aparte/core';
 import { moonIcon, sunIcon } from '@aparte/core/icons';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import '@aparte/plugin-model-selector';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
@@ -89,10 +90,6 @@ async function main(): Promise<void> {
     // Retry and edit are honoured by the client below, so the bubbles may offer them.
     aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
     new AparteClient().start();
-
-    // The model picker reads the providers when it mounts: imported now, once the model is
-    // registered. A static import would be evaluated before this module's body.
-    void import('@aparte/plugin-model-selector');
 
     const chat = document.querySelector<HTMLElement>('.assistant aparte-chat');
     const viewport = chat?.querySelector<AparteChatViewport>('aparte-chat-viewport');
