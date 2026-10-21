@@ -695,16 +695,16 @@
      the literal block. Anchored, not declared once on `:root`, for the reason this
      whole layer exists: an <aparte-chat> that sets its own `--aparte-primary` only
      gets a matching ink if the ink is declared on that element too. */
-  --aparte-primary-ink: oklch(from var(--aparte-primary) var(--aparte-ink-l) c h);
-  --aparte-info-ink: oklch(from var(--aparte-info) var(--aparte-ink-l) c h);
-  --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
-  --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
-  --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+  --aparte-primary-ink: color-mix(in oklab, var(--aparte-primary) 50%, var(--aparte-text));
+  --aparte-info-ink: color-mix(in oklab, var(--aparte-info) 50%, var(--aparte-text));
+  --aparte-success-ink: color-mix(in oklab, var(--aparte-success) 50%, var(--aparte-text));
+  --aparte-warning-ink: color-mix(in oklab, var(--aparte-warning) 50%, var(--aparte-text));
+  --aparte-error-ink: color-mix(in oklab, var(--aparte-error) 50%, var(--aparte-text));
   /* Secondary and neutral as text too, for the same reason: a ghost, outline or soft
      button paints its label with its intent, and those two were reading their fill —
      2.71:1 for secondary on the page, 4.19:1 for neutral on its own soft wash. */
-  --aparte-secondary-ink: oklch(from var(--aparte-secondary) var(--aparte-ink-l) c h);
-  --aparte-neutral-ink: oklch(from var(--aparte-neutral) var(--aparte-ink-l) c h);
+  --aparte-secondary-ink: color-mix(in oklab, var(--aparte-secondary) 50%, var(--aparte-text));
+  --aparte-neutral-ink: color-mix(in oklab, var(--aparte-neutral) 50%, var(--aparte-text));
 
   /* The scales, computed from the masters above.
 
@@ -783,7 +783,7 @@
      44px beside 36px buttons and, the row aligning at the end, sat the send button 4px
      below the editor's centre. Derived from the editor's own line (1lh), so a coarse
      pointer's 44 and a changed font both keep the editor and its buttons on one centre. */
-  --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2);
+  --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - var(--aparte-input-line-height) * 1em) / 2);
   --aparte-conv-list-gap: var(--aparte-space-1);
   --aparte-conv-item-gap: var(--aparte-space-3);
   --aparte-elic-option-radius: var(--aparte-radius-md);
@@ -1137,5 +1137,36 @@
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium);
+}
+
+/* The inks and the editor's padding, in the form every browser of the last two years draws. The
+   anchored block above holds a fallback for the others: each ink is its accent mixed half-way with
+   the text colour (the worst case on this palette measures 5.25:1 in light), and the padding reads
+   the line height as `em`. Same anchors, so these re-derive wherever the block above does. */
+@supports (color: oklch(from red l c h)) {
+  :where(:root),
+  :host,
+  :where([data-aparte-theme]),
+  :where([data-aparte-host]),
+  :where([data-aparte-chat]),
+  :where(aparte-chat) {
+    --aparte-primary-ink: oklch(from var(--aparte-primary) var(--aparte-ink-l) c h);
+    --aparte-info-ink: oklch(from var(--aparte-info) var(--aparte-ink-l) c h);
+    --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
+    --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
+    --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+    --aparte-secondary-ink: oklch(from var(--aparte-secondary) var(--aparte-ink-l) c h);
+    --aparte-neutral-ink: oklch(from var(--aparte-neutral) var(--aparte-ink-l) c h);
+  }
+}
+@supports (height: 1lh) {
+  :where(:root),
+  :host,
+  :where([data-aparte-theme]),
+  :where([data-aparte-host]),
+  :where([data-aparte-chat]),
+  :where(aparte-chat) {
+    --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2);
+  }
 }
 

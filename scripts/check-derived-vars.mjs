@@ -759,11 +759,14 @@ for (const [name, count] of declaredFrames) {
  * number and checking it is the smaller of the two mechanisms.
  */
 const THEMING_GUIDE = 'apps/docs/src/content/docs/guides/theming.mdx';
+// VARIABLES, as the sentence says, not declarations: a variable declared again under
+// `@supports` (the inks, the editor padding) is still one variable that reads another.
+const derivedVariables = new Set(anchored.map((d) => d.name)).size;
 if (existsSync(THEMING_GUIDE)) {
     const guide = readFileSync(THEMING_GUIDE, 'utf8');
-    if (!new RegExp(`\\b${anchored.length}\\b[^.]*variables? read another`).test(guide)) {
+    if (!new RegExp(`\\b${derivedVariables}\\b[^.]*variables? read another`).test(guide)) {
         problems.push(
-            `${THEMING_GUIDE} does not state the derived-variable count. It is ${anchored.length} now — `
+            `${THEMING_GUIDE} does not state the derived-variable count. It is ${derivedVariables} now — `
             + 'find the "N of core\'s variables read another one" sentence and update the number.',
         );
     }
