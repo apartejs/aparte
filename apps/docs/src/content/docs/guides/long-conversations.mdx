@@ -150,7 +150,9 @@ next turn in `danger`.
 
 A chat with a configuration of its own takes a setup on that configuration, scoped to the chat's id —
 `setupCompaction({ scopeToTargetId: 'support' }, support)` — so it answers that chat alone and
-`compact()` with no id compacts it. When your transcript lives in a store rather than in the page,
+`compact()` with no id compacts it. Unscoped, a chat is answered by the setup on its own
+configuration, and only when that one has none by another, so a global setup and a chat's own
+never both summarise it. When your transcript lives in a store rather than in the page,
 `resolveTarget: (targetId) => ({ getMessages, clearAll, appendMessage })` hands the plugin your own
 message list.
 

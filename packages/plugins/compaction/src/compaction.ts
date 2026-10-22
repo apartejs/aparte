@@ -313,23 +313,25 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     let disposed = false;
 
     /**
-     * Is a window event for this setup? Scoped: only the chat it names. On the global
-     * config: every event — the single-chat page, which must need no wiring. On a
-     * config of its own, the client's rule: answer a chat unless it demonstrably
-     * belongs to ANOTHER instance — one whose boundary (`attachConfig`) resolves a
-     * different, non-global config. Without this, two setups on two configs both
-     * answered every `aparte-compact`: two summaries, one of them from the wrong model.
+     * Is a window event for this setup? Scoped: only the chat it names. Otherwise a chat
+     * is answered by the setup on ITS OWN config (the one its boundary, `attachConfig`,
+     * resolves), and only when that config has none by another: the global setup answers
+     * every chat (the single-chat page, which must need no wiring), a setup on a config of
+     * its own answers a chat on the global config. Never both: a page with a global setup
+     * and an instance one answered a global chat twice — two summaries, one from the
+     * wrong model.
      */
     const addressed = (e: Event): boolean => {
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
         if (scope) return targetId === scope;
-        if (config === aparteGlobalConfig || typeof document === 'undefined') return true;
+        if (typeof document === 'undefined') return true;
         const el = targetId
             ? document.getElementById(targetId)
             : document.querySelector<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
-        if (!el) return true;
-        const owner = resolveConfig(el);
-        return owner === config || owner === aparteGlobalConfig;
+        const owner = el ? resolveConfig(el) : aparteGlobalConfig;
+        if (owner === config) return true;
+        if (controllers.has(owner)) return false;
+        return config === aparteGlobalConfig || owner === aparteGlobalConfig;
     };
     const onCompact = (e: Event): void => {
         if (!addressed(e)) return;

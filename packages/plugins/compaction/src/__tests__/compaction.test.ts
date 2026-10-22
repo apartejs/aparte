@@ -666,6 +666,38 @@ describe('setupCompaction — the window events and the page', () => {
         expect(b.chat, 'B never ran').not.toHaveBeenCalled();
     });
 
+    it('with a global setup and an instance one on the page, each chat is summarised once, by its own', async () => {
+        const hostOf = (id: string, store: CompactionTarget): HTMLElement => {
+            const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+            el.id = id;
+            el.setAttribute('data-aparte-chat', '');
+            el.getMessages = store.getMessages;
+            el.clearAll = store.clearAll;
+            el.appendMessage = store.appendMessage;
+            document.body.appendChild(el);
+            return el;
+        };
+        const plain = makeTarget(exchange(1, 'p'));
+        const scoped = makeTarget(exchange(1, 's'));
+        hostOf('chat-plain', plain);                 // on the global config
+        const scopedEl = hostOf('chat-scoped', scoped);
+        const a = makeConfig('A');
+        attachConfig(scopedEl, a.cfg);
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+
+        send('aparte-compact', { targetId: 'chat-plain' });
+        await vi.waitFor(() => expect(plain.messages[0]?.content ?? '').toContain('G'));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(a.chat, 'the instance setup leaves the global chat to the global one').not.toHaveBeenCalled();
+
+        send('aparte-compact', { targetId: 'chat-scoped' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'and the global one leaves the scoped chat to its own').toHaveBeenCalledTimes(1);
+    });
+
     it('listen: false ignores the window entirely', async () => {
         const target = makeTarget(exchange(1, 'x'));
         const { cfg, chat } = makeConfig();
