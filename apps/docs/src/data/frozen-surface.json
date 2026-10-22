@@ -148,6 +148,7 @@
       "package": "@aparte/plugin-model-selector",
       "attributes": [
         "auto-select",
+        "details",
         "disabled",
         "persist",
         "placeholder",
