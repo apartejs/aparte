@@ -338,7 +338,8 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
   const ev = events.find((e) => /^CustomEvent<.+>$/.test(e.type?.text ?? '')) ?? events[0];
   const detail = ev && /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
 
-  const openTag = (syntax) => `<${tag}${attr ? ` ${syntax}` : ''}></${tag}>`;
+  // On the syntax, not the attribute: an element with no attribute still shows its event.
+  const openTag = (syntax) => `<${tag}${syntax ? ` ${syntax}` : ''}></${tag}>`;
   const plain = attr ? (bool ? `${attr.name}=""` : `${attr.name}="…"`) : '';
 
   let md = bare
@@ -647,9 +648,13 @@ function pluginBindings(dir, pkg) {
   const exports = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).exports ?? {};
   const has = (fw) => Object.prototype.hasOwnProperty.call(exports, `./${fw}`);
   const ng = join(dir, 'src', 'angular.ts');
-  const angular = has('angular') && existsSync(ng)
-    ? (/export\s*\{\s*(\w+Directive)\b/.exec(readFileSync(ng, 'utf8'))?.[1] ?? null)
-    : null;
+  let angular = null;
+  if (has('angular')) {
+    // A published `./angular` whose class cannot be read would print "ships no Angular
+    // binding" on a plugin that has one: fail the generator rather than the page.
+    angular = existsSync(ng) ? (/export\s*\{\s*(\w+Directive)\b/.exec(readFileSync(ng, 'utf8'))?.[1] ?? null) : null;
+    if (!angular) throw new Error(`[gen-element-pages] ${pkg} exports ./angular, but src/angular.ts names no *Directive to show`);
+  }
   return { pkg, react: has('react'), vue: has('vue'), svelte: has('svelte'), angular };
 }
 

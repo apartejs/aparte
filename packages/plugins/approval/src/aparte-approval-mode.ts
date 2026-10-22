@@ -39,7 +39,7 @@ const DEFAULT_LABELS: Record<ApprovalMode, string> = {
  * </aparte-composer>
  * ```
  *
- * @fires aparte-approval-mode-change - After a switch: `{ mode, previousMode }`. Bubbles and crosses shadow roots.
+ * @fires {CustomEvent<AparteApprovalModeChangeEventDetail>} aparte-approval-mode-change - After a switch: `{ mode, previousMode }`. Bubbles and crosses shadow roots.
  */
 export class AparteApprovalMode extends HTMLElement implements AparteConfigAware {
     private _cfg: AparteConfig | null = null;

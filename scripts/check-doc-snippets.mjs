@@ -115,6 +115,8 @@ const EXCERPT_NAMES = {
         aparteGlobalConfig: "declare const aparteGlobalConfig: typeof import('@aparte/core').aparteGlobalConfig;",
         AparteClient: "declare const AparteClient: typeof import('@aparte/core').AparteClient; type AparteClient = import('@aparte/core').AparteClient;",
         runStreamAgent: "declare const runStreamAgent: typeof import('@aparte/engine').runStreamAgent;",
+        // The rest of a run's options, spread into an excerpt that shows only the ones it is about.
+        loopOptions: "declare const loopOptions: Omit<import('@aparte/engine').StreamRunOptions, 'baseRequest' | 'onHistoryAppend' | 'transportCall'>;",
         createScenarioProvider: "declare const createScenarioProvider: typeof import('@aparte/provider-scenario').createScenarioProvider;",
     },
     ts: {
