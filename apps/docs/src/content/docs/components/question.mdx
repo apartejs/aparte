@@ -25,6 +25,10 @@ It can come from two places. **The model** asks it through the `ask_user` tool o
 handler or anywhere else. Either way, `<aparte-elicitation>` presents it, and
 [`<aparte-chat>`](/components/chat/) already contains one.
 
+The chevron in the panel's corner puts the question aside, to read the reply it is about. It
+leaves a one-line bar, "Waiting for your answer", which brings it back; the question stays open
+meanwhile.
+
 ## Variants
 
 ### Several questions at once
@@ -130,6 +134,8 @@ importing the plugin. Mount one or the other, never both.
   the next key does not pick an option. A reader writing in a field elsewhere on the page, or in
   another chat, keeps the focus, and a polite status says a question waits. Taken from nowhere, it
   does not scroll the page.
+- The hide button and the bar it leaves carry `aria-expanded`, and each takes the focus from the
+  other, so putting the question aside and back never drops it.
 
 ## Related
 

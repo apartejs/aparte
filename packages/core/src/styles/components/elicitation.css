@@ -200,6 +200,33 @@ textarea.aparte-elic-text {
   top: 0;
   inset-inline-end: 0;
   z-index: var(--aparte-z-raised);
+  /* The hide button, then a question's Skip, on one line. */
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+}
+
+/* ── Put aside: the panel becomes one line ────────────────────────────────────
+   Hiding a panel that still waits must never leave nothing: the bar says an answer is
+   waiting and is the way back. Everything else in the panel steps out of the layout, so
+   the composer shrinks to the bar and the transcript gets the room back. */
+.aparte-elic-reveal {
+  display: none;
+}
+
+.aparte-elic-panel[data-collapsed] {
+  padding-block: var(--aparte-space-1);
+}
+
+.aparte-elic-panel[data-collapsed] > :not(.aparte-elic-reveal) {
+  display: none;
+}
+
+.aparte-elic-panel[data-collapsed] > .aparte-elic-reveal {
+  display: inline-flex;
+  justify-content: space-between;
+  width: 100%;
+  color: var(--aparte-text-muted);
 }
 
 /* ── An approval: a decision, not a value ───────────────────────────────────

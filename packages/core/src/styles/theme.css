@@ -282,7 +282,7 @@
      underline. No box, no fill, no border. */
   --aparte-elic-step-underline: 2px;
   /* Space kept clear at the end of the tab rail for the corner escape. */
-  --aparte-elic-dismiss-room: 72px;
+  --aparte-elic-dismiss-room: 104px;
 
   /* Code Blocks */
   --aparte-code-copy-hover-bg: rgba(0, 0, 0, 0.05);

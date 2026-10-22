@@ -197,6 +197,10 @@ export type AparteLocale = {
      * "Skip" is the short conventional word for it.
      */
     elicitationSkip?: string;
+    /** Label of the button that puts an open question or approval aside, to read the transcript behind it (default: "Hide for now") */
+    elicitationHide?: string;
+    /** The one-line bar an aside panel leaves, which brings it back (default: "Waiting for your answer") */
+    elicitationWaiting?: string;
     /** Affirmative choice of a yes/no question (default: "Yes") */
     elicitationYes?: string;
     /** Negative choice of a yes/no question (default: "No") */
@@ -472,6 +476,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     stopButton: "Stop",
     elicitationRecommended: "Recommended",
     elicitationSkip: "Skip",
+    elicitationHide: "Hide for now",
+    elicitationWaiting: "Waiting for your answer",
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",

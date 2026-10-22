@@ -20,6 +20,9 @@ The person can also type an answer instead of clicking: "no, archive it instead"
 refuses the call, and the words reach the model as the tool's result, so the next step can
 follow them.
 
+The chevron in the panel's corner puts it aside, to read the transcript behind it, and leaves a
+one-line bar that brings it back; the call keeps waiting meanwhile.
+
 ## Variants
 
 ### A choice that can be remembered
@@ -93,6 +96,8 @@ language changes while the question is open.
   the next key does not pick an option. A reader writing in a field elsewhere on the page, or in
   another chat, keeps the focus, and a polite status says a question waits. Taken from nowhere, it
   does not scroll the page.
+- The hide button and the bar it leaves carry `aria-expanded`, and each takes the focus from the
+  other.
 
 ## Related
 

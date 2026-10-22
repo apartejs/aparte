@@ -21,6 +21,8 @@ export const fr: AparteLocale = {
     stopButton: "Arrêter",
     elicitationRecommended: "Recommandé",
     elicitationSkip: "Passer",
+    elicitationHide: "Masquer pour l'instant",
+    elicitationWaiting: "En attente de votre réponse",
     elicitationYes: "Oui",
     elicitationNo: "Non",
     elicitationAnswerLabel: "Votre réponse",

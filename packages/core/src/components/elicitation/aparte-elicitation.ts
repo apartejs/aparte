@@ -73,6 +73,51 @@ function isWithin(node: Node, ancestor: Node): boolean {
 }
 
 /**
+ * A way to put an open panel aside and read the transcript behind it — the same for a
+ * question and an approval, since both open here. Hiding leaves a one-line bar that says an
+ * answer is waiting and brings the panel back; the request stays open either way, and the
+ * composer's editor stays hidden, because the question still waits for its answer.
+ *
+ * The hide button goes FIRST in the corner, before a question's Skip, so the two never
+ * swap places between a question and an approval.
+ */
+function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig, reopen: () => void): { relabel(next: AparteConfig): void } {
+    const hide = document.createElement('button');
+    hide.type = 'button';
+    hide.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--ghost aparte-elic-hide';
+    hide.setAttribute('aria-expanded', 'true');
+    hide.innerHTML = cfg.getIcon('expand');
+
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'aparte-btn aparte-btn--ghost aparte-elic-reveal';
+    reveal.setAttribute('aria-expanded', 'false');
+    const revealText = document.createElement('span');
+    reveal.append(revealText);
+    reveal.insertAdjacentHTML('beforeend', cfg.getIcon('collapse'));
+
+    const relabel = (next: AparteConfig): void => {
+        const label = next.t('elicitationHide');
+        hide.setAttribute('aria-label', label);
+        hide.title = label;
+        revealText.textContent = next.t('elicitationWaiting');
+    };
+    relabel(cfg);
+
+    hide.addEventListener('click', () => {
+        panelEl.setAttribute('data-collapsed', '');
+        reveal.focus();
+    });
+    reveal.addEventListener('click', () => {
+        panelEl.removeAttribute('data-collapsed');
+        reopen();
+    });
+    corner.prepend(hide);
+    panelEl.append(reveal);
+    return { relabel };
+}
+
+/**
  * The default presenter for a request to the human. It renders nothing itself: it
  * registers as the presenter for the config governing its subtree, and mounts a panel
  * inside the nearest `<aparte-composer>` when something asks — a tool handler calling
@@ -124,7 +169,7 @@ function isWithin(node: Node, ancestor: Node): boolean {
  * @cssprop [--aparte-elic-step-padding=var(--aparte-space-2) var(--aparte-space-1)] - Padding of a step tab.
  * @cssprop [--aparte-elic-step-gap=var(--aparte-space-7)] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
- * @cssprop [--aparte-elic-dismiss-room=72px] - Space the tab rail and the question message keep clear for the corner escape. Widen it for a locale whose "Skip" word is wider.
+ * @cssprop [--aparte-elic-dismiss-room=104px] - Space the tab rail and the question message keep clear for the corner: the hide button and, on a question, Skip. Widen it for a locale whose "Skip" word is wider.
  * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
@@ -439,7 +484,12 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                         composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
                     }, request.details));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
-                this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
+                const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus());
+                this._pending = {
+                    abort: () => fail(),
+                    composer,
+                    relabel: () => { panel.relabel(); retract.relabel(resolveConfig(this)); },
+                };
                 slot.token = composer.showPanel(panel.el, {
                     submitEnabled: panel.isComplete(),
                     mode: approvalMode(),
@@ -468,6 +518,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
+            const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus());
 
             /*
              * The click that IS the answer — a single question whose options are
@@ -480,7 +531,12 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             this._pending = {
                 abort: () => fail(),
                 composer,
-                relabel: () => { panel.relabel(); skip.textContent = resolveConfig(this).t('elicitationSkip'); },
+                relabel: () => {
+                    panel.relabel();
+                    const now = resolveConfig(this);
+                    skip.textContent = now.t('elicitationSkip');
+                    retract.relabel(now);
+                },
             };
             slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
