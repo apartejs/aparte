@@ -2307,7 +2307,10 @@ export class AparteChatViewport extends HTMLElement {
 
         const contentBelowUserTop = scrollHeightWithoutSpacer - userTopInContent;
 
-        const needed = this._container.clientHeight - contentBelowUserTop;
+        // The question lands below a header floating over the transcript (`--aparte-top-inset`,
+        // the surface's scroll padding), not under it at the very top.
+        const covered = parseFloat(getComputedStyle(this._container).scrollPaddingTop) || 0;
+        const needed = this._container.clientHeight - covered - contentBelowUserTop;
         // Hard cap: the spacer can never exceed the visible viewport height.
         // This acts as a safety net against stale layout reads (e.g. mid-swap)
         // that could produce an astronomical value and push content off-screen.

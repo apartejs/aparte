@@ -170,5 +170,24 @@ test('a header over the transcript: the first message starts below it, and a jum
     }, INSET);
     expect(offsets.first, 'the first message starts below the header').toBeGreaterThanOrEqual(INSET);
     expect(Math.abs(offsets.jump - INSET), `a jump lands at the header's edge (${offsets.jump}px)`).toBeLessThanOrEqual(2);
+
+    // The commonest landing of all: a send pins the question to the top of the view, which
+    // is below the header too.
+    await chat.sendAndSettle('one more short question');
+    // Read once the surface has stopped moving: a glide passes the header's edge on its way
+    // to wherever it lands, so a poll would accept the transit.
+    const pinned = await page.evaluate(async () => {
+        const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+            ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+        let last = -1;
+        for (let still = 0; still < 10;) {
+            await new Promise((r) => requestAnimationFrame(r));
+            still = surface.scrollTop === last ? still + 1 : 0;
+            last = surface.scrollTop;
+        }
+        const users = surface.querySelectorAll('aparte-chat-bubble[data-role="user"]');
+        return Math.round(users[users.length - 1]!.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+    });
+    expect(Math.abs(pinned - INSET), `a sent question is pinned at the header's edge (${pinned}px)`).toBeLessThanOrEqual(3);
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
