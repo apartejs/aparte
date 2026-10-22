@@ -4,6 +4,7 @@ import type { AparteConversation, AparteStorageAdapter } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
 import { uuid } from '../utils/uuid.js';
+import { adoptMessageSegments } from '../utils/segments.js';
 
 /** What {@link AparteConversationManager.subscribe} calls with the list, on every change. */
 export type AparteConversationsListener = (conversations: AparteConversation[]) => void;
@@ -121,6 +122,41 @@ function withoutDerivedTree(tree: ExportedMessageRepository): ExportedMessageRep
         ...tree,
         messages: tree.messages.map((entry) => ({ ...entry, message: withoutDerived(entry.message) })),
     };
+}
+
+/**
+ * A value as one string whatever order its keys were written in: the viewport hands back
+ * the messages it was given rebuilt, so the same content can arrive with its keys moved.
+ */
+function stableStringify(value: unknown): string {
+    return JSON.stringify(value, (_key, v: unknown) => (v && typeof v === 'object' && !Array.isArray(v)
+        ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, (v as Record<string, unknown>)[k]]))
+        : v));
+}
+
+/**
+ * A message as CONTENT, for "did anything change?": without the segments a viewport derived
+ * on display, and through the same adoption the viewport applies on load (each segment
+ * stamped with its message id, its index and `isStreaming: false`, a call nobody can answer
+ * any more closed). Compared raw, a stored record that lacked those stamps read as changed
+ * the moment it was opened, was re-saved on leave and floated to the top of the list.
+ */
+function asContent(message: AparteMessage): AparteMessage {
+    return adoptMessageSegments(withoutDerived(message));
+}
+
+function contentOf(messages: AparteMessage[]): string {
+    return stableStringify(messages.map(asContent));
+}
+
+/**
+ * A tree's content: every message of every branch, by id, with its parent — not which branch
+ * is shown. Moving between the versions of a reply (‹1/2›) changes the head and the active
+ * path, which is navigation, not an edit: it is saved, but it does not date the conversation.
+ */
+function treeContentOf(tree: ExportedMessageRepository): string {
+    const byId = [...tree.messages].sort((a, b) => (a.message.id < b.message.id ? -1 : a.message.id > b.message.id ? 1 : 0));
+    return stableStringify(byId.map((entry) => ({ parentId: entry.parentId, message: asContent(entry.message) })));
 }
 
 export class AparteConversationManager {
@@ -443,8 +479,16 @@ export class AparteConversationManager {
         let contentChanged = true;
         let treeChanged = tree !== undefined;
         try {
-            contentChanged = JSON.stringify(storedMessages) !== JSON.stringify(withoutDerivedSegments(conv.messages));
-            if (storedTree !== undefined) treeChanged = JSON.stringify(storedTree) !== JSON.stringify(conv.tree);
+            // With a tree on both sides, content is judged over EVERY branch: the active path
+            // alone counts a branch switch as an edit. Without one, the flat messages decide.
+            contentChanged = storedTree !== undefined && conv.tree !== undefined
+                ? treeContentOf(storedTree) !== treeContentOf(conv.tree)
+                : contentOf(storedMessages) !== contentOf(conv.messages);
+            if (storedTree !== undefined) {
+                treeChanged = conv.tree === undefined
+                    || storedTree.headId !== conv.tree.headId
+                    || treeContentOf(storedTree) !== treeContentOf(conv.tree);
+            }
         } catch { /* unserialisable payload → assume changed */ }
         // The title follows the first user message while it is the manager's decision:
         // editing that message re-titles, the way the first send titled. A title the
