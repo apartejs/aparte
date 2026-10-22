@@ -42,5 +42,5 @@ export { artifactBlock, artifactSegment, artifactFromToolCall, ARTIFACT_TAG, ART
 export type { ArtifactSegment, ArtifactInput } from './segment.js';
 export { deriveArtifactKind } from './kinds.js';
 export { buildSafePreviewDocument, PREVIEW_CSP } from './preview-document.js';
-export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions } from './options.js';
+export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions, ArtifactOpenEventDetail } from './options.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';
