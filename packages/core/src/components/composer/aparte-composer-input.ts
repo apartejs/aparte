@@ -359,10 +359,16 @@ export class AparteComposerInput extends HTMLElement {
         const cd = e.clipboardData;
         if (!cd) return;
 
-        // Image paste → push to root attachments
-        const imageFile = Array.from(cd.items).find(i => i.type.startsWith('image/'))?.getAsFile();
+        // Image paste → push to root attachments, where attachments are on: the same signal
+        // drag and drop answers to, an `<aparte-composer-add-attachment>` in the composer.
+        // Without it a pasted screenshot became an attachment on a chat that offered none —
+        // one the app had not said it could send.
+        const root = this._getRoot();
+        const imageFile = root?.querySelector('aparte-composer-add-attachment')
+            ? Array.from(cd.items).find(i => i.type.startsWith('image/'))?.getAsFile()
+            : undefined;
         if (imageFile) {
-            this._getRoot()?.addAttachments([imageFile]);
+            root?.addAttachments([imageFile]);
             return;
         }
 
