@@ -814,6 +814,15 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
+    // A custom shell's bar gets the roving tab stop below; it gets the toolbar it implies
+    // too, as the root gets `article` above — the contract lists class hooks, so a shell
+    // written from it carries no ARIA. A bar that declares its own role keeps it.
+    if (this._actionBarEl && !this._actionBarEl.hasAttribute('role')) {
+      this._actionBarEl.setAttribute('role', 'toolbar');
+      if (!this._actionBarEl.hasAttribute('aria-label')) {
+        this._actionBarEl.setAttribute('aria-label', this._cfg.getLocale().messageActions ?? 'Message actions');
+      }
+    }
     // ONE listener on the bar, not one per button: every build path rewrites the bar's
     // innerHTML, so a per-button listener would have to be re-attached three times and
     // would be lost the first time somebody added a fourth path. The bar element itself

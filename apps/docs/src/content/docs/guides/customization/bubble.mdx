@@ -55,8 +55,9 @@ What the frame must carry:
   parts above: the message shows it once there are two versions, and fills the label and the
   status. Keep `aria-live` on the status, the one thing a screen reader hears when the version
   changes; the arrows' labels and glyphs are yours.
-- **`.aparte-action-bar`**, with `role="toolbar"` and a label of yours: the message puts its
-  buttons there, and they share one tab stop with the arrow keys between them.
+- **`.aparte-action-bar`**: the message puts its buttons there, and they share one tab stop with
+  the arrow keys between them. Without a `role` of yours it becomes a `toolbar` named from the
+  locale's `messageActions`; give it your own role and label to override both.
 - **`.aparte-name`**, holding the `name` you are given: the message updates it when the name or the
   language changes. Any of `.aparte-avatar`, `.aparte-timestamp`, `.aparte-attachments` and
   `.aparte-footer` that you want filled.
