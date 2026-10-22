@@ -23,10 +23,14 @@ describe('a message role', () => {
             expect(sheet).toMatch(rule);
         });
 
-        it(`leaves the ${role}'s ink undeclared, so a content colour set below the chat still reaches the words`, () => {
+        it(`leaves the ${role}'s ink undeclared on the root and the anchors, so a content colour set below the chat still reaches the words`, () => {
             // Declared on the chat's anchors, the default would be the chat's content colour,
             // resolved there, and a `--aparte-content-color` scoped on one message would be lost.
-            expect(sheet).not.toMatch(new RegExp(`--aparte-message-content-text-${role}\\s*:`));
+            // The compaction notice declares it for itself: its own variant.
+            const declaring = [...sheet.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+                .filter((block) => new RegExp(`--aparte-message-content-text-${role}\\s*:`).test(block[2]!))
+                .map((block) => block[1]!.trim());
+            expect(declaring).toEqual(['aparte-chat-bubble[data-kind="compaction"]']);
         });
     }
 
