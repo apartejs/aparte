@@ -135,4 +135,25 @@ describe('createAgUiRunner against TanStack AI', () => {
         expect(second.find((e) => e.type === 'tool-resolved')).toMatchObject({ toolCallId: 'q1', result: 'The blue one.' });
         expect(said(second)).toBe('Blue it is.');
     });
+
+    it('sends a page tool the page refused as the tool\'s error, never as its output', async () => {
+        let seen = '';
+        const fetch = tanstackRoute([
+            { toolCalls: [{ name: 'ask_user', input: { question: 'Which?' }, id: 'q1' }] },
+            // What the MODEL reads on the second call: the tool's result, as TanStack built it.
+            ({ request }: { request: { messages: unknown[] } }) => { seen = JSON.stringify(request.messages); return { text: 'Fine, I will not ask.' }; },
+        ]);
+        const user = { role: 'user', content: 'pick a colour' };
+        const first = await turn(fetch, { baseRequest: { messages: [user], modelId: 'x', stream: true, tools: [askUser] } });
+        const second = await turn(fetch, {
+            baseRequest: { messages: [user, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: { question: 'Which?' } }] }], modelId: 'x', stream: true, tools: [askUser] },
+            deferral: { token: String(first.at(-1)!['ticket']), outcomes: { q1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is asked.' } } },
+        });
+        expect(second.find((e) => e.type === 'tool-rejected')).toMatchObject({ toolCallId: 'q1', reason: 'Plan mode: nothing is asked.' });
+        // Read as an output, `{ approved: false }` would settle the row as resolved.
+        expect(types(second)).not.toContain('tool-resolved');
+        expect(said(second)).toBe('Fine, I will not ask.');
+        expect(seen, 'the model reads the reason').toContain('Plan mode: nothing is asked.');
+        expect(seen, 'and not a decision dressed as an output').not.toContain('"approved":false');
+    });
 });

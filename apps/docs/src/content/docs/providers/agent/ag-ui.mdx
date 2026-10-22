@@ -54,8 +54,10 @@ A tool registered in the page — `ask_user` through `setupAskUser()`, your own 
 pauses with the call open; the page runs the tool, shows its result in the row, and calls the agent
 again with it. For an agent server, the pause is an interrupt whose reason contains
 `client_tool`, or a call the agent leaves without a result. Before it runs, the page gates it as
-its own loop would: a `needsApproval` tool asks through the approval panel, your approval policy
-can allow or refuse it, and a refusal goes back to the agent as the tool's result.
+its own loop would: a `needsApproval` tool asks through the approval panel (its row says it is
+waiting), your approval policy can allow or refuse it, and a refusal goes back to the agent with
+its reason — as the tool's result, or as its error when the agent paused on the call. A call the
+person approved once in the turn is not asked about again when the agent pauses to run it.
 
 ## Approvals
 

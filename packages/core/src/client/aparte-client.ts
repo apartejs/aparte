@@ -779,6 +779,11 @@ export class AparteClient {
             // otherwise ask forever, and a policy that answers alone would not even pause.
             const maxResumes = this.options.maxTurns ?? 10; // the engine's default
             let resumes = 0;
+            // Calls a person already approved in this turn. A server or an agent can pause on
+            // the same call twice — approve it, then run it in the browser (TanStack AI does
+            // exactly that) — and the second pause must not ask again.
+            const approvedInTurn = new Set<string>();
+            const rowEvents = createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) });
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
                 if (!stopped && ++resumes > maxResumes) {
@@ -788,7 +793,7 @@ export class AparteClient {
                     );
                     break;
                 }
-                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
+                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal, rowEvents, approvedInTurn);
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
                     // do not run. And no run is left to say the turn stopped, so say it here.
@@ -1841,6 +1846,8 @@ export class AparteClient {
         targetElement: AparteChatTargetElement,
         pending: StreamDeferredCall[],
         signal: AbortSignal,
+        rowEvents?: AparteStreamRunEmitter,
+        approvedInTurn: Set<string> = new Set(),
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
         const resolver = this._approvalResolverFor(targetElement, true);
@@ -1858,25 +1865,39 @@ export class AparteClient {
                 }
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
+                if (decision.approved) approvedInTurn.add(p.toolCallId);
+                // A refusal ends the turn's calls, as it does in the page's own loop: the
+                // loop reads the refusal and stops there, so asking about the rest would
+                // put questions to a person whose answers nothing reads.
+                else break;
             } else if (p.reason === 'external') {
                 // The page's gate first, the one its own loop applies: a browser tool asked
                 // for by a server or an AG-UI agent used to run without its `needsApproval`
                 // or the approval policy ever being consulted.
-                let gate: Awaited<ReturnType<StreamApprovalResolver>> | null | undefined;
-                try {
-                    gate = await this._gateBrowserTool(call, signal, targetElement);
-                } catch (error: unknown) {
-                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
+                let gate: Awaited<ReturnType<StreamApprovalResolver>> | null | undefined = null;
+                if (!approvedInTurn.has(p.toolCallId)) {
+                    try {
+                        gate = await this._gateBrowserTool(call, signal, targetElement, rowEvents);
+                    } catch (error: unknown) {
+                        if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
+                        gate = undefined;
+                    }
                 }
                 if (gate === undefined || signal.aborted) return undefined;
                 if (gate && !gate.approved) {
                     outcomes[p.toolCallId] = { kind: 'decision', ...gate };
-                    continue;
+                    break;   // as above: the turn's later calls do not run
                 }
+                // An approval may carry a payload, merged into the input as the page's own
+                // loop merges it.
+                const payload = gate?.payload;
+                const ran = payload && typeof payload === 'object' && !Array.isArray(payload)
+                    ? { ...call, input: { ...call.input, ...(payload as Record<string, unknown>) } }
+                    : call;
                 const handler = this._config.getToolHandler(p.name);
                 try {
                     if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
-                    const result = await handler(call, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
+                    const result = await handler(ran, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
                     outcomes[p.toolCallId] = {
                         kind: 'result',
                         content: result.content,
@@ -1902,12 +1923,18 @@ export class AparteClient {
         call: AparteToolCall,
         signal: AbortSignal,
         targetElement: AparteChatTargetElement,
+        rowEvents?: AparteStreamRunEmitter,
     ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
-        const gated = this.options.approvalResolver
-            ? Boolean(this._config.getTools().find((t) => t.name === call.name)?.needsApproval)
-            : this._config.ruleOnToolCall(call).verdict !== 'allow';
-        if (!gated) return null;
-        return (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
+        const ruling = this.options.approvalResolver
+            ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
+            : this._config.ruleOnToolCall(call).verdict;
+        if (ruling === 'allow') return null;
+        // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
+        // fires, as for a call gated in the page's own loop. A `deny` is decided already.
+        if (ruling === 'ask') rowEvents?.({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+        const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
+        if (decision?.approved && ruling === 'ask') rowEvents?.({ type: 'tool-approved', toolCallId: call.id });
+        return decision;
     }
 
     /**

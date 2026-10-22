@@ -223,6 +223,64 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.' } });
     });
 
+    it('paints the row as waiting while the page asks about a browser tool', async () => {
+        const { el, messages } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        let statusWhileAsked: string | undefined;
+        const { c, cfg } = client(el, r.run, {
+            approvalResolver: async () => { statusWhileAsked = rowOf(messages, 'w1').status; return { approved: true }; },
+        });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => ({ toolCallId: call.id, content: 'written' }),
+        );
+        await send(c);
+        expect(statusWhileAsked, 'not "running" while a panel asks').toBe('awaiting-approval');
+    });
+
+    it('does not ask twice about a call approved earlier in the turn', async () => {
+        const { el } = chat();
+        // TanStack AI: approve a client tool, then a second pause to run it in the browser.
+        const r = runner(
+            pauseOn({ id: 'w1', name: 'write_file', reason: 'approval' }),
+            pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }),
+            finish,
+        );
+        let asked = 0;
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => { asked++; return { approved: true }; } });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => ({ toolCallId: call.id, content: 'written' }),
+        );
+        await send(c);
+        expect(asked).toBe(1);
+        expect(r.calls[2]!.deferral!.outcomes).toEqual({ w1: { kind: 'result', content: 'written' } });
+    });
+
+    it('runs no later browser tool of the pause once one is refused', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }, { id: 'w2', name: 'write_file', reason: 'external' }), finish);
+        const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: false }) });
+        cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true }, handler);
+        await send(c);
+        expect(handler).not.toHaveBeenCalled();
+        expect(Object.keys(r.calls[1]!.deferral!.outcomes!)).toEqual(['w1']);
+    });
+
+    it('hands the browser tool the input an approval changed, as the page\'s own loop does', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        const seen: unknown[] = [];
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true, payload: { path: 'safe.txt' } }) });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => { seen.push(call.input); return { toolCallId: call.id, content: 'written' }; },
+        );
+        await send(c);
+        expect(seen).toEqual([{ path: 'safe.txt' }]);
+    });
+
     it('runs an approved needsApproval browser tool', async () => {
         const { el } = chat();
         const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);

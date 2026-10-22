@@ -117,6 +117,19 @@ function rejectionText(decision: { reason?: string; instruction?: string }): str
 /** The answer a resumed interrupt carries, in the shape AG-UI (and TanStack AI) reads. */
 function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | undefined): AgUiResumeItem {
     if (!outcome) return { interruptId: interrupt.id, status: 'cancelled' };
+    if (outcome.kind === 'decision' && interrupt.kind === 'external' && !outcome.approved) {
+        // A client tool the page refused to run (its `needsApproval`, its policy). An
+        // execution interrupt answered `{ approved: false }` reads as a successful OUTPUT —
+        // TanStack AI's `clientToolResult` takes any resolved payload without the error
+        // state as `output-available` — so the model would read the decision as the tool's
+        // result and lose the reason. It goes back as the tool's error, with the sentence.
+        return {
+            interruptId: interrupt.id,
+            status: 'resolved',
+            payload: { error: rejectionText(outcome) },
+            metadata: { tanstack: { state: 'output-error' } },
+        };
+    }
     if (outcome.kind === 'decision') {
         return { interruptId: interrupt.id, status: 'resolved', payload: { approved: outcome.approved } };
     }
