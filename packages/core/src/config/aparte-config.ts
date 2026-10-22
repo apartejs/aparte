@@ -22,7 +22,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
 import type {
-    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolCall,
+    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolInputFormatter, AparteToolCall,
     AparteApprovalPolicy, AparteApprovalRuling,
 } from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
@@ -265,6 +265,7 @@ export class AparteConfig {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
     private _toolSummaries: Map<string, AparteToolSummary> = new Map();
+    private _toolInputFormatters: Map<string, AparteToolInputFormatter> = new Map();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -1363,6 +1364,30 @@ export class AparteConfig {
     }
 
     /**
+     * Show a tool's arguments as a person reads them, in the approval panel and in the
+     * default tool row's disclosure — one formatter for both. Without one, both show the
+     * JSON the model sent.
+     *
+     * @example
+     * // Approve "write_file notes.md (2 KB)" rather than a JSON object.
+     * aparteGlobalConfig.registerToolInputFormatter('write_file', (input) =>
+     *     `${String(input['path'] ?? '')} (${Math.ceil(String(input['content'] ?? '').length / 1024)} KB)`);
+     */
+    registerToolInputFormatter(toolName: string, formatter: AparteToolInputFormatter): void {
+        this._toolInputFormatters.set(toolName, formatter);
+    }
+
+    /** Unregister a tool's input formatter. */
+    unregisterToolInputFormatter(toolName: string): void {
+        this._toolInputFormatters.delete(toolName);
+    }
+
+    /** Get the input formatter for a tool name. Returns undefined if none registered. */
+    getToolInputFormatter(toolName: string): AparteToolInputFormatter | undefined {
+        return this._toolInputFormatters.get(toolName);
+    }
+
+    /**
      * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
      * prose becomes the segment `toSegment` builds, streamed delta by delta.
      *
@@ -1633,6 +1658,7 @@ export class AparteConfig {
         this._tools.clear();
         this._toolRenderers.clear();
         this._toolSummaries.clear();
+        this._toolInputFormatters.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;

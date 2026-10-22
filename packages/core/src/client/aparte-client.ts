@@ -634,7 +634,7 @@ export class AparteClient {
             // the model sent — and re-reading them on a language switch would produce
             // exactly the same bytes. Same text the transcript row shows, from the same
             // function, so the two surfaces cannot disagree about what is being run.
-            details: describeToolInput(event.input),
+            details: describeToolInput(event.input, this._config.getToolInputFormatter(event.name)),
             // Functions, not strings, same as the question: these follow a language
             // switch while the request is open, which a resolved string cannot.
             options: [

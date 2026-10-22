@@ -136,3 +136,31 @@ describe('registerToolSummary', () => {
         expect(aparteGlobalConfig.getToolSummary('read_file')).toBeUndefined();
     });
 });
+
+/*
+ * The arguments behind the row's disclosure follow the tool's input formatter — the same text
+ * the approval panel shows, so a person cannot read the call two ways.
+ */
+describe('a tool input formatter', () => {
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
+
+    it("writes the row's input as the formatter reads it, as text", () => {
+        aparteGlobalConfig.registerToolInputFormatter('read_file', (input) => `<b>${String(input['path'])}</b>`);
+        const el = mount(call({ path: 'notes.md' }));
+        const code = el.querySelector('.aparte-tool-part-body code');
+        expect(code?.textContent).toBe('<b>notes.md</b>');
+        expect(code?.querySelector('b'), 'text, never markup').toBeNull();
+    });
+
+    it('falls back to the JSON when it throws', () => {
+        aparteGlobalConfig.registerToolInputFormatter('read_file', () => { throw new Error('boom'); });
+        const el = mount(call({ path: 'notes.md' }));
+        expect(el.querySelector('.aparte-tool-part-body code')?.textContent).toContain('"path": "notes.md"');
+    });
+
+    it('is cleared by reset()', () => {
+        aparteGlobalConfig.registerToolInputFormatter('read_file', () => 'x');
+        aparteGlobalConfig.reset();
+        expect(aparteGlobalConfig.getToolInputFormatter('read_file')).toBeUndefined();
+    });
+});

@@ -102,6 +102,20 @@ A summary is the line the row writes after the tool's name: `read_file skills.js
 and written as text; an empty string, or a summary that throws, shows nothing. A tool drawn by a
 [renderer of its own](#custom-tool-renderer) shows no summary.
 
+## Show the arguments as a person reads them
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolInputFormatter('write_file', (input) =>
+  `${String(input['path'] ?? '')}, ${String(input['content'] ?? '').length} characters`);
+```
+
+The approval panel shows a call's arguments under its question, and the row behind its
+disclosure; both show the JSON the model sent, until the tool has a formatter. Then both show its
+text, so a person approves the call the row describes. It is written as text, and one that throws
+falls back to the JSON.
+
 ## Require approval (human-in-the-loop)
 
 ```ts

@@ -127,6 +127,7 @@
       "package": "@aparte/core",
       "attributes": [
         "active-id",
+        "data-no-match",
         "flat",
         "loading",
         "manage"

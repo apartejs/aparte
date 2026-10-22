@@ -180,6 +180,17 @@ export interface AparteToolContext {
 export type AparteToolSummary = (segment: AparteToolCallSegment) => string;
 
 /**
+ * A tool's arguments as a person reads them: the text the approval panel shows under its
+ * question and the default tool row shows behind its disclosure — one formatter for both, so
+ * the two cannot disagree. Registered via aparteGlobalConfig.registerToolInputFormatter(toolName, formatter).
+ *
+ * Without one, both show the arguments as the model sent them, pretty-printed JSON. Return
+ * plain text: it is written as text, never parsed as HTML. `input` is whatever the model
+ * chose, so read it defensively — a formatter that throws falls back to the JSON.
+ */
+export type AparteToolInputFormatter = (input: Record<string, unknown>) => string;
+
+/**
  * Per-tool segment renderer.
  * Registered via aparteGlobalConfig.registerToolRenderer(toolName, renderer).
  * When the AI calls a tool, this renderer controls what appears in the bubble

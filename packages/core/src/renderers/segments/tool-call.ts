@@ -23,7 +23,7 @@ import { describeToolInput } from '../../utils/tool-input.js';
  * is pretty-printed JSON.
  */
 function describeInput(segment: AparteToolCallSegment): string {
-    return describeToolInput(segment.toolCall?.input);
+    return describeToolInput(segment.toolCall?.input, contextConfig().getToolInputFormatter(segment.toolCall?.name ?? ''));
 }
 
 /**

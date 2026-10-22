@@ -104,6 +104,7 @@ export type {
     AparteToolContext,
     AparteToolRenderer,
     AparteToolSummary,
+    AparteToolInputFormatter,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,

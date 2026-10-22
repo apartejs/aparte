@@ -128,6 +128,7 @@ export type {
     AparteToolContext,
     AparteToolRenderer,
     AparteToolSummary,
+    AparteToolInputFormatter,
     AparteToolApprovalRequestDetail,
 } from './tools.js';
 

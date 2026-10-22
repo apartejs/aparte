@@ -111,6 +111,19 @@ describe('the built-in gate asks at the composer', () => {
         await turn;
     });
 
+    it("shows the arguments as the tool's own formatter reads them", async () => {
+        const { cfg, target } = harness(vi.fn());
+        cfg.registerToolInputFormatter('delete_file', (input) => `the file ${String(input['path'])}`);
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        const turn = run(client, cfg, target);
+
+        await vi.waitFor(() => expect(document.querySelector('.aparte-approval-panel')).not.toBeNull());
+        expect(document.querySelector('.aparte-approval-args')?.textContent).toBe('the file a.ts');
+
+        optionLabelled('Reject').click();
+        await turn;
+    });
+
     it('runs the handler when the human approves', async () => {
         const handler = vi.fn();
         const { cfg, target, patches } = harness(handler);
