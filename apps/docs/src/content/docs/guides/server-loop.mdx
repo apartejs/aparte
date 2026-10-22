@@ -40,8 +40,9 @@ export const POST = createAparteAgentHandler({
 ```
 
 `createAparteAgentHandler` returns a Fetch handler, `Request` to `Response`, for a Next.js route in
-the Node runtime, Deno, Bun, or Node behind a small adapter — runtimes that resolve `@aparte/core`
-to its entry without a DOM ([On the server](/frameworks/elements/#on-the-server)). `authorize` returns `false`, for a 401, or a
+the Node runtime, Deno, Bun, a Cloudflare Worker, a Vercel edge route, or Node behind a small
+adapter — runtimes that resolve `@aparte/core` to its entry without a DOM
+([On the server](/frameworks/elements/#on-the-server)). `authorize` returns `false`, for a 401, or a
 `Response` of its own. `secret` signs the calls a paused run leaves pending; an array rotates it,
 the first signing and all verifying.
 

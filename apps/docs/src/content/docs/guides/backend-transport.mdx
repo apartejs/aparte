@@ -35,8 +35,8 @@ the Node runtime, Node, Deno or Bun. It reads `{ providerId, request }`, runs th
 request, the key, the vendor call, the stream — and streams the reply back as NDJSON, one event
 per line; a request with `stream: false` gets a `{ text }` body. On those runtimes `@aparte/core`
 resolves to its `node` entry, which has no DOM
-([On the server](/frameworks/elements/#on-the-server)); a Worker or an edge runtime does not ask for
-that entry.
+([On the server](/frameworks/elements/#on-the-server)), and so does it in a Cloudflare Worker or on
+a Vercel edge route.
 
 | Option | What it does |
 | --- | --- |
