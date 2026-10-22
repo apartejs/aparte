@@ -166,7 +166,7 @@ describe('buildApprovalPanel — the arguments under the question', () => {
         const panel = buildApprovalPanel('Run delete_file?', OPTIONS, NOOP, JSON_ARGS);
         const pre = panel.el.querySelector('.aparte-approval-args');
         expect(pre?.textContent).toBe(JSON_ARGS);
-        const order = [...panel.el.children].map((c) => c.className.split(' ')[0]);
+        const order = [...panel.el.querySelector('.aparte-elic-body')!.children].map((c) => c.className.split(' ')[0]);
         expect(order.indexOf('aparte-elic-message')).toBeLessThan(order.indexOf('aparte-approval-args'));
         expect(order.indexOf('aparte-approval-args')).toBeLessThan(order.indexOf('aparte-approval-options'));
     });

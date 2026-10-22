@@ -51,6 +51,19 @@
   scrollbar-color: var(--aparte-border) transparent;
 }
 
+/* An approval's body keeps the panel's rhythm, and nothing in it shrinks: the BODY
+   scrolls instead. A child left shrinkable gives way first, and the one that did was the
+   arguments block — the thing being approved. */
+.aparte-approval-panel > .aparte-elic-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-elic-gap);
+}
+
+.aparte-approval-panel > .aparte-elic-body > * {
+  flex-shrink: 0;
+}
+
 .aparte-elic-message {
   /* The end margin is the room the corner "Skip" needs, from the same token the tab
      rail reserves — the button is absolutely positioned, so nothing in the flow knows
