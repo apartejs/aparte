@@ -876,6 +876,7 @@
     "--aparte-message-content-bg-assistant",
     "--aparte-message-content-bg-user",
     "--aparte-message-content-padding",
+    "--aparte-message-content-padding-assistant",
     "--aparte-message-content-radius",
     "--aparte-message-content-text-assistant",
     "--aparte-message-content-text-user",
