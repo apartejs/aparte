@@ -698,6 +698,33 @@ describe('setupCompaction — the window events and the page', () => {
         expect(globalSummaries, 'and the global one leaves the scoped chat to its own').toHaveBeenCalledTimes(1);
     });
 
+    it('a chat whose config has no setup is answered by the one that exists, global or not', async () => {
+        const store = makeTarget(exchange(1, 'u'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'chat-unbound';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        // A setup on a config of its own, none on the global one, and a chat that resolves
+        // the global: nobody else would answer it, so this one does.
+        const a = makeConfig('A');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        send('aparte-compact', { targetId: 'chat-unbound' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+    });
+
+    it('a request for a chat that is not on the page is answered by the global setup, which says so', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { chat } = makeConfig();
+        setup({ selector: (m) => ({ keep: [], drop: m }) });
+        send('aparte-compact', { targetId: 'missing' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "missing"'));
+        expect(chat).not.toHaveBeenCalled();
+        warn.mockRestore();
+    });
+
     it('listen: false ignores the window entirely', async () => {
         const target = makeTarget(exchange(1, 'x'));
         const { cfg, chat } = makeConfig();
