@@ -294,6 +294,27 @@ for (const order of ['host after core', 'host before core (Vite dev)'] as const)
 }
 
 /*
+ * A forced-light element inside the page. `data-aparte-theme="light"` puts core's light palette
+ * ON the element that carries it, so a rebrand written on `:root` alone is replaced there — the
+ * guide's rule is to name `[data-aparte-theme="light"]` beside `:root`. This holds that rule for a
+ * panel that is not the root, whichever sheet loads first and whatever the system says.
+ */
+for (const order of ['host after core', 'host before core (Vite dev)'] as const) {
+    for (const os of ['light', 'dark'] as const) {
+        test(`a light rebrand reaches a chat in a forced-light panel when it names the attribute: ${order}, OS ${os}`, async ({ page }) => {
+            const read = async (host: string) => {
+                const sheets = order === 'host after core' ? [CORE_THEME, host] : [host, CORE_THEME];
+                await page.setContent(`<!doctype html><html><head>${sheets.map((css) => `<style>${css}</style>`).join('')}</head><body><div data-aparte-theme="light"><aparte-chat></aparte-chat></div></body></html>`);
+                await page.emulateMedia({ colorScheme: os });
+                return cssVar(page, 'aparte-chat', '--aparte-primary');
+            };
+            expect(await read(`:root, [data-aparte-theme="light"] { --aparte-primary: ${HOST_LIGHT}; }`), 'the documented form').toBe(HOST_LIGHT);
+            expect(await read(`:root { --aparte-primary: ${HOST_LIGHT}; }`), 'the root alone is replaced on the panel — why the guide names the attribute').not.toBe(HOST_LIGHT);
+        });
+    }
+}
+
+/*
  * The menu's check mark. Every item of a panel that holds a checkable one keeps a gutter,
  * as a hidden glyph, so the labels share one edge — and the rule that does it weighs
  * (0,4,1), because `:has()` takes the weight of its argument. The rule that shows the glyph
