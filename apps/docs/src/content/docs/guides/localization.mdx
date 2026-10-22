@@ -99,10 +99,10 @@ default at the call site, and repaint on a switch with `subscribeConfigChange`, 
 function that stops it. A [segment renderer](/guides/customization/segments/#what-a-renderer-is-called-for)
 relabels in its `relabel` callback instead, called on every change.
 
-## What stays in English
-
 The status line the framework components show while `isTyping` is set reads their `typingText`
 prop, and without one the locale's `typing` key, like `<aparte-chat-status>` itself.
+
+## What stays in English
 
 The words the model reads stay in English whatever the locale, since they are part of the request,
 not of the interface: the question tool's description and instructions in
