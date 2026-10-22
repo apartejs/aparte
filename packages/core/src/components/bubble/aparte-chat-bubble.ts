@@ -198,7 +198,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
  * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
  * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text)] - Avatar text colour, assistant role.
- * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
+ * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider: the slot shows when it names an image.
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
  *
@@ -280,6 +280,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _usage: AparteUsage | null = null;
   /** Cleanup returned by the avatar provider — called on disconnect/re-render. */
   private _avatarCleanup: (() => void) | null = null;
+  /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
+  private _avatarFromProvider = false;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
   private _siblingCount = 1;
   /**
@@ -803,6 +805,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // so a partial shell degrades gracefully. See AparteBubbleShellRenderer.
     const shell = this._cfg.getBubbleShellRenderer?.();
     this._drawnShell = shell ?? null;
+    this._avatarFromProvider = false;   // a new frame, a new slot
     // The default frame's names are all the bubble's; a custom one's, only those stamped below.
     this._wroteRootLabel = this._wroteBarLabel = this._wroteArrowLabels = !shell;
     if (shell) {
@@ -947,11 +950,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * Hand the avatar host element off to the registered AvatarProvider, if any.
    *
-   * With no provider the slot is left exactly as the shell rendered it — which for
-   * the default shell means EMPTY, and hidden by `.aparte-avatar:empty`. This used
-   * to claim it "falls back to the default initial rendered by `_render()`"; there
-   * is no such initial, and believing there was is what made `_updateRole` write
-   * one.
+   * With no provider the slot keeps what the shell rendered — for the default shell,
+   * nothing, hidden while empty — and loses what a provider drew there before. An empty
+   * slot still shows when the stylesheet names a picture for its role
+   * (`--aparte-avatar-image-user` / `-assistant`): see `_markAvatarImage`.
    */
   private _renderAvatar(): void {
     const avatar = this.querySelector('.aparte-avatar') as HTMLElement | null;
@@ -964,11 +966,37 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
 
     const provider = this._cfg.getAvatarProvider();
-    if (!provider) return; // leave the slot as the shell rendered it
+    if (!provider) {
+      // `setAvatarProvider(null)`: what the provider drew goes with it. The slot returned
+      // early here, so the old avatars stayed on every message already on screen.
+      if (this._avatarFromProvider) {
+        avatar.replaceChildren();
+        this._avatarFromProvider = false;
+      }
+      this._markAvatarImage(avatar);
+      return;
+    }
 
+    avatar.removeAttribute('data-image');
     avatar.textContent = '';
     const cleanup = provider.render(this._role, avatar);
+    this._avatarFromProvider = true;
     if (typeof cleanup === 'function') this._avatarCleanup = cleanup;
+  }
+
+  /**
+   * A picture from the stylesheet alone: with no provider, an empty slot whose role's
+   * `--aparte-avatar-image-*` names an image gets `data-image`, which lifts the rule that
+   * hides an empty slot. Hidden while empty, the token painted nothing. Read when the
+   * message is drawn and on every config change.
+   */
+  private _markAvatarImage(avatar: HTMLElement): void {
+    if (avatar.firstChild) {
+      avatar.removeAttribute('data-image');
+      return;
+    }
+    const image = getComputedStyle(avatar).getPropertyValue(`--aparte-avatar-image-${this._role}`).trim();
+    avatar.toggleAttribute('data-image', image !== '' && image !== 'none');
   }
 
   private _updateRole(): void {
@@ -1012,8 +1040,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * No provider: otherwise a name change would wipe a live avatar component.
      *
      * Already non-empty: the default shell renders this slot EMPTY and the
-     * stylesheet hides it while it stays empty — `.aparte-avatar:empty { display:
-     * none }`, with the comment "No message avatar by default — the slot only shows
+     * stylesheet hides it while it stays empty — `.aparte-avatar:empty:not([data-image])
+     * { display: none }`, with the comment "No message avatar by default — the slot only shows
      * once an AvatarProvider (or a consumer) fills it". Writing the initial
      * unconditionally contradicted that, and `_onConfigChange` calls this method, so
      * ANY notifying config change filled the slot: `setLocale` (a language switcher

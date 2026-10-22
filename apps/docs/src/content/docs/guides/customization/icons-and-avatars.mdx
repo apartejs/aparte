@@ -58,16 +58,22 @@ aparteGlobalConfig.setAvatarProvider({
 ```
 
 A message has no avatar until you set a provider: the slot shows once `render` fills it, and
-`setAvatarProvider(null)` stops them on the messages drawn after. Core empties the slot and calls
-`render` again
-whenever the configuration changes — a new language, a new icon set — or the message's role does.
+`setAvatarProvider(null)` takes them off every message. Core empties the slot and calls `render`
+again whenever the configuration changes — a new language, a new icon set — or the message's role
+does.
 If `render` returns a function, core calls it before each new render and when the message goes
 away, so you can unmount a component you put there.
 
-`--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot,
-and `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` the background behind what your
-provider writes. For a picture alone, the provider still puts something in the slot, which shows
-only when filled: `host.innerHTML = '<span></span>'`.
+A picture needs no provider:
+
+```css
+aparte-chat { --aparte-avatar-image-assistant: url('/logo.svg'); }
+```
+
+`--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot, and
+a slot whose role names one shows, empty or not. Core reads them when a message is drawn and on
+every configuration change. `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` colour the
+ground behind the picture or what your provider writes.
 
 ## Keep your own element in sync with the icons and language
 

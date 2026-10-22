@@ -441,3 +441,33 @@ test('a marked menu row shows the tint, and keeps the check gutter in a checkabl
     expect(drawn.labels[0], 'the marked row keeps the gutter: both labels share one edge').toBeCloseTo(drawn.labels[1]!, 0);
     expect(drawn.check, 'and shows its check').toBe('visible');
 });
+
+/*
+ * A picture from the stylesheet alone. The slot is hidden while empty, so
+ * `--aparte-avatar-image-assistant` painted nothing without a provider writing into it.
+ */
+test('an avatar picture named in the stylesheet alone shows, for its role only', async ({ page }, testInfo) => {
+    // The example's skin hides every message avatar (the product it copies has none);
+    // vanilla-dist wears no skin, so only there is the slot core's to show.
+    test.skip(!testInfo.project.name.startsWith('vanilla-dist'), "the vanilla example's skin hides avatars");
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.setProperty(
+            '--aparte-avatar-image-assistant',
+            `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'/%3E")`,
+        );
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'av-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'av-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const avatar = (role: string) => page.evaluate((r) => {
+        const el = document.querySelector(`aparte-chat-bubble[data-role="${r}"] .aparte-avatar`);
+        if (!el) throw new Error(`no ${r} avatar slot`);
+        const s = getComputedStyle(el);
+        return { display: s.display, width: el.getBoundingClientRect().width, image: s.backgroundImage };
+    }, role);
+    await expect.poll(async () => (await avatar('assistant')).display).not.toBe('none');
+    const assistant = await avatar('assistant');
+    expect(assistant.width, 'the slot takes its size').toBeGreaterThan(0);
+    expect(assistant.image, 'and paints the picture').toContain('data:image/svg+xml');
+    expect((await avatar('user')).display, "the user's token is none: no slot").toBe('none');
+});
