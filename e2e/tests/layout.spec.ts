@@ -492,3 +492,35 @@ test.describe('at phone width', () => {
     });
 });
 
+
+/*
+ * The shell follows the sidebar's own breakpoint. It folded at a fixed 48rem and hid every
+ * sidebar not yet a drawer, so `breakpoint="30rem"` left nothing between 30 and 48rem — no
+ * column, no drawer, a toggle that opened nothing — and a breakpoint over 48rem left a drawer
+ * beside an empty first column.
+ */
+test.describe("the application shell, at the sidebar's own breakpoint", () => {
+    test('a sidebar whose breakpoint is under the window stays a column, one over it folds the grid', async ({ page }) => {
+        await page.setViewportSize({ width: 640, height: 800 });   // 40rem: under the old fixed 48rem
+        const { errors } = await open(page, 'shell');
+        const geometry = () => page.evaluate(() => {
+            const shell = document.querySelector('.aparte-app-shell')!.getBoundingClientRect();
+            const sidebar = document.querySelector('.aparte-app-shell > aparte-sidebar')!;
+            const main = document.querySelector('.aparte-app-shell > .aparte-app-shell__main')!.getBoundingClientRect();
+            const box = sidebar.getBoundingClientRect();
+            return { drawer: sidebar.hasAttribute('data-drawer'), width: box.width, sidebarEnd: box.right - shell.left, mainStart: main.left - shell.left };
+        });
+        await page.evaluate(() => document.querySelector('.aparte-app-shell > aparte-sidebar')!.setAttribute('breakpoint', '30rem'));
+        await expect.poll(async () => (await geometry()).drawer).toBe(false);
+        const column = await geometry();
+        expect(column.width, 'a column, not hidden').toBeGreaterThan(100);
+        expect(column.mainStart, 'the chat beside it').toBeGreaterThanOrEqual(column.sidebarEnd - 1);
+
+        await page.setViewportSize({ width: 900, height: 800 });   // 56rem: over the old 48rem
+        await page.evaluate(() => document.querySelector('.aparte-app-shell > aparte-sidebar')!.setAttribute('breakpoint', '64rem'));
+        await expect.poll(async () => (await geometry()).drawer).toBe(true);
+        expect((await geometry()).mainStart, 'the grid folds on the drawer').toBeLessThan(2);
+        await expect(page.locator('.aparte-app-header__toggle'), 'and its control is in the header').toBeVisible();
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+});

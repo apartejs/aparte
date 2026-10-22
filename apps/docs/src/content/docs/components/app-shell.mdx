@@ -20,8 +20,9 @@ grid of two columns and two rows. The sidebar spans both rows; the [header](/com
 and `.aparte-app-shell__main` stack in the second column.
 
 Size the shell (`height: 100dvh` for a whole page) and everything inside follows: the main area
-gives the chat the height it needs to scroll. Under 48rem of window, the
-[sidebar](/components/sidebar/) leaves the grid and becomes a drawer behind the header's button.
+gives the chat the height it needs to scroll. When the [sidebar](/components/sidebar/) becomes a
+drawer, under its `breakpoint` (48rem of window by default), it leaves the grid and the chat takes
+the whole width, behind the header's button.
 This frame is narrower than that, which is why the sidebar is a drawer here; open the demo on its
 own page to see the column.
 
