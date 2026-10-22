@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
 import { activeElementIn, eventOrigin, rootOf } from '../../utils/event-target.js';
+import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 
 /** Detail of `aparte-sidebar-toggle`: the state just entered. */
 export interface AparteSidebarToggleDetail {
@@ -426,7 +427,9 @@ export class AparteSidebar extends HTMLElement {
     filter(query: string): number {
         let matches = 0;
         for (const list of this.querySelectorAll<HTMLElement & { filter?: (q: string) => number }>('aparte-conversation-list')) {
-            matches += list.filter?.(query) ?? 0;
+            // A list not upgraded yet has no `filter()`: its rows are the page's markup, and
+            // they are filtered here as they always were.
+            matches += typeof list.filter === 'function' ? list.filter(query) : filterConversationRows(list, foldText(query));
         }
         this.toggleAttribute('data-no-match', query.trim() !== '' && matches === 0);
         return matches;

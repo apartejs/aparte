@@ -5,7 +5,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
-import { foldText } from '../../utils/fold-text.js';
+import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -427,15 +427,7 @@ export class AparteConversationList extends HTMLElement {
 
     private _applyFilter(): number {
         const needle = this._query;
-        let matches = 0;
-        for (const row of this.querySelectorAll<HTMLElement>('[data-conv-id]')) {
-            const title = row.querySelector('.aparte-conv-item__title')?.textContent ?? row.textContent ?? '';
-            row.hidden = needle !== '' && !foldText(title).includes(needle);
-            if (!row.hidden) matches++;
-        }
-        for (const group of this.querySelectorAll<HTMLElement>('.aparte-conv-group')) {
-            group.hidden = needle !== '' && !Array.from(group.querySelectorAll<HTMLElement>('[data-conv-id]')).some((r) => !r.hidden);
-        }
+        const matches = filterConversationRows(this, needle);
         const noMatch = needle !== '' && matches === 0;
         this.toggleAttribute('data-no-match', noMatch);
         // Always there, empty until a miss: a live region created with its text already in
