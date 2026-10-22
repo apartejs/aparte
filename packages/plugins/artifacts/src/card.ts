@@ -47,6 +47,9 @@ let cardIdSeq = 0;
 /** Binary file kinds: their source is implementation noise; the app produces the file. */
 const BINARY_FILE_KINDS: ReadonlySet<string> = new Set(['pdf', 'xlsx', 'docx']);
 
+/** What each card's code pane holds, so an update that changes nothing does not rewrite it. */
+const paneContent = new WeakMap<Element, string>();
+
 /** Whether the Preview tab exists at all, per the app's `preview` option. */
 function previewEnabled(): boolean {
     return renderOptions(contextConfig()).preview !== false;
@@ -203,6 +206,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         if (wrapper) {
             const displayLang = languageForKind(kind);
             const cleanContent = stripCodeFences(segment.content || '');
+            paneContent.set(element, cleanContent);
             void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                 wrapper.innerHTML = html;
             }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
@@ -304,16 +308,25 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         if (isStreaming) {
             const segId = element.getAttribute('data-segment-id') ?? segment.id;
             streamHighlight(element, '.aparte-code-content-wrapper', cleanContent, languageForKind(kind), segId);
-        } else {
-            const codeEl = element.querySelector('.aparte-code-content-wrapper code');
+        } else if (paneContent.get(element) !== cleanContent) {
+            // Only a CHANGED content is written. A card built from a tool result is settled
+            // from its first paint and still receives every update the tool segment gets;
+            // writing `textContent` each time wiped the token spans `setup` had painted, and
+            // with no stream ending there was no second highlight — a plain block in a Shiki
+            // frame. A changed one is written and coloured again.
+            paneContent.set(element, cleanContent);
+            const displayLang = languageForKind(kind);
+            const wrapper = element.querySelector('.aparte-code-content-wrapper');
+            const codeEl = wrapper?.querySelector('code');
             if (codeEl) {
                 codeEl.textContent = cleanContent;
-            } else {
-                const wrapper = element.querySelector('.aparte-code-content-wrapper');
-                if (wrapper) {
-                    const displayLang = languageForKind(kind);
-                    wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
-                }
+            } else if (wrapper) {
+                wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
+            }
+            if (wrapper && !wasStreaming) {
+                void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
+                    if (paneContent.get(element) === cleanContent) wrapper.innerHTML = html;
+                }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
             }
         }
 

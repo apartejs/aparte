@@ -33,6 +33,22 @@ describe('the artifact card', () => {
     beforeEach(() => { install(); resetBinaryArtifacts(); });
     afterEach(() => { teardown?.(); teardown = null; aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
+    it('keeps the colouring of a settled card through an update that changes nothing', async () => {
+        // A card drawn from a TOOL RESULT is settled from its first paint and still gets every
+        // update its tool segment gets. Writing the code each time wiped the spans setup painted.
+        aparteGlobalConfig.setHighlightProvider((code) => `<pre class="shiki"><code><span class="tok">${code}</span></code></pre>`);
+        const segment = { id: 'a1', type: 'artifact', artifactType: 'diff', title: 'Patch', content: '+ added', isStreaming: false };
+        const el = mountCard(segment);
+        await vi.waitFor(() => expect(el.querySelector('.aparte-code-content-wrapper .tok')).toBeTruthy());
+
+        getSegmentRenderer('artifact')!.update!(el, segment as never);
+        await flush();
+        expect(el.querySelector('.aparte-code-content-wrapper .tok'), 'still coloured').toBeTruthy();
+
+        getSegmentRenderer('artifact')!.update!(el, { ...segment, content: '+ added\n- removed' } as never);
+        await vi.waitFor(() => expect(el.querySelector('.aparte-code-content-wrapper .tok')?.textContent).toContain('- removed'));
+    });
+
     it('is registered by setupArtifacts(), and unregistered by what it returns', () => {
         const hasTool = () => aparteGlobalConfig.getTools().some((t) => t.name === 'create_artifact');
         expect(getSegmentRenderer('artifact')).toBeDefined();
