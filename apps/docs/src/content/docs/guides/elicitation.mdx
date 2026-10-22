@@ -231,23 +231,25 @@ set the framework component's `elicitation` option to `false`, or leave `<aparte
 of a chat you compose. Then register a presenter:
 
 ```ts
-import { aparteGlobalConfig, AparteElicitationAbortError } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
 
 declare function openMyModal(request: AparteElicitationRequest): Promise<AparteElicitationResult>;
+declare function closeMyModal(): void;
 
-const present: AparteElicitationPresenter = (request) => new Promise((resolve, reject) => {
-  request.signal?.addEventListener('abort', () => reject(new AparteElicitationAbortError('aborted')), { once: true });
-  openMyModal(request).then(resolve, reject);
-});
+const present: AparteElicitationPresenter = (request) => {
+  request.signal?.addEventListener('abort', () => closeMyModal(), { once: true });
+  return openMyModal(request);
+};
 
 aparteGlobalConfig.setElicitationPresenter(present);
 ```
 
 A presenter gets every request, tool approvals included: a question carries its `schema`; a
 decision carries `kind: 'approval'` and its `options`, and resolves
-`{ action: 'accept', content: { option } }`. When the request's `signal` fires, reject with an
-`AparteElicitationAbortError`, as above. The most recent presenter answers; on a page with several
+`{ action: 'accept', content: { option } }`. When the request's `signal` fires — the turn was
+stopped — the request is rejected for you whatever the presenter does; listen to it only to take
+your UI down, as above. The most recent presenter answers; on a page with several
 chats, pass an element of one as the second argument, and the requests that name that chat reach
 its presenter. `aparteGlobalConfig.removeElicitationPresenter(fn)` takes one back.
 `buildElicitationPanel` and `buildApprovalPanel` give you the built-in panel to place yourself.

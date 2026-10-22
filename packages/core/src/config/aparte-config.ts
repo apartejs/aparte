@@ -1549,7 +1549,17 @@ export class AparteConfig {
          * that is already over would ask the user about nothing.
          */
         if (request.signal?.aborted) return Promise.reject(new AparteElicitationAbortError('aborted'));
-        return presenter(request);
+        const answer = presenter(request);
+        const signal = request.signal;
+        if (!signal) return answer;
+        // A stop rejects the request whatever the presenter does with the signal: a custom
+        // presenter that never listened to it left the turn waiting on a panel nobody would
+        // answer. The presenter is still told, through the same signal, to take its UI down.
+        return new Promise((resolve, reject) => {
+            const onAbort = (): void => reject(new AparteElicitationAbortError('aborted'));
+            signal.addEventListener('abort', onAbort, { once: true });
+            answer.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+        });
     }
 
     /**

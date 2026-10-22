@@ -31,6 +31,14 @@ describe('requestUserInput / elicitation presenter', () => {
         expect(res).toBe(accept);
     });
 
+    it('a stop rejects the request even when a custom presenter never listens to the signal', async () => {
+        aparteGlobalConfig.setElicitationPresenter(() => new Promise(() => { /* never answers */ }));
+        const ac = new AbortController();
+        const pending = aparteGlobalConfig.requestUserInput({ message: 'Where?', schema: { type: 'string' }, signal: ac.signal });
+        ac.abort();
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError', reason: 'aborted' });
+    });
+
     it('the free function resolves the presenter of the target element instance', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
