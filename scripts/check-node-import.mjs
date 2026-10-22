@@ -26,12 +26,67 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { distFreshness } from './dist-freshness.mjs';
 
 const checks = [];
 const check = (name, fn) => checks.push({ name, fn });
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+/**
+ * A Worker, a Cloudflare Worker, an edge route: no DOM, and no `node` condition either — their
+ * bundlers resolve `worker`, `workerd` or `edge-light` alongside `browser` and `import`. Without
+ * those conditions in the map the browser entry resolved there, and its first
+ * `customElements.define` threw. Node always applies its own `node` condition, so it cannot be
+ * made to resolve like them: this walks each published exports map the way those resolvers do,
+ * in key order, for every package that ships a DOM-free entry.
+ */
+const DOM_FREE_RUNTIMES = {
+    'a Web Worker (webpack)': ['worker', 'import', 'module', 'browser', 'default'],
+    'a Cloudflare Worker (wrangler)': ['workerd', 'worker', 'browser', 'import', 'default'],
+    'a Vercel edge route': ['edge-light', 'worker', 'browser', 'import', 'default'],
+};
+
+function resolveExport(entry, conditions) {
+    if (typeof entry === 'string') return entry;
+    for (const [key, value] of Object.entries(entry)) {
+        if (!conditions.includes(key)) continue;
+        const target = resolveExport(value, conditions);
+        if (target) return target;
+    }
+    return null;
+}
+
+function packageDirs(dir) {
+    const out = [];
+    for (const name of readdirSync(dir)) {
+        if (name === 'node_modules' || name === 'dist') continue;
+        const sub = resolve(dir, name);
+        if (!statSync(sub).isDirectory()) continue;
+        if (existsSync(resolve(sub, 'package.json'))) out.push(sub);
+        else out.push(...packageDirs(sub));
+    }
+    return out;
+}
+
+check('a worker or an edge route resolves the DOM-free entry of every package that ships one', async () => {
+    let seen = 0;
+    for (const dir of packageDirs(resolve(ROOT, 'packages'))) {
+        const pkg = JSON.parse(readFileSync(resolve(dir, 'package.json'), 'utf8'));
+        const dot = pkg.exports?.['.'];
+        if (!dot || typeof dot !== 'object' || !dot.node) continue;
+        seen++;
+        const domFree = resolveExport(dot.node, ['default']);
+        for (const [where, conditions] of Object.entries(DOM_FREE_RUNTIMES)) {
+            assert.equal(resolveExport(dot, conditions), domFree, `${pkg.name} in ${where} must resolve ${domFree}`);
+        }
+        assert.notEqual(resolveExport(dot, ['browser', 'import', 'default']), domFree, `${pkg.name} in a browser keeps its elements`);
+    }
+    // Core and four plugins ship one; a walk that finds none has stopped looking.
+    assert.ok(seen >= 5, `found ${seen} packages with a DOM-free entry, expected at least 5`);
+});
 
 check('@aparte/core resolves its DOM-free node entry', async () => {
     assert.equal(typeof HTMLElement, 'undefined', 'this must run without a DOM');
