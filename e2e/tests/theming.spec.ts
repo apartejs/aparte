@@ -492,3 +492,30 @@ test('an avatar picture named in the stylesheet alone shows, for its role only',
     expect(assistant.image, 'and paints the picture').toContain('data:image/svg+xml');
     expect((await avatar('user')).display, "the user's token is none: no slot").toBe('none');
 });
+
+/*
+ * The role's ink and the assistant's padding go through tokens, not heavier rules: a host's
+ * one-class rule on the words, or its padding on the box, wins as it did before them.
+ */
+test("a host's own rule on the words and on the box still wins", async ({ page }) => {
+    await page.evaluate(() => {
+        // The padding BEFORE core's sheets (the Vite dev order), the colour after them.
+        const early = document.createElement('style');
+        early.textContent = 'aparte-chat .aparte-message-content { padding: 11px; }';
+        document.head.prepend(early);
+        const late = document.createElement('style');
+        late.textContent = '.aparte-content { color: rgb(7, 8, 9); }';
+        document.head.append(late);
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'own-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'own-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    await expect(page.locator('aparte-chat-bubble[data-role="assistant"] .aparte-content')).toHaveText(/theirs/);
+    const drawn = await page.evaluate(() => {
+        const of = (role: string, sel: string) => getComputedStyle(document.querySelector(`aparte-chat-bubble[data-role="${role}"] ${sel}`)!);
+        return { user: of('user', '.aparte-content').color, assistant: of('assistant', '.aparte-content').color, pad: of('assistant', '.aparte-message-content').paddingTop };
+    });
+    expect(drawn.user, "the host's colour on the user's words").toBe('rgb(7, 8, 9)');
+    expect(drawn.assistant, "and on the assistant's").toBe('rgb(7, 8, 9)');
+    expect(drawn.pad, "the host's padding reaches the assistant's box").toBe('11px');
+});

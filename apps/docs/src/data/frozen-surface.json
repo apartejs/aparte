@@ -881,6 +881,7 @@
     "--aparte-message-content-text-assistant",
     "--aparte-message-content-text-user",
     "--aparte-message-gap",
+    "--aparte-message-ink",
     "--aparte-message-max-width",
     "--aparte-message-padding-block",
     "--aparte-message-padding-inline",

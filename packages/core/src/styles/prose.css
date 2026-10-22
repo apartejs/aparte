@@ -8,7 +8,8 @@
 .aparte-content {
   font-size: var(--aparte-content-font-size);
   line-height: var(--aparte-content-line-height);
-  color: var(--aparte-content-color);
+  /* `--aparte-message-ink`: the role's ink, set by the message around it (components/bubble.css). */
+  color: var(--aparte-message-ink, var(--aparte-content-color));
   font-family: var(--aparte-font-family);
   white-space: normal;
   word-wrap: break-word;

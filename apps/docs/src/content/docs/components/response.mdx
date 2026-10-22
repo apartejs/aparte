@@ -54,7 +54,7 @@ setupStreamingMarkdownProvider(); // a reply while it streams
 | Variable | What it sets |
 | --- | --- |
 | `--aparte-content-font-size` | The size of the reply's text. |
-| `--aparte-content-color` | Its colour. |
+| `--aparte-content-color` | Its colour. Inside a message, `--aparte-message-content-text-user` or `-assistant` takes over when set. |
 | `--aparte-content-line-height` | Its line height. |
 
 Another parser plugs in with `aparteGlobalConfig.setMarkdownProvider(fn)`, a function from
