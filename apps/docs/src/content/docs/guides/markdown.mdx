@@ -38,14 +38,15 @@ renders: a message drawn earlier shows its plain text until they arrive, then is
 
 - **`@aparte/plugin-streaming-markdown`** formats the reply while it streams, adding what each
   chunk brings instead of formatting the whole reply again. Alone, it formats finished and
-  restored messages too.
+  restored messages too. Its parser does not nest brackets, so a link whose text holds some —
+  `[[1]](https://…)`, a citation — shows as plain text while it streams; beside
+  `@aparte/plugin-marked` the finished reply is formatted again and the link comes out right.
 - **`@aparte/plugin-marked`** formats a finished or restored message at full fidelity. Beside the
   streaming plugin, it formats a reply again once it finishes; alone, it formats a streaming reply
   too, from the start at each chunk.
 - **`@aparte/plugin-shiki`** colours code: the code blocks of a reply — the stream parser makes
-  each fence its own block — the fences in a message given as plain content and in reasoning, and
-  the JSON a tool call shows. A fence inside a `text` segment you build yourself stays plain: send
-  it as a `code` segment.
+  each fence its own block — the fences in a message given as plain content, in reasoning and in a
+  `text` segment you build yourself, and the JSON a tool call shows.
 
 To pass marked its options, give them to the setup: `setupMarkedProvider({ gfm: true, breaks: true })`.
 With options it uses a marked of its own, so two configurations can format differently. Another
