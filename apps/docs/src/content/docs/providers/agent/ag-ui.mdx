@@ -41,8 +41,9 @@ the approval panel work as they do with aparté's own loop.
 | `RUN_ERROR` | the reply's error, with the agent's message |
 | an HTTP error | the reply's error, with the start of the response body — keep secrets out of it |
 
-Each model step of the run is a turn of its own in the reply, and the usage of every step is
-added up and reported with the reply. A stream that ends without `RUN_FINISHED` ends the reply
+Each model step of the run is a turn of its own in the reply, and the reply reports the usage of
+its last step, as a run in the page does: the size of what the model last saw, which is what the
+context gauge reads. A stream that ends without `RUN_FINISHED` ends the reply
 with an error. `STEP_*`, `STATE_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`, `CUSTOM` and
 sub-agent events are not drawn. The runner reads the answer as server-sent events, or as NDJSON
 when its content type says so.

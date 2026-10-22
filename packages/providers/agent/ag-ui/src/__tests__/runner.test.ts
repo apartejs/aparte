@@ -131,11 +131,13 @@ describe('createAgUiRunner: the stream', () => {
         expect(r.types()[2]).toBe('text-delta');
     });
 
-    it('sums usage reported as an array of steps (TanStack AI) into run-done', async () => {
+    it('reports the last step of usage reported as an array of steps (TanStack AI), as the page loop does', async () => {
+        // The context gauge reads it as the size of what the model last saw: summed, a
+        // two-step run read as twice the context.
         const f = fakeFetch(sse(started, finished({ usage: [{ inputTokens: 3, outputTokens: 2, totalTokens: 5 }, { inputTokens: 4, outputTokens: 1, totalTokens: 5, cachedInputTokens: 2 }] })));
         const r = run(f.fetch);
-        expect(await r.done).toEqual({ inputTokens: 7, outputTokens: 3, totalTokens: 10, cacheReadTokens: 2 });
-        expect(r.events.at(-1)).toMatchObject({ type: 'run-done', usage: { inputTokens: 7 } });
+        expect(await r.done).toEqual({ inputTokens: 4, outputTokens: 1, totalTokens: 5, cacheReadTokens: 2 });
+        expect(r.events.at(-1)).toMatchObject({ type: 'run-done', usage: { inputTokens: 4 } });
     });
 
     it('reads an NDJSON body the same way, and skips what is not an event', async () => {

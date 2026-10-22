@@ -66,32 +66,24 @@ function interruptKind(interrupt: AgUiInterrupt): 'approval' | 'external' | unde
     return undefined;
 }
 
-/** Usage as AG-UI agents report it — an object, or TanStack AI's array of steps — summed. */
+/**
+ * Usage as AG-UI agents report it — an object, or TanStack AI's array of model steps — as
+ * the LAST step's report. That is what the page's own loop reports for a run of several
+ * turns, and what the context gauge reads: the size of the conversation the model last saw.
+ * Summed, a three-step run read as three times the context it used.
+ */
 function readUsage(value: unknown): Usage | undefined {
     const entries = (Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [])
         .filter((u): u is Record<string, unknown> => Boolean(u) && typeof u === 'object');
-    if (entries.length === 0) return undefined;
-    const sum = (key: string) => entries.reduce((n, u) => n + (typeof u[key] === 'number' ? u[key] as number : 0), 0);
-    const cached = sum('cachedInputTokens');
+    const last = entries.at(-1);
+    if (!last) return undefined;
+    const num = (key: string): number => (typeof last[key] === 'number' ? last[key] as number : 0);
+    const cached = num('cachedInputTokens');
     return {
-        inputTokens: sum('inputTokens'),
-        outputTokens: sum('outputTokens'),
-        totalTokens: sum('totalTokens') || undefined,
+        inputTokens: num('inputTokens'),
+        outputTokens: num('outputTokens'),
+        totalTokens: num('totalTokens') || undefined,
         ...(cached ? { cacheReadTokens: cached } : {}),
-    } as Usage;
-}
-
-/** Two usage reports as one: a TanStack AI run reports one per model step. */
-function addUsage(total: Usage | undefined, step: Usage | undefined): Usage | undefined {
-    if (!step) return total;
-    if (!total) return step;
-    const cache = (total.cacheReadTokens ?? 0) + (step.cacheReadTokens ?? 0);
-    const sumTotal = (total.totalTokens ?? 0) + (step.totalTokens ?? 0);
-    return {
-        inputTokens: total.inputTokens + step.inputTokens,
-        outputTokens: total.outputTokens + step.outputTokens,
-        ...(sumTotal ? { totalTokens: sumTotal } : {}),
-        ...(cache ? { cacheReadTokens: cache } : {}),
     } as Usage;
 }
 
@@ -394,7 +386,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // tool results and the next step. The LAST one says how the run ended.
                     for (const id of calls.keys()) startTool(id);
                     if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
-                    usage = addUsage(usage, readUsage(event['usage']));
+                    usage = readUsage(event['usage']) ?? usage;   // the last step's report wins
                     stepEnded = true;
                     endedOnFinish = true;
                     finished = {
