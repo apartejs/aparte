@@ -66,6 +66,18 @@ describe('turns mode', () => {
         expect(done.usage.inputTokens).toBe(1);
         expect(done.usage.totalTokens).toBe(4);
     });
+
+    it('a usage step that overrides one part moves the total with it, unless it sets the total too', async () => {
+        type Done = { type: 'done'; usage: { inputTokens: number; outputTokens: number; totalTokens: number } };
+        const partial = createScenarioProvider({ turns: [[{ text: 'twelve chars' }, { usage: { inputTokens: 900 } }]], pacing: 'instant' });
+        const a = (await reply(partial, request(user('four')))).at(-1) as Done;
+        expect(a.usage.inputTokens).toBe(900);
+        expect(a.usage.totalTokens, 'the context gauge reads the total first').toBe(903);
+
+        const explicit = createScenarioProvider({ turns: [[{ text: 'twelve chars' }, { usage: { inputTokens: 900, totalTokens: 1000 } }]], pacing: 'instant' });
+        const b = (await reply(explicit, request(user('four')))).at(-1) as Done;
+        expect(b.usage.totalTokens).toBe(1000);
+    });
 });
 
 describe('pacing', () => {

@@ -224,11 +224,13 @@ export function playTurn(
                     }
                 }
                 if (!signal?.aborted) {
-                    const outputTokens = estimateTokens(outputChars);
-                    const inputTokens = estimateTokens(inputChars);
+                    const merged = { inputTokens: estimateTokens(inputChars), outputTokens: estimateTokens(outputChars), durationMs: Date.now() - turnBegan, ...usage };
+                    // The total follows the parts it is the sum of, unless the script set it
+                    // too: a step overriding `inputTokens` alone left the estimate's total in
+                    // place, and the context gauge reads the total first.
                     controller.enqueue({
                         type: 'done',
-                        usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, durationMs: Date.now() - turnBegan, ...usage },
+                        usage: { totalTokens: (merged.inputTokens ?? 0) + (merged.outputTokens ?? 0), ...merged },
                     });
                 }
                 controller.close();
