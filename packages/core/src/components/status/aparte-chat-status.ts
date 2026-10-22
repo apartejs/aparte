@@ -268,6 +268,17 @@ export class AparteChatStatus extends HTMLElement {
   private _updateText(text: string | null): void {
     const container = this.querySelector('.aparte-status-container');
     if (!container) return; // not rendered yet — _render() reads the attribute
+    // A custom renderer drew the inside from the text it was given, and has no text
+    // element of ours to write into: it is asked again with the new text, as at render.
+    const custom = this._cfg?.getStatusRenderer?.();
+    if (custom) {
+      const next = text || this._word();
+      container.setAttribute('aria-label', next);
+      const result = runWithConfig(this._cfg, () => custom(next));
+      if (result instanceof HTMLElement) container.replaceChildren(result);
+      else container.innerHTML = result;
+      return;
+    }
     // Removing the attribute restores the dots-only default (no visible text, the
     // fallback word in the live region); the aria-label always keeps an accessible name.
     this._writeText(text);
