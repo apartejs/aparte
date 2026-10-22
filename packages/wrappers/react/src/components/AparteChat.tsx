@@ -198,7 +198,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         placeholder = 'Type a message...',
         disabled = false,
         isTyping = false,
-        typingText = 'Assistant is thinking...',
+        typingText,
         submitOnEnter = true,
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
@@ -243,6 +243,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const [hostLoading, setHostLoading] = useState(false);
     const waiting = loading || hostLoading;
     const loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
+    // The status line's word, from the locale like the rest of the chat: it was the English
+    // 'Assistant is thinking...' in every language, and the one string a localised host
+    // could not translate without passing the prop.
+    const typingLabel = typingText ?? (config ?? aparteGlobalConfig).t('typing');
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);
@@ -425,7 +429,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                             />
                         )
                 ))}
-                <aparte-chat-status visible={typingActive ? '' : undefined} text={typingText} />
+                <aparte-chat-status visible={typingActive ? '' : undefined} text={typingLabel} />
             </aparte-chat-viewport>
 
             {elicitation && <aparte-elicitation />}

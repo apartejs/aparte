@@ -147,6 +147,8 @@ describe('AparteChat.vue', () => {
 
         await wrapper.setProps({ isTyping: true });
         expect(status.attributes('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status.attributes('text')).toBe('Typing');
     });
 
     it('emits typingChange when the host toggles the typing indicator (parity with React onTypingChange)', async () => {

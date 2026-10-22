@@ -72,7 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: 'Type a message...',
   disabled: false,
   isTyping: false,
-  typingText: 'Assistant is thinking...',
+  typingText: undefined,
   submitOnEnter: true,
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
@@ -133,6 +133,8 @@ function onAction(e: Event) {
 const hostLoading = ref(false);
 const waiting = computed(() => props.loading || hostLoading.value);
 const loadingText = computed(() => (props.config ?? aparteGlobalConfig).t('loadingConversation'));
+// The status line's word, from the locale like the rest of the chat (it was English everywhere).
+const typingLabel = computed(() => props.typingText ?? (props.config ?? aparteGlobalConfig).t('typing'));
 
 onMounted(() => {
   const binding: AparteChatHostBinding = {
@@ -265,7 +267,7 @@ defineExpose({
           />
         </slot>
       </template>
-      <aparte-chat-status :visible="typingActive ? '' : null" :text="typingText" />
+      <aparte-chat-status :visible="typingActive ? '' : null" :text="typingLabel" />
     </aparte-chat-viewport>
 
     <!-- The presenter for a request to the human (approval gate, ask_user…). Renders

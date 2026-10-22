@@ -350,6 +350,8 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         expect(status.getAttribute('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status.getAttribute('text')).toBe('Typing');
     });
 
     it('emits messageSent when aparte-send event is received', async () => {

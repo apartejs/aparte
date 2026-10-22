@@ -102,8 +102,7 @@ relabels in its `relabel` callback instead, called on every change.
 ## What stays in English
 
 The status line the framework components show while `isTyping` is set reads their `typingText`
-prop, `'Assistant is thinking...'` by default: pass your translation. `<aparte-chat-status>`
-itself shows the `text` you give it, and without one takes its word from the locale's `typing` key.
+prop, and without one the locale's `typing` key, like `<aparte-chat-status>` itself.
 
 The words the model reads stay in English whatever the locale, since they are part of the request,
 not of the interface: the question tool's description and instructions in

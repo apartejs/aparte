@@ -14,7 +14,7 @@
   export let placeholder = 'Type a message...';
   export let disabled = false;
   export let isTyping = false;
-  export let typingText = 'Assistant is thinking...';
+  export let typingText: string | undefined = undefined;
   /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
   export let submitOnEnter = true;
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
@@ -37,6 +37,8 @@
   let hostLoading = false;
   $: waiting = loading || hostLoading;
   $: loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
+  // The status line's word, from the locale like the rest of the chat (it was English everywhere).
+  $: typingLabel = typingText ?? (config ?? aparteGlobalConfig).t('typing');
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
@@ -324,7 +326,7 @@
           streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
       </slot>
     {/each}
-    <aparte-chat-status visible={typingActive ? '' : null} text={typingText}></aparte-chat-status>
+    <aparte-chat-status visible={typingActive ? '' : null} text={typingLabel}></aparte-chat-status>
   </aparte-chat-viewport>
 
   <!-- The presenter for a request to the human (approval gate, ask_user…). Renders

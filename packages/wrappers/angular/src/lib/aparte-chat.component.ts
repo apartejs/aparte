@@ -101,7 +101,7 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@apar
         }
         <aparte-chat-status
           [attr.visible]="isTyping() ? '' : null"
-          [attr.text]="typingText()"
+          [attr.text]="typingLabel"
         ></aparte-chat-status>
       </aparte-chat-viewport>
 
@@ -312,8 +312,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly isTyping = signal<boolean>(false);
 
     /** Text to show in the typing status */
-    @Input('typingText') set typingTextInput(val: string) { this.typingText.set(val); }
-    readonly typingText = signal<string>('Assistant is thinking...');
+    @Input('typingText') set typingTextInput(val: string | undefined) { this.typingText.set(val); }
+    readonly typingText = signal<string | undefined>(undefined);
+    /** The status line's word: the input, else the locale's, like the rest of the chat. */
+    get typingLabel(): string { return this.typingText() ?? (this.config ?? aparteGlobalConfig).t('typing'); }
 
     /** Duration in ms to freeze spacer recalculation after a conversation swap. */
     @Input({ alias: 'layoutTransitionMs', transform: numberAttribute }) layoutTransitionMs = 0;

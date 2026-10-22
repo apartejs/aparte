@@ -297,6 +297,8 @@ describe('AparteChat React Wrapper', () => {
         );
 
         expect(status?.getAttribute('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status?.getAttribute('text')).toBe('Typing');
     });
 
     it('calls onMessageSent when the composer dispatches aparte-send', () => {
