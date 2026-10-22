@@ -81,6 +81,18 @@ describe('viewing a conversation is not editing it', () => {
         expect(manager.conversations[0]!.updatedAt, 'but it is not an edit').toBe(500);
     });
 
+    it('an edit only the flat list carries is still saved, when the head did not move', async () => {
+        // Under a framework the list and the viewport's tree can disagree: a field set through
+        // `updateMessage`, or a message a controlled prop removed, is in the list only.
+        const tree = { headId: 'a1', messages: [{ message: user, parentId: null }, { message: reply('a1', 'This one.'), parentId: 'u1' }] };
+        const { manager, adapter } = await managerWith({
+            id: 'c1', title: 't', createdAt: 1, updatedAt: 500, messages: [user, reply('a1', 'This one.')], tree,
+        });
+        await manager.updateMessages('c1', [user, { ...reply('a1', 'This one.'), meta: { pinned: true } } as AparteMessage], tree);
+        expect(adapter.save).toHaveBeenCalledTimes(1);
+        expect(manager.conversations[0]!.updatedAt).toBeGreaterThan(500);
+    });
+
     it('a real edit still dates it', async () => {
         const { manager } = await managerWith({ id: 'c1', title: 't', createdAt: 1, updatedAt: 500, messages: [user, reply('a1', 'This one.')] });
         await manager.updateMessages('c1', [user, reply('a1', 'That one, actually.')]);

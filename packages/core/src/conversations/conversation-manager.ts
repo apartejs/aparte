@@ -481,8 +481,13 @@ export class AparteConversationManager {
         try {
             // With a tree on both sides, content is judged over EVERY branch: the active path
             // alone counts a branch switch as an edit. Without one, the flat messages decide.
+            // The flat list still counts when the head did not move: under a framework the
+            // list and the viewport's tree can disagree (a field set through `updateMessage`,
+            // a message a controlled prop removed), and the tree alone would drop that edit.
+            // A moved head is the one case where the list differs and nothing was edited.
             contentChanged = storedTree !== undefined && conv.tree !== undefined
                 ? treeContentOf(storedTree) !== treeContentOf(conv.tree)
+                    || (storedTree.headId === conv.tree.headId && contentOf(storedMessages) !== contentOf(conv.messages))
                 : contentOf(storedMessages) !== contentOf(conv.messages);
             if (storedTree !== undefined) {
                 treeChanged = conv.tree === undefined
