@@ -135,7 +135,7 @@ export interface TransformersModelConfig {
 /** Models registered by the app via registerModel(). */
 const _registeredModels = new Map<string, TransformersModelConfig>();
 
-/** Mutable model list — populated by registerModel() and cache discovery. */
+/** Mutable model list — populated by registerModel(). */
 let _knownModels: AparteAIModel[] = [];
 
 /**
@@ -151,14 +151,6 @@ export function registerModel(config: TransformersModelConfig): void {
             capabilities: config.capabilities,
         }];
     }
-}
-
-/** Build an AparteAIModel entry from a cache-discovered modelId not in the registry. */
-function _modelFromCacheEntry(modelId: string): AparteAIModel {
-    const config = _registeredModels.get(modelId);
-    if (config) return { id: config.id, name: config.name, description: config.description, capabilities: config.capabilities };
-    const name = (modelId.split('/').pop() ?? modelId).replace(/-/g, ' ');
-    return { id: modelId, name, capabilities: ['streaming'] };
 }
 
 /** Max number of models to keep in cache. 0 = unlimited. Default: 1. */
@@ -221,18 +213,6 @@ async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
         // Delete the excess models (oldest first — they appear first in cache scan order).
         for (let i = 0; i < excess && i < others.length; i++) {
             await deleteCachedModel(others[i]!.modelId);
-        }
-    } catch { /* cache unavailable */ }
-}
-
-/** Merge cached models into _knownModels (idempotent). Called by fetchModels(). */
-async function _refreshKnownModels(): Promise<void> {
-    try {
-        const cached = await listCachedModels();
-        for (const entry of cached) {
-            if (!_knownModels.find(m => m.id === entry.modelId)) {
-                _knownModels = [..._knownModels, _modelFromCacheEntry(entry.modelId)];
-            }
         }
     } catch { /* cache unavailable */ }
 }
@@ -534,7 +514,7 @@ function _handleWorkerMessage(event: MessageEvent): void {
             _loadedModelId = msg.modelId;
             _preparingModelId = null;
             // Evict models over the cache limit, then refresh the known list.
-            void _enforceMaxCachedModels(msg.modelId).then(() => _refreshKnownModels());
+            void _enforceMaxCachedModels(msg.modelId);
             break;
         }
         case 'gen-event': {
@@ -614,8 +594,12 @@ export const TransformersProvider: AparteAIProvider
         return _knownModels;
     },
 
+    /**
+     * The registered models. Only those: the Cache API is the origin's, and listing what it
+     * held offered an app's own embedder, or another library's model, as a chat model to
+     * pick. `listCachedModels()` still reports everything downloaded, for a settings panel.
+     */
     async fetchModels(): Promise<AparteAIModel[]> {
-        await _refreshKnownModels();
         return _knownModels;
     },
 

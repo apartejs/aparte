@@ -416,21 +416,12 @@ describe('fetchModels / getModels — cache persistence', () => {
         expect(models.find(m => m.id === 'Test/Reg-C-ONNX')).toBeDefined();
     });
 
-    it('adds a cache-only model to getModels() after fetchModels()', async () => {
-        const modelId = 'Org/FetchModels-CacheOnly-Test-ONNX';
-        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).not.toContain(modelId);
-
-        stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/config.json`, size: 256 }]);
-        await TransformersProvider.fetchModels!();
-
-        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).toContain(modelId);
-    });
-
-    it('fetchModels() return value includes the cache-only model', async () => {
-        const modelId = 'Org/FetchModels-Return-Test-ONNX';
+    it('does not list a cached model nobody registered — an embedder of the app, say', async () => {
+        const modelId = 'Xenova/all-MiniLM-L6-v2';
         stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/config.json`, size: 256 }]);
         const fetched = await TransformersProvider.fetchModels!();
-        expect(fetched.find(m => m.id === modelId)).toBeDefined();
+        expect(fetched.find(m => m.id === modelId)).toBeUndefined();
+        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).not.toContain(modelId);
     });
 });
 
