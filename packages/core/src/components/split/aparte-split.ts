@@ -360,6 +360,7 @@ export class AparteSplit extends HTMLElement {
         // Last: everything above reads the markup directly, and until it has run an
         // attribute change is the upgrade replaying what the author already wrote.
         this._ready = true;
+        this._syncPaneControls();
     }
 
     disconnectedCallback(): void {
@@ -415,6 +416,7 @@ export class AparteSplit extends HTMLElement {
             }
             case 'pane': {
                 const pane = this.pane;
+                this._syncPaneControls();
                 if (pane === this._lastPane) return;
                 this._lastPane = pane;
                 this._commit();
@@ -954,6 +956,26 @@ export class AparteSplit extends HTMLElement {
         }
         this.showPane(which ?? (this.pane === 'start' ? 'end' : 'start'));
     };
+
+    /**
+     * The two-button switch says which pane it shows: `aria-pressed` on every
+     * `[data-aparte-split-pane="start"|"end"]` that reaches this split, true on the one
+     * naming the pane in view. A toggle (an id, or empty) is an action and gets none. Read
+     * when the split connects and whenever `pane` changes, so a control added later is
+     * stamped at the next switch.
+     */
+    private _syncPaneControls(): void {
+        const roots = new Set<ParentNode>([rootOf(this), document]);
+        for (const root of roots) {
+            for (const control of root.querySelectorAll<HTMLElement>('[data-aparte-split-pane="start"], [data-aparte-split-pane="end"]')) {
+                const target = control.closest('aparte-split')
+                    ?? rootOf(control).querySelector('aparte-split')
+                    ?? document.querySelector('aparte-split');
+                if (target !== this) continue;
+                control.setAttribute('aria-pressed', String(control.getAttribute('data-aparte-split-pane') === this.pane));
+            }
+        }
+    }
 
     // ─── Locale ───────────────────────────────────────────────────────────
 
