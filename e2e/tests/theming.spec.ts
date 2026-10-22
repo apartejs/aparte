@@ -519,3 +519,30 @@ test("a host's own rule on the words and on the box still wins", async ({ page }
     expect(drawn.assistant, "and on the assistant's").toBe('rgb(7, 8, 9)');
     expect(drawn.pad, "the host's padding reaches the assistant's box").toBe('11px');
 });
+
+/*
+ * Compact density on demand. The narrow container tightened the messages under 520px only, so
+ * a widget wider than that had no switch for the same measures.
+ */
+test('aparte-chat--compact tightens the messages at any width', async ({ page }) => {
+    const read = () => page.evaluate(() => {
+        const chat = document.querySelector('aparte-chat') as HTMLElement;
+        const message = chat.querySelector('aparte-chat-bubble .aparte-message') as HTMLElement;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'padding-top: var(--aparte-space-6)';
+        chat.appendChild(probe);
+        const out = { message: getComputedStyle(message).paddingTop, compact: getComputedStyle(probe).paddingTop };
+        probe.remove();
+        return out;
+    });
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'cmp-a', role: 'assistant', content: 'a reply', timestamp: Date.now() });
+    });
+    await expect(page.locator('aparte-chat-bubble .aparte-message').first()).toBeVisible();
+    const before = await read();
+    expect(before.message, 'the wide default first').not.toBe(before.compact);
+    await page.evaluate(() => document.querySelector('aparte-chat')!.classList.add('aparte-chat--compact'));
+    const after = await read();
+    expect(after.message).toBe(after.compact);
+});

@@ -83,6 +83,23 @@
   }
 }
 
+/* Compact density, at any width: the narrow container's measures above, asked for — a widget,
+   a side panel, a chat that sits beside other content. A class, so the four framework
+   components take it as they take any class (`className`, `class`) on their root. The
+   measures are declared on the chat itself, where the derived layer is (`:where()`, weightless),
+   so the messages, the transcript and the composer read them. */
+.aparte-chat--compact {
+  --aparte-message-padding-block: var(--aparte-space-6);
+  --aparte-message-padding-inline: var(--aparte-space-4);
+  --aparte-message-gap: var(--aparte-space-4);
+  --aparte-avatar-size: 24px;
+  --aparte-viewport-padding: var(--aparte-space-6) var(--aparte-space-4);
+}
+
+.aparte-chat--compact .aparte-composer-row {
+  padding: var(--aparte-space-4);
+}
+
 /* Coarse pointers (touch) — comfortable hit areas. */
 @media (pointer: coarse) {
   .aparte-scroll-btn {
