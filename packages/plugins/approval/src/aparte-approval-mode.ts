@@ -104,7 +104,14 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         this._unsubscribe?.();
         this._controller = next;
         if (!this._controller) {
-            console.warn('[aparte] <aparte-approval-mode> found no approval setup on the config it resolves — call setupApproval() from @aparte/plugin-approval on that config (the scoped one if you passed a `config`, aparteGlobalConfig otherwise).');
+            // Asked once the module that imported the plugin has run its body. Importing the
+            // plugin defines this element, so a tag already in the page binds BEFORE the
+            // `setupApproval()` that comes next in the documented order — and the warning
+            // fired for a setup that was a line away.
+            queueMicrotask(() => {
+                if (this._controller || !this.isConnected) return;
+                console.warn('[aparte] <aparte-approval-mode> found no approval setup on the config it resolves — call setupApproval() from @aparte/plugin-approval on that config (the scoped one if you passed a `config`, aparteGlobalConfig otherwise).');
+            });
         }
         this._unsubscribe = this._controller?.subscribe(() => this._syncValue()) ?? null;
         this._render();
