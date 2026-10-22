@@ -84,8 +84,11 @@ export interface AparteIconProvider {
     pause?: () => string;
 }
 
-/** Icon names available in the provider */
+/** Icon names available in the provider — core's, and any merged into `AparteIconProvider`. */
 export type AparteIconName = keyof AparteIconProvider;
+
+/** The names core draws itself. A name merged into `AparteIconProvider` is not one of them. */
+export type AparteCoreIconName = keyof typeof APARTE_ICON_GLYPHS;
 
 /**
  * The default drawing for every name, assembled from `icons/glyphs.ts`.
@@ -96,5 +99,5 @@ export type AparteIconName = keyof AparteIconProvider;
  * renders would still ship to everybody. Extra glyphs are individual exports a consumer
  * imports by name, never members of this record.
  */
-export const APARTE_DEFAULT_ICON_FALLBACKS: Record<AparteIconName, string> = APARTE_ICON_GLYPHS;
+export const APARTE_DEFAULT_ICON_FALLBACKS: Record<AparteCoreIconName, string> = APARTE_ICON_GLYPHS;
 

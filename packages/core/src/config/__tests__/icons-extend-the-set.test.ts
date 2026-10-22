@@ -82,4 +82,12 @@ describe('a name core does not draw', () => {
     it('stays undefined when nothing draws it', () => {
         expect(aparteGlobalConfig.getIcon('rocket')).toBeUndefined();
     });
+
+    it("is never one of the object's own methods", () => {
+        expect(aparteGlobalConfig.getIcon('constructor'), 'with no provider').toBeUndefined();
+        aparteGlobalConfig.registerIcons({ share: () => SHARE });
+        expect(aparteGlobalConfig.getIcon('toString'), 'with one').toBeUndefined();
+        document.body.innerHTML = '<aparte-icon name="constructor"></aparte-icon>';
+        expect(document.querySelector('aparte-icon')!.innerHTML).toBe('');
+    });
 });

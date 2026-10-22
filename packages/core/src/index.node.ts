@@ -242,6 +242,7 @@ export type {
     AparteActionZone,
     AparteIconProvider,
     AparteIconName,
+    AparteCoreIconName,
     AparteAvatarProvider,
     AparteStatusRenderer,
     AparteErrorRenderer,

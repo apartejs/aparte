@@ -71,8 +71,27 @@ describe('the avatar slot', () => {
     });
 
     it('is not marked when its role names none, the default', () => {
-        stubImage('assistant', 'url("logo.svg")');
+        stubImage('user', 'none');
         expect(slot(mount('user')).hasAttribute('data-image'), "the user's token is none").toBe(false);
+    });
+
+    it('is marked when a provider leaves its slot empty and the stylesheet names a picture', () => {
+        stubImage('assistant', 'url("logo.svg")');
+        aparteGlobalConfig.setAvatarProvider({ render: (role, host) => { if (role === 'user') host.textContent = 'Me'; } });
+        expect(slot(mount('assistant')).hasAttribute('data-image')).toBe(true);
+    });
+
+    it("runs the provider's cleanup on what it drew, not on an initial written over it", () => {
+        let seen: string | null = null;
+        aparteGlobalConfig.setAvatarProvider({
+            render: (_role, host) => {
+                host.innerHTML = '<span class="mounted">AI</span>';
+                return () => { seen = host.querySelector('.mounted')?.textContent ?? 'gone'; };
+            },
+        });
+        mount();
+        aparteGlobalConfig.setAvatarProvider(null);
+        expect(seen, 'the mount was still there when its cleanup ran').toBe('AI');
     });
 
     it('drops the mark when a provider fills the slot', () => {

@@ -61,8 +61,8 @@ aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', 
 `registerIcons` adds to the set and keeps the rest, so a plugin and the app can each register
 theirs; a later `setIconProvider` replaces them all. The new name is then an icon like core's: an
 action's `icon`, `<aparte-composer-action icon="share">` and `<aparte-icon name="share">` find it.
-The `declare module` block types it, so `getIcon('share')` returns a `string`; a name nobody
-registered returns `undefined`.
+The `declare module` block types it, so `getIcon('share')` returns a `string`: a promise to register
+it on every configuration the chat uses, since a name nobody registered returns `undefined`.
 
 ## Avatars
 
@@ -79,8 +79,8 @@ aparteGlobalConfig.setAvatarProvider({
 });
 ```
 
-A message has no avatar until you set a provider: the slot shows once `render` fills it, and
-`setAvatarProvider(null)` takes them off every message. Core empties the slot and calls `render`
+A message has no avatar until a provider draws one or the stylesheet names a picture (below): the
+slot shows once `render` fills it, and `setAvatarProvider(null)` takes them off every message. Core empties the slot and calls `render`
 again whenever the configuration changes — a new language, a new icon set — or the message's role
 does.
 If `render` returns a function, core calls it before each new render and when the message goes
@@ -89,11 +89,11 @@ away, so you can unmount a component you put there.
 A picture needs no provider:
 
 ```css
-aparte-chat { --aparte-avatar-image-assistant: url('/logo.svg'); }
+:root { --aparte-avatar-image-assistant: url('/logo.svg'); }
 ```
 
 `--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot, and
-a slot whose role names one shows, empty or not. Core reads them when a message is drawn and on
+an empty slot whose role names one shows it, with or without a provider. Core reads them when a message is drawn and on
 every configuration change. `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` colour the
 ground behind the picture or what your provider writes.
 

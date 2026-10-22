@@ -8,7 +8,7 @@
  * but allows complete customization via dependency injection.
  */
 
-import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
+import { AparteIconProvider, AparteIconName, AparteCoreIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
 import { AparteLocale, AparteLocaleExtensions, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
@@ -540,18 +540,19 @@ export class AparteConfig {
      * the type now states — crashed every other icon with
      * "icons.retry is not a function".
      */
-    getIconProvider(): Required<AparteIconProvider> {
+    getIconProvider(): Required<Pick<AparteIconProvider, AparteCoreIconName>> & AparteIconProvider {
         const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
         const complete: Record<string, () => string> = {};
-        for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
+        for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteCoreIconName[]) {
             const fn = registered?.[name];
             complete[name] = fn ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
         }
-        // And the names core does not draw, so an action keyed on one finds it.
+        // And the names core does not draw, so an action keyed on one finds it. A merged
+        // name stays optional in the type: only the configs it was registered on hold it.
         for (const [name, fn] of Object.entries(registered ?? {})) {
             if (typeof fn === 'function' && !(name in complete)) complete[name] = fn;
         }
-        return complete as Required<AparteIconProvider>;
+        return complete as unknown as Required<Pick<AparteIconProvider, AparteCoreIconName>> & AparteIconProvider;
     }
 
     /**
@@ -708,9 +709,13 @@ export class AparteConfig {
     getIcon(name: AparteIconName): string;
     getIcon(name: string): string | undefined;
     getIcon(name: string): string | undefined {
-        const icon = (this._iconProvider as Record<string, (() => string) | undefined> | undefined)?.[name];
+        // Own names only: an attribute spelled `constructor` or `toString` would otherwise
+        // read the object's prototype and print a function.
+        const own = (o: object | undefined) => o !== undefined && Object.prototype.hasOwnProperty.call(o, name);
+        const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
+        const icon = own(registered) ? registered![name] : undefined;
         if (typeof icon === 'function') return icon();
-        return (APARTE_DEFAULT_ICON_FALLBACKS as Record<string, string | undefined>)[name];
+        return own(APARTE_DEFAULT_ICON_FALLBACKS) ? (APARTE_DEFAULT_ICON_FALLBACKS as Record<string, string>)[name] : undefined;
     }
 
     /**

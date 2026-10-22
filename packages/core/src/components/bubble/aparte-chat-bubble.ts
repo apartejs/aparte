@@ -977,18 +977,20 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       return;
     }
 
-    avatar.removeAttribute('data-image');
     avatar.textContent = '';
     const cleanup = provider.render(this._role, avatar);
     this._avatarFromProvider = true;
     if (typeof cleanup === 'function') this._avatarCleanup = cleanup;
+    // A provider may draw one role and leave the other's slot empty: the stylesheet's
+    // picture still shows there.
+    this._markAvatarImage(avatar);
   }
 
   /**
-   * A picture from the stylesheet alone: with no provider, an empty slot whose role's
-   * `--aparte-avatar-image-*` names an image gets `data-image`, which lifts the rule that
-   * hides an empty slot. Hidden while empty, the token painted nothing. Read when the
-   * message is drawn and on every config change.
+   * A picture from the stylesheet alone: an empty slot whose role's `--aparte-avatar-image-*`
+   * names an image gets `data-image`, which lifts the rule that hides an empty slot. Hidden
+   * while empty, the token painted nothing. Read when the message is drawn and on every
+   * config change.
    */
   private _markAvatarImage(avatar: HTMLElement): void {
     if (avatar.firstChild) {
@@ -1020,7 +1022,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // shell renders this slot empty and the stylesheet hides it while it stays
       // empty. Same rule as `_updateName`, which is where it was actually costing
       // something; the reasoning is written out there.
-      if (avatar.textContent) avatar.textContent = this._getAvatarInitial();
+      if (avatar.textContent && !this._avatarFromProvider) avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) {
       nameEl.textContent = this._getDisplayName();
@@ -1040,7 +1042,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * No provider: otherwise a name change would wipe a live avatar component.
      *
      * Already non-empty: the default shell renders this slot EMPTY and the
-     * stylesheet hides it while it stays empty — `.aparte-avatar:empty:not([data-image])
+     * stylesheet hides it while it stays empty — `.aparte-avatar:empty:not(:where([data-image]))
      * { display: none }`, with the comment "No message avatar by default — the slot only shows
      * once an AvatarProvider (or a consumer) fills it". Writing the initial
      * unconditionally contradicted that, and `_onConfigChange` calls this method, so
@@ -1054,7 +1056,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * initial and must still see it refreshed. Empty stays empty; filled stays in
      * sync.
      */
-    if (avatar && avatar.textContent && !this._cfg.getAvatarProvider()) {
+    // Not over what a provider drew either: with the provider just cleared, that DOM is
+    // still there until `_renderAvatar` runs its cleanup and empties the slot.
+    if (avatar && avatar.textContent && !this._cfg.getAvatarProvider() && !this._avatarFromProvider) {
       avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) nameEl.textContent = this._getDisplayName();
@@ -1505,7 +1509,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
-    this._appendCustomActions(icons);
+    this._appendCustomActions();
     this._applyTranscriptBusy();
 
     // Wire up button handlers — messageId read dynamically at click time
@@ -1603,7 +1607,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
-  private _appendCustomActions(icons: ReturnType<AparteConfig['getIconProvider']>): void {
+  private _appendCustomActions(): void {
     if (!this._actionBarEl) return;
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
@@ -1616,10 +1620,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       btn.setAttribute('aria-label', a.label);
       btn.setAttribute('title', a.label);
       // Icon: raw inline SVG/HTML, else an icon-provider key (trusted output).
-      const fromProvider = (icons as unknown as Record<string, (() => string) | undefined>)[a.icon];
       btn.innerHTML = a.icon.startsWith('<')
         ? a.icon
-        : (typeof fromProvider === 'function' ? fromProvider() : (a.iconFallback ?? ''));
+        : (this._cfg.getIcon(a.icon) ?? a.iconFallback ?? '');
       this._actionBarEl.appendChild(btn);
     }
   }

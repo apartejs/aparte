@@ -85,7 +85,7 @@ aparte-chat-bubble {
 /* No message avatar by default — the slot only shows once an AvatarProvider
    (or a consumer) fills it, or its role's `--aparte-avatar-image-*` names a picture
    (`data-image`, set by the bubble). Role is carried by layout + colour instead. */
-.aparte-avatar:empty:not([data-image]) {
+.aparte-avatar:empty:not(:where([data-image])) {
   display: none;
 }
 
