@@ -49,6 +49,20 @@ describe('a light/dark theme pair', () => {
         expect(sheets[0]!.textContent).toContain('@media (prefers-color-scheme: dark){:root:not([data-aparte-theme="light"]) .shiki{');
     });
 
+    it('lets the nearest theme attribute decide, so a chat forced light in a dark page gets light code', () => {
+        // Measured in Chromium, WebKit and Firefox: a light chat inside a dark page read the
+        // dark pair, because both page-level rules match any ancestor. `light-dark()` reads the
+        // `color-scheme` core sets on the nearest `[data-aparte-theme]`; the doubled attribute
+        // out-weighs the page rules, and an older browser keeps them.
+        const hl = { getLoadedLanguages: () => [], codeToHtml: () => '' };
+        setupShikiProviderFromHighlighter(hl, { theme: { light: 'a', dark: 'b' } });
+        const css = document.getElementById('aparte-shiki-theme-pair')!.textContent!;
+        const nearest = css.slice(css.indexOf('@supports (color: light-dark(#000, #fff)){'));
+        expect(nearest).toContain('[data-aparte-theme][data-aparte-theme] .shiki{color:light-dark(var(--shiki-light),var(--shiki-dark));background-color:light-dark(var(--shiki-light-bg),var(--shiki-dark-bg))}');
+        expect(nearest).toContain('[data-aparte-theme][data-aparte-theme] .shiki span{color:light-dark(var(--shiki-light),var(--shiki-dark))}');
+        expect(css.indexOf('@supports'), 'after the page-level rules, so it wins their tie').toBeGreaterThan(css.indexOf('@media'));
+    });
+
     it('adds no stylesheet for a single theme — nothing to switch', () => {
         setupShikiProviderFromHighlighter({ getLoadedLanguages: () => [], codeToHtml: () => '' }, { theme: 'github-dark' });
         expect(document.getElementById('aparte-shiki-theme-pair')).toBeNull();

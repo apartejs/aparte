@@ -55,10 +55,10 @@ a synchronous function from the Markdown to its HTML.
 
 ## Light and dark code
 
-The theme pair above follows the page: the dark theme under `data-aparte-theme="dark"` on any
-element around the code, or under a dark system unless `<html>` carries
-`data-aparte-theme="light"`; the light one otherwise. A chat set light inside a dark page therefore
-keeps dark code. A single theme name, such as `{ theme: 'github-dark' }`, keeps that look in both,
+The theme pair above follows the nearest `data-aparte-theme` around the code, so a chat set light
+inside a dark page gets light code; with no attribute anywhere it follows the system. A browser
+without `light-dark()` (Chrome before 123, Safari before 17.5, Firefox before 120) follows the page
+instead: the dark theme under any `data-aparte-theme="dark"` around the code. A single theme name, such as `{ theme: 'github-dark' }`, keeps that look in both,
 and with no `theme` at all code uses `github-dark` in both. A language shiki does not know shows as
 plain text.
 

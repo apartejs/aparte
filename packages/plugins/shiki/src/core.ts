@@ -63,12 +63,22 @@ export function ensureThemePairStyles(): void {
     // page that sets nothing) rendered the LIGHT theme's white block on a dark bubble.
     const dark = '.shiki{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}'
         + '.shiki span{color:var(--shiki-dark)}';
+    // The NEAREST theme attribute decides, not the page's. Core sets `color-scheme` on every
+    // `[data-aparte-theme]` element, and `light-dark()` reads the one the block inherits —
+    // so a chat forced light inside a dark page gets light code. The doubled attribute
+    // out-weighs the two page-level rules above; a browser without `light-dark()` keeps them.
+    const pick = (a: string, b: string): string => `light-dark(var(${a}),var(${b}))`;
+    const nearest = '@supports (color: light-dark(#000, #fff)){'
+        + `[data-aparte-theme][data-aparte-theme] .shiki{color:${pick('--shiki-light', '--shiki-dark')};background-color:${pick('--shiki-light-bg', '--shiki-dark-bg')}}`
+        + `[data-aparte-theme][data-aparte-theme] .shiki span{color:${pick('--shiki-light', '--shiki-dark')}}`
+        + '}';
     style.textContent =
         '.shiki{color:var(--shiki-light);background-color:var(--shiki-light-bg)}'
         + '.shiki span{color:var(--shiki-light)}'
         + '[data-aparte-theme="dark"] ' + dark.replace('.shiki span', '[data-aparte-theme="dark"] .shiki span')
         + '@media (prefers-color-scheme: dark){:root:not([data-aparte-theme="light"]) '
-        + dark.replace('.shiki span', ':root:not([data-aparte-theme="light"]) .shiki span') + '}';
+        + dark.replace('.shiki span', ':root:not([data-aparte-theme="light"]) .shiki span') + '}'
+        + nearest;
     document.head.appendChild(style);
 }
 
