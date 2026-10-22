@@ -63,10 +63,10 @@ What the frame must carry:
   `.aparte-footer` that you want filled.
 
 A frame for one chat only goes on that chat's own configuration
-([Per-chat configuration](/guides/customization/#per-chat-configuration)). A message draws its
-frame once, when it appears, so a chat's frame reaches the messages that appear after its
-configuration is attached: with a framework's `config` prop, the messages there at the first render
-keep the page-wide frame.
+([Per-chat configuration](/guides/customization/#per-chat-configuration)). It reaches every message
+of that chat, the ones drawn before its configuration was attached included — a framework's
+`config` prop attaches it after the first render, and those messages are drawn again in the chat's
+frame with their content.
 
 ## Your own element, in a framework
 

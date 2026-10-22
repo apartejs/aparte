@@ -15,7 +15,7 @@ import type {
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { AparteConfig, renderingVersionOf } from '../../config/aparte-config.js';
-import { resolveConfig, runWithConfig } from '../../config/config-context.js';
+import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
@@ -266,7 +266,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *   document.querySelector('aparte-chat-bubble[message-id="a3"]').setSiblings(2, 0);
  * </script>
  */
-export class AparteChatBubble extends HTMLElement {
+export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _contentEl: HTMLDivElement | null = null;
   private _segmentsEl: HTMLDivElement | null = null;
   private _attachmentsEl: HTMLDivElement | null = null;
@@ -421,6 +421,30 @@ export class AparteChatBubble extends HTMLElement {
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
     this.addEventListener('click', this._onLinkClick);
+  }
+
+  /**
+   * The boundary above this bubble changed — under every wrapper the chat's own config is
+   * attached AFTER the first messages are drawn. When that brings another frame
+   * (`setBubbleShellRenderer`), the bubble is drawn again in it and its content put back;
+   * drawn once at connect, the messages present at first render kept the global frame
+   * while every later one wore the chat's.
+   */
+  aparteConfigChanged(next: AparteConfig, previous: AparteConfig): void {
+    if (!this.isConnected) return;
+    if ((next.getBubbleShellRenderer?.() ?? null) === (previous.getBubbleShellRenderer?.() ?? null)) return;
+    if (this._editing) return;   // an open editor is the reader's; the frame follows at the next draw
+    if (this._avatarCleanup) {
+      try { this._avatarCleanup(); } catch { /* ignore */ }
+      this._avatarCleanup = null;
+    }
+    this.replaceChildren();
+    this._render();
+    this._updateContent();
+    if (this._segments.length > 0) this._renderSegments();
+    this._updateAttachments();
+    this._updateTimestamp(this.getAttribute('timestamp'));
+    this._updateBranchPicker();
   }
 
   disconnectedCallback(): void {
