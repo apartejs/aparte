@@ -174,6 +174,13 @@ const withAbort = <T>(work: Promise<T>, signal: AbortSignal): Promise<T> =>
 /** The setup per config, so a hot-reloading host does not stack listeners. */
 const controllers = new WeakMap<AparteConfig, CompactionController>();
 
+/**
+ * The configs whose setup answers the window's requests for any chat on them: listening,
+ * and not scoped to one chat. Only those make another setup step aside — a setup with
+ * `listen: false`, or one scoped to another chat, answers nothing for the rest.
+ */
+const answering = new WeakSet<AparteConfig>();
+
 const asTarget = (candidate: unknown, depth = 0): CompactionTarget | null => {
     if (!candidate || typeof candidate !== 'object' || depth > 1) return null;
     const el = candidate as Partial<CompactionTarget> & { viewport?: unknown };
@@ -330,7 +337,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             : document.querySelector<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
         const owner = el ? resolveConfig(el) : aparteGlobalConfig;
         if (owner === config) return true;
-        if (controllers.has(owner)) return false;
+        if (answering.has(owner)) return false;
         return config === aparteGlobalConfig || owner === aparteGlobalConfig;
     };
     const onCompact = (e: Event): void => {
@@ -338,10 +345,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         void controller.compact((e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId);
     };
     const onAbort = (e: Event): void => {
-        if (!addressed(e) || !running) return;
-        // An abort that names another chat is not ours; an unnamed one stops whatever runs.
+        if (!running) return;
+        // An unnamed abort stops whatever runs. One that names a chat stops ours when it is
+        // the chat we compact — or, compacting an unnamed one, when it is a chat we answer.
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
-        if (targetId && running.targetId && targetId !== running.targetId) return;
+        if (targetId && (running.targetId ? targetId !== running.targetId : !addressed(e))) return;
         controller.abort();
     };
     const listening = options.listen !== false && typeof window !== 'undefined';
@@ -349,6 +357,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         window.addEventListener('aparte-compact', onCompact);
         window.addEventListener('aparte-abort', onAbort);
     }
+    if (listening && !scope) answering.add(config);
 
     const controller: CompactionController = {
         get running() {
@@ -367,7 +376,10 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                 window.removeEventListener('aparte-compact', onCompact);
                 window.removeEventListener('aparte-abort', onAbort);
             }
-            if (controllers.get(config) === controller) controllers.delete(config);
+            if (controllers.get(config) === controller) {
+                controllers.delete(config);
+                answering.delete(config);
+            }
         },
 
         async compact(requested?: string): Promise<CompactionOutcome> {

@@ -725,6 +725,22 @@ describe('setupCompaction — the window events and the page', () => {
         warn.mockRestore();
     });
 
+    it('a global setup that does not listen leaves the global chats to the instance setup', async () => {
+        const store = makeTarget(exchange(1, 'g'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'chat-global';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        setup({ selector: (m) => ({ keep: [], drop: m }), listen: false });   // driven by hand
+        const a = makeConfig('A');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        send('aparte-compact', { targetId: 'chat-global' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+    });
+
     it('listen: false ignores the window entirely', async () => {
         const target = makeTarget(exchange(1, 'x'));
         const { cfg, chat } = makeConfig();
