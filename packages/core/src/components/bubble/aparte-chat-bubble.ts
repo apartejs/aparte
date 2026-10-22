@@ -184,11 +184,12 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
  * @cssprop [--aparte-message-content-radius=var(--aparte-radius-bubble)] - Radius of the painted content box.
- * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the user's box.
+ * @cssprop [--aparte-message-content-padding-assistant=0] - Padding of the assistant's box, none by default: its reply is plain prose across the column.
  * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
- * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
- * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
+ * @cssprop [--aparte-message-content-text-user=var(--aparte-content-color)] - Colour of the user's words.
+ * @cssprop [--aparte-message-content-text-assistant=var(--aparte-content-color)] - Colour of the assistant's words.
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
  * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp; 0.28 × 32px is the 9px it used to be).

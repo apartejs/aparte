@@ -320,3 +320,53 @@ test('a checked menu item shows its check; the others keep the gutter', async ({
     expect(marks[1]!.visibility).toBe('hidden');
     expect(marks[2]!.visibility).toBe('hidden');
 });
+
+/*
+ * A message's ink, on the words. `--aparte-message-content-text-user` coloured the user's
+ * box, and the text inside painted `--aparte-content-color` over it, so the token reached no
+ * word. The relation tested: the words take the role's token, and without it the content
+ * colour wherever it is set, the message included.
+ */
+test("a role's ink reaches its words, and a content colour set on one message still does", async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'ink-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'ink-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const words = (role: string) => page.evaluate((r) => {
+        const el = document.querySelector(`aparte-chat-bubble[data-role="${r}"] .aparte-content`);
+        if (!el) throw new Error(`no ${r} text`);
+        return getComputedStyle(el).color;
+    }, role);
+    await expect.poll(() => words('user')).not.toBe('');
+    const assistantBefore = await words('assistant');
+
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-content-text-user', 'rgb(1, 2, 3)'));
+    expect(await words('user'), "the user's token reaches the user's words").toBe('rgb(1, 2, 3)');
+    expect(await words('assistant'), "and only the user's").toBe(assistantBefore);
+
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.removeProperty('--aparte-message-content-text-user');
+        const message = document.querySelector('aparte-chat-bubble[data-role="user"] .aparte-message') as HTMLElement;
+        // No role token here, whatever the page's skin says (the example's sets one): `initial`
+        // is the guaranteed-invalid value, so the fallback is what the words read.
+        message.style.setProperty('--aparte-message-content-text-user', 'initial');
+        message.style.setProperty('--aparte-content-color', 'rgb(4, 5, 6)');
+    });
+    expect(await words('user'), 'a content colour scoped on one message still reaches its words').toBe('rgb(4, 5, 6)');
+});
+
+test("the assistant's box takes its own padding token, none by default", async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'pad-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const padding = () => page.evaluate(() => {
+        const box = document.querySelector('aparte-chat-bubble[data-role="assistant"] .aparte-message-content');
+        if (!box) throw new Error('no assistant box');
+        return getComputedStyle(box).paddingTop;
+    });
+    await expect.poll(padding).toBe('0px');
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-content-padding-assistant', '7px'));
+    expect(await padding()).toBe('7px');
+});

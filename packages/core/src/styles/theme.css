@@ -192,6 +192,9 @@
      below (it was a frozen plum hex that outlived every rebrand); the assistant is
      plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
+  /* The assistant's box has no padding: its reply is prose across the column. A skin that
+     gives it a bubble sets this, as the user's box reads --aparte-message-content-padding. */
+  --aparte-message-content-padding-assistant: 0;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
@@ -1019,9 +1022,10 @@
      --aparte-scroll-btn-shadow: the whole ring is the knob, not its width. */
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
 
-  /* Messages */
-  --aparte-message-content-text-user: var(--aparte-text);
-  --aparte-message-content-text-assistant: var(--aparte-text);
+  /* Messages. The words' ink per role (`--aparte-message-content-text-user` / `-assistant`)
+     is declared nowhere on purpose: its default is the chat's `--aparte-content-color`, read
+     where the message is (components/bubble.css), so a content colour set on one message still
+     reaches its words. */
   /* The user's bubble: a wash of the accent over the card surface. It was a literal
      (`#efe7f6` light / `#2f2740` dark) — the one palette colour a consumer's eight-line
      rebrand could not reach, so a chat moved to a blue brand kept a plum bubble. Mixed
