@@ -36,4 +36,23 @@ describe('a custom shell action bar', () => {
         expect(bar.getAttribute('role')).toBe('group');
         expect(bar.getAttribute('aria-label')).toBe('Tools');
     });
+
+    it('keeps the labels a shell wrote itself through a language switch', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(() => SHELL
+            .replace('class="aparte-message"', 'class="aparte-message" role="article" aria-label="Note from Bot"')
+            .replace('class="aparte-action-bar"', 'class="aparte-action-bar" role="group" aria-label="Tools"'));
+        const el = mount();
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), messageActions: 'Actions du message', assistantResponse: 'Réponse' });
+        expect(el.querySelector('.aparte-message')!.getAttribute('aria-label')).toBe('Note from Bot');
+        expect(el.querySelector('.aparte-action-bar')!.getAttribute('aria-label')).toBe('Tools');
+    });
+
+    it('still relabels the names it wrote itself', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(() => SHELL);
+        const el = mount();
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), messageActions: 'Actions du message', assistantResponse: 'Réponse' });
+        expect(el.querySelector('.aparte-message')!.getAttribute('aria-label')).toBe('Réponse');
+        expect(el.querySelector('.aparte-action-bar')!.getAttribute('aria-label')).toBe('Actions du message');
+    });
 });
+

@@ -18,7 +18,7 @@ const SHELL = `<div class="aparte-message my-frame"><div class="aparte-message-c
 afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
 describe('a per-chat bubble frame', () => {
-    it('is applied to a bubble drawn before the chat config was attached, content kept', () => {
+    it('is applied to a bubble drawn before the chat config was attached, content kept', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const bubble = document.createElement('aparte-chat-bubble') as BubbleEl;
@@ -31,13 +31,14 @@ describe('a per-chat bubble frame', () => {
         const own = new AparteConfig();
         own.setBubbleShellRenderer(() => SHELL);
         attachConfig(host, own);
+        await Promise.resolve();   // drawn in a microtask, so an unmount in between costs nothing
 
         expect(bubble.querySelector('.my-frame'), 'the chat frame').not.toBeNull();
         expect(bubble.querySelector('.aparte-content')!.textContent).toContain('Hello there');
         expect(bubble.querySelectorAll('.aparte-message')).toHaveLength(1);
     });
 
-    it('leaves a bubble alone when the new config brings the same frame', () => {
+    it('leaves a bubble alone when the new config brings the same frame', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const bubble = document.createElement('aparte-chat-bubble') as BubbleEl;
@@ -46,6 +47,21 @@ describe('a per-chat bubble frame', () => {
         bubble.setContent('Hi');
         const drawn = bubble.querySelector('.aparte-message');
         attachConfig(host, new AparteConfig());   // no frame either side
+        await Promise.resolve();
         expect(bubble.querySelector('.aparte-message')).toBe(drawn);
+    });
+
+    it('is not drawn for a bubble removed before the microtask — a chat unmounting', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const bubble = document.createElement('aparte-chat-bubble') as BubbleEl;
+        bubble.setAttribute('message-id', 'm1');
+        host.appendChild(bubble);
+        const own = new AparteConfig();
+        own.setBubbleShellRenderer(() => SHELL);
+        attachConfig(host, own);
+        host.remove();
+        await Promise.resolve();
+        expect(bubble.querySelector('.my-frame')).toBeNull();
     });
 });

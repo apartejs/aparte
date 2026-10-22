@@ -167,7 +167,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
- * @attr {string} name - The display name in the header.
+ * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
@@ -242,7 +242,6 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * <aparte-chat-bubble
  *   message-id="a1"
  *   data-role="assistant"
- *   name="Assistant"
  *   content="Hello."
  * ></aparte-chat-bubble>
  *
@@ -258,7 +257,6 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * <aparte-chat-bubble
  *   message-id="a3"
  *   data-role="assistant"
- *   name="Assistant"
  *   content="A second take on the same question."
  * ></aparte-chat-bubble>
  *
@@ -283,6 +281,16 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _avatarCleanup: (() => void) | null = null;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
   private _siblingCount = 1;
+  /**
+   * Which accessible names the bubble wrote itself, and so may refresh on a language switch
+   * or a name change. A custom shell's own are its author's: refreshed, a root's or a bar's
+   * label of their own became "Assistant response" or "Message actions" at the first notify.
+   */
+  private _wroteRootLabel = false;
+  private _wroteBarLabel = false;
+  private _wroteArrowLabels = false;
+  /** The shell renderer the bubble was last drawn with (`null`: the default frame). */
+  private _drawnShell: unknown = null;
   /** Sibling index for tree-based branch navigation (set by setSiblings()) */
   private _siblingIndex = 0;
   /** True while the user-message inline editor is open. */
@@ -392,9 +400,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const set = (selector: string, label: string): void => {
       this.querySelector(selector)?.setAttribute('aria-label', label);
     };
-    set('.aparte-branch-prev', locale.previousResponse ?? 'Previous response');
-    set('.aparte-branch-next', locale.nextResponse ?? 'Next response');
-    set('.aparte-action-bar', locale.messageActions ?? 'Message actions');
+    if (this._wroteArrowLabels) {
+      set('.aparte-branch-prev', locale.previousResponse ?? 'Previous response');
+      set('.aparte-branch-next', locale.nextResponse ?? 'Next response');
+    }
+    if (this._wroteBarLabel) set('.aparte-action-bar', locale.messageActions ?? 'Message actions');
   }
 
   /**
@@ -429,15 +439,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * (`setBubbleShellRenderer`), the bubble is drawn again in it and its content put back;
    * drawn once at connect, the messages present at first render kept the global frame
    * while every later one wore the chat's.
+   *
+   * Deferred to a microtask: a wrapper detaches the boundary as it unmounts (Vue's
+   * `onBeforeUnmount`, Svelte's `onDestroy`), while the bubbles are still in the page, and
+   * redrawing every one of them just before their removal cost a frame per message. After
+   * the microtask a removed bubble is no longer connected, and repeated notices fold into one.
    */
-  aparteConfigChanged(next: AparteConfig, previous: AparteConfig): void {
-    if (!this.isConnected) return;
-    if ((next.getBubbleShellRenderer?.() ?? null) === (previous.getBubbleShellRenderer?.() ?? null)) return;
-    if (this._editing) return;   // an open editor is the reader's; the frame follows at the next draw
+  aparteConfigChanged(): void {
+    queueMicrotask(() => this._redrawFrameIfChanged());
+  }
+
+  private _redrawFrameIfChanged(): void {
+    if (!this.isConnected || this._editing) return;   // an open editor is the reader's: caught up when it closes
+    if ((this._cfg.getBubbleShellRenderer?.() ?? null) === this._drawnShell) return;
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
     }
+    // The incremental Markdown parser is bound to the content element being replaced: left
+    // bound, a stream would go on writing into the detached one and end blank.
+    this._resetMarkdownStream();
     this.replaceChildren();
     this._render();
     this._updateContent();
@@ -780,6 +801,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // .aparte-message + carry the region hooks; the queries below are null-guarded
     // so a partial shell degrades gracefully. See AparteBubbleShellRenderer.
     const shell = this._cfg.getBubbleShellRenderer?.();
+    this._drawnShell = shell ?? null;
+    // The default frame's names are all the bubble's; a custom one's, only those stamped below.
+    this._wroteRootLabel = this._wroteBarLabel = this._wroteArrowLabels = !shell;
     if (shell) {
       const out = runWithConfig(this._cfg, () => shell({ role: this._role, name: displayName, avatarInitial: initial }));
       if (out instanceof HTMLElement) this.replaceChildren(out);
@@ -832,6 +856,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (messageEl && !messageEl.hasAttribute('role')) {
       messageEl.setAttribute('role', 'article');
       messageEl.setAttribute('aria-label', this._getAriaLabel());
+      this._wroteRootLabel = true;
     }
 
     this._contentEl = this.querySelector('.aparte-content');
@@ -845,6 +870,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._actionBarEl.setAttribute('role', 'toolbar');
       if (!this._actionBarEl.hasAttribute('aria-label')) {
         this._actionBarEl.setAttribute('aria-label', this._cfg.getLocale().messageActions ?? 'Message actions');
+        this._wroteBarLabel = true;
       }
     }
     // ONE listener on the bar, not one per button: every build path rewrites the bar's
@@ -955,7 +981,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // A shell that declares its own `role` overrides the default (the shell contract
       // says so), and an override that kept the role and lost the name would be half
       // of one.
-      if (message.getAttribute('role') === 'article') {
+      if (this._wroteRootLabel && message.getAttribute('role') === 'article') {
         message.setAttribute('aria-label', this._getAriaLabel());
       }
     }
@@ -1006,7 +1032,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // The accessible name follows the author too — on a root whose role the bubble wrote,
     // the same rule as `_updateRole`.
     const message = this.querySelector('.aparte-message');
-    if (message?.getAttribute('role') === 'article') message.setAttribute('aria-label', this._getAriaLabel());
+    if (this._wroteRootLabel && message?.getAttribute('role') === 'article') message.setAttribute('aria-label', this._getAriaLabel());
   }
 
   private _updateContent(): void {
@@ -1785,6 +1811,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (this._contentEl) this._contentEl.style.display = '';
     this.querySelector('.aparte-message')?.removeAttribute('data-editing');
     this._editing = false;
+    // A frame change that arrived while the editor was open is drawn now.
+    this._redrawFrameIfChanged();
     this._redrawIfStale();
     this._updateActionBar();
 
