@@ -31,7 +31,7 @@ import { setRenderOptions, clearRenderOptions, type ArtifactsSetupOptions } from
  */
 export function setupArtifacts(options: ArtifactsSetupOptions = {}, config: AparteConfig = aparteGlobalConfig): () => void {
     const tool = createArtifactTool(options);
-    setRenderOptions(config, { preview: options.preview, onBinary: options.onBinary });
+    setRenderOptions(config, { preview: options.preview, onBinary: options.onBinary, open: options.open });
 
     config.registerTool(tool, artifactHandler);
     // The card, on the tool's result: the same renderer the segment gets, adapted to
@@ -67,5 +67,5 @@ export { artifactBlock, artifactSegment, artifactFromToolCall, ARTIFACT_TAG, ART
 export type { ArtifactSegment, ArtifactInput } from './segment.js';
 export { deriveArtifactKind } from './kinds.js';
 export { buildSafePreviewDocument, PREVIEW_CSP } from './preview-document.js';
-export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions } from './options.js';
+export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions, ArtifactOpenEventDetail } from './options.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';

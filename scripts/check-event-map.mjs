@@ -88,6 +88,19 @@ if (mapped.size === 0) {
     process.exit(1);
 }
 
+/*
+ * A plugin's event whose detail names the plugin's own type is typed by the plugin: a
+ * `declare global { interface HTMLElementEventMap { … } }` in its source, which core's map
+ * cannot hold (core does not depend on the plugin). Those entries count too, and only from
+ * a plugin's source — core's own events still belong in core's map.
+ */
+for (const file of files.filter((f) => f.startsWith('packages/plugins/'))) {
+    const text = readFileSync(file, 'utf8');
+    for (const block of text.matchAll(/interface (?:HTMLElementEventMap|\w*EventMap)\s*\{([^}]*)\}/g)) {
+        for (const entry of block[1].matchAll(/'(aparte-[a-z0-9-]+)':\s*CustomEvent</g)) mapped.add(entry[1]);
+    }
+}
+
 /**
  * Walk `new CustomEvent…(` / `dispatchLifecycleEvent(` to its matching paren so a
  * nested object or template literal cannot end the match early, and report whether

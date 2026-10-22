@@ -24,7 +24,7 @@ import { deriveArtifactKind } from './kinds.js';
 import { stripCodeFences, labelForKind } from './shared.js';
 import { streamHighlight } from './highlight.js';
 import { PREVIEW_CSP, buildSafePreviewDocument } from './preview-document.js';
-import { renderOptions } from './options.js';
+import { renderOptions, type ArtifactOpenEventDetail } from './options.js';
 import {
     renderBinaryFileArtifact,
     setupBinaryFileArtifact,
@@ -77,6 +77,8 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         // every language.
         const cfg = contextConfig();
         const downloadLabel = cfg.t('download');
+        const openLabel = cfg.t('openArtifact');
+        const openable = renderOptions(cfg).open === true;
         const previewLabel = cfg.t('preview');
         const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
@@ -139,6 +141,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                         <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             ${contextConfig().getIcon('download')}
                         </button>
+                        ${openable ? `<button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="open" title="${escapeAttr(openLabel)}" aria-label="${escapeAttr(openLabel)}">${contextConfig().getIcon('expand')}</button>` : ''}
                     </div>
                 </header>
                 <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
@@ -185,6 +188,12 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             const label = cfg.t('download');
             dl.setAttribute('title', label);
             dl.setAttribute('aria-label', label);
+        }
+        const open = element.querySelector('.aparte-art-card__btn[data-action="open"]');
+        if (open) {
+            const label = cfg.t('openArtifact');
+            open.setAttribute('title', label);
+            open.setAttribute('aria-label', label);
         }
         // Text only, and never `aria-selected` or `data-tab`: which pane is open is
         // the reader's state, not the locale's. A relabel that touched it would close
@@ -252,6 +261,19 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                     const candidate = tabs[(next + n * (step || 1) + tabs.length) % tabs.length];
                     if (candidate && !candidate.disabled) { select(candidate, true); return; }
                 }
+            });
+        }
+
+        // Open — handed to the app, which shows it where it wants. The LATEST segment.
+        const openBtn = element.querySelector<HTMLButtonElement>('[data-action="open"]');
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                const artifact = latestSegment.get(element) ?? segment;
+                element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
+                    bubbles: true,
+                    composed: true,
+                    detail: { artifact },
+                }));
             });
         }
 

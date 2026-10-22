@@ -365,6 +365,8 @@ export type AparteLocale = {
      * project shipped. Nothing on screen was in the wrong language.
      */
     download?: string;
+    /** The artifact card's Open button, when the app asked for it (default: "Open") */
+    openArtifact?: string;
     /**
      * The artifact card's two tabs (defaults: "Preview" / "Code").
      *
@@ -512,6 +514,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     selectSearchLabel: "Search options",
     loading: "Loading…",
     download: "Download",
+    openArtifact: "Open",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",
     sandboxErrorHint: "Common cause: the model produced invalid code (undefined variable, wrong argument type). Retry the request — the model may produce different code.",

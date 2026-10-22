@@ -88,9 +88,28 @@ setupArtifacts({
 | `tag` | `'artifact'` | The tag the grammar recognises. `false`: only the tool produces artifacts. |
 | `preview` | `true` | `false` removes the Preview tab; `(kind, body, title) => srcdoc` replaces the built-in document builder. |
 | `onBinary` | — | Produces the file for a binary kind; see below. |
+| `open` | `false` | An Open button on the card, which dispatches `aparte-artifact-open`; see below. |
 
 The built-in preview document is `buildSafePreviewDocument`, under the policy `PREVIEW_CSP`,
 declared both as the frame's attribute and in a `<meta>`.
+
+### Open it in a pane
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+
+setupArtifacts({ open: true });
+document.addEventListener('aparte-artifact-open', (e) => {
+  const { artifact } = e.detail;   // the artifact as the card shows it now
+  showInPreviewPane(artifact.title ?? '', artifact.content);
+});
+
+declare function showInPreviewPane(title: string, content: string): void;   // yours
+```
+
+The card does not know where your pane is, so it hands the artifact over: the event bubbles out of
+the chat, and you show it where you want, in a [split](/components/split/)'s other pane, a dialog
+or a tab. The button is off by default, since without a listener nothing would open.
 
 ### Binary files
 

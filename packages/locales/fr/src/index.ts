@@ -49,6 +49,7 @@ export const fr: AparteLocale = {
     selectSearchLabel: "Rechercher parmi les options",
     loading: "Chargement…",
     download: "Télécharger",
+    openArtifact: "Ouvrir",
     previewPending: "Appuyez sur Aperçu pour exécuter cet artefact.",
     sandboxError: "Le bac à sable a échoué pendant la génération.",
     sandboxErrorHint: "Cause fréquente : le modèle a produit du code invalide (variable non définie, mauvais type d'argument). Relancez la demande — le modèle peut produire un autre code.",

@@ -299,3 +299,38 @@ describe('a binary artifact', () => {
         expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     });
 });
+
+/*
+ * "Open this artifact in a pane": the card has no idea where the app's pane is, so it hands the
+ * artifact over with an event — and offers the button only when the app asked for it, since
+ * without a listener nothing would open (ratified decision #8).
+ */
+describe('the Open button', () => {
+    afterEach(() => { teardown?.(); teardown = null; aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
+    const segment = { id: 'a1', type: 'artifact', artifactType: 'html', title: 'Page', content: '<p>v1</p>', isStreaming: false };
+
+    it('is not offered unless the app asked', () => {
+        install();
+        expect(mountCard(segment).querySelector('[data-action="open"]')).toBeNull();
+    });
+
+    it("hands the latest artifact over in aparte-artifact-open, out to the page", () => {
+        install({ open: true });
+        const el = mountCard(segment);
+        const btn = el.querySelector<HTMLButtonElement>('[data-action="open"]')!;
+        expect(btn.getAttribute('aria-label')).toBe('Open');
+        getSegmentRenderer('artifact')!.update!(el, { ...segment, content: '<p>v2</p>' } as never);
+        const seen: string[] = [];
+        document.addEventListener('aparte-artifact-open', (e) => seen.push(e.detail.artifact.content));
+        btn.click();
+        expect(seen).toEqual(['<p>v2</p>']);
+    });
+
+    it('follows a language switch', () => {
+        install({ open: true });
+        const el = mountCard(segment);
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), openArtifact: 'Ouvrir' });
+        getSegmentRenderer('artifact')!.relabel?.(el, segment as never);
+        expect(el.querySelector('[data-action="open"]')!.getAttribute('aria-label')).toBe('Ouvrir');
+    });
+});
