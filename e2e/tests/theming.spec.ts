@@ -370,3 +370,35 @@ test("the assistant's box takes its own padding token, none by default", async (
     await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-content-padding-assistant', '7px'));
     expect(await padding()).toBe('7px');
 });
+
+/*
+ * The compaction notice. Its ground and ink were properties on the box at (0,2,1), under the
+ * role's rule at (0,3,0): the notice wore the user's bubble. Compared with probes that read the
+ * intended tokens in the same chat, so a palette change does not redden it.
+ */
+test('the compaction notice is drawn muted, not as the user bubble', async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'cmp', role: 'user', content: 'Summary of the earlier turns.', timestamp: Date.now(), compaction: true });
+    });
+    await expect(page.locator('aparte-chat-bubble[data-kind="compaction"] .aparte-content')).toHaveText(/Summary/);
+    const drawn = await page.evaluate(() => {
+        const bubble = document.querySelector('aparte-chat-bubble[data-kind="compaction"]')!;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'background: var(--aparte-surface-2); color: var(--aparte-text-muted); font-size: var(--aparte-font-size-sm)';
+        document.querySelector('aparte-chat')!.appendChild(probe);
+        const want = getComputedStyle(probe);
+        const box = getComputedStyle(bubble.querySelector('.aparte-message-content')!);
+        const words = getComputedStyle(bubble.querySelector('.aparte-content')!);
+        const out = {
+            bg: [box.backgroundColor, want.backgroundColor],
+            ink: [words.color, want.color],
+            size: [words.fontSize, want.fontSize],
+        };
+        probe.remove();
+        return out;
+    });
+    expect(drawn.bg[0], 'the muted ground').toBe(drawn.bg[1]);
+    expect(drawn.ink[0], 'the muted ink, on the words').toBe(drawn.ink[1]);
+    expect(drawn.size[0], 'the small size, on the words').toBe(drawn.size[1]);
+});
