@@ -96,6 +96,7 @@ export class AparteConversationController {
     private _onMessageAborted: (() => void) | null = null;
     private _onMessagePaused: (() => void) | null = null;
     private _onSelectConversation: ((e: Event) => void) | null = null;
+    private _onCompactDone: ((e: Event) => void) | null = null;
     private _unsubscribeManager: (() => void) | null = null;
     /** The manager the subscription above is on, so a replaced manager is re-subscribed. */
     private _subscribedTo: AparteConversationManager | null = null;
@@ -297,8 +298,18 @@ export class AparteConversationController {
             if (targetId && targetId !== this._binding.hostId) return;
             void this.setConversationId(evt.detail?.id ?? null);
         };
+        // A compaction rewrites the transcript (summary in, summarised turns out) and says
+        // so on `window` only. Nothing else fires: the turns it drops and the summary it adds
+        // were saved at the next message, and a reload before it brought the long transcript
+        // back. Saved now, for the chat it names.
+        this._onCompactDone = (e: Event) => {
+            const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
+            if (targetId && targetId !== this._binding.hostId) return;
+            queueMicrotask(() => this._persistActive());
+        };
         if (typeof window !== 'undefined') {
             window.addEventListener('aparte-conversation-select', this._onSelectConversation);
+            window.addEventListener('aparte-compact-done', this._onCompactDone);
         }
 
         // The manager subscription is installed by `_manager()` — the single lazy
@@ -360,6 +371,10 @@ export class AparteConversationController {
         if (this._onMessagePaused) {
             host.removeEventListener('aparte-message-paused', this._onMessagePaused);
             this._onMessagePaused = null;
+        }
+        if (this._onCompactDone && typeof window !== 'undefined') {
+            window.removeEventListener('aparte-compact-done', this._onCompactDone);
+            this._onCompactDone = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
             window.removeEventListener('aparte-conversation-select', this._onSelectConversation);
