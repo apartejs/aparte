@@ -183,6 +183,12 @@
   padding-inline: var(--aparte-space-5);
 }
 
+/* A panel whose content runs to its edges — a code view, a preview frame, a table — drops
+   the inset; the content brings its own. */
+.aparte-tabs__panel--flush {
+  padding: 0;
+}
+
 .aparte-tabs__panel:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
