@@ -21,7 +21,7 @@ aparteGlobalConfig.setIconProvider({
 ```
 
 Give the icons you replace, by name; the others keep core's. Each call replaces the whole set, so
-give every icon you replace in one call. A value is markup you trust: an SVG, an icon font's
+give every icon you replace in one call, or add to the set with `registerIcons`. A value is markup you trust: an SVG, an icon font's
 element, an emoji, an `<img>`. An SVG or an `<img>` with `class="aparte-icon"` takes its size from
 the place it sits, through `--aparte-icon-size`, as core's glyphs do; an icon font or an emoji is
 text, and follows the `font-size` around it. The [icon names](/reference/icons/) are listed with
@@ -41,6 +41,28 @@ document.querySelector('#new-chat')?.insertAdjacentHTML('afterbegin', sparklesIc
 
 `@aparte/core/icons` holds glyphs core does not draw itself, each imported by name, so a bundle
 carries the ones you use. Give one to a name core knows, or put it in your own markup.
+
+## An icon of your own
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { shareIcon } from '@aparte/core/icons';
+
+declare module '@aparte/core' {
+  interface AparteIconProvider {
+    share?: () => string;
+  }
+}
+
+aparteGlobalConfig.registerIcons({ share: () => shareIcon });
+aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', zones: ['bubble'] });
+```
+
+`registerIcons` adds to the set and keeps the rest, so a plugin and the app can each register
+theirs; a later `setIconProvider` replaces them all. The new name is then an icon like core's: an
+action's `icon`, `<aparte-composer-action icon="share">` and `<aparte-icon name="share">` find it.
+The `declare module` block types it, so `getIcon('share')` returns a `string`; a name nobody
+registered returns `undefined`.
 
 ## Avatars
 

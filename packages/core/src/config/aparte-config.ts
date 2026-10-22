@@ -500,7 +500,9 @@ export class AparteConfig {
     }
 
     /**
-     * Set a custom Icon provider (e.g., Lucide, FontAwesome, Material)
+     * Set a custom Icon provider (e.g., Lucide, FontAwesome, Material). It replaces the
+     * whole set, icons added with `registerIcons` included; a name it leaves out keeps
+     * core's drawing.
      * @param provider Object implementing AparteIconProvider interface
      */
     setIconProvider(provider: AparteIconProvider): void {
@@ -508,6 +510,21 @@ export class AparteConfig {
         // Notify so already-rendered components (bubble action bars, composer
         // controls re-rendered by consumers) can pick up the new icon set —
         // e.g. a live skin switch. setBubbleActions already notifies.
+        this._notify();
+    }
+
+    /**
+     * Add icons to the set, or redraw some of it, keeping the others. A name core does not
+     * draw is welcome: an action's `icon`, `<aparte-composer-action icon>` and
+     * `<aparte-icon name>` then find it. To type such a name, merge it into
+     * `AparteIconProvider`: `declare module '@aparte/core' { interface AparteIconProvider { share?: () => string } }`.
+     *
+     * @example
+     * aparteGlobalConfig.registerIcons({ share: () => '<svg class="aparte-icon" viewBox="0 0 24 24">…</svg>' });
+     * aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', zones: ['bubble'] });
+     */
+    registerIcons(icons: Record<string, () => string>): void {
+        this._iconProvider = { ...this._iconProvider, ...icons };
         this._notify();
     }
 
@@ -524,13 +541,17 @@ export class AparteConfig {
      * "icons.retry is not a function".
      */
     getIconProvider(): Required<AparteIconProvider> {
-        const registered = this._iconProvider;
-        const complete = {} as Required<AparteIconProvider>;
+        const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
+        const complete: Record<string, () => string> = {};
         for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
             const fn = registered?.[name];
             complete[name] = fn ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
         }
-        return complete;
+        // And the names core does not draw, so an action keyed on one finds it.
+        for (const [name, fn] of Object.entries(registered ?? {})) {
+            if (typeof fn === 'function' && !(name in complete)) complete[name] = fn;
+        }
+        return complete as Required<AparteIconProvider>;
     }
 
     /**
@@ -681,13 +702,15 @@ export class AparteConfig {
     }
 
     /**
-     * Get icon HTML string by name
-     * Falls back to textual representation if no provider is set
+     * An icon's markup by name: the registered drawing, else core's. A name neither holds
+     * returns `undefined` — core's names always resolve.
      */
-    getIcon(name: AparteIconName): string {
-        const icon = this._iconProvider?.[name];
-        if (icon) return icon();
-        return APARTE_DEFAULT_ICON_FALLBACKS[name];
+    getIcon(name: AparteIconName): string;
+    getIcon(name: string): string | undefined;
+    getIcon(name: string): string | undefined {
+        const icon = (this._iconProvider as Record<string, (() => string) | undefined> | undefined)?.[name];
+        if (typeof icon === 'function') return icon();
+        return (APARTE_DEFAULT_ICON_FALLBACKS as Record<string, string | undefined>)[name];
     }
 
     /**

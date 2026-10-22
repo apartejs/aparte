@@ -1,4 +1,4 @@
-import { resolveConfig, type AparteIconName } from '../../config/index.js';
+import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
@@ -32,8 +32,8 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @element aparte-composer-action
  *
  * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`.
- *   A key core's glyph set does not hold renders AS TEXT (`icon="star"` draws the word
- *   *star*), so bring your own set through `setIconProvider` or pass the SVG.
+ *   A key the icon set does not hold renders AS TEXT (`icon="star"` draws the word
+ *   *star*), so add it with `registerIcons` or pass the SVG.
  * @attr {string} label - Accessible label (also used as tooltip)
  * @attr {boolean} disabled - Disables the button
  * @attr {string} action-id - Identifies WHICH button fired; carried as
@@ -176,7 +176,7 @@ export class AparteComposerAction extends HTMLElement {
     private _resolveIcon(icon: string): string {
         if (!icon) return '';
         if (icon.trimStart().startsWith('<')) return icon;
-        return resolveConfig(this).getIcon(icon as AparteIconName) ?? icon;
+        return resolveConfig(this).getIcon(icon) ?? icon;
     }
 }
 
