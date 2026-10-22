@@ -233,7 +233,7 @@ export default defineConfig({
         // point under that, as every floor here.
         'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
-        'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 61, branches: 85 },
+        'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 63, branches: 85 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
         'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 59, branches: 86 },
