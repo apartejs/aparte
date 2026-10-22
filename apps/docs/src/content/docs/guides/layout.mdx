@@ -204,7 +204,9 @@ aparte-chat[data-empty] .welcome { display: block; }
 <Variant id="layout-empty-state" caption="Send one message: the composer slides from the middle to the bottom." />
 
 `center-empty` holds the composer in the middle of an empty chat and slides it down with the first
-message. While the chat is empty it carries `data-empty`, the hook for the greeting, which goes
+message. The slide waits for a person: a conversation a script restores before the first key,
+pointer or send lands at once, without moving the page under someone who did nothing; the chat
+says it is past that point with `data-glide`. While the chat is empty it carries `data-empty`, the hook for the greeting, which goes
 away as that message lands;
 [`<aparte-suggestions empty-only>`](/components/suggestions/) shows its starters on the same
 condition. In the framework packages the switch is `centerWhenEmpty`, the greeting goes in

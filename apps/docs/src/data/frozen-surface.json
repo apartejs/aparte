@@ -18,6 +18,7 @@
         "attachments",
         "center-empty",
         "data-empty",
+        "data-glide",
         "disabled",
         "framework-managed",
         "overlay-composer",

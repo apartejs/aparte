@@ -39,7 +39,10 @@ describe.each([
     ['.aparte-chat-container--auto-center', '.aparte-chat-container--auto-center[data-aparte-empty]', '.aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework'],
 ])('%s', (shellSel, emptySel, viewportSel) => {
     it('centres with a spacer whose flex-grow animates, not with justify-content', () => {
-        expect(rulesFor(`${shellSel}::after`).join(' ')).toMatch(/transition:\s*flex-grow/);
+        // Animates once a person is in the page (`data-glide`): before it, a conversation a
+        // script restores on load lands in one frame (the-first-restore-does-not-slide.test.ts).
+        expect(rulesFor(`${shellSel}[data-glide]::after`).join(' ')).toMatch(/transition:\s*flex-grow/);
+        expect(rulesFor(`${shellSel}::after`).join(' ')).not.toMatch(/transition:/);
         expect(rulesFor(`${emptySel}::after`).join(' ')).toMatch(/flex-grow:\s*1/);
         expect(rulesFor(emptySel).join(' ')).not.toMatch(/justify-content:\s*center/);
     });

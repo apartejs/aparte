@@ -6,6 +6,7 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
 import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
+import { gateGlide } from './glide-gate.js';
 
 /**
  * AparteChat - The Shell
@@ -84,6 +85,9 @@ import { isTranscriptEmpty } from '../../utils/transcript.js';
  *   With or without `center-empty`: the stylesheet centers the composer through
  *   `aparte-chat[center-empty][data-empty]`, and an app styles or scripts its own empty state
  *   against `aparte-chat[data-empty]`. Read-only.
+ * @attr {boolean} data-glide - Reflected BY the element at the first key or pointer in the page, or
+ *   the first send: from then on `center-empty` slides the composer between the welcome and the
+ *   conversation. Before it, a conversation a script restores on load lands in one frame. Read-only.
  * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
  *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
@@ -127,6 +131,7 @@ export class AparteChat extends HTMLElement {
 
   private _observer: MutationObserver | null = null;
   private _loadingObserver: MutationObserver | null = null;
+  private _offGlide: (() => void) | null = null;
   /** Waits for a `<aparte-chat-viewport>` child to appear — see `_watchForViewport`. */
   private _childObserver: MutationObserver | null = null;
   /** The viewport is loading and the gate is on — see `_applyLoadingGate`. */
@@ -149,9 +154,13 @@ export class AparteChat extends HTMLElement {
     this._syncEmptyWatch();
     this._syncLoadingWatch();
     this._watchForViewport();
+    this._offGlide?.();
+    this._offGlide = gateGlide(this);
   }
 
   disconnectedCallback(): void {
+    this._offGlide?.();
+    this._offGlide = null;
     this._observer?.disconnect();
     this._observer = null;
     this._loadingObserver?.disconnect();

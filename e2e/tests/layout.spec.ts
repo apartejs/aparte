@@ -524,3 +524,48 @@ test.describe("the application shell, at the sidebar's own breakpoint", () => {
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 });
+
+/*
+ * `center-empty` and a conversation restored by script on load. The welcome painted, then the
+ * composer slid down under a reader who had done nothing — a layout shift. The slide now waits
+ * for a person (`data-glide`): before it, a restore lands in one frame; after a click, it glides.
+ */
+test.describe('center-empty and a restore', () => {
+    test('a restore before any input lands in one frame; after a click, it glides', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        await installLlmMock(page);
+        await page.goto('/');
+        const chat = page.locator('aparte-chat[center-empty]');
+        await expect(chat).toHaveAttribute('data-empty', '');
+        const restoreAndSample = () => page.evaluate(async () => {
+            const host = document.querySelector('aparte-chat[center-empty]')!;
+            const composer = host.querySelector('aparte-composer')!;
+            const vp = host.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+            const start = Math.round(composer.getBoundingClientRect().top);
+            vp.appendMessage({ id: `r-${Math.random()}`, role: 'user', content: 'restored', timestamp: Date.now() });
+            const tops: number[] = [];
+            for (let i = 0; i < 24; i++) {
+                await new Promise((r) => requestAnimationFrame(r));
+                tops.push(Math.round(composer.getBoundingClientRect().top));
+            }
+            const end = tops[tops.length - 1]!;
+            // How much of the way down the composer still had to go on the first frame after the restore.
+            return { left: (tops[0]! - end) / (start - end), start, tops, glide: host.hasAttribute('data-glide') };
+        });
+
+        const before = await restoreAndSample();
+        expect(before.glide, 'no input yet').toBe(false);
+        expect(before.start - before.tops[23]!, 'the welcome centred the composer: there is a slide to measure').toBeLessThan(-80);
+        expect(Math.abs(before.left), 'the composer lands in one frame').toBeLessThan(0.2);
+
+        // A real click, on nothing in particular: a person is in the page now.
+        await page.mouse.click(5, 5);
+        await expect(chat).toHaveAttribute('data-glide');
+        await page.evaluate(() => (document.querySelector('aparte-chat[center-empty] aparte-chat-viewport') as unknown as { setMessages(m: object[]): void }).setMessages([]));
+        await expect(chat).toHaveAttribute('data-empty');
+        await page.waitForTimeout(500);   // the glide back up settles
+        const after = await restoreAndSample();
+        expect(Math.abs(after.left), 'after a click, the composer is still on its way on the first frame').toBeGreaterThan(0.5);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+});

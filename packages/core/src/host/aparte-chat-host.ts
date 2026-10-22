@@ -16,6 +16,7 @@ import type { AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig, attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
 import { dispatchLifecycleEvent } from '../client/lifecycle-events.js';
+import { gateGlide } from '../components/chat/glide-gate.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
@@ -233,6 +234,8 @@ export class AparteChatHost {
 
         this._installHostMethods(host);
         this._installLifecycleListeners(host);
+        // `centerWhenEmpty` slides only once a person is in the page (see glide-gate.ts).
+        this._teardown.push(gateGlide(host));
         this._installViewportListeners();
         this._createController(host);
 
