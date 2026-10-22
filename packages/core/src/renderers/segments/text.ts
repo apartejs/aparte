@@ -7,7 +7,7 @@
  */
 import { escapeHtml } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
-import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../markdown-stream.js';
+import { writeStreamedMarkdown, highlightMarkdownFences, type AparteMarkdownStreamHost } from '../markdown-stream.js';
 import type {
     AparteSegmentRenderer,
     AparteTextSegment,
@@ -23,6 +23,16 @@ import type {
 export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
     type: 'text',
     render: (segment) => `<div class="aparte-segment aparte-segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="aparte-segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
+    /*
+     * A fence in a settled text segment is highlighted, as the thinking renderer does for
+     * its own. The parser turns a streamed fence into a `code` segment, so this only ever
+     * mattered for text built by hand (`setSegments`, a restored message, a server's) — and
+     * the bubble's own pass skips any message that has segments, so that fence stayed bare.
+     */
+    setup: (el, segment) => {
+        const contentEl = el.querySelector('.aparte-segment-content');
+        if (contentEl && segment.isStreaming === false) highlightMarkdownFences(contentEl);
+    },
     update: (el, segment) => {
         const contentEl = el.querySelector('.aparte-segment-content');
         if (!contentEl) return;
@@ -32,6 +42,7 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
             segment.content,
             segment.isStreaming !== false,
         );
+        if (segment.isStreaming === false) highlightMarkdownFences(contentEl);
     },
     getStyles: () => ``
 };
