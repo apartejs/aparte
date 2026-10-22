@@ -63,6 +63,7 @@ export type {
     AparteCodeSegment,
     AparteErrorSegment,
     AparteSegment,
+    AparteSegmentTypes,
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteSegmentType,

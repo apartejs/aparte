@@ -31,6 +31,13 @@ export const ARTIFACT_TAG = 'artifact';
  * switches on. `content` accumulates while a tagged block streams and is complete at
  * once for a tool call.
  */
+/** The artifact joins core's segment union, so `addSegment(id, artifactSegment(…))` takes it as it is. */
+declare module '@aparte/core' {
+    interface AparteSegmentTypes {
+        artifact: ArtifactSegment;
+    }
+}
+
 export interface ArtifactSegment extends AparteSegmentBase {
     type: typeof ARTIFACT_SEGMENT_TYPE;
     /** Standard MIME type, verbatim from the tool input or the tag's `type` / `mimeType` attribute. */

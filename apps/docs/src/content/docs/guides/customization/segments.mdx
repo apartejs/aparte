@@ -15,11 +15,18 @@ import Variant from '../../../../components/catalog/Variant.astro';
 
 ```ts
 import { registerSegmentRenderer } from '@aparte/core';
-import type { AparteSegment, AparteSegmentBase } from '@aparte/core';
+import type { AparteSegmentBase } from '@aparte/core';
 
 interface ChartSegment extends AparteSegmentBase {
   type: 'chart';
   values: number[];
+}
+
+// The chart joins core's segment union, so every method that takes a segment takes it.
+declare module '@aparte/core' {
+  interface AparteSegmentTypes {
+    chart: ChartSegment;
+  }
 }
 
 registerSegmentRenderer<ChartSegment>({
@@ -35,13 +42,13 @@ registerSegmentRenderer<ChartSegment>({
 
 // A chart in the reply a1, once it is on screen:
 const chart: ChartSegment = { id: 'c1', type: 'chart', values: [3, 5, 2] };
-document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart as unknown as AparteSegment);
+document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart);
 ```
 
 A reply is a list of typed parts, segments, and a renderer draws every segment of its type. It
 returns an element, or a string of markup with a single root element that you escape yourself.
-`getStyles()` hands the renderer's CSS to the page once. The methods that take a segment are typed
-for core's own types, hence the cast for one of yours.
+`getStyles()` hands the renderer's CSS to the page once. The `declare module` block adds your type
+to `AparteSegment`, the union every method and `AparteMessage.segments` take, one key per `type`.
 
 ## How a segment reaches a message
 

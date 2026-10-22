@@ -33,6 +33,7 @@ export type {
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
     AparteSegment,
+    AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
     AparteThinkingSegment,

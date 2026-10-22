@@ -317,7 +317,24 @@ export type AparteSegment =
     | AparteCodeSegment
     | AparteErrorSegment
     | AparteCustomSegment
-    | AparteToolCallSegment;
+    | AparteToolCallSegment
+    | AparteSegmentTypes[keyof AparteSegmentTypes];
+
+/**
+ * The segment types an app or a plugin adds, one key per `type`, merged into this interface;
+ * each one joins {@link AparteSegment}, so `addSegment`, `appendMessage` and
+ * `AparteMessage.segments` take it without a cast.
+ *
+ * @example
+ * declare module '@aparte/core' {
+ *   interface AparteSegmentTypes {
+ *     chart: AparteSegmentBase & { type: 'chart'; data: { label: string; value: number }[] };
+ *   }
+ * }
+ * viewport.addSegment('a1', { id: 'c1', type: 'chart', data: [{ label: 'Q1', value: 4 }] });
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- an interface to merge into, empty by design
+export interface AparteSegmentTypes {}
 
 /** Segment type discriminator values */
 export type AparteSegmentType = AparteSegment['type'];
