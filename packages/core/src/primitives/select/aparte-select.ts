@@ -149,6 +149,8 @@ export class AparteSelect extends HTMLElement {
         // highlight on the selected option, throwing away where the arrows had got to.
         const wantsOpen = this.hasAttribute('open') && !this._isOpen;
         this._render();
+        // A `searchable` set or removed while detached went past attributeChangedCallback.
+        this._applySearchable();
         this._applyDisabled();
         this._setupEventListeners();
         this._setupMutationObserver();
