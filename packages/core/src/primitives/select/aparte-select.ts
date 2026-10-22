@@ -45,7 +45,7 @@ export interface AparteSelectChangeDetail {
  * @attr {string} value - The selected option's value.
  * @attr {string} placeholder - Shown while nothing is selected.
  * @attr {boolean} disabled - Blocks opening the dropdown.
- * @attr {boolean} searchable - Adds a filter field above the options. Read on the first render only.
+ * @attr {boolean} searchable - Adds a filter field above the options. Set or removed later, the field comes or goes.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
  * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
@@ -190,6 +190,7 @@ export class AparteSelect extends HTMLElement {
             // holds the selected value in the button shape, so the two cannot drift.
             this._updateTriggerLabel();
         }
+        if (name === 'searchable') this._applySearchable();
         if (name === 'disabled') {
             this._applyDisabled();
             // The symmetric half of the close `_applyDisabled()` does on the way in:
@@ -227,6 +228,50 @@ export class AparteSelect extends HTMLElement {
     // ─────────────────────────────────────────────────────────────────────────
     // Rendering
     // ─────────────────────────────────────────────────────────────────────────
+
+    /** The filter field: the combobox of a `searchable` select, since it takes the focus. */
+    private _buildSearchInput(cfg: ReturnType<typeof resolveConfig>): HTMLInputElement {
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'aparte-select-search';
+        // Two locale keys, not literals. The placeholder is VISIBLE text — a
+        // French page opened the model picker and read "Search..." in the box —
+        // and the aria-label is the field's only name.
+        searchInput.placeholder = cfg.t('selectSearchPlaceholder') || 'Search…';
+        searchInput.setAttribute('aria-label', cfg.t('selectSearchLabel') || 'Search options');
+        // This field takes the focus, so it is the combobox (see the trigger in `_render`).
+        searchInput.setAttribute('role', 'combobox');
+        searchInput.setAttribute('aria-haspopup', 'listbox');
+        searchInput.setAttribute('aria-autocomplete', 'list');
+        searchInput.setAttribute('aria-expanded', String(this._isOpen));
+        return searchInput;
+    }
+
+    /**
+     * `searchable` set or removed after the first render: the field comes or goes, and the
+     * combobox moves with it. It was read on the first render only, so a framework that
+     * binds it a beat late — Angular's `[searchable]` inside an `@if` — never got a field.
+     */
+    private _applySearchable(): void {
+        if (!this._dropdown || !this._trigger) return;
+        const wanted = this.hasAttribute('searchable');
+        if (wanted === Boolean(this._searchInput)) return;
+        if (this._isOpen) this._closeDropdown();
+        const listboxId = this._trigger.getAttribute('aria-controls');
+        if (wanted) {
+            const input = this._buildSearchInput(resolveConfig(this));
+            if (listboxId) input.setAttribute('aria-controls', listboxId);
+            this._dropdown.prepend(input);
+            this._searchInput = input;
+            input.addEventListener('input', this._boundHandleSearchInput);
+            this._trigger.setAttribute('role', 'button');
+        } else {
+            this._searchInput!.removeEventListener('input', this._boundHandleSearchInput);
+            this._searchInput!.remove();
+            this._searchInput = null;
+            this._trigger.setAttribute('role', 'combobox');
+        }
+    }
 
     private _render(): void {
         const placeholder = this.getAttribute('placeholder') || 'Select...';
@@ -290,23 +335,8 @@ export class AparteSelect extends HTMLElement {
         dropdown.className = 'aparte-select-dropdown';
         dropdown.hidden = !this._isOpen;
 
-        let searchInput: HTMLInputElement | null = null;
-        if (searchable) {
-            searchInput = document.createElement('input');
-            searchInput.type = 'text';
-            searchInput.className = 'aparte-select-search';
-            // Two locale keys, not literals. The placeholder is VISIBLE text — a
-            // French page opened the model picker and read "Search..." in the box —
-            // and the aria-label is the field's only name.
-            searchInput.placeholder = cfg.t('selectSearchPlaceholder') || 'Search…';
-            searchInput.setAttribute('aria-label', cfg.t('selectSearchLabel') || 'Search options');
-            // This field takes the focus, so it is the combobox (see the trigger above).
-            searchInput.setAttribute('role', 'combobox');
-            searchInput.setAttribute('aria-haspopup', 'listbox');
-            searchInput.setAttribute('aria-autocomplete', 'list');
-            searchInput.setAttribute('aria-expanded', String(this._isOpen));
-            dropdown.appendChild(searchInput);
-        }
+        const searchInput = searchable ? this._buildSearchInput(cfg) : null;
+        if (searchInput) dropdown.appendChild(searchInput);
 
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'aparte-select-options';

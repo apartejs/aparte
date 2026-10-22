@@ -260,3 +260,29 @@ describe('open written after mount, and at mount', () => {
         expect(dropdown(el).hasAttribute('hidden')).toBe(true);
     });
 });
+
+describe('searchable after mount', () => {
+    it('adds the filter field, which filters, and gives it the combobox; removing it takes both back', () => {
+        // Read on the first render only, it never arrived for a framework that binds it a beat
+        // late — Angular's [searchable] inside an @if.
+        const el = mountSelect({}, ['apple', 'banana']);
+        const trigger = el.querySelector('.aparte-select-trigger')!;
+        expect(el.querySelector('.aparte-select-search')).toBeNull();
+        expect(trigger.getAttribute('role')).toBe('combobox');
+
+        el.setAttribute('searchable', '');
+        const input = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(input).not.toBeNull();
+        expect(input.getAttribute('role')).toBe('combobox');
+        expect(input.getAttribute('aria-controls')).toBe(trigger.getAttribute('aria-controls'));
+        expect(trigger.getAttribute('role')).toBe('button');
+        input.value = 'ban';
+        input.dispatchEvent(new Event('input'));
+        const visible = [...el.querySelectorAll<HTMLElement>('aparte-option')].filter((o) => o.style.display !== 'none').map((o) => o.getAttribute('value'));
+        expect(visible).toEqual(['banana']);
+
+        el.removeAttribute('searchable');
+        expect(el.querySelector('.aparte-select-search')).toBeNull();
+        expect(trigger.getAttribute('role')).toBe('combobox');
+    });
+});
