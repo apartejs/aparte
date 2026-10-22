@@ -109,7 +109,9 @@ declare function showInPreviewPane(title: string, content: string): void;   // y
 
 The card does not know where your pane is, so it hands the artifact over: the event bubbles out of
 the chat, and you show it where you want, in a [split](/components/split/)'s other pane, a dialog
-or a tab. The button is off by default, since without a listener nothing would open.
+or a tab. The detail is an `ArtifactOpenEventDetail`, typed on the element, the document and the
+window as soon as the plugin is imported. The button is off by default, since without a listener
+nothing would open.
 
 ### Binary files
 
