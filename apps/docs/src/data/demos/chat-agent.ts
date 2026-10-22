@@ -348,9 +348,8 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
     {
         id: 'scroll-rail',
         title: 'A tick per question beside a long conversation',
-        html: `<!-- A direct child of the chat. Scroll the transcript, or press a tick. A reading column
-     (--aparte-message-max-width) leaves the rail its own margin. -->
-<aparte-chat style="height: 20rem; --aparte-message-max-width: 34rem">
+        html: `<!-- A direct child of the chat. Scroll the transcript, or press a tick. -->
+<aparte-chat style="height: 20rem">
   <aparte-chat-viewport>${LONG_THREAD}
   </aparte-chat-viewport>
   <aparte-scroll-rail></aparte-scroll-rail>
@@ -367,7 +366,7 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
     {
         id: 'scroll-rail-every',
         title: 'A tick for every message',
-        html: `<aparte-chat style="height: 20rem; --aparte-message-max-width: 34rem">
+        html: `<aparte-chat style="height: 20rem">
   <aparte-chat-viewport>${LONG_THREAD}
   </aparte-chat-viewport>
   <aparte-scroll-rail every="message"></aparte-scroll-rail>

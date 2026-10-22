@@ -966,6 +966,7 @@
     "--aparte-scroll-rail-block-start",
     "--aparte-scroll-rail-gap",
     "--aparte-scroll-rail-hit-size",
+    "--aparte-scroll-rail-room",
     "--aparte-scroll-rail-share",
     "--aparte-scroll-rail-tick-size",
     "--aparte-scroll-rail-tick-thickness",

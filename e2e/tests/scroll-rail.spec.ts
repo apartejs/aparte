@@ -174,3 +174,30 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
 
     expect(errors).toEqual([]);
 });
+
+/*
+ * The rail's lane. It floats over the transcript's end edge, and in a column that reaches that
+ * edge — a 760px chat with no reading-width cap — the long lines ran under the ticks.
+ */
+test('no line runs under the rail, and the composer keeps the messages\' end edge', async ({ page }) => {
+    await page.setViewportSize({ width: 760, height: 900 });
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-max-width', 'none'));
+    for (let i = 1; i <= 3; i++) await chat.sendAndSettle(`Question ${i}: ${'a long line that should reach the end edge of the column '.repeat(4)}`);
+    const rail = page.locator('aparte-scroll-rail');
+    await expect(rail.locator('.aparte-scroll-rail__tick')).toHaveCount(3);
+    const drawn = await page.evaluate(() => {
+        const railBox = document.querySelector('aparte-scroll-rail')!.getBoundingClientRect();
+        const texts = [...document.querySelectorAll('aparte-chat-bubble .aparte-content, aparte-chat-bubble .aparte-segments')]
+            .map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
+        const row = document.querySelector('aparte-chat-bubble[data-role="assistant"] .aparte-message')!.getBoundingClientRect();
+        const shell = document.querySelector('.aparte-composer-shell')!.getBoundingClientRect();
+        return { railStart: railBox.left, textEnd: Math.max(...texts.map((r) => r.right)), rowEnd: row.right, shellEnd: shell.right, n: texts.length };
+    });
+    expect(drawn.n, 'text to measure').toBeGreaterThan(2);
+    expect(drawn.textEnd, `the text ends at ${drawn.textEnd}, the rail starts at ${drawn.railStart}`).toBeLessThanOrEqual(drawn.railStart);
+    expect(Math.abs(drawn.shellEnd - drawn.rowEnd), 'the composer and the messages share their end edge').toBeLessThanOrEqual(1.5);
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});

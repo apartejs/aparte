@@ -909,6 +909,9 @@
      pressable zone: the rail clips, so a column narrower than the zone would cut the
      target back below 24px on the very edge a reader aims at. */
   --aparte-scroll-rail-width: max(var(--aparte-scroll-rail-hit-size), calc(var(--aparte-scroll-rail-tick-size) * 1.6));
+  /* The lane the transcript and the composer leave at their end edge while a rail is in the
+     chat: the rail's column plus its inset, so no line runs under the ticks. */
+  --aparte-scroll-rail-room: calc(var(--aparte-scroll-rail-width) + var(--aparte-space-2));
   /* The distance between two ticks IS the zone minus the line: gap + thickness = the
      24px pitch, so the zones tile edge to edge. Growing the zone alone would have
      overlapped them by 14px and left the z-order to decide every press. */
