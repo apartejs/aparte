@@ -620,6 +620,28 @@ interface CallContext {
 }
 
 /**
+ * A refused call: the row says so and the model reads why — the person's own words when
+ * they gave them, else the fixed sentence, byte-identical to core's. Answers `'stop-turn'`:
+ * the turn's other calls must not run, but the loop takes another turn so the model reads it.
+ */
+function refuse(
+    ctx: CallContext,
+    call: StreamToolCall,
+    decision: { reason?: string; instruction?: string },
+): 'stop-turn' {
+    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
+    // empty `tool` message.
+    const rejection = decision.reason?.trim()
+        || (decision.instruction
+            ? `The user rejected this tool call and said: ${decision.instruction}`
+            : 'Tool execution was rejected by the user.');
+    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
+    ctx.declareCall(call);
+    ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+    return 'stop-turn';
+}
+
+/**
  * One call, from its gate to its `tool` message: the ONLY place the loop decides what a
  * call does. The stream reader calls it for each `tool_use` as it arrives; one function,
  * so no second path can drift from it the way core's two loops did before D1.
@@ -650,6 +672,9 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
             return 'stop-run';
         }
+        // The page gates a browser tool as it would in its own loop (its `needsApproval`,
+        // its policy): a refusal comes back as a decision, and is the model's to read.
+        if (answer?.kind === 'decision' && !answer.approved) return refuse(ctx, call, answer);
         if (!answer || answer.kind === 'decision') return { defer: 'external' };
         if (answer.kind === 'failed') {
             // Like a crashing handler: the row hears it, then the run ends on it.
@@ -751,15 +776,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
              * `{ approved }` and never an instruction, so both loops agreed on
              * a case neither exercised. It supplies one now.
              */
-            // Truthiness, like `instruction` beside it: an empty `reason` is no
-            // reason, not an empty `tool` message.
-            const rejection = decision.reason?.trim()
-                || (decision.instruction
-                    ? `The user rejected this tool call and said: ${decision.instruction}`
-                    : 'Tool execution was rejected by the user.');
-            ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
-            ctx.declareCall(call);
-            ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+            refuse(ctx, call, decision);
             /*
              * `'stop-turn'`, not `'stop-run'`, and the asymmetry is the point.
              * The remaining tool calls of this turn must not run — the

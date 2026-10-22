@@ -1859,6 +1859,20 @@ export class AparteClient {
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
             } else if (p.reason === 'external') {
+                // The page's gate first, the one its own loop applies: a browser tool asked
+                // for by a server or an AG-UI agent used to run without its `needsApproval`
+                // or the approval policy ever being consulted.
+                let gate: Awaited<ReturnType<StreamApprovalResolver>> | null | undefined;
+                try {
+                    gate = await this._gateBrowserTool(call, signal, targetElement);
+                } catch (error: unknown) {
+                    if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
+                }
+                if (gate === undefined || signal.aborted) return undefined;
+                if (gate && !gate.approved) {
+                    outcomes[p.toolCallId] = { kind: 'decision', ...gate };
+                    continue;
+                }
                 const handler = this._config.getToolHandler(p.name);
                 try {
                     if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
@@ -1875,6 +1889,25 @@ export class AparteClient {
             }
         }
         return signal.aborted ? undefined : outcomes;
+    }
+
+    /**
+     * Whether a browser tool a paused run asked for may run, decided as a run in the page
+     * decides it. With a host `approvalResolver`, the tool's own `needsApproval` says whether
+     * to ask and the resolver answers; without one, the approval policy and `needsApproval`
+     * rule (`ruleOnToolCall`) and the default channel asks. `null` when nothing gates the
+     * call, the decision when something did, `undefined` when nobody answered.
+     */
+    private async _gateBrowserTool(
+        call: AparteToolCall,
+        signal: AbortSignal,
+        targetElement: AparteChatTargetElement,
+    ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
+        const gated = this.options.approvalResolver
+            ? Boolean(this._config.getTools().find((t) => t.name === call.name)?.needsApproval)
+            : this._config.ruleOnToolCall(call).verdict !== 'allow';
+        if (!gated) return null;
+        return (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
     }
 
     /**

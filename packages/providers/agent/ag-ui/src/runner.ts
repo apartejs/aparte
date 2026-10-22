@@ -108,6 +108,12 @@ function resultText(content: unknown): string {
     return JSON.stringify(content);
 }
 
+/** What the model reads about a refusal: the person's words, else core's fixed sentence. */
+function rejectionText(decision: { reason?: string; instruction?: string }): string {
+    return decision.reason?.trim()
+        || (decision.instruction ? `The user rejected this tool call and said: ${decision.instruction}` : 'Tool execution was rejected by the user.');
+}
+
 /** The answer a resumed interrupt carries, in the shape AG-UI (and TanStack AI) reads. */
 function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | undefined): AgUiResumeItem {
     if (!outcome) return { interruptId: interrupt.id, status: 'cancelled' };
@@ -163,12 +169,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // batch, since the protocol refuses a partial one.
         const messages: AgUiMessage[] = toAgUiMessages(request.messages);
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
-            if (interrupted.has(toolCallId) || outcome.kind === 'decision') continue;
+            if (interrupted.has(toolCallId)) continue;
+            // A page tool the page refused (its `needsApproval`, its policy): the refusal is
+            // the call's result, the sentence the model reads. An approval needs no message.
+            if (outcome.kind === 'decision' && outcome.approved) continue;
             messages.push({
                 id: `aparte-result-${toolCallId}`,
                 role: 'tool',
                 toolCallId,
-                content: outcome.kind === 'failed' ? `Error: ${outcome.error}` : outcome.content,
+                content: outcome.kind === 'failed' ? `Error: ${outcome.error}`
+                    : outcome.kind === 'decision' ? rejectionText(outcome)
+                    : outcome.content,
             });
         }
         const resume = ticket?.interrupts.length
@@ -287,9 +298,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 if (outcome.approved) {
                     emit({ type: 'tool-approved', toolCallId });
                 } else {
-                    const reason = outcome.reason?.trim()
-                        || (outcome.instruction ? `The user rejected this tool call and said: ${outcome.instruction}` : 'Tool execution was rejected by the user.');
-                    emit({ type: 'tool-rejected', toolCallId, reason });
+                    emit({ type: 'tool-rejected', toolCallId, reason: rejectionText(outcome) });
                     rejected.add(toolCallId);
                 }
             }

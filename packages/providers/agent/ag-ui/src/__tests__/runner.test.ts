@@ -317,6 +317,18 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(b.events.find((e) => e.type === 'tool-resolved')).toMatchObject({ toolCallId: 'q1', result: 'The blue one.' });
     });
 
+    it('sends a frontend tool the page refused back as its tool message, and marks the row refused', async () => {
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Understood.' }, { type: 'RUN_FINISHED' }));
+        const b = run(second.fetch, {
+            baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: {} }] }], modelId: 'x', stream: true, tools: [weather] },
+            deferral: { token: JSON.stringify({ v: 1, threadId: 't', runId: 'r', interrupts: [] }), outcomes: { q1: { kind: 'decision', approved: false, reason: 'Not now.' } } },
+        } as never);
+        await b.done;
+        const messages = second.bodies[0]!['messages'] as { role: string }[];
+        expect(messages.at(-1)).toEqual({ id: 'aparte-result-q1', role: 'tool', toolCallId: 'q1', content: 'Not now.' });
+        expect(b.events.find((e) => e.type === 'tool-rejected')).toMatchObject({ toolCallId: 'q1', reason: 'Not now.' });
+    });
+
     it('answers a client-tool interrupt (TanStack AI) in the resume batch, a failure marked as one', async () => {
         const a = run(fakeFetch(sse(
             started,

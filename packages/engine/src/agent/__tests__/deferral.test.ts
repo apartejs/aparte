@@ -169,6 +169,20 @@ describe('deferral: the resume', () => {
         expect(t.requests[0]!.messages.at(-1)).toMatchObject({ role: 'tool', content: 'The blue one.', toolCallId: 'q1' });
     });
 
+    it('records a browser tool the page refused as a refusal the model reads', async () => {
+        const t = scripted([{ type: 'text', delta: 'Understood.' }, { type: 'done' }] as StreamChatEvent[]);
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([{ id: 'q1', name: 'ask_user', input: {} }])] } as StreamChatRequest,
+            deferral: { outcomes: { q1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is asked.' } } },
+        });
+        await done;
+        expect(events.find((e) => e.type === 'tool-rejected')).toMatchObject({ toolCallId: 'q1', reason: 'Plan mode: nothing is asked.' });
+        // The loop takes another turn, so the model reads the refusal; the call is not deferred again.
+        expect(t.requests[0]!.messages.at(-1)).toMatchObject({ role: 'tool', content: 'Plan mode: nothing is asked.', toolCallId: 'q1' });
+        expect(types(events)).not.toContain('run-suspended');
+    });
+
     it('fails the run on an external failure, like a crashing handler', async () => {
         const t = scripted();
         const { done, events } = run({

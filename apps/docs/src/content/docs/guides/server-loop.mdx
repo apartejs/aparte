@@ -145,9 +145,10 @@ included, since the paused call and its ticket are in them; after `setMessages`,
 A tool that needs the page stays registered in the page: `setupAskUser()` registers
 [`ask_user`](/components/question/), and `registerTool` your own. The runner sends its definition
 along; the server lets the model call it, pauses on it, and the page runs its handler and sends
-the result back. The page runs it as soon as the model calls it: its `needsApproval` and the page's
-approval policy are not consulted on this path, so a browser tool that needs a person asks in its
-own handler, as `ask_user` does. To refuse browser tools, or accept a list of them:
+the result back. Before it runs, the page gates it exactly as its own loop would: a
+`needsApproval` tool puts the approval panel up, the approval policy can allow or refuse it, and a
+refusal goes back to the server as the call's answer, which the model reads. To refuse browser
+tools, or accept a list of them:
 
 {/* doc-check: skip excerpt — the rest of the options are the ones above */}
 ```ts
