@@ -70,8 +70,9 @@ message, reporting each file as a `ModelLoadProgress`, and rejects if the load f
 the first message loads the model and the reply waits with no progress to show.
 `TransformersProvider.getModelStatus(id)` answers `'ready'` once the model is loaded, `'cached'`
 when its files are in the cache or while it loads, and `'not-downloaded'` otherwise. The
-[model selector](/components/model-selector/) lists the registered models and the ones already in
-the cache.
+[model selector](/components/model-selector/) lists the registered models, and only those: register
+a model downloaded earlier to offer it. `listCachedModels()` reports everything in the cache, for a
+settings panel.
 
 ## The cache and the memory
 
@@ -207,6 +208,6 @@ place, with no progress to show. The contract's types are exported — `Transfor
 <Cards
     cards={[
         { href: '/guides/local-models/', title: 'Local models', line: 'A model on a server of your own machine instead: Ollama, LM Studio, llama.cpp.' },
-        { href: '/components/model-selector/', title: 'Model selector', line: 'Let the person pick the model, cached ones included.' },
+        { href: '/components/model-selector/', title: 'Model selector', line: 'Let the person pick among the registered models.' },
     ]}
 />
