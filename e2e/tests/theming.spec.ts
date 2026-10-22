@@ -402,3 +402,42 @@ test('the compaction notice is drawn muted, not as the user bubble', async ({ pa
     expect(drawn.ink[0], 'the muted ink, on the words').toBe(drawn.ink[1]);
     expect(drawn.size[0], 'the small size, on the words').toBe(drawn.size[1]);
 });
+
+/*
+ * The mark on a menu row. The row's own transparent ground (same weight, later sheet) erased the
+ * mark's tint, and in a checkable menu the mark's bar and the check gutter shared `::before`:
+ * the gutter left the flow and the marked row's label moved to the start edge.
+ */
+test('a marked menu row shows the tint, and keeps the check gutter in a checkable menu', async ({ page }) => {
+    const drawn = await page.evaluate(() => {
+        const host = document.querySelector('aparte-chat')!;
+        const reference = document.createElement('div');
+        reference.className = 'aparte-mark';
+        const plain = document.createElement('div');
+        plain.className = 'aparte-menu';
+        plain.setAttribute('role', 'menu');
+        plain.innerHTML = '<button class="aparte-menu__item aparte-mark" role="menuitem">Here</button>';
+        const checkable = document.createElement('div');
+        checkable.className = 'aparte-menu';
+        checkable.setAttribute('role', 'menu');
+        checkable.innerHTML =
+            '<button class="aparte-menu__item aparte-mark" role="menuitemradio" aria-checked="true"><span>Ask</span></button>' +
+            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="false"><span>Auto</span></button>';
+        host.append(reference, plain, checkable);
+        const [marked, other] = [...checkable.querySelectorAll('span')].map((s) => s.getBoundingClientRect().left);
+        const out = {
+            tint: getComputedStyle(reference).backgroundColor,
+            row: getComputedStyle(plain.firstElementChild!).backgroundColor,
+            checkedRow: getComputedStyle(checkable.firstElementChild!).backgroundColor,
+            labels: [marked, other],
+            check: getComputedStyle(checkable.firstElementChild!, '::before').visibility,
+        };
+        reference.remove(); plain.remove(); checkable.remove();
+        return out;
+    });
+    expect(drawn.tint, 'the mark has a tint to compare with').not.toBe('rgba(0, 0, 0, 0)');
+    expect(drawn.row, 'a marked menu row wears it').toBe(drawn.tint);
+    expect(drawn.checkedRow).toBe(drawn.tint);
+    expect(drawn.labels[0], 'the marked row keeps the gutter: both labels share one edge').toBeCloseTo(drawn.labels[1]!, 0);
+    expect(drawn.check, 'and shows its check').toBe('visible');
+});
