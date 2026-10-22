@@ -591,6 +591,7 @@
     "messageActions",
     "messageFrom",
     "messageInfo",
+    "modelContextWindow",
     "modelSelectorPlaceholder",
     "newChat",
     "nextResponse",

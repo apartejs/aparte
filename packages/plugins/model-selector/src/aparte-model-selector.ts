@@ -47,6 +47,7 @@ function esc(value: unknown): string {
  *   Without it the picker only fires `aparte-model-change`, and applying the choice is the app's. It does not
  *   outlive a reload on its own: that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
  * @attr {boolean} searchable - Adds the dropdown's filter field.
+ * @attr {boolean} details - Shows, under each model's name, its `description` and its `contextWindow` — the metadata a provider already declares. The trigger keeps the name alone; the filter searches the line too.
  * @attr {string} placeholder - Overrides the text shown while nothing is selected.
  * @attr {boolean} disabled - Disables the picker. Inside an `<aparte-composer>` it also follows the
  *   composer's own `disabled`, so a disabled composer does not leave its model picker operable.
@@ -97,7 +98,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     private _boundComposerChange = (): void => { this._syncDisabled(); };
 
     static get observedAttributes(): string[] {
-        return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled'];
+        return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled', 'details'];
     }
 
     async connectedCallback(): Promise<void> {
@@ -431,6 +432,19 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const localePlaceholder = this._cfg.getLocale()['modelSelectorPlaceholder'] || 'Select a model...';
         const placeholder = this.getAttribute('placeholder') || localePlaceholder;
         const searchable = this.hasAttribute('searchable');
+        // The line under a name: what the provider declares about the model, when asked for.
+        const details = this.hasAttribute('details');
+        const tag = this._cfg.getLocale().tag || undefined;
+        const tokens = new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 });
+        const meta = (m: { description?: string; contextWindow?: number }): string => {
+            if (!details) return '';
+            const parts: string[] = [];
+            if (m.description) parts.push(m.description);
+            if (m.contextWindow && m.contextWindow > 0) {
+                parts.push((this._cfg.t('modelContextWindow') || '{n} context').replace('{n}', tokens.format(m.contextWindow)));
+            }
+            return parts.length ? `<span class="aparte-option__meta">${esc(parts.join(' · '))}</span>` : '';
+        };
         const autoSelect = this.hasAttribute('auto-select');
 
         // Capture current open state of aparte-select if it exists
@@ -457,7 +471,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const optionsHtml = singleProvider && only  // safe-text: every value below goes through esc(); the tags are this file's own
             ? only.models.map(m => {
                 const key = `${only.provider.id}::${m.id}`;
-                return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
+                return `<aparte-option value="${esc(key)}">${esc(m.name)}${meta(m)}</aparte-option>`;
             }).join('')
             : this._providerModels.map(pm => {
                 const label = pm.provider.getMetadata().name;
@@ -470,7 +484,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     >
                         ${pm.models.map(m => {
                             const key = `${pm.provider.id}::${m.id}`;
-                            return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
+                            return `<aparte-option value="${esc(key)}">${esc(m.name)}${meta(m)}</aparte-option>`;
                         }).join('')}
                     </aparte-optgroup>
                 `;

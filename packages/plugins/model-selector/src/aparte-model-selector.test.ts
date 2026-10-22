@@ -479,3 +479,42 @@ describe('aparte-model-selector — providers that arrive late', () => {
         await vi.waitFor(() => { expect(sel.providerId).toBe('alpha'); });
     });
 });
+
+/*
+ * A model's metadata under its name. `AparteAIModel` carries `description` and `contextWindow`
+ * and nothing showed them; `details` does, on a second line the trigger leaves out.
+ */
+describe('aparte-model-selector details', () => {
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
+
+    function described(id: string): AparteAIProvider {
+        const model = { id: `${id}-model`, name: 'Big One', description: 'Long documents', contextWindow: 128000 };
+        return {
+            id,
+            getMetadata: () => ({ id, name: `Provider ${id}` }),
+            getModels: () => [model],
+            fetchModels: async () => [model],
+        } as unknown as AparteAIProvider;
+    }
+
+    it('shows the description and the context window under the name, and the trigger the name alone', async () => {
+        aparteGlobalConfig.registerAIProvider(described('kappa'));
+        const host = document.createElement('div');
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        selector.setAttribute('auto-select', '');
+        host.appendChild(selector);
+        document.body.appendChild(host);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')).toBeTruthy());
+        const meta = selector.querySelector('.aparte-option__meta')!.textContent ?? '';
+        expect(meta).toContain('Long documents');
+        expect(meta).toMatch(/128\s?K context/i);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-select-label-text')?.textContent?.trim()).toBe('Big One'));
+    });
+
+    it('shows nothing more without the attribute', async () => {
+        aparteGlobalConfig.registerAIProvider(described('lambda'));
+        const selector = await mountSelector(document.createElement('div'));
+        expect(selector.querySelector('.aparte-option__meta')).toBeNull();
+    });
+});

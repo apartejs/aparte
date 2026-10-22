@@ -782,7 +782,7 @@ export class AparteSelect extends HTMLElement {
         // still counts. `textContent` per span: a label is consumer text, never markup.
         const sizer = this._trigger?.querySelector('.aparte-select-label-sizer');
         if (sizer) {
-            const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => o.textContent?.trim() || '')];
+            const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => optionLabelText(o))];
             const current = Array.from(sizer.children, (s) => s.textContent ?? '');
             if (labels.length !== current.length || labels.some((l, i) => l !== current[i])) {
                 sizer.replaceChildren(...labels.map((text) => {
@@ -814,7 +814,7 @@ export class AparteSelect extends HTMLElement {
         // Match by property, not an interpolated attribute selector — a value with
         // `"`/`]` (e.g. a remote model id) would make querySelector throw SyntaxError.
         for (const opt of this.querySelectorAll('aparte-option')) {
-            if (opt.getAttribute('value') === this._value) return opt.textContent?.trim() || '';
+            if (opt.getAttribute('value') === this._value) return optionLabelText(opt);
         }
         return '';
     }
@@ -846,6 +846,20 @@ export class AparteSelect extends HTMLElement {
 }
 
 // Register
+/**
+ * An option's label as the trigger and its width read it: the option's text without the line
+ * under it (`.aparte-option__meta` — a description, a model's context window) or the status dot.
+ * The search filter still reads the whole text, so a description is searchable.
+ */
+function optionLabelText(option: Element): string {
+    let text = '';
+    for (const node of option.childNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('.aparte-option__meta, .aparte-status-dot')) continue;
+        text += node.textContent ?? '';
+    }
+    return text.trim();
+}
+
 if (!customElements.get('aparte-select')) {
     customElements.define('aparte-select', AparteSelect);
 }
