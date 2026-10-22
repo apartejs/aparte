@@ -41,6 +41,16 @@ describe('index.node — registerAllComponents with a DOM present', () => {
         expect(message).toContain('node');
     });
 
+    it('advises the alias the docs give: the bare specifier only, not a prefix', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const mod = await import('../index.node.js');
+        mod.registerAllComponents();
+        const message = String(warn.mock.calls[0]?.[0]);
+        // A string alias is a prefix: '@aparte/core/icons' would become '@aparte/core/browser/icons'.
+        expect(message).toContain("find: /^@aparte\\/core$/, replacement: '@aparte/core/browser'");
+        expect(message).not.toContain("{ '@aparte/core': '@aparte/core/browser' }");
+    });
+
     it('still registers nothing — it reports, it does not define', async () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         const mod = await import('../index.node.js');

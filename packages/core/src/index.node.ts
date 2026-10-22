@@ -350,8 +350,11 @@ export function registerAllComponents(): void {
         console.warn(
             "[aparte] A DOM is present but '@aparte/core' resolved to its DOM-free Node entry, "
                 + 'so no <aparte-*> element will upgrade. Test runners hit this: they run on Node, '
-                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser' "
-                + "(vitest: test.alias { '@aparte/core': '@aparte/core/browser' }).",
+                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser', "
+                // The bare specifier only: a string alias is a PREFIX, and would send
+                // '@aparte/core/icons' to '@aparte/core/browser/icons', which does not exist.
+                + "matching the bare specifier only (vitest: test.alias "
+                + "[{ find: /^@aparte\\/core$/, replacement: '@aparte/core/browser' }]).",
         );
     }
 }
