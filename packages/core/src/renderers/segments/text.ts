@@ -31,7 +31,9 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
      */
     setup: (el, segment) => {
         const contentEl = el.querySelector('.aparte-segment-content');
-        if (contentEl && segment.isStreaming === false) highlightMarkdownFences(contentEl);
+        // Only a segment marked streaming is still being written: one with no flag at all —
+        // `setSegments`, an `appendMessage` with segments — is finished, and is highlighted.
+        if (contentEl && segment.isStreaming !== true) highlightMarkdownFences(contentEl);
     },
     update: (el, segment) => {
         const contentEl = el.querySelector('.aparte-segment-content');

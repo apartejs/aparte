@@ -38,7 +38,8 @@ describe('default renderer: text', () => {
             const seen: Array<[string, string]> = [];
             aparteGlobalConfig.setHighlightProvider((code, lang) => { seen.push([code, lang]); return `<pre class="hl"><code>${code}</code></pre>`; });
             const renderer = getSegmentRenderer('text')!;
-            const segment = { id: 't1', type: 'text', content: '```ts\nconst a = 1;\n```', isStreaming: false } as any;
+            // As `setSegments` passes it: no streaming flag at all, which means finished.
+            const segment = { id: 't1', type: 'text', content: '```ts\nconst a = 1;\n```' } as any;
             const el = document.createElement('div');
             el.innerHTML = renderer.render(segment) as string;
             document.body.appendChild(el);
