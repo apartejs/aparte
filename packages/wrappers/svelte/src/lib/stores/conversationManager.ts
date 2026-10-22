@@ -67,7 +67,7 @@ export function createConversationManager() {
         activeId,
         activeConversation,
         init,
-        /** The core manager, once `init` has run (`null` before): for what this does not mirror. */
+        /** The core manager, once `init` has run (`null` before): for what this does not mirror. Read it as `cm.manager` after `init` — a destructured copy keeps the `null` it had, and it is not reactive. */
         get manager(): AparteConversationManager | null { return manager; },
         createNew: (title?: string) => assert().createNew(title),
         addMessage: (convId: string, message: AparteMessage) => assert().addMessage(convId, message),

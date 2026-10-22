@@ -96,8 +96,8 @@ export default defineConfig({
         // Raised 89 -> 91 on 2026-09-02 by the UI kit audit: some fifty stylesheet and
         // jsdom suites (the height scale, the type ramp, the focus ring, the rails, the
         // specimens) moved the global to 92.17%. The ratchet asked a fourth time.
-        lines: 91,
-        statements: 91,
+        lines: 93,
+        statements: 93,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
@@ -217,9 +217,9 @@ export default defineConfig({
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 79, statements: 79, functions: 83, branches: 71 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 89, branches: 87 },
-        'packages/plugins/compaction/src/**': { lines: 94, statements: 94, functions: 95, branches: 89 },
+        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
-        'packages/plugins/model-selector/src/**': { lines: 85, statements: 85, functions: 83, branches: 81 },
+        'packages/plugins/model-selector/src/**': { lines: 85, statements: 85, functions: 85, branches: 81 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
@@ -233,12 +233,12 @@ export default defineConfig({
         // point under that, as every floor here.
         'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
-        'packages/wrappers/angular/src/**': { lines: 77, statements: 77, functions: 61, branches: 85 },
+        'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 61, branches: 85 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 57, branches: 86 },
-        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 50, branches: 88 },
-        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 47, branches: 85 },
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 59, branches: 86 },
+        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 88 },
+        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 51, branches: 85 },
       },
     },
   },
