@@ -23,12 +23,14 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const read = (rel: string) => strip(readFileSync(resolve(STYLES, rel), 'utf8'));
 
 describe('the app shell', () => {
-    it('folds to one column under 48rem, the sidebar element leaving the grid as a drawer', () => {
+    it('folds to one column under 48rem for the class recipe, and wherever the sidebar element is a drawer', () => {
         const shell = read('shell/app-shell.css');
         const fold = shell.match(/@media \(max-width: 48rem\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
-        expect(fold, 'the class recipe carries the same media query as the sidebar element').not.toBe('');
-        expect(fold).toMatch(/\.aparte-app-shell\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+        expect(fold, "the class recipe folds at the element's default breakpoint").not.toBe('');
+        expect(fold).toMatch(/\.aparte-app-shell:has\([^{]*\.aparte-sidebar:not\(aparte-sidebar\)[^{]*\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
         expect(fold).toMatch(/grid-column:\s*1/);
+        // The element folds the grid on its own drawer state, at whatever width it turns.
+        expect(shell).toMatch(/\.aparte-app-shell:has\(> aparte-sidebar\[data-drawer\]\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     });
 });
 
