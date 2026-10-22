@@ -487,8 +487,11 @@ aparte-chat-status:not([visible]) {
   flex: 0 1 0%;
 }
 
-/* Same wait as `center-empty` above: the host sets `data-glide` on the wrapper's root. */
-.aparte-chat-container--auto-center[data-glide]::after {
+/* Same wait as `center-empty` above. The host sets `data-glide` on the element it binds: the
+   root div under React, Vue and Svelte, which carries this class — and under Angular the
+   `<aparte-chat>` host, whose inner div does. */
+.aparte-chat-container--auto-center[data-glide]::after,
+[data-glide] > .aparte-chat-container--auto-center::after {
   transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
 }
 

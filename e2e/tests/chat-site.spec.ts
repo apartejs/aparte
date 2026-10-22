@@ -238,3 +238,39 @@ for (const moves of [false, true]) {
         await expect.poll(() => page.evaluate(() => (window as unknown as PressWindow).__selected)).toEqual(['b']);
     });
 }
+
+/*
+ * The welcome's slide, in every framework. `center-empty` / `centerWhenEmpty` slide the composer
+ * once a person is in the page (`data-glide`): under Angular the attribute lands on the
+ * `<aparte-chat>` host while the centring class is on its inner div, and the first send there
+ * snapped the composer down instead.
+ */
+test('the first send glides the composer down', async ({ page }) => {
+    await page.goto('/?scenario&fast');
+    await page.locator('#new-chat').click();   // a person in the page
+    await expect.poll(() => isEmpty(page)).toBe(true);
+    const editor = page.locator('aparte-composer-input [contenteditable], aparte-composer-input textarea').first();
+    await editor.fill('Write a haiku about web components.');
+    await page.evaluate(() => {
+        const composer = document.querySelector('aparte-composer')!;
+        const w = window as unknown as { __tops: number[]; __start: number };
+        // The start is read now, before the send: a jump can land before the first frame.
+        w.__start = Math.round(composer.getBoundingClientRect().top);
+        w.__tops = [];
+        const tick = (): void => {
+            w.__tops.push(Math.round(composer.getBoundingClientRect().top));
+            if (w.__tops.length < 60) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __tops: number[] }).__tops.length)).toBe(60);
+    const { tops, start } = await page.evaluate(() => {
+        const w = window as unknown as { __tops: number[]; __start: number };
+        return { tops: w.__tops, start: w.__start };
+    });
+    const end = tops[tops.length - 1]!;
+    expect(end - start, 'the composer went from the middle to the bottom').toBeGreaterThan(80);
+    const between = tops.filter((t) => t > start + 10 && t < end - 10).length;
+    expect(between, `a glide passes the frames in between (${JSON.stringify(tops)})`).toBeGreaterThan(2);
+});

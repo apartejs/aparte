@@ -58,3 +58,10 @@ describe.each([
         expect(rulesFor(`${emptySel} aparte-chat-viewport.aparte-viewport--framework`).join(' ')).not.toMatch(/flex-grow:\s*0/);
     });
 });
+
+describe('.aparte-chat-container--auto-center under Angular', () => {
+    it('glides when the host around the container carries data-glide', () => {
+        // `AparteChatHost` binds Angular's `<aparte-chat>` host; the class is on its inner div.
+        expect(rulesFor('[data-glide] > .aparte-chat-container--auto-center::after').join(' ')).toMatch(/transition:\s*flex-grow/);
+    });
+});
