@@ -41,7 +41,7 @@ interface RailGeometry {
     hitSize: string;
     /** The rail's bottom edge sits above the composer: it spans the transcript, not the host. */
     aboveComposer: boolean;
-    /** With a classic scrollbar, the rail's end edge stays on the transcript's side of it. */
+    /** With a classic scrollbar, the rail does not sit on it: before it, or past it in its lane. */
     clearOfScrollbar: boolean;
     scrollbar: number;
     /** How far the surface is from its maximum scroll: 0 at the bottom. */
@@ -69,7 +69,7 @@ async function geometry(page: Page): Promise<RailGeometry> {
             pitch: ticks.length > 1 ? ticks[1]!.getBoundingClientRect().top - ticks[0]!.getBoundingClientRect().top : 0,
             hitSize: rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'),
             aboveComposer: rb.bottom <= composer.getBoundingClientRect().top + 1,
-            clearOfScrollbar: bar === 0 || rb.right <= sb.right - bar + 0.5,
+            clearOfScrollbar: bar === 0 || rb.right <= sb.right - bar + 0.5 || rb.left >= sb.right - 0.5,
             scrollbar: bar,
             fromMax: surface.scrollHeight - surface.clientHeight - surface.scrollTop,
             railHeight: rb.height,
