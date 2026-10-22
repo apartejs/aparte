@@ -88,9 +88,10 @@ when the reader moves between the versions of a reply, which is saved without da
 [conversations reference](/reference/core/conversations/) lists every method and type.
 
 In a framework, the package's helper builds and registers the manager: call its `init(adapter)`
-once, or `init(adapter, config)` for a chat with its own `config`. The helpers build it without
-options; for `retention` or a title provider, build the manager as above and register it with
-`setConversationManager` — the chat saves to whichever manager is registered.
+once, or `init(adapter, config)` for a chat with its own `config`. A third argument takes the
+manager's options — `init(adapter, aparteGlobalConfig, { retention: { maxMessages: 200 } })`, or a
+`titleProvider` — and the helper's `manager` is the manager itself once `init` has run, for what
+the helper does not mirror (`setTitleProvider`, `ensureFull`).
 
 | Framework | Helper |
 | --- | --- |

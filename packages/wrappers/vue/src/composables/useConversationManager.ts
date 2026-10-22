@@ -5,6 +5,7 @@ import {
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
+    type ConversationManagerOptions,
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
@@ -47,8 +48,8 @@ export function useConversationManager() {
      * with its own — persistence silently does nothing while the optimistic UI
      * keeps working.
      */
-    const init = async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> => {
-        const m = new AparteConversationManager(adapter);
+    const init = async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions): Promise<void> => {
+        const m = new AparteConversationManager(adapter, options);
         manager = m;
         unsub = m.subscribe((convs) => {
             conversations.value = [...convs];
@@ -66,6 +67,8 @@ export function useConversationManager() {
         activeId,
         activeConversation,
         init,
+        /** The core manager, once `init` has run (`null` before): for what this does not mirror. */
+        get manager(): AparteConversationManager | null { return manager; },
         createNew: (title?: string) => assert().createNew(title),
         addMessage: (convId: string, message: AparteMessage) => assert().addMessage(convId, message),
         updateMessages: (convId: string, messages: AparteMessage[]) => assert().updateMessages(convId, messages),

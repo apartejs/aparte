@@ -121,6 +121,15 @@ describe('ConversationManagerService', () => {
         expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
+    it('init() takes the manager options and exposes the manager', async () => {
+        const svc = service();
+        await svc.init(new MemoryAdapter(), aparteGlobalConfig, { titleProvider: () => 'Named' });
+        const conv = await svc.createNew();
+        await svc.addMessage(conv.id, { id: 'u1', role: 'user', content: 'hello there', timestamp: 1 } as never);
+        expect(svc.conversations()[0]?.title).toBe('Named');
+        expect(svc.manager).toBe(aparteGlobalConfig.getConversationManager());
+    });
+
     it('splits active from archived, newest first', async () => {
         const svc = service();
         await svc.init(new MemoryAdapter());
