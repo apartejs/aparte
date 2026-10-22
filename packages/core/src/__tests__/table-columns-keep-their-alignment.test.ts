@@ -19,6 +19,7 @@ describe('prose tables', () => {
     });
 
     it('start only the cells no column alignment reached', () => {
-        expect(sheet).toMatch(/:is\(th, td\):not\(\[align\]\)\s*\{\s*text-align:\s*start;/);
+        // Inside `:where`, so the rule weighs what the old one did and a consumer's cell rule still wins.
+        expect(sheet).toMatch(/:is\(th, td\):where\(:not\(\[align\]\)\)\s*\{\s*text-align:\s*start;/);
     });
 });

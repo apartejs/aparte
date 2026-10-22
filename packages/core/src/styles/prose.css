@@ -153,8 +153,9 @@
 
 /* A column the Markdown aligned (`---:`, `:---:`) carries `align`, which a browser reads as
    `text-align`. A rule on every cell out-weighs that hint, so only the cells nobody aligned
-   start at the start. */
-:is(.aparte-content, .aparte-segment-content, .aparte-thinking-content) :is(th, td):not([align]) {
+   start at the start — at the weight the old rule had (`:where`), so a consumer's own cell
+   rule still wins by load order. */
+:is(.aparte-content, .aparte-segment-content, .aparte-thinking-content) :is(th, td):where(:not([align])) {
   text-align: start;
 }
 
