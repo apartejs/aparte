@@ -585,6 +585,7 @@
     "loadingConversation",
     "loadingConversations",
     "messageActions",
+    "messageFrom",
     "messageInfo",
     "modelSelectorPlaceholder",
     "newChat",
