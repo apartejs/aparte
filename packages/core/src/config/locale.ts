@@ -312,6 +312,12 @@ export type AparteLocale = {
      * icon-only, so this string is the whole of what a screen-reader user hears.
      */
     removeAttachment?: string;
+    /**
+     * The accessible name of a message whose bubble carries a `name` — a human agent, a
+     * second assistant (default: "Message from {name}"). `{name}` is that name. Without one
+     * the bubble is named after its role: `yourMessage` or `assistantResponse`.
+     */
+    messageFrom?: string;
 
     // --- The searchable <aparte-select>, the primitive the model selector wears ---
     /**
@@ -499,6 +505,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",
     removeAttachment: "Remove {name}",
+    messageFrom: "Message from {name}",
     selectSearchPlaceholder: "Search…",
     selectSearchLabel: "Search options",
     loading: "Loading…",

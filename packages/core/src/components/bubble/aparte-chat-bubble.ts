@@ -970,6 +970,10 @@ export class AparteChatBubble extends HTMLElement {
       avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) nameEl.textContent = this._getDisplayName();
+    // The accessible name follows the author too — on a root whose role the bubble wrote,
+    // the same rule as `_updateRole`.
+    const message = this.querySelector('.aparte-message');
+    if (message?.getAttribute('role') === 'article') message.setAttribute('aria-label', this._getAriaLabel());
   }
 
   private _updateContent(): void {
@@ -1104,8 +1108,16 @@ export class AparteChatBubble extends HTMLElement {
     }
   }
 
+  /**
+   * Named after its author when it has one: a `name` on the bubble is who wrote it (a human
+   * agent answering on the assistant's side, a second assistant), and naming every one of
+   * them "Assistant response" told a screen-reader user the opposite of what the page shows.
+   * Without a name, the role names it.
+   */
   private _getAriaLabel(): string {
     const locale = this._cfg.getLocale();
+    const name = this.getAttribute('name');
+    if (name) return (locale.messageFrom || 'Message from {name}').replace('{name}', name);
     return this._role === 'user'
       ? (locale.yourMessage ?? 'Your message')
       : (locale.assistantResponse ?? 'Assistant response');

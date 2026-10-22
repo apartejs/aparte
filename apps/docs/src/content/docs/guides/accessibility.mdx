@@ -16,7 +16,7 @@ import { BROWSER_ENGINES } from '../../../lib/facts';
 | Part | Role | Name |
 | --- | --- | --- |
 | The message list | `log`, `aria-live="polite"`, and a tab stop | "Transcript" |
-| A message | `article` | "Your message" or "Assistant response" |
+| A message | `article` | "Message from {name}" when the bubble has a `name`, else "Your message" or "Assistant response" |
 | A message's buttons | `toolbar` | "Message actions" |
 | A reply still waiting for its first words | hidden text in its waiting dots | "Typing" |
 | Your status line, `<aparte-chat-status>` | `status`, `aria-live="polite"` | its `text`, else "Typing" |

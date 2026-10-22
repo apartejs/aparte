@@ -44,6 +44,7 @@ export const fr: AparteLocale = {
     toolOutput: "Sortie",
     actionUpload: "Joindre un fichier",
     removeAttachment: "Retirer {name}",
+    messageFrom: "Message de {name}",
     selectSearchPlaceholder: "Rechercher…",
     selectSearchLabel: "Rechercher parmi les options",
     loading: "Chargement…",
