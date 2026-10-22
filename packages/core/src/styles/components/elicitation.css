@@ -69,7 +69,9 @@
      rail reserves — the button is absolutely positioned, so nothing in the flow knows
      it is there, and a long question printed its first line underneath it (#50). One
      token, because the button holds a word and the word changes width per locale. */
-  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-3) var(--aparte-space-3);
+  /* Logical: the corner sits at the inline END, which is the left in a right-to-left page. */
+  margin-block: 0 var(--aparte-space-3);
+  margin-inline: var(--aparte-space-3) var(--aparte-elic-dismiss-room);
   font-size: var(--aparte-elic-message-size);
   font-weight: var(--aparte-font-weight-semibold);
   color: var(--aparte-text);
@@ -379,7 +381,8 @@ textarea.aparte-elic-text {
    underline sits on, and a step's smaller type. */
 .aparte-elic-steps {
   gap: var(--aparte-elic-step-gap);
-  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-4) var(--aparte-space-3);
+  margin-block: 0 var(--aparte-space-4);
+  margin-inline: var(--aparte-space-3) var(--aparte-elic-dismiss-room);
   border-bottom: var(--aparte-border-width) solid var(--aparte-border);
 }
 
