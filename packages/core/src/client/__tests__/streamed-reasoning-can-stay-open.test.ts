@@ -9,7 +9,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { createStreamAdapter } from '../stream-adapter.js';
-import { aparteGlobalConfig } from '../../config/index.js';
+import { aparteGlobalConfig, AparteConfig } from '../../config/index.js';
+import { attachConfig } from '../../config/config-context.js';
 import type { AparteSegment } from '../../types/index.js';
 
 function target() {
@@ -54,5 +55,23 @@ describe('a streamed reasoning block', () => {
         const t = target();
         stream(t);
         expect(t.updates).toContainEqual([t.added[0]!.id, { collapsed: true, isStreaming: false }]);
+    });
+
+    it('reads the defaults of the chat, not of the client, for a chat with a config of its own', () => {
+        // A client on the global config answers a chat with its own; the block was opened by
+        // the chat's defaults on insert and must not be folded by the client's.
+        const own = new AparteConfig();
+        own.setSegmentDefaults('thinking', { collapsed: false });
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        attachConfig(host, own);
+        const t = Object.assign(host, target());
+        const emit = createStreamAdapter({ target: t as never, config: aparteGlobalConfig, messageId: 'm1' });
+        emit({ type: 'run-start' });
+        emit({ type: 'turn-start' });
+        emit({ type: 'thinking-delta', delta: 'Let me see.' });
+        emit({ type: 'text-delta', delta: 'The answer.' });
+        expect(t.updates.filter(([, u]) => 'collapsed' in u)).toEqual([]);
+        document.body.innerHTML = '';
     });
 });

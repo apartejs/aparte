@@ -29,6 +29,7 @@ import type {
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
+import { resolveConfig } from '../config/config-context.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
@@ -170,8 +171,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     // show the block's duration WHILE the answer streams, instead of
                     // holding "Thinking" on screen until the turn ends. `endedAt` is
                     // unaffected — it was frozen by the last reasoning delta.
-                    // Folded unless the app keeps reasoning open (`setSegmentDefaults`).
-                    const keepOpen = config.getSegmentDefaults('thinking')?.collapsed === false;
+                    // Folded unless the app keeps reasoning open (`setSegmentDefaults`) — read
+                    // from the CHAT's config, the one that opened the block on insert: a client
+                    // on the global config also answers a chat with its own, and reading the
+                    // client's here snapped an open block shut at the first answer token.
+                    const chatConfig = typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config;
+                    const keepOpen = chatConfig.getSegmentDefaults('thinking')?.collapsed === false;
                     target.updateSegment?.(thinkingId, keepOpen ? { isStreaming: false } : { collapsed: true, isStreaming: false });
                     thinkingCollapsed = true;
                 }
