@@ -79,6 +79,7 @@ const ringSvg = (): SVGSVGElement => {
  * @element aparte-context
  *
  * @attr {number} window - The context window, in tokens. Overrides the current model's `contextWindow`.
+ * @attr {number} used - Tokens in use before a turn of this page has reported any: a restored conversation's last usage. The next turn's usage replaces it.
  * @attr {number} warn - Fraction of the window at which the level turns `warn`. Default `0.75`.
  * @attr {number} danger - Fraction at which it turns `danger`. Default `0.9`.
  * @attr {boolean} auto-compact - Dispatch `aparte-compact` on each turn that ends in `danger`, one request at a time.
@@ -110,7 +111,7 @@ const ringSvg = (): SVGSVGElement => {
  */
 export class AparteContext extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['window', 'warn', 'danger', 'target', 'variant'];
+        return ['window', 'warn', 'danger', 'target', 'variant', 'used'];
     }
 
     private _used: number | null = null;
@@ -154,9 +155,18 @@ export class AparteContext extends HTMLElement {
 
     private _onRerender = (): void => this._render();
 
-    /** Tokens the last turn reported, or `null` before the first turn. */
+    /** Tokens the last turn reported — or `used` set, until a turn reports — else `null`. */
     get used(): number | null {
         return this._used;
+    }
+
+    /**
+     * Writes the `used` attribute: a reading for a conversation restored without a turn of
+     * this page, which had nothing to report until the next one. `null` clears it.
+     */
+    set used(value: number | null) {
+        if (value === null || value === undefined) this.removeAttribute('used');
+        else this.setAttribute('used', String(value));
     }
 
     /** The window in force — the attribute, else the current model's. */
@@ -198,7 +208,11 @@ export class AparteContext extends HTMLElement {
         window.removeEventListener('aparte-config-change', this._onRerender);
     }
 
-    attributeChangedCallback(): void {
+    attributeChangedCallback(name: string): void {
+        if (name === 'used') {
+            const n = Number(this.getAttribute('used'));
+            this._used = this.hasAttribute('used') && Number.isFinite(n) && n >= 0 ? n : null;
+        }
         if (this.isConnected) this._render();
     }
 

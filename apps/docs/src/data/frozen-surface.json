@@ -118,6 +118,7 @@
         "data-empty",
         "data-level",
         "target",
+        "used",
         "variant",
         "warn",
         "window"
