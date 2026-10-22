@@ -148,8 +148,14 @@
 .aparte-thinking-content td {
   border: var(--aparte-border-width) solid var(--aparte-border);
   padding: var(--aparte-space-2) var(--aparte-space-4);
-  text-align: start;
   vertical-align: top;
+}
+
+/* A column the Markdown aligned (`---:`, `:---:`) carries `align`, which a browser reads as
+   `text-align`. A rule on every cell out-weighs that hint, so only the cells nobody aligned
+   start at the start. */
+:is(.aparte-content, .aparte-segment-content, .aparte-thinking-content) :is(th, td):not([align]) {
+  text-align: start;
 }
 
 .aparte-content th,
