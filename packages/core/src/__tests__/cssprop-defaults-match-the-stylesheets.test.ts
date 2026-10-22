@@ -9,14 +9,10 @@
  * The generated component pages print that default in their tables, so a reader tuning
  * a knob started from a value the sheet never had.
  *
- * The source of truth, in order: a declaration on `:root` in theme.css; else the fallback
- * of the `var(--x, F)` that reads it (a knob nothing declares globally, whose default IS the
- * fallback); else a scoped declaration in any sheet (a knob the component sets on itself).
- * The documented default has to be that value, character for character.
- *
- * The fallback comes before a scoped declaration because, when a token has both and they
- * differ, the scoped one is a variant: the compaction notice sets the message inks to the
- * muted text, while every other message reads their fallback, the content colour.
+ * The source of truth, in order: a declaration on `:root` in theme.css; else a scoped
+ * declaration in any sheet (a knob the component sets on itself); else the fallback of
+ * the `var(--x, F)` that reads it (a knob nothing declares, whose default IS the
+ * fallback). The documented default has to be that value, character for character.
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -78,7 +74,7 @@ for (const file of walk(SRC, '.ts')) {
     }
 }
 
-const truthOf = (name: string) => rootDecl.get(name) ?? fallback.get(name) ?? scopedDecl.get(name);
+const truthOf = (name: string) => rootDecl.get(name) ?? scopedDecl.get(name) ?? fallback.get(name);
 
 describe('@cssprop defaults match the stylesheets', () => {
     it('read the corpus', () => {
