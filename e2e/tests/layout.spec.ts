@@ -520,7 +520,13 @@ test.describe("the application shell, at the sidebar's own breakpoint", () => {
         await page.evaluate(() => document.querySelector('.aparte-app-shell > aparte-sidebar')!.setAttribute('breakpoint', '64rem'));
         await expect.poll(async () => (await geometry()).drawer).toBe(true);
         expect((await geometry()).mainStart, 'the grid folds on the drawer').toBeLessThan(2);
-        await expect(page.locator('.aparte-app-header__toggle'), 'and its control is in the header').toBeVisible();
+        const toggle = page.locator('.aparte-app-header__toggle');
+        await expect(toggle, 'and its control is in the header').toBeVisible();
+        // Over 48rem the header hid its toggle once the drawer was open: only `collapsed`
+        // showed it. Open, a drawer keeps its control too.
+        await toggle.click();
+        await expect(page.locator('.aparte-app-shell > aparte-sidebar')).not.toHaveAttribute('collapsed', '');
+        await expect(toggle, 'an open drawer keeps its control').toBeVisible();
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 });

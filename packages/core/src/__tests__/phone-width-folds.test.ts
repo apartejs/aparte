@@ -27,10 +27,13 @@ describe('the app shell', () => {
         const shell = read('shell/app-shell.css');
         const fold = shell.match(/@media \(max-width: 48rem\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
         expect(fold, "the class recipe folds at the element's default breakpoint").not.toBe('');
-        expect(fold).toMatch(/\.aparte-app-shell:has\([^{]*\.aparte-sidebar:not\(aparte-sidebar\)[^{]*\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+        expect(fold).toMatch(/\.aparte-app-shell:where\(:has\([^{]*\.aparte-sidebar:not\(aparte-sidebar\)[^{]*\)\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
         expect(fold).toMatch(/grid-column:\s*1/);
-        // The element folds the grid on its own drawer state, at whatever width it turns.
-        expect(shell).toMatch(/\.aparte-app-shell:has\(> aparte-sidebar\[data-drawer\]\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+        // The element folds the grid on its own drawer state, at whatever width it turns —
+        // at one class's weight, so a host's own grid rule still wins.
+        expect(shell).toMatch(/\.aparte-app-shell:where\(:has\(> aparte-sidebar\[data-drawer\]\)\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+        // `breakpoint="none"` never turns drawer: it is not folded away before it upgrades.
+        expect(fold).toMatch(/aparte-sidebar:not\(:defined\):not\(\[breakpoint="none"\]\)/);
     });
 });
 
