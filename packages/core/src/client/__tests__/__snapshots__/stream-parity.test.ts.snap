@@ -166,7 +166,7 @@ exports[`the client's loop — the engine through the adapter, pinned > thinking
 {
   "calls": [
     "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"think-#0","type":"thinking","content":"Th","collapsed":true}]",
+    "addSegment [{"id":"think-#0","type":"thinking","content":"Th"}]",
     "updateSegment ["think-#0",{"content":"Think"}]",
     "updateSegment ["think-#0",{"collapsed":true,"isStreaming":false}]",
     "addSegment [{"id":"seg-#1","type":"text","content":"Hello world","isStreaming":false}]",

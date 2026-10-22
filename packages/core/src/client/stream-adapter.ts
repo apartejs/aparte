@@ -141,11 +141,14 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'thinking-delta': {
                 thinkingContent += e.delta;
                 if (!thinkingId) {
+                    // No `collapsed` of its own: a field the producer sets beats the app's
+                    // `setSegmentDefaults('thinking', …)`, and `true` here meant a streaming
+                    // reasoning block could never arrive open. Left unset it renders closed,
+                    // as before, unless the app asked for it open.
                     const seg: AparteThinkingSegment = {
                         id: `think-${uuid()}`,
                         type: 'thinking',
                         content: thinkingContent,
-                        collapsed: true,
                     };
                     thinkingId = seg.id;
                     streaming.add(seg.id);
@@ -167,7 +170,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     // show the block's duration WHILE the answer streams, instead of
                     // holding "Thinking" on screen until the turn ends. `endedAt` is
                     // unaffected — it was frozen by the last reasoning delta.
-                    target.updateSegment?.(thinkingId, { collapsed: true, isStreaming: false });
+                    // Folded unless the app keeps reasoning open (`setSegmentDefaults`).
+                    const keepOpen = config.getSegmentDefaults('thinking')?.collapsed === false;
+                    target.updateSegment?.(thinkingId, keepOpen ? { isStreaming: false } : { collapsed: true, isStreaming: false });
                     thinkingCollapsed = true;
                 }
                 const result = parser.parse(e.delta);
