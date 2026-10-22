@@ -113,6 +113,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._composer?.addEventListener('aparte-composer-change', this._boundComposerChange);
 
         // Seed selection from the resolved config first (handles race conditions)
+        this._seenConfigSelection = this._configSelectionKey();
         const config = this._cfg.getModelConfig();
         if (config.defaultProvider && config.defaultModel) {
             this._currentProviderId = config.defaultProvider;
@@ -130,6 +131,20 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         if (await this._loadAllProviderModels()) this._render();
     }
 
+    /**
+     * The config's own selection when this element last read it. A change to IT is someone
+     * choosing a model (an onboarding flow, `setModelConfig`); every other config change — a
+     * language, a provider, an icon — leaves the person's own pick alone. Compared with the
+     * pick instead, a pick made without `persist` (which writes nothing to the config) was
+     * put back to the config's default by the next unrelated change.
+     */
+    private _seenConfigSelection = '';
+
+    private _configSelectionKey(): string {
+        const c = this._cfg.getModelConfig();
+        return `${c.defaultProvider ?? ''}::${c.defaultModel ?? ''}`;
+    }
+
     /** The registered providers, as one comparable string: what the list was built from. */
     private _providersKey(): string {
         return this._cfg.getAIProviders().map(p => p.id).join('\n');
@@ -140,13 +155,11 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._configUnsubscribe?.();
         this._configUnsubscribe = this._cfg.subscribe(() => {
             void (async () => {
-                const cfg = this._cfg.getModelConfig();
-
-                // Guard: only react if the model config actually changed relative to our
-                // state — the selection, or the set of providers the list was built from
+                // Guard: only react if the model config actually changed relative to what we
+                // read — its selection, or the set of providers the list was built from
                 // (an app that registers a provider once a key is typed in its settings).
-                if (cfg.defaultProvider === this._currentProviderId &&
-                    cfg.defaultModel === this._currentModelId &&
+                const selectionMoved = this._configSelectionKey() !== this._seenConfigSelection;
+                if (!selectionMoved &&
                     this._providerModels.length > 0 &&
                     this._providersKey() === this._loadedProvidersKey) {
                     // …but a config change is not only a MODEL change. A language
@@ -164,7 +177,10 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     return;
                 }
 
-                this._loadPersistedSelection();
+                if (selectionMoved) {
+                    this._seenConfigSelection = this._configSelectionKey();
+                    this._loadPersistedSelection();
+                }
                 if (await this._loadAllProviderModels()) this._render();
             })();
         });
@@ -207,6 +223,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         void (async () => {
             this._restartLoading();
             this._providerModels = [];
+            this._seenConfigSelection = this._configSelectionKey();
             const model = this._cfg.getModelConfig();
             if (model.defaultProvider && model.defaultModel) {
                 this._currentProviderId = model.defaultProvider;
@@ -590,6 +607,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             return;
         }
 
+        this._seenConfigSelection = `${this._currentProviderId}::${this._currentModelId}`;
         this._cfg.setModelConfig({
             defaultProvider: this._currentProviderId,
             defaultModel: this._currentModelId,

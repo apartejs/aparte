@@ -458,4 +458,24 @@ describe('aparte-model-selector — providers that arrive late', () => {
         const sel = await mountSelector(document.createElement('div'));
         expect(sel.textContent).toContain('Fixed Model');
     });
+
+    it('without persist, keeps the pick the person made through an unrelated config change', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'), fakeProvider('beta', 'Beta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'alpha', defaultModel: 'alpha-model' });
+        const sel = await mountSelector(document.createElement('div')) as HTMLElement & { providerId: string | null };
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Beta One'); });
+
+        // The person picks beta; with no `persist`, nothing is written to the config.
+        sel.querySelector('aparte-select')!.dispatchEvent(new CustomEvent('aparte-select-change', { detail: { value: 'beta::beta-model' } }));
+        expect(sel.providerId).toBe('beta');
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelSelectorPlaceholder: 'Choisir' });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(sel.providerId, 'a language switch is not someone choosing a model').toBe('beta');
+
+        // The config's own selection moving is someone choosing (an onboarding flow): followed.
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'beta', defaultModel: 'beta-model' });
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'alpha', defaultModel: 'alpha-model' });
+        await vi.waitFor(() => { expect(sel.providerId).toBe('alpha'); });
+    });
 });
