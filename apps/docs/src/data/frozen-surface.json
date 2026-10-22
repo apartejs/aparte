@@ -1088,6 +1088,7 @@
     "--aparte-tooltip-gap",
     "--aparte-tooltip-max-width",
     "--aparte-tooltip-shadow",
+    "--aparte-top-inset",
     "--aparte-touch-target-size",
     "--aparte-track",
     "--aparte-viewport-padding",

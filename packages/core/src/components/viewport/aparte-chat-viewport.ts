@@ -155,6 +155,8 @@ function hasDerivedSegments(message: AparteMessage): boolean {
  *   the chat host: how far from the host's inline edge its rows start (padding plus the
  *   scrollbar gutter, at the current container step). The composer pads by it, so the two
  *   boxes share one edge at every width. Read-only from the outside.
+ * @cssprop [--aparte-top-inset=0px] - How much of the transcript's top is covered by a header floating over it.
+ *   Set it on the chat, by hand: the first message starts below it, and a jump to a message lands below it.
  * @cssprop [--aparte-bottom-inset=0px] - How much of the transcript's bottom is covered
  *   by content floating over it. Written by the viewport itself under
  *   `[overlay-composer]` (never set it there — it would be overwritten); a host that

@@ -209,6 +209,10 @@ aparte-chat-viewport {
      framework-managed host must carry the same clearance in its ::after instead,
      because there the button is a sticky CHILD and padding would clamp it. */
   padding-bottom: var(--aparte-bottom-inset, 0px);
+  /* The top's counterpart, set by a host whose header floats over the transcript: the first
+     message starts below it, and a jump to a message (`scroll-padding`) lands below it too. */
+  padding-top: var(--aparte-top-inset, 0px);
+  scroll-padding-top: var(--aparte-top-inset, 0px);
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
@@ -323,6 +327,16 @@ aparte-chat-viewport[framework-managed] {
   /* Same gutter rule as `.aparte-viewport-container` above: the host is the scroll
      surface here, so it is the host that reserves it. */
   scrollbar-gutter: stable both-edges;
+  scroll-padding-top: var(--aparte-top-inset, 0px);
+}
+
+/* `--aparte-top-inset` here: a spacer before the first message rather than padding, which is a
+   shorthand of the viewport padding this rule cannot add to — the bottom's clearance is an
+   `::after` for the same family of reasons. */
+aparte-chat-viewport.aparte-viewport--framework::before,
+aparte-chat-viewport[framework-managed]::before {
+  content: '';
+  flex: 0 0 var(--aparte-top-inset, 0px);
 }
 
 /* The framework wrapper renders bubbles as DIRECT flex children of the viewport

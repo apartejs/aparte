@@ -137,3 +137,38 @@ test('the scroll surface spans the shell, content clears the floating composer, 
 
     expect(errors, 'no runtime errors across the probes').toEqual([]);
 });
+
+/*
+ * The top's counterpart. A header laid over an overlay transcript had no knob: the first message
+ * started under it, and a jump to a message landed under it. `--aparte-top-inset`, set on the
+ * shell by hand, is what both read — padding (core mode) or a spacer (framework mode), plus the
+ * surface's scroll padding.
+ */
+test('a header over the transcript: the first message starts below it, and a jump lands below it', async ({ page }, testInfo) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto(overlayUrl(testInfo.project.name));
+    for (let i = 0; i < 4; i++) await chat.sendAndSettle(`turn ${i}`);
+    const INSET = 60;
+    const offsets = await page.evaluate(async (inset) => {
+        const shell = document.querySelector('[overlay-composer]') as HTMLElement;
+        shell.style.setProperty('--aparte-top-inset', `${inset}px`);
+        const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+            ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+        const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await frame();
+        surface.scrollTop = 0;
+        await frame();
+        const bubbles = surface.querySelectorAll('aparte-chat-bubble');
+        const first = bubbles[0]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+        surface.scrollTop = surface.scrollHeight;
+        await frame();
+        bubbles[2]!.scrollIntoView({ block: 'start' });
+        await frame();
+        const jump = bubbles[2]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+        return { first, jump };
+    }, INSET);
+    expect(offsets.first, 'the first message starts below the header').toBeGreaterThanOrEqual(INSET);
+    expect(Math.abs(offsets.jump - INSET), `a jump lands at the header's edge (${offsets.jump}px)`).toBeLessThanOrEqual(2);
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});

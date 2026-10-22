@@ -597,7 +597,10 @@ export class AparteScrollRail extends HTMLElement {
         const surface = this._settleSurface;
         const bubble = id ? this._bubbleOf(id) : null;
         if (id && bubble && surface && this._alignPasses < MAX_ALIGN_PASSES) {
-            const off = bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+            // Measured from where `scrollIntoView` aims: the surface's top, below its scroll
+            // padding (`--aparte-top-inset`, a header floating over the transcript).
+            const aim = surface.getBoundingClientRect().top + (parseFloat(getComputedStyle(surface).scrollPaddingTop) || 0);
+            const off = bubble.getBoundingClientRect().top - aim;
             if (Math.abs(off) > ALIGN_TOLERANCE) {
                 this._alignPasses++;
                 this._scrollTo(bubble);

@@ -72,6 +72,17 @@ chat mounts.
 A composer of your own, floated without the attribute, sets the space it covers itself:
 `aparte-chat-viewport { --aparte-bottom-inset: 96px; }`.
 
+A header that floats over the top of the transcript sets the space it covers the same way:
+
+```css
+aparte-chat { --aparte-top-inset: 56px; }
+```
+
+The first message then starts below it, and a jump to a message, from the
+[scroll rail](#jump-back-in-a-long-thread) or `scrollIntoView`, lands below it. Write the header
+outside the chat, positioned over it: a child of an `overlay-composer` chat floats at the bottom
+with the composer.
+
 ## Pick a shape
 
 | Shape | Like | How |

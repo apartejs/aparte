@@ -201,3 +201,39 @@ test('no line runs under the rail, and the composer keeps the messages\' end edg
     expect(Math.abs(drawn.shellEnd - drawn.rowEnd), 'the composer and the messages share their end edge').toBeLessThanOrEqual(1.5);
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
+
+/*
+ * A jump under a header that floats over the transcript (`--aparte-top-inset`). `scrollIntoView`
+ * lands the message below the surface's scroll padding, and the rail's landing check measured from
+ * the surface's top: it read the inset as a miss and scrolled again, pass after pass.
+ */
+test('a jump under a header lands below it, without chasing the inset', async ({ page }) => {
+    test.setTimeout(120_000);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    for (let i = 1; i <= 6; i++) await chat.sendAndSettle(`Question ${i}: what about topic ${i}?`);
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-top-inset', '48px');
+        const w = window as unknown as { __jumps: number };
+        w.__jumps = 0;
+        const real = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<Element['scrollIntoView']>) {
+            if (this.tagName === 'APARTE-CHAT-BUBBLE') w.__jumps++;
+            return real.apply(this, args);
+        };
+    });
+    const second = page.locator('aparte-scroll-rail .aparte-scroll-rail__tick').nth(1);
+    const targetId = await second.getAttribute('data-message-id');
+    await second.click();
+    await expect(second).toHaveAttribute('aria-current', 'true');
+    await page.waitForTimeout(1500);
+    const landed = await page.evaluate((id) => {
+        const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+        const surface = document.querySelector('.aparte-viewport-container')!;
+        return { off: Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top), jumps: (window as unknown as { __jumps: number }).__jumps };
+    }, targetId);
+    expect(Math.abs(landed.off - 48), `lands at the header's edge (${landed.off}px)`).toBeLessThanOrEqual(2);
+    // The first jump plus at most MAX_ALIGN_PASSES (4) realignments: chasing the inset spent all
+    // of them (5). A pass or two is the rail's own catch-up on `content-visibility` (WebKit).
+    expect(landed.jumps, 'the landing check settles instead of chasing the inset to its last pass').toBeLessThan(5);
+});
