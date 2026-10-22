@@ -119,9 +119,9 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'message',
         title: 'A question and its answer',
         html: `<!-- One bubble per message. The viewport creates them for you; written by hand here. -->
-<aparte-chat-bubble message-id="u1" data-role="user" name="You" timestamp="2026-10-15T09:41:00"
+<aparte-chat-bubble message-id="u1" data-role="user" timestamp="2026-10-15T09:41:00"
   content="Which transport should I use?"></aparte-chat-bubble>
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" timestamp="2026-10-15T09:41:04"
+<aparte-chat-bubble message-id="a1" data-role="assistant" timestamp="2026-10-15T09:41:04"
   content="The direct one while you prototype, the backend one before you ship."></aparte-chat-bubble>`,
     },
     {
@@ -129,7 +129,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         title: 'Messages with avatars',
         html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->
 <aparte-chat-bubble message-id="u1" data-role="user" name="Paul" content="Can you summarise the release?"></aparte-chat-bubble>
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Two fixes: the drawer is no longer dimmed, and a checked menu item shows its check."></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant" content="Two fixes: the drawer is no longer dimmed, and a checked menu item shows its check."></aparte-chat-bubble>
 
 <script>
   // The avatar slot is yours to fill: text, an image, a component. It is styled already.
@@ -146,8 +146,8 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'message-actions',
         title: 'Messages with their actions',
         html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->
-<aparte-chat-bubble message-id="u1" data-role="user" name="You" content="Write a one-line release note."></aparte-chat-bubble>
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
+<aparte-chat-bubble message-id="u1" data-role="user" content="Write a one-line release note."></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
 
 <script>
   // Copy works on its own. Retry and edit need something that re-sends and rewrites
@@ -160,8 +160,8 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'message-actions-order',
         title: 'Actions in an order of your own',
-        html: `<aparte-chat-bubble message-id="u1" data-role="user" name="You" content="Write a one-line release note."></aparte-chat-bubble>
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="u1" data-role="user" content="Write a one-line release note."></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
 
 <script>
   // A list per role replaces the flags for that role: these buttons, in this order.
@@ -174,7 +174,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'message-actions-info',
         title: 'A reply with its token usage behind the info button',
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" content="0.19.2 fixes the sidebar drawer and the menu check mark."></aparte-chat-bubble>
 
 <script>
   const { aparteGlobalConfig } = window.aparte;
@@ -190,7 +190,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'attachments',
         title: 'A message sent with files',
-        html: `<aparte-chat-bubble message-id="u1" data-role="user" name="You" content="Can you check the cover and the brief?"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="u1" data-role="user" content="Can you check the cover and the brief?"></aparte-chat-bubble>
 
 <script>
   // An image shows its picture, any other file its name and type.
@@ -217,9 +217,9 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'waiting',
         title: 'A reply that has not started yet',
-        html: `<aparte-chat-bubble message-id="u1" data-role="user" name="You" content="Summarise the release notes."></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="u1" data-role="user" content="Summarise the release notes."></aparte-chat-bubble>
 <!-- Streaming with nothing in it yet: the dots hold the place of the first token. -->
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" streaming></aparte-chat-bubble>`,
+<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>`,
     },
 
     // ── Response (Markdown) ───────────────────────────────────────────────────
@@ -227,7 +227,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'response',
         title: 'A reply written in Markdown',
         plugins: ['markdown'],
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   document.querySelector('aparte-chat-bubble').setSegments([{
@@ -255,7 +255,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'response-streaming',
         title: 'Markdown rendered while it streams',
         plugins: ['markdown'],
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" streaming></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>
 
 <script>
   // The streaming parser appends what each chunk adds instead of re-parsing the whole
@@ -276,7 +276,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         title: 'A reply with no Markdown renderer installed',
         html: `<!-- Core has no Markdown dependency: with no renderer installed, a reply shows its
      text as it is, safely escaped. Install @aparte/plugin-marked for the formatting. -->
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"
+<aparte-chat-bubble message-id="a1" data-role="assistant"
   content="Pick by **where the key lives**: the browser or your server."></aparte-chat-bubble>`,
     },
 
@@ -285,7 +285,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'code-block',
         title: 'A highlighted code block in a reply',
         plugins: ['markdown'],
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   document.querySelector('aparte-chat-bubble').setSegments([
@@ -310,7 +310,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         title: 'A code block with no highlighter installed',
         html: `<!-- Highlighting is a plugin (@aparte/plugin-shiki). Without one the block stays
      plain, with its language and its copy button. -->
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   document.querySelector('aparte-chat-bubble').setSegments([{
@@ -326,8 +326,8 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'error',
         title: 'A turn that failed',
-        html: `<aparte-chat-bubble message-id="u1" data-role="user" name="You" content="Summarise the release notes."></aparte-chat-bubble>
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="u1" data-role="user" content="Summarise the release notes."></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   // The failure sits in the turn that produced it, not in a toast elsewhere on the page.
@@ -342,7 +342,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'error-after-text',
         title: 'A reply cut off by an error',
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   // What arrived stays; the error follows it, with the technical detail under its message.
@@ -363,7 +363,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         id: 'custom-view',
         title: 'A view of your own in a reply',
         html: `<!-- In your app: import { registerSegmentRenderer } from '@aparte/core'. -->
-<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   const { registerSegmentRenderer } = window.aparte;
@@ -390,7 +390,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
     {
         id: 'custom-view-family',
         title: 'A family of small views behind one renderer',
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
   const { registerSegmentRenderer } = window.aparte;
