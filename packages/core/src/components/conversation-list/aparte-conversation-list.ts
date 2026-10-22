@@ -5,6 +5,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
+import { foldText } from '../../utils/fold-text.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -60,7 +61,7 @@ type ListLocaleKey =
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
-    | 'conversationGroupWeek' | 'conversationGroupMonth';
+    | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty';
 
 /** A selector for the row button carrying `id` on `attr`. */
 function rowSelector(attr: string, id: string): string {
@@ -111,6 +112,7 @@ const VIEWPORT_MARGIN = 8;
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
  * @attr {boolean} flat - Render the rows flat, in host order, with no date headings.
+ * @attr {boolean} data-no-match - Reflected BY the element while `filter()` holds a query no title matches. Read-only.
  * @attr {boolean} loading - The list is on its way: six skeleton rows stand where the rows will be, the
  *                    element is `aria-busy` and a visually hidden line names the wait. A list that is
  *                    not there yet is not an empty list. Set it while your store answers, clear it when
@@ -386,6 +388,7 @@ export class AparteConversationList extends HTMLElement {
             return;
         }
         this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
+        this._applyFilter();
         if (!restore) return;
         // The same row, by id — not the same element, which no longer exists.
         const back = this.querySelector<HTMLElement>(restore);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
@@ -405,6 +408,48 @@ export class AparteConversationList extends HTMLElement {
             this.addEventListener('blur', () => this.removeAttribute('tabindex'), { once: true });
         }
         this.focus();
+    }
+
+    /** The query `filter()` holds, folded; re-applied on every render, so new rows obey it. */
+    private _query = '';
+
+    /**
+     * Show only the conversations whose title contains `query`, case- and
+     * accent-insensitive, and the date groups that still hold one; return how many match.
+     * An empty query shows everything. The query is kept through every render — a new
+     * conversation, a rename — and when nothing matches the list says so in a status line
+     * (the locale's `conversationSearchEmpty`) and carries `data-no-match`.
+     */
+    filter(query: string): number {
+        this._query = foldText(query);
+        return this._applyFilter();
+    }
+
+    private _applyFilter(): number {
+        const needle = this._query;
+        let matches = 0;
+        for (const row of this.querySelectorAll<HTMLElement>('[data-conv-id]')) {
+            const title = row.querySelector('.aparte-conv-item__title')?.textContent ?? row.textContent ?? '';
+            row.hidden = needle !== '' && !foldText(title).includes(needle);
+            if (!row.hidden) matches++;
+        }
+        for (const group of this.querySelectorAll<HTMLElement>('.aparte-conv-group')) {
+            group.hidden = needle !== '' && !Array.from(group.querySelectorAll<HTMLElement>('[data-conv-id]')).some((r) => !r.hidden);
+        }
+        const noMatch = needle !== '' && matches === 0;
+        this.toggleAttribute('data-no-match', noMatch);
+        // Always there, empty until a miss: a live region created with its text already in
+        // it is a new node, not a change, and several screen readers announce nothing.
+        let line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
+        if (!line) {
+            line = document.createElement('p');
+            line.className = 'aparte-conv-list-no-match';
+            line.setAttribute('role', 'status');
+            this.appendChild(line);
+        }
+        const text = noMatch ? this._t('conversationSearchEmpty') : '';
+        if (line.textContent !== text) line.textContent = text;
+        return matches;
     }
 
     private _t(key: ListLocaleKey): string {

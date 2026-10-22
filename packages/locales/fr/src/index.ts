@@ -80,6 +80,7 @@ export const fr: AparteLocale = {
     messageInfo: "Détails",
     newChat: "Nouvelle conversation",
     loadingConversations: "Chargement des conversations",
+    conversationSearchEmpty: "Aucune conversation ne correspond",
     conversationList: "Conversations",
     loadingConversation: "Chargement de la conversation",
     deleteConversation: "Supprimer",

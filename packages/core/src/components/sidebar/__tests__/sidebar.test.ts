@@ -372,5 +372,28 @@ describe('aparte-sidebar', () => {
             el.filter('old');
             expect(rows()).toEqual({ a: true, b: true, c: false });
         });
+
+        it('filter() says how many match, and the list says when none does', () => {
+            const { el } = withList();
+            expect(el.filter('deploy')).toBe(1);
+            expect(el.filter('nothing like this')).toBe(0);
+            const list = el.querySelector('aparte-conversation-list')!;
+            expect(list.hasAttribute('data-no-match')).toBe(true);
+            expect(el.hasAttribute('data-no-match')).toBe(true);
+            const line = list.querySelector('.aparte-conv-list-no-match')!;
+            expect(line.getAttribute('role')).toBe('status');
+            expect(line.textContent).toBe('No conversation matches');
+            el.filter('');
+            expect(list.hasAttribute('data-no-match')).toBe(false);
+            expect(line.textContent).toBe('');
+        });
+
+        it('the query outlives a re-render of the list: a new conversation obeys it', () => {
+            const { el, rows } = withList();
+            el.filter('deploy');
+            (el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] }).conversations =
+                [...items, { id: 'd', title: 'Unrelated', updatedAt: Date.now() }];
+            expect(rows()).toEqual({ a: false, b: true, c: true, d: true });
+        });
     });
 });

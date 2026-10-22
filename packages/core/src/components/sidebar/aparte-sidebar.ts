@@ -418,20 +418,18 @@ export class AparteSidebar extends HTMLElement {
     };
 
     /**
-     * Hide the conversation rows whose title does not contain `query`, and the date
-     * groups left empty. Case- and accent-insensitive. An empty query shows everything.
+     * Filter the conversation lists inside by title (case- and accent-insensitive; an
+     * empty query shows everything), and return how many conversations match. Each list
+     * keeps the query through its own renders and says when nothing matches; the
+     * sidebar carries `data-no-match` then too.
      */
-    filter(query: string): void {
-        const needle = fold(query);
-        for (const list of this.querySelectorAll<HTMLElement>('aparte-conversation-list')) {
-            for (const row of list.querySelectorAll<HTMLElement>('[data-conv-id]')) {
-                const title = row.querySelector('.aparte-conv-item__title')?.textContent ?? row.textContent ?? '';
-                row.hidden = needle !== '' && !fold(title).includes(needle);
-            }
-            for (const group of list.querySelectorAll<HTMLElement>('.aparte-conv-group')) {
-                group.hidden = needle !== '' && !Array.from(group.querySelectorAll<HTMLElement>('[data-conv-id]')).some((r) => !r.hidden);
-            }
+    filter(query: string): number {
+        let matches = 0;
+        for (const list of this.querySelectorAll<HTMLElement & { filter?: (q: string) => number }>('aparte-conversation-list')) {
+            matches += list.filter?.(query) ?? 0;
         }
+        this.toggleAttribute('data-no-match', query.trim() !== '' && matches === 0);
+        return matches;
     }
 
     // ─── Locale ───────────────────────────────────────────────────────────
@@ -483,10 +481,6 @@ function nearestSidebar(control: HTMLElement): Element | null {
 }
 
 /** Lower-case, accents stripped: "Épingler" matches "epingler". */
-function fold(text: string): string {
-    return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-}
-
 if (!customElements.get('aparte-sidebar')) {
     customElements.define('aparte-sidebar', AparteSidebar);
 }

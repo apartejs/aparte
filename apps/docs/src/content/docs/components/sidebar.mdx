@@ -45,7 +45,11 @@ closes on Escape or a click outside, and gives the focus back to the button that
 Any element carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar, or the one whose id
 the attribute names, so a button in the [header](/components/header/) needs no script.
 `aparte-sidebar-toggle` fires on every change, whoever caused it. The search field is any input
-with `data-aparte-sidebar-search`; it filters by title, on the rows the list already has.
+with `data-aparte-sidebar-search`; it filters by title, on the rows the list already has, and the
+query holds through the list's next renders. When nothing matches, the list says so in a status
+line (the locale's `conversationSearchEmpty`), and the list and the sidebar carry
+`data-no-match`. `sidebar.filter(query)` does the same from a script and returns how many
+conversations match.
 
 ## Customize
 
