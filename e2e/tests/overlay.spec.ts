@@ -191,3 +191,23 @@ test('a header over the transcript: the first message starts below it, and a jum
     expect(Math.abs(pinned - INSET), `a sent question is pinned at the header's edge (${pinned}px)`).toBeLessThanOrEqual(3);
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
+
+/*
+ * The compact class under a framework. It declared the transcript's two-value padding on the chat
+ * root, and the framework-managed viewport adds that variable into its bottom spacer's `calc()`:
+ * two values made it invalid, and the spacer — the overlay clearance with it — collapsed.
+ */
+test('aparte-chat--compact keeps the bottom spacer', async ({ page }, testInfo) => {
+    await page.goto(overlayUrl(testInfo.project.name));
+    const chat = new ChatPage(page);
+    await chat.sendAndSettle('one turn');
+    const basis = () => page.evaluate(() => {
+        const vp = document.querySelector('[overlay-composer] aparte-chat-viewport') as HTMLElement;
+        const framework = vp.hasAttribute('framework-managed') || vp.classList.contains('aparte-viewport--framework');
+        return framework ? getComputedStyle(vp, '::after').flexBasis : 'n/a (core mode: no spacer)';
+    });
+    const before = await basis();
+    await page.evaluate(() => (document.querySelector('[overlay-composer]') as HTMLElement).classList.add('aparte-chat--compact'));
+    const after = await basis();
+    expect(after, `the spacer's basis was ${before}`).toEqual(before === 'n/a (core mode: no spacer)' ? before : expect.stringMatching(/px$/));
+});

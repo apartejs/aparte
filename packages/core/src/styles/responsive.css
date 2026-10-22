@@ -93,10 +93,18 @@
   --aparte-message-padding-inline: var(--aparte-space-4);
   --aparte-message-gap: var(--aparte-space-4);
   --aparte-avatar-size: 24px;
+}
+
+/* The transcript's two-value padding on the wrapper only, as the container query writes it:
+   under a framework the viewport adds `--aparte-viewport-padding` to its bottom spacer in a
+   `calc()`, which two values make invalid — the spacer, and the overlay clearance with it,
+   collapsed. */
+.aparte-chat--compact .aparte-messages-wrapper {
   --aparte-viewport-padding: var(--aparte-space-6) var(--aparte-space-4);
 }
 
-.aparte-chat--compact .aparte-composer-row {
+/* One class's weight, like the row's own rule: a host's padding on the row still wins. */
+:where(.aparte-chat--compact) .aparte-composer-row {
   padding: var(--aparte-space-4);
 }
 
