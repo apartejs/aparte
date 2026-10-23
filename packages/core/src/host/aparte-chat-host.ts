@@ -832,6 +832,8 @@ export class AparteChatHost {
                 if (msg.segments !== undefined) updates.segments = msg.segments;
                 if (msg.status !== undefined) updates.status = msg.status;
                 if (msg.usage !== undefined) updates.usage = msg.usage;
+                // What the turn ran on: a pause resumed after a reload reads it from the saved tree.
+                if (msg.model !== undefined) updates.model = msg.model;
                 if (Object.keys(updates).length > 0) vp.updateMessage?.(msg.id, updates);
             }
         }

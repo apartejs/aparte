@@ -97,3 +97,32 @@ describe('a stored conversation continued under a framework', () => {
         teardown();
     });
 });
+
+/*
+ * The model a turn ran on is stamped on its reply mid-stream, through the framework's
+ * list. The saved tree is the viewport's repository, and the sync into it copied the
+ * text, the segments, the status and the usage — not the model — so a turn paused on a
+ * server and resumed after a reload went back to the default model instead.
+ */
+describe('a reply under a framework', () => {
+    beforeEach(() => { document.body.innerHTML = ''; });
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('is saved with the model it ran on', async () => {
+        const { host, root, teardown, rows, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.appendMessage(message('u2', 'user', 'second'));
+        host.appendMessage(message('a2', 'assistant', 'answer again'));
+        const model = { providerId: 'openai', modelId: 'gpt-x' };
+        host.updateMessage('a2', { model });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a2' }, bubbles: true }));
+
+        await vi.waitFor(() => {
+            const saved = rows.find((c) => c.id === 'c1')!.tree?.messages.find((n) => n.message.id === 'a2');
+            expect(saved?.message.model).toEqual(model);
+        });
+        teardown();
+    });
+});
