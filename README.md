@@ -60,7 +60,7 @@ with assistant-ui, AI Elements, Deep Chat and Loquix.
 ## Quick start — no framework
 
 ```bash
-npm install @aparte/core @aparte/provider-openai-compat
+npm install @aparte/core @aparte/provider-openai-compat @aparte/plugin-marked marked
 ```
 
 ```html
@@ -72,23 +72,19 @@ import '@aparte/core';                 // registers the <aparte-*> custom elemen
 import '@aparte/core/styles.css';      // theme variables + component styles
 import { registerDefaultRenderers, aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
 
 registerDefaultRenderers();
+setupMarkedStreamingProvider();        // Markdown, as it streams — core alone shows the text as written
 
 // A local model (LM Studio / Ollama) needs no key — just enable CORS in the app.
 // Swap in presets.OPENAI / .MISTRAL / .OPENROUTER (+ a keyResolver) for a cloud vendor.
 aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-new AparteClient().start();            // listens for sends, streams the reply into the chat
+new AparteClient().start();            // listens for sends, shows the user's message, streams the reply
 
 // Retry/edit only work with a host like the client above, so core ships them off:
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
-
-// The bare shell streams the assistant reply; echo the user's own message in:
-const chat = document.querySelector('aparte-chat')!;
-chat.addEventListener('aparte-send', (e) =>
-  chat.viewport?.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: Date.now() }),
-);
 ```
 
 A real streaming, bring-your-own-key chat — no backend, no build magic.
@@ -100,15 +96,17 @@ Same core, an ergonomic component per framework — and the wrapper owns the sta
 and the user bubble, so there's even less to wire:
 
 ```bash
-npm install @aparte/react @aparte/core react react-dom
+npm install @aparte/react @aparte/core @aparte/provider-openai-compat @aparte/plugin-marked marked react react-dom
 ```
 
 ```tsx
 import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
 import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
 import '@aparte/core/styles.css';
 
+setupMarkedStreamingProvider();
 aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
