@@ -174,7 +174,7 @@ export async function createRunner(ctx) {
       signal.addEventListener('abort', () => stopping.interrupt(), { once: true });
       await model.generate({
         ...inputs,
-        max_new_tokens: options.maxTokens ?? 512,
+        max_new_tokens: options.maxTokens ?? 8192,   // a runner of yours picks its own ceiling
         streamer: new TextStreamer(tokenizer, {
           skip_prompt: true, skip_special_tokens: true,
           callback_function: (text) => emit({ type: 'text', delta: text }),

@@ -92,7 +92,7 @@ export async function createRunner(ctx) {
         skip_prompt: true, skip_special_tokens: true,
         callback_function: (text) => emit({ type: 'text', delta: text }),
       });
-      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 512, streamer });
+      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 8192, streamer });
       // `done` is optional — the provider closes the stream when generate() resolves
     },
     // anything that is not a generation: the provider passes it through, untouched

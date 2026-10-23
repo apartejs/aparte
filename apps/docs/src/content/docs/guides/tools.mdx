@@ -146,7 +146,8 @@ no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` 
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
   and the model gets a turn to answer it.
 - **Writing instead of choosing** is a refusal that carries your words, which the model reads —
-  except with an [AG-UI agent](/providers/agent/ag-ui/), which gets only `{ approved: false }`.
+  except when an [AG-UI agent](/providers/agent/ag-ui/) paused on its own tool (an interrupt),
+  which gets only `{ approved: false }`.
 - **Stop** ends the reply, and the call shows Stopped; the model is told nothing.
 
 Each time a call starts to wait, the chat sends `aparte-tool-approval-request` with
