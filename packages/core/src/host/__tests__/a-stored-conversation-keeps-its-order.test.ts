@@ -126,3 +126,32 @@ describe('a reply under a framework', () => {
         teardown();
     });
 });
+
+/*
+ * Any field the app writes on a message, not only the five the bubble draws: the saved tree
+ * is the viewport's copy, and the sync into it carried text, segments, status, usage and
+ * model. A `metadata` edit was saved in the flat list and lost from the tree — which is what
+ * a reopen loads.
+ */
+describe('a field the app writes on a message under a framework', () => {
+    beforeEach(() => { document.body.innerHTML = ''; });
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('comes back when the conversation is opened again', async () => {
+        const { host, root, teardown, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.updateMessage('a1', { metadata: { pinned: true } });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+
+        select('c2');
+        await vi.waitFor(() => expect(ids()).toEqual([]));
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+        const reopened = host.getMessages().find((m) => m.id === 'a1');
+        expect(reopened?.metadata).toEqual({ pinned: true });
+        teardown();
+    });
+});

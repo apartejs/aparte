@@ -2,6 +2,6 @@
 '@aparte/core': patch
 ---
 
-Under the React, Vue, Svelte and Angular components, a reply is now saved with the model it ran on. A turn paused on a server and resumed after a reload goes back to that model, not to the default one.
+Under the React, Vue, Svelte and Angular components, a message is now saved with every field written on it — `metadata`, attachments, the model a reply ran on — and comes back with them when the conversation is opened again. A turn paused on a server and resumed after a reload now goes back to the model it ran on, not to the default one.
 
-The model is written on the reply while it streams, into the framework's list. The saved conversation tree is built from the viewport's own copy, and the step that brings that copy up to date carried the text, the segments, the status and the usage, but not the model. The vanilla `<aparte-chat>` was not affected.
+The saved conversation tree is built from the viewport's own copy of the messages. The step that brought that copy up to date carried only the text, the segments, the status and the usage. Anything else (`host.updateMessage(id, { metadata })`, the model the client stamps on a reply) was saved in the flat list and missing from the tree, and a reopen loads the tree. The vanilla `<aparte-chat>` was not affected.

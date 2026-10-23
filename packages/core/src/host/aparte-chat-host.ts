@@ -163,6 +163,9 @@ export interface AparteChatHostOptions {
  */
 const MAX_SIBLING_RETRIES = 6;
 
+/** A message's fields the viewport's tree derives itself, which a framework's list never overwrites. */
+const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStreaming']);
+
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
     private readonly options: AparteChatHostOptions;
@@ -835,6 +838,15 @@ export class AparteChatHost {
                 // What the turn ran on: a pause resumed after a reload reads it from the saved tree.
                 if (msg.model !== undefined) updates.model = msg.model;
                 if (Object.keys(updates).length > 0) vp.updateMessage?.(msg.id, updates);
+                // Every other field the app wrote (metadata, attachments, a name…) reaches the
+                // tree too — the saved conversation and what a reopen loads — without a redraw:
+                // the framework draws from its own list. The tree's own fields stay its own.
+                const stored = vp.getMessage?.(msg.id) as Record<string, unknown> | undefined;
+                if (stored) {
+                    for (const [key, value] of Object.entries(msg)) {
+                        if (value !== undefined && !(key in updates) && !TREE_OWNED_FIELDS.has(key)) stored[key] = value;
+                    }
+                }
             }
         }
     }
