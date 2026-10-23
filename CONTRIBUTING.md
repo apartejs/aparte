@@ -356,3 +356,6 @@ consumers.
 - No unprefixed class or keyframe name.
 - No bare type selector (`div`, `button`) outside a container that owns its own content —
   prose and code panes qualify; a row that something else can be mounted into does not.
+- No `@element` (or any tag) on the first line of a component's class docblock. The analyser
+  takes the description from the free text before the first tag, so the prose comes first, or
+  the component's description is empty in the manifest and on its generated reference page.
