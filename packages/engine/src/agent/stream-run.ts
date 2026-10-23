@@ -795,6 +795,11 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             effectiveInput = { ...input, ...(decision.payload as Record<string, unknown>) };
         }
         ctx.emitter({ type: 'tool-approved', toolCallId: call.id });
+    } else if (answer?.kind === 'decision' && !answer.approved) {
+        // A call with no gate of its own that a resume refuses: the page refused an earlier
+        // call of the same pause, and a refusal ends the calls after it there, as it does in
+        // a run in the page. Refusing never runs anything, so nothing is overruled.
+        return refuse(ctx, call, answer);
     }
 
     // ── handler invocation with per-call timeout ──────────────────

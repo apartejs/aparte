@@ -265,7 +265,22 @@ describe('the client resumes a paused server run', () => {
         cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true }, handler);
         await send(c);
         expect(handler).not.toHaveBeenCalled();
-        expect(Object.keys(r.calls[1]!.deferral!.outcomes!)).toEqual(['w1']);
+        // Every later call is answered too, as not run: a server would otherwise pause on it
+        // again, and an AG-UI agent would hand its model a call with no answer.
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({
+            w1: { kind: 'decision', approved: false },
+            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.' },
+        });
+    });
+
+    it('answers the later questions of the pause as not run once one is refused, and asks no more', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }, { id: 'c2', name: 'delete_file', reason: 'approval' }), finish);
+        let asked = 0;
+        const { c } = client(el, r.run, { approvalResolver: async () => { asked++; return { approved: false }; } });
+        await send(c);
+        expect(asked).toBe(1);
+        expect(Object.keys(r.calls[1]!.deferral!.outcomes!)).toEqual(['c1', 'c2']);
     });
 
     it('hands the browser tool the input an approval changed, as the page\'s own loop does', async () => {
@@ -291,6 +306,12 @@ describe('the client resumes a paused server run', () => {
         );
         await send(c);
         expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'result', content: 'written' } });
+        // The resume still hands the call back OPEN, for the result to answer: painting the
+        // approved row used to end its pause first, and the history then answered it
+        // "stopped before it ran" — a server refused the resume, an agent read a false answer.
+        const resumed = r.calls[1]!.baseRequest.messages;
+        expect(resumed.some((m) => m.role === 'tool' && m.toolCallId === 'w1'), 'w1 is not answered in the history').toBe(false);
+        expect(resumed.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'w1' }] });
     });
 
     it('brackets the whole turn, pauses included, with one start and one done', async () => {

@@ -92,6 +92,9 @@ export type AparteToolApprovalResolver = (
 const COMPACTION_PREAMBLE =
     'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
 
+/** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
+const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
+
 /**
  * Configuration options for AparteClient
  */
@@ -1809,7 +1812,16 @@ export class AparteClient {
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
         const resolver = this._approvalResolverFor(targetElement, true);
-        for (const p of pending) {
+        // A refusal ends the pause's later calls, as it ends the turn's in the page's own
+        // loop: nobody is asked about them and none of them runs — but each is ANSWERED, as
+        // not run. Left without an answer, a server pauses on it again and an AG-UI agent
+        // hands its model a call nothing answers, which providers reject.
+        const refuseTheRest = (after: number): void => {
+            for (const rest of pending.slice(after + 1)) {
+                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL };
+            }
+        };
+        for (const [index, p] of pending.entries()) {
             if (signal.aborted) break;
             const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };
             if (p.reason === 'approval') {
@@ -1824,10 +1836,7 @@ export class AparteClient {
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
                 if (decision.approved) approvedInTurn.add(p.toolCallId);
-                // A refusal ends the turn's calls, as it does in the page's own loop: the
-                // loop reads the refusal and stops there, so asking about the rest would
-                // put questions to a person whose answers nothing reads.
-                else break;
+                else { refuseTheRest(index); break; }
             } else if (p.reason === 'external') {
                 // The page's gate first, the one its own loop applies: a browser tool asked
                 // for by a server or an AG-UI agent used to run without its `needsApproval`
@@ -1844,7 +1853,8 @@ export class AparteClient {
                 if (gate === undefined || signal.aborted) return undefined;
                 if (gate && !gate.approved) {
                     outcomes[p.toolCallId] = { kind: 'decision', ...gate };
-                    break;   // as above: the turn's later calls do not run
+                    refuseTheRest(index);
+                    break;
                 }
                 // An approval may carry a payload, merged into the input as the page's own
                 // loop merges it.
@@ -1891,7 +1901,11 @@ export class AparteClient {
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
         if (ruling === 'ask') rowEvents?.({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
         const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
-        if (decision?.approved && ruling === 'ask') rowEvents?.({ type: 'tool-approved', toolCallId: call.id });
+        // Back to running, and still PAUSED: the resume hands this call back open for its
+        // result to answer. Not through `rowEvents` — that adapter never saw the call start,
+        // so it takes any settle for the end of the pause and drops `deferred`, and the
+        // history then answered the call "stopped before it ran".
+        if (decision?.approved && ruling === 'ask') targetElement.updateSegment?.(`tool-${call.id}`, { status: 'pending' } as Partial<AparteSegment>);
         return decision;
     }
 
