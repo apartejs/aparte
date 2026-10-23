@@ -279,6 +279,12 @@ With it, the worker can run a provider such as `@aparte/provider-openai-compat`,
 and its `<aparte-approval-mode>`, the model selector — fails in a worker either way: use it on the
 page.
 
+The rule applies to `vite build`, the only time Vite bundles a worker on its own. Under `vite dev`
+a worker's modules come through the page's own pipeline, so a provider in it still loads the entry
+with the elements and the worker fails on its first `extends HTMLElement`. While developing, keep
+the provider on the page, or give the worker `@aparte/core/headless` alone; the production build
+runs it in the worker.
+
 | Wrapper | On a server |
 | --- | --- |
 | React | `'use client'` lets a Server Component render it; its server render imports the entry without elements, and they upgrade in the browser |
