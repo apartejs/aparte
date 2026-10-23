@@ -77,6 +77,60 @@ describe('putting an open panel aside', () => {
         expect(await p).toEqual({ action: 'accept', content: { option: 'allow' } });
     });
 
+    /*
+     * Put aside, a question is not reviewable, so the composer's button cannot send it: the
+     * answers already typed would go out unseen. Brought back, it sends again.
+     */
+    it('cannot be sent while it is put aside', async () => {
+        mountChat();
+        const composer = document.querySelector('aparte-composer') as HTMLElement & { submit(): void; getState(): { submitEnabled: boolean } };
+        let settled = false;
+        const p = requestUserInput({ message: 'Name?', schema: { type: 'string' } }).then((r) => { settled = true; return r; });
+        const field = panel().querySelector<HTMLInputElement>('.aparte-elic-text')!;
+        field.value = 'Ada';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(composer.getState().submitEnabled, 'an answer is written').toBe(true);
+
+        hide().click();
+        expect(composer.getState().submitEnabled, 'put aside, the button has no act').toBe(false);
+        expect(composer.getAttribute('data-panel-mode')).toBe('none');
+        composer.submit();
+        await Promise.resolve();
+        expect(settled, 'and Enter or submit() sends nothing').toBe(false);
+
+        reveal().click();
+        expect(composer.getState().submitEnabled, 'brought back, it can be sent').toBe(true);
+        expect(composer.getAttribute('data-panel-mode')).toBe('submit');
+        composer.submit();
+        expect(await p).toEqual({ action: 'accept', content: 'Ada' });
+    });
+
+    it('cannot send an approval\'s written instruction while it is put aside', async () => {
+        mountChat();
+        const composer = document.querySelector('aparte-composer') as HTMLElement & { submit(): void; getState(): { submitEnabled: boolean } };
+        let settled = false;
+        const p = requestUserInput({
+            kind: 'approval',
+            message: 'Run delete_file?',
+            options: [{ value: 'allow', label: 'Approve', tone: 'affirm' }, { value: 'deny', label: 'Reject', tone: 'deny' }],
+        }).then((r) => { settled = true; return r; });
+        const instruction = panel().querySelector<HTMLTextAreaElement>('.aparte-approval-instruction')!;
+        instruction.value = 'Only the temp files';
+        instruction.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(composer.getState().submitEnabled).toBe(true);
+
+        hide().click();
+        expect(composer.getState().submitEnabled).toBe(false);
+        composer.submit();
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        reveal().click();
+        expect(composer.getState().submitEnabled).toBe(true);
+        composer.submit();
+        expect(await p).toMatchObject({ action: 'accept' });
+    });
+
     it('follows a language switch', () => {
         mountChat();
         void requestUserInput({ message: 'Framework?', schema: { type: 'string' } }).catch(() => {});

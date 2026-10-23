@@ -73,12 +73,14 @@ function isWithin(node: Node, ancestor: Node): boolean {
  * A way to put an open panel aside and read the transcript behind it — the same for a
  * question and an approval, since both open here. Hiding leaves a one-line bar that says an
  * answer is waiting and brings the panel back; the request stays open either way, and the
- * composer's editor stays hidden, because the question still waits for its answer.
+ * composer's editor stays hidden, because the question still waits for its answer. While it is
+ * aside the composer's button has no act — what is out of sight cannot be sent — so `onToggle`
+ * lets the caller recompute it on both moves.
  *
  * The hide button goes FIRST in the corner, before a question's Skip, so the two never
  * swap places between a question and an approval.
  */
-function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig, reopen: () => void): { relabel(next: AparteConfig): void } {
+function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig, reopen: () => void, onToggle: () => void): { relabel(next: AparteConfig): void } {
     const hide = document.createElement('button');
     hide.type = 'button';
     hide.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--ghost aparte-elic-hide';
@@ -103,10 +105,12 @@ function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig
 
     hide.addEventListener('click', () => {
         panelEl.setAttribute('data-collapsed', '');
+        onToggle();
         reveal.focus();
     });
     reveal.addEventListener('click', () => {
         panelEl.removeAttribute('data-collapsed');
+        onToggle();
         reopen();
     });
     corner.prepend(hide);
@@ -468,13 +472,13 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * written text, and only that, which is the act this button already
                  * means; until there is some, the panel has none for it.
                  */
-                const approvalMode = (): AparteComposerPanelMode => (panel.isComplete() ? 'submit' : 'none');
+                const sendable = (): boolean => panel.isComplete() && !panel.el.hasAttribute('data-collapsed');
+                const approvalMode = (): AparteComposerPanelMode => (sendable() ? 'submit' : 'none');
+                const syncSubmit = (): void => composer.setPanelSubmitEnabled(sendable(), approvalMode());
                 const panel = runWithConfig(cfg, () =>
-                    buildApprovalPanel(request.message, request.options ?? [], () => {
-                        composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
-                    }, request.details));
+                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
-                const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus());
+                const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
                 this._pending = {
                     abort: () => fail(),
                     composer,
@@ -493,10 +497,12 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // and it was handled above. The fallback keeps this branch total rather
             // than throwing on a shape the type already forbids.
             const schema = request.schema ?? { type: 'string' as const };
+            const syncSubmit = (): void => {
+                const aside = panel.el.hasAttribute('data-collapsed');
+                composer.setPanelSubmitEnabled(!aside && panel.canProceed(), aside ? 'none' : panel.mode());
+            };
             const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
-                buildElicitationPanel(request.message, schema, () => {
-                    composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
-                }));
+                buildElicitationPanel(request.message, schema, syncSubmit));
 
             // "Skip" → decline (MCP's decline: the user chose not to answer), in the
             // panel's CORNER. It sat beside the button that advances through the form,
@@ -508,7 +514,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
-            const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus());
+            const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
 
             /*
              * The click that IS the answer — a single question whose options are
