@@ -646,3 +646,33 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });
 });
+
+/*
+ * The binding's `afterRender` is the helper that runs in a hidden tab. Its own test pins the
+ * helper; this one pins that <AparteChat> hands it to the host, so a frame-only callback
+ * restored here (a merge, a refactor) fails a test: a version count from a branch switch, or a
+ * compaction's save, would wait for the reader to come back to the tab.
+ */
+describe('<AparteChat> in a hidden tab', () => {
+    afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); cleanup(); });
+
+    it('still writes a branch switch\'s version counts, with no frame to wait for', () => {
+        const messages: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'Hi', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2 },
+        ];
+        const { container } = render(<AparteChat messages={messages} />);
+        vi.useFakeTimers();
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);   // never fires
+        const bubble = container.querySelector('aparte-chat-bubble[message-id="a1"]') as HTMLElement & { setSiblings(count: number, index: number): void };
+        const setSiblings = vi.spyOn(bubble, 'setSiblings');
+        act(() => {
+            container.querySelector('aparte-chat-viewport')!.dispatchEvent(new CustomEvent('aparte-path-changed', {
+                detail: { messages, siblings: [{ id: 'a1', count: 2, index: 1 }] },
+            }));
+        });
+        act(() => { vi.runAllTimers(); });
+        expect(setSiblings).toHaveBeenCalledWith(2, 1);
+    });
+});
