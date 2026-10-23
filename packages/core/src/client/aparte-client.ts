@@ -95,6 +95,10 @@ const COMPACTION_PREAMBLE =
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
 
+/** A call as an approval remembers it: the call itself, not its id alone, which a later call may reuse. */
+const approvalKey = (call: { id: string; name: string; input: unknown }): string =>
+    JSON.stringify([call.id, call.name, call.input]);
+
 /**
  * Configuration options for AparteClient
  */
@@ -751,10 +755,12 @@ export class AparteClient {
             // otherwise ask forever, and a policy that answers alone would not even pause.
             const maxResumes = this.options.maxTurns ?? 10; // the engine's default
             let resumes = 0;
-            // Calls a person already approved in this turn. A server or an agent can pause on
-            // the same call twice — approve it, then run it in the browser (TanStack AI does
-            // exactly that) — and the second pause must not ask again.
-            const approvedInTurn = new Set<string>();
+            // Calls a person approved at the last pause. An agent can pause on the same call
+            // twice — approve it, then run it in the browser (TanStack AI does exactly that) —
+            // and the second pause must not ask again. Kept for the next pause only, and for the
+            // call itself: a vendor that sends no ids has them minted per stream, so a later call
+            // can carry an id approved earlier in the turn, and that approval was not for it.
+            let approvedAtLastPause = new Set<string>();
             const rowEvents = createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) });
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
@@ -765,7 +771,11 @@ export class AparteClient {
                     );
                     break;
                 }
-                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal, rowEvents, approvedInTurn);
+                const approvedNow = new Set<string>();
+                const outcomes = stopped
+                    ? undefined
+                    : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
+                approvedAtLastPause = approvedNow;
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
                     // do not run. And no run is left to say the turn stopped, so say it here.
@@ -1795,7 +1805,8 @@ export class AparteClient {
         pending: StreamDeferredCall[],
         signal: AbortSignal,
         rowEvents?: AparteStreamRunEmitter,
-        approvedInTurn: Set<string> = new Set(),
+        approvedBefore: ReadonlySet<string> = new Set(),
+        approvedNow: Set<string> = new Set(),
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
         const resolver = this._approvalResolverFor(targetElement, true);
@@ -1822,14 +1833,15 @@ export class AparteClient {
                 }
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
-                if (decision.approved) approvedInTurn.add(p.toolCallId);
+                if (decision.approved) approvedNow.add(approvalKey(call));
                 else { refuseTheRest(index); break; }
             } else if (p.reason === 'external') {
                 // The page's gate first, the one its own loop applies: a browser tool asked
                 // for by a server or an AG-UI agent used to run without its `needsApproval`
                 // or the approval policy ever being consulted.
                 let gate: Awaited<ReturnType<StreamApprovalResolver>> | null | undefined = null;
-                if (!approvedInTurn.has(p.toolCallId)) {
+                const key = approvalKey(call);
+                if (!approvedBefore.has(key) && !approvedNow.has(key)) {
                     try {
                         gate = await this._gateBrowserTool(call, signal, targetElement, rowEvents);
                     } catch (error: unknown) {

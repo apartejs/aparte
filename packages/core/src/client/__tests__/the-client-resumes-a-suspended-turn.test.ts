@@ -257,6 +257,26 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls[2]!.deferral!.outcomes).toEqual({ w1: { kind: 'result', content: 'written' } });
     });
 
+    it('asks about a later call that carries an approved id: that approval was for another call', async () => {
+        // A vendor that sends no call ids has them minted per stream, so the model's next turn
+        // can carry the id of a call a person approved earlier in the same turn.
+        const { el } = chat();
+        const r = runner(
+            pauseOn({ id: 'aparte-call-1', name: 'delete_file', reason: 'approval' }),
+            pauseOn({ id: 'aparte-call-1', name: 'wipe_storage', reason: 'external' }),
+            finish,
+        );
+        const asked: string[] = [];
+        const wipe = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'wiped' }));
+        const { c, cfg } = client(el, r.run, {
+            approvalResolver: async (call: { name: string }) => { asked.push(call.name); return { approved: call.name === 'delete_file' }; },
+        });
+        cfg.registerTool({ name: 'wipe_storage', description: 'Wipe.', inputSchema: { type: 'object' }, needsApproval: true }, wipe);
+        await send(c);
+        expect(asked).toEqual(['delete_file', 'wipe_storage']);
+        expect(wipe, 'refused when asked, so it never runs').not.toHaveBeenCalled();
+    });
+
     it('runs no later browser tool of the pause once one is refused', async () => {
         const { el } = chat();
         const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }, { id: 'w2', name: 'write_file', reason: 'external' }), finish);
