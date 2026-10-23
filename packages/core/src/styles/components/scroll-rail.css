@@ -33,6 +33,10 @@ aparte-chat:has(> aparte-scroll-rail),
    over the text again. */
 :where(:is(aparte-chat, [data-aparte-chat], .aparte-chat-container):has(> aparte-scroll-rail:not([hidden]))) {
   padding-inline-end: var(--aparte-scroll-rail-room);
+  /* Inside the box, never added to it: the Angular wrapper's inner container is a
+     `width: 100%` div with no box-sizing of its own, and a lane added to its width pushed the
+     rail into the strip `<aparte-chat>` clips. */
+  box-sizing: border-box;
 }
 
 /* The overlay transcript is laid out on the shell's padding box (`inset: 0`, shell.css), which
