@@ -252,13 +252,31 @@ describe('#57 — one owner of the scroll during the send glide', () => {
             vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
             await frame();
             expect(instantWrites).toEqual([]);
-            // The engine never arrived (a stale target, a churn): the view sits 191 px short of
-            // the max (1611 − 720 = 891) when the window's budget runs out.
-            recording = false; box.scrollTop = 700; recording = true;
+            // The engine never arrived (a stale target, a churn): the glide moved down and stopped
+            // 180 px short of the max (2400 − 720 = 1680) when the window's budget ran out.
+            geometry(1500, 2400);
             vi.advanceTimersByTime(600);
             await frame();
             await frame();
             expect(instantWrites.length, 'the view is pinned once the glide is over').toBeGreaterThan(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('a jump up that has not been read yet when the window closes is not undone', async () => {
+        // Measured in Chromium: a host wrote `scrollTop = 0` and, in the same instant, the
+        // window's timer fired, found the view short of the bottom and pinned it — before the
+        // scroll event could tell the follow that someone had moved the view. Moving up is
+        // never the glide's shortfall; the scroll handler decides it.
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+        try {
+            vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+            await frame();
+            recording = false; box.scrollTop = 0; recording = true;
+            vi.advanceTimersByTime(600);
+            await frame();
+            expect(instantWrites, 'the jump stands').toEqual([]);
         } finally {
             vi.useRealTimers();
         }

@@ -2180,6 +2180,10 @@ export class AparteChatViewport extends HTMLElement {
                 this._glideSettleTimer = null;
                 if (!this._container || !this._isAutoScrollEnabled || this._gliding()) return;
                 const max = this._container.scrollHeight - this._container.clientHeight;
+                // Above where the last scroll event left it, the view was moved by someone the
+                // scroll handler has not heard from yet — a host's jump, a reader — and the
+                // glide never moves up: that one is the handler's to judge, not ours to undo.
+                if (this._container.scrollTop < this._lastScrollTop - 1) return;
                 if (max - this._container.scrollTop > 1) this._scrollToBottom();
             }, this._glideWindowMs + 16);
         } else {
