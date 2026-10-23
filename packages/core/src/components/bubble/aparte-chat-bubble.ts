@@ -894,6 +894,19 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         this._wroteBarLabel = true;
       }
     }
+    // The branch arrows are icon buttons, and the contract asks no ARIA of a shell's author:
+    // unnamed ones get the locale's names, and keep them through a language switch. A shell
+    // that named either arrow keeps both as it wrote them.
+    if (shell) {
+      const prev = this.querySelector('.aparte-branch-prev');
+      const next = this.querySelector('.aparte-branch-next');
+      if ((prev || next) && !prev?.hasAttribute('aria-label') && !next?.hasAttribute('aria-label')) {
+        const locale = this._cfg.getLocale();
+        prev?.setAttribute('aria-label', locale.previousResponse ?? 'Previous response');
+        next?.setAttribute('aria-label', locale.nextResponse ?? 'Next response');
+        this._wroteArrowLabels = true;
+      }
+    }
     // ONE listener on the bar, not one per button: every build path rewrites the bar's
     // innerHTML, so a per-button listener would have to be re-attached three times and
     // would be lost the first time somebody added a fourth path. The bar element itself

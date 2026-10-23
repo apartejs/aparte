@@ -56,3 +56,29 @@ describe('a custom shell action bar', () => {
     });
 });
 
+
+/*
+ * The branch arrows too: a shell's `.aparte-branch-prev` / `-next` are icon buttons, and the
+ * contract asks no ARIA of their author. They were named at the first config change before
+ * the bubble stopped relabelling what it had not written, and then never again.
+ */
+describe('a custom shell branch picker', () => {
+    const PICKER = '<div class="aparte-branch-picker"><button type="button" class="aparte-branch-prev"></button><span class="aparte-branch-label"></span><button type="button" class="aparte-branch-next"></button></div>';
+    const withPicker = SHELL.replace('<div class="aparte-action-bar">', `${PICKER}<div class="aparte-action-bar">`);
+
+    it('names unnamed arrows from the locale, and follows a language switch', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(() => withPicker);
+        const el = mount();
+        expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Previous response');
+        expect(el.querySelector('.aparte-branch-next')!.getAttribute('aria-label')).toBe('Next response');
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), previousResponse: 'Réponse précédente', nextResponse: 'Réponse suivante' });
+        expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Réponse précédente');
+    });
+
+    it('keeps arrows the shell named itself', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(() => withPicker.replace('class="aparte-branch-prev"', 'class="aparte-branch-prev" aria-label="Back"'));
+        const el = mount();
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), previousResponse: 'Réponse précédente' });
+        expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Back');
+    });
+});
