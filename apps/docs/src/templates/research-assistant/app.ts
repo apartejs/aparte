@@ -62,20 +62,15 @@ const list = part<AparteConversationList>('aparte-conversation-list');
 const split = part<Split>('aparte-split');
 const sidebar = part<Sidebar>('aparte-sidebar');
 const title = part<HTMLElement>('[data-research-title]');
-const paneButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-aparte-split-pane]')];
+const gauge = part<HTMLElement & { used: number | null }>('aparte-context');
 
 const pane = createReportPane(part<HTMLElement>('.research-pane'));
 
-/** Which pane the header's Chat / Report pair says is shown, on a phone where only one is. */
-function markPane(which: 'start' | 'end'): void {
-    for (const button of paneButtons) button.setAttribute('aria-pressed', String(button.dataset['aparteSplitPane'] === which));
-}
-// The split switches itself on these buttons' clicks; the pressed state is the page's to keep.
-for (const button of paneButtons) button.addEventListener('click', () => markPane(button.dataset['aparteSplitPane'] === 'end' ? 'end' : 'start'));
+// The header's Chat / Report pair switches the split on a phone with no script, and the split
+// keeps their pressed state.
 
 function showPane(which: 'start' | 'end'): void {
     split.showPane(which);
-    markPane(which);
 }
 
 /** The report beside the chat, or the chat alone: `single` keeps one pane at every width. */
@@ -194,11 +189,9 @@ function showThread(messages: AparteMessage[]): void {
     pane.show(report);
     setPaneOpen(report !== null);
     // The gauge reads a turn's usage when the turn ends, and nothing on a thread that is
-    // opened; this hands it the thread's last reading the way a finished turn would.
-    const last = messages.filter((m) => m.role === 'assistant' && m.usage).at(-1);
-    window.dispatchEvent(new CustomEvent('aparte-message-done', {
-        detail: { targetId: chat.id, messageId: last?.id ?? '', role: 'assistant', usage: last?.usage ?? { inputTokens: 0, outputTokens: 0 } },
-    }));
+    // opened: it gets the thread's last reading, and the next turn replaces it.
+    const usage = messages.filter((m) => m.role === 'assistant' && m.usage).at(-1)?.usage;
+    gauge.used = usage ? (usage.totalTokens ?? usage.inputTokens + usage.outputTokens) : null;
 }
 
 chat.addEventListener('aparte-conversation-loaded', () => showThread(viewport.getMessages()));

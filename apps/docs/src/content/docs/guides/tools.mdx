@@ -113,8 +113,9 @@ aparteGlobalConfig.registerToolInputFormatter('write_file', (input) =>
 
 The approval panel shows a call's arguments under its question, and the row behind its
 disclosure; both show the JSON the model sent, until the tool has a formatter. Then both show its
-text, so a person approves the call the row describes. It is written as text, and one that throws
-falls back to the JSON.
+text, so a person approves the call the row describes. It is written as text; an empty string
+shows no arguments, and a formatter that throws falls back to the JSON. The panel reads the
+client's configuration and the row the chat's, so register it on the one the chat uses.
 
 ## Require approval (human-in-the-loop)
 
