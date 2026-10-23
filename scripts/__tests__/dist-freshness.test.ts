@@ -143,7 +143,7 @@ describe('dist-freshness reads the built JavaScript', () => {
         expect(stampBuild(dir)).toBe(true);
         utimesSync(join(dir, 'src/index.ts'), T2, T2);
         expect(stampBuild(dir)).toBe(false);
-        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/refused/);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/refused.*no recorded hash/);
     });
 
     it('every directory handed in is actually walked', () => {
