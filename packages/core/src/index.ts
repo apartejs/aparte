@@ -421,7 +421,7 @@ import {
  * references. Naming the classes buys the warning, not the registrations.
  *
  * It checks every element core defines and names the ones that are missing, so a
- * consumer whose bundler dropped `<aparte-split>` is told which element to import.
+ * consumer whose bundler dropped the browser entry is told so, and how to keep it.
  *
  * `src/types/__tests__/element-map.test.ts` reads the same
  * `customElements.define` literals out of the source, so this list cannot fall behind
@@ -462,11 +462,12 @@ const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]
 ];
 
 /**
- * Make sure every element core defines is in the registry, and say which are not.
+ * Report which of core's elements are not registered.
  *
  * Importing `@aparte/core` already registers all of them. Call this to check it: after a
  * bundler with aggressive side-effect elimination, or a dynamic `import()`, it names on
- * the console every element that is not registered, so you know which import to add.
+ * the console every element that is not registered — the sign the browser entry was
+ * dropped: import `@aparte/core` at module scope, and keep its `sideEffects`.
  *
  * Idempotent, and safe to call more than once: it defines nothing, it reports.
  */

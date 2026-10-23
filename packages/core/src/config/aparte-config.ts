@@ -1756,7 +1756,8 @@ export const aparteGlobalConfig = getGlobalConfig();
  * Detail payload for `aparte-config-change`, dispatched on `window` whenever any
  * provider, locale, action or model setting changes.
  *
- * Five core components listen for it. `config` is what makes per-instance config work: a
+ * Every core component that draws config-derived text or chrome listens for it. `config` is
+ * what makes per-instance config work: a
  * component resolving to a different instance compares it and skips the rebuild
  * instead of every chat on the page reacting to every config's change.
  *

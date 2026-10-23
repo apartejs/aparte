@@ -158,7 +158,7 @@ export interface AparteClientOptions {
      *                          that cutoff; a turn a host seeded with NO `status` counts
      *                          as answered, so a restored or server-rendered transcript
      *                          goes out as history without inventing a status for it.
-     * - 'none'               — sends only the current message (original behavior)
+     * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
      */
     history?: 'viewport' | 'none' | ((viewportMessages: AparteMessage[]) => AparteChatMessage[]);
@@ -226,8 +226,7 @@ export interface AparteClientOptions {
      *   types (including images) are routed to the application layer. Used
      *   when images go through a captioning pipeline before RAG ingest, so
      *   the chat context only ever sees retrieved text — never raw image
-     *   bytes. Saves bytes on every turn and matches the offline-first
-     *   intent (read file once at upload, retrieve text-only forever after).
+     *   bytes. Saves bytes on every turn.
      *
      * Set `'images-only'` when a `requestInterceptor` retrieves relevant
      * document chunks and injects them as a system message instead, to avoid

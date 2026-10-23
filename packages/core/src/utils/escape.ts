@@ -40,8 +40,8 @@ export function escapeHtml(value: string): string {
  * interpolation exists in the library.
  *
  * The fix is to quote the attribute, not to escape harder: encoding spaces would
- * make every legitimate `title="Hello world"` read `Hello&#32;world`. So
- * `pnpm check:attr-escaping` rejects an unquoted attribute interpolation outright
- * rather than trusting this function to cover a position it cannot.
+ * make every legitimate `title="Hello world"` read `Hello&#32;world`.
  */
 export const escapeAttr = escapeHtml;
+// In this repo, `pnpm check:attr-escaping` rejects an unquoted attribute interpolation
+// outright rather than trusting `escapeAttr` to cover a position it cannot.

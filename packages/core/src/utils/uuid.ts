@@ -10,11 +10,9 @@
  * DOM nodes and map keys inside one page. Where a real UUID matters (a persisted
  * conversation id a consumer may treat as stable), `crypto.randomUUID` is still
  * used first, so a secure context gets the strong value.
- *
- * `pnpm check:secure-context` refuses a bare `crypto.randomUUID` anywhere but
- * here.
  */
 export function uuid(): string {
+    // In this repo, `pnpm check:secure-context` refuses a bare `crypto.randomUUID` anywhere but here.
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
     }
