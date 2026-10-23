@@ -2004,7 +2004,15 @@ export class AparteChatViewport extends HTMLElement {
         // An engine settling a reply it just re-laid out moves scrollTop within a few
         // frames of the mutation and by tens of pixels; a host's own jump, or a tool's
         // scroll-into-view before a click, comes with no mutation, or moves it by hundreds.
-        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && drop <= this._settleBoundPx;
+        // Unless the content got SHORTER since the last event: then the decrease is the
+        // engine clamping `scrollTop` to a smaller maximum, whatever its size — no reader
+        // shortens the transcript. Measured on react-webkit under load at the end of a
+        // reply: the height dipped and recovered between two events (1199 at the last,
+        // 1833 at its peak, 1068 at this one), the clamp read 665 -> 338, a decrease past
+        // the bound, and the follow was disarmed with the view 490px short for good. A host
+        // jump does not change the height, so it still disarms.
+        const shrank = height < this._lastScrollHeight - 1;
+        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && (drop <= this._settleBoundPx || shrank);
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs
             && !this._pointerHeld
