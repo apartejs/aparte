@@ -180,14 +180,33 @@ describe('aparte-scroll-rail', () => {
 
     it('preventDefault() on the jump leaves the transcript where it is', () => {
         const turns = THREE_TURNS();
-        const { rail } = mount(turns);
+        const { rail, viewport } = mount(turns);
         rail.addEventListener('aparte-scroll-rail-jump', (e) => e.preventDefault());
         const scrolled = vi.fn();
         turns[2]!.scrollIntoView = scrolled;
+        // The viewport is not upgraded in this file: its follow is a stand-in.
+        const follow = vi.fn();
+        Object.assign(viewport, { setAutoScroll: follow });
 
         ticks(rail)[1]!.click();
 
         expect(scrolled).not.toHaveBeenCalled();
+        expect(follow, 'and leaves the follow as it was').not.toHaveBeenCalled();
+    });
+
+    it('stops the follow before it jumps: the reader chose a message, not the bottom', () => {
+        // Mid-stream, a jump into history never rendered shortens the transcript at its first
+        // scroll event (the bubbles leave their 320px fallback), and the viewport read that as
+        // a clamp of its own and pinned the reader back to the bottom.
+        const turns = THREE_TURNS();
+        const { rail, viewport } = mount(turns);
+        const order: string[] = [];
+        Object.assign(viewport, { setAutoScroll: (on: boolean) => { order.push(`follow ${on}`); } });
+        turns[2]!.scrollIntoView = () => { order.push('jump'); };
+
+        ticks(rail)[1]!.click();
+
+        expect(order).toEqual(['follow false', 'jump']);
     });
 
     it('the arrows walk the ticks', () => {

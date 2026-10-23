@@ -2035,15 +2035,17 @@ export class AparteChatViewport extends HTMLElement {
         // shortens the transcript. Measured on react-webkit under load at the end of a
         // reply: the height dipped and recovered between two events (1199 at the last,
         // 1833 at its peak, 1068 at this one), the clamp read 665 -> 338, a decrease past
-        // the bound, and the follow was disarmed with the view 490px short for good. A host
-        // jump does not change the height, so it still disarms.
+        // the bound, and the follow was disarmed with the view 490px short for good.
         //
         // Not bounded by how much the height fell, which is the one known limit: the height
         // dips and recovers between two events, so the endpoints understate the clamp (131
         // against 327 in the measurement above), and the tallest height in between is not
-        // seen in time to bound it (tried: the flake came back, 8 runs in 60). So a host that
-        // shortens the transcript and jumps up in the same task, within a second of a scroll
-        // of ours, has its jump read as a clamp.
+        // seen in time to bound it (tried: the flake came back, 8 runs in 60). So any jump up
+        // whose first event sees a shorter transcript, within a second of a scroll of ours, is
+        // read as a clamp, and an armed follow pins it back to the bottom — mid-stream that is
+        // almost every jump into history never rendered, whose bubbles leave their 320px
+        // fallback as they come into view. The scroll rail stops the follow before it jumps
+        // (`setAutoScroll(false)`); a host's own jump, or find-in-page, does not.
         const shrank = height < this._lastScrollHeight - 1;
         const afterMutation = now - this._lastMutationAt < this._settleShadowMs && (drop <= this._settleBoundPx || shrank);
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs

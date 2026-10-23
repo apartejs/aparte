@@ -559,6 +559,11 @@ export class AparteScrollRail extends HTMLElement {
         if (!announced) return;
         const bubble = this._bubbleOf(messageId);
         if (!bubble) return;
+        // The reader chose a message, not the bottom: the follow stops first. Mid-stream a
+        // jump into history never rendered shortens the transcript at its first scroll event
+        // (the bubbles leave their 320px fallback), which the viewport reads as a clamp of
+        // its own — armed, it pinned the reader straight back to the bottom.
+        (this._viewport() as (HTMLElement & { setAutoScroll?: (enabled: boolean) => void }) | null)?.setAutoScroll?.(false);
         this._scrollTo(bubble);
         this._setCurrent(messageId);
         this._hold(messageId);
