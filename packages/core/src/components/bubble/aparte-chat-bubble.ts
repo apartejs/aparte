@@ -914,9 +914,20 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (shell) {
       const prev = this.querySelector('.aparte-branch-prev');
       const next = this.querySelector('.aparte-branch-next');
+      // Only words a reader can hear: an icon font's ligature or an SVG title under
+      // `aria-hidden` is text in the DOM and no name at all.
+      const audible = (arrow: Element): string => {
+        let text = '';
+        const walker = arrow.ownerDocument.createTreeWalker(arrow, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const hidden = node.parentElement?.closest('[aria-hidden="true"], [hidden]');
+          if (!hidden || !arrow.contains(hidden)) text += node.textContent ?? '';
+        }
+        return text;
+      };
       const named = (arrow: Element | null): boolean => !!arrow && (
         arrow.hasAttribute('aria-label') || arrow.hasAttribute('aria-labelledby') || arrow.hasAttribute('title')
-        || /\p{L}/u.test(arrow.textContent ?? ''));
+        || /\p{L}/u.test(audible(arrow)));
       if ((prev || next) && !named(prev) && !named(next)) {
         const locale = this._cfg.getLocale();
         prev?.setAttribute('aria-label', locale.previousResponse ?? 'Previous response');

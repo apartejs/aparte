@@ -94,6 +94,17 @@ describe('a custom shell branch picker', () => {
         expect(el.querySelector('.aparte-branch-next')!.hasAttribute('aria-label')).toBe(false);
     });
 
+    it('still names arrows whose words a reader cannot hear: an icon font, a hidden SVG title', () => {
+        // An icon font draws `chevron_left` from a ligature, hidden from screen readers; the
+        // button's name is then empty, and only the locale's label gives it one.
+        aparteGlobalConfig.setBubbleShellRenderer(() => withPicker
+            .replace('class="aparte-branch-prev"></button>', 'class="aparte-branch-prev"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>')
+            .replace('class="aparte-branch-next"></button>', 'class="aparte-branch-next"><svg aria-hidden="true"><title>Next</title></svg></button>'));
+        const el = mount();
+        expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Previous response');
+        expect(el.querySelector('.aparte-branch-next')!.getAttribute('aria-label')).toBe('Next response');
+    });
+
     it('still names arrows whose only content is a glyph', () => {
         aparteGlobalConfig.setBubbleShellRenderer(() => withPicker
             .replace('class="aparte-branch-prev"></button>', 'class="aparte-branch-prev">‹</button>')
