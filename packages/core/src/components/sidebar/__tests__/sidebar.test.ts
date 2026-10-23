@@ -409,8 +409,14 @@ describe('aparte-sidebar', () => {
             const list = el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] };
             el.filter('nothing like this');
             const line = list.querySelector('.aparte-conv-list-no-match');
+            // Detached and put back, a node is a new live region to the accessibility tree.
+            const observer = new MutationObserver(() => {});
+            observer.observe(list, { childList: true });
             list.conversations = [...items];
+            const removed = observer.takeRecords().flatMap((r) => [...r.removedNodes]);
+            observer.disconnect();
             expect(list.querySelector('.aparte-conv-list-no-match'), 'the same live region, not a new one to announce').toBe(line);
+            expect(removed, 'and it never left the document').not.toContain(line);
         });
 
         it('the query outlives a re-render of the list: a new conversation obeys it', () => {

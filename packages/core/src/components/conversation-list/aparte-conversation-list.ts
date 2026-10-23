@@ -389,11 +389,17 @@ export class AparteConversationList extends HTMLElement {
             else say();
             return;
         }
-        // The no-match line outlives the rows: rebuilt with them, it was a new live region
-        // whose text is announced again — "No conversation matches" after every save.
+        // The no-match line outlives the rows, and never leaves the document: rebuilt with
+        // them, or detached and put back, it is a new live region to the accessibility tree,
+        // whose text may be announced again — "No conversation matches" after every save.
         const line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
-        this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
-        if (line) this.appendChild(line);
+        const groups = this._groups().map(g => this._renderGroup(g)).join('');
+        if (line) {
+            for (const child of Array.from(this.childNodes)) if (child !== line) child.remove();
+            line.insertAdjacentHTML('beforebegin', groups);
+        } else {
+            this.innerHTML = groups;
+        }
         this._applyFilter();
         if (!restore) return;
         // The same row, by id — not the same element, which no longer exists — when the
