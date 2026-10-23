@@ -166,6 +166,9 @@ const MAX_SIBLING_RETRIES = 6;
 /** A message's fields the viewport's tree derives itself, which a framework's list never overwrites. */
 const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStreaming']);
 
+/** The fields `syncRepoFromMessages` hands to the viewport's own update, which redraws them. */
+const REDRAWN_FIELDS = new Set(['content', 'segments', 'status', 'usage', 'model']);
+
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
     private readonly options: AparteChatHostOptions;
@@ -845,6 +848,13 @@ export class AparteChatHost {
                 if (stored) {
                     for (const [key, value] of Object.entries(msg)) {
                         if (value !== undefined && !(key in updates) && !TREE_OWNED_FIELDS.has(key)) stored[key] = value;
+                    }
+                    // And a field the app cleared — set to `undefined`, or left out of the
+                    // message — leaves the tree too: the framework's list is the message, and
+                    // a reopen loads the tree, which brought an un-pinned message back pinned.
+                    const own = msg as unknown as Record<string, unknown>;
+                    for (const key of Object.keys(stored)) {
+                        if (!TREE_OWNED_FIELDS.has(key) && !REDRAWN_FIELDS.has(key) && own[key] === undefined) delete stored[key];
                     }
                 }
             }
