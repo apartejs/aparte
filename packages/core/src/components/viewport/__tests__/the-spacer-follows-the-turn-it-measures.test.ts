@@ -83,6 +83,20 @@ describe('the spacer and the turn it measures', () => {
         expect(recalc).toHaveBeenCalled();
     });
 
+    it('re-reads the turn when a bubble arrives or leaves, not on every token', async () => {
+        // Reading it walks every bubble of the transcript, and a stream mutates it per token.
+        turn(1);
+        await flush();
+        const reads = vi.spyOn(vp as unknown as { _observeTail(): void }, '_observeTail');
+        vp.querySelector('aparte-chat-bubble[message-id="a1"]')!.appendChild(document.createElement('span'));
+        await flush();
+        expect(reads, 'a token inside a bubble moves nothing').not.toHaveBeenCalled();
+        turn(2);
+        await flush();
+        expect(reads).toHaveBeenCalled();
+        expect(watchedBubbles()).toEqual(['u2', 'a2']);
+    });
+
     it('lets go of every bubble when it leaves the page', async () => {
         turn(1);
         await flush();

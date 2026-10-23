@@ -1853,7 +1853,11 @@ export class AparteChatViewport extends HTMLElement {
             }
             // Recalculate spacer when DOM mutates (new bubble added, Angular re-render).
             this._scheduleSpacerUpdate();
-            this._observeTail();
+            // The turn the spacer measures moves only when a bubble comes or goes. Re-read on
+            // every record, it walked the whole transcript per streamed token.
+            const movesBubbles = (nodes: NodeList): boolean => Array.from(nodes).some((n) =>
+                n instanceof Element && (n.tagName === 'APARTE-CHAT-BUBBLE' || n.querySelector('aparte-chat-bubble') !== null));
+            if (mutations.some((m) => movesBubbles(m.addedNodes) || movesBubbles(m.removedNodes))) this._observeTail();
         });
 
         // Height only, against what was measured when the bubble started being watched: a
