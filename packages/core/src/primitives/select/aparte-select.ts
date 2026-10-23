@@ -268,6 +268,9 @@ export class AparteSelect extends HTMLElement {
             this._searchInput = null;
             this._trigger.setAttribute('role', 'combobox');
         }
+        // The role decides the name (see `_updateNames`), and on a re-connect nothing else
+        // would rename it: the observer is set up after this runs.
+        this._updateNames();
     }
 
     private _render(): void {

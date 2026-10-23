@@ -285,4 +285,20 @@ describe('searchable after mount', () => {
         expect(el.querySelector('.aparte-select-search')).toBeNull();
         expect(trigger.getAttribute('role')).toBe('combobox');
     });
+
+    it('set or removed while detached, the trigger is renamed for the role it ends up with', () => {
+        // A button is named by its label, so it must carry the value too; a combobox must not.
+        const el = mountSelect({ placeholder: 'Pick a model', value: 'b' });
+        el.remove();
+        el.setAttribute('searchable', '');
+        document.body.appendChild(el);
+        expect(trigger(el).getAttribute('role')).toBe('button');
+        expect(trigger(el).getAttribute('aria-label')).toBe('Pick a model: Option b');
+
+        el.remove();
+        el.removeAttribute('searchable');
+        document.body.appendChild(el);
+        expect(trigger(el).getAttribute('role')).toBe('combobox');
+        expect(trigger(el).getAttribute('aria-label')).toBe('Pick a model');
+    });
 });
