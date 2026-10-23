@@ -16,7 +16,7 @@ import Variant from '../../../components/catalog/Variant.astro';
 ## Install and register
 
 ```bash
-npm install @aparte/plugin-streaming-markdown @paulrichez/streaming-markdown @aparte/plugin-marked marked @aparte/plugin-shiki shiki
+npm install @aparte/plugin-streaming-markdown @aparte/plugin-marked marked @aparte/plugin-shiki shiki
 ```
 
 ```ts
@@ -30,8 +30,8 @@ setupShikiProvider({ theme: { light: 'github-light', dark: 'github-dark' } });
 ```
 
 Core has no Markdown of its own: with no renderer set, a reply shows its text as written, escaped.
-Each plugin needs its library installed beside it — `@paulrichez/streaming-markdown`, `marked`, `shiki` — and
-none of it reaches a page that does not install the plugin. Register them before the chat
+The marked and Shiki plugins need their library installed beside them — `marked`, `shiki` — and
+none of it reaches a page that does not install the plugin; the streaming plugin brings its parser with it. Register them before the chat
 renders: a message drawn earlier shows its plain text until they arrive, then is drawn again.
 
 ## Which one formats what
