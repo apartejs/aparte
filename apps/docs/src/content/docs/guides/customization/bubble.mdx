@@ -29,12 +29,12 @@ aparteGlobalConfig.setBubbleShellRenderer(({ role, name }) => `
     </div>
     <div class="aparte-footer">
       <div class="aparte-branch-picker" hidden>
-        <button type="button" class="aparte-branch-prev" aria-label="Previous response">‹</button>
+        <button type="button" class="aparte-branch-prev">‹</button>
         <span class="aparte-branch-label"></span>
         <span class="aparte-sr-only aparte-branch-status" aria-live="polite"></span>
-        <button type="button" class="aparte-branch-next" aria-label="Next response">›</button>
+        <button type="button" class="aparte-branch-next">›</button>
       </div>
-      <div class="aparte-action-bar" role="toolbar" aria-label="Message actions"></div>
+      <div class="aparte-action-bar"></div>
     </div>
   </div>
 `);
@@ -54,10 +54,13 @@ What the frame must carry:
 - **`.aparte-branch-picker`**, if the message can have versions, written `hidden` with the four
   parts above: the message shows it once there are two versions, and fills the label and the
   status. Keep `aria-live` on the status, the one thing a screen reader hears when the version
-  changes; the arrows' labels and glyphs are yours.
+  changes. The glyphs are yours. Arrows you leave unnamed are named from the locale's
+  `previousResponse` and `nextResponse`, and follow a language switch; a name you write yourself
+  (an `aria-label`, or a word in the button) stays as you wrote it.
 - **`.aparte-action-bar`**: the message puts its buttons there, and they share one tab stop with
   the arrow keys between them. Without a `role` of yours it becomes a `toolbar` named from the
-  locale's `messageActions`; give it your own role and label to override both.
+  locale's `messageActions`, which follows a language switch; a role and a label of your own
+  override both, and stay as you wrote them.
 - **`.aparte-name`**, holding the `name` you are given: the message updates it when the name or the
   language changes. Any of `.aparte-avatar`, `.aparte-timestamp`, `.aparte-attachments` and
   `.aparte-footer` that you want filled.

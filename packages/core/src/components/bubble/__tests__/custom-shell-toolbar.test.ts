@@ -81,4 +81,25 @@ describe('a custom shell branch picker', () => {
         aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), previousResponse: 'Réponse précédente' });
         expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Back');
     });
+
+    it('does not stamp a label over arrows named by their own words', () => {
+        // An `aria-label` replaces the button's text as its name: a screen reader would say
+        // "Previous response" over a visible "Précédent", and a voice command saying the
+        // visible word would find nothing (WCAG 2.5.3).
+        aparteGlobalConfig.setBubbleShellRenderer(() => withPicker
+            .replace('class="aparte-branch-prev"></button>', 'class="aparte-branch-prev">Précédent</button>')
+            .replace('class="aparte-branch-next"></button>', 'class="aparte-branch-next">Suivant</button>'));
+        const el = mount();
+        expect(el.querySelector('.aparte-branch-prev')!.hasAttribute('aria-label')).toBe(false);
+        expect(el.querySelector('.aparte-branch-next')!.hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('still names arrows whose only content is a glyph', () => {
+        aparteGlobalConfig.setBubbleShellRenderer(() => withPicker
+            .replace('class="aparte-branch-prev"></button>', 'class="aparte-branch-prev">‹</button>')
+            .replace('class="aparte-branch-next"></button>', 'class="aparte-branch-next">›</button>'));
+        const el = mount();
+        expect(el.querySelector('.aparte-branch-prev')!.getAttribute('aria-label')).toBe('Previous response');
+        expect(el.querySelector('.aparte-branch-next')!.getAttribute('aria-label')).toBe('Next response');
+    });
 });

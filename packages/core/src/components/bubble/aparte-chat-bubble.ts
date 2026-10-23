@@ -896,11 +896,16 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
     // The branch arrows are icon buttons, and the contract asks no ARIA of a shell's author:
     // unnamed ones get the locale's names, and keep them through a language switch. A shell
-    // that named either arrow keeps both as it wrote them.
+    // that named either arrow keeps both as it wrote them — by an attribute, or by words in
+    // the button, which a glyph like ‹ is not: a label stamped over a visible word is a name
+    // the reader cannot see, and a voice command saying the word finds nothing.
     if (shell) {
       const prev = this.querySelector('.aparte-branch-prev');
       const next = this.querySelector('.aparte-branch-next');
-      if ((prev || next) && !prev?.hasAttribute('aria-label') && !next?.hasAttribute('aria-label')) {
+      const named = (arrow: Element | null): boolean => !!arrow && (
+        arrow.hasAttribute('aria-label') || arrow.hasAttribute('aria-labelledby') || arrow.hasAttribute('title')
+        || /\p{L}/u.test(arrow.textContent ?? ''));
+      if ((prev || next) && !named(prev) && !named(next)) {
         const locale = this._cfg.getLocale();
         prev?.setAttribute('aria-label', locale.previousResponse ?? 'Previous response');
         next?.setAttribute('aria-label', locale.nextResponse ?? 'Next response');
