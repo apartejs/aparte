@@ -1,5 +1,7 @@
 # @aparte/provider-scenario
 
+## 0.21.0
+
 ## 0.20.0
 
 ### Patch Changes
