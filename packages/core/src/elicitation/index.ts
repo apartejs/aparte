@@ -37,7 +37,12 @@ export type { BuiltApprovalPanel } from './approval-panel.js';
 /**
  * Ask the user for typed input and await their response, on the config
  * governing `request.target` (its instance config, or the global default).
- * Resolves `accept` / `decline` / `cancel`.
+ *
+ * Resolves `accept` with the value, or `decline` when the person declines. Rejects,
+ * with no answer, with an {@link AparteElicitationAbortError} whose `reason` is
+ * `'aborted'` (the turn was stopped, the signal fired, or another request took the
+ * question away) or `'no-presenter'` (nothing is mounted to ask it): `await` it in a
+ * `try`, or attach a `.catch()`.
  */
 export function requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
     return resolveConfig(request.target ?? null).requestUserInput(request);

@@ -3,15 +3,15 @@
  *
  * Registers itself as the presenter for the config governing its subtree
  * (`resolveConfig(this)`), so `requestUserInput()` from a tool handler is routed
- * here WITHOUT any window events — the typed presenter contract replaces the
- * stringly-typed `aparte-ask-user-*` events that drifted in Phase 1.
+ * here, through the typed presenter contract rather than window events.
  *
  * On a request it builds the schema-appropriate panel (enum / boolean / string /
  * object) and mounts it inside the nearest `<aparte-composer>` via its
  * `showPanel` API, resolving:
  *   - accept  — the send button (panel submit), when all fields are complete
  *   - decline — the inline "Skip" affordance
- *   - cancel  — the assistant turn was stopped/errored while pending
+ * and rejecting with an `AparteElicitationAbortError` when the turn is stopped or
+ * errors while the question is open, or when the panel is evicted.
  *
  * Its CSS ships in `@aparte/core/styles.css` like every other component, so it can be
  * themed and its variables appear in the generated CSS reference.
@@ -242,8 +242,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         // presenter in the SAME chat, instead of whichever one mounted last.
         resolveConfig(this).setElicitationPresenter(this._present, this);
         // Safety net: if the turn is stopped/errored while a request is open,
-        // resolve it as cancelled so the client loop unblocks and the composer
-        // input is restored.
+        // end it without an answer (a rejection) so the client loop unblocks and the
+        // composer input is restored.
         window.addEventListener('aparte-message-aborted', this._onTurnEnd);
         window.addEventListener('aparte-message-error', this._onTurnEnd);
     }
@@ -542,8 +542,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * or a turn ending. The composer tears the panel down either way; only
                  * this callback can settle the promise, and without it the request hung
                  * AND `_pending` stayed set, so every later question was short-circuited
-                 * for the life of the page. `cancel`, not `decline`: nobody declined
-                 * anything, the question was taken away.
+                 * for the life of the page. A rejection (`aborted`), not `decline`:
+                 * nobody declined anything, the question was taken away.
                  */
                 onEvict: () => fail(),
                 onSubmit: () => {
