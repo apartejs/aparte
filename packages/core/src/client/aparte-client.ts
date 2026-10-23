@@ -630,10 +630,10 @@ export class AparteClient {
                 const loc = this._config.getLocale();
                 return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
             },
-            // A plain string, not a function: the arguments are wire format — the JSON
-            // the model sent — and re-reading them on a language switch would produce
-            // exactly the same bytes. Same text the transcript row shows, from the same
-            // function, so the two surfaces cannot disagree about what is being run.
+            // A plain string, not a function: the arguments are the model's — its JSON, or
+            // the tool's own formatter's reading of it — and do not change with the
+            // language. Same text the transcript row shows, from the same function, so the
+            // two surfaces cannot disagree about what is being run.
             details: describeToolInput(event.input, this._config.getToolInputFormatter(event.name)),
             // Functions, not strings, same as the question: these follow a language
             // switch while the request is open, which a resolved string cannot.

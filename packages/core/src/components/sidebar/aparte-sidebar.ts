@@ -483,7 +483,6 @@ function nearestSidebar(control: HTMLElement): Element | null {
         ?? document.querySelector('aparte-sidebar');
 }
 
-/** Lower-case, accents stripped: "Épingler" matches "epingler". */
 if (!customElements.get('aparte-sidebar')) {
     customElements.define('aparte-sidebar', AparteSidebar);
 }

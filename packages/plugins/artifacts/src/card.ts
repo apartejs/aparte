@@ -141,7 +141,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                         <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             ${contextConfig().getIcon('download')}
                         </button>
-                        ${openable ? `<button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="open" title="${escapeAttr(openLabel)}" aria-label="${escapeAttr(openLabel)}">${contextConfig().getIcon('expand')}</button>` : ''}
+                        ${openable ? `<button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="open" title="${escapeAttr(openLabel)}" aria-label="${escapeAttr(openLabel)}" ${isStreaming ? 'disabled' : ''}>${contextConfig().getIcon('expand')}</button>` : ''}
                     </div>
                 </header>
                 <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
@@ -268,6 +268,8 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const openBtn = element.querySelector<HTMLButtonElement>('[data-action="open"]');
         if (openBtn) {
             openBtn.addEventListener('click', () => {
+                // Not while it streams, like Download: the app would get a half-written document.
+                if (openBtn.disabled) return;
                 const artifact = latestSegment.get(element) ?? segment;
                 element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
                     bubbles: true,

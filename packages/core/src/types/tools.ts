@@ -185,8 +185,9 @@ export type AparteToolSummary = (segment: AparteToolCallSegment) => string;
  * the two cannot disagree. Registered via aparteGlobalConfig.registerToolInputFormatter(toolName, formatter).
  *
  * Without one, both show the arguments as the model sent them, pretty-printed JSON. Return
- * plain text: it is written as text, never parsed as HTML. `input` is whatever the model
- * chose, so read it defensively — a formatter that throws falls back to the JSON.
+ * plain text: it is written as text, never parsed as HTML; `''` shows no arguments at all.
+ * `input` is whatever the model chose, so read it defensively — a formatter that throws
+ * falls back to the JSON.
  */
 export type AparteToolInputFormatter = (input: Record<string, unknown>) => string;
 

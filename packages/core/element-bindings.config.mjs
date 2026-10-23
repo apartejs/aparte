@@ -21,6 +21,10 @@ export default {
         // Reflected BY the element onto itself while it holds no element child. A
         // template binding would fight the element for a value the element owns.
         'aparte-composer-toolbar': ['data-empty'],
+        // The same: reflected by the element (the first key, pointer or send; a search that
+        // matches nothing), never the template's to set.
+        'aparte-chat': ['data-glide'],
+        'aparte-conversation-list': ['data-no-match'],
     },
 
     /** Attribute → the Angular Input name, where camelCasing it is not enough. */

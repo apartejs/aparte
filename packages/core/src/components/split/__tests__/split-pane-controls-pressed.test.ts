@@ -41,6 +41,14 @@ describe('the pane switch', () => {
         expect(start.getAttribute('aria-pressed')).toBe('true');
     });
 
+    it('stamps only a button, and reads the value trimmed as the click does', () => {
+        const { split } = mount();
+        document.body.insertAdjacentHTML('afterbegin', '<a href="#" data-aparte-split-pane="end">Preview</a><button type="button" data-aparte-split-pane=" end ">Preview</button>');
+        split.showPane('end');
+        expect(document.querySelector('a')!.hasAttribute('aria-pressed'), 'aria-pressed means nothing on a link').toBe(false);
+        expect(document.querySelector('button[data-aparte-split-pane=" end "]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
     it('leaves a toggle without a pressed state', () => {
         const { toggle } = mount();
         toggle.click();

@@ -967,12 +967,16 @@ export class AparteSplit extends HTMLElement {
     private _syncPaneControls(): void {
         const roots = new Set<ParentNode>([rootOf(this), document]);
         for (const root of roots) {
-            for (const control of root.querySelectorAll<HTMLElement>('[data-aparte-split-pane="start"], [data-aparte-split-pane="end"]')) {
+            for (const control of root.querySelectorAll<HTMLElement>('[data-aparte-split-pane]')) {
+                // Trimmed, as the click reads it; and only on a button, where `aria-pressed` means something.
+                const which = (control.getAttribute('data-aparte-split-pane') ?? '').trim();
+                if (which !== 'start' && which !== 'end') continue;
+                if (control.localName !== 'button' && control.getAttribute('role') !== 'button') continue;
                 const target = control.closest('aparte-split')
                     ?? rootOf(control).querySelector('aparte-split')
                     ?? document.querySelector('aparte-split');
                 if (target !== this) continue;
-                control.setAttribute('aria-pressed', String(control.getAttribute('data-aparte-split-pane') === this.pane));
+                control.setAttribute('aria-pressed', String(which === this.pane));
             }
         }
     }
