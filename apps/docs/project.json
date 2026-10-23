@@ -38,7 +38,8 @@
         "production",
         "^production",
         "{workspaceRoot}/scripts/*.mjs",
-        "{workspaceRoot}/package.json"
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/CHANGELOG.md"
       ]
     }
   }
