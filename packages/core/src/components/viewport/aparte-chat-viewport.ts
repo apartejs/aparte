@@ -2037,6 +2037,13 @@ export class AparteChatViewport extends HTMLElement {
         // 1833 at its peak, 1068 at this one), the clamp read 665 -> 338, a decrease past
         // the bound, and the follow was disarmed with the view 490px short for good. A host
         // jump does not change the height, so it still disarms.
+        //
+        // Not bounded by how much the height fell, which is the one known limit: the height
+        // dips and recovers between two events, so the endpoints understate the clamp (131
+        // against 327 in the measurement above), and the tallest height in between is not
+        // seen in time to bound it (tried: the flake came back, 8 runs in 60). So a host that
+        // shortens the transcript and jumps up in the same task, within a second of a scroll
+        // of ours, has its jump read as a clamp.
         const shrank = height < this._lastScrollHeight - 1;
         const afterMutation = now - this._lastMutationAt < this._settleShadowMs && (drop <= this._settleBoundPx || shrank);
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
