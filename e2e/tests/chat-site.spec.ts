@@ -153,6 +153,9 @@ test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
     // `list.conversations` (a fresh array every notification) and the list fully
     // re-rendering in response, which replaced the very button Enter had just activated.
     await page.goto('/?scenario&fast');
+    // The rows come from the conversation manager, after the page: Tab pressed before they
+    // are drawn walks the page's other controls and never meets one.
+    await expect(page.locator(`${LIST} [data-conv-id]`)).toHaveCount(10);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
     const focusedRowId = () => page.evaluate(() => {
@@ -173,12 +176,15 @@ test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
     // The conversation opened…
     await expect(page.locator(`${LIST} [data-conv-id="${rowId}"] .aparte-conv-item__select`))
         .toHaveAttribute('aria-current', 'page');
-    // …and the focus is still inside that same row, not lost to the document.
-    const stillInRow = await page.evaluate(
-        (id) => !!(document.activeElement as HTMLElement | null)?.closest(`[data-conv-id="${id}"]`),
-        rowId,
-    );
-    expect(stillInRow, 'focus should remain inside the row after Enter selects it').toBe(true);
+    // …and the focus is still inside that same row, not lost to the document. Polled: the
+    // list puts the keyboard back on the row its re-render drew, a frame after the render.
+    await expect.poll(
+        () => page.evaluate(
+            (id) => !!(document.activeElement as HTMLElement | null)?.closest(`[data-conv-id="${id}"]`),
+            rowId,
+        ),
+        { message: 'focus should remain inside the row after Enter selects it' },
+    ).toBe(true);
 });
 
 test('a sidebar collapsed on a desktop opens again from the header', async ({ page }) => {
