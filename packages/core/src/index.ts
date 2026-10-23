@@ -4,9 +4,11 @@
  * Zero-dependency Web Components for LLM streaming
  *
  * ⚠️ This is the **browser** entry: it defines the custom elements and imports CSS
- * at module scope, so it needs a DOM. **Node resolves `index.node.ts` instead**
- * (via the `node` condition in package.json) — a DOM-free entry with the client,
- * host, transports, the chat handler and every type. This file sits first in the
+ * at module scope, so it needs a DOM. **A server or a worker resolves `index.node.ts`
+ * instead** — through the `node`, `worker`, `workerd`, `edge-light`, `deno` and `bun`
+ * conditions in package.json, or by name as `@aparte/core/headless` in a worker built
+ * with the page's conditions — a DOM-free entry with the client, host, transports,
+ * the chat handler and every type. This file sits first in the
  * exports map only because of the repo-local `@aparte-workspace/source` condition,
  * which is why reading it can look like "this package can't run in Node".
  * See the "Node / SSR" section of the README.

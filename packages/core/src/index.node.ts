@@ -3,7 +3,10 @@
  *
  * Resolved via the `node` export condition, so `import '@aparte/core'` in Node
  * (Next.js / Nuxt / Angular Universal / SvelteKit server, tsx, CLI tools) loads
- * THIS module instead of the browser entry. It exposes the same public API
+ * THIS module instead of the browser entry — and via `worker`, `workerd`,
+ * `edge-light`, `deno` and `bun` for a Cloudflare Worker, an edge route or a
+ * `target: 'webworker'` build. A worker built with the page's conditions imports it
+ * by name, as `@aparte/core/headless`. It exposes the same public API
  * surface MINUS the Web Components and CSS side-effects — importing the real
  * `index.ts` in Node throws `HTMLElement is not defined` because the custom
  * elements extend `HTMLElement` at module scope.
