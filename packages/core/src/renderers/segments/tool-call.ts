@@ -1,8 +1,7 @@
 /**
  * A tool call and its result — the biggest of the nine, and the one an app most often replaces.
  *
- * One renderer, one file. They lived in a single 1900-line module because there was
- * nowhere else to put them; the registry that consumes them is in
+ * One renderer, one file; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
@@ -29,14 +28,12 @@ function describeInput(segment: AparteToolCallSegment): string {
 /**
  * The state badge: a glyph AND a word.
  *
- * One function so `render` and `update` cannot disagree — the shape this file has been
- * bitten by twice, and the reason `relabel` used to duplicate the same ternary.
+ * One function so `render` and `update` cannot disagree.
  *
- * The word matters. A bare cross beside a tool's name reads as a button that removes
- * it, so the state was being mistaken for an affordance; and every current
- * implementation labels its states rather than drawing them. The badge is also where
- * the COLOUR lives now: the whole chip used to be tinted green or red, which made a
- * finished tool call shout louder than the reply it belongs to.
+ * The word matters: a bare cross beside a tool's name reads as a button that removes
+ * it, so the state is labelled rather than only drawn. The badge is also where the
+ * COLOUR lives; the rest of the row stays quiet, so a finished tool call does not
+ * shout louder than the reply it belongs to.
  */
 function stateBadge(segment: AparteToolCallSegment): string {
     const cfg = contextConfig();

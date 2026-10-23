@@ -8,7 +8,7 @@
  *
  * Segment/message ids are random UUIDs in the default flow, so this is
  * defense-in-depth: a hostile, stream-supplied id containing `"` (e.g. a tool-call
- * id) can no longer break out of the selector into a `SyntaxError` or a
+ * id) cannot break out of the selector into a `SyntaxError` or a
  * selector-list that mis-targets another element.
  *
  * A raw newline (or CR / form feed) is not allowed inside a CSS string either — it

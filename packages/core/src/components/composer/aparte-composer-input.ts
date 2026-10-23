@@ -81,11 +81,7 @@ export class AparteComposerInput extends HTMLElement {
     private _maxHeight = 200;
     private _minHeight = 44;
     /**
-     * Re-measures the editor when its WIDTH changes (#55). The three fixed instants
-     * (connect, next frame, fonts.ready) all miss the same case: a box not yet laid
-     * out — the placeholder wraps in a 0 px column, `scrollHeight` reads ~300 px, and
-     * that became the inline height until the first keystroke. Width is the variable
-     * none of them watched.
+     * Re-measures the editor when its WIDTH changes.
      */
     private _resizeObserver: ResizeObserver | null = null;
     private _unsubscribes: (() => void)[] = [];
@@ -117,6 +113,10 @@ export class AparteComposerInput extends HTMLElement {
         this._editor?.addEventListener('paste', this._onPaste);
         this._connectToRoot();
         this._scheduleInitialReflow();
+        // Width is watched because the fixed instants (connect, next frame, fonts.ready)
+        // miss a box not yet laid out: the placeholder wraps in a 0 px column and
+        // `scrollHeight` reads ~300 px, which would stay the inline height until the
+        // first keystroke.
         if (this._editor && typeof ResizeObserver === "function") {
             this._resizeObserver = new ResizeObserver(() => this._adjustHeight());
             this._resizeObserver.observe(this._editor);

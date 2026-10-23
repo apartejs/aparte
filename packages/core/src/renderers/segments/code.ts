@@ -1,8 +1,7 @@
 /**
  * Fenced code — highlighted through the opt-in provider, plain when there is none.
  *
- * One renderer, one file. They lived in a single 1900-line module because there was
- * nowhere else to put them; the registry that consumes them is in
+ * One renderer, one file; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
@@ -15,9 +14,8 @@ import type {
 } from '../../types/index.js';
 
 /**
- * The tooltip and the accessible name are the same string and move together: this
- * button used to be named by `title` alone, the one icon button core emits without an
- * `aria-label`, so a screen reader had nothing to read on it.
+ * The tooltip and the accessible name are the same string and move together: an icon
+ * button named by `title` alone has nothing for a screen reader to read, so both are set.
  */
 function nameButton(button: HTMLElement, label: string): void {
     button.setAttribute('aria-label', label);
@@ -67,19 +65,13 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Read the DOM, not the segment this closure captured.
                 //
-                // `setup` runs once, on the segment as it was THEN — for a streamed
-                // fence, empty. The bubble replaces its segment object on every
-                // `updateSegment` (`{...old, ...updates}`), so the captured one is
-                // frozen at creation and this button copied an empty string. It
-                // passed for a long time by accident: the deltas arrived through
-                // `appendToSegment`, which mutates in place, and the object was
-                // only replaced late enough not to matter. Adding one more update
-                // at the end of a turn was enough to expose it — measured, closure
-                // 0 chars against 36 in the DOM.
+                // `setup` runs once, on the segment as it is at that moment — for a
+                // streamed fence, empty. The bubble replaces its segment object on every
+                // `updateSegment` (`{...old, ...updates}`), so the captured one stays
+                // frozen at creation and would copy an empty string.
                 //
                 // `textContent` is the source either way: the highlighter wraps it
-                // in spans, which contribute no text. So this is also what makes
-                // "the source, not the markup" true rather than lucky.
+                // in spans, which contribute no text.
                 const source = element.querySelector('.aparte-code-content-wrapper')?.textContent ?? '';
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
@@ -101,10 +93,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     update: (element, segment) => {
         if (segment.isStreaming) {
-            // Coloured WHILE it streams, which it was not: this branch used to write
-            // plain text and leave every highlight to stream-end, so a fence appeared
-            // grey and turned colour once, at the end. The artifact card had solved the
-            // same problem, which made this renderer the outlier rather than the design.
+            // Coloured WHILE it streams, so a fence is not grey until the stream ends.
             streamHighlight(element, '.aparte-code-content-wrapper', segment.content, segment.language || '', segment.id);
         } else {
             // Streaming complete — run the highlight provider for polished output.

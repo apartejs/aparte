@@ -96,10 +96,9 @@ export interface AparteElicitationRequest {
     /**
      * The sentence above everything else. A string, or a function re-read on relabel.
      *
-     * Same reason as an option's `label`, and I shipped the two an hour apart because I
-     * fixed the choices and left the QUESTION behind — a panel asking "Run delete_file?"
-     * over buttons reading "Approuver" and "Rejeter". A resolved string has nothing to
-     * re-derive from.
+     * Same reason as an option's `label`: the question has to follow a language switch
+     * too, or a panel asks "Run delete_file?" over buttons in another language. A
+     * resolved string has nothing to re-derive from.
      *
      * A function only makes sense when the text comes from the LOCALE, which is core's
      * own approval question. A tool's question is model-authored: it is a string, and
@@ -110,11 +109,9 @@ export interface AparteElicitationRequest {
      * The body under the question: what is actually being decided.
      *
      * TEXT, and shown as text — a preformatted block the panel renders through
-     * `textContent`. It exists because the approval panel used to show the tool's
-     * NAME and nothing else, while the arguments the model chose — the thing a person
-     * is being asked to approve — stayed in the transcript row behind a closed
-     * disclosure. A decision surface that omits what is being decided is asking for a
-     * signature on a blank page.
+     * `textContent`. It carries what a person is being asked to approve (for a tool,
+     * the arguments the model chose), so the decision surface shows what is being
+     * decided and not only the tool's name.
      *
      * Not markup, and not a render hook: the content here is model-authored, so the
      * string arm of a hook would be a model-to-DOM XSS on the highest-stakes control
@@ -165,8 +162,8 @@ export interface AparteElicitationRequest {
  *
  * The requester writes the LABEL, always. Core cannot know that "and always for git
  * commands" is meaningful, or that this workspace has somewhere to remember it — so an
- * option offering a scope exists only because the host built it and can honour it
- * (ratified decision #8). Two options may share a `value` and differ only in scope,
+ * option offering a scope exists only because the host built it and can honour it.
+ * Two options may share a `value` and differ only in scope,
  * which is what "Yes" and "Yes, and always for X" are: the same verdict, a different
  * reach.
  */
@@ -190,12 +187,11 @@ export interface AparteApprovalOption {
     /**
      * What choosing it commits to, drawn under the label — the scope of an "always".
      *
-     * A label can say "Always allow" and not what that reaches: one host remembered
-     * the first word of a command (`git`, for `git status`) while the button said
-     * "Always allow", so the user authorised every git command believing they had
-     * authorised one. The panel could not show the difference, because an option had
-     * nowhere to put it. Two options that differ only in reach now differ on screen:
-     * `description: 'git status'` beside `description: 'git *'`.
+     * A label can say "Always allow" and not what that reaches: a host that remembers
+     * only the first word of a command (`git`, for `git status`) would have the user
+     * authorise every git command believing they had authorised one. Two options that
+     * differ only in reach differ on screen: `description: 'git status'` beside
+     * `description: 'git *'`.
      *
      * Same two arms as `label`, for the same reason: it follows a language switch
      * while the request is open.
@@ -214,7 +210,7 @@ export interface AparteApprovalOption {
  * `instruction` is the free-text arm — "no, do this instead" — and it is a separate
  * field rather than a magic `option` value because only the host can name its options,
  * and this text is the user's. It reaches the model as the refusal's reason, which is
- * possible at all only because a refusal now hands the model a turn to read it in.
+ * possible because a refusal hands the model a turn to read it in.
  */
 export interface AparteApprovalAnswer {
     /** The `value` of the option chosen, or `undefined` when only text was given. */
@@ -236,17 +232,13 @@ export type AparteElicitationResult =
  * The request ended without an answer: the turn was stopped, the signal fired, the
  * question was taken away by another request, or nothing was mounted to ask it.
  *
- * A THROW, and not a third member of {@link AparteElicitationResult}. `cancel` was a
- * VALUE, so it was easy to handle as though it were an answer — and that is exactly
- * what happened: the approval gate treated it as a refusal, stamped the segment
- * `rejected`, and told the model "Tool execution was rejected by the user." The user
- * had pressed Stop. A rejection cannot be mistaken for a decision by a caller that
- * forgot a branch, which is the property `cancel` never had.
+ * A THROW, and not a third member of {@link AparteElicitationResult}. A value is easy
+ * to handle as though it were an answer: a cancelled request read as a refusal would
+ * tell the model "Tool execution was rejected by the user." when the user had pressed
+ * Stop. A rejection cannot be mistaken for a decision by a caller that forgot a branch.
  *
  * `name` is `'AbortError'`, so every `err.name === 'AbortError'` check already written
- * treats it correctly — including `askUserHandler`, which used to perform this exact
- * conversion by hand. That hand-conversion existing is the evidence the shape is
- * right, and it is gone.
+ * treats it correctly.
  */
 export class AparteElicitationAbortError extends DOMException {
     /**

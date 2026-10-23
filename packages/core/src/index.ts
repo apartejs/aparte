@@ -418,14 +418,12 @@ import {
  * bundler drops it; all 24 calls sit in it as top-level statements whatever this array
  * references. Naming the classes buys the warning, not the registrations.
  *
- * It used to check four tags out of twenty-four and log "Some components may not be
- * registered", which is the two failures a guide cannot survive: a consumer whose
- * bundler dropped `<aparte-split>` got a silent green, and a consumer who got the
- * warning had no idea which element to import.
+ * It checks every element core defines and names the ones that are missing, so a
+ * consumer whose bundler dropped `<aparte-split>` is told which element to import.
  *
  * `src/types/__tests__/element-map.test.ts` reads the same
  * `customElements.define` literals out of the source, so this list cannot fall behind
- * them again without a red test.
+ * them without a red test.
  */
 const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]> = [
     // Chat shell + transcript

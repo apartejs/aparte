@@ -96,7 +96,7 @@ const VIEWPORT_MARGIN = 8;
  * What it is not: a store. Selecting, renaming, pinning, archiving and deleting all
  * leave the array untouched — the events carry an id (and, for rename, the title) and
  * stop. Set `manage` and the menu's write gestures are carried out on the conversation
- * manager you registered, so those six listeners are no longer yours to write; the
+ * manager you registered, so you do not write those six listeners; the
  * event still goes out first and `preventDefault()` takes the gesture back. The array
  * is still not this element's: the manager's own change is what re-renders it.
  * A row's text comes from the array, so it changes when the host assigns
@@ -210,11 +210,10 @@ export class AparteConversationList extends HTMLElement {
      * Let the list finish the gesture through the registered conversation manager.
      * Reflected as the `manage` attribute.
      *
-     * The property is not a nicety here: this is the attribute that authorises a WRITE,
-     * and Vue and both Sveltes stringify a bound `false` onto an element that has no
-     * property of that name — `manage="false"`, which `hasAttribute` reads as on. So
-     * turning management off turned it on, and a delete the host meant to handle itself
-     * was also done by the list. `presenceOn`, like `loading` above it.
+     * The property exists because this is the attribute that authorises a WRITE, and Vue
+     * and both Sveltes stringify a bound `false` onto an element that has no property of
+     * that name — `manage="false"`, which `hasAttribute` reads as on. Without it,
+     * turning management off would turn it on. `presenceOn`, like `loading` above it.
      */
     get manage(): boolean {
         return this.hasAttribute('manage');
@@ -293,13 +292,12 @@ export class AparteConversationList extends HTMLElement {
     /**
      * A press holds every render until its click has landed. The host re-assigns
      * `conversations` on every manager change (a save moves a row, a select marks one),
-     * and a row replaced between `mousedown` and `mouseup` lost its click: Chromium sent
-     * it to the list, where the delegated handler matched nothing, and WebKit sent none.
-     * A conversation clicked while the list settled did not open. Keeping the row node
-     * would not have saved it: a row moved to its new place leaves the document on the
-     * way, and the row that moves is often the one pressed (the conversation just
-     * saved). So nothing changes under a pointer that is down, and the render runs once,
-     * after the click.
+     * and a row replaced between `mousedown` and `mouseup` loses its click: Chromium
+     * sends it to the list, where the delegated handler matches nothing, and WebKit
+     * sends none. Keeping the row node would not help: a row moved to its new place
+     * leaves the document on the way, and the row that moves is often the one pressed
+     * (the conversation just saved). So nothing changes under a pointer that is down,
+     * and the render runs once, after the click.
      */
     private _pressed = false;
     private _renderAfterPress = false;

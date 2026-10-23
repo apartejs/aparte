@@ -176,9 +176,9 @@ export class AparteConversationController {
     /**
      * Degraded mode is legitimate — a host that never opted into the conversation
      * lifecycle has no manager and should not be nagged. Registering one on the
-     * WRONG config is not: the four wrapper hooks used to write it to the global
-     * singleton unconditionally, so `config` + persistence looked like it worked
-     * (the optimistic UI still appends) and saved nothing at all.
+     * WRONG config is not: a manager registered on the global singleton while the chat
+     * uses its own `config` looks like it works (the optimistic UI still appends) and
+     * saves nothing at all.
      *
      * Warned once per controller, and only in the case that is unambiguously a
      * mistake: no manager here, but one on the global.

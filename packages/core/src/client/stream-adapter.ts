@@ -3,18 +3,15 @@
  *
  * `@aparte/engine`'s `runStreamAgent` is the headless loop: it emits high-level,
  * DOM-free run events. This adapter is the other half — it turns each event into
- * the exact `targetElement.*` calls + CustomEvents that core's inline loop
- * performed, using the **real** `AparteStreamParser` and tool renderers. So
- * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce that
- * loop byte-for-byte — and have replaced it (audit 2026-08-28, D1).
+ * the `targetElement.*` calls + CustomEvents the transcript needs, using the
+ * **real** `AparteStreamParser` and tool renderers. `runStreamAgent` (engine, pure
+ * Node) + this adapter (core, DOM) are the one agent loop `AparteClient` runs.
  *
  * DEPENDENCY DIRECTION: `@aparte/core` depends on `@aparte/engine` — first-party, so
  * the zero-third-party-dependency promise is untouched — never the reverse. The
  * run-event contract is engine's: {@link AparteStreamRunEvent} and its siblings below
  * are `StreamRunEvent` & co under core's names, so there is nothing to keep in sync by
- * hand any more. The hand-mirrored union this file used to carry, and the compile-time
- * guard in engine that policed it, went with the mirror (audit 2026-08-28, D1). A
- * consumer wires a runner through `AparteClientOptions.streamRunner` — the same
+ * hand. A consumer wires a runner through `AparteClientOptions.streamRunner` — the same
  * pattern as `approvalResolver` (HITL).
  */
 
@@ -36,7 +33,7 @@ import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 /**
  * The DOM-free run events `@aparte/engine`'s `runStreamAgent` emits — engine's
  * `StreamRunEvent`, under core's name. See `packages/engine/src/agent/stream-events.ts`
- * for the per-event `_streamLoop` mapping notes.
+ * for the per-event documentation.
  */
 export type AparteStreamRunEvent = StreamRunEvent;
 
@@ -57,11 +54,8 @@ export type AparteStreamRunOptions = StreamRunOptions;
  * — the seam by which a host wraps or replaces the loop `AparteClient` runs,
  * which is `@aparte/engine`'s `runStreamAgent` by default.
  *
- * `runStreamAgent` IS this type — pass it, do not cast it. An earlier version of this
- * comment advised a cast "if the duck-typed shapes don't line up", which is how the
- * two packages' message types drifted apart unnoticed and shipped a
- * `streamRunner: runStreamAgent` that did not compile on five docs pages and a
- * README. The alias makes that drift a typecheck error in the composition itself.
+ * `runStreamAgent` IS this type — pass it, do not cast it. The alias makes any drift
+ * between the two packages' message types a typecheck error in the composition itself.
  */
 export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<StreamUsage | undefined>;
 

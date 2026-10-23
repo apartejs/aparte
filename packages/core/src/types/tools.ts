@@ -32,9 +32,6 @@ export interface AparteTool {
      * same turn runs — and then the model gets a turn to answer it, so it can
      * say what it will do instead. The refusal may carry the user's own words.
      *
-     * All three clauses of this comment used to say something else: the default
-     * renderer surfaced the buttons, an `aparte-tool-decision` event resolved
-     * them, and a refusal ended the turn. None of that is true any more.
      */
     needsApproval?: boolean;
 }
@@ -47,11 +44,8 @@ export interface AparteTool {
  * (`<aparte-elicitation>` renders the panel there), and the transcript row shows only a
  * state — there is no Approve/Reject control in a bubble.
  *
- * This block used to say "the built-in renderer already shows Approve/Reject inline",
- * which stopped being true when the decision moved to the composer. A consumer trusting
- * it shipped with no presenter and no `approvalResolver`, and every `needsApproval` call
- * aborted with nothing clickable on screen. The sibling docblock on `needsApproval`
- * records the same correction; this one was missed in the same file.
+ * With no presenter and no `approvalResolver`, every `needsApproval` call aborts with
+ * nothing clickable on screen.
  *
  * @event aparte-tool-approval-request
  */
@@ -127,19 +121,13 @@ export type AparteToolHandler = (
 /**
  * Which chat a tool handler is running for.
  *
- * Optional and third, so every existing handler keeps compiling and working —
- * nothing has to be rewritten to ignore it.
+ * Optional and third, so a handler that does not need it ignores it.
  *
- * It exists because a handler had NO way to know. `@aparte/plugin-ask-user`
- * calls `requestUserInput({ message, schema, signal })` with no `target`, and
- * `requestUserInput` resolves its presenter with `resolveConfig(request.target ??
- * null)` — so with an instance config carrying the presenter, the call resolved
- * against the GLOBAL config, found nothing, and returned `{ action: 'cancel' }`.
- * The model was told the user refused a question the user was never shown.
- *
- * That failure is described in `AparteConfig.requestUserInput` as "a lie told
- * quietly", and the plugin walked straight into it because the handler signature
- * gave it nothing to walk around with.
+ * A handler needs it to reach the right instance: `requestUserInput` resolves its
+ * presenter with `resolveConfig(request.target ?? null)`, so without a `target` it
+ * resolves against the GLOBAL config, finds no presenter on an instance config, and
+ * returns `{ action: 'cancel' }` — the model is told the user refused a question the
+ * user was never shown. Pass `target` from this context.
  *
  * The loop supplies it — `runStreamAgent`, or the runner you injected — so
  * a handler behaves the same whichever one is running.
@@ -206,8 +194,7 @@ export interface AparteToolRenderer {
      * **The segment carries model-chosen data.** `segment.toolCall.input` is
      * whatever the model decided to pass, and `segment.result` is whatever the tool
      * returned — on the SEGMENT, because `AparteToolCall` is `{ id, name, input }`
-     * and nothing else. This line used to say `segment.toolCall.result`, which does
-     * not compile; the first renderer written against it found out.
+     * and nothing else (there is no `segment.toolCall.result`).
      * Both values are untrusted.
      *
      * Return an **HTMLElement** and there is no innerHTML surface at all — set

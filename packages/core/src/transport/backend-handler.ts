@@ -13,17 +13,15 @@ export interface AparteChatHandlerOptions {
      * Gate run on EVERY request before any work. **Required.**
      *
      * This endpoint spends your server-held vendor key, so leaving it open means
-     * anyone who finds the URL spends your money. It used to be optional, and both
-     * the JSDoc example here and the primary snippet in the docs omitted it — so
-     * the copy-paste path was the unauthenticated one. Making it required moves
-     * that decision from "did you notice?" to a compile error.
+     * anyone who finds the URL spends your money. Requiring it turns forgetting it
+     * into a compile error.
      *
      * Return `false` to reject with 401, a `Response` to reject with your own
      * status/body (e.g. 403 + a message), or `true` to proceed. Reads
      * cookies/headers via `req`.
      *
      * A deliberately open endpoint is still possible — `authorize: () => true` —
-     * but now it is a line someone wrote on purpose.
+     * but then it is a line someone wrote on purpose.
      */
     authorize: (req: Request) => boolean | Response | Promise<boolean | Response>;
     /**
@@ -32,7 +30,7 @@ export interface AparteChatHandlerOptions {
      */
     resolveKey?: (providerId: string) => string | undefined | Promise<string | undefined>;
     /**
-     * The `fetch` used to call the vendor. Defaults to the global `fetch`
+     * The `fetch` that calls the vendor. Defaults to the global `fetch`
      * (Node 18+, Deno, Bun, Workers). Override in tests or to add a proxy.
      */
     fetchImpl?: typeof fetch;

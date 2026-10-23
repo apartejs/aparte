@@ -64,8 +64,7 @@ const ringSvg = (): SVGSVGElement => {
  * Two thresholds turn it `warn` then `danger` (`data-level`), and crossing one fires
  * `aparte-context-threshold`. With `auto-compact`, a turn that ends in `danger` dispatches
  * `aparte-compact` for its chat — one request at a time, asked again on the next turn in
- * `danger` once the plugin has answered — which is what
- * a gauge that turns red and then does nothing was missing. What answers the command
+ * `danger` once the plugin has answered. What answers the command
  * is `@aparte/plugin-compaction` (`setupCompaction()`): it summarises what no longer
  * fits the window and keeps the recent turns. Core itself does not compact — the
  * gauge asks, the plugin does, and a page without the plugin gets a gauge that only

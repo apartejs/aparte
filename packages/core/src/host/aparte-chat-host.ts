@@ -109,10 +109,9 @@ export interface AparteChatHostBinding {
      * skeleton, the empty state kept off, the composer disabled.
      *
      * Declaring it makes the wait YOURS, `aria-busy` included: the host stops writing the
-     * viewport's `loading` attribute and leaves it to you, because two writers with two
-     * ideas of when the wait ends is how a wrapper came to draw a skeleton over a
-     * transcript the attribute said had arrived. A binding without this callback keeps
-     * the attribute written for it.
+     * viewport's `loading` attribute and leaves it to you, so two writers never disagree
+     * about when the wait ends. A binding without this callback keeps the attribute
+     * written for it.
      */
     onLoadingChange?(loading: boolean): void;
 }
@@ -137,8 +136,8 @@ export interface AparteChatHostOptions {
 /**
  * Framework-agnostic chat-host orchestrator.
  *
- * Owns the streaming/branch/host-method layer that previously lived inline in
- * the Angular wrapper: it installs the imperative method surface `AparteClient`
+ * Owns the streaming/branch/host-method layer shared by the framework wrappers:
+ * it installs the imperative method surface `AparteClient`
  * calls onto the host element, tracks the streaming target id from
  * `apartemessage*` lifecycle events, guards writes against orphan streams (late
  * SSE after a conversation switch), handles `aparte-path-changed` branch
@@ -529,11 +528,8 @@ export class AparteChatHost {
      *     the same direct path `appendToken` uses;
      *  2. into the framework's message list, **coalesced to once per frame**.
      *
-     * It used to do only (2), synchronously: a full list rebuild plus
-     * `setMessages` + `onMessagesChange` for every chunk, i.e. one complete
-     * framework render per token. At 60 tok/s from a local model that is unusable,
-     * and nothing in the imperative API hinted that `appendToSegment` cost so much
-     * more than `injectTokenStream`. Consumers had to write their own rAF batcher.
+     * Coalescing (2) avoids a full list rebuild plus `setMessages` +
+     * `onMessagesChange`, i.e. one complete framework render, for every chunk.
      *
      * Any structural change flushes the buffer first (see
      * {@link _flushStreamState}), so ordering is never observable.
@@ -647,9 +643,7 @@ export class AparteChatHost {
     /**
      * Clear all messages + reset viewport state. The option travels to the viewport
      * untouched: a compaction passes `{ revokeAttachments: false }` because it re-appends
-     * the turns it keeps and revokes the dropped ones' object URLs itself — under a
-     * framework wrapper this bridge used to drop the argument, and every surviving
-     * attachment came back broken.
+     * the turns it keeps and revokes the dropped ones' object URLs itself.
      */
     clearMessages(options?: { revokeAttachments?: boolean }): void {
         this._beginConversationSwap();
@@ -699,10 +693,9 @@ export class AparteChatHost {
      *
      * Each token reaches the bubble immediately and the framework's message list
      * is synced **once per frame** (same discipline as {@link appendToSegment}),
-     * with a guaranteed flush before completion and on abort. Before that sync
-     * existed the two disagreed: the DOM had the reply, the framework list still
-     * held `content: ''` — so any re-render from state wiped it, and a custom
-     * bubble (which renders from that state) showed nothing at all.
+     * with a guaranteed flush before completion and on abort, so the framework list
+     * and the DOM agree and a custom bubble (which renders from that state) shows the
+     * reply.
      */
     async streamTokens(messageId: string, tokens: AsyncIterable<string>): Promise<void> {
         this.stopTokenStream();
@@ -845,17 +838,10 @@ export class AparteChatHost {
      * Write the branch counts onto their bubbles — and RESCHEDULE for the ones that are
      * not on the page yet, instead of dropping them.
      *
-     * This used to `continue` past a missing bubble and then clear `_pendingSiblings`
-     * unconditionally, which lost the fork for good. That is the "1 / 1" defect: the
-     * bubble kept its default of one sibling, the picker hid itself, and the other version
-     * became unreachable for the life of the page.
-     *
-     * It needed a framework that renders LATE, which is every framework here. React's
-     * `afterRender` is `requestAnimationFrame(() => cb())` — a bet that the next paint
-     * lands after React's commit, and it does not always; the repo has lost that same bet
-     * before (`25f356b`, "a bet on rAF phase"). The fix is here rather than in the
-     * wrapper's rAF call, because ANY binding whose `afterRender` can precede its commit
-     * hits this, and one fix at the host covers all four.
+     * Frameworks render LATE: a binding's `afterRender` can run before its commit, so a
+     * bubble may not exist yet when its count arrives. A count that was dropped would
+     * leave the bubble at one sibling, the picker hidden and the other version
+     * unreachable. The retry lives here rather than in a wrapper, so it covers all four.
      *
      * Bounded, because a sibling can legitimately never arrive — a message that left the
      * path has no bubble and never will, and an unbounded retry would hold a callback for
@@ -905,12 +891,11 @@ export class AparteChatHost {
      * The bubble the streaming writes below belong to: the one carrying that message's
      * id, and NOTHING when it is not on the page yet.
      *
-     * It used to be "the last bubble in the viewport", which is a different message
+     * It is not "the last bubble in the viewport", which is a different message
      * whenever the DOM is a render behind the list — which is every framework here.
-     * `appendMessage` puts the new reply in React's state and React paints it on its own
-     * schedule, so a first chunk arriving in between went into the PREVIOUS reply's
-     * bubble; `syncBubbles` then wrote the same segment onto the real one, and the same
-     * `data-segment-id` was on two bubbles.
+     * `appendMessage` puts the new reply in the framework's state and the framework
+     * paints it on its own schedule, so a first chunk arriving in between would go into
+     * the PREVIOUS reply's bubble.
      *
      * Skipping the paint is safe because it is only ever a paint: the message list is
      * written either way, and `syncBubbles` — called by the framework after each render,
@@ -962,10 +947,9 @@ export class AparteChatHost {
          *
          * A retry supersedes the reply being written: the client aborts it, and the
          * engine's `run-aborted` reaches this host as an `aparte-message-aborted`
-         * carrying the OLD message's id. `onEnd` took no event at all, so it could not
-         * tell — and one turn's unwind un-busied the turn still streaming. An event with
-         * no id still ends the turn: that is a host or a loop of its own saying "done",
-         * and it has always meant this one.
+         * carrying the superseded message's id, which must not end the turn still
+         * streaming. An event with no id still ends the turn: that is a host or a loop
+         * of its own saying "done".
          */
         const endsThisTurn = (e: Event): boolean => {
             const id = ((e as CustomEvent)?.detail as { messageId?: string } | undefined)?.messageId;

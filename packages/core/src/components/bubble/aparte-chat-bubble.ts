@@ -24,8 +24,8 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 
 /**
- * Warn ONCE when a segment has no renderer — now only for types core has never
- * heard of, since the built-ins install themselves on first use.
+ * Warn ONCE when a segment has no renderer — only for types core has never heard of,
+ * since the built-ins install themselves on first use.
  */
 let _warnedNoRenderer = false;
 function warnMissingRenderer(type: string): void {
@@ -37,13 +37,10 @@ function warnMissingRenderer(type: string): void {
 /**
  * What a segment renders as when no renderer claims its type.
  *
- * `AparteCustomSegment.fallback` is documented as "Optional fallback text
- * representation" and was read by NOTHING — the field existed, the type published it,
- * and a custom segment arriving where its renderer is not registered (a conversation
- * replayed in another app, a client that loads its views lazily, an export) showed
- * `[Unknown segment type: custom]` while carrying the sentence written for exactly that
- * moment. Found while writing the segment's own `@example`, which is the kind of dead
- * declaration documentation is good at surfacing.
+ * A custom segment arriving where its renderer is not registered (a conversation
+ * replayed in another app, a client that loads its views lazily, an export) shows its
+ * `AparteCustomSegment.fallback` text. Without one it shows
+ * `[Unknown segment type: custom]`.
  *
  * The developer warning is skipped when a fallback is present: an author who supplied
  * one has already said this can happen, and warning then is crying wolf. Without one it
@@ -147,14 +144,10 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * on `.aparte-message`), never from a status attribute, so it behaves identically in
  * vanilla and in every wrapper.
  *
- * All seven events are declared by hand rather than left to the analyser, which
- * found six. `aparte-branch-navigate` is dispatched from the `_onBranchPickerClick`
- * arrow class field, and the auto-detection visits `ts.isMethodDeclaration` only —
- * so the one event belonging to the branch picker was the one missing from the
- * manifest, and from the generated reference, for as long as both existed.
+ * All seven events are declared by hand rather than left to the analyser.
  *
  * The bubble element is `content-visibility: auto` for its streaming/scroll performance
- * (measured, not assumed — see `bubble.css`), and that containment makes the bubble
+ * (see `bubble.css`), and that containment makes the bubble
  * the containing block for `position: fixed` descendants: a popover mounted inside it
  * (an `<aparte-select>` from a `registerToolRenderer` renderer, say) is clipped to the
  * bubble's own box, not the window. Mount it outside instead — [Custom tool
@@ -162,7 +155,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *
  * @element aparte-chat-bubble
  *
- * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)
+ * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and does not read a message role from it.)
  * @attr {string} content - Plain text content, for a bubble with no segments.
  * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
@@ -179,7 +172,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
- * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row. (The composite `--aparte-message-padding` is gone: joined on `:root`, it froze both parts, and the narrow-container override of them never reached the row.)
+ * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row.
  * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
@@ -192,7 +185,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop --aparte-message-content-text-assistant - Colour of the assistant's words. Unset by default: they keep `--aparte-content-color`.
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
- * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp; 0.28 × 32px is the 9px it used to be).
+ * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp).
  * @cssprop [--aparte-avatar-initials-ratio=0.34] - Size of the initial, as a fraction of the avatar's size.
  * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
@@ -439,14 +432,14 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * The boundary above this bubble changed — under every wrapper the chat's own config is
    * attached AFTER the first messages are drawn. When that brings another frame
-   * (`setBubbleShellRenderer`), the bubble is drawn again in it and its content put back;
-   * drawn once at connect, the messages present at first render kept the global frame
-   * while every later one wore the chat's.
+   * (`setBubbleShellRenderer`), the bubble is drawn again in it and its content put back,
+   * so every message wears the chat's frame.
    *
    * Deferred to a microtask: a wrapper detaches the boundary as it unmounts (Vue's
    * `onBeforeUnmount`, Svelte's `onDestroy`), while the bubbles are still in the page, and
-   * redrawing every one of them just before their removal cost a frame per message. After
-   * the microtask a removed bubble is no longer connected, and repeated notices fold into one.
+   * redrawing every one of them just before their removal would cost a frame per message.
+   * After the microtask a removed bubble is no longer connected, and repeated notices fold
+   * into one.
    */
   aparteConfigChanged(): void {
     queueMicrotask(() => this._redrawFrameIfChanged());
@@ -621,11 +614,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * query returns the first match in document order — and sanitized model
    * markdown renders inside that same container, with `data-*` attributes
    * deliberately preserved (they are inert). So a decoy `data-segment-id` planted
-   * in an earlier segment's prose used to win over the real segment element.
+   * in an earlier segment's prose would win over the real segment element.
    *
    * Parser ids are unguessable UUIDs, but a tool segment is `tool-${toolCallId}`
-   * and the MODEL chooses that id — so this was reachable, and pointing an update
-   * at a decoy left a rejected tool rendering as still-running: a spoof against
+   * and the MODEL chooses that id — so a decoy could point an update at the wrong
+   * element and leave a rejected tool rendering as still-running: a spoof against
    * the human-in-the-loop control.
    */
   removeSegment(segmentId: string): void {
@@ -903,8 +896,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
   /**
    * Show the built-in waiting indicator while this bubble is in flight and has
-   * nothing to show yet — the gap between "user sends" and the first token, which
-   * used to be a bubble with a name and an empty body.
+   * nothing to show yet — the gap between "user sends" and the first token.
    *
    * The dots are CSS (no per-token work, themable, honours reduced-motion); the
    * accessible name is `locale.typing`, next to the `aria-busy` the streaming state
@@ -1289,9 +1281,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    *
    * An attachment's `url` is documented as "URL or data URI" and a storage adapter
    * re-mints it when a conversation is restored, so it is the app's value, not the
-   * composer's — it was escaped and written, where every other URL core emits is
-   * asked whether its SCHEME is allowed at all. A picture whose URL is refused is
-   * not half-rendered: it falls back to the file chip, which still names the file.
+   * composer's — and, like every other URL core emits, it is asked whether its SCHEME
+   * is allowed at all. A picture whose URL is refused is not half-rendered: it falls
+   * back to the file chip, which still names the file.
    *
    * `blob:` is added because it is the shape core itself mints — `filesToAttachments`
    * calls `URL.createObjectURL`, and `AparteMessage.attachments` documents the same
@@ -1315,23 +1307,16 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * The branch arrows are handled by DELEGATION, on this element, bound once.
    *
-   * They used to get a fresh listener each, attached by `_render()` to the buttons
-   * `_render()` had just created. So a click that landed while a re-render was
-   * swapping those nodes hit an element about to be discarded, and did nothing at
-   * all — not late, nothing. Invisible on a fast machine; reproducible on
-   * WebKit-Linux in CI, where `‹` left the picker on "2 / 2" and a 20-second
-   * assertion watched it stay there.
-   *
-   * Delegation makes `_render()` irrelevant to it: the listener lives on the host,
-   * which is never replaced, and `closest()` finds whichever button exists at the
-   * moment of the click. It is also less work — one listener per bubble instead of
-   * two per bubble per render.
+   * The listener lives on the host, which is never replaced, and `closest()` finds
+   * whichever button exists at the moment of the click — so a click that lands while
+   * a re-render is swapping the buttons is not lost.
    *
    * Bound in `connectedCallback` and removed in `disconnectedCallback` as a stable
-   * field, because an inline arrow re-added on every re-connect is how this repo has
-   * stacked listeners twice before (the viewport, and `aparte-select`).
+   * field, so a re-connect never stacks listeners.
    */
   private _onBranchPickerClick = (event: Event): void => {
+    // `aparte-branch-navigate` is dispatched from this arrow field, which the manifest
+    // analyser (methods only) does not visit: it is declared by hand in the class `@fires`.
     const target = event.target as HTMLElement | null;
     const button = target?.closest?.('.aparte-branch-prev, .aparte-branch-next');
     if (!button || !this.contains(button)) return;
@@ -1350,7 +1335,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * A link the MODEL wrote is about to be followed. Announced as a cancelable event
    * before the browser acts, so a host can route it — an external browser, a
-   * confirmation, an embedded view — without intercepting the DOM (issue #38). With
+   * confirmation, an embedded view — without intercepting the DOM. With
    * no listener the browser follows it, which the sanitizer has already made open in
    * a new tab for an external URL; `preventDefault()` on the event cancels the click.
    *
@@ -1524,18 +1509,14 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * `role="toolbar"` promises a keyboard model. This is it.
    *
-   * The bar has announced itself as a toolbar since it existed, and a toolbar is ONE
-   * tab stop whose members are reached with the arrow keys — that is the whole of what
-   * the role means to a screen-reader user. What shipped was five independent tab
-   * stops per message, so the role described a behaviour that did not exist: a reader
-   * told to press Right heard nothing move, and tabbing through a long transcript
-   * walked every button of every message.
+   * A toolbar is ONE tab stop whose members are reached with the arrow keys — that is
+   * the whole of what the role means to a screen-reader user. Without it, tabbing
+   * through a long transcript would walk every button of every message.
    *
    * The roving index is re-applied from `_syncFooterVisibility`, which is the single
-   * funnel all three build paths already run through (the flag-driven bar, the edit
-   * bar, and the branch picker's own visibility pass). Re-deriving it there rather
-   * than in each builder is what keeps the invariant true after a `setBubbleActions`
-   * rebuild — the drift this pattern usually dies of.
+   * funnel all three build paths run through (the flag-driven bar, the edit bar, and
+   * the branch picker's own visibility pass). Re-deriving it there rather than in each
+   * builder keeps the invariant true after a `setBubbleActions` rebuild.
    *
    * DISABLED buttons are skipped, not merely un-tabbable: while the transcript is busy
    * retry and edit are disabled, and a toolbar whose arrows stop on a dead control
@@ -1586,9 +1567,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   };
 
   /**
-   * An empty action bar is not a bar: with every action off it was still a
-   * `role="toolbar"` with nothing in it (announced as such), and it still reserved
-   * its fixed height plus the footer's under every bubble. So both follow their
+   * An empty action bar is not a bar: with every action off it would be a
+   * `role="toolbar"` with nothing in it (announced as such) that still reserves its
+   * fixed height plus the footer's under every bubble. So both follow their
    * contents — the footer stays as long as the branch picker or the bar has
    * something to show.
    */

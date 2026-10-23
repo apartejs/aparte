@@ -29,11 +29,8 @@ export interface AparteImagePart {
 /**
  * Discriminated union of all content part types.
  *
- * There was a third, `AparteFilePart`, "reserved for future PDF/audio support" — nothing
- * ever produced one: the client inlines images and text files and drops the rest, and both
- * wire mappers answered it with an empty text part no message could reach. What it did do
- * was promise a consumer that attaching a PDF sent it. That promise is now a warning at the
- * one place the file is really dropped.
+ * Only text and image parts exist: the client inlines images and text files and drops
+ * other attachments (PDF, audio) with a warning at the point the file is dropped.
  */
 export type AparteContentPart = AparteTextPart | AparteImagePart;
 
@@ -79,11 +76,8 @@ export interface AparteChatMessage {
 /**
  * The request one turn sends to a provider.
  *
- * `prefill`, `systemOverride` and `fastStream` used to sit here, each documented "providers
- * MAY ignore it" and read by none — one model family's raw-completion vocabulary flattened
- * onto every provider's request. A provider reads its option off `_meta`, the namespaced bag,
- * which reaches it untouched; the trigger to reconsider is a raw-completion provider in this
- * repo (`provider-llamacpp`) that would actually read one.
+ * Provider-specific options are not fields of the request: a provider reads its option off
+ * `_meta`, the namespaced bag, which reaches it untouched.
  */
 export interface AparteChatRequest {
     messages: AparteChatMessage[];
@@ -99,9 +93,8 @@ export interface AparteChatRequest {
      * transformers worker); Anthropic exposes none, so it is ignored there.
      *
      * Nothing sets it for you: a retry varies its answer by sampling
-     * (`temperature`), not by seeding — this line used to promise an automatic
-     * per-retry seed that no code had ever written. Set it from a
-     * `requestInterceptor` when you need reproducible runs.
+     * (`temperature`), not by seeding. Set it from a `requestInterceptor` when you
+     * need reproducible runs.
      */
     seed?: number;
 
@@ -132,9 +125,7 @@ export interface AparteChatRequest {
 /**
  * The well-known keys of `AparteChatRequest._meta`. One, read by core's client and
  * not by the loop; the rest of the bag is the consumer's (index signature).
- * `pipeline`, `artifactRaw` and `artifactXml` used to sit here too and were removed
- * (audit 2026-08-28, D2), then `artifactHint` (D7): an artifact is a plugin's
- * convention now, and a promoted code fence had no consumer.
+ * An artifact is a plugin's convention, so no artifact key is defined here.
  */
 export interface AparteRequestMeta {
     /**

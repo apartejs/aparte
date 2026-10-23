@@ -10,14 +10,10 @@
  * `e.detail`, the map is the only thing that types it, and its absence forces the
  * exact cast the paragraph above promises you never need.
  *
- * The rule this file used to state was different and wrong. It said the map covers
- * "events whose detail type lives in the types layer", and named composer-submit,
- * select-change and optgroup-toggle as internal ones that "carry no cross-package
- * detail contract". Two of those three do: `@aparte/plugin-model-selector` reads
- * both across a package boundary, and `AparteSelectChangeDetail` is exported from
- * both public barrels. Meanwhile `aparte-composer-change` sat in the map with its
- * detail imported from a component — breaking the stated criterion in the other
- * direction. A rule contradicted by its own list is not a rule.
+ * The criterion is not where the detail type lives: `@aparte/plugin-model-selector`
+ * reads `aparte-select-change` and `aparte-optgroup-toggle` across a package boundary,
+ * and `AparteSelectChangeDetail` is exported from both public barrels, while
+ * `aparte-composer-change` is in the map with a detail imported from a component.
  *
  * Events that carry NO detail stay out, and that is the whole exclusion:
  * `aparte-composer-submit`, `aparte-cancel`, `aparte-reset`, `aparte-reset-done`,
@@ -80,15 +76,13 @@ import type { AparteComposerChangeEventDetail } from '../components/composer/apa
 /**
  * Declared once, applied to all three targets below.
  *
- * It used to be written straight into `HTMLElementEventMap`, which typed
- * `chat.addEventListener(...)` and nothing else — while `document.addEventListener`
- * resolves through `DocumentEventMap` and `window.addEventListener` through
- * `WindowEventMap`, neither of which inherits from it. Every aparté event bubbles
- * and composes, so listening on `document` is the natural way to handle a page's
- * worth of chats in one place; the docs recommend exactly that ("Clicks are
- * declarative — they emit `aparte-action`, so you handle them in one place"), and
- * that recommended snippet did not compile. `AparteClient` itself listens on
- * `window`, so the third map is not hypothetical either.
+ * Writing it into `HTMLElementEventMap` alone would type `chat.addEventListener(...)`
+ * and nothing else, while `document.addEventListener` resolves through
+ * `DocumentEventMap` and `window.addEventListener` through `WindowEventMap`, neither of
+ * which inherits from it. Every aparté event bubbles and composes, so listening on
+ * `document` is the natural way to handle a page's worth of chats in one place (the
+ * docs recommend it: "Clicks are declarative — they emit `aparte-action`, so you
+ * handle them in one place"), and `AparteClient` itself listens on `window`.
  */
 interface AparteEventMap {
     'aparte-send': CustomEvent<AparteSendEventDetail>;

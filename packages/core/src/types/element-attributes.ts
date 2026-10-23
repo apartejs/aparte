@@ -1,11 +1,8 @@
 /**
  * The template spelling of an attribute, and the re-export of the generated surface.
  *
- * The interfaces and the registry are NOT here any more: they are generated from
- * `dist/custom-elements.json` into `src/generated/`, which is gitignored and rewritten
- * on every build. They were written by hand for about a day, and the generator
- * reproduced all 15 interfaces and all 48 properties exactly — plus one attribute I had
- * missed. Copying a machine-readable source by hand buys nothing and drifts.
+ * The interfaces and the registry are generated from `dist/custom-elements.json` into
+ * `src/generated/`, which is gitignored and rewritten on every build.
  *
  * What stays here is the part no manifest can carry: how a TEMPLATE must spell an
  * attribute, which is a fact about React, Vue and Svelte rather than about the element.
@@ -19,20 +16,17 @@ export type * from '../generated/element-attributes.js';
  * pedantry — it is the same trap in all three template languages. React and Vue
  * stringify what they set on a custom element, so `disabled={false}` renders
  * `disabled="false"`, and an element that tests `hasAttribute` reads that as ON. The
- * wrapper's own bubble rendering already used the right spelling
- * (`streaming={… ? '' : undefined}`); this makes it the only one that type-checks.
+ * right spelling is `streaming={… ? '' : undefined}`; this type makes it the only one
+ * that type-checks.
  *
- * Svelte 5 is the caveat that shaped the SETTERS (#62): it assigns the PROPERTY
+ * Svelte 5 shapes the SETTERS: it assigns the PROPERTY
  * whenever the element has a setter for it (`set_custom_element_data` checks
  * `get_setters(node)`), so an accessor-backed presence attribute receives the `''`
  * this union promises as a property value. Every presence setter therefore treats
  * `''` as ON (`presenceOn` in utils/presence.ts) — one spelling, both paths.
  *
  * `null` is in the union alongside `undefined` because all three treat it as REMOVE,
- * and Vue's own wrapper template writes exactly that (`:streaming="… ? '' : null"`).
- * Leaving it out made the wrapper's own code fail to type-check — the second time the
- * existing wrappers corrected a declaration here, after `timestamp`, which the React
- * bubble rendering proved accepts a number.
+ * and Vue templates write exactly that (`:streaming="… ? '' : null"`).
  *
  * A numeric attribute takes a number or the string it becomes, because both read
  * naturally in a template.

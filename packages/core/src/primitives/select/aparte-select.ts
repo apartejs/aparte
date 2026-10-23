@@ -55,10 +55,10 @@ export interface AparteSelectChangeDetail {
  * @cssprop [--aparte-select-bg=var(--aparte-surface-1)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
  * @cssprop [--aparte-select-border=var(--aparte-border-control)] - Border of the trigger and of the dropdown.
  * @cssprop [--aparte-select-border-hover=var(--aparte-border-control)] - Trigger border on hover.
- * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others. (It used to exist twice, as this and a private `--aparte-select-radius` with a different value.)
+ * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others.
  * @cssprop [--aparte-select-text=var(--aparte-text)] - Colour of the trigger label (and of the options).
  * @cssprop [--aparte-select-chevron=var(--aparte-text-muted)] - Colour of the chevron, which rotates 180° while open.
- * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware), so a transparent trigger does not make the panel see-through.
  * @cssprop [--aparte-select-shadow=0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16)] - Dropdown panel shadow.
  * @cssprop [--aparte-select-z=var(--aparte-z-dropdown)] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
@@ -94,24 +94,19 @@ export class AparteSelect extends HTMLElement {
      *
      * `_setupEventListeners()` runs on EVERY `connectedCallback`, and `_render()`'s
      * idempotency guard means the host element survives a re-connect. So each move
-     * of the element (a portal, a Vue teleport, any framework re-parent) added
-     * another option-click listener: measured, one click fired the change handler
-     * FIVE times after five re-connects. `disconnectedCallback` removed the two
-     * document-level handlers and could not touch this one.
-     *
-     * This is verbatim the bug class `aparte-chat-viewport` documents having fixed
-     * for its own listeners.
+     * of the element (a portal, a Vue teleport, any framework re-parent) would add
+     * another option-click listener and one click would fire the change handler once
+     * per re-connect, unless the same bound reference is removed and re-added.
      */
     private _boundHandleOptionClick = this._handleOptionClick.bind(this);
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
     /**
-     * The trigger's own three, bound for the same reason and left inline for a whole
-     * release: they were arrows on `this`, so nothing could ever remove them, and the
-     * trigger element survives a re-connect. One re-parent made a click toggle twice —
-     * open and shut inside the same click, i.e. a control that looks dead — and two made
-     * it announce `aparte-select-open` twice. The docblock above describes exactly this,
-     * fixed for the option click and not for its neighbours.
+     * The trigger's own three, bound for the same reason as the option click: the
+     * trigger element survives a re-connect, so listeners that cannot be removed would
+     * stack. One re-parent would make a click toggle twice — open and shut inside the
+     * same click, i.e. a control that looks dead — and announce `aparte-select-open`
+     * twice.
      */
     private _boundHandleTriggerClick = (): void => { this._toggle(); };
     private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
@@ -251,8 +246,8 @@ export class AparteSelect extends HTMLElement {
 
     /**
      * `searchable` set or removed after the first render: the field comes or goes, and the
-     * combobox moves with it. It was read on the first render only, so a framework that
-     * binds it a beat late — Angular's `[searchable]` inside an `@if` — never got a field.
+     * combobox moves with it, so a framework that
+     * binds it a beat late — Angular's `[searchable]` inside an `@if` — still gets a field.
      */
     private _applySearchable(): void {
         if (!this._dropdown || !this._trigger) return;
@@ -414,9 +409,9 @@ export class AparteSelect extends HTMLElement {
      * Put the roving highlight back after the options changed underneath it.
      *
      * `data-active` lives on an option ELEMENT, so replacing the list throws it
-     * away while `_activeIndex` still claims a position: the highlight disappeared,
-     * `aria-activedescendant` kept pointing at an id no longer in the document, and
-     * the next ArrowDown moved from the stale index — skipping an option. Only when
+     * away while `_activeIndex` still claims a position: without this the highlight
+     * disappears, `aria-activedescendant` points at an id no longer in the document, and
+     * the next ArrowDown moves from the stale index — skipping an option. Only when
      * open and only when a position was held, so a refresh never invents one.
      */
     private _restoreActive(): void {
@@ -731,8 +726,8 @@ export class AparteSelect extends HTMLElement {
      * A `combobox` is NAMED by that attribute and VALUED by its visible label span, so
      * the name is the control and nothing else. A `button` — the shape a `searchable`
      * trigger takes, since the filter field is then the combobox — is named by its
-     * CONTENT, which this very attribute overrides: the searchable trigger announced
-     * "Pick a model, button" and never said which model was selected. So the button's
+     * CONTENT, which this very attribute overrides: a name of just the placeholder
+     * ("Pick a model, button") would never say which model is selected. So the button's
      * name carries both halves, and drops the second when it would only repeat the
      * first (nothing selected: the value IS the placeholder).
      */

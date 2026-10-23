@@ -137,7 +137,7 @@ export function buildApprovalPanel(
     /**
      * Label over description, the question panel's own body — so "Always allow this
      * command" can say `git status` under it and "Always allow any git command" can
-     * say `git *`, which is the whole difference between the two (issue #37).
+     * say `git *`, which is the whole difference between the two.
      */
     const bodyOf = (option: AparteApprovalOption): HTMLElement => optionBody(textOf(option), descriptionOf(option));
     /*

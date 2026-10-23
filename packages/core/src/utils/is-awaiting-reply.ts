@@ -7,14 +7,11 @@ import type { AparteMessage } from '../types/index.js';
  *
  * Two clauses:
  *
- * 1. **Stated**: `status` is `'streaming'` or `'pending'`. This is exactly the
- *    condition every call site used before this helper existed, role included, so
- *    no existing behaviour shifts.
+ * 1. **Stated**: `status` is `'streaming'` or `'pending'`, whatever the role.
  * 2. **Inferred**: an **assistant** message with **no `status` at all** and nothing
  *    in it — no `content`, no `segments`. That is the empty shell a token stream is
  *    about to fill (`appendMessage({ role: 'assistant', content: '' })` from a
- *    hand-rolled loop). It used to render as a completed reply, action bar and all,
- *    on a message that had never said anything.
+ *    hand-rolled loop).
  *
  * Only silence is interpreted. An explicit `status` — including `'completed'` on an
  * empty message — is the application talking, and is believed.

@@ -8,20 +8,15 @@ import { presenceOn } from '../../utils/presence.js';
  * there at all.
  *
  * `'submit'` answers, and `'none'` says this panel has NO act left for that button,
- * so it is not drawn. (`'advance'` — the button as a "next" through a form — is gone:
- * the chips are the navigation, and a button that changes meaning under the pointer
- * was one more thing to explain.)
+ * so it is not drawn. The chips are the navigation through a form's questions, so the
+ * button never means "next".
  *
- * `'none'` exists because a panel could not previously say it. The composer's panel
- * mode was one fixed policy — hide the input and the attachment picker, keep the
- * strip and the toolbar, and ALWAYS keep the send button — and the approval panel
- * showed what that costs: its options settle on the first click by design, so the
- * button beside them sat permanently disabled, meaning nothing, until the optional
- * instruction field was opened. A control that is never the way forward is not
- * disabled, it is absent (ratified decision #8).
+ * `'none'` is for a panel whose options settle on the first click (an approval, a
+ * single-choice question): a button beside them would sit permanently disabled,
+ * meaning nothing. A control that is never the way forward is not disabled, it is
+ * absent.
  *
- * Named rather than inlined at each of its six readers: this union is exactly the
- * kind of list this repo has watched drift when every reader kept its own copy.
+ * Named rather than inlined at each of its six readers, so they share one list.
  */
 export type AparteComposerPanelMode = 'submit' | 'none';
 
@@ -122,10 +117,6 @@ export interface AparteComposerChangeEventDetail {
  * an `id` — otherwise it answers to every chat's events, and one chat's Stop resets the
  * other's composer and evicts its open panel.
  *
- * Prose first, on purpose: when `@element` opens a docblock there is no free text
- * left for the analyser to use, and this component's description came out empty in
- * the manifest and blank on the generated reference page.
- *
  * `aparte-abort` and `aparte-message-aborted` have to be declared by hand and always
  * will: they go out through `window.dispatchEvent` (they concern the whole page, not
  * this subtree), and the analyser's fallback only recognises `this.dispatchEvent`.
@@ -141,8 +132,7 @@ export interface AparteComposerChangeEventDetail {
  * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
  * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
  *   default); set it to the string `"false"` to swap them. Read lazily by the
- *   `submitOnEnter` getter rather than observed, which is why it was missing from the
- *   manifest — and so from every typed surface — while all four wrappers wrote it.
+ *   `submitOnEnter` getter rather than observed.
  * @attr {boolean} data-panel-active - Reflected BY the element while a panel (an elicitation, an
  *   approval) is mounted inside it; the shipped stylesheet keys off it. Read-only.
  * @attr {string} data-panel-mode - Reflected BY the element while a panel is active: what the send
@@ -212,14 +202,11 @@ export class AparteComposer extends HTMLElement {
     /**
      * Who owns the one panel slot, and how to tell them they lost it.
      *
-     * There is exactly one slot, `showPanel` empties it unconditionally, and nothing
-     * used to say whose it was. Three paths therefore closed a panel whose owner was
-     * still awaiting an answer, and none of them told the owner: a second `showPanel`,
-     * the owner-of-record's own `hidePanel`, and — the one that actually bit —
-     * `_handleMessageDone`, which fires on EVERY turn end. A question still open when a
-     * turn finished lost its panel while `<aparte-elicitation>` kept `_pending` set,
-     * so the request never settled AND every later request was short-circuited for the
-     * life of the page.
+     * There is exactly one slot and `showPanel` empties it unconditionally, so every
+     * path that closes a panel whose owner is still awaiting an answer — a second
+     * `showPanel`, `hidePanel` without the owner's token, `_handleMessageDone` (which
+     * fires on EVERY turn end) — must tell the owner. An owner that is not told keeps
+     * its request pending, and every later request is short-circuited behind it.
      */
     private _panelToken: symbol | null = null;
     private _panelOnEvict: (() => void) | null = null;
@@ -241,10 +228,10 @@ export class AparteComposer extends HTMLElement {
      *
      * A wrapper runs `AparteChatHost.bind()` — which calls `attachConfig` — from its
      * POST-mount hook, so this element connects BEFORE the boundary exists. Caching
-     * here latched the global config forever: an instance `config` carrying an RTL
-     * locale flipped the transcript and not the composer, and the
-     * `requireModelSelection` gate was read off the wrong object. `aparte-chat-bubble`
-     * has always resolved live, and its JSDoc names this exact race.
+     * would latch the global config forever: an instance `config` carrying an RTL
+     * locale would flip the transcript and not the composer, and the
+     * `requireModelSelection` gate would be read off the wrong object.
+     * `aparte-chat-bubble` resolves live too, and its JSDoc names this race.
      */
     private get _cfg(): AparteConfig {
         return resolveConfig(this);
@@ -263,10 +250,10 @@ export class AparteComposer extends HTMLElement {
      * Mirror `locale.direction` onto ourselves, so everything inside — input, buttons,
      * the toolbar row and whatever the consumer put in it — inherits it.
      *
-     * The direction used to stop at the transcript: only the viewport applied `dir`, so
-     * an RTL locale flipped the conversation and left the composer left-to-right. It is
-     * also what makes the toolbar's placement idiom real: `margin-inline-start: auto` in
-     * a subtree that inherits no direction is just `margin-left`.
+     * Without it an RTL locale flips the conversation and leaves the composer
+     * left-to-right. It is also what makes the toolbar's placement idiom real:
+     * `margin-inline-start: auto` in a subtree that inherits no direction is just
+     * `margin-left`.
      *
      * One attribute on the host rather than a stamp per child: inheritance is the
      * mechanism, so nothing needs to know about the consumer's markup.
@@ -331,9 +318,9 @@ export class AparteComposer extends HTMLElement {
     /**
      * The attribute is the state, so the property writes it. It has to exist: React 19
      * and Svelte assign the PROPERTY whenever the element has one of that name, and a
-     * getter alone made `<aparte-composer disabled="">` — a spelling the wrappers type
-     * as valid — throw and take the render down. `presenceOn` because `''` is what
-     * those templates hand a presence property (#62).
+     * getter alone would make `<aparte-composer disabled="">` — a spelling the wrappers
+     * type as valid — throw and take the render down. `presenceOn` because `''` is what
+     * those templates hand a presence property.
      */
     set disabled(value: boolean) { this.toggleAttribute('disabled', presenceOn(value)); }
     /**
@@ -415,27 +402,23 @@ export class AparteComposer extends HTMLElement {
      *
      * While a panel is up, the composer is answering a QUESTION, not composing a
      * message — so the affordances that lead nowhere go away with the text input:
-     * the attachment picker above all, which stayed clickable while the user was
-     * being asked something ("on voyait encore l'icône de upload", reported from a
-     * real session). Ratified decision #8: an affordance nothing can honour is not
-     * rendered.
+     * the attachment picker above all, which would otherwise stay clickable while the
+     * user is being asked something. An affordance nothing can honour is not rendered.
      *
      * What STAYS, deliberately: the attachments strip, because pending attachments
      * are the user's state and not an action to offer — hiding them would look like
      * losing them; and the toolbar, because switching model still does something.
      *
      * The send button is the part the PANEL decides, through `mode`. `'submit'`
-     * keeps it; `'none'` says this panel has no act for it and it is not drawn. That third value is what a panel whose options settle on the first click
-     * needs — a single-choice question, an approval — and until it existed such a
-     * panel left a permanently disabled button beside options that never routed
-     * through it. Flip between them at any time with {@link setPanelSubmitEnabled},
-     * which is how a panel that grows an act (an "Other…" field, a written
-     * instruction) turns the button back on.
+     * keeps it; `'none'` says this panel has no act for it and it is not drawn. `'none'`
+     * is what a panel whose options settle on the first click needs — a single-choice
+     * question, an approval. Flip between them at any time with
+     * {@link setPanelSubmitEnabled}, which is how a panel that grows an act (an
+     * "Other…" field, a written instruction) turns the button back on.
      *
-     * Declared with an attribute + CSS rather than the inline `style.display` this
-     * used to set on a child: an attribute is themeable, is visible to a consumer's
-     * own rules, and does not clobber a `display` the consumer had set (the restore
-     * wrote `''`, not the previous value).
+     * The mode is declared with an attribute + CSS rather than inline `style.display`
+     * on a child: an attribute is themeable, is visible to a consumer's own rules, and
+     * does not clobber a `display` the consumer set.
      *
      * Returns the TOKEN for this panel. Pass it back to `hidePanel` so a presenter
      * that has already lost the slot cannot close the panel that replaced it, and
@@ -494,18 +477,6 @@ export class AparteComposer extends HTMLElement {
      * so a presenter settling late cannot tear down the panel that replaced it. With
      * no token it closes whatever is there, which is what a consumer driving the
      * composer directly means.
-     *
-     * BOTH forms notify. The no-token form used to call `_teardownPanel` directly,
-     * which nulls `_panelOnEvict` without ever calling it — so the documented public
-     * `hidePanel()` closed an open approval panel and left its request pending
-     * forever. The turn hung on "waiting for you", and because
-     * `AparteConfig.requestUserInput` chains each request on the previous one, NO
-     * further question or approval on that config was ever presented again, for the
-     * life of the page.
-     *
-     * The old JSDoc justified the silent branch as "what `reset()` needs". It was not:
-     * `reset()` calls `_evictPanel()`, which notifies. The branch had no consumer and
-     * one failure mode.
      *
      * The two forms differ on purpose, and the difference is who already knows:
      *
@@ -585,10 +556,10 @@ export class AparteComposer extends HTMLElement {
     /**
      * Publish the panel mode as an attribute, so CSS can act on it.
      *
-     * The same reasoning `data-panel-active` is set for and the same one that took
-     * the old `style.display` off a child: an attribute is themeable, is visible to
-     * a consumer's own rules, and does not clobber what the consumer set. It is what
-     * lets `'none'` remove the send button without this component reaching into it.
+     * The same reasoning `data-panel-active` is set for: an attribute is themeable, is
+     * visible to a consumer's own rules, and does not clobber what the consumer set. It
+     * is what lets `'none'` remove the send button without this component reaching
+     * into it.
      */
     private _reflectPanelMode(): void {
         if (this._panelActive) this.setAttribute('data-panel-mode', this._panelMode);
@@ -739,15 +710,12 @@ export class AparteComposer extends HTMLElement {
      * Which chat this composer belongs to: its `target` attribute, or the id of the
      * chat host above it.
      *
-     * All four wrappers set `target` themselves, so the attribute alone identified a
-     * composer there. In RAW core — the documented quick start, where the markup is
-     * hand-written — nothing sets it, so `!this.targetId` was true and this composer
-     * accepted every chat's lifecycle events: on a two-chat page, one chat's Stop
-     * tore down the other's open elicitation panel while its tool call kept waiting,
-     * i.e. the question vanished and the turn hung.
+     * All four wrappers set `target` themselves. In RAW core — the documented quick
+     * start, where the markup is hand-written — nothing sets it, so the chat host above
+     * is what identifies the composer; without either, it would accept every chat's
+     * lifecycle events and, on a two-chat page, one chat's Stop would tear down the
+     * other's open elicitation panel.
      *
-     * Found by a two-chat test written for the elicitation presenter, which is the
-     * only reason it surfaced: raw core with two chats is a shape nothing exercised.
      * The hosts matched are the ones `aparte-chat-bubble._resolveTargetId()` matches,
      * for the reason written there — Angular's wrapper root IS `<aparte-chat>`, the
      * other three render a `[data-aparte-chat]` div.
@@ -788,11 +756,11 @@ export class AparteComposer extends HTMLElement {
      * Whether a terminal event ends the turn this composer is following.
      *
      * `_isForThisComposer` answers "is this chat's?", and both turns of a retry belong
-     * to the same chat: the client aborts the superseded reply, the engine emits
-     * `run-aborted` for it, and that unwind turned Stop back into Send while the new
-     * reply was still streaming — and evicted the open panel, i.e. the approval question
-     * a tool was still waiting on. An event with no `messageId` still ends the turn: a
-     * loop of one's own saying "done" has always meant this one.
+     * to the same chat: the client aborts the superseded reply and the engine emits
+     * `run-aborted` for it, which must not turn Stop back into Send while the new reply
+     * is still streaming, nor evict the open panel (the approval question a tool is
+     * still waiting on). An event with no `messageId` still ends the turn: a loop of
+     * one's own saying "done" means this one.
      */
     private _isForThisTurn(e: Event): boolean {
         const id = (e as CustomEvent).detail?.messageId as string | undefined;

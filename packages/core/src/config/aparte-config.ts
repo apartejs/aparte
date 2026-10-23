@@ -47,9 +47,8 @@ export type AparteLocaleProvider = AparteLocale;
  * A bare key, or the same `{ apiKey, endpoint }` record the transport reads
  * (`readAuth`) and `fetchModels` accepts. The record is not a nicety: a consumer
  * who points a preset at their own host — a corporate proxy, a self-hosted vLLM,
- * an LM Studio box — configures it as `endpoint`, and while this channel could
- * only carry a string, `refreshProviderModels` sent `GET {vendor default}/models`
- * with the key that host had been given.
+ * an LM Studio box — configures it as `endpoint`, and `refreshProviderModels` needs
+ * that endpoint to fetch the model list from that host rather than the vendor's.
  */
 export type AparteKeyProvider = (providerId: string) =>
     | string | Record<string, string> | undefined | null
@@ -125,10 +124,10 @@ const NOOP = (): void => { /* deliberately empty */ };
 
 /**
  * How many times each config's Markdown, streaming-Markdown or highlight provider changed.
- * A bubble records the count it drew with and draws again when it moves: a provider set
- * after a message was drawn otherwise left it raw for good: a static bubble upgraded by
- * core's own import, or a restored conversation drawn while a highlighter was still
- * loading (`setupShikiProviderFromHighlighter(await createHighlighterCore(…))`).
+ * A bubble records the count it drew with and draws again when it moves, so a provider
+ * set after a message was drawn still reaches it: a static bubble upgraded by core's own
+ * import, or a restored conversation drawn while a highlighter was still loading
+ * (`setupShikiProviderFromHighlighter(await createHighlighterCore(…))`).
  * Internal to core: not exported from the package.
  */
 const renderingVersions = new WeakMap<AparteConfig, number>();
@@ -191,15 +190,12 @@ export class AparteConfig {
     /**
      * What `refreshProviderModels()` last brought back, per provider.
      *
-     * Without it, `getCurrentModel()` read `provider.getModels()` only — the
-     * SYNCHRONOUS, hand-declared list, which every preset of
-     * `@aparte/provider-openai-compat` leaves empty because a compat endpoint's
-     * list is fetched at runtime. So the current model resolved to `undefined`
-     * for the documented primary path, and everything that reads a capability off
-     * it silently got nothing: `AparteClient._toolsForCurrentModel()` gates tools
-     * on `capabilities.includes('function_calling')`, so NO tool was ever sent to
-     * the model. A registered tool, an approval gate, `<aparte-elicitation>` — all
-     * dead, with the model answering, correctly, that it had been given no tools.
+     * `getCurrentModel()` reads it beside `provider.getModels()`, the SYNCHRONOUS,
+     * hand-declared list, which every preset of `@aparte/provider-openai-compat`
+     * leaves empty because a compat endpoint's list is fetched at runtime. Without
+     * the fetched list the current model would resolve to `undefined`, and everything
+     * that reads a capability off it would get nothing: `AparteClient._toolsForCurrentModel()`
+     * gates tools on `capabilities.includes('function_calling')`.
      */
     private _fetchedModels: Map<string, AparteAIModel[]> = new Map();
     private _modelConfig: AparteModelConfig = {};
@@ -236,9 +232,8 @@ export class AparteConfig {
      *     silently, because the warning fires at most once per config.
      *
      * Each entry carries the element that registered it, so a request naming a `target`
-     * is routed to the presenter in the SAME chat. `AparteElicitationRequest.target` was
-     * already documented as "used to resolve WHICH instance presents"; the single slot
-     * is what made that impossible.
+     * is routed to the presenter in the SAME chat, as `AparteElicitationRequest.target`
+     * documents ("used to resolve WHICH instance presents").
      */
     private _elicitationPresenters: Array<{ fn: AparteElicitationPresenter; owner?: HTMLElement }> = [];
     /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
@@ -248,16 +243,14 @@ export class AparteConfig {
      *
      * One request reaches the presenter at a time — not because a presenter could not
      * cope, but because the COMPOSER cannot: it has one panel slot, and a second
-     * request used to clobber the first's DOM. The previous protection lived in the
-     * default presenter, which answered the second request `cancel` on the spot; that
-     * is a refusal invented for a question nobody was ever shown, the same class of
-     * lie as telling the model a stopped turn was refused. WAITING is the honest
-     * behaviour.
+     * request would clobber the first's DOM. A second request WAITS: answering it
+     * `cancel` on the spot would be a refusal invented for a question nobody was ever
+     * shown.
      *
      * Here rather than in the presenter because this is the only place that sees
-     * EVERY request whatever raised it — a tool handler, an app's own button, and
-     * (soon) the tool-approval gate. A custom presenter registered by a consumer gets
-     * the same protection for free, which it previously had none of.
+     * EVERY request whatever raised it — a tool handler, an app's own button, the
+     * tool-approval gate. A custom presenter registered by a consumer gets the same
+     * protection for free.
      */
     private _elicitationQueue = new Map<HTMLElement | null, Promise<void>>();
 
@@ -536,10 +529,8 @@ export class AparteConfig {
      * implement. Callers (bubble action bar, composer controls) can therefore
      * invoke `icons.copy()` unconditionally.
      *
-     * It used to hand back the registered provider verbatim, so a provider that
-     * implemented a subset — which `getIcon()` has always supported, and which
-     * the type now states — crashed every other icon with
-     * "icons.retry is not a function".
+     * A registered provider may implement only a subset of the names; the missing ones
+     * fall back, so `icons.retry()` never throws "is not a function".
      */
     getIconProvider(): Required<Pick<AparteIconProvider, AparteCoreIconName>> & AparteIconProvider {
         const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
@@ -955,7 +946,7 @@ export class AparteConfig {
     }
 
     /**
-     * Restore previously saved model preference via the registered provider.
+     * Restore the saved model preference via the registered provider.
      * Should be called once at app startup, before any component mounts.
      * No-op if no provider is registered or nothing was saved. The saved selection is
      * applied without being saved again.
@@ -1033,25 +1024,17 @@ export class AparteConfig {
     /**
      * Elicitation policy: whether a choice offers a free-text "Other…" escape.
      *
-     * This is the HOST's decision, not the model's. `ask_user` used to carry an
-     * `allow_other` field in the schema it hands the model, which meant the model
-     * decided your UX — and a small model fills a field it does not understand: one
-     * sent two questions with `allow_other: true` and no options at all, so the
-     * panel rendered a radio list whose only entry was "Other…", twice.
-     *
-     * Every serious implementation of this pattern makes the escape hatch a property
-     * of the surface rather than of the request. Default `true`, which is what the
-     * panel did before, so nothing a user sees changes — only who gets to say so.
-     * A direct `requestUserInput` caller can still set `allowOther` per field; that
-     * is the app talking, and it wins.
+     * This is the HOST's decision, not the model's: the `ask_user` schema handed to the
+     * model carries no `allow_other` field, because a small model fills a field it does
+     * not understand (a question with `allow_other: true` and no options renders a radio
+     * list whose only entry is "Other…"). Default `true`. A direct `requestUserInput`
+     * caller can still set `allowOther` per field; that is the app talking, and it wins.
      *
      * `layout` decides how a form of SEVERAL questions is presented.
      * `'stepped'` (default) asks them one at a time with a chip per question;
-     * `'stacked'` puts them all in the panel at once. Stacked was the only shape,
-     * inherited unexamined from MCP elicitation — which describes a FORM for
-     * collecting structured data, not two different questions asked mid-conversation.
-     * No product asks a person two questions by stacking them in one box; it is kept
-     * as an option because the form case is real, not because it was the right default.
+     * `'stacked'` puts them all in the panel at once — the shape of an MCP elicitation
+     * FORM collecting structured data, which is why it stays an option, but not the
+     * right default for two different questions asked mid-conversation.
      *
      * `answerOnClick` decides how a question asked ON ITS OWN with a single choice — an
      * `enum` without `multiple` or a `default`, a `boolean` without a `default` — is
@@ -1284,8 +1267,8 @@ export class AparteConfig {
      * is a string, so a consumer's own segment type is covered by the same call.
      *
      * The problem it solves: a consumer streaming a reply does not CONSTRUCT its
-     * segments — the parser does — so there was no hook at all for "reasoning blocks
-     * open in my app". Per-segment fields only reach segments you build yourself.
+     * segments — the parser does — so a per-segment field cannot express "reasoning
+     * blocks open in my app": per-segment fields only reach segments you build yourself.
      *
      * Applied where identity is stamped (`utils/segments.ts`), so it covers every
      * path a segment can arrive by — the parser, `addSegment`, and the segments
@@ -1333,8 +1316,8 @@ export class AparteConfig {
      * Say what a call targets, in the default row, after the tool's name.
      *
      * The default row names the tool and keeps its arguments behind a disclosure, so a
-     * reader saw that a file was read, not which one. Replacing the row with
-     * `registerToolRenderer` for that one line meant re-implementing its six states,
+     * reader sees that a file was read, not which one. Replacing the row with
+     * `registerToolRenderer` for that one line would mean re-implementing its six states,
      * the spinner, the disclosure and the relabel contract. This keeps all of them and
      * adds the line. A tool with its own renderer draws its own row, so its summary is
      * never read.
@@ -1494,7 +1477,7 @@ export class AparteConfig {
      * the same chat is the right one — found by comparing chat boundaries rather than by
      * `contains`, because the presenter is a sibling of the transcript, not an ancestor
      * of it. With no target, no match, or no boundary to compare, the top of the stack
-     * is the answer, which is exactly the old single-slot behaviour.
+     * is the answer.
      */
     private _presenterFor(target?: HTMLElement | null): AparteElicitationPresenter | undefined {
         const stack = this._elicitationPresenters;
@@ -1531,9 +1514,9 @@ export class AparteConfig {
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
         /*
-         * There is no `cancel` result. It was easy to handle as though it were an answer,
-         * and the approval gate did: it read a stopped turn as the person refusing a tool
-         * they were never shown. A request that ends without an answer rejects instead.
+         * There is no `cancel` result. It is easy to handle as though it were an answer
+         * (a stopped turn read as the person refusing a tool they were never shown).
+         * A request that ends without an answer rejects instead.
          */
         const queue = this._elicitationQueueKey(request);
         const previous = this._elicitationQueue.get(queue);
@@ -1564,11 +1547,10 @@ export class AparteConfig {
      *
      * The wait exists so a second question cannot take the panel away from the one on
      * screen — a property of ONE panel, and `_present` routes by target, so a chat is
-     * the right unit. It used to be one queue for the whole config: two chats on the
-     * global config shared it, and an approval waiting for an answer in the first (which
-     * is all an approval does) held the second's question behind it for ever, with
-     * nothing on screen to answer. Requests that name no chat keep sharing the `null`
-     * queue, because they all reach the same presenter — the top of the stack.
+     * the right unit. One queue for the whole config would let an approval waiting in
+     * the first chat hold the second chat's question behind it for ever. Requests that
+     * name no chat share the `null` queue, because they all reach the same presenter —
+     * the top of the stack.
      */
     private _elicitationQueueKey(request: AparteElicitationRequest): HTMLElement | null {
         return chatBoundaryOf(request.target);
@@ -1698,14 +1680,11 @@ export class AparteConfig {
  * The page-global singleton's key.
  *
  * A `Symbol.for`, and versioned — matching the discipline the instance boundary
- * next door already uses (`Symbol.for('aparte.instanceConfig')`). It used to be the
- * enumerable string `'__APARTE_CONFIG_SINGLETON__'` with no version segment, so any
- * two copies of `@aparte/core` on one page — the ordinary outcome of a `~` peer next
- * to an app-level dependency, or two consumers on different wrapper versions — got
- * the instance built by whichever module evaluated first, while their `AparteConfig`
- * classes, their `Symbol.for('aparte.instanceConfig')` reads and their WeakMap
- * renderer registries stayed distinct. One object, seen through two classes across
- * which `instanceof` is false.
+ * next door uses (`Symbol.for('aparte.instanceConfig')`). Versioned so that two copies
+ * of `@aparte/core` on one page — the ordinary outcome of a `~` peer next to an
+ * app-level dependency, or two consumers on different wrapper versions — do not share
+ * one instance seen through two `AparteConfig` classes across which `instanceof` is
+ * false.
  *
  * The trailing number is a CONTRACT version, not the package version: bump it when
  * the config's shape changes in a way that makes sharing unsafe. Two copies then
@@ -1739,8 +1718,7 @@ export const aparteGlobalConfig = getGlobalConfig();
  * Detail payload for `aparte-config-change`, dispatched on `window` whenever any
  * provider, locale, action or model setting changes.
  *
- * Five core components listen for it — the widest listener footprint of any event
- * that had no declared type. `config` is what makes per-instance config work: a
+ * Five core components listen for it. `config` is what makes per-instance config work: a
  * component resolving to a different instance compares it and skips the rebuild
  * instead of every chat on the page reacting to every config's change.
  *

@@ -42,19 +42,17 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
 /**
  * Prompt starters — a row of suggested prompts a reader clicks instead of typing.
  *
- * Every chat product opens on three or four of these, and the example app used to
- * hand-roll them: four `<button class="chip">`, a click handler, a CSS recipe of its
- * own. This element is that pattern done once, wearing the button recipe.
+ * Every chat product opens on three or four of these. This element is that pattern
+ * done once, wearing the button recipe.
  *
  * A click goes THROUGH the composer — `setValue()` then `submit()` — never a synthetic
  * `aparte-send`. The composer's `submit()` is where every gate lives (disabled, already
- * streaming, `requireModelSelection`), and a chip that bypassed them once sent a
+ * streaming, `requireModelSelection`), and a chip that bypassed them could send a
  * request with an empty model id while the composer was visibly greyed out. So the
  * element needs a composer: the nearest `<aparte-composer>` ancestor, else the one
  * serving the chat named by `target`, else the first one in the document.
  *
- * Tier (a) of ratified decision #8: core honours the click alone, so it is live by
- * default. `aparte-suggestion` fires first and is cancelable — `preventDefault()`
+ * Core honours the click alone, so it is live by default. `aparte-suggestion` fires first and is cancelable — `preventDefault()`
  * leaves the composer untouched, for an app that wants the prompt for itself.
  *
  * It declares no custom property of its own: the gap comes from the global
@@ -116,10 +114,9 @@ export class AparteSuggestions extends HTMLElement {
     private _hidOwn = false;
 
     /*
-     * `empty-only` used to read the send alone: hidden on the first one, and never shown
-     * again. Over a restored thread (nothing sent yet) the starters sat on top of the
-     * transcript, and after a new chat they never came back. The transcript is the
-     * signal now; the send stays as the other half, because it comes first — the row
+     * `empty-only` follows the transcript: shown while it is empty, hidden once it has
+     * messages, so a restored thread (nothing sent yet) has no starters on top of it
+     * and a new chat brings them back. The send is the other half, because it comes first — the row
      * hides on the click rather than a frame later when the bubble lands — and because
      * it is all there is to read when the messages are not `<aparte-chat-bubble>`s
      * (a wrapper's `renderBubble`) or there is no transcript at all. A transcript seen
@@ -155,9 +152,8 @@ export class AparteSuggestions extends HTMLElement {
      *
      * Both, because both arrive: React 19 and Svelte assign the PROPERTY whenever the
      * element has one of that name, so `<aparte-suggestions suggestions='[…]'>` — the
-     * documented spelling, typed valid by both wrappers — reached this setter as a
-     * string, `Array.isArray` said no, and the row rendered nothing while the attribute
-     * (and so `attributeChangedCallback`) was never written.
+     * documented spelling, typed valid by both wrappers — reaches this setter as a
+     * string while the attribute (and so `attributeChangedCallback`) is never written.
      */
     set suggestions(value: AparteSuggestion[] | string) {
         this._suggestions = typeof value === 'string'
@@ -333,7 +329,7 @@ export class AparteSuggestions extends HTMLElement {
         else {
             composer.submit();
             // The chip that sent may go with its row (`empty-only`), and the focus with it,
-            // to <body>. The person's next move is the composer, so it goes there (#29).
+            // to <body>. The person's next move is the composer, so it goes there.
             if (chipHadFocus) composer.focus();
         }
     }

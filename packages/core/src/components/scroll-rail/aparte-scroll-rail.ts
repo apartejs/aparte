@@ -37,7 +37,7 @@ const ALIGN_TOLERANCE = 1;
  * surface, never scroll arithmetic), and the first few words of each for the tick's
  * name. A click is a `scrollIntoView` on the bubble, announced first by a cancelable
  * `aparte-scroll-rail-jump` so a host that pages history in can load it before the
- * jump. Honoured by core alone, so it is live by default (ratified decision #8, tier a).
+ * jump. Honoured by core alone, so it is live by default.
  *
  * Place it as a direct child of `<aparte-chat>` (or the wrapper's `[data-aparte-chat]`
  * host): the stylesheet floats it on the transcript's end edge, centred on the transcript
@@ -333,12 +333,11 @@ export class AparteScrollRail extends HTMLElement {
      * intersection observer reports which bubbles reach a reading band — the top 30% of
      * the surface, from its very top so that the bubble a jump aligned there counts. The
      * rule is a scrollspy's: the LAST question that has reached the band is the one the
-     * reader is under. "The largest visible share" was the rule before, and at the bottom
-     * of a thread of short turns, where three questions sit in the band, it named the
-     * first of them. Scroll arithmetic was the alternative, and every scroll-position
-     * rule in the viewport carries a regression note; the one read here is the bottom,
-     * because at the bottom the reader is under the latest question whatever the band
-     * holds, and the observer has nothing to report on the last few pixels.
+     * reader is under. (The largest visible share would name the first of three questions
+     * sitting in the band at the bottom of a thread of short turns.) The one scroll
+     * position read is the bottom, because there the reader is under the latest question
+     * whatever the band holds, and the observer has nothing to report on the last few
+     * pixels.
      */
     private _observe(bubbles: HTMLElement[]): void {
         this._unobserve();
@@ -541,14 +540,13 @@ export class AparteScrollRail extends HTMLElement {
      * Scroll the transcript to a message. Announced first, cancelable; then a
      * `scrollIntoView` on the bubble, smooth unless the reader prefers reduced motion.
      * The clicked tick is the mark until the transcript has stopped moving: while a
-     * smooth scroll crosses other questions the band would name each in turn, and it
-     * ended on the wrong one two times in three before this hold.
+     * smooth scroll crosses other questions the band would name each in turn.
      *
      * Where the scroll lands is checked once it has settled, and corrected. The bubbles
      * carry `content-visibility: auto`, so a bubble far from the reader has an estimated
      * height until it is rendered: the scroll aims at an estimate, the bubbles above it
-     * take their real size on the way, and the message ends up above or below the top —
-     * measured from 36px to 1,213px off, in all three engines, the further the worse.
+     * take their real size on the way, and the message ends up above or below the top,
+     * the further away the worse.
      * A second `scrollIntoView` from a rendered neighbourhood lands; a few are allowed.
      */
     jumpTo(messageId: string): void {

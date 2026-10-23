@@ -272,15 +272,14 @@ export type AparteAIProviderAuth =
  * An AI provider (e.g. OpenRouter, OpenAI, Transformers.js).
  *
  * A **union, not one interface**, because there are two mutually sufficient ways
- * to be a provider and the compiler should say which one you implemented. It used
- * to be a single interface with three required members and fifteen optional ones,
- * discriminated at RUNTIME by `isFormatAdapter()` — so `{ id, getMetadata,
- * getModels }` typechecked, registered, and then failed on the first message with
- * nothing at build time to warn you.
+ * to be a provider and the compiler should say which one you implemented. A single
+ * interface with optional members, discriminated only at RUNTIME by `isFormatAdapter()`,
+ * would let `{ id, getMetadata, getModels }` typecheck, register, and then fail on the
+ * first message with nothing at build time to warn you.
  *
  * Every member of both surfaces stays reachable on the union (optional on the arm
  * that does not require it), so runtime probes like `typeof p.buildRequest ===
- * 'function'` and `isFormatAdapter()` narrowing keep working unchanged. A provider
+ * 'function'` and `isFormatAdapter()` narrowing keep working. A provider
  * implementing both surfaces is valid and satisfies the format arm.
  *
  * @example A format adapter — a transport does the call

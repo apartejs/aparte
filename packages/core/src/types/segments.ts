@@ -74,16 +74,15 @@ export interface AparteSegmentBase {
 /**
  * What core measured about a segment. Lives in `meta.aparte`, not on the segment.
  *
- * These two were first-class fields, and moving them is not tidying. **No protocol
- * carries a timestamp on a content block** — verified rather than assumed: Anthropic's
+ * **No protocol carries a timestamp on a content block**: Anthropic's
  * blocks have none (and neither does the message), OpenAI's `output_text` part is
  * `{annotations, logprobs, text, type}` with `created_at` on the item above it, and the
  * AI SDK's `UIMessage.parts` have none either. What the AI SDK does have is a metadata
  * bag whose canonical example is literally `{ createdAt, model, totalTokens }` — at the
  * message level. A per-block `id` has industry precedent; per-block time has none.
  *
- * So this is a **local measurement**, and the shape says so. It stays typed — the bag is
- * where it belongs, opacity is not part of the deal — and it is namespaced under
+ * So this is a **local measurement**, and the shape says so. It stays typed, and it is
+ * namespaced under
  * `aparte` because `meta` is the consumer's: a flat `startedAt` there would collide
  * with a key of their own.
  *
@@ -157,15 +156,9 @@ export interface AparteThinkingSegment extends AparteSegmentBase {
     content: string;
     /**
      * Open the block. **Absent means CLOSED** — a reasoning block is a disclosure,
-     * and the reader opens it.
+     * and the reader opens it. The content is behind a click, streaming or settled.
      *
-     * It used to be the other way round: absent meant open, and core's own parser
-     * emitted `collapsed: false` on every block it produced, so a reasoning block
-     * stayed unfolded for the whole conversation and buried the answer under it. No
-     * assistant on the market does that — the content is behind a click, streaming
-     * or settled.
-     *
-     * `false` is still how you open one on purpose. Only ABSENT changed meaning.
+     * `false` opens one on purpose.
      */
     collapsed?: boolean;
     label?: string; // e.g., "Reasoning", "Analysis"

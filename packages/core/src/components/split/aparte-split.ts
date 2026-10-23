@@ -263,7 +263,7 @@ export class AparteSplit extends HTMLElement {
         );
     }
 
-    /** One pane on demand, whatever the width (#54). Reflected. */
+    /** One pane on demand, whatever the width. Reflected. */
     get single(): boolean {
         return this.hasAttribute('single');
     }
@@ -532,8 +532,8 @@ export class AparteSplit extends HTMLElement {
      *
      * While STACKED there is nothing to read: one pane is `display: none` and the other
      * spans the single track, so the ratio is 0 or 100 whatever the seam was set to.
-     * Measuring it there is how tapping "Preview" on a phone used to write `position="0"`
-     * into the attribute, the event and the host's storage.
+     * Measuring it there would write `position="0"` into the attribute, the event and the
+     * host's storage when "Preview" is tapped on a phone.
      */
     private _achievedPercent(): number {
         if (this.stacked) return this._position;
