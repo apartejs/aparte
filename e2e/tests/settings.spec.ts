@@ -76,6 +76,11 @@ test('a system prompt typed in the settings reaches the next request', async ({ 
 
     await page.goto('/?view=settings');
     await page.getByLabel('System prompt').fill(PROMPT);
+    // Let the settings page finish what it started (the model list, its lazy modules) before
+    // leaving it: WebKit reports the requests a navigation cancels as page errors of the
+    // document being left — "…/v1/models due to access control checks", "Importing a module
+    // script failed" — which are the test's doing, not the app's.
+    await page.waitForLoadState('networkidle');
 
     // Back to the chat: the value survives the navigation because it is persisted,
     // which is also what makes it apply on a cold load.
