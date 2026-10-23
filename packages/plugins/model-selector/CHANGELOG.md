@@ -1,5 +1,44 @@
 # @aparte/plugin-model-selector
 
+## 0.20.0
+
+### Minor Changes
+
+- c1a2816: New `details` attribute on `<aparte-model-selector>`: each model shows its `description` and its `contextWindow` ("Long documents · 128K context") on a line under its name; the trigger keeps the name alone.
+
+  `<aparte-option>` takes that line as an `.aparte-option__meta` child, which the select's trigger and its width leave out and its filter searches. The context window's wording is the new locale key `modelContextWindow` ("{n} context", "{n} de contexte").
+
+### Patch Changes
+
+- 3352e6a: Documentation only, no behaviour change: what `persist`, the backend transport, the model-preference example and the Transformers.js cache budget actually do.
+
+  - `<aparte-model-selector persist>`: it writes the pick into the config, which is what the next message is sent with. Without it the picker only fires `aparte-model-change`. It does not outlive a reload on its own; that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
+  - `setModelPreferenceProvider`: the example saved `{p, m}`, which restore cannot read. It now saves `{ provider, model }` and calls `restoreModelPreference()`.
+  - `AparteBackendTransport`: the page still registers a provider under each id the route knows. A stub that lists the models is enough for an id with no client package; the JSDoc shows one.
+  - `setMaxCachedModels`: the budget is how many models stay downloaded (disk), not how many are in memory.
+  - Runners: `tool_use` is in what a runner can emit, not in what it is given. `RunnerGenerateInput` carries no tool definitions.
+
+- ff458c1: Importing `@aparte/core` (or the approval, artifacts, ask-user or model-selector plugin) from a Cloudflare Worker, a Vercel edge route or a Web Worker that webpack compiles with `target: 'webworker'` now resolves the DOM-free entry instead of the browser one, which failed at import on its first `extends HTMLElement`.
+
+  The DOM-free entry was reachable through the `node` condition only, and those bundlers resolve `workerd`, `edge-light` or `worker` alongside `browser` and `import`. The exports maps now list `worker`, `workerd`, `edge-light`, `deno` and `bun` next to `node`, pointing at the same entry; a browser still gets the elements. A worker started inside a page build is not covered — `new Worker(new URL('./w.js', import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: both resolve it with the browser's conditions, so it gets the browser entry. For core, import the new `@aparte/core/headless` there; the plugins have no such subpath, and how to run a provider or a plugin's tool in that worker is on the [Elements page](https://apartejs.dev/frameworks/elements/#on-the-server). `check:node-import` walks each published map with the conditions of webpack's worker target, wrangler and a Vercel edge route.
+
+- 2c30b57: Without `persist`, `<aparte-model-selector>` now keeps the model the person picked when the config changes for another reason (a language, a provider, an icon); it follows only a change to the config's own selection.
+
+  It compared the config's selection with the person's pick, and a pick made without `persist` writes nothing to the config, so the next unrelated change — a language switch — put the picker back on the config's default. It now compares the config's selection with the one it last read.
+
+- db2c709: `<aparte-model-selector>` now lists every provider you register, whenever you register it: before or after it mounts, with or without a model already selected, with `fetchModels` or a fixed `getModels()` list.
+
+  Four cases used to leave it empty, stale or wrong until a reload:
+
+  - A static import beside the code that registers the providers. Importing the plugin connects a tag already in the page, and the registration ran while its first load was in flight, before it listened for changes. It now listens first, and a change during a load runs the load again.
+  - A provider registered after mount when a model was already selected (a key typed in the app's settings). It now reloads when the set of providers changes, not only the selection.
+  - A provider with no `fetchModels`. Its `getModels()` list is now shown.
+  - The normal order under every wrapper: the element connects on the global config, then the chat's own config is attached. A slow global `/models` answering after the chat's load wrote the global models over the chat's. A load that a mount or a new config superseded now discards what it brings back.
+
+  The `void import('@aparte/plugin-model-selector')` placed after the registration, which some setups used to dodge the first case, is no longer needed.
+
+- 1a37a46: `onaparte-model-change={(e) => …}`, the runes form of the selector's event, now type-checks once `@aparte/plugin-model-selector/svelte` is imported, with the detail typed, like `on:aparte-model-change`.
+
 ## 0.19.3
 
 ## 0.19.2

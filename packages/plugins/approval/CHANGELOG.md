@@ -1,5 +1,17 @@
 # @aparte/plugin-approval
 
+## 0.20.0
+
+### Patch Changes
+
+- 2d32326: `<aparte-approval-mode>` no longer warns "found no approval setup" when you follow the documented order: the tag in the page, then `setupApproval()` in the script that imports the plugin.
+
+  Importing the plugin defines the element, so a tag already in the page bound before the `setupApproval()` call on the next line and warned about a setup that was about to arrive. The check now waits for that script to finish; with no setup at all, it still warns once.
+
+- ff458c1: Importing `@aparte/core` (or the approval, artifacts, ask-user or model-selector plugin) from a Cloudflare Worker, a Vercel edge route or a Web Worker that webpack compiles with `target: 'webworker'` now resolves the DOM-free entry instead of the browser one, which failed at import on its first `extends HTMLElement`.
+
+  The DOM-free entry was reachable through the `node` condition only, and those bundlers resolve `workerd`, `edge-light` or `worker` alongside `browser` and `import`. The exports maps now list `worker`, `workerd`, `edge-light`, `deno` and `bun` next to `node`, pointing at the same entry; a browser still gets the elements. A worker started inside a page build is not covered — `new Worker(new URL('./w.js', import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: both resolve it with the browser's conditions, so it gets the browser entry. For core, import the new `@aparte/core/headless` there; the plugins have no such subpath, and how to run a provider or a plugin's tool in that worker is on the [Elements page](https://apartejs.dev/frameworks/elements/#on-the-server). `check:node-import` walks each published map with the conditions of webpack's worker target, wrangler and a Vercel edge route.
+
 ## 0.19.3
 
 ## 0.19.2

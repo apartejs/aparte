@@ -1,5 +1,83 @@
 # @aparte-workspace/example-shared
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [c431e78]
+- Updated dependencies [439719e]
+- Updated dependencies [e351c04]
+- Updated dependencies [2d32326]
+- Updated dependencies [30118ab]
+- Updated dependencies [5d6a6ae]
+- Updated dependencies [9a0a1d1]
+- Updated dependencies [83ba2eb]
+- Updated dependencies [b62ec12]
+- Updated dependencies [eccfd79]
+- Updated dependencies [b62ec12]
+- Updated dependencies [b04aeba]
+- Updated dependencies [ef70a91]
+- Updated dependencies [0852861]
+- Updated dependencies [9fc5087]
+- Updated dependencies [cb6ac6d]
+- Updated dependencies [d7eea7b]
+- Updated dependencies [86bf359]
+- Updated dependencies [8084683]
+- Updated dependencies [d4c1d8a]
+- Updated dependencies [e4fbecb]
+- Updated dependencies [0b3e123]
+- Updated dependencies [280e623]
+- Updated dependencies [95aa8b4]
+- Updated dependencies [2eb1ae3]
+- Updated dependencies [3352e6a]
+- Updated dependencies [83b4fb4]
+- Updated dependencies [ff458c1]
+- Updated dependencies [95c7fdc]
+- Updated dependencies [75068ee]
+- Updated dependencies [1da5e87]
+- Updated dependencies [1c152c7]
+- Updated dependencies [83ba2eb]
+- Updated dependencies [f8e91ab]
+- Updated dependencies [c1a2816]
+- Updated dependencies [2c30b57]
+- Updated dependencies [db2c709]
+- Updated dependencies [1a37a46]
+- Updated dependencies [d252f33]
+- Updated dependencies [a310139]
+- Updated dependencies [9a9f7c9]
+- Updated dependencies [99c28fa]
+- Updated dependencies [395583d]
+- Updated dependencies [7f52f79]
+- Updated dependencies [c1e4f93]
+- Updated dependencies [39e0b6c]
+- Updated dependencies [b2b4fe9]
+- Updated dependencies [339a8e3]
+- Updated dependencies [b77d011]
+- Updated dependencies [09ffa64]
+- Updated dependencies [04369ef]
+- Updated dependencies [0e44240]
+- Updated dependencies [2528971]
+- Updated dependencies [a3413dd]
+- Updated dependencies [7a25388]
+- Updated dependencies [e51d8c4]
+- Updated dependencies [14d95ee]
+- Updated dependencies [c093743]
+- Updated dependencies [e8751d4]
+- Updated dependencies [8047d37]
+- Updated dependencies [11fd6dc]
+  - @aparte/runner-ag-ui@0.20.0
+  - @aparte/core@0.20.0
+  - @aparte/plugin-approval@0.20.0
+  - @aparte/plugin-artifacts@0.20.0
+  - @aparte/engine@0.20.0
+  - @aparte/plugin-compaction@0.20.0
+  - @aparte/plugin-model-selector@0.20.0
+  - @aparte/plugin-ask-user@0.20.0
+  - @aparte/provider-scenario@0.20.0
+  - @aparte/plugin-shiki@0.20.0
+  - @aparte/plugin-marked@0.20.0
+  - @aparte/provider-openai-compat@0.20.0
+
 ## 0.0.9
 
 ### Patch Changes

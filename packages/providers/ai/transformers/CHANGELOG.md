@@ -1,5 +1,43 @@
 # @aparte/provider-transformers
 
+## 0.20.0
+
+### Minor Changes
+
+- b521b41: The model list (`fetchModels`, and so the model selector) now holds only the models you registered with `registerModel`; a model that is merely in the browser cache is no longer offered as a chat model.
+
+  The Cache API belongs to the origin, and the list merged everything it held: an app's own embedder, or another library's model, showed in the picker as a chat model with `['streaming']`. To list a model you downloaded earlier, register it. `listCachedModels()` still reports everything downloaded, for a settings panel.
+
+- b59ed84: Replies are no longer cut at 512 tokens: the default ceiling is 8192, and `TransformersModelConfig.maxTokens` sets one per model. A request's own `maxTokens` still wins.
+
+  With the built-in runners, whatever the ceiling, a reply also ends where the model's context window ends, prompt included — read from the model's config (`max_position_embeddings`, on the text half for a vision model) — so a ceiling larger than the window has room for no longer runs the model past its context, and Stop interrupts a reply either way. A runner of your own receives `options.maxTokens` only when the request or the model's setting gives one, so it applies its own default, and is its own judge of the window; the README's example does both, and now wires Stop.
+
+  Why a ceiling at all, when the window already bounds a reply: decoding is greedy by default, and a small model stuck repeating itself would run to the end of a 32,768- or 131,072-token window. In the browser the attention cache grows with every token, so that ends in a GPU out-of-memory error rather than a stop. 8192 tokens is some 6,000 words.
+
+  If you relied on the old ceiling, for instance to keep a small model brief, set `maxTokens: 512` on that model.
+
+### Patch Changes
+
+- 3352e6a: Documentation only, no behaviour change: what `persist`, the backend transport, the model-preference example and the Transformers.js cache budget actually do.
+
+  - `<aparte-model-selector persist>`: it writes the pick into the config, which is what the next message is sent with. Without it the picker only fires `aparte-model-change`. It does not outlive a reload on its own; that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
+  - `setModelPreferenceProvider`: the example saved `{p, m}`, which restore cannot read. It now saves `{ provider, model }` and calls `restoreModelPreference()`.
+  - `AparteBackendTransport`: the page still registers a provider under each id the route knows. A stub that lists the models is enough for an id with no client package; the JSDoc shows one.
+  - `setMaxCachedModels`: the budget is how many models stay downloaded (disk), not how many are in memory.
+  - Runners: `tool_use` is in what a runner can emit, not in what it is given. `RunnerGenerateInput` carries no tool definitions.
+
+- 180c862: `setMaxCachedModels` now counts and evicts only the models you registered; other Transformers.js weights in the browser cache are left alone.
+
+  The Cache API belongs to the origin, so an app's own pipelines (an embedder, a second library) store their weights next to the provider's. The budget counted them and, past its limit, deleted them — a model the provider never loaded.
+
+- 041a0f6: The two-models console warning no longer tells a page with no cache limit to set one.
+
+  It said "with a cache budget of N, a switch can evict and reload gigabytes" and advised `setMaxCachedModels(2)` whatever N was — including `0`, which is no limit, where that advice would lower it. It now says what serializing costs (each switch unloads one model and loads the other), and mentions deleted weights and `setMaxCachedModels(2)` only at a budget of 1, the one budget where a switch deletes the other chat's model.
+
+- d853df2: `deleteCachedModel(id)` now deletes only that model's files; a model whose id starts with the same name keeps its weights.
+
+  The cache was matched by substring, so deleting `onnx-community/Qwen2.5-0.5B` also deleted `onnx-community/Qwen2.5-0.5B-Instruct`, and `getModelStatus` reported a model as `cached` when only that longer sibling was. Both now compare the model id read from each cached file's path, by equality.
+
 ## 0.19.3
 
 ### Patch Changes

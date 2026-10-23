@@ -1,5 +1,27 @@
 # @aparte/react
 
+## 0.20.0
+
+### Minor Changes
+
+- 6de5a41: The framework components' typing line now defaults to the locale's `typing` word ("Typing", « Écrit... » in French) instead of the English 'Assistant is thinking...'; `typingText` still overrides it.
+
+  It was the one visible string a localised app had to translate by passing a prop, and the only one in the chat that ignored the locale. If you relied on the old English sentence, pass `typingText="Assistant is thinking..."`.
+
+- f4587b3: The conversation-manager helpers of the four wrappers take the manager's options and expose the manager: `init(adapter, config, { retention, titleProvider })`, and `manager` once `init` has run.
+
+  `useConversationManager` (React, Vue), `createConversationManager` (Svelte) and `ConversationManagerService` (Angular) built the manager with no options and kept it private, so `retention` or a title provider meant building the manager yourself and registering it with `setConversationManager`, and what the helper does not mirror (`setTitleProvider`, `ensureFull`) was out of reach.
+
+### Patch Changes
+
+- 309170b: The framework components' typing line and their "Loading the conversation" announcement now follow a language switch (`config.setLocale(...)`); they used to stay in the language the chat was mounted in.
+
+  Every other string in the chat is drawn by core's elements, which listen to their config. These two are drawn by the wrapper itself, and none of the four re-read them on a config change: React did not subscribe, Vue's `computed` and Svelte's `$:` do not see the config, and Angular's `OnPush` getters were not re-run. Each wrapper now subscribes to its config for as long as it is mounted.
+
+- 670537f: `<AparteChat>` now finishes its after-render work in a background tab too: a compaction that ends while the tab is hidden is saved at once, instead of when the reader comes back (and not at all if the tab is closed first).
+
+  The component waited for the next animation frame, and a hidden tab runs none while React still commits there. It now uses the next task when the document is hidden.
+
 ## 0.19.3
 
 ## 0.19.2

@@ -1,5 +1,238 @@
 # @aparte/core
 
+## 0.20.0
+
+### Minor Changes
+
+- 9a0a1d1: New `setupArtifacts({ open: true })` puts an Open button on the artifact card, which dispatches `aparte-artifact-open` with `{ artifact }` so the app can show it in a pane, a dialog or a tab of its own.
+
+  Off by default: the card cannot know where the app's pane is, and a button nothing answers would be a promise the library cannot keep. The event bubbles out of shadow roots and is typed (`ArtifactOpenEventDetail`) wherever the plugin is imported. Its label is the new locale key `openArtifact` ("Open", "Ouvrir").
+
+- 83ba2eb: New `--aparte-message-content-padding-assistant` token pads the assistant's box, `0` by default; a skin giving the assistant a bubble sets it instead of writing a selector for the padding.
+
+  `--aparte-message-content-padding` pads the user's box only. The new rule weighs nothing, so a padding you already give `.aparte-message-content` still reaches the assistant's box. The Theme guide's "Give the assistant a bubble too" recipe now sets the two tokens and keeps one rule, for `width: fit-content`.
+
+- b04aeba: A browser tool that a server loop or an AG-UI agent calls now goes through the page's approval gate before it runs: its `needsApproval` asks through the approval panel (or your `approvalResolver`), and the approval policy can allow or refuse it. A refusal goes back as the call's answer, which the model reads.
+
+  Until now the page ran such a tool as soon as the server or the agent called it: the gate it gets in the page's own loop was skipped, so a `needsApproval` browser tool ran unasked and a plan-mode policy did not stop it. A tool with no `needsApproval` under no policy still runs at once.
+
+  While the page asks, the call's row says it is waiting and `aparte-tool-approval-request` fires, as for a call gated in the page's own loop. A payload the approval carries is merged into the tool's input. A refusal ends the pause's later calls, as it ends the turn's in the page: nobody is asked about them, none of them runs, and each is answered "Not run: an earlier call of the same step was refused.", so the server does not pause on them again and an agent's model gets an answer for every call. A call approved at a pause — TanStack AI asks to approve a client tool, then pauses again to run it — is not asked about again at the next pause; that approval is for that call only, not for a later one that reuses its id.
+
+  `@aparte/engine`: a deferred call answered with `{ kind: 'decision', approved: false }` is refused like a gated call — `tool-rejected`, the refusal as its `tool` message, and another turn so the model reads it — whether it is external (it used to be deferred again) or has no gate of its own (it used to run). `@aparte/runner-ag-ui` sends that refusal to the agent as the frontend tool's result, and for a client-tool interrupt (TanStack AI) as the tool's error with the reason — an execution interrupt answered `{ approved: false }` read as a successful output.
+
+- cb6ac6d: New `aparte-chat--compact` class: the chat's narrow spacing (messages, avatar, transcript, composer row) at any width, for a widget or a panel wider than 520px. Put it on `<aparte-chat>`, or pass it as the chat component's `className` / `class`.
+- 8084683: A compaction is now saved as soon as it is done: the conversation controller listens for `aparte-compact-done` and saves the chat it names — and, when the transcript lives in a framework store, it waits for the store's list to reach the chat before saving.
+
+  Until now nothing told the controller: the summary and the dropped turns reached storage at the next message, so a reload in between brought the long transcript back.
+
+  A binding you write for `AparteConversationController` can declare the new optional `afterRender(cb)`. The controller then saves a compaction only once the summary is in `getMessages()`, checking again after each render, up to six times. The framework components already declare it. Without it the save runs on the next microtask.
+
+- d4c1d8a: `<aparte-context>` takes a `used` attribute (and property): the tokens in use for a conversation restored without a turn of this page, so the gauge shows its level before the next turn; that turn's usage replaces it.
+- e4fbecb: A conversation search that matches nothing now says so: the list shows a status line (new locale key `conversationSearchEmpty`, "No conversation matches") and carries `data-no-match`, and `sidebar.filter(query)` returns how many conversations match.
+
+  The filter moved into `<aparte-conversation-list>` as `filter(query)`, so the query holds through the list's renders — a conversation added while a search was typed used to appear unfiltered. The sidebar's search field and `filter()` call it on each list inside.
+
+- 280e623: New `@aparte/core/headless` subpath: the entry without elements (client, chat host, transports, conversations, config, parsers, types), by name. Import it in a Web Worker started inside a page build — `new Worker(new URL('./w.js', import.meta.url))` under Vite, or under webpack with its default `target: 'web'`.
+
+  Those workers are resolved with the page's conditions (`browser`, `import`), so `@aparte/core` hands them the entry with the elements, which fails at its first `extends HTMLElement`; no export condition can reach them. The subpath is the counterpart of `@aparte/core/browser`, which names the entry with the elements.
+
+  The subpath covers what the worker imports from core itself: a provider or plugin in that worker imports `@aparte/core` by its bare name, which still resolves to the browser entry. For those, resolve the bare name to the subpath in the worker's build only — the [Elements page](https://apartejs.dev/frameworks/elements/#on-the-server) has the Vite recipe, which applies to `vite build`: under `vite dev` a worker's modules come through the page's own pipeline, so a provider in it still fails there. A plugin whose entry defines an element (approval, model selector) cannot run in a worker either way.
+
+- 83ba2eb: `--aparte-message-content-text-user` and `--aparte-message-content-text-assistant` now colour the message's words; without them the words keep `--aparte-content-color`. If you set either token, check that colour: it used to stop at the box and never reach the text.
+
+  The text and the segments inside a message each paint `--aparte-content-color`, so an ink set on the box around them reached no word — a skin with white words on a blue bubble had to scope `--aparte-content-color` on the message instead (that still works). Both tokens are now undeclared by default; the message hands its role's token to the text and the segments as `--aparte-message-ink`, which they read with `var(--aparte-content-color)` as fallback. So a content colour set anywhere, one message included, reaches the words while no role token is set, and a rule of your own on `.aparte-content` keeps the weight it had and still wins.
+
+- f8e91ab: A message whose bubble has a `name` is now named after it for screen readers ("Message from Camille"); without one it is still "Your message" or "Assistant response". The new locale key is `messageFrom`, with `{name}`.
+
+  The accessible name followed the role alone, so every message on the assistant's side — a human agent answering there included — was "Assistant response" while the page showed that person's name above it. A custom shell whose root carries its own `role` keeps its own label.
+
+- c1a2816: New `details` attribute on `<aparte-model-selector>`: each model shows its `description` and its `contextWindow` ("Long documents · 128K context") on a line under its name; the trigger keeps the name alone.
+
+  `<aparte-option>` takes that line as an `.aparte-option__meta` child, which the select's trigger and its width leave out and its filter searches. The context window's wording is the new locale key `modelContextWindow` ("{n} context", "{n} de contexte").
+
+- a310139: A pasted image now attaches only on a composer that offers attachments (one with an `<aparte-composer-add-attachment>`, which `attachments` on `<aparte-chat>` renders). On a composer without it, pasting an image adds nothing.
+
+  It used to attach on any composer: a chat that offered no attachments — no paperclip, no drop target — still collected a pasted screenshot and sent it with the message. Paste now follows the same signal drag and drop answers to.
+
+- 395583d: An open question or approval panel can now be put aside, to read the transcript behind it: a chevron in its corner leaves a one-line "Waiting for your answer" bar that brings it back. The request stays open meanwhile, and the composer's button cannot send it until it is brought back: what is out of sight is not reviewed.
+
+  The panel takes the composer over and caps at half the viewport, so the reply it asks about could sit right behind it with no way to read it. Both kinds get the button, first in the corner, before a question's Skip. Two locale keys are new: `elicitationHide` ("Hide for now") and `elicitationWaiting` ("Waiting for your answer"), translated in `@aparte/locale-fr`. `--aparte-elic-dismiss-room` defaults to 104px (was 72px) to make room for the button; widen it as before for a locale whose "Skip" is wider.
+
+- c1e4f93: New `registerIcons({ name: () => markup })` adds icons to the set without replacing it, and a name core does not draw now works everywhere an icon name does: an action's `icon`, `<aparte-composer-action icon>`, `<aparte-icon name>`.
+
+  TypeScript: if you merged an icon name into `AparteIconProvider`, `getIcon` on that name now returns `string | undefined` instead of `string` — add `?? ''` (or `!`) where you need a string.
+
+  `setIconProvider` replaces the whole set, so a plugin's icons and the app's could not both be registered; and the provider the components read listed core's names only, so `registerAction({ icon: 'share' })` drew nothing even when the app's provider had a `share`. `getIcon(name)` is typed by overload: one of core's names returns a `string`, any other a `string | undefined` — a name merged into `AparteIconProvider` (`declare module '@aparte/core'`) included, since only the configurations it was registered on draw it. The merge makes the name one `setIconProvider` takes and `AparteIconName` lists; the Icons guide shows it. `getIconProvider()` keeps core's names required and a merged one optional (new `AparteCoreIconName` type), and a name is looked up among the set's own keys, so `icon="constructor"` draws nothing instead of a function.
+
+- b77d011: While `<aparte-scroll-rail>` is a child of the chat, the chat leaves it a lane at its end edge (new `--aparte-scroll-rail-room`) and the rail sits in it, so no line runs under the ticks; set it to `0px` to let the rail float over the text as before.
+
+  The rail floated over the transcript's end edge without reserving room, so in a column that reaches that edge (a narrow chat, `--aparte-message-max-width: none`) the long lines ran under it. The lane is the rail's column plus its inset, as end padding on the chat, so the whole column moves together: messages, composer, the welcome, the loading skeleton and the scrollbar, which now sits before the rail. It is reserved from the start rather than when the rail has two ticks, so nothing moves mid-conversation. The padding weighs nothing, so a padding of your own on the chat still wins.
+
+- 09ffa64: A segment type of your own now joins `AparteSegment` by declaration merging, so `addSegment`, `appendMessage` and `AparteMessage.segments` take it without `as unknown as AparteSegment`: add it to the new `AparteSegmentTypes` interface, one key per `type`.
+
+  ```ts
+  declare module "@aparte/core" {
+    interface AparteSegmentTypes {
+      chart: ChartSegment;
+    }
+  }
+  ```
+
+  `AparteSegment` was the closed union of core's built-ins, and the segments guide showed the cast. `@aparte/plugin-artifacts` registers its `artifact` segment the same way, so `artifactSegment(…)` is an `AparteSegment` wherever the plugin is imported.
+
+- 14d95ee: New `aparte-tabs__panel--flush` modifier: a tab panel holding a code view, a preview frame or a table drops its inset and runs to its edges.
+- e8751d4: New `registerToolInputFormatter(toolName, (input) => text)`: the approval panel and the default tool row show a tool's arguments as that text instead of the JSON the model sent, the same text on both.
+
+  Both read it from the chat's configuration, so a chat with its own (`attachConfig`, a wrapper's `config` prop) takes the formatter registered there. Without a formatter both still show pretty-printed JSON. The text is written as text, never markup, and a formatter that throws falls back to the JSON. `getToolInputFormatter` and `unregisterToolInputFormatter` go with it; `reset()` clears them.
+
+- 8047d37: New `--aparte-top-inset`, the counterpart of `--aparte-bottom-inset`: set it on the chat to the height of a header floating over the transcript, and the first message starts below it, a sent question is pinned below it, and a jump to a message (the scroll rail, `scrollIntoView`) lands below it.
+
+  The scroll surface reads it as top padding and scroll padding; under a framework wrapper, where the viewport itself scrolls, as a spacer before the first message. The scroll rail's landing check now measures from below the scroll padding, so it no longer reads the inset as a miss and scrolls again. The Layout guide shows the recipe; a header goes outside the chat, since a child of an `overlay-composer` chat floats at the bottom with the composer.
+
+### Patch Changes
+
+- 439719e: The app shell now folds to one column when `<aparte-sidebar>` becomes a drawer, at the sidebar's own `breakpoint`, instead of at a fixed 48rem; a sidebar with `breakpoint="30rem"` stays a column between 30 and 48rem.
+
+  The shell hid every sidebar that was not a drawer under 48rem, so a breakpoint under 48rem left nothing in that band (no column, no drawer, a toggle that opened nothing), and one over 48rem hid the header's toggle while its drawer was open. The toggle now shows while the shell holds a drawer, at any width. Under 48rem the class-only recipe and a sidebar that has not upgraded yet still fold out of the flow, as before, except a `breakpoint="none"` one, which never turns drawer and now keeps its column from the first paint. The new rules weigh what the ones they override do, so a rule of your own still wins.
+
+- e351c04: In a short window, the approval panel now scrolls its body instead of squeezing the tool's arguments: the arguments keep their height.
+
+  The panel is capped at half the viewport and does not scroll itself, and its parts were its direct flex children, so the arguments — the one block that could shrink — gave way first: 48px of a 66px block in a 560px-tall window, the thing being approved disappearing before anything else. Everything but the corner now sits in an `.aparte-elic-body` that scrolls, as the question panel's does.
+
+- b62ec12: `--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` now show their picture with no avatar provider: set the token on `:root`, the chat or `aparte-chat-bubble` and the slot appears for that role.
+
+  An empty slot is hidden, so the token painted nothing unless a provider wrote something in the slot (the guide's `host.innerHTML = '<span></span>'` workaround, no longer needed). The bubble now marks an empty slot whose role's token names an image with `data-image`, read when the message is drawn and on every configuration change, and the hiding rule skips it. It also shows in a slot a provider leaves empty, for the role it does not draw.
+
+- eccfd79: A configuration change (a language switch, a theme) on a long transcript no longer stalls the page: on 200 messages it took ~125ms in Chromium, now ~15ms.
+
+  Every message read its role's avatar token on each change to decide whether to show the picture. It read it inside the message, which a message off screen does not style (`content-visibility: auto`), so each read paid a style pass of its own, and each mark it set dirtied the style the next read needed. The token is now read on the message element, and every message reads before any marks.
+
+- b62ec12: `setAvatarProvider(null)` now takes the avatars off the messages already on screen, not only off the ones drawn after.
+
+  The bubble returned before touching the slot when no provider was registered, so what the old provider drew stayed. A custom shell's own avatar markup is kept: only what a provider drew goes.
+
+- ef70a91: A custom bubble shell keeps the accessible names it wrote itself — its action bar's and its branch arrows' — through a language switch or any config change; the bubble refreshes only the names it wrote.
+
+  Every config change used to rewrite the action bar's and the branch arrows' `aria-label` with the locale's, a shell's own labels included, so a shell that named them in its own words lost those names at the first language switch, model pick or late provider.
+
+- 0852861: `center-empty` (and `centerWhenEmpty` in the framework packages) no longer slides the composer down for a conversation a script restores before anyone has touched the page: the restore lands in one frame. A send, an opened conversation and a new chat still glide.
+
+  The slide ran on any change out of the empty state, so a page restoring the last conversation right after load painted the welcome and slid it away under a reader who had done nothing, a layout shift (CLS 0.14 on a phone). The chat now sets `data-glide` at the first key or pointer in the page, or the first send, and the transition is keyed on it; the framework hosts set it on the wrapper's root.
+
+- 9fc5087: A reply that ends while the transcript is re-laid out no longer leaves the view stopped short of the bottom with a scroll-to-bottom button over a reader who never scrolled (seen in Safari/WebKit, mostly under load).
+
+  If your page jumps the transcript to an earlier message itself while a reply streams, call the viewport's `setAutoScroll(false)` before the jump: the follow then stays off through the jump, smooth or not, and comes back when the reader returns to the bottom. The scroll rail does this for its own jumps. A find-in-page jump has no such hook, and may be pulled back to the bottom while a reply streams.
+
+  When the transcript got shorter between two scroll events, the browser moved the scroll position down to the new end, and the viewport took that for the reader scrolling up: it stopped following, and the content that grew back stayed below the fold. A shorter transcript is now always the layout's doing, never the reader's; a jump that does not shorten it (a host's `scrollTo`) still counts as the reader's. A jump into history that was never drawn does shorten it, as its messages take their real height — hence the call above.
+
+- d7eea7b: The compaction notice is drawn on the muted ground, in muted small type, instead of as the user's bubble.
+
+  Its colours were properties on the box, at a weight the role's rule beat, and its size never reached the text, which sets its own. The notice now sets the tokens the message reads (`--aparte-message-content-bg-*`, `--aparte-message-content-text-*`, `--aparte-content-font-size`) on `aparte-chat-bubble[data-kind="compaction"]`, where a skin can set them too.
+
+- 0b3e123: Documentation only: the API comments (what your editor shows on hover, and the generated reference pages) now say what each export does today. No code changed.
+
+  About a hundred and thirty doc comments told how the code got to where it is: an earlier behaviour, an audit, an issue number. They now describe the current behaviour for the caller. A reason a maintainer still needs stays beside the code as a plain comment.
+
+- 95aa8b4: The "send dropped: no model is selected" warning now names `<aparte-model-selector auto-select persist>`; `auto-select` alone writes nothing to the config, so following the old advice still dropped the send.
+
+  The `getModels()` JSDoc also says what the model selector does now: a provider without `fetchModels` shows its `getModels()` list there.
+
+- 2eb1ae3: A custom bubble shell's `.aparte-action-bar` now becomes a toolbar named from the locale (`messageActions`) when it declares no role of its own, as the default bubble's does, and its unnamed branch arrows are named from the locale (`previousResponse`, `nextResponse`).
+
+  The bar already got the roving tab stop, arrow keys between its buttons, but nothing told a screen reader it was a toolbar or what it was for: the shell contract lists class hooks, so a shell written from it carried no ARIA. A bar with its own `role` keeps it.
+
+  An arrow counts as named, and is left alone, when it has an `aria-label`, `aria-labelledby` or `title`, or words in the button a reader can hear; a glyph like `‹` is not a name, nor an icon font's ligature or an SVG title under `aria-hidden`. A label stamped over a visible "Précédent" made a screen reader say "Previous response", and a voice command saying the visible word found nothing. To have your arrows and bar follow the locale, leave them unnamed.
+
+- 3352e6a: Documentation only, no behaviour change: what `persist`, the backend transport, the model-preference example and the Transformers.js cache budget actually do.
+
+  - `<aparte-model-selector persist>`: it writes the pick into the config, which is what the next message is sent with. Without it the picker only fires `aparte-model-change`. It does not outlive a reload on its own; that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
+  - `setModelPreferenceProvider`: the example saved `{p, m}`, which restore cannot read. It now saves `{ provider, model }` and calls `restoreModelPreference()`.
+  - `AparteBackendTransport`: the page still registers a provider under each id the route knows. A stub that lists the models is enough for an id with no client package; the JSDoc shows one.
+  - `setMaxCachedModels`: the budget is how many models stay downloaded (disk), not how many are in memory.
+  - Runners: `tool_use` is in what a runner can emit, not in what it is given. `RunnerGenerateInput` carries no tool definitions.
+
+- 83b4fb4: A name, a file name, a conversation title or a tool name containing `$&`, `$'`, `` $` `` or `$$` now shows as written in the labels and questions that quote it ("Remove {name}", "Delete {title}?", "Run {tool}?", a message's author).
+
+  Those labels were filled with `String.replace`, which reads `$` sequences in the text it inserts: a file called `price$&.csv` was announced as "Remove price{name}.csv".
+
+- ff458c1: Importing `@aparte/core` (or the approval, artifacts, ask-user or model-selector plugin) from a Cloudflare Worker, a Vercel edge route or a Web Worker that webpack compiles with `target: 'webworker'` now resolves the DOM-free entry instead of the browser one, which failed at import on its first `extends HTMLElement`.
+
+  The DOM-free entry was reachable through the `node` condition only, and those bundlers resolve `workerd`, `edge-light` or `worker` alongside `browser` and `import`. The exports maps now list `worker`, `workerd`, `edge-light`, `deno` and `bun` next to `node`, pointing at the same entry; a browser still gets the elements. A worker started inside a page build is not covered — `new Worker(new URL('./w.js', import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: both resolve it with the browser's conditions, so it gets the browser entry. For core, import the new `@aparte/core/headless` there; the plugins have no such subpath, and how to run a provider or a plugin's tool in that worker is on the [Elements page](https://apartejs.dev/frameworks/elements/#on-the-server). `check:node-import` walks each published map with the conditions of webpack's worker target, wrangler and a Vercel edge route.
+
+- 95c7fdc: In a right-to-left page, a panel's question no longer runs under its corner buttons: the room kept for them is now on the inline end, where they sit.
+
+  The message and the tab rail reserved `--aparte-elic-dismiss-room` with a physical right margin while the corner sits at `inset-inline-end`, so in RTL the room was on the wrong side, and a question ran under its Skip.
+
+- 75068ee: Scrolling the transcript up by script (`scrollTop = 0`, `scrollIntoView`) right after a send is no longer undone: the view stays where it was moved instead of snapping back to the bottom.
+
+  A send glides to the bottom and arms a timer that pins the view if the glide stopped short. When the timer fired in the same instant as a jump up, before the scroll event had been read, it took the jump for a short glide and pinned it back. It now leaves any move up to the scroll handler, which tells a reader's or a host's jump from the layout's.
+
+- 1da5e87: A Markdown, streaming-Markdown or highlight provider set after a message was drawn now redraws that message; you no longer have to set them before the chat renders.
+
+  The three setters did not notify, so a message drawn first kept its raw text for good: a static `<aparte-chat-bubble content="**x**">` upgraded by core's own import before `setupMarkedProvider()` ran, or a restored conversation drawn while a highlighter was still loading (`setupShikiProviderFromHighlighter(await createHighlighterCore(…))`). They now notify like the other renderers, and a message drawn with older providers is drawn again — in a microtask, once for several providers set one after another, or when it finishes streaming. A message already drawn with the current providers is not touched by other config changes.
+
+- 1c152c7: `.aparte-mark` now tints a menu row (`.aparte-menu__item`), and a marked row in a checkable menu keeps its check gutter, so its label stays aligned with the others.
+
+  The row's transparent ground, at the same weight in a later sheet, erased the tint. And the mark's start-edge bar and the menu's check share `::before`: the gutter left the flow and the marked label moved 16px to the start edge. In a checkable menu the check is the row's signal, so the bar is not drawn there.
+
+- d252f33: The warning `registerAllComponents()` prints when a test runner resolved core's Node entry under a DOM now gives the alias the docs give, matching the bare specifier only: `test.alias [{ find: /^@aparte\/core$/, replacement: '@aparte/core/browser' }]`.
+
+  It suggested `{ '@aparte/core': '@aparte/core/browser' }`, a string alias, which is a prefix: it also rewrote `@aparte/core/icons` to `@aparte/core/browser/icons`, a path that does not exist.
+
+- 9a9f7c9: A chat's own bubble frame (`setBubbleShellRenderer` on its config, or a framework's `config` prop) now reaches the messages drawn before that config was attached; they are drawn again in it, content kept.
+
+  A bubble drew its frame once, at connect, and under every wrapper the chat's config is attached after the first render — so the messages there at first render kept the page-wide frame while every later one wore the chat's. The bubble now redraws when the config above it changes and brings another frame — in a microtask, so a chat unmounting does not redraw its messages first, and after an open edit closes, not under it.
+
+- 99c28fa: A custom elicitation presenter no longer has to honour `request.signal` itself: a stop now rejects the request with an `AparteElicitationAbortError` whatever the presenter does. Listen to the signal only to take your own UI down.
+
+  The config checked the signal only before calling the presenter, so one that never listened to it left the stopped turn waiting on a panel nobody would answer.
+
+- 7f52f79: `setSegmentDefaults('thinking', { collapsed: false })` now opens the reasoning a provider streams on its own channel too, and keeps it open when the answer starts; without the default it still folds there.
+
+  The stream adapter created that block with `collapsed: true` and folded it again at the first answer token, and a field the producer sets beats a default — so the default only ever reached a `<think>` block written in the text.
+
+- 39e0b6c: An approval the page gave to a paused call no longer approves a later call that reuses its id: a resumed run asks about every new call again.
+
+  `deferral.outcomes` used to answer every call of the resumed run by id, not only the calls the run resumed. A vendor that sends no tool-call ids has them minted per stream (`aparte-call-1`, `aparte-call-2`, …), so the model's next turn could carry an id the resume had been answered for. An approval given for the paused `delete_file` then ran a new `delete_file` with other arguments, with nobody asked, and a refusal refused a new call that nobody had refused. This reached a server loop (`createAparteAgentHandler`) and any host that drives `runStreamAgent` with `deferral`. The page applies the same rule to a browser tool a paused run asks it to run: an approval given at a pause answers the call it was given for, at the next pause, and not a later call that reuses its id.
+
+- b2b4fe9: Under the React, Vue, Svelte and Angular components, a message is now saved with every field written on it — `metadata`, attachments, the model a reply ran on — and comes back with them when the conversation is opened again. A turn paused on a server and resumed after a reload now goes back to the model it ran on, not to the default one.
+
+  The saved conversation tree is built from the viewport's own copy of the messages. The step that brought that copy up to date carried only the text, the segments, the status and the usage. Anything else (`host.updateMessage(id, { metadata })`, the model the client stamps on a reply) was saved in the flat list and missing from the tree, and a reopen loads the tree. A field the app clears — set to `undefined`, or left out of the message — now leaves the tree too, the model and the usage included; the text, the segments and the status, which every message carries, stay. The vanilla `<aparte-chat>` was not affected.
+
+- 04369ef: `<aparte-select searchable>` set or removed after the select is drawn now adds or removes the filter field, and moves the combobox role with it.
+
+  It was read on the first render only, so a framework that binds it a beat late — Angular's `[searchable]` inside an `@if` — got a select with no filter.
+
+- 2528971: A sent question is pinned under the top edge (or under `--aparte-top-inset`) every time, not now and then a third of the way down the view.
+
+  The bottom spacer measures the last question and its reply to make room for the pin. A message that has never been on screen is laid out at a 320px estimate (`content-visibility: auto`) until it is shown, and the spacer was sized from those estimates; when the messages came into view at their real height, nothing re-measured it. The viewport now watches the height of the messages it measures.
+
+- a3413dd: The buttons that switch a stacked `<aparte-split>` (`data-aparte-split-pane="start"` / `"end"`) now carry `aria-pressed`, true on the one for the pane in view, so a screen reader hears which pane is shown.
+
+  A toggle (an id, or an empty value) is an action and gets no pressed state. Side by side, both panes are in view and neither button carries it. The split stamps the controls when it connects, on every pane change and when it stacks or unstacks.
+
+- 7a25388: A custom status renderer (`setStatusRenderer`) is now called again when `<aparte-chat-status>`'s `text` changes, so the line shows the new text.
+
+  It ran only when the element first drew, and a `text` change wrote into the default text element, which a custom renderer does not have: the accessible name moved while the visible line kept the first text.
+
+- e51d8c4: The columns of a Markdown table keep the alignment the Markdown gave them (`---:` right, `:---:` centred).
+
+  The renderer emits `<td align="right">`, which a browser reads as a `text-align` hint of the lowest weight, and the prose sheet set `text-align: start` on every cell, so the hint always lost. That rule now applies only to cells without `align`.
+
+- c093743: A code block inside a text segment you build yourself (`setSegments`, a restored or a server's message) is now highlighted, like one in a streamed reply.
+
+  The streaming parser turns a fence into a `code` segment, so the text renderer never highlighted, and the bubble's own highlight pass skips a message that has segments — a fence in a hand-built text segment reached no highlighter at all. The text renderer now highlights its fences once the segment is settled, as the reasoning renderer already did.
+
+  With no highlighter set, both now leave a code block as the Markdown renderer wrote it. The reasoning renderer used to put core's bare `<pre><code>` in its place, which dropped the `language-*` class a page-level highlighter or a stylesheet looks for.
+
+- 11fd6dc: Opening a conversation and leaving it, or moving between the versions of a reply (‹1/2›), no longer moves it to "Today" in the conversation list: `updatedAt` changes only when a message does.
+
+  Two comparisons counted looking as editing. The viewport hands the messages back stamped (each segment with its message id, index and `isStreaming: false`, a call nobody can answer any more closed) and with keys in another order, and the manager compared raw JSON — so a record the app or a server wrote without those stamps read as changed the moment it was opened. Both sides now go through the same adoption step, keys sorted. And the comparison read the active path only, so a branch switch counted as new content; with a tree on both sides it now reads every branch, and the branch shown is saved without dating the conversation.
+
+- Updated dependencies [b04aeba]
+- Updated dependencies [39e0b6c]
+  - @aparte/engine@0.20.0
+
 ## 0.19.3
 
 ### Patch Changes
