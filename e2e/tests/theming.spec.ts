@@ -143,6 +143,56 @@ test('a chat nested in a dark wrapper stays dark', async ({ page }) => {
 });
 
 /*
+ * A THEMED CHAT PAINTS ITS OWN GROUND.
+ *
+ * The palette sets the text and the ground together, and the chat used to paint only the
+ * text: its background was the host page's. So a dark chat on a white page wrote its
+ * light text on white, and so did a chat on a light-only site seen from a dark OS — the
+ * system default picks the dark palette there with no attribute at all. A light chat on a
+ * dark page went the other way. Our examples and the docs paint `body` with
+ * `--aparte-bg`, which is the only reason none of them showed it.
+ *
+ * Asserted as a relation: what the chat paints is what its own palette says, and the
+ * page around it has the opposite ground.
+ */
+test('a themed chat paints its own ground and ink, whatever the page around it', async ({ page }) => {
+    for (const [theme, pageBg] of [['dark', 'rgb(255, 255, 255)'], ['light', 'rgb(17, 17, 17)']] as const) {
+        const painted = await page.evaluate(([t, bg]) => {
+            document.documentElement.style.background = bg;
+            document.body.style.background = bg;
+            const chat = document.querySelector('aparte-chat')!;
+            chat.setAttribute('data-aparte-theme', t);
+            // A token resolved as a colour, through a probe inside the chat.
+            const resolve = (token: string): string => {
+                const probe = document.createElement('span');
+                probe.style.color = `var(${token})`;
+                chat.append(probe);
+                const value = getComputedStyle(probe).color;
+                probe.remove();
+                return value;
+            };
+            const style = getComputedStyle(chat);
+            return { background: style.backgroundColor, color: style.color, bg: resolve('--aparte-bg'), text: resolve('--aparte-text') };
+        }, [theme, pageBg] as const);
+
+        expect(painted.background, `a ${theme} chat paints its palette's ground`).toBe(painted.bg);
+        expect(painted.background, `and not the page's`).not.toBe(pageBg);
+        expect(painted.color, `its text inherits its palette's ink, not the page's`).toBe(painted.text);
+    }
+});
+
+test("a host's own rule on the chat's ground wins", async ({ page }) => {
+    // The documented way back to a page that shows through, at any stylesheet order.
+    const background = await page.evaluate(() => {
+        const style = document.createElement('style');
+        style.textContent = 'aparte-chat { background: none; }';
+        document.head.prepend(style);
+        return getComputedStyle(document.querySelector('aparte-chat')!).backgroundColor;
+    });
+    expect(background).toBe('rgba(0, 0, 0, 0)');
+});
+
+/*
  * THE INK ON A SOLID FILL IS READABLE — on every intent, in both themes, and on a
  * palette this repo has never seen.
  *
