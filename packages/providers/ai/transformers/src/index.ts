@@ -121,9 +121,10 @@ export interface TransformersModelConfig {
     runner?: string;
     /**
      * The most tokens a reply from this model may run to, unless the request sets its own
-     * `maxTokens`. Left unset, 8192. With a built-in runner, whatever the ceiling, a reply also
-     * ends where the model's context window does, prompt included, and Stop interrupts it. A
-     * runner of your own receives the ceiling as `options.maxTokens`, and the rest is its own.
+     * `maxTokens`. Left unset, a built-in runner stops at 8192. With a built-in runner, whatever
+     * the ceiling, a reply also ends where the model's context window does, prompt included, and
+     * Stop interrupts it. A runner of your own receives `options.maxTokens` only when the request
+     * or this setting gives one, so it sets its own default (the README's example uses 8192).
      */
     maxTokens?: number;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */
