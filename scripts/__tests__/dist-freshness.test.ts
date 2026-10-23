@@ -136,6 +136,16 @@ describe('dist-freshness reads the built JavaScript', () => {
         expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/mid-build/);
     });
 
+    it('a refused stamp removes the one before it: a dist built from other bytes is not vouched for', () => {
+        // Built from B and stamped; then rebuilt from A while src went back to B mid-build.
+        // The refusal kept B's record, and the check, finding B in src, called A's dist current.
+        const dir = pkg('refused', { 'src/index.ts': T0, 'dist/index.js': T1 });
+        expect(stampBuild(dir)).toBe(true);
+        utimesSync(join(dir, 'src/index.ts'), T2, T2);
+        expect(stampBuild(dir)).toBe(false);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/refused/);
+    });
+
     it('every directory handed in is actually walked', () => {
         // The floor. A walk that visits nothing satisfies every "not stale"
         // assertion above, and that is precisely the failure this file exists for.

@@ -9,12 +9,13 @@
  *   bumps an mtime while leaving the bytes identical. nx correctly does not rebuild, and
  *   a naive mtime comparison cries stale. That happened twice, on files whose content had
  *   not changed at all. So mtime is the fast path only: when it says stale, the src
- *   inputs are hashed and compared against the hash recorded the last time the package
- *   was verified fresh, in a gitignored `.dist-freshness/` at the repo ROOT (not inside
- *   `dist`, which the build wipes — the first attempt put it there and the stamp
- *   vanished exactly when it was needed). With no recorded hash — a fresh clone — it
- *   falls back to mtime alone, which is the conservative answer and the one CI wants,
- *   since CI always builds first.
+ *   inputs are hashed and compared against the hash the package's last build recorded,
+ *   in its own gitignored `.dist-stamp` beside `dist` (not inside it, which the build
+ *   wipes — the first attempt put it there and the stamp vanished exactly when it was
+ *   needed). nx caches the stamp as a build output, so a build restored from the cache
+ *   restores its record with it. With no recorded hash — a fresh clone — it falls back to
+ *   mtime alone, which is the conservative answer and the one CI wants, since CI always
+ *   builds first.
  *
  * The hash is recorded at the end of every package build (`stamp-dist.mjs`, the last
  * command of each `build` script), so whatever ran the build — the gate, a pre-push hook,
@@ -29,7 +30,7 @@
  * measured: a deliberate sabotage passed both in source and failed both the moment the
  * package was rebuilt.
  */
-import { readdirSync, statSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -61,13 +62,18 @@ export const STAMP_FILE = '.dist-stamp';
 /**
  * Record the src a build was made from. Called at the END of a package's `build`, with
  * that package's directory, so the record and the dist always describe the same src —
- * unless src was saved while the build ran, which the emit's mtime tells: then nothing is
- * recorded, and the check sees the newer src for what it is. Returns whether it recorded.
+ * unless src was saved while the build ran, which the emit's mtime tells, or the build
+ * emitted no JavaScript: then the record is removed, so the check sees the dist for what
+ * it is. A record left from an earlier build would vouch for a dist built from other
+ * bytes. Returns whether it recorded.
  */
 export function stampBuild(dir) {
     const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
     const distNewest = existsSync(join(dir, 'dist')) ? newestMtime(join(dir, 'dist'), IS_EMIT) : 0;
-    if (distNewest === 0 || srcNewest > distNewest) return false;
+    if (distNewest === 0 || srcNewest > distNewest) {
+        rmSync(join(dir, STAMP_FILE), { force: true });
+        return false;
+    }
     writeFileSync(join(dir, STAMP_FILE), `${srcHash(join(dir, 'src'))}\n`);
     return true;
 }
