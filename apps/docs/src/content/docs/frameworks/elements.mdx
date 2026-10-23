@@ -241,9 +241,11 @@ A custom element needs a DOM, and importing `@aparte/core` on a server is fine a
 Electron main process or a server render — Next, Nuxt, SvelteKit, Angular. It keeps the client, the
 chat host, the transports and the server handlers, the conversations and messages, the config, the
 parsers and every type; it has no elements, and `registerAllComponents()` does nothing there. A
-Cloudflare Worker, a Vercel edge route and a Web Worker built by webpack take the same entry,
-through the `workerd`, `edge-light` and `worker` conditions. A worker Vite bundles does not: Vite
-resolves it with the browser's conditions, so it gets the browser entry, which needs a DOM.
+Cloudflare Worker, a Vercel edge route and a Web Worker that webpack compiles on its own with
+`target: 'webworker'` take the same entry, through the `workerd`, `edge-light` and `worker`
+conditions. A worker started inside a page build does not — `new Worker(new URL('./w.js',
+import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: it is resolved
+with the browser's conditions, so it gets the browser entry, which needs a DOM.
 
 | Wrapper | On a server |
 | --- | --- |
