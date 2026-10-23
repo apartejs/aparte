@@ -114,7 +114,7 @@ export interface AparteStreamingMarkdownRenderer {
 /**
  * Factory for an {@link AparteStreamingMarkdownRenderer}: given a target element,
  * returns a renderer that appends parsed Markdown into it. Supplied by an
- * opt-in provider package (e.g. `@aparte/provider-streaming-markdown`); when none
+ * opt-in plugin (e.g. `@aparte/plugin-streaming-markdown`); when none
  * is registered the chat falls back to the one-shot `AparteMarkdownProvider`.
  */
 export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStreamingMarkdownRenderer;

@@ -787,6 +787,10 @@ importers:
         version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/plugins/marked:
+    dependencies:
+      remend:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
       '@aparte/core':
         specifier: workspace:*
@@ -877,13 +881,14 @@ importers:
         version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/plugins/streaming-markdown:
+    dependencies:
+      '@paulrichez/streaming-markdown':
+        specifier: ^0.3.0
+        version: 0.3.0
     devDependencies:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
-      streaming-markdown:
-        specifier: ^0.2.15
-        version: 0.2.15
       typescript:
         specifier: ^5.4.0
         version: 5.7.3
@@ -4373,6 +4378,10 @@ packages:
   '@parcel/watcher@2.5.6':
     resolution: {integrity: sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ==}
     engines: {node: '>= 10.0.0'}
+
+  '@paulrichez/streaming-markdown@0.3.0':
+    resolution: {integrity: sha512-rfgRvK8Z0bFI3QTBqK5RCAbHKFXGamClmYl9RqTVZ73LP5rY7tnFLtj0EziUxIRS6zzYIZ6jhXH4cbXyOiWL2A==}
+    engines: {node: '>=20'}
 
   '@phenomnomnominal/tsquery@5.0.1':
     resolution: {integrity: sha512-3nVv+e2FQwsW8Aw6qTU6f+1rfcJ3hrcnvH/mu9i8YhxO+9sqbOfpL8m6PbET5+xKOlz/VSbp0RoYWYCtIsnmuA==}
@@ -9236,6 +9245,9 @@ packages:
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
 
+  remend@1.4.0:
+    resolution: {integrity: sha512-mHiYhhwphs1IgIZmkToKLwJn0U99IjPXuutkA2acrNcG0vlEq2G4TGnd2eT0saIHwh2KjaCpvleHcsd5SAz96A==}
+
   request-light@0.5.8:
     resolution: {integrity: sha512-3Zjgh+8b5fhRJBQZoy+zbVKpAQGLyka0MPgW3zruTF4dFFJ8Fqcfu9YsAvi/rvdcaTeWG3MkbZv4WKxAn/84Lg==}
 
@@ -9705,10 +9717,6 @@ packages:
 
   stream-replace-string@2.0.0:
     resolution: {integrity: sha512-TlnjJ1C0QrmxRNrON00JvaFFlNh5TTG00APw23j74ET7gkQpTASi6/L2fuiav8pzK715HXtUeClpBTw2NPSn6w==}
-
-  streaming-markdown@0.2.15:
-    resolution: {integrity: sha512-eSWjdvLSTznl2+FIzuxw1TRXwhjZiY1RfSygGCMpcNY8CrsaUM2zHtxe/JFcPoXCQxeO3TSJ72QMDIN5B/Ui1w==}
-    engines: {node: '>=20'}
 
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
@@ -14956,6 +14964,8 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.5.6
       '@parcel/watcher-win32-x64': 2.5.6
     optional: true
+
+  '@paulrichez/streaming-markdown@0.3.0': {}
 
   '@phenomnomnominal/tsquery@5.0.1(typescript@5.7.3)':
     dependencies:
@@ -20752,6 +20762,8 @@ snapshots:
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
 
+  remend@1.4.0: {}
+
   request-light@0.5.8: {}
 
   request-light@0.7.0: {}
@@ -21450,8 +21462,6 @@ snapshots:
   stdin-discarder@0.3.2: {}
 
   stream-replace-string@2.0.0: {}
-
-  streaming-markdown@0.2.15: {}
 
   string-width@4.2.3:
     dependencies:

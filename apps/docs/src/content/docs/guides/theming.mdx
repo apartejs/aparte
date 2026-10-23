@@ -38,9 +38,11 @@ stylesheet loads first, and its second selector keeps it on an element
 A few do not follow them. The status colours — `--aparte-info`, `--aparte-success`,
 `--aparte-warning`, `--aparte-error` — and `--aparte-secondary` are yours to set in the same block
 if your brand has an opinion, and so is `--aparte-neutral`, which draws the focus ring, the
-scrollbar and the neutral buttons. The chat paints no background of its own, so your page shows
-through it: `--aparte-bg` only tints the progress track and the loading skeleton, and is there for
-your page too (`body { background: var(--aparte-bg); }`).
+scrollbar and the neutral buttons. The chat paints `--aparte-bg` behind itself and writes in
+`--aparte-text`, so its text always sits on the ground it was chosen for. Set `--aparte-bg` to your
+page's colour and the chat blends into the page; to let the page show through instead, write
+`aparte-chat, [data-aparte-chat] { background: none; }`, and your page then has to follow the
+chat's theme.
 
 ### The text on a fill
 
@@ -76,6 +78,10 @@ With no attribute, the system's `prefers-color-scheme` decides. `data-aparte-the
 either way, on the chat or on any ancestor, so a light panel inside a dark page stays light. The
 attribute puts core's palette on the element that carries it, which is why your light block names
 `[data-aparte-theme="light"]` beside `:root`.
+
+Whichever palette applies, the chat paints its own ground with it: a dark chat on a white page is a
+dark panel, never light text on white. A site that is light only puts `data-aparte-theme="light"`
+on `<html>` — with no attribute, a visitor whose system is dark gets the dark palette.
 
 ## Give dark its own colours
 

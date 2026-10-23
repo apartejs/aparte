@@ -4,6 +4,53 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.21.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [08760a6](https://github.com/apartejs/aparte/commit/08760a6): `<aparte-chat>` now paints its own background (`--aparte-bg`) and text colour (`--aparte-text`), so a light or dark chat stays readable on any page. To let your page show through as before, set `--aparte-bg` to your page's colour, or write `aparte-chat, [data-aparte-chat] { background: none; }`.
+
+  The palette sets a text colour and a ground together, and the chat used to paint only the text: its background was the host page's. A dark chat on a white page wrote light text on white, and so did a chat on a light-only site seen from a dark system, where the default follows `prefers-color-scheme` with no attribute at all; a light chat on a dark page went the other way. Three of those four combinations were unreadable. The rule applies to `<aparte-chat>` and to the `[data-aparte-chat]` root the React, Vue and Svelte wrappers render, at zero specificity, so a rule of yours wins whichever stylesheet loads last. `color` is set too: what you render inside the chat — a tool card, a slot — now inherits the palette's text colour instead of the page's.
+
+  A site that is light only can keep the chat light on a dark system with `data-aparte-theme="light"` on `<html>`.
+  <sub>`@aparte/core`</sub>
+
+- [7830394](https://github.com/apartejs/aparte/commit/7830394): New `@aparte/plugin-marked/streaming` entry: `setupMarkedStreamingProvider()` formats a reply with marked while it streams and once it is done, so a finished reply no longer changes when it settles.
+
+  ```ts
+  import { setupMarkedStreamingProvider } from "@aparte/plugin-marked/streaming";
+
+  setupMarkedStreamingProvider(); // in place of setupMarkedProvider() + setupStreamingMarkdownProvider()
+  ```
+
+  While a reply streams, the block being written is completed by Vercel's `remend` before marked parses it: `**bold` shows bold before its closing `**` arrives, a `**` with nothing after it yet is held back instead of shown as typed, a link shows as a link from its first character and becomes clickable once its URL is complete, and an image appears once its URL is. Only that block is drawn again at each chunk; the blocks above it keep their DOM, so a selection in them survives the stream. Every block goes through the config's sanitizer, external links to their own tab included. The options are marked's, as for `setupMarkedProvider`, and apply to the streaming and the finished render alike.
+
+  `remend` is a new dependency of the plugin (Apache-2.0, no dependencies of its own), imported by the `/streaming` entry only: the main entry's graph is unchanged. `@aparte/plugin-streaming-markdown` stays the choice that only appends to the page.
+  <sub>`@aparte/plugin-marked`</sub>
+
+- [34ca7d3](https://github.com/apartejs/aparte/commit/34ca7d3): The plugin now parses with `@paulrichez/streaming-markdown`, which installs with it: you no longer install a parser beside the plugin, and you can remove `streaming-markdown`. Your code does not change.
+
+  ```bash
+  npm uninstall streaming-markdown
+  ```
+
+  `@paulrichez/streaming-markdown` is a maintained fork of Damian Tarnawski's `streaming-markdown`, which has had no release since 0.2.15 (May 2025). It is now a regular dependency rather than a peer: nothing in the plugin's API exposes it and there is nothing to configure, so there was no version for you to choose. Same API, plus four fixes that show while a reply streams:
+
+  - A bracket inside a link's text no longer breaks the link: `[[1]](url)` and `[a [b] c](url)` render as links before the reply settles, not only after.
+  - Backticks in the middle of a line inside a code block no longer end the block early, as in `function_call(```)`.
+  - A table or a blockquote inside a list item stays in the item, and a table's rows no longer show their indentation as text.
+  - An underscore inside a word is no longer emphasis: `snake_case_name` and `[read_me.md](url)` stay as written.
+  <sub>`@aparte/plugin-streaming-markdown`</sub>
+
+### Patch Changes
+
+- @aparte/engine@0.21.0
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.20.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

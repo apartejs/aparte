@@ -283,6 +283,7 @@ const SATELLITES = [
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],
+    ['@aparte/plugin-marked/streaming', 'packages/plugins/marked'],
     ['@aparte/plugin-shiki', 'packages/plugins/shiki'],
     ['@aparte/plugin-streaming-markdown', 'packages/plugins/streaming-markdown'],
     ['@aparte/provider-ai-sdk', 'packages/providers/ai/ai-sdk'],

@@ -77,6 +77,17 @@ const CONTRACTS = [
         why: 'the batteries-included entry: pulling shiki is the point',
     },
     {
+        file: 'packages/plugins/marked/dist/index.js',
+        allowed: ['@aparte/core', 'marked'],
+        why: 'the one-shot entry: remend belongs to `./streaming`, and a consumer who renders only '
+            + 'finished replies must not have it in their graph',
+    },
+    {
+        file: 'packages/plugins/marked/dist/streaming.js',
+        allowed: ['@aparte/core', 'marked', 'remend'],
+        why: 'the streaming entry: completing unclosed Markdown with remend is the point',
+    },
+    {
         file: 'packages/providers/ai/transformers/dist/worker.js',
         bareOnly: true,
         allowed: ['@huggingface/transformers'],

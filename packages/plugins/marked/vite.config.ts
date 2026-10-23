@@ -17,7 +17,12 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
+            // Two entries on purpose: `streaming` brings remend, and a consumer who
+            // imports only the one-shot provider must not have it in their graph.
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                streaming: resolve(__dirname, 'src/streaming.ts'),
+            },
             name: 'ApartePluginMarked',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
@@ -27,8 +32,9 @@ export default defineConfig({
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
-            // Peers — never bundle: @aparte/core + the marked lib the consumer brings.
-            external: ['@aparte/core', 'marked'],
+            // Never bundled: the peers (@aparte/core, the marked the consumer brings) and
+            // remend, a dependency npm installs beside the plugin.
+            external: ['@aparte/core', 'marked', 'remend'],
         },
     },
 });

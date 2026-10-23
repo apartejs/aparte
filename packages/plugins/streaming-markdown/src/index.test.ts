@@ -267,3 +267,46 @@ describe('@aparte/plugin-streaming-markdown — a restored reply renders too', (
         bubble.remove();
     });
 });
+
+/*
+ * What the parser underneath gets right since the plugin moved to `@paulrichez/streaming-markdown`, the maintained
+ * fork of `streaming-markdown` 0.2.15, whose releases stopped in May 2025. Each failed on the original.
+ */
+describe('@aparte/plugin-streaming-markdown — the maintained parser', () => {
+    beforeEach(() => {
+        setupStreamingMarkdownProvider();
+    });
+
+    function stream(chunks: string[], end = true): HTMLElement {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target);
+        if (!r) throw new Error('no streaming renderer registered');
+        for (const c of chunks) r.write(c);
+        if (end) r.end();
+        return target;
+    }
+
+    it('keeps a link whose text holds brackets a link while it streams: [[1]](url)', () => {
+        const target = stream(['See [', '[1', ']](https://exa', 'mple.com/a) for more'], false);
+        const link = target.querySelector('a');
+        expect(link?.textContent).toBe('[1]');
+        expect(link?.getAttribute('href')).toBe('https://example.com/a');
+    });
+
+    it('reads an underscore inside a word as a letter, not emphasis', () => {
+        const target = stream(['call my_func', 'tion_name now']);
+        expect(target.querySelector('em')).toBeNull();
+        expect(target.textContent).toContain('my_function_name');
+    });
+
+    it('keeps a code fence open past backticks in the middle of a line', () => {
+        const target = stream(['```\nfunction_call(```\nstill code\n```\n\nafter']);
+        expect(target.querySelector('pre')?.textContent).toContain('still code');
+        expect(target.querySelector('p')?.textContent).toBe('after');
+    });
+
+    it('keeps a table inside its list item', () => {
+        const target = stream(['- a\n  | b | c |\n  | - | - |\n  | d | e |']);
+        expect(target.querySelector('li table')).not.toBeNull();
+    });
+});

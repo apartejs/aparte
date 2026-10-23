@@ -43,6 +43,18 @@ aparte-chat,
   padding-block-end: var(--aparte-chat-bottom-gap);
 }
 
+/* The chat paints the ground its text was chosen for. A palette is a text colour AND a
+   ground, and the chat used to paint only the text: a dark chat on a white page wrote
+   light ink on white, and so did a chat on a light-only site seen from a dark OS, where
+   the system default picks the dark palette with no attribute at all. `color` too, so
+   what a consumer renders inside (a tool card, a slot) inherits the palette's ink rather
+   than the page's. At zero weight: `aparte-chat { background: none }` lets a page show
+   through again, whichever sheet loads last. */
+:where(aparte-chat, [data-aparte-chat]) {
+  background: var(--aparte-bg);
+  color: var(--aparte-text);
+}
+
 /* The viewport takes the space left by the composer; the standalone height:100%
    default resolves against the shell's definite height above, and the inner
    .aparte-viewport-container keeps doing the scrolling (styled scrollbar, wheel,
