@@ -1,5 +1,5 @@
 import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
-import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG } from 'streaming-markdown';
+import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG } from '@paulrichez/streaming-markdown';
 
 /*
  * The external-link rule, copied — deliberately and minimally — from its OWNER,
@@ -42,7 +42,7 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
 const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
 
 /**
- * Register `streaming-markdown` as aparté's incremental (streaming) Markdown
+ * Register `@paulrichez/streaming-markdown` as aparté's incremental (streaming) Markdown
  * renderer.
  *
  * Once registered, the chat bubble feeds each streamed token chunk to a

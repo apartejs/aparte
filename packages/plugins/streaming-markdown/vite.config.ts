@@ -27,7 +27,7 @@ export default defineConfig({
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
-            external: ['@aparte/core', 'streaming-markdown'],
+            external: ['@aparte/core', '@paulrichez/streaming-markdown'],
         },
     },
 });

@@ -881,9 +881,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
-      streaming-markdown:
-        specifier: ^0.2.15
-        version: 0.2.15
+      '@paulrichez/streaming-markdown':
+        specifier: ^0.3.0
+        version: 0.3.0
       typescript:
         specifier: ^5.4.0
         version: 5.7.3
@@ -4373,6 +4373,10 @@ packages:
   '@parcel/watcher@2.5.6':
     resolution: {integrity: sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ==}
     engines: {node: '>= 10.0.0'}
+
+  '@paulrichez/streaming-markdown@0.3.0':
+    resolution: {integrity: sha512-rfgRvK8Z0bFI3QTBqK5RCAbHKFXGamClmYl9RqTVZ73LP5rY7tnFLtj0EziUxIRS6zzYIZ6jhXH4cbXyOiWL2A==}
+    engines: {node: '>=20'}
 
   '@phenomnomnominal/tsquery@5.0.1':
     resolution: {integrity: sha512-3nVv+e2FQwsW8Aw6qTU6f+1rfcJ3hrcnvH/mu9i8YhxO+9sqbOfpL8m6PbET5+xKOlz/VSbp0RoYWYCtIsnmuA==}
@@ -9706,10 +9710,6 @@ packages:
   stream-replace-string@2.0.0:
     resolution: {integrity: sha512-TlnjJ1C0QrmxRNrON00JvaFFlNh5TTG00APw23j74ET7gkQpTASi6/L2fuiav8pzK715HXtUeClpBTw2NPSn6w==}
 
-  streaming-markdown@0.2.15:
-    resolution: {integrity: sha512-eSWjdvLSTznl2+FIzuxw1TRXwhjZiY1RfSygGCMpcNY8CrsaUM2zHtxe/JFcPoXCQxeO3TSJ72QMDIN5B/Ui1w==}
-    engines: {node: '>=20'}
-
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
     engines: {node: '>=8'}
@@ -14956,6 +14956,8 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.5.6
       '@parcel/watcher-win32-x64': 2.5.6
     optional: true
+
+  '@paulrichez/streaming-markdown@0.3.0': {}
 
   '@phenomnomnominal/tsquery@5.0.1(typescript@5.7.3)':
     dependencies:
@@ -21450,8 +21452,6 @@ snapshots:
   stdin-discarder@0.3.2: {}
 
   stream-replace-string@2.0.0: {}
-
-  streaming-markdown@0.2.15: {}
 
   string-width@4.2.3:
     dependencies:

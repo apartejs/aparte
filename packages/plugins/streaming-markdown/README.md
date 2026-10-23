@@ -1,11 +1,13 @@
 # @aparte/plugin-streaming-markdown
 
 Incremental (token-by-token) Markdown rendering for [aparté](https://github.com/apartejs/aparte) via
-[`streaming-markdown`](https://github.com/thetarnav/streaming-markdown). Parses only the new text and
-**appends** DOM nodes per streamed chunk — no per-token re-parse or `innerHTML` rebuild.
+[`@paulrichez/streaming-markdown`](https://github.com/PaulRichez/streaming-markdown), a maintained fork of
+Damian Tarnawski's [`streaming-markdown`](https://github.com/thetarnav/streaming-markdown), which has had no
+release since May 2025. Parses only the new text and **appends** DOM nodes per streamed chunk — no
+per-token re-parse or `innerHTML` rebuild.
 
 ```bash
-npm install @aparte/plugin-streaming-markdown @aparte/core streaming-markdown
+npm install @aparte/plugin-streaming-markdown @aparte/core @paulrichez/streaming-markdown
 ```
 
 ```ts
@@ -14,7 +16,8 @@ import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdow
 setupStreamingMarkdownProvider();
 ```
 
-`@aparte/core` and `streaming-markdown` are **peer dependencies**.
+`@aparte/core` and `@paulrichez/streaming-markdown` are **peer dependencies**. Coming from a version that used
+`streaming-markdown`, install `@paulrichez/streaming-markdown` and you can remove `streaming-markdown`.
 
 This plugin is enough on its own: a reply renders the same whether it streams or arrives complete — a
 conversation restored after a reload, a non-streaming provider's answer — because with no one-shot
