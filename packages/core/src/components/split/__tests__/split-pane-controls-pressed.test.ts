@@ -5,12 +5,21 @@
  * `[data-aparte-split-pane="start"|"end"]` switches a stacked split with no script, and a
  * screen reader heard two plain buttons: nothing said which one was on. The split now keeps
  * `aria-pressed` on every such control that reaches it. A toggle — an id, or empty — is an
- * action, not a state, and gets none.
+ * action, not a state, and gets none. Side by side both panes are in view, so neither
+ * button is pressed and none carries it.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-split.js';
 import type { AparteSplit } from '../aparte-split.js';
 
+/** A narrow window — the split stacks, which is when the switch shows one pane at a time — that a test can widen. */
+let widen: () => void = () => {};
+beforeEach(() => {
+    let listener: ((e: { matches: boolean }) => void) | null = null;
+    const query = { matches: true, addEventListener: (_: string, fn: (e: { matches: boolean }) => void) => { listener = fn; }, removeEventListener: () => {} };
+    (globalThis as unknown as { matchMedia: unknown }).matchMedia = () => query;
+    widen = () => { query.matches = false; listener?.({ matches: false }); };
+});
 afterEach(() => { document.body.innerHTML = ''; });
 
 function mount(): { split: AparteSplit; start: HTMLElement; end: HTMLElement; toggle: HTMLElement } {
@@ -47,6 +56,13 @@ describe('the pane switch', () => {
         split.showPane('end');
         expect(document.querySelector('a')!.hasAttribute('aria-pressed'), 'aria-pressed means nothing on a link').toBe(false);
         expect(document.querySelector('button[data-aparte-split-pane=" end "]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('presses neither button while the split shows both panes side by side', () => {
+        const { start, end } = mount();
+        widen();
+        expect(start.hasAttribute('aria-pressed')).toBe(false);
+        expect(end.hasAttribute('aria-pressed')).toBe(false);
     });
 
     it('leaves a toggle without a pressed state', () => {

@@ -914,6 +914,7 @@ export class AparteSplit extends HTMLElement {
         // first, while there is still a two-pane layout to measure and restore against.
         if (stacked && !was && this._dragging) this._endDrag('pointer', this._dragStartPercent);
         this.toggleAttribute('data-stacked', stacked);
+        if (stacked !== was) this._syncPaneControls();
         if (stacked && !was) {
             if (!this.hasAttribute('pane')) this.showPane('start');
         } else if (!stacked && was) {
@@ -960,9 +961,10 @@ export class AparteSplit extends HTMLElement {
     /**
      * The two-button switch says which pane it shows: `aria-pressed` on every
      * `[data-aparte-split-pane="start"|"end"]` that reaches this split, true on the one
-     * naming the pane in view. A toggle (an id, or empty) is an action and gets none. Read
-     * when the split connects and whenever `pane` changes, so a control added later is
-     * stamped at the next switch.
+     * naming the pane in view, while the split is stacked; side by side both panes are in
+     * view and neither button is pressed, so none carries it. A toggle (an id, or empty) is
+     * an action and gets none. Read when the split connects, whenever `pane` changes and
+     * when it stacks or unstacks, so a control added later is stamped at the next switch.
      */
     private _syncPaneControls(): void {
         const roots = new Set<ParentNode>([rootOf(this), document]);
@@ -976,7 +978,8 @@ export class AparteSplit extends HTMLElement {
                     ?? rootOf(control).querySelector('aparte-split')
                     ?? document.querySelector('aparte-split');
                 if (target !== this) continue;
-                control.setAttribute('aria-pressed', String(which === this.pane));
+                if (this.stacked) control.setAttribute('aria-pressed', String(which === this.pane));
+                else control.removeAttribute('aria-pressed');
             }
         }
     }
