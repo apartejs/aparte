@@ -150,6 +150,12 @@ function drawingOf(provider: object | undefined, name: string): (() => string) |
     return typeof fn === 'function' ? (fn as () => string).bind(provider) : undefined;
 }
 
+/**
+ * The layers `registerIcons` put over a provider. A later call adds to its layer in place, so
+ * the chain a lookup walks stays one layer deep however often icons are registered.
+ */
+const iconLayers = new WeakSet<object>();
+
 /** Every name along a provider's prototype chain, short of `Object.prototype`. */
 function namesOf(provider: object | undefined): string[] {
     const names = new Set<string>();
@@ -539,8 +545,16 @@ export class AparteConfig {
      */
     registerIcons(icons: Record<string, () => string>): void {
         // Layered over the provider rather than spread from it: a spread keeps own properties
-        // only, and a provider written as a class draws from its prototype.
-        this._iconProvider = Object.assign(Object.create(this._iconProvider ?? null) as object, icons) as AparteIconProvider;
+        // only, and a provider written as a class draws from its prototype. One layer: a later
+        // call adds to it (a plugin registering on each mount, a hot reload, call it often).
+        const current = this._iconProvider;
+        if (current && iconLayers.has(current)) {
+            Object.assign(current, icons);
+        } else {
+            const layer = Object.assign(Object.create(current ?? null) as object, icons);
+            iconLayers.add(layer);
+            this._iconProvider = layer as AparteIconProvider;
+        }
         this._notify();
     }
 

@@ -59,6 +59,19 @@ describe('registerIcons', () => {
         expect(share).toBeUndefined();
     });
 
+    it('keeps one layer however often it is called, so a lookup does not walk a growing chain', () => {
+        // A plugin registering its icons on each mount, or a hot reload, calls it again and again.
+        const provider = { copy: () => COPY };
+        aparteGlobalConfig.setIconProvider(provider);
+        for (let i = 0; i < 50; i++) aparteGlobalConfig.registerIcons({ [`icon${i}`]: () => SHARE, share: () => `<svg data-n="${i}"></svg>` });
+        let layers = 0;
+        for (let o = (aparteGlobalConfig as unknown as { _iconProvider: object | null })._iconProvider; o && o !== provider; o = Object.getPrototypeOf(o)) layers++;
+        expect(layers).toBe(1);
+        expect(aparteGlobalConfig.getIcon('copy')).toBe(COPY);
+        expect(aparteGlobalConfig.getIcon('icon0')).toBe(SHARE);
+        expect(aparteGlobalConfig.getIcon('share'), 'the last drawing of a name wins').toBe('<svg data-n="49"></svg>');
+    });
+
     it('types a merged name as possibly absent, and a core name as always drawn', () => {
         const merged = aparteGlobalConfig.getIcon('mergedForTheTypeTest');
         // @ts-expect-error — nothing registered it on this config: it may be undefined.
