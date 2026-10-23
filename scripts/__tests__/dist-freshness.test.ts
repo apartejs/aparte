@@ -112,24 +112,28 @@ describe('dist-freshness reads the built JavaScript', () => {
      * compared against that older hash, and failed a dist that was current.
      */
     it('a build records its src, so a later touch with the same bytes is not stale', () => {
-        const stampDir = mkdtempSync(join(tmpdir(), 'aparte-stamps-'));
         const dir = pkg('stamped', { 'src/index.ts': T0, 'dist/index.js': T1 });
-        stampBuild(dir, { stampDir });
+        expect(stampBuild(dir)).toBe(true);
         utimesSync(join(dir, 'src/index.ts'), T2, T2);
-        const { stale, mtimeOnly } = distFreshness({ dirs: [dir], stampDir });
+        const { stale, mtimeOnly } = distFreshness({ dirs: [dir] });
         expect(stale).toEqual([]);
         expect(mtimeOnly.join()).toMatch(/stamped/);
-        rmSync(stampDir, { recursive: true, force: true });
     });
 
     it('an edit after the build is still stale, record or not', () => {
-        const stampDir = mkdtempSync(join(tmpdir(), 'aparte-stamps-'));
         const dir = pkg('edited', { 'src/index.ts': T0, 'dist/index.js': T1 });
-        stampBuild(dir, { stampDir });
+        stampBuild(dir);
         writeFileSync(join(dir, 'src/index.ts'), '// edited after the build\n');
         utimesSync(join(dir, 'src/index.ts'), T2, T2);
-        expect(distFreshness({ dirs: [dir], stampDir }).stale.join('\n')).toMatch(/edited/);
-        rmSync(stampDir, { recursive: true, force: true });
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/edited/);
+    });
+
+    it('records nothing when src was saved while the build ran: the emit predates it', () => {
+        // vite wrote the bundle from A, src was saved with B while tsc still ran, and the
+        // stamp — the build's last command — would have recorded B for a dist built from A.
+        const dir = pkg('mid-build', { 'src/index.ts': T2, 'dist/index.js': T1 });
+        expect(stampBuild(dir)).toBe(false);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/mid-build/);
     });
 
     it('every directory handed in is actually walked', () => {

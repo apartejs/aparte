@@ -29,9 +29,8 @@
  * measured: a deliberate sabotage passed both in source and failed both the moment the
  * package was rebuilt.
  */
-import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', '.svelte-kit']);
@@ -56,22 +55,21 @@ const IS_INPUT = (name) => /\.(ts|tsx|css|svelte|vue|json)$/.test(name) && !/\.t
  * `import` resolves to.
  */
 const IS_EMIT = (name) => /\.(js|mjs|cjs)$/.test(name);
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const STAMP_DIR = join(ROOT, '.dist-freshness');
-
-/** One file per package under the stamp directory, named after its path from the repo root. */
-function stampPath(dir, stampDir) {
-    const rel = relative(ROOT, resolve(dir)).split(sep).join('/');
-    return join(stampDir, rel.replace(/[^a-zA-Z0-9]/g, '_'));
-}
+/** The package's record of the src its `dist` was built from. */
+export const STAMP_FILE = '.dist-stamp';
 
 /**
  * Record the src a build was made from. Called at the END of a package's `build`, with
- * that package's directory, so the record and the dist always describe the same src.
+ * that package's directory, so the record and the dist always describe the same src —
+ * unless src was saved while the build ran, which the emit's mtime tells: then nothing is
+ * recorded, and the check sees the newer src for what it is. Returns whether it recorded.
  */
-export function stampBuild(dir, { stampDir = STAMP_DIR } = {}) {
-    mkdirSync(stampDir, { recursive: true });
-    writeFileSync(stampPath(dir, stampDir), `${srcHash(join(dir, 'src'))}\n`);
+export function stampBuild(dir) {
+    const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
+    const distNewest = existsSync(join(dir, 'dist')) ? newestMtime(join(dir, 'dist'), IS_EMIT) : 0;
+    if (distNewest === 0 || srcNewest > distNewest) return false;
+    writeFileSync(join(dir, STAMP_FILE), `${srcHash(join(dir, 'src'))}\n`);
+    return true;
 }
 
 function newestMtime(dir, pick, newest = 0) {
@@ -127,11 +125,10 @@ export function* packageDirs(root = 'packages') {
  * verified hash; the repo-wide gate step does that, the narrower callers do not, so a
  * scoped run cannot stamp a package it did not fully consider.
  */
-export function distFreshness({ dirs, record = false, stampDir = STAMP_DIR } = {}) {
+export function distFreshness({ dirs, record = false } = {}) {
     const stale = [];
     const mtimeOnly = [];
     let checked = 0;
-    if (record) mkdirSync(stampDir, { recursive: true });
 
     for (const dir of dirs ?? packageDirs()) {
         const dist = join(dir, 'dist');
@@ -140,7 +137,7 @@ export function distFreshness({ dirs, record = false, stampDir = STAMP_DIR } = {
         const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
         const distNewest = newestMtime(dist, IS_EMIT);
         const rel = relative(process.cwd(), dir).split(sep).join('/');
-        const stamp = stampPath(dir, stampDir);
+        const stamp = join(dir, STAMP_FILE);
 
         // A dist with no executable emit at all is stale by definition, whatever its
         // mtimes say: every guard that reads built output finds nothing to read, and

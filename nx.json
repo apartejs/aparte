@@ -72,7 +72,8 @@
         "^production"
       ],
       "outputs": [
-        "{projectRoot}/dist"
+        "{projectRoot}/dist",
+        "{projectRoot}/.dist-stamp"
       ]
     },
     "gen": {

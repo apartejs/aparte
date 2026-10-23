@@ -14,4 +14,4 @@ if (!existsSync(join(dir, 'src')) || !existsSync(join(dir, 'dist'))) {
     console.error(`[stamp-dist] ${dir} has no src/ and dist/ to stamp — run it at the end of a package build.`);
     process.exit(1);
 }
-stampBuild(dir);
+if (!stampBuild(dir)) console.warn(`[stamp-dist] ${dir}: src changed while the build ran — not recorded, so the dist reads as stale until the next build.`);
