@@ -36,38 +36,41 @@ describe('a Markdown provider set after the message was drawn', () => {
         aparteGlobalConfig.reset();
     });
 
-    it('redraws simple content with it', () => {
+    it('redraws simple content with it', async () => {
         const el = mount();
         el.setContent('**late**');
         expect(el.querySelector('strong')).toBeNull();
 
         aparteGlobalConfig.setMarkdownProvider(bold);
+        await Promise.resolve();
         expect(el.querySelector('.aparte-content strong')?.textContent).toBe('late');
     });
 
-    it('redraws segments with it', () => {
+    it('redraws segments with it', async () => {
         const el = mount();
         el.setSegments([{ id: 's1', type: 'text', content: '**late**' }]);
         expect(el.querySelector('strong')).toBeNull();
 
         aparteGlobalConfig.setMarkdownProvider(bold);
+        await Promise.resolve();
         expect(el.querySelector('.aparte-segments strong')?.textContent).toBe('late');
     });
 
-    it('leaves a streaming message alone, and redraws it when it ends', () => {
+    it('leaves a streaming message alone, and redraws it when it ends', async () => {
         const el = mount();
         el.updateMessage({ status: 'streaming' });
         el.setSegments([{ id: 's1', type: 'text', content: '**late**' }]);
         const before = el.querySelector('[data-segment-id="s1"]');
 
         aparteGlobalConfig.setMarkdownProvider(bold);
+        await Promise.resolve();
         expect(el.querySelector('[data-segment-id="s1"]'), 'mid-stream: not rebuilt').toBe(before);
 
         el.updateMessage({ status: 'completed' });
         expect(el.querySelector('.aparte-segments strong')?.textContent).toBe('late');
     });
 
-    it('waits for an open edit to end, instead of showing the message beside the editor', () => {
+    it('waits for an open edit to end, instead of showing the message beside the editor', async () => {
         aparteGlobalConfig.setBubbleActions({ edit: true });
         const el = document.createElement('aparte-chat-bubble') as BubbleEl;
         el.setAttribute('data-role', 'user');
@@ -79,19 +82,35 @@ describe('a Markdown provider set after the message was drawn', () => {
         expect(content.style.display).toBe('none');
 
         aparteGlobalConfig.setMarkdownProvider(bold);
+        await Promise.resolve();
         expect(content.style.display, 'still hidden behind the editor').toBe('none');
 
         (el.querySelector('[data-action="edit-cancel"]') as HTMLButtonElement).click();
         expect(el.querySelector('.aparte-content strong')?.textContent, 'drawn once the edit ends').toBe('draft');
     });
 
-    it('does not rebuild a message already drawn with the current providers', () => {
+    it('does not rebuild a message already drawn with the current providers', async () => {
         aparteGlobalConfig.setMarkdownProvider(bold);
         const el = mount();
         el.setSegments([{ id: 's1', type: 'text', content: '**on time**' }]);
         const drawn = el.querySelector('[data-segment-id="s1"]');
 
         aparteGlobalConfig.setBubbleActions({ copy: false });   // any other config change
+        await Promise.resolve();
         expect(el.querySelector('[data-segment-id="s1"]')).toBe(drawn);
+    });
+
+    it('draws once for providers set one after another, not once per provider', async () => {
+        // The documented setup sets the Markdown provider, its streaming twin and a highlighter
+        // in a row, often after a restored conversation is drawn: each one notifies.
+        const el = mount();
+        el.setSegments([{ id: 's1', type: 'text', content: '**late**' }]);
+        let parses = 0;
+        aparteGlobalConfig.setMarkdownProvider((md) => { parses++; return bold(md); });
+        aparteGlobalConfig.setStreamingMarkdownProvider(() => ({ write() {}, end() {}, reset() {} }) as never);
+        aparteGlobalConfig.setHighlightProvider((code) => code);
+        await Promise.resolve();
+        expect(parses).toBe(1);
+        expect(el.querySelector('.aparte-segments strong')?.textContent).toBe('late');
     });
 });

@@ -364,8 +364,20 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
-    this._redrawIfStale();
+    // Once, in a microtask: the usual setup sets the Markdown provider, its streaming twin
+    // and a highlighter one after another, and each notifies — drawn on each, every message
+    // on screen was parsed three times over.
+    if (!this._redrawQueued) {
+      this._redrawQueued = true;
+      queueMicrotask(() => {
+        this._redrawQueued = false;
+        if (this.isConnected) this._redrawIfStale();
+      });
+    }
   };
+
+  /** A {@link _redrawIfStale} is queued for the end of the current task. */
+  private _redrawQueued = false;
 
   /** The {@link renderingVersionOf} count the content was last drawn with. */
   private _drawnWithVersion = 0;
