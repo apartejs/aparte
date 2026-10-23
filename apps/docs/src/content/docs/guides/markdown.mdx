@@ -16,7 +16,7 @@ import Variant from '../../../components/catalog/Variant.astro';
 ## Install and register
 
 ```bash
-npm install @aparte/plugin-streaming-markdown streaming-markdown @aparte/plugin-marked marked @aparte/plugin-shiki shiki
+npm install @aparte/plugin-streaming-markdown @paulrichez/streaming-markdown @aparte/plugin-marked marked @aparte/plugin-shiki shiki
 ```
 
 ```ts
@@ -30,7 +30,7 @@ setupShikiProvider({ theme: { light: 'github-light', dark: 'github-dark' } });
 ```
 
 Core has no Markdown of its own: with no renderer set, a reply shows its text as written, escaped.
-Each plugin needs its library installed beside it — `streaming-markdown`, `marked`, `shiki` — and
+Each plugin needs its library installed beside it — `@paulrichez/streaming-markdown`, `marked`, `shiki` — and
 none of it reaches a page that does not install the plugin. Register them before the chat
 renders: a message drawn earlier shows its plain text until they arrive, then is drawn again.
 
@@ -38,9 +38,9 @@ renders: a message drawn earlier shows its plain text until they arrive, then is
 
 - **`@aparte/plugin-streaming-markdown`** formats the reply while it streams, adding what each
   chunk brings instead of formatting the whole reply again. Alone, it formats finished and
-  restored messages too. Its parser does not nest brackets, so a link whose text holds some —
-  `[[1]](https://…)`, a citation — shows as plain text while it streams; beside
-  `@aparte/plugin-marked` the finished reply is formatted again and the link comes out right.
+  restored messages too. Its parser is
+  [`@paulrichez/streaming-markdown`](https://github.com/PaulRichez/streaming-markdown), a maintained
+  fork of `streaming-markdown`.
 - **`@aparte/plugin-marked`** formats a finished or restored message at full fidelity. Beside the
   streaming plugin, it formats a reply again once it finishes; alone, it formats a streaming reply
   too, from the start at each chunk.
