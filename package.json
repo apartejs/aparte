@@ -23,7 +23,7 @@
     "gate:full": "pnpm gate && pnpm e2e",
     "build": "nx run-many -t build",
     "typecheck": "nx run-many -t typecheck",
-    "test": "vitest run --reporter=default --reporter=json --outputFile.json=.vitest-report.json && node scripts/stamp-test-count.mjs",
+    "test": "vitest run --reporter=default --reporter=json --outputFile.json=.vitest-report.json",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=.vitest-report.json && node scripts/stamp-test-count.mjs",
