@@ -134,9 +134,11 @@ describe('the avatar slot', () => {
         expect(seen, 'the mount was still there when its cleanup ran').toBe('AI');
     });
 
-    it('drops the mark when a provider fills the slot', () => {
+    it('drops the mark when a provider fills the slot', async () => {
         stubImage('assistant', 'url("logo.svg")');
         const el = mount('assistant');
+        await Promise.resolve();
+        expect(slot(el).hasAttribute('data-image'), 'marked first, so the drop is what is tested').toBe(true);
         aparteGlobalConfig.setAvatarProvider({ render: (_role, host) => { host.textContent = 'AI'; } });
         expect(slot(el).hasAttribute('data-image')).toBe(false);
     });
