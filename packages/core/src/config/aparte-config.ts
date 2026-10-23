@@ -141,6 +141,25 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
 }
 
 /**
+ * A provider's drawing for `name`, own or inherited — a provider may be a class — but never
+ * one `Object.prototype` lends every object (`toString`, `constructor`).
+ */
+function drawingOf(provider: object | undefined, name: string): (() => string) | undefined {
+    if (!provider || !(name in provider) || name in Object.prototype) return undefined;
+    const fn = (provider as Record<string, unknown>)[name];
+    return typeof fn === 'function' ? (fn as () => string).bind(provider) : undefined;
+}
+
+/** Every name along a provider's prototype chain, short of `Object.prototype`. */
+function namesOf(provider: object | undefined): string[] {
+    const names = new Set<string>();
+    for (let o: object | null | undefined = provider; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
+        for (const name of Object.getOwnPropertyNames(o)) if (name !== 'constructor') names.add(name);
+    }
+    return [...names];
+}
+
+/**
  * Everything a chat is configured with: the providers and the selected model, the
  * transport and the keys, the tools, the renderers and render hooks, the Markdown and
  * highlight providers, the locale, the icons, the avatars, the actions.
@@ -518,7 +537,9 @@ export class AparteConfig {
      * aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', zones: ['bubble'] });
      */
     registerIcons(icons: Record<string, () => string>): void {
-        this._iconProvider = { ...this._iconProvider, ...icons };
+        // Layered over the provider rather than spread from it: a spread keeps own properties
+        // only, and a provider written as a class draws from its prototype.
+        this._iconProvider = Object.assign(Object.create(this._iconProvider ?? null) as object, icons) as AparteIconProvider;
         this._notify();
     }
 
@@ -533,16 +554,16 @@ export class AparteConfig {
      * fall back, so `icons.retry()` never throws "is not a function".
      */
     getIconProvider(): Required<Pick<AparteIconProvider, AparteCoreIconName>> & AparteIconProvider {
-        const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
+        const registered = this._iconProvider;
         const complete: Record<string, () => string> = {};
         for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteCoreIconName[]) {
-            const fn = registered?.[name];
-            complete[name] = fn ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
+            complete[name] = drawingOf(registered, name) ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
         }
         // And the names core does not draw, so an action keyed on one finds it. A merged
         // name stays optional in the type: only the configs it was registered on hold it.
-        for (const [name, fn] of Object.entries(registered ?? {})) {
-            if (typeof fn === 'function' && !(name in complete)) complete[name] = fn;
+        for (const name of namesOf(registered)) {
+            const fn = drawingOf(registered, name);
+            if (fn && !(name in complete)) complete[name] = fn;
         }
         return complete as unknown as Required<Pick<AparteIconProvider, AparteCoreIconName>> & AparteIconProvider;
     }
@@ -701,13 +722,13 @@ export class AparteConfig {
     getIcon(name: AparteIconName): string;
     getIcon(name: string): string | undefined;
     getIcon(name: string): string | undefined {
-        // Own names only: an attribute spelled `constructor` or `toString` would otherwise
-        // read the object's prototype and print a function.
-        const own = (o: object | undefined) => o !== undefined && Object.prototype.hasOwnProperty.call(o, name);
-        const registered = this._iconProvider as Record<string, (() => string) | undefined> | undefined;
-        const icon = own(registered) ? registered![name] : undefined;
-        if (typeof icon === 'function') return icon();
-        return own(APARTE_DEFAULT_ICON_FALLBACKS) ? (APARTE_DEFAULT_ICON_FALLBACKS as Record<string, string>)[name] : undefined;
+        const icon = drawingOf(this._iconProvider, name);
+        if (icon) return icon();
+        // Own names only for the fallbacks: an attribute spelled `constructor` or `toString`
+        // would otherwise read the object's prototype and print a function.
+        return Object.prototype.hasOwnProperty.call(APARTE_DEFAULT_ICON_FALLBACKS, name)
+            ? (APARTE_DEFAULT_ICON_FALLBACKS as Record<string, string>)[name]
+            : undefined;
     }
 
     /**

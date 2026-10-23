@@ -91,3 +91,32 @@ describe('a name core does not draw', () => {
         expect(document.querySelector('aparte-icon')!.innerHTML).toBe('');
     });
 });
+
+/*
+ * A provider may be a class: `AparteIconProvider` is an interface, and methods on a prototype
+ * satisfy it. The own-name guard made `getIcon` skip them (core's glyph drawn beside the
+ * provider's in one bubble), and `registerIcons` spread the provider into a plain object,
+ * which keeps own properties only — every glyph the class drew was lost.
+ */
+describe('a provider written as a class', () => {
+    class Icons {
+        copy(): string { return COPY; }
+        extra(): string { return '<svg data-icon="extra"></svg>'; }
+    }
+
+    it('is read through getIcon, and keeps its glyphs when names are registered beside it', () => {
+        aparteGlobalConfig.setIconProvider(new Icons() as never);
+        expect(aparteGlobalConfig.getIcon('copy')).toBe(COPY);
+        aparteGlobalConfig.registerIcons({ share: () => SHARE });
+        expect(aparteGlobalConfig.getIcon('copy'), 'the class glyph survives the merge').toBe(COPY);
+        expect(aparteGlobalConfig.getIcon('share')).toBe(SHARE);
+        expect(aparteGlobalConfig.getIconProvider().copy()).toBe(COPY);
+        expect((aparteGlobalConfig.getIconProvider() as unknown as Record<string, () => string>).extra?.(), 'a name core does not draw, from the class').toBe('<svg data-icon="extra"></svg>');
+    });
+
+    it('still answers nothing for a name only Object.prototype has', () => {
+        aparteGlobalConfig.setIconProvider(new Icons() as never);
+        expect(aparteGlobalConfig.getIcon('toString')).toBeUndefined();
+        expect(aparteGlobalConfig.getIcon('constructor')).toBeUndefined();
+    });
+});
