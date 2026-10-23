@@ -73,3 +73,82 @@ describe('coverage floors cover every published package', () => {
         expect(missing, `these globs point at nothing: ${missing.join(', ')}`).toEqual([]);
     });
 });
+
+/*
+ * The ratchet turns itself. A floor more than three points under its measurement used to
+ * stop the gate with "raise it to N", ten minutes in, for an edit nobody had to think
+ * about. It is now written into the config — locally; CI still refuses, so the raise is
+ * committed rather than made on a runner and thrown away.
+ */
+describe('grading the floors', () => {
+    const config = [
+        'export default {',
+        '  test: { coverage: {',
+        '      thresholds: {',
+        '        lines: 70,',
+        '        statements: 70,',
+        '        functions: 70,',
+        '        branches: 60,',
+        "        'packages/a/src/**': { lines: 70, statements: 70, functions: 70, branches: 60 },",
+        '      },',
+        '  } },',
+        '};',
+    ].join('\n');
+    const file = (pct: number) => ({ covered: pct, total: 100 });
+    const entry = (l: number, b: number) => ({ lines: file(l), statements: file(l), functions: file(l), branches: file(b) });
+
+    it('raises the global block and a glob in one pass', async () => {
+        const { gradeFloors } = await import('../check-coverage-floors.mjs');
+        const summary = { 'packages/a/src/x.ts': entry(90, 66) };
+        const { problems, raises, config: next } = gradeFloors(config, summary);
+        expect(problems).toEqual([]);
+        expect(raises.map((r: { label: string; metric: string; to: number }) => `${r.label} ${r.metric} ${r.to}`)).toEqual([
+            'global lines 89', 'global statements 89', 'global functions 89', 'global branches 65',
+            'packages/a/src/** lines 89', 'packages/a/src/** statements 89', 'packages/a/src/** functions 89', 'packages/a/src/** branches 65',
+        ]);
+        expect(next).toContain('        lines: 89,\n        statements: 89,\n        functions: 89,\n        branches: 65,');
+        expect(next).toContain("'packages/a/src/**': { lines: 89, statements: 89, functions: 89, branches: 65 }");
+    });
+
+    it('fails a floor above its measurement, and raises nothing to hide it', async () => {
+        const { gradeFloors } = await import('../check-coverage-floors.mjs');
+        const summary = { 'packages/a/src/x.ts': entry(71, 59) };
+        const { problems, raises } = gradeFloors(config, summary);
+        expect(problems.join('\n')).toMatch(/"packages\/a\/src\/\*\*" branches measured 59\.00%, BELOW its floor of 60/);
+        expect(raises).toEqual([]);
+    });
+
+    it('writes the raise locally and goes on, and refuses it in CI', async () => {
+        const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+        const { tmpdir } = await import('node:os');
+        const { spawnSync } = await import('node:child_process');
+        const script = join(REPO, 'scripts', 'check-coverage-floors.mjs');
+        const run = (env: Record<string, string | undefined>) => {
+            const dir = mkdtempSync(join(tmpdir(), 'floors-'));
+            mkdirSync(join(dir, 'coverage'));
+            writeFileSync(join(dir, 'vitest.config.ts'), config);
+            writeFileSync(join(dir, 'coverage', 'coverage-summary.json'), JSON.stringify({ 'packages/a/src/x.ts': entry(90, 66) }));
+            const { CI: _ci, GITHUB_ACTIONS: _gh, ...rest } = process.env;
+            const out = spawnSync(process.execPath, [script], { cwd: dir, env: { ...rest, ...env }, encoding: 'utf8' });
+            const written = readFileSync(join(dir, 'vitest.config.ts'), 'utf8');
+            rmSync(dir, { recursive: true, force: true });
+            return { status: out.status, written, stdout: out.stdout, stderr: out.stderr };
+        };
+
+        const local = run({});
+        expect(local.status, local.stderr).toBe(0);
+        expect(local.stdout).toMatch(/raised 8 floor\(s\)/);
+        expect(local.written).toContain("'packages/a/src/**': { lines: 89, statements: 89, functions: 89, branches: 65 }");
+
+        const ci = run({ CI: 'true' });
+        expect(ci.status).toBe(1);
+        expect(ci.stderr).toMatch(/Raise it to 89/);
+        expect(ci.written, 'CI leaves the config alone').toBe(config);
+    });
+
+    it('fails a glob that matched no file', async () => {
+        const { gradeFloors } = await import('../check-coverage-floors.mjs');
+        const { problems } = gradeFloors(config, { 'packages/b/src/y.ts': entry(71, 61) });
+        expect(problems.join('\n')).toMatch(/"packages\/a\/src\/\*\*" matched no file/);
+    });
+});
