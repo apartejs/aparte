@@ -329,6 +329,9 @@ export class AparteChatHost {
                 return this._vp()?.exportTree?.();
             },
             importTree: (tree) => { this._vp()?.importTree?.(tree); },
+            // The framework's list arrives at its render, so a save that must see a write
+            // the app made to its own store (a compaction through `resolveTarget`) waits for it.
+            afterRender: (cb) => this.binding.afterRender(cb),
             // One writer for the wait. A wrapper that hears `onLoadingChange` draws the
             // wait itself and writes the viewport's attribute from its own
             // `loading || hostLoading` — so the host writing it too meant that, with the

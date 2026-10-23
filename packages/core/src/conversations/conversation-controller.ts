@@ -47,7 +47,17 @@ export interface AparteChatBinding {
      * Optional: falls back to the flat `setMessages` load when absent.
      */
     importTree?(tree: ExportedMessageRepository): void;
+    /**
+     * Run a callback after the framework has applied its latest render. Optional: a
+     * binding whose list is current the moment it is written (the vanilla viewport)
+     * leaves it out. One that renders late — a transcript kept in a framework store —
+     * declares it, so a save waits for the list to arrive instead of writing the old one.
+     */
+    afterRender?(cb: () => void): void;
 }
+
+/** How many renders a compaction's save waits for the summary to reach the binding. */
+const MAX_COMPACTION_SAVE_WAITS = 6;
 
 export interface AparteConversationControllerOptions {
     /**
@@ -303,9 +313,9 @@ export class AparteConversationController {
         // were saved at the next message, and a reload before it brought the long transcript
         // back. Saved now, for the chat it names.
         this._onCompactDone = (e: Event) => {
-            const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
-            if (targetId && targetId !== this._binding.hostId) return;
-            queueMicrotask(() => this._persistActive());
+            const detail = (e as CustomEvent<{ targetId?: string; summary?: string } | undefined>).detail;
+            if (detail?.targetId && detail.targetId !== this._binding.hostId) return;
+            queueMicrotask(() => this._persistOnceSummarised(detail?.summary, 0));
         };
         if (typeof window !== 'undefined') {
             window.addEventListener('aparte-conversation-select', this._onSelectConversation);
@@ -599,6 +609,23 @@ export class AparteConversationController {
      * re-enter streaming UI (caret, spinner, no action buttons) for content
      * that was partially written before a switch or component destruction.
      */
+    /**
+     * Save once the binding holds the summary a compaction announced. A transcript kept in
+     * a framework store reaches the binding only when that framework renders, so a save on
+     * the microtask wrote the conversation as it stood before the compaction. Bounded: a
+     * run with no summary (skipped), or a binding that never shows it, is saved as it is.
+     */
+    private _persistOnceSummarised(summary: string | undefined, waits: number): void {
+        const holds = !summary || this._binding.getMessages().some(
+            (m) => m.compaction === true && typeof m.content === 'string' && m.content.endsWith(summary),
+        );
+        if (holds || !this._binding.afterRender || waits >= MAX_COMPACTION_SAVE_WAITS) {
+            this._persistActive();
+            return;
+        }
+        this._binding.afterRender(() => this._persistOnceSummarised(summary, waits + 1));
+    }
+
     private _persistActive(): void {
         if (!this._activeId) return;
         const manager = this._manager();
