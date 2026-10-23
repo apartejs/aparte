@@ -200,20 +200,25 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         // The `details` lines are locale text too ("{n} context", the number's format): written
         // in place, so an open list and a typed search survive the language switch.
         if (!this.hasAttribute('details')) return;
+        // One lookup of the options and one number format for the whole list: a catalogue
+        // of hundreds of models is relabelled on every config change.
+        const options = new Map(Array.from(this.querySelectorAll('aparte-option'), (o) => [o.getAttribute('value'), o]));
+        const tokens = this._tokenFormat();
         for (const pm of this._providerModels) {
             for (const m of pm.models) {
-                const value = `${pm.provider.id}::${m.id}`;
-                const option = Array.from(this.querySelectorAll('aparte-option')).find((o) => o.getAttribute('value') === value);
-                const line = option?.querySelector('.aparte-option__meta');
-                if (line) line.textContent = this._metaText(m);
+                const line = options.get(`${pm.provider.id}::${m.id}`)?.querySelector('.aparte-option__meta');
+                if (line) line.textContent = this._metaText(m, tokens);
             }
         }
     }
 
+    /** How a token count is written in the locale's language: 128K, 128 k… */
+    private _tokenFormat(): Intl.NumberFormat {
+        return new Intl.NumberFormat(this._cfg.getLocale().tag || undefined, { notation: 'compact', maximumFractionDigits: 1 });
+    }
+
     /** The line under a model's name with `details`: what its provider declares about it. */
-    private _metaText(m: { description?: string; contextWindow?: number }): string {
-        const tag = this._cfg.getLocale().tag || undefined;
-        const tokens = new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 });
+    private _metaText(m: { description?: string; contextWindow?: number }, tokens: Intl.NumberFormat): string {
         const parts: string[] = [];
         if (m.description) parts.push(m.description);
         if (m.contextWindow && m.contextWindow > 0) {
@@ -458,8 +463,9 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const searchable = this.hasAttribute('searchable');
         // The line under a name: what the provider declares about the model, when asked for.
         const details = this.hasAttribute('details');
+        const tokens = details ? this._tokenFormat() : null;
         const meta = (m: { description?: string; contextWindow?: number }): string => {
-            const text = details ? this._metaText(m) : '';
+            const text = tokens ? this._metaText(m, tokens) : '';
             return text ? `<span class="aparte-option__meta">${esc(text)}</span>` : '';
         };
         const autoSelect = this.hasAttribute('auto-select');

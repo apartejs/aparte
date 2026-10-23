@@ -535,4 +535,27 @@ describe('aparte-model-selector details, live', () => {
         aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelContextWindow: '{n} de contexte' });
         await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')?.textContent).toMatch(/de contexte/));
     });
+
+    it('relabels a long list in one pass: one lookup of the options, one number format', async () => {
+        // A catalogue of hundreds of models (OpenRouter) is relabelled on every config change.
+        const models = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, name: `Model ${i}`, contextWindow: 8000 + i }));
+        aparteGlobalConfig.registerAIProvider({
+            id: 'nu', getMetadata: () => ({ id: 'nu', name: 'Provider nu' }),
+            getModels: () => models, fetchModels: async () => models,
+        } as unknown as AparteAIProvider);
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        document.body.appendChild(selector);
+        await vi.waitFor(() => expect(selector.querySelectorAll('.aparte-option__meta')).toHaveLength(30));
+        const lookups = vi.spyOn(selector, 'querySelectorAll');
+        const formats = vi.spyOn(Intl, 'NumberFormat');
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelContextWindow: '{n} de contexte' });
+        const optionLookups = lookups.mock.calls.filter(([selector]) => selector === 'aparte-option').length;
+        const formatsMade = formats.mock.calls.length;
+        lookups.mockRestore();
+        formats.mockRestore();
+        expect(selector.querySelectorAll('.aparte-option__meta')[29]?.textContent).toMatch(/de contexte/);
+        expect(optionLookups).toBe(1);
+        expect(formatsMade).toBe(1);
+    });
 });
