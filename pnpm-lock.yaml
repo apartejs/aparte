@@ -787,6 +787,10 @@ importers:
         version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/plugins/marked:
+    dependencies:
+      remend:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
       '@aparte/core':
         specifier: workspace:*
@@ -9240,6 +9244,9 @@ packages:
 
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
+
+  remend@1.4.0:
+    resolution: {integrity: sha512-mHiYhhwphs1IgIZmkToKLwJn0U99IjPXuutkA2acrNcG0vlEq2G4TGnd2eT0saIHwh2KjaCpvleHcsd5SAz96A==}
 
   request-light@0.5.8:
     resolution: {integrity: sha512-3Zjgh+8b5fhRJBQZoy+zbVKpAQGLyka0MPgW3zruTF4dFFJ8Fqcfu9YsAvi/rvdcaTeWG3MkbZv4WKxAn/84Lg==}
@@ -20754,6 +20761,8 @@ snapshots:
       '@types/mdast': 4.0.4
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
+
+  remend@1.4.0: {}
 
   request-light@0.5.8: {}
 

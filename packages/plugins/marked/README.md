@@ -15,6 +15,21 @@ setupMarkedProvider({ gfm: true, breaks: true }); // options are optional
 ```
 
 `@aparte/core` and `marked` are **peer dependencies**. For token-by-token incremental rendering during
-streaming, add `@aparte/plugin-streaming-markdown` alongside this.
+streaming, add `@aparte/plugin-streaming-markdown` alongside this — or use marked for the stream too:
+
+## Stream with marked
+
+```ts
+import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
+
+setupMarkedStreamingProvider(); // replaces setupMarkedProvider(); same options
+```
+
+marked formats the reply while it streams and once it is done, so a finished reply looks exactly as
+it did at its last chunk. The block being written is completed by Vercel's
+[`remend`](https://www.npmjs.com/package/remend) before marked reads it — `**bold` shows bold before
+its closing `**`, a link shows as a link from its first character — and drawn again at each chunk;
+the blocks above it are not. Every block goes through the config's sanitizer. `remend` is a
+dependency of this plugin, imported by the `/streaming` entry only.
 
 > ESM-only. Part of the aparté monorepo.
