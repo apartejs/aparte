@@ -181,7 +181,7 @@ describe('a field the app writes on a message under a framework', () => {
         select('c1');
         await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
 
-        host.updateMessage('a1', { model: 'big-model' });
+        host.updateMessage('a1', { model: { providerId: 'p', modelId: 'big-model' } });
         root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
         await new Promise((r) => setTimeout(r, 20));
         host.updateMessage('a1', { model: undefined });
