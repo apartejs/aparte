@@ -37,12 +37,15 @@
   let hostLoading = false;
   $: waiting = loading || hostLoading;
   // Bumped on every config change: the labels below are locale text, and `$:` does not see the
-  // config — a language switch left them in the old language.
+  // config — a language switch left them in the old language. Passing the tick is what makes
+  // the two statements re-run.
   let localeTick = 0;
   let unsubscribeLocale: (() => void) | null = null;
-  $: loadingText = (localeTick, (config ?? aparteGlobalConfig).t('loadingConversation'));
-  // The status line's word, from the locale like the rest of the chat (it was English everywhere).
-  $: typingLabel = (localeTick, typingText ?? (config ?? aparteGlobalConfig).t('typing'));
+  const localeText = (_tick: number, cfg: AparteConfig | undefined, key: 'loadingConversation' | 'typing'): string =>
+    (cfg ?? aparteGlobalConfig).t(key);
+  $: loadingText = localeText(localeTick, config, 'loadingConversation');
+  // The status line's word, from the locale like the rest of the chat, unless the prop says.
+  $: typingLabel = typingText ?? localeText(localeTick, config, 'typing');
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
