@@ -77,11 +77,12 @@ registerModel({ id: 'my-org/my-model', name: 'Mine', capabilities: ['streaming']
 // runners/mine.js — served by your app; the worker imports it by URL
 export async function createRunner(ctx) {
   // ctx.transformers is the Transformers.js the page installed or mapped — never import your own
-  const { AutoTokenizer, AutoModelForCausalLM, TextStreamer } = ctx.transformers;
+  const { AutoTokenizer, AutoModelForCausalLM, TextStreamer, InterruptableStoppingCriteria } = ctx.transformers;
   const tokenizer = await AutoTokenizer.from_pretrained(ctx.modelId);
   const model = await AutoModelForCausalLM.from_pretrained(ctx.modelId, { dtype: ctx.dtype, device: ctx.device });
   return {
-    async generate({ messages, options, emit }) {
+    async generate({ messages, options, emit, signal }) {
+      if (signal.aborted) return;
       // messages arrive WITH their content parts — render them the way this model wants;
       // this one reads text, so the parts are flattened and tool turns left out
       const turns = messages
@@ -92,7 +93,10 @@ export async function createRunner(ctx) {
         skip_prompt: true, skip_special_tokens: true,
         callback_function: (text) => emit({ type: 'text', delta: text }),
       });
-      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 8192, streamer });
+      // Stop: without this the model generates on to its ceiling, and the next reply waits behind it
+      const stopping = new InterruptableStoppingCriteria();
+      signal.addEventListener('abort', () => stopping.interrupt(), { once: true });
+      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 8192, streamer, stopping_criteria: stopping });
       // `done` is optional — the provider closes the stream when generate() resolves
     },
     // anything that is not a generation: the provider passes it through, untouched
