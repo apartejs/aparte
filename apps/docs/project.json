@@ -13,6 +13,12 @@
         "{projectRoot}/src/content/docs/kit",
         "{projectRoot}/src/content/docs/segments",
         "{projectRoot}/src/generated"
+      ],
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/scripts/*.mjs",
+        "{workspaceRoot}/package.json"
       ]
     },
     "build": {
@@ -27,6 +33,12 @@
         "{projectRoot}/src/content/docs/kit",
         "{projectRoot}/src/content/docs/segments",
         "{projectRoot}/src/generated"
+      ],
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/scripts/*.mjs",
+        "{workspaceRoot}/package.json"
       ]
     }
   }
