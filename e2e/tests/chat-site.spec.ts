@@ -277,6 +277,10 @@ test('the first send glides the composer down', async ({ page }) => {
     });
     const end = tops[tops.length - 1]!;
     expect(end - start, 'the composer went from the middle to the bottom').toBeGreaterThan(80);
+    // At least one frame on the way, not a count of them: a snap lands in one frame with nothing
+    // in between, while a glide's frame count is a measure of the machine — WebKit on a 2-vCPU
+    // runner draws the whole slide in two or three frames ([328,573,587…]), and "more than two"
+    // failed it there with the glide plainly happening.
     const between = tops.filter((t) => t > start + 10 && t < end - 10).length;
-    expect(between, `a glide passes the frames in between (${JSON.stringify(tops)})`).toBeGreaterThan(2);
+    expect(between, `a glide passes a frame in between (${JSON.stringify(tops)})`).toBeGreaterThanOrEqual(1);
 });
