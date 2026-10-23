@@ -698,6 +698,43 @@ describe('setupCompaction — the window events and the page', () => {
         expect(globalSummaries, 'and the global one leaves the scoped chat to its own').toHaveBeenCalledTimes(1);
     });
 
+    it('a setup scoped to a chat answers it alone, beside a global setup — the per-chat pattern of the guide', async () => {
+        const store = makeTarget(exchange(1, 's'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'support';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        const support = makeConfig('S');
+        attachConfig(el, support.cfg);
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }), scopeToTargetId: 'support' }, support.cfg);
+
+        send('aparte-compact', { targetId: 'support' });
+        await vi.waitFor(() => expect(support.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'the global setup leaves the chat to the one scoped to it').not.toHaveBeenCalled();
+    });
+
+    it('a setup with a resolveTarget of its own answers a chat that lives in a store, beside a global setup', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'z'));
+        const own = makeConfig('O');
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: (id) => (id === 'store-chat' ? store : null) }, own.cfg);
+
+        send('aparte-compact', { targetId: 'store-chat' });
+        await vi.waitFor(() => expect(own.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries).not.toHaveBeenCalled();
+        expect(warn.mock.calls.flat().join(' '), 'and the global one does not report a missing chat').not.toContain('No chat with id');
+        warn.mockRestore();
+    });
+
     it('a chat whose config has no setup is answered by the one that exists, global or not', async () => {
         const store = makeTarget(exchange(1, 'u'));
         const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;

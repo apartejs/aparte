@@ -181,6 +181,19 @@ const controllers = new WeakMap<AparteConfig, CompactionController>();
  */
 const answering = new WeakSet<AparteConfig>();
 
+/**
+ * The chats a listening setup is scoped to (`scopeToTargetId`), with how many setups name each:
+ * a chat named by a scoped setup is that setup's, and the others step aside for it.
+ */
+const scopedChats = new Map<string, number>();
+
+/**
+ * The `resolveTarget` of every listening setup that brought its own: a chat that is not on the
+ * page (a transcript in a store) is answered by the setup whose resolver knows it, and by none
+ * of the others.
+ */
+const ownResolvers = new Set<(targetId?: string) => CompactionTarget | null>();
+
 const asTarget = (candidate: unknown, depth = 0): CompactionTarget | null => {
     if (!candidate || typeof candidate !== 'object' || depth > 1) return null;
     const el = candidate as Partial<CompactionTarget> & { viewport?: unknown };
@@ -331,10 +344,17 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     const addressed = (e: Event): boolean => {
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
         if (scope) return targetId === scope;
+        // A chat a scoped setup names is that setup's alone.
+        if (targetId && scopedChats.has(targetId)) return false;
         if (typeof document === 'undefined') return true;
         const el = targetId
             ? document.getElementById(targetId)
             : document.querySelector<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
+        if (!el && targetId) {
+            // Not on the page: the setup whose own resolver knows it answers it, and only that one.
+            if (options.resolveTarget) return Boolean(resolveTarget(targetId));
+            for (const other of ownResolvers) if (other(targetId)) return false;
+        }
         const owner = el ? resolveConfig(el) : aparteGlobalConfig;
         if (owner === config) return true;
         if (answering.has(owner)) return false;
@@ -358,6 +378,8 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         window.addEventListener('aparte-abort', onAbort);
     }
     if (listening && !scope) answering.add(config);
+    if (listening && scope) scopedChats.set(scope, (scopedChats.get(scope) ?? 0) + 1);
+    if (listening && options.resolveTarget) ownResolvers.add(options.resolveTarget);
 
     const controller: CompactionController = {
         get running() {
@@ -375,6 +397,12 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (listening) {
                 window.removeEventListener('aparte-compact', onCompact);
                 window.removeEventListener('aparte-abort', onAbort);
+                if (scope) {
+                    const left = (scopedChats.get(scope) ?? 1) - 1;
+                    if (left > 0) scopedChats.set(scope, left);
+                    else scopedChats.delete(scope);
+                }
+                if (options.resolveTarget) ownResolvers.delete(options.resolveTarget);
             }
             if (controllers.get(config) === controller) {
                 controllers.delete(config);
