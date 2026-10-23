@@ -53,6 +53,7 @@ const BARRELS = [
     // The plugins, providers and locales, which were not measured at all — so
     // Tier 1's "a value export must be named somewhere" applied to core alone.
     { pkg: '@aparte/plugin-marked', types: 'packages/plugins/marked/dist/index.d.ts', readme: 'packages/plugins/marked/README.md' },
+    { pkg: '@aparte/plugin-marked/streaming', types: 'packages/plugins/marked/dist/streaming.d.ts', readme: 'packages/plugins/marked/README.md' },
     { pkg: '@aparte/plugin-shiki', types: 'packages/plugins/shiki/dist/index.d.ts', readme: 'packages/plugins/shiki/README.md' },
     { pkg: '@aparte/plugin-streaming-markdown', types: 'packages/plugins/streaming-markdown/dist/index.d.ts', readme: 'packages/plugins/streaming-markdown/README.md' },
     { pkg: '@aparte/plugin-model-selector', types: 'packages/plugins/model-selector/dist/index.d.ts', readme: 'packages/plugins/model-selector/README.md' },
@@ -134,6 +135,7 @@ const MAX_UNMENTIONED = new Map([
     // more than a type, and the ratchet is only the first step: it makes the number
     // visible and stops it growing. Writing the pages is a lot of its own.
     ['@aparte/plugin-marked', 0],
+    ['@aparte/plugin-marked/streaming', 0],
     ['@aparte/plugin-shiki', 0],   // its five types are named on the Markdown and code guide
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
