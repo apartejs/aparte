@@ -18,6 +18,7 @@
  * Run by `pnpm gate` with the other source checks, before the build.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join, relative, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -93,13 +94,28 @@ export function checkMdxText(text) {
     return problems;
 }
 
-function mdxFiles(dir, out = []) {
+function walk(dir, out = []) {
     for (const name of readdirSync(dir)) {
         const path = join(dir, name);
-        if (statSync(path).isDirectory()) mdxFiles(path, out);
+        if (statSync(path).isDirectory()) walk(path, out);
         else if (name.endsWith('.mdx')) out.push(path);
     }
     return out;
+}
+
+/**
+ * The pages written by hand — the ones git tracks. The generated pages a previous build left
+ * on disk are gitignored: reading them made a local run check a corpus CI never sees (a stale
+ * generator output could fail here before the build that replaces it). Outside a checkout, the
+ * walk of the folder.
+ */
+function mdxFiles(dir) {
+    try {
+        const listed = execFileSync('git', ['ls-files', '-z', '--', relative(ROOT, dir).split(sep).join('/')], { cwd: ROOT, encoding: 'utf8' });
+        return listed.split('\0').filter((f) => f.endsWith('.mdx')).map((f) => join(ROOT, f));
+    } catch {
+        return walk(dir);
+    }
 }
 
 function main() {
