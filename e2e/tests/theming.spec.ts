@@ -550,3 +550,25 @@ test('aparte-chat--compact tightens the messages at any width', async ({ page })
     expect(after.message).toBe(after.compact);
 });
 
+/*
+ * An option's second line goes under the label AND the status dot. The dot is appended as the
+ * option's last child, after the meta line, so with the meta taking a whole line of its own
+ * the dot fell alone onto a third one.
+ */
+test('an option with a meta line and a status dot keeps the dot beside its label', async ({ page }) => {
+    const rows = await page.evaluate(async () => {
+        const host = document.querySelector('aparte-chat')!;
+        const option = document.createElement('aparte-option');
+        option.setAttribute('value', 'x');
+        option.innerHTML = 'Model name<span class="aparte-option__meta">Long documents · 128K context</span>';
+        option.setAttribute('data-status', 'ready');
+        option.style.width = '320px';
+        host.append(option);
+        await new Promise((r) => requestAnimationFrame(r));
+        const dot = option.querySelector('.aparte-status-dot')!.getBoundingClientRect();
+        const meta = option.querySelector('.aparte-option__meta')!.getBoundingClientRect();
+        option.remove();
+        return { dotTop: dot.top, dotBottom: dot.bottom, metaTop: meta.top };
+    });
+    expect(rows.dotBottom, 'the dot sits on the label line, above the meta line').toBeLessThanOrEqual(rows.metaTop + 1);
+});
