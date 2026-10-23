@@ -8,7 +8,7 @@
  * but allows complete customization via dependency injection.
  */
 
-import { AparteIconProvider, AparteIconName, AparteCoreIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
+import { AparteIconProvider, AparteCoreIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
 import { AparteLocale, AparteLocaleExtensions, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
@@ -718,9 +718,11 @@ export class AparteConfig {
 
     /**
      * An icon's markup by name: the registered drawing, else core's. A name neither holds
-     * returns `undefined` — core's names always resolve.
+     * returns `undefined` — core's names always resolve, and a name merged into
+     * `AparteIconProvider` stays possibly `undefined`: only the configs it was registered on
+     * draw it.
      */
-    getIcon(name: AparteIconName): string;
+    getIcon(name: AparteCoreIconName): string;
     getIcon(name: string): string | undefined;
     getIcon(name: string): string | undefined {
         const icon = drawingOf(this._iconProvider, name);

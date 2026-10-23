@@ -61,8 +61,9 @@ aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', 
 `registerIcons` adds to the set and keeps the rest, so a plugin and the app can each register
 theirs; a later `setIconProvider` replaces them all. The new name is then an icon like core's: an
 action's `icon`, `<aparte-composer-action icon="share">` and `<aparte-icon name="share">` find it.
-The `declare module` block types it, so `getIcon('share')` returns a `string`: a promise to register
-it on every configuration the chat uses, since a name nobody registered returns `undefined`.
+The `declare module` block makes `share` a name the types know: `setIconProvider` takes it beside
+core's, and `AparteIconName` lists it. `getIcon('share')` still returns `string | undefined`, unlike
+one of core's names: a configuration nobody registered it on has no drawing for it.
 
 ## Avatars
 

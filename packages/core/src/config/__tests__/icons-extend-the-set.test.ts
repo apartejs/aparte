@@ -16,6 +16,14 @@ import { aparteGlobalConfig } from '../index.js';
 const SHARE = '<svg data-icon="share"></svg>';
 const COPY = '<svg data-icon="my-copy"></svg>';
 
+// A name an app merges in, as `registerIcons`' documentation says to: only the configs it was
+// registered on draw it, so the type must leave it optional.
+declare module '../icon-provider.js' {
+    interface AparteIconProvider {
+        mergedForTheTypeTest?: () => string;
+    }
+}
+
 afterEach(() => {
     document.body.innerHTML = '';
     aparteGlobalConfig.reset();
@@ -49,6 +57,15 @@ describe('registerIcons', () => {
         aparteGlobalConfig.setIconProvider({ copy: () => COPY });
         const share: string | undefined = aparteGlobalConfig.getIcon('share');
         expect(share).toBeUndefined();
+    });
+
+    it('types a merged name as possibly absent, and a core name as always drawn', () => {
+        const merged = aparteGlobalConfig.getIcon('mergedForTheTypeTest');
+        // @ts-expect-error — nothing registered it on this config: it may be undefined.
+        const asString: string = merged;
+        expect(asString).toBeUndefined();
+        const copy: string = aparteGlobalConfig.getIcon('copy');
+        expect(copy).toContain('<svg');
     });
 });
 

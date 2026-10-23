@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig } from '../aparte-config';
-import { APARTE_DEFAULT_ICON_FALLBACKS, type AparteIconName } from '../icon-provider';
+import { APARTE_DEFAULT_ICON_FALLBACKS, type AparteCoreIconName } from '../icon-provider';
 
 // The default-fallback module ships the zero-dependency icon markup used when no
 // provider is registered. It is pure data (no `if` branches), so the meaningful
@@ -10,7 +10,7 @@ import { APARTE_DEFAULT_ICON_FALLBACKS, type AparteIconName } from '../icon-prov
 describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
     afterEach(() => aparteGlobalConfig.reset());
 
-    const requiredIconNames: AparteIconName[] = [
+    const requiredIconNames: AparteCoreIconName[] = [
         'copy', 'check', 'send', 'loading', 'error', 'expand', 'collapse',
         'terminal', 'paperclip', 'image', 'file', 'scrollDown', 'retry',
         'edit', 'thumbUp', 'thumbDown', 'prevBranch', 'nextBranch',
