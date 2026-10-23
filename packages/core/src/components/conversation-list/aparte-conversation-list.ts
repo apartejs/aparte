@@ -578,7 +578,7 @@ export class AparteConversationList extends HTMLElement {
 
     /** The question the confirm step asks — the popover's accessible name while it asks it. */
     private _confirmQuestion(conv: AparteConversationListItem): string {
-        return this._t('deleteConversationConfirm').replace('{title}', conv.title || this._t('newChat'));
+        return this._t('deleteConversationConfirm').replace('{title}', () => conv.title || this._t('newChat'));
     }
 
     private _confirmMarkup(conv: AparteConversationListItem): string {

@@ -114,7 +114,7 @@ export class AparteComposerAttachments extends HTMLElement {
         // Interpolated from the RAW file name and escaped once, at the end: reusing the
         // already-escaped `name` would escape a `&` twice and read "rapport &amp; co".
         const removeLabel = (file: File): string =>
-            (cfg.t('removeAttachment') || 'Remove {name}').replace('{name}', file.name);
+            (cfg.t('removeAttachment') || 'Remove {name}').replace('{name}', () => file.name);
 
         this.innerHTML = files.map((file) => {
             const name = escapeHtml(file.name);

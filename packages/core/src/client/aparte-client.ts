@@ -600,7 +600,7 @@ export class AparteClient {
              */
             message: () => {
                 const loc = this._config.getLocale();
-                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
+                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => event.name);
             },
             // A plain string, not a function: the arguments are the model's — its JSON, or
             // the tool's own formatter's reading of it — and do not change with the

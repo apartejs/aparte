@@ -217,7 +217,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const parts: string[] = [];
         if (m.description) parts.push(m.description);
         if (m.contextWindow && m.contextWindow > 0) {
-            parts.push((this._cfg.t('modelContextWindow') || '{n} context').replace('{n}', tokens.format(m.contextWindow)));
+            const size = tokens.format(m.contextWindow);
+            parts.push((this._cfg.t('modelContextWindow') || '{n} context').replace('{n}', () => size));
         }
         return parts.join(' · ');
     }

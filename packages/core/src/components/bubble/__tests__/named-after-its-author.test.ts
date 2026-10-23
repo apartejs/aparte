@@ -28,6 +28,12 @@ describe('the accessible name of a message', () => {
         expect(label(mount('assistant', 'Camille (support)'))).toBe('Message from Camille (support)');
     });
 
+    it('keeps a name with a dollar sign as it is written', () => {
+        // `String.replace` reads `$&`, `$'` and `$$` in its replacement: a display name is
+        // free text, and "A$&B" came out as "Message from A{name}B".
+        expect(label(mount('assistant', "A$&B $' $$"))).toBe("Message from A$&B $' $$");
+    });
+
     it('follows a name set or changed after the bubble is drawn', () => {
         const el = mount('assistant');
         expect(label(el)).toBe('Assistant response');

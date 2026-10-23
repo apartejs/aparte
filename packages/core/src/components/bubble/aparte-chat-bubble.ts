@@ -1240,7 +1240,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _getAriaLabel(): string {
     const locale = this._cfg.getLocale();
     const name = this.getAttribute('name');
-    if (name) return (locale.messageFrom || 'Message from {name}').replace('{name}', name);
+    if (name) return (locale.messageFrom || 'Message from {name}').replace('{name}', () => name);
     return this._role === 'user'
       ? (locale.yourMessage ?? 'Your message')
       : (locale.assistantResponse ?? 'Assistant response');
