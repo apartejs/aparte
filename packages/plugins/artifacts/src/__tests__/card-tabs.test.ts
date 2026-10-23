@@ -71,6 +71,43 @@ describe('artifact card — the tablist pattern', () => {
         expect(first!.tabIndex).toBe(-1);
     });
 
+    const press = (tab: HTMLElement, key: string): KeyboardEvent => {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        tab.dispatchEvent(event);
+        return event;
+    };
+
+    it('End and Home reach the last and the first tab, and ArrowLeft wraps round', () => {
+        const [first, second] = tabs();
+        press(first!, 'End');
+        expect(second!.getAttribute('aria-selected')).toBe('true');
+        press(second!, 'Home');
+        expect(first!.getAttribute('aria-selected')).toBe('true');
+        press(first!, 'ArrowLeft');
+        expect(second!.getAttribute('aria-selected'), 'from the first tab, the one before is the last').toBe('true');
+    });
+
+    it('any other key leaves the selection, and the key, alone', () => {
+        const [first] = tabs();
+        const event = press(first!, 'a');
+        expect(first!.getAttribute('aria-selected')).toBe('true');
+        expect(event.defaultPrevented, 'a letter typed on a tab is not swallowed').toBe(false);
+    });
+
+    it('skips Preview while the artifact streams, instead of trapping the focus on it', () => {
+        document.body.innerHTML = '';
+        const streaming = { ...SEGMENT, id: 'seg-2', content: '<p>h', isStreaming: true } as AparteArtifactSegment;
+        host = mount(streaming);
+        artifactRenderer.setup?.(host, streaming);
+        const preview = host.querySelector<HTMLButtonElement>('[role="tab"][data-tab-target="preview"]')!;
+        const code = host.querySelector<HTMLButtonElement>('[role="tab"][data-tab-target="code"]')!;
+        expect(preview.disabled, 'nothing to preview yet').toBe(true);
+        press(code, 'End');
+        press(code, 'ArrowRight');
+        expect(code.getAttribute('aria-selected')).toBe('true');
+        expect(preview.getAttribute('aria-selected')).not.toBe('true');
+    });
+
     it('ids are unique per card, so two cards do not collide', () => {
         const other = mount({ ...SEGMENT, id: 'seg-2' } as AparteArtifactSegment);
 
