@@ -168,9 +168,21 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
         return Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top);
     }, targetId), { timeout: 6_000 }).toBeLessThanOrEqual(1);
     await expect(fifth).toHaveAttribute('aria-current', 'true');
-    // And it stays: the observer's mid-scroll opinions do not move it once settled.
+    // And it stays: the observer's mid-scroll opinions do not move it once settled. Sampled
+    // every frame past the rail's own hold (150ms of stillness, during which it forces the
+    // mark), since a single look as the view went still saw only the hold.
     await waitForStill(page);
-    await expect(fifth).toHaveAttribute('aria-current', 'true');
+    const keptThrough = await page.evaluate((id) => new Promise<boolean>((resolve) => {
+        const tick = document.querySelector(`.aparte-scroll-rail__tick[data-message-id="${id}"]`)!;
+        const until = performance.now() + 600;
+        const sample = (): void => {
+            if (tick.getAttribute('aria-current') !== 'true') return resolve(false);
+            if (performance.now() > until) return resolve(true);
+            requestAnimationFrame(sample);
+        };
+        sample();
+    }), targetId);
+    expect(keptThrough, 'the mark outlasts the hold').toBe(true);
     expect((await geometry(page)).currentInRail).toBe(true);
 
     expect(errors).toEqual([]);
