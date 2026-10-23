@@ -666,6 +666,197 @@ describe('setupCompaction — the window events and the page', () => {
         expect(b.chat, 'B never ran').not.toHaveBeenCalled();
     });
 
+    it('with a global setup and an instance one on the page, each chat is summarised once, by its own', async () => {
+        const hostOf = (id: string, store: CompactionTarget): HTMLElement => {
+            const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+            el.id = id;
+            el.setAttribute('data-aparte-chat', '');
+            el.getMessages = store.getMessages;
+            el.clearAll = store.clearAll;
+            el.appendMessage = store.appendMessage;
+            document.body.appendChild(el);
+            return el;
+        };
+        const plain = makeTarget(exchange(1, 'p'));
+        const scoped = makeTarget(exchange(1, 's'));
+        hostOf('chat-plain', plain);                 // on the global config
+        const scopedEl = hostOf('chat-scoped', scoped);
+        const a = makeConfig('A');
+        attachConfig(scopedEl, a.cfg);
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+
+        send('aparte-compact', { targetId: 'chat-plain' });
+        await vi.waitFor(() => expect(plain.messages[0]?.content ?? '').toContain('G'));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(a.chat, 'the instance setup leaves the global chat to the global one').not.toHaveBeenCalled();
+
+        send('aparte-compact', { targetId: 'chat-scoped' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'and the global one leaves the scoped chat to its own').toHaveBeenCalledTimes(1);
+    });
+
+    it('a setup scoped to a chat answers it alone, beside a global setup — the per-chat pattern of the guide', async () => {
+        const store = makeTarget(exchange(1, 's'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'support';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        const support = makeConfig('S');
+        attachConfig(el, support.cfg);
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }), scopeToTargetId: 'support' }, support.cfg);
+
+        send('aparte-compact', { targetId: 'support' });
+        await vi.waitFor(() => expect(support.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'the global setup leaves the chat to the one scoped to it').not.toHaveBeenCalled();
+    });
+
+    it('a setup with a resolveTarget of its own answers a chat that lives in a store, beside a global setup', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'z'));
+        const own = makeConfig('O');
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: (id) => (id === 'store-chat' ? store : null) }, own.cfg);
+
+        send('aparte-compact', { targetId: 'store-chat' });
+        await vi.waitFor(() => expect(own.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries).not.toHaveBeenCalled();
+        expect(warn.mock.calls.flat().join(' '), 'and the global one does not report a missing chat').not.toContain('No chat with id');
+        warn.mockRestore();
+    });
+
+    it('two setups sharing one resolver: disposing one leaves the other answering its stored chat, alone', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'y'));
+        const resolveStore = (id?: string) => (id === 'chat-b' ? store : null);
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        const first = setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: resolveStore }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: resolveStore }, b.cfg);
+        first.dispose();
+
+        send('aparte-compact', { targetId: 'chat-b' });
+        await vi.waitFor(() => expect(b.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'the global setup still steps aside').not.toHaveBeenCalled();
+        expect(warn.mock.calls.flat().join(' ')).not.toContain('No chat with id');
+        warn.mockRestore();
+    });
+
+    it('a scoped setup\'s resolver does not make the others step aside for a chat it is not scoped to', async () => {
+        // The resolver knows every chat in the store, but the setup answers 'support' only: a
+        // request for another stored chat is the global setup's, which says it cannot find it.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'v'));
+        const scoped = makeConfig('S');
+        setup({ selector: (m) => ({ keep: [], drop: m }) });
+        setup({ selector: (m) => ({ keep: [], drop: m }), scopeToTargetId: 'support', resolveTarget: () => store }, scoped.cfg);
+
+        send('aparte-compact', { targetId: 'other' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "other"'));
+        expect(scoped.chat).not.toHaveBeenCalled();
+        warn.mockRestore();
+    });
+
+    it('with no global setup, a stored chat no resolver knows is reported once, not by each setup', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => null }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => null }, b.cfg);
+
+        send('aparte-compact', { targetId: 'ghost' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "ghost"'));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(warn.mock.calls.filter((c) => c.join(' ').includes('No chat with id "ghost"')), 'reported once').toHaveLength(1);
+        warn.mockRestore();
+    });
+
+    it('with no global setup, a chat on the global config is summarised once, not by each setup', async () => {
+        const store = makeTarget(exchange(1, 'g'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'on-page';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, b.cfg);
+
+        send('aparte-compact', { targetId: 'on-page' });
+        await vi.waitFor(() => expect(a.chat.mock.calls.length + b.chat.mock.calls.length).toBeGreaterThan(0));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(a.chat.mock.calls.length + b.chat.mock.calls.length, 'summarised once').toBe(1);
+    });
+
+    it('a request for a chat no resolver knows is still answered, with the failure said', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'w'));
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: (id) => (id === 'store-chat' ? store : null) });
+
+        send('aparte-compact', { targetId: 'conv-42' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "conv-42"'));
+        warn.mockRestore();
+    });
+
+    it('a chat whose config has no setup is answered by the one that exists, global or not', async () => {
+        const store = makeTarget(exchange(1, 'u'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'chat-unbound';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        // A setup on a config of its own, none on the global one, and a chat that resolves
+        // the global: nobody else would answer it, so this one does.
+        const a = makeConfig('A');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        send('aparte-compact', { targetId: 'chat-unbound' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+    });
+
+    it('a request for a chat that is not on the page is answered by the global setup, which says so', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { chat } = makeConfig();
+        setup({ selector: (m) => ({ keep: [], drop: m }) });
+        send('aparte-compact', { targetId: 'missing' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "missing"'));
+        expect(chat).not.toHaveBeenCalled();
+        warn.mockRestore();
+    });
+
+    it('a global setup that does not listen leaves the global chats to the instance setup', async () => {
+        const store = makeTarget(exchange(1, 'g'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'chat-global';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        setup({ selector: (m) => ({ keep: [], drop: m }), listen: false });   // driven by hand
+        const a = makeConfig('A');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        send('aparte-compact', { targetId: 'chat-global' });
+        await vi.waitFor(() => expect(a.chat).toHaveBeenCalledTimes(1));
+    });
+
     it('listen: false ignores the window entirely', async () => {
         const target = makeTarget(exchange(1, 'x'));
         const { cfg, chat } = makeConfig();

@@ -28,17 +28,11 @@ export interface BuiltElicitationPanel {
      * The corner where the presenter puts its escape from the WHOLE request.
      *
      * Top-right, away from anything that answers a question — and the position is the
-     * whole point. This affordance lived in a row at the bottom, beside the button
-     * that advances through the form, and adjacency made a promise the behaviour does
-     * not keep: next to "next question", "Skip" reads as "skip THIS question", while
-     * it declines everything (MCP's `decline`, including questions already answered).
+     * whole point. Beside the button that advances through the form, "Skip" would read
+     * as "skip THIS question", while it declines everything (MCP's `decline`,
+     * including questions already answered).
      *
-     * That is also why the reference implementations put theirs in a corner, which I
-     * had read as a preference for the glyph. It is not about the glyph.
-     *
-     * A row at the bottom is gone with it, and so is the reserved height it needed:
-     * with the composer's own button carrying advance-then-submit, the panel has no
-     * action of its own left to place.
+     * The panel has no action row of its own: the composer's button carries submit.
      */
     readonly dismiss: HTMLElement;
     /** The current response content, shaped to match the schema. */
@@ -51,14 +45,10 @@ export interface BuiltElicitationPanel {
      * What the composer's one button means for this panel: `'submit'`, or `'none'`
      * when the panel has no act for it and it should not be drawn.
      *
-     * It used to have a third value, `'advance'`, while a form had more questions
-     * ahead: the button turned into a chevron and moved to the next question. That
-     * was a second way to do what a chip already does — the chips ARE the navigation,
-     * forwards and back — and a button that changes meaning under the pointer is one
-     * more thing to explain. The reference products settle it the same way: a click
-     * on a choice selects, a tab switches question, one button submits the lot. So
-     * the button means submit throughout, enabled once every question has an answer,
-     * which is what `canProceed()` reports.
+     * The chips ARE the navigation through a form's questions, forwards and back: a
+     * click on a choice selects, a tab switches question, one button submits the lot.
+     * So the button means submit throughout, enabled once every question has an
+     * answer, which is what `canProceed()` reports.
      *
      * `'none'` is for the shape where the button has no meaning at all: a single
      * question whose options settle on the click. Assignable to the composer's
@@ -75,14 +65,14 @@ export interface BuiltElicitationPanel {
      * Settled from INSIDE the panel: an option was clicked and that click is the
      * whole answer. The value is the content, shaped like `getContent()`.
      *
-     * The same contract `BuiltApprovalPanel.onSettle` already has, and presented by
-     * the same path — because it is the same act. A single-choice question is one
+     * The same contract as `BuiltApprovalPanel.onSettle`, presented by the same path —
+     * because it is the same act. A single-choice question is one
      * gesture, not a value you pick and then submit: WCAG's SC 3.2.2 and its F36
      * failure are about auto-submitting a form when an INPUT is set, which is why
      * these options are buttons rather than radios that fire on change.
      *
      * Only ever called for that shape. A form, a multi-select and a text field all
-     * collect a value and resolve through the composer's button as before.
+     * collect a value and resolve through the composer's button.
      */
     onSettle(cb: (content: unknown) => void): void;
     /**
@@ -179,10 +169,9 @@ function commandOption(label: string, description?: string, recommended?: boolea
 /**
  * Write the field's title and description, and return the id of the title.
  *
- * The id is what lets a group of radios be NAMED by its question. Without it the
- * options were announced with nothing attached to them: a screen reader read
- * "Chromium, radio button, 1 of 2" and never the question it answered, because
- * nothing tied the `<p>` above the list to the list itself.
+ * The id is what lets a group of radios be NAMED by its question. Without it a
+ * screen reader reads "Chromium, radio button, 1 of 2" and never the question it
+ * answers, because nothing ties the `<p>` above the list to the list itself.
  */
 function fieldHeader(parent: HTMLElement, field: AparteElicitationField, skipTitle?: string): string | undefined {
     let titleId: string | undefined;
@@ -292,7 +281,7 @@ function buildEnumField(
 
     // Free-text "Other…" fallback.
     let otherText: HTMLInputElement | null = null;
-    /** Settling only: the escape has been opened, so there is now text to submit. */
+    /** Settling only: the escape has been opened, so there is text to submit. */
     let otherOpen = false;
     if (allowOther) {
         // Localised, like every other string the user reads. These four were
@@ -557,7 +546,7 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
  * never passes it: its questions collect values that are submitted together.
  *
  * A consumer's field renderer gets no `settle` either, and that is the deliberate
- * escape: an app that wants the pick-then-submit shape back registers one.
+ * escape: an app that wants the pick-then-submit shape registers one.
  */
 function buildField(
     field: AparteElicitationField,

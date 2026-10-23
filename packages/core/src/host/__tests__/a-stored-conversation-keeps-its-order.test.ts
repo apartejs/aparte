@@ -97,3 +97,102 @@ describe('a stored conversation continued under a framework', () => {
         teardown();
     });
 });
+
+/*
+ * The model a turn ran on is stamped on its reply mid-stream, through the framework's
+ * list. The saved tree is the viewport's repository, and the sync into it copied the
+ * text, the segments, the status and the usage — not the model — so a turn paused on a
+ * server and resumed after a reload went back to the default model instead.
+ */
+describe('a reply under a framework', () => {
+    beforeEach(() => { document.body.innerHTML = ''; });
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('is saved with the model it ran on', async () => {
+        const { host, root, teardown, rows, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.appendMessage(message('u2', 'user', 'second'));
+        host.appendMessage(message('a2', 'assistant', 'answer again'));
+        const model = { providerId: 'openai', modelId: 'gpt-x' };
+        host.updateMessage('a2', { model });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a2' }, bubbles: true }));
+
+        await vi.waitFor(() => {
+            const saved = rows.find((c) => c.id === 'c1')!.tree?.messages.find((n) => n.message.id === 'a2');
+            expect(saved?.message.model).toEqual(model);
+        });
+        teardown();
+    });
+});
+
+/*
+ * Any field the app writes on a message, not only the five the bubble draws: the saved tree
+ * is the viewport's copy, and the sync into it carried text, segments, status, usage and
+ * model. A `metadata` edit was saved in the flat list and lost from the tree — which is what
+ * a reopen loads.
+ */
+describe('a field the app writes on a message under a framework', () => {
+    beforeEach(() => { document.body.innerHTML = ''; });
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('comes back when the conversation is opened again', async () => {
+        const { host, root, teardown, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.updateMessage('a1', { metadata: { pinned: true } });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+
+        select('c2');
+        await vi.waitFor(() => expect(ids()).toEqual([]));
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+        const reopened = host.getMessages().find((m) => m.id === 'a1');
+        expect(reopened?.metadata).toEqual({ pinned: true });
+        teardown();
+    });
+
+    it('stays gone when the app clears it, and the conversation is opened again', async () => {
+        const { host, root, teardown, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.updateMessage('a1', { metadata: { pinned: true } });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+        host.updateMessage('a1', { metadata: undefined });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+
+        select('c2');
+        await vi.waitFor(() => expect(ids()).toEqual([]));
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+        expect(host.getMessages().find((m) => m.id === 'a1')?.metadata, 'un-pinned, it does not come back pinned').toBeUndefined();
+        teardown();
+    });
+
+    it('stays gone for the model too, which the sync carries like the text', async () => {
+        // A cleared model came back on reopen, and a paused turn resumed on it.
+        const { host, root, teardown, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.updateMessage('a1', { model: { providerId: 'p', modelId: 'big-model' } });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+        host.updateMessage('a1', { model: undefined });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+
+        select('c2');
+        await vi.waitFor(() => expect(ids()).toEqual([]));
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+        expect(host.getMessages().find((m) => m.id === 'a1')?.model).toBeUndefined();
+        teardown();
+    });
+});

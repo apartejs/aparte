@@ -102,6 +102,21 @@ A summary is the line the row writes after the tool's name: `read_file skills.js
 and written as text; an empty string, or a summary that throws, shows nothing. A tool drawn by a
 [renderer of its own](#custom-tool-renderer) shows no summary.
 
+## Show the arguments as a person reads them
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolInputFormatter('write_file', (input) =>
+  `${String(input['path'] ?? '')}, ${String(input['content'] ?? '').length} characters`);
+```
+
+The approval panel shows a call's arguments under its question, and the row behind its
+disclosure; both show the JSON the model sent, until the tool has a formatter. Then both show its
+text, so a person approves the call the row describes. It is written as text; an empty string
+shows no arguments, and a formatter that throws falls back to the JSON. The panel reads the
+client's configuration and the row the chat's, so register it on the one the chat uses.
+
 ## Require approval (human-in-the-loop)
 
 ```ts
@@ -131,7 +146,8 @@ no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` 
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
   and the model gets a turn to answer it.
 - **Writing instead of choosing** is a refusal that carries your words, which the model reads —
-  except with an [AG-UI agent](/providers/agent/ag-ui/), which gets only `{ approved: false }`.
+  except when an [AG-UI agent](/providers/agent/ag-ui/) paused on its own tool (an interrupt),
+  which gets only `{ approved: false }`.
 - **Stop** ends the reply, and the call shows Stopped; the model is told nothing.
 
 Each time a call starts to wait, the chat sends `aparte-tool-approval-request` with

@@ -20,6 +20,9 @@ type AparteEventName = Extract<keyof HTMLElementEventMap, `aparte-${string}`>;
 
 type PluginHandlers = {
     [K in AparteEventName as `on:${K}`]?: (event: HTMLElementEventMap[K]) => void;
+} & {
+    // Svelte 5's runes form, an event attribute: `onaparte-model-change={…}`, as on core's tags.
+    [K in AparteEventName as `on${K}`]?: (event: HTMLElementEventMap[K]) => void;
 };
 
 type PluginElements = {

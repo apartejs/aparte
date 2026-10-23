@@ -59,15 +59,12 @@ export const HOME_DEMOS: DemoEntry[] = [
     --aparte-radius-send-btn: 999px;
     --aparte-message-content-bg-user: var(--aparte-primary);
     --aparte-message-content-bg-assistant: #ffffff;
+    --aparte-message-content-text-user: #ffffff;
+    --aparte-message-content-padding-assistant: var(--aparte-message-content-padding);
   }
-  /* A token can be scoped to one part: the person's words in white on the blue. */
-  .messenger .aparte-message[data-role="user"] {
-    --aparte-content-color: #ffffff;
-  }
-  /* A plain selector reaches any part: the assistant gets a bubble too. */
+  /* A plain selector reaches any part: the assistant's bubble hugs its text. */
   .messenger .aparte-message[data-role="assistant"] .aparte-message-content {
     width: fit-content;
-    padding: var(--aparte-message-content-padding);
   }
   .skin { padding: 1rem; background: var(--aparte-bg); }
 </style>

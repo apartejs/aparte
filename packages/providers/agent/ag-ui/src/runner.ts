@@ -66,32 +66,24 @@ function interruptKind(interrupt: AgUiInterrupt): 'approval' | 'external' | unde
     return undefined;
 }
 
-/** Usage as AG-UI agents report it — an object, or TanStack AI's array of steps — summed. */
+/**
+ * Usage as AG-UI agents report it — an object, or TanStack AI's array of model steps — as
+ * the LAST step's report. That is what the page's own loop reports for a run of several
+ * turns, and what the context gauge reads: the size of the conversation the model last saw.
+ * Summed, a three-step run read as three times the context it used.
+ */
 function readUsage(value: unknown): Usage | undefined {
     const entries = (Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [])
         .filter((u): u is Record<string, unknown> => Boolean(u) && typeof u === 'object');
-    if (entries.length === 0) return undefined;
-    const sum = (key: string) => entries.reduce((n, u) => n + (typeof u[key] === 'number' ? u[key] as number : 0), 0);
-    const cached = sum('cachedInputTokens');
+    const last = entries.at(-1);
+    if (!last) return undefined;
+    const num = (key: string): number => (typeof last[key] === 'number' ? last[key] as number : 0);
+    const cached = num('cachedInputTokens');
     return {
-        inputTokens: sum('inputTokens'),
-        outputTokens: sum('outputTokens'),
-        totalTokens: sum('totalTokens') || undefined,
+        inputTokens: num('inputTokens'),
+        outputTokens: num('outputTokens'),
+        totalTokens: num('totalTokens') || undefined,
         ...(cached ? { cacheReadTokens: cached } : {}),
-    } as Usage;
-}
-
-/** Two usage reports as one: a TanStack AI run reports one per model step. */
-function addUsage(total: Usage | undefined, step: Usage | undefined): Usage | undefined {
-    if (!step) return total;
-    if (!total) return step;
-    const cache = (total.cacheReadTokens ?? 0) + (step.cacheReadTokens ?? 0);
-    const sumTotal = (total.totalTokens ?? 0) + (step.totalTokens ?? 0);
-    return {
-        inputTokens: total.inputTokens + step.inputTokens,
-        outputTokens: total.outputTokens + step.outputTokens,
-        ...(sumTotal ? { totalTokens: sumTotal } : {}),
-        ...(cache ? { cacheReadTokens: cache } : {}),
     } as Usage;
 }
 
@@ -108,9 +100,28 @@ function resultText(content: unknown): string {
     return JSON.stringify(content);
 }
 
+/** What the model reads about a refusal: the person's words, else core's fixed sentence. */
+function rejectionText(decision: { reason?: string; instruction?: string }): string {
+    return decision.reason?.trim()
+        || (decision.instruction ? `The user rejected this tool call and said: ${decision.instruction}` : 'Tool execution was rejected by the user.');
+}
+
 /** The answer a resumed interrupt carries, in the shape AG-UI (and TanStack AI) reads. */
 function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | undefined): AgUiResumeItem {
     if (!outcome) return { interruptId: interrupt.id, status: 'cancelled' };
+    if (outcome.kind === 'decision' && interrupt.kind === 'external' && !outcome.approved) {
+        // A client tool the page refused to run (its `needsApproval`, its policy). An
+        // execution interrupt answered `{ approved: false }` reads as a successful OUTPUT —
+        // TanStack AI's `clientToolResult` takes any resolved payload without the error
+        // state as `output-available` — so the model would read the decision as the tool's
+        // result and lose the reason. It goes back as the tool's error, with the sentence.
+        return {
+            interruptId: interrupt.id,
+            status: 'resolved',
+            payload: { error: rejectionText(outcome) },
+            metadata: { tanstack: { state: 'output-error' } },
+        };
+    }
     if (outcome.kind === 'decision') {
         return { interruptId: interrupt.id, status: 'resolved', payload: { approved: outcome.approved } };
     }
@@ -163,12 +174,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // batch, since the protocol refuses a partial one.
         const messages: AgUiMessage[] = toAgUiMessages(request.messages);
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
-            if (interrupted.has(toolCallId) || outcome.kind === 'decision') continue;
+            if (interrupted.has(toolCallId)) continue;
+            // A page tool the page refused (its `needsApproval`, its policy): the refusal is
+            // the call's result, the sentence the model reads. An approval needs no message.
+            if (outcome.kind === 'decision' && outcome.approved) continue;
             messages.push({
                 id: `aparte-result-${toolCallId}`,
                 role: 'tool',
                 toolCallId,
-                content: outcome.kind === 'failed' ? `Error: ${outcome.error}` : outcome.content,
+                content: outcome.kind === 'failed' ? `Error: ${outcome.error}`
+                    : outcome.kind === 'decision' ? rejectionText(outcome)
+                    : outcome.content,
             });
         }
         const resume = ticket?.interrupts.length
@@ -287,9 +303,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 if (outcome.approved) {
                     emit({ type: 'tool-approved', toolCallId });
                 } else {
-                    const reason = outcome.reason?.trim()
-                        || (outcome.instruction ? `The user rejected this tool call and said: ${outcome.instruction}` : 'Tool execution was rejected by the user.');
-                    emit({ type: 'tool-rejected', toolCallId, reason });
+                    emit({ type: 'tool-rejected', toolCallId, reason: rejectionText(outcome) });
                     rejected.add(toolCallId);
                 }
             }
@@ -372,7 +386,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // tool results and the next step. The LAST one says how the run ended.
                     for (const id of calls.keys()) startTool(id);
                     if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
-                    usage = addUsage(usage, readUsage(event['usage']));
+                    usage = readUsage(event['usage']) ?? usage;   // the last step's report wins
                     stepEnded = true;
                     endedOnFinish = true;
                     finished = {

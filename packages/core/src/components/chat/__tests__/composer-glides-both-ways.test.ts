@@ -39,7 +39,10 @@ describe.each([
     ['.aparte-chat-container--auto-center', '.aparte-chat-container--auto-center[data-aparte-empty]', '.aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework'],
 ])('%s', (shellSel, emptySel, viewportSel) => {
     it('centres with a spacer whose flex-grow animates, not with justify-content', () => {
-        expect(rulesFor(`${shellSel}::after`).join(' ')).toMatch(/transition:\s*flex-grow/);
+        // Animates once a person is in the page (`data-glide`): before it, a conversation a
+        // script restores on load lands in one frame (the-first-restore-does-not-slide.test.ts).
+        expect(rulesFor(`${shellSel}[data-glide]::after`).join(' ')).toMatch(/transition:\s*flex-grow/);
+        expect(rulesFor(`${shellSel}::after`).join(' ')).not.toMatch(/transition:/);
         expect(rulesFor(`${emptySel}::after`).join(' ')).toMatch(/flex-grow:\s*1/);
         expect(rulesFor(emptySel).join(' ')).not.toMatch(/justify-content:\s*center/);
     });
@@ -53,5 +56,12 @@ describe.each([
         // The empty state no longer collapses the viewport: the spacer takes the other half.
         expect(rulesFor(`${emptySel} > aparte-chat-viewport`).join(' ')).not.toMatch(/flex-grow:\s*0/);
         expect(rulesFor(`${emptySel} aparte-chat-viewport.aparte-viewport--framework`).join(' ')).not.toMatch(/flex-grow:\s*0/);
+    });
+});
+
+describe('.aparte-chat-container--auto-center under Angular', () => {
+    it('glides when the host around the container carries data-glide', () => {
+        // `AparteChatHost` binds Angular's `<aparte-chat>` host; the class is on its inner div.
+        expect(rulesFor('[data-glide] > .aparte-chat-container--auto-center::after').join(' ')).toMatch(/transition:\s*flex-grow/);
     });
 });

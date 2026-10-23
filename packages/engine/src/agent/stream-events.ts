@@ -262,7 +262,11 @@ export type StreamDeferredOutcome =
  * answers can be days old and on another machine.
  */
 export interface StreamDeferral {
-    /** Answers for calls a previous run left pending, by tool call id. */
+    /**
+     * Answers for calls a previous run left pending, by tool call id. They answer those
+     * calls only: a call the model makes after the resume goes through its gate afresh,
+     * even when it carries the same id.
+     */
     outcomes?: Record<string, StreamDeferredOutcome>;
     /** Opaque to the loop, which never reads it: a remote runner carries its continuation ticket here. */
     token?: string;

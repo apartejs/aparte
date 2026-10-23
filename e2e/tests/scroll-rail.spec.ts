@@ -16,9 +16,10 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { installLlmMock } from '../helpers/mock-llm.js';
+import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 // Enough turns that 24px targets do not fit the rail at this height, so the pitch has
 // to tighten — the case the rail used to clip.
@@ -41,7 +42,7 @@ interface RailGeometry {
     hitSize: string;
     /** The rail's bottom edge sits above the composer: it spans the transcript, not the host. */
     aboveComposer: boolean;
-    /** With a classic scrollbar, the rail's end edge stays on the transcript's side of it. */
+    /** With a classic scrollbar, the rail does not sit on it: before it, or past it in its lane. */
     clearOfScrollbar: boolean;
     scrollbar: number;
     /** How far the surface is from its maximum scroll: 0 at the bottom. */
@@ -69,7 +70,7 @@ async function geometry(page: Page): Promise<RailGeometry> {
             pitch: ticks.length > 1 ? ticks[1]!.getBoundingClientRect().top - ticks[0]!.getBoundingClientRect().top : 0,
             hitSize: rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'),
             aboveComposer: rb.bottom <= composer.getBoundingClientRect().top + 1,
-            clearOfScrollbar: bar === 0 || rb.right <= sb.right - bar + 0.5,
+            clearOfScrollbar: bar === 0 || rb.right <= sb.right - bar + 0.5 || rb.left >= sb.right - 0.5,
             scrollbar: bar,
             fromMax: surface.scrollHeight - surface.clientHeight - surface.scrollTop,
             railHeight: rb.height,
@@ -164,13 +165,155 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
     await expect.poll(async () => page.evaluate((id) => {
         const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
         const surface = document.querySelector('.aparte-viewport-container')!;
-        return Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+        return Math.abs(Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top));
     }, targetId), { timeout: 6_000 }).toBeLessThanOrEqual(1);
     await expect(fifth).toHaveAttribute('aria-current', 'true');
-    // And it stays: the observer's mid-scroll opinions do not move it once settled.
-    await page.waitForTimeout(800);
-    await expect(fifth).toHaveAttribute('aria-current', 'true');
+    // And it stays: the observer's mid-scroll opinions do not move it once settled. Sampled
+    // every frame past the rail's own hold (150ms of stillness, during which it forces the
+    // mark), since a single look as the view went still saw only the hold.
+    await waitForStill(page);
+    const keptThrough = await page.evaluate((id) => new Promise<boolean>((resolve) => {
+        const tick = document.querySelector(`.aparte-scroll-rail__tick[data-message-id="${id}"]`)!;
+        const until = performance.now() + 600;
+        const sample = (): void => {
+            if (tick.getAttribute('aria-current') !== 'true') return resolve(false);
+            if (performance.now() > until) return resolve(true);
+            requestAnimationFrame(sample);
+        };
+        sample();
+    }), targetId);
+    expect(keptThrough, 'the mark outlasts the hold').toBe(true);
     expect((await geometry(page)).currentInRail).toBe(true);
 
     expect(errors).toEqual([]);
+});
+
+/*
+ * A jump while a reply streams. The rail turns the follow off before it jumps, and the jump is
+ * smooth: its first frame moves a few pixels, still within the bottom threshold, which the
+ * viewport read as the reader staying at the bottom — it armed the follow again, and the next
+ * token pinned the view back down, aborting the jump.
+ */
+test('a jump while a reply streams stays on the message', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = collectPageErrors(page);
+    // Paced, so the reply is still arriving after the jump lands. 18 frames x 400ms = 7.2s of
+    // stream against a click, a landing and a 2s watch: frames x pace must outlast all three.
+    await installLlmMock(page, { pace: 400 });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    for (let i = 1; i <= 3; i++) await chat.sendAndSettle(`Question ${i}: what about topic ${i}?`, { expect: MOCK_REPLY_MARK });
+    await chat.send('Question 4: and one more?');
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
+
+    const tick = page.locator('aparte-scroll-rail .aparte-scroll-rail__tick').nth(1);
+    const targetId = await tick.getAttribute('data-message-id');
+    await tick.click();
+    // Landed: the message at the top, and no longer moving. (The surface itself never goes
+    // still while the reply grows below, so it is the message that is watched.)
+    let previous = Number.NaN;
+    await expect.poll(async () => {
+        const offset = await page.evaluate((id) => {
+            const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+            const surface = document.querySelector('.aparte-viewport-container')!;
+            return Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+        }, targetId);
+        const landed = offset === previous && Math.abs(offset) <= 24;
+        previous = offset;
+        return landed;
+    }, { timeout: 6_000, intervals: [100] }).toBe(true);
+
+    // Then watched every frame for 2s while the reply goes on arriving below it. Pulled back
+    // toward the bottom, the view would travel down to it. What it may do is re-align by a few
+    // pixels: a bubble above the message taking its real size, which the rail corrects.
+    const watch = await page.evaluate((id) => new Promise<{ down: number; offset: number; grew: boolean }>((resolve) => {
+        const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+        const surface = document.querySelector('.aparte-viewport-container') as HTMLElement;
+        const replies = document.querySelectorAll('aparte-chat-bubble[data-role="assistant"]');
+        const reply = replies[replies.length - 1]!;
+        const start = (reply.textContent ?? '').length;
+        const from = surface.scrollTop;
+        const until = performance.now() + 2000;
+        let down = 0;
+        const sample = (): void => {
+            down = Math.max(down, Math.round(surface.scrollTop - from));
+            if (performance.now() < until) { requestAnimationFrame(sample); return; }
+            resolve({
+                down,
+                offset: Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top),
+                grew: (reply.textContent ?? '').length > start,
+            });
+        };
+        sample();
+    }), targetId);
+    expect(watch.grew, 'the reply kept arriving during the watch, so something could have pulled the view').toBe(true);
+    expect(watch.down, 'the view was not pulled toward the bottom while the reply streamed').toBeLessThanOrEqual(40);
+    expect(Math.abs(watch.offset), 'and it is still on the message').toBeLessThanOrEqual(24);
+    expect(errors).toEqual([]);
+});
+
+/*
+ * The rail's lane. It floats over the transcript's end edge, and in a column that reaches that
+ * edge — a 760px chat with no reading-width cap — the long lines ran under the ticks.
+ */
+test('no line runs under the rail, and the composer keeps the messages\' end edge', async ({ page }) => {
+    await page.setViewportSize({ width: 760, height: 900 });
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-max-width', 'none'));
+    for (let i = 1; i <= 3; i++) await chat.sendAndSettle(`Question ${i}: ${'a long line that should reach the end edge of the column '.repeat(4)}`);
+    const rail = page.locator('aparte-scroll-rail');
+    await expect(rail.locator('.aparte-scroll-rail__tick')).toHaveCount(3);
+    const drawn = await page.evaluate(() => {
+        const railBox = document.querySelector('aparte-scroll-rail')!.getBoundingClientRect();
+        const texts = [...document.querySelectorAll('aparte-chat-bubble .aparte-content, aparte-chat-bubble .aparte-segments')]
+            .map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
+        const row = document.querySelector('aparte-chat-bubble[data-role="assistant"] .aparte-message')!.getBoundingClientRect();
+        const shell = document.querySelector('.aparte-composer-shell')!.getBoundingClientRect();
+        return { railStart: railBox.left, textEnd: Math.max(...texts.map((r) => r.right)), rowEnd: row.right, shellEnd: shell.right, n: texts.length };
+    });
+    expect(drawn.n, 'text to measure').toBeGreaterThan(2);
+    expect(drawn.textEnd, `the text ends at ${drawn.textEnd}, the rail starts at ${drawn.railStart}`).toBeLessThanOrEqual(drawn.railStart);
+    expect(Math.abs(drawn.shellEnd - drawn.rowEnd), 'the composer and the messages share their end edge').toBeLessThanOrEqual(1.5);
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});
+
+/*
+ * A jump under a header that floats over the transcript (`--aparte-top-inset`). `scrollIntoView`
+ * lands the message below the surface's scroll padding, and the rail's landing check measured from
+ * the surface's top: it read the inset as a miss and scrolled again, pass after pass.
+ */
+test('a jump under a header lands below it, without chasing the inset', async ({ page }) => {
+    test.setTimeout(120_000);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    for (let i = 1; i <= 6; i++) await chat.sendAndSettle(`Question ${i}: what about topic ${i}?`);
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-top-inset', '48px');
+        const w = window as unknown as { __jumps: number };
+        w.__jumps = 0;
+        const real = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<Element['scrollIntoView']>) {
+            if (this.tagName === 'APARTE-CHAT-BUBBLE') w.__jumps++;
+            return real.apply(this, args);
+        };
+    });
+    const second = page.locator('aparte-scroll-rail .aparte-scroll-rail__tick').nth(1);
+    const targetId = await second.getAttribute('data-message-id');
+    await second.click();
+    await expect(second).toHaveAttribute('aria-current', 'true');
+    // A fixed wait on purpose, not `waitForStill`: the rail realigns in passes with pauses
+    // between them, so the view is briefly still before the last one, and the count below is
+    // only meaningful once every pass has had its chance to run.
+    await page.waitForTimeout(1500);
+    const landed = await page.evaluate((id) => {
+        const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+        const surface = document.querySelector('.aparte-viewport-container')!;
+        return { off: Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top), jumps: (window as unknown as { __jumps: number }).__jumps };
+    }, targetId);
+    expect(Math.abs(landed.off - 48), `lands at the header's edge (${landed.off}px)`).toBeLessThanOrEqual(2);
+    // The first jump plus at most MAX_ALIGN_PASSES (4) realignments: chasing the inset spent all
+    // of them (5). A pass or two is the rail's own catch-up on `content-visibility` (WebKit).
+    expect(landed.jumps, 'the landing check settles instead of chasing the inset to its last pass').toBeLessThan(5);
 });

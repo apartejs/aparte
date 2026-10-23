@@ -86,13 +86,23 @@ describe('<aparte-approval-mode>', () => {
         expect(select(fresh)?.getAttribute('aria-label')).toBe("Mode d'approbation");
     });
 
-    it('with no setup it renders disabled and says so once — an affordance that cannot act is not offered', () => {
+    it('with no setup it renders disabled and says so once — an affordance that cannot act is not offered', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const el = mount();
         expect(select(el)?.hasAttribute('disabled')).toBe(true);
         expect(el.mode).toBeNull();
+        await Promise.resolve();
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn.mock.calls[0]?.[0]).toContain('setupApproval');
+    });
+
+    it('does not warn in the documented order: the tag first, then setupApproval() in the same script', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const el = mount();
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        await Promise.resolve();
+        expect(warn).not.toHaveBeenCalled();
+        expect(el.mode).toBe('ask');
     });
 
     it('labels can be replaced for a localised host', () => {

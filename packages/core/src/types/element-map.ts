@@ -4,30 +4,17 @@
  * returns `AparteComposerInput | null` instead of `Element | null` — no cast, and
  * the element's own properties and methods are reachable.
  *
- * This used to live inline: each component appended its own
- * `declare global { interface HTMLElementTagNameMap { … } }` at the bottom of its
- * file. Seven of the eighteen elements did; the other eleven did not, and nothing
- * could notice. The consequence was not abstract — the canonical example in the
- * generated API reference, `list.conversations = [...]` after a
- * `querySelector('aparte-conversation-list')`, could not compile, and the same held
- * for every `aparte-composer-*` primitive on the "compose your own composer" path
- * that `getting-started` recommends.
+ * One file holds the whole element surface, next to the `customElements.define` calls
+ * it has to agree with. A tag missing from the map makes `querySelector('aparte-x')`
+ * return `Element` and leaves its `event.detail` untyped, and that includes the
+ * `aparte-composer-*` primitives of the "compose your own composer" path.
  *
- * One file instead of eighteen for one reason: a per-component convention cannot be
- * enforced, and it was not. Here the whole element surface is in one place, next to
- * the `customElements.define` calls it has to agree with.
- *
- * Completeness is not a convention either. It is pinned at the bottom of this file by a
+ * Completeness is not left to convention. It is pinned at the bottom of this file by a
  * type assertion against the GENERATED `AparteElementTagName`, which is built from the
  * custom-elements manifest and therefore carries every tag by construction. A missing
  * entry is a type error naming the tag, so it fails `nx typecheck` and with it the
  * pre-commit hook; the converse — a key here no element backs — is checked at runtime by
  * `types/__tests__/element-map.test.ts`, for the reason given beside the assertion.
- * The docstring used to promise a `pnpm check:element-map` script instead; that script
- * was never written, and while it was promised the map sat at 21 of 24 —
- * `aparte-context`, `aparte-split` and `aparte-suggestions` were missing, so
- * `querySelector('aparte-split')` returned `Element` and every `event.detail` off them
- * was untyped.
  *
  * Every import is `import type`, so nothing is emitted and this cannot introduce a
  * runtime cycle — the same reason `event-map.ts` can name a component-coupled detail
@@ -36,7 +23,7 @@
  * `declare global` DECLARES `HTMLElementTagNameMap` where the DOM lib is absent rather
  * than requiring it, so `index.node.ts` imports this file too — deliberately, and
  * `check-node-barrel-types.mjs` asserts it does — and a server-side program gets the
- * same tag typing. The docstring used to claim the opposite.
+ * same tag typing.
  */
 
 import type { AparteChat } from '../components/chat/aparte-chat.js';

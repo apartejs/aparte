@@ -147,6 +147,8 @@ describe('AparteChat.vue', () => {
 
         await wrapper.setProps({ isTyping: true });
         expect(status.attributes('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status.attributes('text')).toBe('Typing');
     });
 
     it('emits typingChange when the host toggles the typing indicator (parity with React onTypingChange)', async () => {
@@ -489,6 +491,16 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
         expect(box.querySelector('.aparte-viewport-loading')).toBeNull();
         expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('says the wait and the typing line in the language the config switches to', async () => {
+        const config = new AparteConfig();
+        const wrapper = mount(AparteChat, { props: { messages: [], config, loading: true } });
+        config.setLocale({ ...config.getLocale(), loadingConversation: 'Chargement de la conversation', typing: 'Réflexion en cours' });
+        await wrapper.vm.$nextTick();
+        const box = wrapper.element as HTMLElement;
+        expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Chargement de la conversation');
+        expect(box.querySelector('aparte-chat-status')?.getAttribute('text')).toBe('Réflexion en cours');
     });
 
     it('keeps a disabled the consumer set once the wait ends', async () => {

@@ -1,5 +1,23 @@
 # @aparte/engine
 
+## 0.20.0
+
+### Minor Changes
+
+- b04aeba: A browser tool that a server loop or an AG-UI agent calls now goes through the page's approval gate before it runs: its `needsApproval` asks through the approval panel (or your `approvalResolver`), and the approval policy can allow or refuse it. A refusal goes back as the call's answer, which the model reads.
+
+  Until now the page ran such a tool as soon as the server or the agent called it: the gate it gets in the page's own loop was skipped, so a `needsApproval` browser tool ran unasked and a plan-mode policy did not stop it. A tool with no `needsApproval` under no policy still runs at once.
+
+  While the page asks, the call's row says it is waiting and `aparte-tool-approval-request` fires, as for a call gated in the page's own loop. A payload the approval carries is merged into the tool's input. A refusal ends the pause's later calls, as it ends the turn's in the page: nobody is asked about them, none of them runs, and each is answered "Not run: an earlier call of the same step was refused.", so the server does not pause on them again and an agent's model gets an answer for every call. A call approved at a pause — TanStack AI asks to approve a client tool, then pauses again to run it — is not asked about again at the next pause; that approval is for that call only, not for a later one that reuses its id.
+
+  `@aparte/engine`: a deferred call answered with `{ kind: 'decision', approved: false }` is refused like a gated call — `tool-rejected`, the refusal as its `tool` message, and another turn so the model reads it — whether it is external (it used to be deferred again) or has no gate of its own (it used to run). `@aparte/runner-ag-ui` sends that refusal to the agent as the frontend tool's result, and for a client-tool interrupt (TanStack AI) as the tool's error with the reason — an execution interrupt answered `{ approved: false }` read as a successful output.
+
+### Patch Changes
+
+- 39e0b6c: An approval the page gave to a paused call no longer approves a later call that reuses its id: a resumed run asks about every new call again.
+
+  `deferral.outcomes` used to answer every call of the resumed run by id, not only the calls the run resumed. A vendor that sends no tool-call ids has them minted per stream (`aparte-call-1`, `aparte-call-2`, …), so the model's next turn could carry an id the resume had been answered for. An approval given for the paused `delete_file` then ran a new `delete_file` with other arguments, with nobody asked, and a refusal refused a new call that nobody had refused. This reached a server loop (`createAparteAgentHandler`) and any host that drives `runStreamAgent` with `deferral`. The page applies the same rule to a browser tool a paused run asks it to run: an approval given at a pause answers the call it was given for, at the next pause, and not a later call that reuses its id.
+
 ## 0.19.3
 
 ## 0.19.2

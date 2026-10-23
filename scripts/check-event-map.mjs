@@ -88,6 +88,32 @@ if (mapped.size === 0) {
     process.exit(1);
 }
 
+/*
+ * A plugin's event whose detail names the plugin's own type is typed by the plugin: a
+ * `declare global { interface HTMLElementEventMap { … } }` in its source, which core's map
+ * cannot hold (core does not depend on the plugin). Those entries count too, and only from
+ * a plugin's source — core's own events still belong in core's map.
+ */
+const DOM_MAPS = /^(?:HTMLElementEventMap|DocumentEventMap|WindowEventMap)$/;
+for (const file of files.filter((f) => f.startsWith('packages/plugins/'))) {
+    // Comments out: a commented-out example is not a declaration.
+    const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const globals = [...text.matchAll(/declare global\s*\{([\s\S]*?)\n\}/g)].map((m) => m[1]).join('\n');
+    if (!globals) continue;
+    // What the global block merges into a DOM map: its own entries, and the maps it extends.
+    const merged = new Set();
+    for (const m of globals.matchAll(/interface (\w+)\s*(?:extends ([\w,\s]+))?\{([^}]*)\}/g)) {
+        if (!DOM_MAPS.test(m[1])) continue;
+        for (const entry of m[3].matchAll(/'(aparte-[a-z0-9-]+)':\s*CustomEvent</g)) mapped.add(entry[1]);
+        for (const base of (m[2] ?? '').split(',').map((b) => b.trim()).filter(Boolean)) merged.add(base);
+    }
+    // A local map counts only when the global block merges it.
+    for (const m of text.matchAll(/interface (\w+EventMap)\s*\{([^}]*)\}/g)) {
+        if (!merged.has(m[1])) continue;
+        for (const entry of m[2].matchAll(/'(aparte-[a-z0-9-]+)':\s*CustomEvent</g)) mapped.add(entry[1]);
+    }
+}
+
 /**
  * Walk `new CustomEvent…(` / `dispatchLifecycleEvent(` to its matching paren so a
  * nested object or template literal cannot end the match early, and report whether

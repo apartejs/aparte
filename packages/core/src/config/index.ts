@@ -9,7 +9,7 @@ export type { AparteConfigAware } from './config-context.js';
 export type { AparteConfigChangeEventDetail, AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider } from './aparte-config.js';
 export type { AparteSanitizer } from './sanitize.js';
 export { defaultSanitizer, isSafeUrl } from './sanitize.js';
-export type { AparteIconProvider, AparteIconName } from './icon-provider.js';
+export type { AparteIconProvider, AparteIconName, AparteCoreIconName } from './icon-provider.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 export type { AparteAvatarProvider } from './avatar-provider.js';
 export type { AparteStatusRenderer } from './status-renderer.js';

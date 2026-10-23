@@ -426,7 +426,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
         // The calls this turn leaves for someone else to answer (see `deferral`).
         const pending: StreamDeferredCall[] = [];
-        const callContext: CallContext = { turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append, deferral };
+        // Without the resume's answers: they were given for the calls a previous run left
+        // pending, never for a new call that carries the same id — and a vendor that sends
+        // no ids has them minted per stream, so the next turn reuses them.
+        const callContext: CallContext = {
+            turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append,
+            deferral: deferral && { ...deferral, outcomes: undefined },
+        };
 
         const iterator = response[Symbol.asyncIterator]();
         const bailOnAbort = async (): Promise<boolean> => {
@@ -620,6 +626,28 @@ interface CallContext {
 }
 
 /**
+ * A refused call: the row says so and the model reads why — the person's own words when
+ * they gave them, else the fixed sentence, byte-identical to core's. Answers `'stop-turn'`:
+ * the turn's other calls must not run, but the loop takes another turn so the model reads it.
+ */
+function refuse(
+    ctx: CallContext,
+    call: StreamToolCall,
+    decision: { reason?: string; instruction?: string },
+): 'stop-turn' {
+    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
+    // empty `tool` message.
+    const rejection = decision.reason?.trim()
+        || (decision.instruction
+            ? `The user rejected this tool call and said: ${decision.instruction}`
+            : 'Tool execution was rejected by the user.');
+    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
+    ctx.declareCall(call);
+    ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+    return 'stop-turn';
+}
+
+/**
  * One call, from its gate to its `tool` message: the ONLY place the loop decides what a
  * call does. The stream reader calls it for each `tool_use` as it arrives; one function,
  * so no second path can drift from it the way core's two loops did before D1.
@@ -628,6 +656,15 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     const { signal } = ctx;
     const input = call.input as Record<string, unknown>;
     const cfg = ctx.toolConfigLookup?.(call.name);
+
+    // The answer a resumed run was handed for this call, if any.
+    const answer = ctx.deferral?.outcomes?.[call.id];
+    // A refusal it carries settles the call, whatever the call is: the person's decision on a
+    // gated one, and on any other the page refusing an earlier call of the same pause, which
+    // ends the calls after it there as in a run in the page. Refusing runs nothing, so a
+    // missing handler or a spent turn limit has nothing to stop — checked before them, the
+    // refusal still reaches the model, and the model still takes its turn.
+    if (answer?.kind === 'decision' && !answer.approved) return refuse(ctx, call, answer);
 
     // Per-tool maxTurns — the same arithmetic as the global cap (`>`), so one
     // number means one thing on both knobs. It was `>=`: `maxTurns: 1` on a
@@ -639,12 +676,11 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         return 'stop-run';
     }
 
-    // The answer a resumed run was handed for this call, if any.
-    const answer = ctx.deferral?.outcomes?.[call.id];
-
     // Known to the model, run elsewhere: its result comes back in the answer, and
     // until it does the call waits. Before the handler lookup, because there is no
     // handler here by definition — without `deferral` it is aborted like a missing one.
+    // The page gates a browser tool as it would in its own loop (its `needsApproval`,
+    // its policy), so an approval is no result yet, and a refusal was answered above.
     if (cfg?.external) {
         if (!ctx.deferral) {
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
@@ -751,15 +787,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
              * `{ approved }` and never an instruction, so both loops agreed on
              * a case neither exercised. It supplies one now.
              */
-            // Truthiness, like `instruction` beside it: an empty `reason` is no
-            // reason, not an empty `tool` message.
-            const rejection = decision.reason?.trim()
-                || (decision.instruction
-                    ? `The user rejected this tool call and said: ${decision.instruction}`
-                    : 'Tool execution was rejected by the user.');
-            ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
-            ctx.declareCall(call);
-            ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+            refuse(ctx, call, decision);
             /*
              * `'stop-turn'`, not `'stop-run'`, and the asymmetry is the point.
              * The remaining tool calls of this turn must not run — the

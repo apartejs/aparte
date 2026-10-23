@@ -45,9 +45,9 @@ aparteGlobalConfig.setErrorRenderer(null);   // the built-in one again
 The render hooks, the providers and the button settings are methods on `aparteGlobalConfig`, the
 configuration every chat on the page reads; a render hook or the avatar provider takes `null` to
 put the built-in back. A change to the buttons, the icons, the avatars or the language reaches the
-messages already on screen, and a new status-line renderer reaches the line already shown. The
-message frame, the error card, the
-attachment chips, a segment renderer and the Markdown and highlight providers apply to what is
+messages already on screen, and a new status-line renderer reaches the line already shown. So do
+the Markdown and highlight providers: a message drawn before them is drawn again with them. The
+message frame, the error card, the attachment chips and a segment renderer apply to what is
 drawn after them, so set those before the chat renders.
 
 ## Custom segment types

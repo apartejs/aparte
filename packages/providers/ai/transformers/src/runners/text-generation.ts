@@ -15,7 +15,7 @@
 // `contentToText` shipped all of core, components included, in a 426 kB runner chunk.
 import type { AparteChatMessage, AparteContentPart } from '@aparte/core';
 import type { CreateRunner, RunnerContext, RunnerGenerateInput } from './types.js';
-import { TOOL_TURNS_DROPPED, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
+import { TOOL_TURNS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, stoppingCriteria, textStreamer } from './shared.js';
 
 type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -60,12 +60,14 @@ export function flattenForChatTemplate(messages: AparteChatMessage[], warn: Runn
 interface TextPipeline {
     (messages: SimpleMessage[], options: Record<string, unknown>): Promise<unknown>;
     tokenizer: unknown;
+    model?: { config?: unknown };
     dispose?: () => Promise<void>;
 }
 
 export const createRunner: CreateRunner = async (ctx) => {
     const pipeline = ctx.transformers.pipeline as unknown as (task: string, model: string, options: unknown) => Promise<TextPipeline>;
     const pipe = await pipeline('text-generation', ctx.modelId, loadOptions(ctx));
+    const contextSize = contextLength(pipe.model?.config);
 
     return {
         async generate({ messages, options, emit, signal }: RunnerGenerateInput): Promise<void> {
@@ -74,7 +76,7 @@ export const createRunner: CreateRunner = async (ctx) => {
                 await pipe(flattenForChatTemplate(messages, ctx.warn), {
                     ...generationOptions(options),
                     streamer: textStreamer(ctx.transformers, pipe.tokenizer, emit),
-                    stopping_criteria: stopping,
+                    stopping_criteria: stoppingCriteria(stopping, ctx.transformers, contextSize),
                 });
             } finally {
                 release();

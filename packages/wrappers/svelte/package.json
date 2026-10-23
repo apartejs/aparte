@@ -1,6 +1,6 @@
 {
     "name": "@aparte/svelte",
-    "version": "0.19.3",
+    "version": "0.20.0",
     "homepage": "https://apartejs.dev/frameworks/svelte/",
     "description": "Svelte wrapper for aparté — an ergonomic <AparteChat> component plus stores over the framework-agnostic web components. Works on Svelte 4 and 5.",
     "type": "module",
@@ -49,14 +49,14 @@
     "scripts": {
         "typecheck:tests": "svelte-check --tsconfig ./tsconfig.check.json --threshold error --output human",
         "dev": "vite",
-        "build": "svelte-package -i src/lib -o dist --tsconfig ./tsconfig.dts.json && tsc -b --emitDeclarationOnly --force && node scripts/strip-dist-tests.mjs",
+        "build": "svelte-package -i src/lib -o dist --tsconfig ./tsconfig.dts.json && tsc -b --emitDeclarationOnly --force && node scripts/strip-dist-tests.mjs && node ../../../scripts/stamp-dist.mjs",
         "preview": "vite preview",
         "test": "vitest",
         "test:run": "vitest run",
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.19.3 <1.0.0",
+        "@aparte/core": ">=0.20.0 <1.0.0",
         "svelte": "^4.0.0 || ^5.0.0"
     },
     "devDependencies": {

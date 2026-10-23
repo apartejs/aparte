@@ -148,3 +148,39 @@ test('an open approval panel has no critical/serious axe violations', async ({ p
     const violations = await gatedViolations(page);
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
 });
+
+test('in a short window, the arguments keep their height: the panel body scrolls instead', async ({ page }) => {
+    // 560px tall, three options: the panel is capped at half the viewport, and its parts
+    // used to be its direct flex children — the arguments, the one shrinkable block, fell
+    // to 13px of a 30px content. The thing being approved disappeared first.
+    await page.setViewportSize({ width: 900, height: 560 });
+    const chat = await openSite(page);
+    await chat.send('what is the weather?');
+    const panel = page.locator(PANEL);
+    await expect(panel.locator(ARGS)).toContainText('Lille');
+    const args = await panel.locator(ARGS).evaluate((pre) => ({ shown: pre.clientHeight, content: pre.scrollHeight }));
+    expect(args.shown, `arguments shown ${args.shown}px of ${args.content}px`).toBeGreaterThanOrEqual(Math.min(args.content, 100) - 1);
+});
+
+test('an approval can be put aside to read the transcript, and brought back to answer', async ({ page }) => {
+    const chat = await openSite(page);
+    await chat.send('what is the weather?');
+    const panel = page.locator(PANEL);
+    await expect(panel).toBeVisible();
+    const open = (await panel.boundingBox())!.height;
+
+    await panel.locator('.aparte-elic-hide').click();
+    const bar = panel.locator('.aparte-elic-reveal');
+    await expect(bar).toBeVisible();
+    await expect(bar).toBeFocused();
+    await expect(panel.locator(APPROVE)).toBeHidden();
+    const aside = (await panel.boundingBox())!.height;
+    expect(aside, `one line (${aside}px) where the panel was ${open}px`).toBeLessThan(Math.min(open, 64));
+    // Still waiting: the row says so, and nothing ran.
+    await expect(rows(chat, 'awaiting-approval')).toHaveCount(1);
+
+    await bar.click();
+    await expect(panel.locator(APPROVE)).toBeVisible();
+    await panel.locator(APPROVE).click();
+    await expect(rows(chat, 'resolved')).toHaveCount(1);
+});

@@ -4,14 +4,11 @@
  * Core keeps only the English default in memory (`APARTE_DEFAULT_LOCALE`); other
  * languages arrive through `aparteGlobalConfig.setLocale()`.
  *
- * Closed, and an alias rather than an interface, on purpose. This used to end with
- * `[key: string]: string | undefined`, and that one line disabled the only
- * compile-time check the locale had: `AparteConfig.t(key: keyof AparteLocale)` looks
- * airtight, but with an index signature `keyof` widens to `string` and EVERY literal
- * typechecks. A renamed key compiled clean, `t()` returned `''` at runtime, and the UI
- * rendered an empty label with no error and no warning — which is how `submitButton`,
- * `stopButton` and `actionUpload` each shipped read-but-never-declared, the last one
- * reported by a user from a live language switcher.
+ * Closed, and an alias rather than an interface, on purpose. It has no index
+ * signature: `AparteConfig.t(key: keyof AparteLocale)` is only checked at compile time
+ * while `keyof` stays a union of literals, and an index signature would widen it to
+ * `string` so that EVERY literal typechecks. A misspelled key would then compile, `t()`
+ * would return `''` at runtime, and the UI would render an empty label with no error.
  *
  * The open half is {@link AparteLocaleExtensions}, and an ALIAS is what lets the two
  * meet: TypeScript gives a type alias an implicit index signature and an interface
@@ -85,13 +82,14 @@ export type AparteLocale = {
     newChat: string;
     /** Read by a screen reader while the conversation list is on its way (default: "Loading conversations") */
     loadingConversations: string;
+    /** The conversation list's line when its filter matches no title (default: "No conversation matches") */
+    conversationSearchEmpty?: string;
     /** Accessible name of the conversation list, a navigation landmark (default: "Conversations") */
     conversationList?: string;
     /** Read by a screen reader while a conversation's messages are on their way (default: "Loading the conversation") */
     loadingConversation: string;
     /**
-     * The "Delete" item of a row's menu (default: "Delete"). Used to be the aria-label
-     * of a permanent ✕ on every row ("Delete conversation"); the menu is named after
+     * The "Delete" item of a row's menu (default: "Delete"). The menu is named after
      * the row, so the item carries only the verb.
      */
     deleteConversation: string;
@@ -154,36 +152,20 @@ export type AparteLocale = {
     /**
      * The send button while a question panel is open, where it submits an ANSWER
      * rather than sending a message (default: "Submit").
-     *
-     * The component has been reading this key since the panel API existed; it was
-     * never declared, so `t()` returned "" and the hardcoded fallback showed. A key
-     * read and never declared is worse than a literal: it looks translated.
      */
     submitButton?: string;
     /**
      * The cancel/stop button that replaces send while a turn is streaming
      * (default: "Stop").
      *
-     * `aparte-composer-cancel` has been reading this key since it existed and it was
-     * never declared — the same defect this file already records for `submitButton`
-     * one entry up, found again while auditing a different question. So it has never
-     * been translatable in ANY language, not even after a full reload: `t()` returned
-     * nothing and the `|| 'Stop'` fallback rendered every time.
-     *
      * The button carries no visible text — this string is its `aria-label` and its
-     * `title`. Which is exactly why the gap survived: nothing on screen was in the
-     * wrong language, so only a screen-reader user or someone hovering would ever
-     * have met it. Most of the composer's translatable surface is like this.
+     * `title`.
      */
     stopButton?: string;
     /**
      * The tag a `recommended` option wears beside its label (default: "Recommended").
      * Said, not only tinted: a tint is a hint the eye may miss and a screen reader
      * never gets.
-     *
-     * (`elicitationNext` lived here until 2026-08-28, for the composer's button while a
-     * form had questions ahead. That meaning is gone with the button's "advance" mode
-     * — the chips are the navigation — so the key went with it, not deprecated.)
      */
     elicitationRecommended?: string;
     /**
@@ -191,12 +173,15 @@ export type AparteLocale = {
      *
      * "Skip" reads as "skip THIS one" on a form of several questions, while it
      * declines the whole request — including questions already answered. That is MCP's
-     * `decline` and the right behaviour. It was briefly renamed to carry the warning;
-     * reverted, because the RECEIPT now shows the outcome unambiguously (one declined
-     * row, no question attached), so the label no longer has to do that work — and
-     * "Skip" is the short conventional word for it.
+     * `decline`. The receipt shows the outcome unambiguously (one declined row, no
+     * question attached), so the label does not have to carry the warning and stays the
+     * short conventional word.
      */
     elicitationSkip?: string;
+    /** Label of the button that puts an open question or approval aside, to read the transcript behind it (default: "Hide for now") */
+    elicitationHide?: string;
+    /** The one-line bar an aside panel leaves, which brings it back (default: "Waiting for your answer") */
+    elicitationWaiting?: string;
     /** Affirmative choice of a yes/no question (default: "Yes") */
     elicitationYes?: string;
     /** Negative choice of a yes/no question (default: "No") */
@@ -207,8 +192,8 @@ export type AparteLocale = {
      * Placeholder for the free-text arm of an approval (default: "Or tell it what to
      * do instead…").
      *
-     * The refusal's REASON, in the user's words, which the model now reads because a
-     * refusal hands it a turn. Before that this text had nowhere to go.
+     * The refusal's REASON, in the user's words, which the model reads because a
+     * refusal hands it a turn.
      */
     approvalInstructionPlaceholder?: string;
     /**
@@ -223,10 +208,8 @@ export type AparteLocale = {
      * Accessible name of the viewport's scroll-to-bottom button (default:
      * "Scroll to bottom").
      *
-     * It was hardcoded English at both sites that build the button — the one
-     * chrome string a screen-reader user in another language always met. Same
-     * class of defect as the undeclared-key trio (submitButton, stopButton,
-     * actionUpload): the component looked done, the locale looked complete.
+     * The button is icon-only, so this string is the whole of what a screen-reader
+     * user hears there.
      */
     scrollToBottom?: string;
     /**
@@ -241,8 +224,7 @@ export type AparteLocale = {
      * Title line of the summary message `@aparte/plugin-compaction` injects in place
      * of the summarised turns (default: "Conversation summary"). The plugin reads it
      * through `config.t()`, so the notice follows the locale like every other string
-     * the user reads — it used to be hardcoded, with an emoji, so a French chat
-     * compacted into an English header.
+     * the user reads.
      */
     compactionSummaryTitle?: string;
     /**
@@ -259,8 +241,8 @@ export type AparteLocale = {
      *
      * A WORD and not only a glyph, which is what every current implementation shows
      * ("Pending", "Running", "Completed", "Error"). A bare cross beside a name reads as
-     * a button that removes something — the state was being mistaken for an
-     * affordance, which is ratified decision #8 read backwards.
+     * a button that removes something: a state must not be mistaken for an
+     * affordance.
      */
     toolRunning?: string;
     toolCompleted?: string;
@@ -277,26 +259,17 @@ export type AparteLocale = {
     /**
      * Heading over the call's arguments in the approval panel (default: "Arguments").
      *
-     * The panel named the tool and nothing else, while the arguments — the thing
-     * actually being approved — stayed in the transcript row behind a closed
-     * disclosure. Same word family as {@link toolInput} and deliberately not that
-     * key: that one heads a section of a transcript row, this one heads a decision.
+     * The arguments are the thing actually being approved, so the panel shows them
+     * under this heading. Same word family as {@link toolInput} and deliberately not
+     * that key: that one heads a section of a transcript row, this one heads a
+     * decision.
      */
     approvalArgsLabel?: string;
 
     /**
      * The composer's attach-file button (default: "Attach file").
      *
-     * `aparte-composer-add-attachment` has been READING `t('actionUpload')` since it
-     * existed, and the key was never declared — so `t()` returned '' and the
-     * `|| 'Attach file'` fallback rendered in every language, after every reload.
-     * The third instance of this exact defect in this file, after `submitButton` and
-     * `stopButton`, and the one a user reported from the live language switcher.
-     *
-     * A key that is read and not declared cannot be found by reading either side: the
-     * component looks correct, the locale looks complete. Cross-checking the two
-     * lists is what finds them — `t()` calls and `getLocale().x` reads on one side,
-     * these declarations on the other.
+     * Read by `aparte-composer-add-attachment` as `t('actionUpload')`.
      */
     actionUpload?: string;
     /**
@@ -308,14 +281,18 @@ export type AparteLocale = {
      * icon-only, so this string is the whole of what a screen-reader user hears.
      */
     removeAttachment?: string;
+    /**
+     * The accessible name of a message whose bubble carries a `name` — a human agent, a
+     * second assistant (default: "Message from {name}"). `{name}` is that name. Without one
+     * the bubble is named after its role: `yourMessage` or `assistantResponse`.
+     */
+    messageFrom?: string;
 
     // --- The searchable <aparte-select>, the primitive the model selector wears ---
     /**
      * Placeholder of a searchable select's filter field (default: "Search…").
      *
-     * VISIBLE text, which is what separates it from most of this file: it was a
-     * literal in the primitive, so a French page opened the model picker and read
-     * "Search..." in the box.
+     * VISIBLE text, which is what separates it from most of this file.
      */
     selectSearchPlaceholder?: string;
     /** Accessible name of that filter field, which has no visible label (default: "Search options") */
@@ -325,10 +302,7 @@ export type AparteLocale = {
 
     // --- Plugin chrome — read by `@aparte/plugin-model-selector` and
     // `@aparte/plugin-approval`, declared here for the same reason as the Artifacts
-    // block below: a locale package translates one bag, not one per plugin. Both have
-    // shipped in `APARTE_DEFAULT_LOCALE` and in `@aparte/locale-fr` since they existed
-    // — only the declaration was missing, so a locale author met them through the index
-    // signature alone, with no type and no JSDoc. ---
+    // block below: a locale package translates one bag, not one per plugin. ---
     /**
      * The `<aparte-model-selector>` trigger before a model is picked (default:
      * "Select a model..."). The one string that element takes from the locale.
@@ -349,16 +323,17 @@ export type AparteLocale = {
      * The artifact card's download button (default: "Download").
      *
      * Like `stopButton`, this string is a `title` and an `aria-label` on an
-     * icon-only button — which is why it stayed English through every locale this
-     * project shipped. Nothing on screen was in the wrong language.
+     * icon-only button.
      */
     download?: string;
+    /** The artifact card's Open button, when the app asked for it (default: "Open") */
+    openArtifact?: string;
+    /** A model's context window under its name in the model selector's `details` — `{n}` is the size (default: "{n} context") */
+    modelContextWindow?: string;
     /**
      * The artifact card's two tabs (defaults: "Preview" / "Code").
      *
-     * These two ARE visible text, on a card the landing page leads with, and they
-     * were still literals. The card was written before the locale had a home for
-     * anything but chrome.
+     * These two are visible text on the card.
      */
     preview?: string;
     code?: string;
@@ -366,9 +341,8 @@ export type AparteLocale = {
      * A binary artifact being produced, and the same artifact's preview being rebuilt
      * after a reload (defaults: "Generating…" / "Rebuilding preview…").
      *
-     * `generating` was also the `aria-label` of the former `pipeline-waiting` segment, which
-     * is the ONLY thing a screen-reader user hears while a turn is in flight. It was
-     * hardcoded, so that announcement was English in every locale.
+     * Both are read by `@aparte/plugin-artifacts`: `generating` is the subtext of a binary
+     * artifact being produced and the `aria-label` of the artifact card's streaming pulse.
      */
     generating?: string;
     rebuildingPreview?: string;
@@ -377,8 +351,8 @@ export type AparteLocale = {
      * Preview to run this artifact.").
      *
      * The pane is empty on purpose — a previewable artifact is model-authored code
-     * and mounting it unasked would execute it (ratified decision #8) — so this
-     * sentence is the whole of what the reader sees there, and it was a literal.
+     * and mounting it unasked would execute it — so this sentence is the whole of
+     * what the reader sees there.
      */
     previewPending?: string;
     /**
@@ -396,10 +370,9 @@ export type AparteLocale = {
      * BCP-47 language tag for `Intl` formatting — `'fr-FR'`, `'ja-JP'`, `'en-US'`.
      *
      * A locale is otherwise a bag of STRINGS, and a clock is not a string: it is a
-     * format. So `setLocale(fr)` moved fifty strings and left the timestamp above
-     * every message reading `7:32 PM`, because the only `Intl` call in the library
-     * passed `undefined` — "use the BROWSER's locale" — which is not the locale the
-     * app just chose. French is 24-hour; the browser was not asked.
+     * format. The tag is what the library's `Intl` calls (the timestamp above every
+     * message) use, instead of the BROWSER's locale, which is not necessarily the
+     * locale the app chose.
      *
      * A tag and NOT an `hour12` flag, deliberately. A flag answers one question for
      * one call site; a tag answers every question `Intl` can be asked — hour cycle,
@@ -409,8 +382,7 @@ export type AparteLocale = {
      * words are.
      *
      * Undefined on purpose in the English default: `undefined` means "follow the
-     * browser", which is the right default for a library and the behaviour every
-     * consumer has today. A locale that declares a tag pins the formatting — if you
+     * browser", which is the right default for a library. A locale that declares a tag pins the formatting — if you
      * have chosen French strings, French formatting is what you meant.
      */
     tag?: string;
@@ -419,12 +391,9 @@ export type AparteLocale = {
      * scroll container and onto `<aparte-composer>`, so everything inside inherits it.
      *
      * Undefined on purpose in the English default, for the reason `tag` above is:
-     * `undefined` means "follow the host". The default used to be the literal
-     * `'ltr'`, which meant core wrote `dir="ltr"` on its own DOM — so a page that
-     * had said `<html dir="rtl">` got a mirrored app shell around a chat that was
-     * still left-to-right, and nothing said why. Not declaring it lets the host's
-     * direction inherit, which is what a library should do with a decision the page
-     * has already taken.
+     * `undefined` means "follow the host": core writes no `dir` of its own, so the
+     * host's direction (`<html dir="rtl">`) inherits, which is what a library should
+     * do with a decision the page has already taken.
      *
      * A locale that wants the direction PINNED still declares it, and that is the
      * case it exists for: `@aparte/locale-ar` would say `'rtl'` whatever the page
@@ -437,16 +406,12 @@ export type AparteLocale = {
 /**
  * The extension half: any other key a plugin or an app wants to carry.
  *
- * This used to be an index signature ON `AparteLocale` — `[key: string]: string |
- * undefined` — and it silently disabled the only compile-time check the locale had.
- * `AparteConfig.t(key: keyof AparteLocale)` looks airtight; with an index signature,
- * `keyof` widens to `string` and EVERY literal typechecks. A renamed key
- * (`t('copy')` typed as `t('copyCodeBlock')`) compiled clean, `t()` returned `''`
- * at runtime, and the UI rendered an empty label with no error and no warning. It was
- * one of the six deliberate mistakes an audit planted, and the only guard that could
- * have caught it was this type.
+ * Kept separate from {@link AparteLocale} on purpose: an index signature on
+ * `AparteLocale` itself would widen `keyof AparteLocale` to `string`, so `t()` would
+ * typecheck every literal and a misspelled key would render an empty label with no
+ * error.
  *
- * So the two halves are separate now: {@link AparteLocale} is CLOSED — it is the list
+ * The two halves: {@link AparteLocale} is CLOSED — it is the list
  * `t()` keys on — and this is the open bag beside it. {@link AparteConfig.setLocale}
  * and {@link AparteConfig.extendLocale} accept the intersection, so a plugin still
  * ships its own strings in the same object; only `t()` stays narrow, which is where
@@ -472,6 +437,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     stopButton: "Stop",
     elicitationRecommended: "Recommended",
     elicitationSkip: "Skip",
+    elicitationHide: "Hide for now",
+    elicitationWaiting: "Waiting for your answer",
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
@@ -493,10 +460,13 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",
     removeAttachment: "Remove {name}",
+    messageFrom: "Message from {name}",
     selectSearchPlaceholder: "Search…",
     selectSearchLabel: "Search options",
     loading: "Loading…",
     download: "Download",
+    openArtifact: "Open",
+    modelContextWindow: "{n} context",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",
     sandboxErrorHint: "Common cause: the model produced invalid code (undefined variable, wrong argument type). Retry the request — the model may produce different code.",
@@ -528,6 +498,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     messageInfo: "Details",
     newChat: "New Chat",
     loadingConversations: "Loading conversations",
+    conversationSearchEmpty: "No conversation matches",
     conversationList: "Conversations",
     loadingConversation: "Loading the conversation",
     deleteConversation: "Delete",

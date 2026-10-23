@@ -5,6 +5,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
+import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -60,7 +61,7 @@ type ListLocaleKey =
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
-    | 'conversationGroupWeek' | 'conversationGroupMonth';
+    | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty';
 
 /** A selector for the row button carrying `id` on `attr`. */
 function rowSelector(attr: string, id: string): string {
@@ -95,7 +96,7 @@ const VIEWPORT_MARGIN = 8;
  * What it is not: a store. Selecting, renaming, pinning, archiving and deleting all
  * leave the array untouched — the events carry an id (and, for rename, the title) and
  * stop. Set `manage` and the menu's write gestures are carried out on the conversation
- * manager you registered, so those six listeners are no longer yours to write; the
+ * manager you registered, so you do not write those six listeners; the
  * event still goes out first and `preventDefault()` takes the gesture back. The array
  * is still not this element's: the manager's own change is what re-renders it.
  * A row's text comes from the array, so it changes when the host assigns
@@ -111,6 +112,7 @@ const VIEWPORT_MARGIN = 8;
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
  * @attr {boolean} flat - Render the rows flat, in host order, with no date headings.
+ * @attr {boolean} data-no-match - Reflected BY the element while `filter()` holds a query no title matches. Read-only.
  * @attr {boolean} loading - The list is on its way: six skeleton rows stand where the rows will be, the
  *                    element is `aria-busy` and a visually hidden line names the wait. A list that is
  *                    not there yet is not an empty list. Set it while your store answers, clear it when
@@ -208,11 +210,10 @@ export class AparteConversationList extends HTMLElement {
      * Let the list finish the gesture through the registered conversation manager.
      * Reflected as the `manage` attribute.
      *
-     * The property is not a nicety here: this is the attribute that authorises a WRITE,
-     * and Vue and both Sveltes stringify a bound `false` onto an element that has no
-     * property of that name — `manage="false"`, which `hasAttribute` reads as on. So
-     * turning management off turned it on, and a delete the host meant to handle itself
-     * was also done by the list. `presenceOn`, like `loading` above it.
+     * The property exists because this is the attribute that authorises a WRITE, and Vue
+     * and both Sveltes stringify a bound `false` onto an element that has no property of
+     * that name — `manage="false"`, which `hasAttribute` reads as on. Without it,
+     * turning management off would turn it on. `presenceOn`, like `loading` above it.
      */
     get manage(): boolean {
         return this.hasAttribute('manage');
@@ -291,13 +292,12 @@ export class AparteConversationList extends HTMLElement {
     /**
      * A press holds every render until its click has landed. The host re-assigns
      * `conversations` on every manager change (a save moves a row, a select marks one),
-     * and a row replaced between `mousedown` and `mouseup` lost its click: Chromium sent
-     * it to the list, where the delegated handler matched nothing, and WebKit sent none.
-     * A conversation clicked while the list settled did not open. Keeping the row node
-     * would not have saved it: a row moved to its new place leaves the document on the
-     * way, and the row that moves is often the one pressed (the conversation just
-     * saved). So nothing changes under a pointer that is down, and the render runs once,
-     * after the click.
+     * and a row replaced between `mousedown` and `mouseup` loses its click: Chromium
+     * sends it to the list, where the delegated handler matches nothing, and WebKit
+     * sends none. Keeping the row node would not help: a row moved to its new place
+     * leaves the document on the way, and the row that moves is often the one pressed
+     * (the conversation just saved). So nothing changes under a pointer that is down,
+     * and the render runs once, after the click.
      */
     private _pressed = false;
     private _renderAfterPress = false;
@@ -360,12 +360,16 @@ export class AparteConversationList extends HTMLElement {
         // confirmed from the row's own menu, so the row the keyboard is on is the row
         // that leaves.
         const heldRow = held?.closest<HTMLElement>('[data-conv-id]') ?? null;
+        // Among the rows a reader can reach: with a search held, the hidden ones do not count.
+        const visible = (el: Element): boolean => !el.closest('[hidden]');
         const heldIndex = heldRow
-            ? Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]')).indexOf(heldRow)
+            ? Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]')).filter(visible).indexOf(heldRow)
             : -1;
         const loading = this.hasAttribute('loading');
         this.setAttribute('aria-busy', loading ? 'true' : 'false');
         if (loading) {
+            // A list on its way matches nothing yet: no "no match" while it loads.
+            this.removeAttribute('data-no-match');
             // Six rows of the recipe, the widths varied so it reads as a list and not a
             // grid; a status line off screen, because aria-busy alone is often ignored.
             // Literals only, no interpolation at all: the text-escaping guard reads a
@@ -385,16 +389,28 @@ export class AparteConversationList extends HTMLElement {
             else say();
             return;
         }
-        this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
+        // The no-match line outlives the rows, and never leaves the document: rebuilt with
+        // them, or detached and put back, it is a new live region to the accessibility tree,
+        // whose text may be announced again — "No conversation matches" after every save.
+        const line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
+        const groups = this._groups().map(g => this._renderGroup(g)).join('');
+        if (line) {
+            for (const child of Array.from(this.childNodes)) if (child !== line) child.remove();
+            line.insertAdjacentHTML('beforebegin', groups);
+        } else {
+            this.innerHTML = groups;
+        }
+        this._applyFilter();
         if (!restore) return;
-        // The same row, by id — not the same element, which no longer exists.
+        // The same row, by id — not the same element, which no longer exists — when the
+        // search still shows it: a focus() inside `hidden` lands on <body>.
         const back = this.querySelector<HTMLElement>(restore);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
-        if (back) { back.focus(); return; }
+        if (back && visible(back)) { back.focus(); return; }
         // That row left the list. The keyboard goes to the row that took its place (the
         // next one, else the one above), and to the list itself when the last
         // conversation goes — never to `<body>`, which would restart the next Tab at the
         // top of the page right after the one action here that cannot be undone.
-        const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-select-id]'));
+        const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-select-id]')).filter(visible);
         const next = heldIndex >= 0 ? (rows[heldIndex] ?? rows[rows.length - 1]) : null;
         if (next) { next.focus(); return; }
         // Borrowed, not taken: a host that made the list focusable keeps its own tab
@@ -405,6 +421,47 @@ export class AparteConversationList extends HTMLElement {
             this.addEventListener('blur', () => this.removeAttribute('tabindex'), { once: true });
         }
         this.focus();
+    }
+
+    /** The query `filter()` holds, folded; re-applied on every render, so new rows obey it. */
+    private _query = '';
+
+    /**
+     * Show only the conversations whose title contains `query`, case- and
+     * accent-insensitive, and the date groups that still hold one; return how many match.
+     * An empty query shows everything. The query is kept through every render — a new
+     * conversation, a rename — and when nothing matches the list says so in a status line
+     * (the locale's `conversationSearchEmpty`) and carries `data-no-match`.
+     */
+    filter(query: string): number {
+        this._query = foldText(query);
+        return this._applyFilter();
+    }
+
+    private _applyFilter(): number {
+        const needle = this._query;
+        // Rows that are not there yet match nothing and miss nothing: the skeleton is shown.
+        if (this.hasAttribute('loading')) return 0;
+        const matches = filterConversationRows(this, needle);
+        const noMatch = needle !== '' && matches === 0;
+        this.toggleAttribute('data-no-match', noMatch);
+        // Always there, empty until a miss: a live region created with its text already in
+        // it is a new node, not a change, and several screen readers announce nothing.
+        let line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
+        const born = !line;
+        if (!line) {
+            line = document.createElement('p');
+            line.className = 'aparte-conv-list-no-match';
+            line.setAttribute('role', 'status');
+            this.appendChild(line);
+        }
+        const text = noMatch ? this._t('conversationSearchEmpty') : '';
+        const write = (): void => { if (line!.isConnected && line!.textContent !== text) line!.textContent = text; };
+        // A line a render just made is a new node, and its first text has to come a frame
+        // later to be announced (same as the loading status).
+        if (born && text && typeof requestAnimationFrame === 'function') requestAnimationFrame(write);
+        else write();
+        return matches;
     }
 
     private _t(key: ListLocaleKey): string {
@@ -532,7 +589,7 @@ export class AparteConversationList extends HTMLElement {
 
     /** The question the confirm step asks — the popover's accessible name while it asks it. */
     private _confirmQuestion(conv: AparteConversationListItem): string {
-        return this._t('deleteConversationConfirm').replace('{title}', conv.title || this._t('newChat'));
+        return this._t('deleteConversationConfirm').replace('{title}', () => conv.title || this._t('newChat'));
     }
 
     private _confirmMarkup(conv: AparteConversationListItem): string {

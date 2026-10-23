@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
-import { aparteGlobalConfig, AparteConversationManager, type AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { aparteGlobalConfig, AparteConversationManager, type AparteConfig, type AparteConversation, type AparteStorageAdapter, type ConversationManagerOptions } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 /**
@@ -60,8 +60,8 @@ export class ConversationManagerService implements OnDestroy {
      * Initialise the service with a storage adapter.
      * Call once in your root component or app initialiser.
      */
-    async init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> {
-        this._manager = new AparteConversationManager(adapter);
+    async init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions): Promise<void> {
+        this._manager = new AparteConversationManager(adapter, options);
         this._unsubscribe = this._manager.subscribe(convs => {
             this.conversations.set([...convs]);
             this.activeId.set(this._manager!.activeId);
@@ -82,6 +82,11 @@ export class ConversationManagerService implements OnDestroy {
 
     ngOnDestroy(): void {
         this._unsubscribe?.();
+    }
+
+    /** The core manager, once `init` has run (`null` before): for what this service does not mirror. */
+    get manager(): AparteConversationManager | null {
+        return this._manager;
     }
 
     // ─── Actions ─────────────────────────────────────────────────────────────

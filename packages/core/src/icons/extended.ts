@@ -11,8 +11,7 @@
  *
  * Import three, pay for three. Nothing here is loaded by `@aparte/core` itself, so a
  * consumer who never opens this module pays nothing at all — the same lever as
- * `@aparte/plugin-shiki/core` (ratified decision #9b: weight is controlled by an entry
- * point, never by a flag).
+ * `@aparte/plugin-shiki/core`: weight is controlled by an entry point, never by a flag.
  *
  * Drawn here, like `glyphs.ts`: a 24-unit grid, a 2-unit round-capped stroke,
  * `currentColor`, no size (the container declares `--aparte-icon-size`). The names are

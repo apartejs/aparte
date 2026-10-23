@@ -185,6 +185,16 @@ describe('useConversationManager', () => {
         expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
+    it('init() takes the manager options and exposes the manager', async () => {
+        const { result } = renderHook(() => useConversationManager());
+        await act(async () => { await result.current.init(new MemoryAdapter(), aparteGlobalConfig, { titleProvider: () => 'Named' }); });
+        let id = '';
+        await act(async () => { id = (await result.current.createNew()).id; });
+        await act(async () => { await result.current.addMessage(id, { id: 'u1', role: 'user', content: 'hello there', timestamp: 1 } as never); });
+        expect(result.current.conversations[0]?.title).toBe('Named');
+        expect(result.current.manager).toBe(aparteGlobalConfig.getConversationManager());
+    });
+
     it('splits active from archived, newest first', async () => {
         const { result } = renderHook(() => useConversationManager());
         await act(async () => { await result.current.init(new MemoryAdapter()); });

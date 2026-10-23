@@ -196,6 +196,144 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls[1]!.deferral!.outcomes).toEqual({ q1: { kind: 'result', content: 'The blue one.' } });
     });
 
+    it('asks before running a needsApproval browser tool, and sends the refusal instead of running it', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        const asked: string[] = [];
+        const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+        const { c, cfg } = client(el, r.run, {
+            approvalResolver: async (call: { id: string }) => { asked.push(call.id); return { approved: false, reason: 'Not that file.' }; },
+        });
+        cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true }, handler);
+        await send(c);
+        expect(asked).toEqual(['w1']);
+        expect(handler).not.toHaveBeenCalled();
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Not that file.' } });
+    });
+
+    it('lets the approval policy refuse a browser tool a server asked for', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+        const { c, cfg } = client(el, r.run);
+        cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' } }, handler);
+        cfg.setApprovalPolicy(() => ({ verdict: 'deny', reason: 'Plan mode: nothing is written.' }));
+        await send(c);
+        expect(handler).not.toHaveBeenCalled();
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.' } });
+    });
+
+    it('paints the row as waiting while the page asks about a browser tool', async () => {
+        const { el, messages } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        let statusWhileAsked: string | undefined;
+        const { c, cfg } = client(el, r.run, {
+            approvalResolver: async () => { statusWhileAsked = rowOf(messages, 'w1').status; return { approved: true }; },
+        });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => ({ toolCallId: call.id, content: 'written' }),
+        );
+        await send(c);
+        expect(statusWhileAsked, 'not "running" while a panel asks').toBe('awaiting-approval');
+    });
+
+    it('does not ask twice about a call approved earlier in the turn', async () => {
+        const { el } = chat();
+        // TanStack AI: approve a client tool, then a second pause to run it in the browser.
+        const r = runner(
+            pauseOn({ id: 'w1', name: 'write_file', reason: 'approval' }),
+            pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }),
+            finish,
+        );
+        let asked = 0;
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => { asked++; return { approved: true }; } });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => ({ toolCallId: call.id, content: 'written' }),
+        );
+        await send(c);
+        expect(asked).toBe(1);
+        expect(r.calls[2]!.deferral!.outcomes).toEqual({ w1: { kind: 'result', content: 'written' } });
+    });
+
+    it('asks about a later call that carries an approved id: that approval was for another call', async () => {
+        // A vendor that sends no call ids has them minted per stream, so the model's next turn
+        // can carry the id of a call a person approved earlier in the same turn.
+        const { el } = chat();
+        const r = runner(
+            pauseOn({ id: 'aparte-call-1', name: 'delete_file', reason: 'approval' }),
+            pauseOn({ id: 'aparte-call-1', name: 'wipe_storage', reason: 'external' }),
+            finish,
+        );
+        const asked: string[] = [];
+        const wipe = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'wiped' }));
+        const { c, cfg } = client(el, r.run, {
+            approvalResolver: async (call: { name: string }) => { asked.push(call.name); return { approved: call.name === 'delete_file' }; },
+        });
+        cfg.registerTool({ name: 'wipe_storage', description: 'Wipe.', inputSchema: { type: 'object' }, needsApproval: true }, wipe);
+        await send(c);
+        expect(asked).toEqual(['delete_file', 'wipe_storage']);
+        expect(wipe, 'refused when asked, so it never runs').not.toHaveBeenCalled();
+    });
+
+    it('runs no later browser tool of the pause once one is refused', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }, { id: 'w2', name: 'write_file', reason: 'external' }), finish);
+        const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: false }) });
+        cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true }, handler);
+        await send(c);
+        expect(handler).not.toHaveBeenCalled();
+        // Every later call is answered too, as not run: a server would otherwise pause on it
+        // again, and an AG-UI agent would hand its model a call with no answer.
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({
+            w1: { kind: 'decision', approved: false },
+            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.' },
+        });
+    });
+
+    it('answers the later questions of the pause as not run once one is refused, and asks no more', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }, { id: 'c2', name: 'delete_file', reason: 'approval' }), finish);
+        let asked = 0;
+        const { c } = client(el, r.run, { approvalResolver: async () => { asked++; return { approved: false }; } });
+        await send(c);
+        expect(asked).toBe(1);
+        expect(Object.keys(r.calls[1]!.deferral!.outcomes!)).toEqual(['c1', 'c2']);
+    });
+
+    it('hands the browser tool the input an approval changed, as the page\'s own loop does', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        const seen: unknown[] = [];
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true, payload: { path: 'safe.txt' } }) });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => { seen.push(call.input); return { toolCallId: call.id, content: 'written' }; },
+        );
+        await send(c);
+        expect(seen).toEqual([{ path: 'safe.txt' }]);
+    });
+
+    it('runs an approved needsApproval browser tool', async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        cfg.registerTool(
+            { name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true },
+            async (call) => ({ toolCallId: call.id, content: 'written' }),
+        );
+        await send(c);
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'result', content: 'written' } });
+        // The resume still hands the call back OPEN, for the result to answer: painting the
+        // approved row used to end its pause first, and the history then answered it
+        // "stopped before it ran" — a server refused the resume, an agent read a false answer.
+        const resumed = r.calls[1]!.baseRequest.messages;
+        expect(resumed.some((m) => m.role === 'tool' && m.toolCallId === 'w1'), 'w1 is not answered in the history').toBe(false);
+        expect(resumed.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'w1' }] });
+    });
+
     it('brackets the whole turn, pauses included, with one start and one done', async () => {
         const { el, events } = chat();
         const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);

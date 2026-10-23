@@ -1,6 +1,6 @@
 {
   "name": "@aparte/plugin-model-selector",
-  "version": "0.19.3",
+  "version": "0.20.0",
   "homepage": "https://apartejs.dev/plugins/model-selector/",
   "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
   "type": "module",
@@ -12,6 +12,26 @@
     ".": {
       "@aparte-workspace/source": "./src/index.ts",
       "node": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "worker": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "workerd": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "edge-light": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "deno": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "bun": {
         "types": "./dist/index.node.d.ts",
         "default": "./dist/index.node.js"
       },
@@ -50,7 +70,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze && node ../../../scripts/stamp-dist.mjs",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
@@ -60,7 +80,7 @@
   },
   "peerDependencies": {
     "@angular/core": "^19.2.0",
-    "@aparte/core": ">=0.19.3 <1.0.0",
+    "@aparte/core": ">=0.20.0 <1.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "svelte": "^4.0.0 || ^5.0.0",
     "vue": "^3.5.0"

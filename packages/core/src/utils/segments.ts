@@ -1,22 +1,17 @@
 /**
  * What a segment knows about itself — stamped in one place.
  *
- * A segment carried `id`, `type` and `isStreaming` and nothing else, while the
- * message one level up already had a `timestamp`, a `usage` and a `metadata` bag.
- * Three places in this repo paid for the gap: `render(segment)` takes one argument
- * so a custom renderer could not learn its message, `aparte-terminal-run` shipped a
- * `segmentId` nobody could resolve, and the artifact renderer fabricated a message
- * id to slip past a consumer dedupe keyed on a pair it did not have.
+ * A segment carries an identity (`messageId`, `index`) and a measurement
+ * (`startedAt`, `endedAt`), so a custom renderer, which receives only the segment, can
+ * learn its message and its duration.
  *
- * **Why the stamp lives here and not in `AparteStreamParser`.** The parser looked
- * like the right owner — both agent loops share it, so parity would be free. It is
- * the wrong one. `tool_call` segments are built by the client and the stream
- * adapter (three sites), `pipeline-waiting` by two more, and `prefixSegments` by the
- * app itself: stamping in the parser would have left a TOOL CALL — the single most
- * useful duration in the whole transcript — with no measurement at all. Worse, the
- * parser's own `segmentCounter` would have produced a wrong index: it is recreated
- * on every `turn-start`, while a tool round-trip appends to the SAME message across
- * turns, so one message would hold two segments at index 0, silently.
+ * **Why the stamp lives here and not in `AparteStreamParser`.** `tool_call` segments
+ * are built by the stream adapter and `prefixSegments` by the app itself: stamping in
+ * the parser would leave
+ * a TOOL CALL — the single most useful duration in the whole transcript — with no
+ * measurement at all. The parser's own `segmentCounter` would also produce a wrong
+ * index: it is recreated on every `turn-start`, while a tool round-trip appends to the
+ * SAME message across turns, so one message would hold two segments at index 0.
  *
  * A segment can only reach a transcript one way — through `addSegment` — and there
  * are exactly two owners of the array behind it: `aparte-chat-viewport` (native) and
@@ -34,20 +29,18 @@ import type { AparteSegmentDefaults, AparteSegmentTiming, AparteSegment } from '
  *
  * A tool call is the one segment type whose completion is not spelled by
  * `isStreaming`: the client flips its `status`, never the streaming flag. Reading
- * `isStreaming` there would have measured nothing.
+ * `isStreaming` there would measure nothing.
  */
 const OPEN_TOOL_STATUSES: ReadonlySet<string> = new Set(['pending', 'awaiting-approval']);
 
 /**
  * Update keys that mean "content arrived", as opposed to "how it is displayed".
  *
- * The distinction is the whole rule and it cost a test to find: the stream adapter
- * collapses a reasoning block the moment answer text starts
- * (`updateSegment(thinkingId, { collapsed: true })`). Counting that as activity put
- * a reasoning block's end at the start of the ANSWER rather than at its own last
- * token — 5s instead of 2s in the test that caught it. Collapsing, inlining and
- * writing `meta` are decisions about presentation; they are not the segment doing
- * anything.
+ * The stream adapter collapses a reasoning block the moment answer text starts
+ * (`updateSegment(thinkingId, { collapsed: true })`). Counting that as activity would
+ * put a reasoning block's end at the start of the ANSWER rather than at its own last
+ * token. Collapsing, inlining and writing `meta` are decisions about presentation;
+ * they are not the segment doing anything.
  */
 const ACTIVITY_KEYS: readonly string[] = ['content', 'output', 'result'];
 
@@ -61,7 +54,7 @@ function isActivity(updates: Partial<AparteSegment>): boolean {
  *
  * Returns a new object; the caller's segment is never mutated — the viewport hands
  * the same segment object to the repository AND to the bubble, so mutating one is
- * action at a distance (a bug this repo has already paid for in `appendToSegment`).
+ * action at a distance.
  *
  * A value already present is never overwritten, so a segment rehydrated from a
  * consumer's storage keeps the numbers it was persisted with.
@@ -87,13 +80,11 @@ export function stampSegmentOnInsert(
 /**
  * A segment arriving from STORAGE or a server, rather than starting now.
  *
- * The counterpart of {@link stampSegmentOnInsert}, and the reason it exists: the two
- * are not the same act, and treating them as one made the library invent history.
- * `stampSegmentOnInsert` ran on every arrival path including a reload, so a
- * conversation from three weeks ago came back claiming each of its segments had
- * started this second — while THREE other load paths did not stamp at all, so the same
- * stored conversation produced different numbers depending on the mode and on whether
- * a branch tree had been saved. Not a lie so much as an incoherence.
+ * The counterpart of {@link stampSegmentOnInsert}: the two are not the same act, and
+ * treating them as one would invent history — a conversation from three weeks ago
+ * would claim each of its segments had started this second. Every load path goes
+ * through this one, so the same stored conversation produces the same numbers
+ * whatever the mode and whether a branch tree was saved.
  *
  * What it writes, and why each:
  *
@@ -109,15 +100,14 @@ export function stampSegmentOnInsert(
  *    `openSegmentIds`, which reads exactly this flag — would have the next turn-close
  *    stamp it a brand-new `endedAt`.
  *  - a `tool_call` persisted as `awaiting-approval` — or `pending` in a message that is
- *    no longer in flight, a call saved while it ran, which a server loop's cut connection
+ *    not in flight, a call saved while it ran, which a server loop's cut connection
  *    leaves behind — becomes `'aborted'`, for the same
  *    reason and through a hole the line above cannot reach: `isSegmentSettled` reads
- *    STATUS for a tool call, not `isStreaming`, so a restored gate stayed OPEN. The loop
- *    that awaited the decision is gone and the promise it would have settled went with
- *    the page, so the request is unanswerable — and `'aborted'` rather than `'rejected'`
- *    because nobody refused anything. Documented as a consumer's problem in the
- *    persistence guide until now ("normalise those statuses on save"), which is a
- *    normalisation this function was already the single funnel for. The exception is a
+ *    STATUS for a tool call, not `isStreaming`, so a restored gate would stay OPEN. The
+ *    loop that awaited the decision is gone and the promise it would have settled went
+ *    with the page, so the request is unanswerable — and `'aborted'` rather than
+ *    `'rejected'` because nobody refused anything. Consumers need not normalise those
+ *    statuses on save. The exception is a
  *    call that carries a continuation ticket (`deferred.ticket`): a server loop paused
  *    on it, nothing in the page was awaiting it, and it can still be answered
  *    (`AparteClient.resumeDeferred`).
@@ -225,12 +215,10 @@ export function isSegmentSettled(segment: AparteSegment): boolean {
  * Move `endedAt` to now while the segment is open; freeze it once it settles.
  *
  * `endedAt` is **the moment content last arrived**, and that is the only honest
- * signal available. Two simpler rules were tried and are wrong, both measurably:
+ * signal available. Two simpler rules are wrong:
  *
  *  - *"ends when the turn ends"* — a reasoning block would then span the whole
- *    answer that followed it. 2s of thinking before a 20s reply reads "22s". A
- *    mocked stream hides this (it moves from reasoning to text in milliseconds); a
- *    real model does not.
+ *    answer that followed it. 2s of thinking before a 20s reply would read "22s".
  *  - *"ends when the next segment starts"* — the same error, smaller: if the next
  *    segment opens ten seconds later, those ten seconds are counted as thinking,
  *    while the person watching the screen knows perfectly well nothing happened.
@@ -269,7 +257,7 @@ export function stampSegmentOnUpdate(
 /**
  * Merge an update into a segment without one writer erasing the other's `meta`.
  *
- * `{ ...segment, ...updates }` is wrong now that `meta` has two writers. A consumer's
+ * `{ ...segment, ...updates }` is wrong because `meta` has two writers. A consumer's
  * `updateSegment(id, { meta: { cost } })` is presentation, not activity, so it passes
  * through {@link stampSegmentOnUpdate} untouched — and a plain spread would then
  * replace the whole bag and take `meta.aparte` with it. The measurement would vanish
@@ -277,8 +265,7 @@ export function stampSegmentOnUpdate(
  *
  * So the bag is merged one level, and `aparte` inside it merged again. Every site that
  * folds an update into a segment goes through here — the viewport, the host and the
- * bubble each had their own spread, which is three chances to fix this twice and miss
- * once.
+ * bubble.
  */
 export function mergeSegmentUpdate(
     segment: AparteSegment,
@@ -305,19 +292,15 @@ export function mergeSegmentUpdate(
  *
  * The five identity/measurement fields are optional because they describe a
  * LIFECYCLE: a segment built by hand or freshly emitted by the parser has not been
- * inserted yet, so it has no start, and an open segment has no end. Making them
- * required would either force every creation site to stamp — six of them, which is
- * the forgotten-sibling shape this seam exists to prevent — or force a hand-written
- * literal to invent values the owner then refuses to overwrite.
+ * inserted yet, so it has no start, and an open segment has no end.
  *
- * The cost of that optionality lands on the reader, and this is what removes it. The
- * guard it replaces was written three times in this repo before it earned a function:
+ * The cost of that optionality lands on the reader, and this removes it. Hand-written,
+ * the guard is
  *
  *     if (!isSegmentSettled(seg) || !seg.startedAt || !seg.endedAt) return;
  *
  * — three conditions to get right, and the last two are wrong at epoch 0, where a
- * valid timestamp is falsy. Nobody streams in 1970, but the test suite sets the clock
- * to 0 routinely, so the trap was already in the repo waiting for its first victim.
+ * valid timestamp is falsy.
  *
  * It deliberately does NOT ask whether the segment is finished: during a turn a
  * growing duration is exactly what a "thinking…" counter shows. Pair it with
@@ -333,12 +316,10 @@ export function segmentDuration(segment: AparteSegment): number | undefined {
  * The patch that records "content just arrived on this segment".
  *
  * The append paths do not go through {@link stampSegmentOnUpdate} — they rebuild
- * the segment themselves, for reasons that predate this (the viewport must not
- * mutate an object the bubble shares; the host coalesces a frame's chunks into one
- * absolute write). They still have to move `endedAt`, because content arriving IS
- * the activity it measures. So they spread this in, and the rule stays in one file
- * — which is not a style preference: `pnpm check:segment-stamp` refused the two
- * inline `endedAt: Date.now()` this replaced, and it was right to.
+ * the segment themselves (the viewport must not mutate an object the bubble shares;
+ * the host coalesces a frame's chunks into one absolute write). They still have to
+ * move `endedAt`, because content arriving IS the activity it measures. So they spread
+ * this in, and the rule stays in one file (`pnpm check:segment-stamp` enforces it).
  *
  * Empty once the segment has settled, so a late write cannot move a final end.
  */
@@ -351,14 +332,13 @@ export function stampSegmentActivity(segment: AparteSegment): Partial<AparteSegm
  * that it CLOSED, when it did.
  *
  * The parser marks the segments it closes (`</think>`, a closing fence,
- * `</artifact>`, the opening of the next block). That mark reached nobody: every
- * forwarding site sent `{ content }` alone, so a finished segment arrived at the
- * owner looking exactly like a streaming one. The end then had to be inferred from
- * the end of the TURN, which is what kept a reasoning block reading "Thinking" for
- * as long as the answer took to stream.
+ * `</artifact>`, the opening of the next block). Forwarding `{ content }` alone would
+ * hand the owner a finished segment that looks exactly like a streaming one, and the
+ * end would have to be inferred from the end of the TURN — a reasoning block would
+ * read "Thinking" for as long as the answer takes to stream.
  *
- * Five sites forward this way across the two agent loops, which is four too many to
- * patch by hand — that is how the same rule ends up spelled three different ways.
+ * Every site that forwards parser output goes through here, so the rule is spelled
+ * once.
  */
 export function segmentContentUpdate(segment: AparteSegment): Partial<AparteSegment> {
     const content = (segment as { content?: string }).content;
@@ -390,13 +370,12 @@ export function isTerminalStatus(status: string | null | undefined): boolean {
  * (`updateMessage({ status: 'completed' })`). So the message's end is the segments'
  * end, and this says which ones are still waiting for it.
  *
- * It returns ids rather than settling the array itself, and that is the point. The
- * first version did mutate in place — and the browser proved it half-broken: the
- * model gained its `endedAt` while the RENDERER never learned the segment had
- * settled, because a silent mutation notifies nobody. Routing each close through
- * the owner's own `updateSegment` gives one path that stamps the model AND repaints
- * the bubble, which is also the path `update()` and the incremental Markdown flush
- * already depend on.
+ * It returns ids rather than settling the array itself, and that is the point: a
+ * silent mutation notifies nobody, so the model would gain its `endedAt` while the
+ * RENDERER never learned the segment had settled. Routing each close through the
+ * owner's own `updateSegment` gives one path that stamps the model AND repaints the
+ * bubble, which is also the path `update()` and the incremental Markdown flush
+ * depend on.
  *
  * Already-closed segments are skipped, so reporting a turn finished twice — a
  * re-render, a branch switch, a reloaded conversation — cannot move an end.
@@ -408,21 +387,16 @@ export function openSegmentIds(segments: readonly AparteSegment[]): string[] {
 /**
  * Adopt every segment of a message arriving from storage or a server.
  *
- * The message-level counterpart of {@link adoptSegment}, and the reason it exists as a
- * function rather than a loop written four times: there are FOUR entry paths for
- * historical data (`setMessages`, `importTree`, `addMessage`, and the framework host's
- * own list setter) and they disagreed. One stamped and invented a start, one wrote
- * straight to the repository, one did nothing, and the host's `appendMessage` — same
- * name as the viewport's, opposite behaviour — did nothing either. The same stored
- * conversation therefore produced different numbers depending on the mode and on
- * whether a branch tree had been saved.
+ * The message-level counterpart of {@link adoptSegment}, shared by the FOUR entry paths
+ * for historical data (`setMessages`, `importTree`, `addMessage`, and the framework
+ * host's own list setter), so the same stored conversation produces the same numbers
+ * whatever the mode and whether a branch tree was saved.
  *
  * Always returns a NEW object, even for a message with no segments. That looks like a
  * missed optimisation and is the invariant of this whole file: the viewport hands the
  * same object to the repository AND to the framework's list, so sharing one makes the
- * immediate paint and the coalesced write land on the same string twice. Returning the
- * caller's message here doubled every streamed reply — caught by the suite that exists
- * for exactly that bug, within minutes of my writing the shortcut.
+ * immediate paint and the coalesced write land on the same string twice, doubling
+ * every streamed reply.
  */
 export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[]; status?: string }>(message: T): T {
     if (!message.segments?.length) return { ...message };

@@ -565,4 +565,64 @@ describe('AparteConversationController', () => {
             expect(ctrl.activeId).toBe(conv.id);
         });
     });
+
+    // ─── compaction ───────────────────────────────────────────────────────
+    describe('a compaction', () => {
+        it('is saved as soon as it is done, not at the next message', async () => {
+            const conv = await manager.createNew();
+            await manager.addMessage(conv.id, userMsg('a long talk'));
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+
+            // What the plugin leaves on screen: the summary and the turns it kept.
+            binding.setMessages([{ id: 's1', role: 'user', compaction: true, content: 'Summary', timestamp: 2, status: 'completed' } as AparteMessage]);
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary: 'Summary', kept: 0, dropped: 1, targetId: 'test-host' } }));
+            await flush();
+            await flush();
+            expect(adapter.store.get(conv.id)!.messages.map((m) => m.id)).toEqual(['s1']);
+        });
+
+        /*
+         * A transcript kept in a framework store (the plugin's `resolveTarget` writes the
+         * store) reaches the binding only when that framework renders. Saved on the
+         * microtask, the conversation was written as it stood BEFORE the compaction.
+         */
+        it('waits for a store-backed transcript to reach the binding, then saves it', async () => {
+            const conv = await manager.createNew();
+            const talk = userMsg('a long talk');
+            await manager.addMessage(conv.id, talk);
+            const binding = makeBinding(host);
+            const renders: Array<() => void> = [];
+            binding.afterRender = (cb) => { renders.push(cb); };
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary: 'The talk so far', kept: 0, dropped: 1, targetId: 'test-host' } }));
+            await flush();
+            await flush();
+            // The framework renders: the store's list is now the binding's.
+            binding.messages = [{ id: 's1', role: 'user', compaction: true, content: '**Summary**\n\nThe talk so far', timestamp: 2, status: 'completed' } as AparteMessage];
+            for (const render of renders.splice(0)) render();
+            await flush();
+            await flush();
+            expect(adapter.store.get(conv.id)!.messages.map((m) => m.id)).toEqual(['s1']);
+        });
+
+        it('of another chat is not this one to save', async () => {
+            const conv = await manager.createNew();
+            await manager.addMessage(conv.id, userMsg('mine'));
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+            binding.setMessages([]);
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary: 'x', kept: 0, dropped: 1, targetId: 'another-chat' } }));
+            await flush();
+            await flush();
+            expect(adapter.store.get(conv.id)!.messages.map((m) => m.content)).toEqual(['mine']);
+        });
+    });
 });

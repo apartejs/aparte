@@ -66,12 +66,50 @@ export function textStreamer(transformers: TransformersModule, tokenizer: unknow
     });
 }
 
-/** Sampling options in Transformers.js' vocabulary, from the request's. */
+/**
+ * The reply's ceiling when no `maxTokens` is set: long enough that an answer is not cut
+ * (some 6,000 words), short enough that a small model stuck repeating itself stops. Decoding
+ * is greedy by default, and in the browser the attention cache grows with every token — a
+ * loop left to run to a 131,072-token window ends in a GPU out-of-memory, not a clean stop.
+ */
+export const DEFAULT_MAX_NEW_TOKENS = 8192;
+
+/**
+ * How many tokens the model's window holds, prompt and reply together, read from its
+ * config — a vision model keeps it on the text half. `undefined` when the config says nothing.
+ */
+export function contextLength(config: unknown): number | undefined {
+    const c = config as Record<string, unknown> | undefined;
+    const text = c?.['text_config'] as Record<string, unknown> | undefined;
+    for (const value of [c?.['max_position_embeddings'], text?.['max_position_embeddings'], c?.['n_positions']]) {
+        if (typeof value === 'number' && value > 0) return value;
+    }
+    return undefined;
+}
+
+/**
+ * Sampling options in Transformers.js' vocabulary, from the request's. The reply's ceiling is
+ * the caller's `maxTokens`, else {@link DEFAULT_MAX_NEW_TOKENS} — always set: left out, the
+ * text-generation pipeline would apply its own default of 256.
+ */
 export function generationOptions(options: { maxTokens?: number; temperature?: number }): Record<string, unknown> {
     const temperature = options.temperature ?? 0;
     return {
-        max_new_tokens: options.maxTokens ?? 512,
+        max_new_tokens: options.maxTokens ?? DEFAULT_MAX_NEW_TOKENS,
         do_sample: temperature > 0,
         temperature: temperature > 0 ? temperature : undefined,
     };
+}
+
+/**
+ * The stopping criteria a generate runs with: the Stop signal's, plus — when the model's
+ * window is known — one that ends the reply when prompt and reply fill that window. A ceiling
+ * larger than what the window has left would otherwise run the model past its context, where
+ * it degrades; this bounds every ceiling, the default and the caller's, without having to
+ * count the prompt's tokens first.
+ */
+export function stoppingCriteria(stopping: unknown, transformers: TransformersModule, contextSize: number | undefined): unknown {
+    if (contextSize === undefined) return stopping;
+    const MaxLengthCriteria = transformers.MaxLengthCriteria as unknown as new (maxLength: number) => unknown;
+    return [stopping, new MaxLengthCriteria(contextSize)];
 }

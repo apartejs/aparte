@@ -37,7 +37,7 @@ const ALIGN_TOLERANCE = 1;
  * surface, never scroll arithmetic), and the first few words of each for the tick's
  * name. A click is a `scrollIntoView` on the bubble, announced first by a cancelable
  * `aparte-scroll-rail-jump` so a host that pages history in can load it before the
- * jump. Honoured by core alone, so it is live by default (ratified decision #8, tier a).
+ * jump. Honoured by core alone, so it is live by default.
  *
  * Place it as a direct child of `<aparte-chat>` (or the wrapper's `[data-aparte-chat]`
  * host): the stylesheet floats it on the transcript's end edge, centred on the transcript
@@ -62,6 +62,7 @@ const ALIGN_TOLERANCE = 1;
  * @cssprop [--aparte-scroll-rail-tick-thickness=2px] - Thickness of a tick.
  * @cssprop [--aparte-scroll-rail-hit-size=24px] - The pressable zone around a tick (WCAG 2.5.8). The drawn line keeps its own size; this one sizes the pseudo-element and, through the gap below, the pitch — so raising it spaces the ticks out rather than overlapping them. When the ticks would not fit, the rail sets it on itself to the pitch that does, never under 6px.
  * @cssprop [--aparte-scroll-rail-gap=calc(var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness))] - Space between ticks: the zone minus the line, so gap + thickness is exactly the pitch. Set it smaller and the zones overlap.
+ * @cssprop [--aparte-scroll-rail-room=calc(var(--aparte-scroll-rail-width) + var(--aparte-space-2))] - The lane the chat leaves at its end edge while the rail is in it, the rail sitting there, so no line runs under the ticks. `0px` lets the rail float over the text.
  * @cssprop [--aparte-scroll-rail-share=.6] - The share of the transcript's height the rail may take. It is the height of its list up to this, centred on the transcript; past it the pitch tightens, then the rail scrolls.
  * @cssprop [--aparte-scroll-rail-bar=0px] - Published BY the element: the width of the transcript's scrollbar when it is a classic one (0 for an overlay bar), which the stylesheet adds to the rail's end inset so the ticks never sit on the bar.
  * @cssprop [--aparte-scroll-rail-block-start=0px] - Published BY the element: the distance from the host's top edge to the transcript's, so the rail centres on the transcript rather than on the composer too.
@@ -332,12 +333,11 @@ export class AparteScrollRail extends HTMLElement {
      * intersection observer reports which bubbles reach a reading band — the top 30% of
      * the surface, from its very top so that the bubble a jump aligned there counts. The
      * rule is a scrollspy's: the LAST question that has reached the band is the one the
-     * reader is under. "The largest visible share" was the rule before, and at the bottom
-     * of a thread of short turns, where three questions sit in the band, it named the
-     * first of them. Scroll arithmetic was the alternative, and every scroll-position
-     * rule in the viewport carries a regression note; the one read here is the bottom,
-     * because at the bottom the reader is under the latest question whatever the band
-     * holds, and the observer has nothing to report on the last few pixels.
+     * reader is under. (The largest visible share would name the first of three questions
+     * sitting in the band at the bottom of a thread of short turns.) The one scroll
+     * position read is the bottom, because there the reader is under the latest question
+     * whatever the band holds, and the observer has nothing to report on the last few
+     * pixels.
      */
     private _observe(bubbles: HTMLElement[]): void {
         this._unobserve();
@@ -540,14 +540,13 @@ export class AparteScrollRail extends HTMLElement {
      * Scroll the transcript to a message. Announced first, cancelable; then a
      * `scrollIntoView` on the bubble, smooth unless the reader prefers reduced motion.
      * The clicked tick is the mark until the transcript has stopped moving: while a
-     * smooth scroll crosses other questions the band would name each in turn, and it
-     * ended on the wrong one two times in three before this hold.
+     * smooth scroll crosses other questions the band would name each in turn.
      *
      * Where the scroll lands is checked once it has settled, and corrected. The bubbles
      * carry `content-visibility: auto`, so a bubble far from the reader has an estimated
      * height until it is rendered: the scroll aims at an estimate, the bubbles above it
-     * take their real size on the way, and the message ends up above or below the top —
-     * measured from 36px to 1,213px off, in all three engines, the further the worse.
+     * take their real size on the way, and the message ends up above or below the top,
+     * the further away the worse.
      * A second `scrollIntoView` from a rendered neighbourhood lands; a few are allowed.
      */
     jumpTo(messageId: string): void {
@@ -560,6 +559,11 @@ export class AparteScrollRail extends HTMLElement {
         if (!announced) return;
         const bubble = this._bubbleOf(messageId);
         if (!bubble) return;
+        // The reader chose a message, not the bottom: the follow stops first. Mid-stream a
+        // jump into history never rendered shortens the transcript at its first scroll event
+        // (the bubbles leave their 320px fallback), which the viewport reads as a clamp of
+        // its own — armed, it pinned the reader straight back to the bottom.
+        (this._viewport() as (HTMLElement & { setAutoScroll?: (enabled: boolean) => void }) | null)?.setAutoScroll?.(false);
         this._scrollTo(bubble);
         this._setCurrent(messageId);
         this._hold(messageId);
@@ -596,7 +600,10 @@ export class AparteScrollRail extends HTMLElement {
         const surface = this._settleSurface;
         const bubble = id ? this._bubbleOf(id) : null;
         if (id && bubble && surface && this._alignPasses < MAX_ALIGN_PASSES) {
-            const off = bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+            // Measured from where `scrollIntoView` aims: the surface's top, below its scroll
+            // padding (`--aparte-top-inset`, a header floating over the transcript).
+            const aim = surface.getBoundingClientRect().top + (parseFloat(getComputedStyle(surface).scrollPaddingTop) || 0);
+            const off = bubble.getBoundingClientRect().top - aim;
             if (Math.abs(off) > ALIGN_TOLERANCE) {
                 this._alignPasses++;
                 this._scrollTo(bubble);

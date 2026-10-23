@@ -58,17 +58,28 @@ export function ensureThemePairStyles(): void {
     const style = document.createElement('style');
     style.id = PAIR_STYLE_ID;
     // Three states, the same three core's theme.css answers: an explicit `dark`, an
-    // explicit `light`, and no attribute at all — where the OS decides. The dark half
-    // used to key on the attribute alone, so a page in system dark (the default of every
-    // page that sets nothing) rendered the LIGHT theme's white block on a dark bubble.
-    const dark = '.shiki{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}'
-        + '.shiki span{color:var(--shiki-dark)}';
+    // explicit `light`, and no attribute at all — where the OS decides. And the NEAREST
+    // attribute decides, not the page's: a chat forced light inside a dark page gets light
+    // code. Both through one inherited switch of aparté's own name, which every attributed
+    // element sets for its subtree:
+    //
+    //   on  = a space          → `var(on) var(--shiki-dark)` is the dark colour
+    //   off = `initial` (invalid) → the whole value is invalid, the fallback (light) applies
+    //
+    // Not `color-scheme`, which `light-dark()` would read: a host page sets that too —
+    // Angular Material writes `html { color-scheme: light dark }`, over the attribute the
+    // Angular wrapper puts on `<html>` — and the code would follow the host, not the chat.
+    // A custom attribute value sets nothing, and follows what is above it, as core's palette
+    // does.
+    const on = '--aparte-shiki-dark-on';
+    const fg = `var(${on}) var(--shiki-dark)`;
+    const bg = `var(${on}) var(--shiki-dark-bg)`;
     style.textContent =
-        '.shiki{color:var(--shiki-light);background-color:var(--shiki-light-bg)}'
-        + '.shiki span{color:var(--shiki-light)}'
-        + '[data-aparte-theme="dark"] ' + dark.replace('.shiki span', '[data-aparte-theme="dark"] .shiki span')
-        + '@media (prefers-color-scheme: dark){:root:not([data-aparte-theme="light"]) '
-        + dark.replace('.shiki span', ':root:not([data-aparte-theme="light"]) .shiki span') + '}';
+        `@media (prefers-color-scheme: dark){:root:not([data-aparte-theme]){${on}: ;}}`
+        + `[data-aparte-theme="dark"]{${on}: ;}`
+        + `[data-aparte-theme="light"]{${on}:initial;}`
+        + `.shiki{--aparte-shiki-fg:${fg};--aparte-shiki-bg:${bg};color:var(--aparte-shiki-fg,var(--shiki-light));background-color:var(--aparte-shiki-bg,var(--shiki-light-bg))}`
+        + `.shiki span{--aparte-shiki-fg:${fg};color:var(--aparte-shiki-fg,var(--shiki-light))}`;
     document.head.appendChild(style);
 }
 

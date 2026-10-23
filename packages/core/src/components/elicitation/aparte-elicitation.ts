@@ -3,19 +3,18 @@
  *
  * Registers itself as the presenter for the config governing its subtree
  * (`resolveConfig(this)`), so `requestUserInput()` from a tool handler is routed
- * here WITHOUT any window events — the typed presenter contract replaces the
- * stringly-typed `aparte-ask-user-*` events that drifted in Phase 1.
+ * here, through the typed presenter contract rather than window events.
  *
  * On a request it builds the schema-appropriate panel (enum / boolean / string /
  * object) and mounts it inside the nearest `<aparte-composer>` via its
  * `showPanel` API, resolving:
  *   - accept  — the send button (panel submit), when all fields are complete
  *   - decline — the inline "Skip" affordance
- *   - cancel  — the assistant turn was stopped/errored while pending
+ * and rejecting with an `AparteElicitationAbortError` when the turn is stopped or
+ * errors while the question is open, or when the panel is evicted.
  *
- * Its CSS ships in `@aparte/core/styles.css` like every other component — it used
- * to inject its own <style> from here, which made it the one surface that could not
- * be themed and whose variables were missing from the generated CSS reference.
+ * Its CSS ships in `@aparte/core/styles.css` like every other component, so it can be
+ * themed and its variables appear in the generated CSS reference.
  *
  * Place anywhere inside the chat (it renders nothing itself):
  *   <aparte-elicitation></aparte-elicitation>
@@ -33,11 +32,10 @@ import { AparteElicitationAbortError } from '../../elicitation/types.js';
 /**
  * The slice of the composer this presenter drives.
  *
- * DERIVED from the component rather than re-typed by hand. It used to be a literal
- * copy of the three signatures, which is a twin: adding a parameter to the real
- * `setPanelSubmitEnabled` left this one behind, and the compiler pointed at the
- * CALLER instead of the stale declaration. `import type` is erased, so nothing here
- * pulls the composer element into a runtime import — which is why the copy existed.
+ * DERIVED from the component rather than re-typed by hand, so a parameter added to the
+ * real `setPanelSubmitEnabled` is followed here instead of leaving a stale twin.
+ * `import type` is erased, so nothing here pulls the composer element into a runtime
+ * import.
  */
 type ComposerEl = HTMLElement & Pick<AparteComposer, 'showPanel' | 'hidePanel' | 'setPanelSubmitEnabled'>;
 
@@ -48,10 +46,9 @@ interface Pending {
     /**
      * Re-apply every string this request took from the locale, in place.
      *
-     * ONE function, where this used to hold the panel and the skip button separately
-     * so the component could relabel each. That only worked because there was one kind
-     * of panel; an approval's strings live elsewhere, and a second field per kind is
-     * how the two would drift.
+     * ONE function for the whole request, whatever its kind: a question's strings and
+     * an approval's live in different places, and a field per kind is how the two
+     * would drift.
      */
     relabel(): void;
 }
@@ -73,15 +70,62 @@ function isWithin(node: Node, ancestor: Node): boolean {
 }
 
 /**
+ * A way to put an open panel aside and read the transcript behind it — the same for a
+ * question and an approval, since both open here. Hiding leaves a one-line bar that says an
+ * answer is waiting and brings the panel back; the request stays open either way, and the
+ * composer's editor stays hidden, because the question still waits for its answer. While it is
+ * aside the composer's button has no act — what is out of sight cannot be sent — so `onToggle`
+ * lets the caller recompute it on both moves.
+ *
+ * The hide button goes FIRST in the corner, before a question's Skip, so the two never
+ * swap places between a question and an approval.
+ */
+function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig, reopen: () => void, onToggle: () => void): { relabel(next: AparteConfig): void } {
+    const hide = document.createElement('button');
+    hide.type = 'button';
+    hide.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--ghost aparte-elic-hide';
+    hide.setAttribute('aria-expanded', 'true');
+    hide.innerHTML = cfg.getIcon('expand');
+
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'aparte-btn aparte-btn--ghost aparte-elic-reveal';
+    reveal.setAttribute('aria-expanded', 'false');
+    const revealText = document.createElement('span');
+    reveal.append(revealText);
+    reveal.insertAdjacentHTML('beforeend', cfg.getIcon('collapse'));
+
+    const relabel = (next: AparteConfig): void => {
+        const label = next.t('elicitationHide');
+        hide.setAttribute('aria-label', label);
+        hide.title = label;
+        revealText.textContent = next.t('elicitationWaiting');
+    };
+    relabel(cfg);
+
+    hide.addEventListener('click', () => {
+        panelEl.setAttribute('data-collapsed', '');
+        onToggle();
+        reveal.focus();
+    });
+    reveal.addEventListener('click', () => {
+        panelEl.removeAttribute('data-collapsed');
+        onToggle();
+        reopen();
+    });
+    corner.prepend(hide);
+    panelEl.append(reveal);
+    return { relabel };
+}
+
+/**
  * The default presenter for a request to the human. It renders nothing itself: it
  * registers as the presenter for the config governing its subtree, and mounts a panel
  * inside the nearest `<aparte-composer>` when something asks — a tool handler calling
  * `requestUserInput`, or core's own approval gate.
  *
  * It dispatches no events on purpose. A request is answered through the typed presenter
- * contract, not by listening for one; the `aparte-tool-decision` event this replaced
- * existed only because the buttons used to live in a segment renderer with no reference
- * to the client.
+ * contract, not by listening for one.
  *
  * It has no children to project: `connectedCallback` sets
  * `display: none`, and the composer it presents in is found by walking UP from
@@ -124,7 +168,7 @@ function isWithin(node: Node, ancestor: Node): boolean {
  * @cssprop [--aparte-elic-step-padding=var(--aparte-space-2) var(--aparte-space-1)] - Padding of a step tab.
  * @cssprop [--aparte-elic-step-gap=var(--aparte-space-7)] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
- * @cssprop [--aparte-elic-dismiss-room=72px] - Space the tab rail and the question message keep clear for the corner escape. Widen it for a locale whose "Skip" word is wider.
+ * @cssprop [--aparte-elic-dismiss-room=104px] - Space the tab rail and the question message keep clear for the corner: the hide button and, on a question, Skip. Widen it for a locale whose "Skip" word is wider.
  * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
@@ -169,12 +213,9 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     /**
      * A turn ended — cancel the open question only if it was OUR turn.
      *
-     * These two listeners sit on `window` and had no instance filter at all, so a
-     * Stop (or an error) in one chat cancelled the question a DIFFERENT chat was
-     * waiting on — and that chat's model was told the user had refused a question
-     * the user was still looking at. Same defect as the `compact()` handler that
-     * emptied both chats, which its four sibling handlers in `AparteClient` already
-     * guarded against.
+     * These two listeners sit on `window`, so they filter by instance: a Stop (or an
+     * error) in one chat must not cancel the question a DIFFERENT chat is waiting on,
+     * whose model would be told the user refused a question they were still looking at.
      *
      * The leniency rule is the composer's, deliberately: an event with no
      * `targetId` is for everyone (a single-chat app never sets one), and a chat we
@@ -201,8 +242,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         // presenter in the SAME chat, instead of whichever one mounted last.
         resolveConfig(this).setElicitationPresenter(this._present, this);
         // Safety net: if the turn is stopped/errored while a request is open,
-        // resolve it as cancelled so the client loop unblocks and the composer
-        // input is restored.
+        // end it without an answer (a rejection) so the client loop unblocks and the
+        // composer input is restored.
         window.addEventListener('aparte-message-aborted', this._onTurnEnd);
         window.addEventListener('aparte-message-error', this._onTurnEnd);
     }
@@ -228,9 +269,9 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     }
 
     disconnectedCallback(): void {
-        // Ours only. This used to clear the slot whenever it happened to hold our
-        // presenter, which left a still-mounted sibling chat unable to ask anything for
-        // the life of the page — silently, since the no-presenter warning fires once.
+        // Ours only: clearing the slot whenever it holds a presenter would leave a
+        // still-mounted sibling chat unable to ask anything, silently, since the
+        // no-presenter warning fires once.
         resolveConfig(this).removeElicitationPresenter(this._present);
         window.removeEventListener('aparte-message-aborted', this._onTurnEnd);
         window.removeEventListener('aparte-message-error', this._onTurnEnd);
@@ -287,11 +328,10 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * Who had the focus before the panel took it.
              *
              * The panel focuses itself on open (`panel.focus()`, both branches below)
-             * and nothing gave it back: a keyboard user who approved a tool call landed
-             * at the top of the document and had to tab through the whole page to write
-             * their next message. That is SC 2.4.3, level A, on the one flow the library
-             * puts forward — and the ARIA Authoring Practices Guide requires it of every
-             * dialogue-shaped pattern.
+             * and the focus has to be given back on close: otherwise a keyboard user who
+             * approved a tool call lands at the top of the document and has to tab
+             * through the whole page to write their next message (WCAG SC 2.4.3, and the
+             * ARIA Authoring Practices Guide requires it of every dialogue-shaped pattern).
              *
              * Captured HERE rather than beside `panel.focus()` because there are two
              * branches that open a panel and one `close()` that ends both; a value read
@@ -299,7 +339,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              */
             const focusedBefore = deepActiveElement(document);
             /*
-             * Where the focus goes, in one rule (#22 and the audit after it).
+             * Where the focus goes, in one rule.
              *
              * The focus is how the panel is announced, so it is taken — unless the reader is
              * busy elsewhere: writing in a field outside this chat, in another chat, or inside
@@ -390,9 +430,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * End it without an answer.
              *
              * A rejection rather than a third `action`, because a value is easy to
-             * mistake for an answer and this one was: the approval gate read the old
-             * `cancel` as a refusal and told the model the user had refused a tool they
-             * had only stopped.
+             * mistake for an answer: a `cancel` read as a refusal would tell the model
+             * the user had refused a tool they had only stopped.
              */
             const fail = (reason: 'aborted' | 'no-presenter' = 'aborted'): void => {
                 if (close()) reject(new AparteElicitationAbortError(reason));
@@ -433,13 +472,18 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * written text, and only that, which is the act this button already
                  * means; until there is some, the panel has none for it.
                  */
-                const approvalMode = (): AparteComposerPanelMode => (panel.isComplete() ? 'submit' : 'none');
+                const sendable = (): boolean => panel.isComplete() && !panel.el.hasAttribute('data-collapsed');
+                const approvalMode = (): AparteComposerPanelMode => (sendable() ? 'submit' : 'none');
+                const syncSubmit = (): void => composer.setPanelSubmitEnabled(sendable(), approvalMode());
                 const panel = runWithConfig(cfg, () =>
-                    buildApprovalPanel(request.message, request.options ?? [], () => {
-                        composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
-                    }, request.details));
+                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
-                this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
+                const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
+                this._pending = {
+                    abort: () => fail(),
+                    composer,
+                    relabel: () => { panel.relabel(); retract.relabel(resolveConfig(this)); },
+                };
                 slot.token = composer.showPanel(panel.el, {
                     submitEnabled: panel.isComplete(),
                     mode: approvalMode(),
@@ -453,10 +497,12 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // and it was handled above. The fallback keeps this branch total rather
             // than throwing on a shape the type already forbids.
             const schema = request.schema ?? { type: 'string' as const };
+            const syncSubmit = (): void => {
+                const aside = panel.el.hasAttribute('data-collapsed');
+                composer.setPanelSubmitEnabled(!aside && panel.canProceed(), aside ? 'none' : panel.mode());
+            };
             const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
-                buildElicitationPanel(request.message, schema, () => {
-                    composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
-                }));
+                buildElicitationPanel(request.message, schema, syncSubmit));
 
             // "Skip" → decline (MCP's decline: the user chose not to answer), in the
             // panel's CORNER. It sat beside the button that advances through the form,
@@ -468,6 +514,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
+            const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
 
             /*
              * The click that IS the answer — a single question whose options are
@@ -480,7 +527,12 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             this._pending = {
                 abort: () => fail(),
                 composer,
-                relabel: () => { panel.relabel(); skip.textContent = resolveConfig(this).t('elicitationSkip'); },
+                relabel: () => {
+                    panel.relabel();
+                    const now = resolveConfig(this);
+                    skip.textContent = now.t('elicitationSkip');
+                    retract.relabel(now);
+                },
             };
             slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
@@ -490,8 +542,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * or a turn ending. The composer tears the panel down either way; only
                  * this callback can settle the promise, and without it the request hung
                  * AND `_pending` stayed set, so every later question was short-circuited
-                 * for the life of the page. `cancel`, not `decline`: nobody declined
-                 * anything, the question was taken away.
+                 * for the life of the page. A rejection (`aborted`), not `decline`:
+                 * nobody declined anything, the question was taken away.
                  */
                 onEvict: () => fail(),
                 onSubmit: () => {
@@ -532,12 +584,11 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * The composer to present in: the nearest one in an ancestor subtree, and
      * nothing else.
      *
-     * There used to be a `document.querySelector('aparte-composer')` fallback, which
-     * is the "first chat on the page" bug this repo has now fixed in four other
-     * places: on a page with two chats, an elicitation that could not find its own
-     * composer mounted its panel in the OTHER chat's — so one conversation's question
-     * appeared under the other conversation, and answering it resolved a tool call
-     * belonging to a chat the user was not looking at.
+     * There is no `document.querySelector('aparte-composer')` fallback: on a page with
+     * two chats, an elicitation that could not find its own composer would mount its
+     * panel in the OTHER chat's, so one conversation's question would appear under the
+     * other conversation, and answering it would resolve a tool call belonging to a
+     * chat the user was not looking at.
      *
      * Returning `null` instead REJECTS the request, which is honest: nothing was
      * shown, so nothing was answered. The warning names the fix, because this is a

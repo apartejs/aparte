@@ -385,6 +385,27 @@ describe('aparte-model-selector — boundary attached AFTER mount (every wrapper
         });
     });
 
+    it('a slow global load that lands after the instance config does not overwrite it', async () => {
+        // The wrapper order with a global /models that is slow to answer: the element
+        // connects and starts loading the global, bind() attaches the instance before that
+        // load is back, the instance load finishes first — and the global one lands last.
+        aparteGlobalConfig.registerAIProvider(slowProvider('global', 'Global Model', 60));
+        const host = document.createElement('div');
+        const selector = document.createElement('aparte-model-selector');
+        host.appendChild(selector);
+        document.body.appendChild(host);
+
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+
+        await vi.waitFor(() => expect(selector.textContent).toContain('Scoped Model'));
+        await new Promise((r) => setTimeout(r, 120));   // the global load has landed by now
+        expect(selector.querySelector('aparte-option[value="scoped::scoped-model"]'), 'still the chat\'s models').toBeTruthy();
+        expect(selector.querySelector('aparte-option[value="global::global-model"]'), 'never the stale ones').toBeNull();
+        detachConfig(host);
+    });
+
     it('stops listening to the config it left behind', async () => {
         aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
         const host = document.createElement('div');
@@ -401,5 +422,140 @@ describe('aparte-model-selector — boundary attached AFTER mount (every wrapper
         expect(selector.textContent).not.toContain('Late Global Model');
 
         detachConfig(host);
+    });
+});
+
+describe('aparte-model-selector — providers that arrive late', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        aparteGlobalConfig.reset();
+    });
+
+    it('lists providers registered right after it connected (a static import beside the registration)', async () => {
+        // The order a bundler produces: the element connects first, the providers are
+        // registered by the same module a tick later, while the first load is in flight.
+        const sel = document.createElement('aparte-model-selector');
+        document.body.appendChild(sel);
+        aparteGlobalConfig.registerAIProvider(fakeProvider('late', 'Late One'));
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Late One'); });
+    });
+
+    it('lists a provider added after mount even when a model is already selected', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('first', 'First One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'first', defaultModel: 'first-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('second', 'Second One'));
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Second One'); });
+        expect(sel.textContent).toContain('First One');
+    });
+
+    it('lists a provider that only has a fixed getModels() list', async () => {
+        aparteGlobalConfig.registerAIProvider({
+            id: 'fixed',
+            getMetadata: () => ({ id: 'fixed', name: 'Fixed' }),
+            getModels: () => [{ id: 'f1', name: 'Fixed Model' }],
+        } as unknown as AparteAIProvider);
+        const sel = await mountSelector(document.createElement('div'));
+        expect(sel.textContent).toContain('Fixed Model');
+    });
+
+    it('without persist, keeps the pick the person made through an unrelated config change', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'), fakeProvider('beta', 'Beta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'alpha', defaultModel: 'alpha-model' });
+        const sel = await mountSelector(document.createElement('div')) as HTMLElement & { providerId: string | null };
+        await vi.waitFor(() => { expect(sel.textContent).toContain('Beta One'); });
+
+        // The person picks beta; with no `persist`, nothing is written to the config.
+        sel.querySelector('aparte-select')!.dispatchEvent(new CustomEvent('aparte-select-change', { detail: { value: 'beta::beta-model' } }));
+        expect(sel.providerId).toBe('beta');
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelSelectorPlaceholder: 'Choisir' });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(sel.providerId, 'a language switch is not someone choosing a model').toBe('beta');
+
+        // The config's own selection moving is someone choosing (an onboarding flow): followed.
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'beta', defaultModel: 'beta-model' });
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'alpha', defaultModel: 'alpha-model' });
+        await vi.waitFor(() => { expect(sel.providerId).toBe('alpha'); });
+    });
+});
+
+/*
+ * A model's metadata under its name. `AparteAIModel` carries `description` and `contextWindow`
+ * and nothing showed them; `details` does, on a second line the trigger leaves out.
+ */
+describe('aparte-model-selector details', () => {
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
+
+    function described(id: string): AparteAIProvider {
+        const model = { id: `${id}-model`, name: 'Big One', description: 'Long documents', contextWindow: 128000 };
+        return {
+            id,
+            getMetadata: () => ({ id, name: `Provider ${id}` }),
+            getModels: () => [model],
+            fetchModels: async () => [model],
+        } as unknown as AparteAIProvider;
+    }
+
+    it('shows the description and the context window under the name, and the trigger the name alone', async () => {
+        aparteGlobalConfig.registerAIProvider(described('kappa'));
+        const host = document.createElement('div');
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        selector.setAttribute('auto-select', '');
+        host.appendChild(selector);
+        document.body.appendChild(host);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')).toBeTruthy());
+        const meta = selector.querySelector('.aparte-option__meta')!.textContent ?? '';
+        expect(meta).toContain('Long documents');
+        expect(meta).toMatch(/128\s?K context/i);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-select-label-text')?.textContent?.trim()).toBe('Big One'));
+    });
+
+    it('shows nothing more without the attribute', async () => {
+        aparteGlobalConfig.registerAIProvider(described('lambda'));
+        const selector = await mountSelector(document.createElement('div'));
+        expect(selector.querySelector('.aparte-option__meta')).toBeNull();
+    });
+});
+
+describe('aparte-model-selector details, live', () => {
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
+
+    it('follows a language switch', async () => {
+        const model = { id: 'mu-model', name: 'Big One', contextWindow: 128000 };
+        aparteGlobalConfig.registerAIProvider({
+            id: 'mu', getMetadata: () => ({ id: 'mu', name: 'Provider mu' }),
+            getModels: () => [model], fetchModels: async () => [model],
+        } as unknown as AparteAIProvider);
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        document.body.appendChild(selector);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')).toBeTruthy());
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelContextWindow: '{n} de contexte' });
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')?.textContent).toMatch(/de contexte/));
+    });
+
+    it('relabels a long list in one pass: one lookup of the options, one number format', async () => {
+        // A catalogue of hundreds of models (OpenRouter) is relabelled on every config change.
+        const models = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, name: `Model ${i}`, contextWindow: 8000 + i }));
+        aparteGlobalConfig.registerAIProvider({
+            id: 'nu', getMetadata: () => ({ id: 'nu', name: 'Provider nu' }),
+            getModels: () => models, fetchModels: async () => models,
+        } as unknown as AparteAIProvider);
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        document.body.appendChild(selector);
+        await vi.waitFor(() => expect(selector.querySelectorAll('.aparte-option__meta')).toHaveLength(30));
+        const lookups = vi.spyOn(selector, 'querySelectorAll');
+        const formats = vi.spyOn(Intl, 'NumberFormat');
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelContextWindow: '{n} de contexte' });
+        const optionLookups = lookups.mock.calls.filter(([selector]) => selector === 'aparte-option').length;
+        const formatsMade = formats.mock.calls.length;
+        lookups.mockRestore();
+        formats.mockRestore();
+        expect(selector.querySelectorAll('.aparte-option__meta')[29]?.textContent).toMatch(/de contexte/);
+        expect(optionLookups).toBe(1);
+        expect(formatsMade).toBe(1);
     });
 });

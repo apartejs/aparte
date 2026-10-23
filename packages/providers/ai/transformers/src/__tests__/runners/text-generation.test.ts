@@ -14,13 +14,14 @@ import { createRunner } from '../../runners/text-generation.js';
 import type { RunnerContext, RunnerGenerateInput } from '../../runners/types.js';
 import type { AparteStreamEvent } from '@aparte/core';
 
-function fakeTransformers() {
+function fakeTransformers(config?: Record<string, unknown>) {
     const calls: { pipelineArgs?: unknown[]; pipeArgs?: unknown[]; interrupted: number } = { interrupted: 0 };
     let streamerCallback: ((text: string) => void) | undefined;
     class TextStreamer {
         constructor(_tokenizer: unknown, options: { callback_function?: (t: string) => void }) { streamerCallback = options.callback_function; }
     }
     class InterruptableStoppingCriteria { interrupt() { calls.interrupted++; } }
+    class MaxLengthCriteria { constructor(public maxLength: number) {} }
     const pipe = Object.assign(
         async (messages: unknown, opts: unknown) => {
             calls.pipeArgs = [messages, opts];
@@ -28,10 +29,10 @@ function fakeTransformers() {
             streamerCallback?.('lo');
             return [];
         },
-        { tokenizer: { fake: true } },
+        { tokenizer: { fake: true }, model: { config } },
     );
     const pipeline = vi.fn(async (...args: unknown[]) => { calls.pipelineArgs = args; return pipe; });
-    return { module: { pipeline, TextStreamer, InterruptableStoppingCriteria, env: {} } as never, calls };
+    return { module: { pipeline, TextStreamer, InterruptableStoppingCriteria, MaxLengthCriteria, env: {} } as never, calls };
 }
 
 function ctxFor(module: never, warn = vi.fn()): RunnerContext & { warn: ReturnType<typeof vi.fn> } {
@@ -116,6 +117,31 @@ describe('text-generation runner', () => {
         const events = await run([{ role: 'user', content: 'hi' }], ctxFor(module));
         expect(events).toEqual([{ type: 'text', delta: 'Hel' }, { type: 'text', delta: 'lo' }]);
         expect(calls.pipeArgs?.[1]).toMatchObject({ max_new_tokens: 64, do_sample: false });
+    });
+
+    it('without maxTokens, caps the reply at the default ceiling', async () => {
+        const { module, calls } = fakeTransformers({ max_position_embeddings: 131072 });
+        const runner = await createRunner(ctxFor(module));
+        await runner.generate({ messages: [{ role: 'user', content: 'hi' }], options: {}, emit: () => {}, signal: new AbortController().signal });
+        // Set, not left out: the pipeline's own default (256) would otherwise apply.
+        expect(calls.pipeArgs?.[1]).toMatchObject({ max_new_tokens: 8192 });
+    });
+
+    it('ends any ceiling where the model window ends, prompt included', async () => {
+        const { module, calls } = fakeTransformers({ max_position_embeddings: 32768 });
+        const runner = await createRunner(ctxFor(module));
+        await runner.generate({ messages: [{ role: 'user', content: 'hi' }], options: { maxTokens: 50000 }, emit: () => {}, signal: new AbortController().signal });
+        const opts = calls.pipeArgs?.[1] as { max_new_tokens: number; stopping_criteria: unknown[] };
+        expect(opts.max_new_tokens).toBe(50000);
+        expect(opts.stopping_criteria).toHaveLength(2);
+        expect(opts.stopping_criteria[1]).toMatchObject({ maxLength: 32768 });
+    });
+
+    it('with no window in the config, keeps the Stop criterion alone', async () => {
+        const { module, calls } = fakeTransformers({});
+        const runner = await createRunner(ctxFor(module));
+        await runner.generate({ messages: [{ role: 'user', content: 'hi' }], options: {}, emit: () => {}, signal: new AbortController().signal });
+        expect(Array.isArray((calls.pipeArgs?.[1] as { stopping_criteria: unknown }).stopping_criteria)).toBe(false);
     });
 
     it('an aborted signal interrupts the stopping criteria', async () => {

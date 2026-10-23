@@ -241,8 +241,49 @@ A custom element needs a DOM, and importing `@aparte/core` on a server is fine a
 Electron main process or a server render — Next, Nuxt, SvelteKit, Angular. It keeps the client, the
 chat host, the transports and the server handlers, the conversations and messages, the config, the
 parsers and every type; it has no elements, and `registerAllComponents()` does nothing there. A
-Worker or an edge runtime takes the browser entry instead, which needs a DOM, and fails to import
-it: run code that imports `@aparte/core` on a Node runtime.
+Cloudflare Worker, a Vercel edge route and a Web Worker that webpack compiles on its own with
+`target: 'webworker'` take the same entry, through the `workerd`, `edge-light` and `worker`
+conditions. A worker started inside a page build does not — `new Worker(new URL('./w.js',
+import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: it is resolved
+with the browser's conditions, so it gets the browser entry, which needs a DOM. Import
+`@aparte/core/headless` there instead: the same entry without elements, by name.
+
+```ts
+// worker.ts, started with new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+import { AparteMessageRepository } from '@aparte/core/headless';
+
+const history = new AparteMessageRepository();
+```
+
+The subpath covers what the worker imports from core itself. A provider or a plugin imports
+`@aparte/core` by its bare name, and in that worker the bare name still resolves to the browser
+entry. Resolve it to the subpath in the worker's build only, so the page keeps its elements:
+
+```js
+// vite.config.js
+const headlessCoreInWorkers = () => ({
+  name: 'aparte-core-headless-in-workers',
+  enforce: 'pre',
+  resolveId(source, importer, options) {
+    if (source === '@aparte/core') return this.resolve('@aparte/core/headless', importer, { ...options, skipSelf: true });
+  },
+});
+
+export default {
+  worker: { plugins: () => [headlessCoreInWorkers()] },
+};
+```
+
+With it, the worker can run a provider such as `@aparte/provider-openai-compat`, and
+`@aparte/plugin-artifacts`' tool. A plugin whose entry defines an element — `@aparte/plugin-approval`
+and its `<aparte-approval-mode>`, the model selector — fails in a worker either way: use it on the
+page.
+
+The rule applies to `vite build`, the only time Vite bundles a worker on its own. Under `vite dev`
+a worker's modules come through the page's own pipeline, so a provider in it still loads the entry
+with the elements and the worker fails on its first `extends HTMLElement`. While developing, keep
+the provider on the page, or give the worker `@aparte/core/headless` alone; the production build
+runs it in the worker.
 
 | Wrapper | On a server |
 | --- | --- |

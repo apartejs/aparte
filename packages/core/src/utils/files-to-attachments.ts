@@ -46,8 +46,8 @@ export function filesToAttachments(files: readonly File[]): AparteAttachment[] {
 /**
  * Release the object URLs of attachments that are no longer on screen.
  *
- * Nothing revoked them, so every `File` a session sent stayed reachable until the
- * page went away. Only the caller knows when an attachment stops being rendered —
+ * Until revoked, every `File` a session sent stays reachable until the page goes
+ * away. Only the caller knows when an attachment stops being rendered —
  * a persisted conversation may re-render one much later — so this is a function
  * rather than something `filesToAttachments` could schedule.
  *

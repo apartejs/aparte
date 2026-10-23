@@ -1,6 +1,5 @@
 import { resolveConfig } from '../../config/config-context.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import type { AparteIconName } from '../../config/icon-provider.js';
 
 /**
  * AparteIcon
@@ -75,7 +74,7 @@ export class AparteIcon extends HTMLElement {
          * failure: a misspelled name leaves a gap the author can see, where the string
          * "undefined" in a button would read as a rendering bug in the library.
          */
-        const glyph = name ? resolveConfig(this).getIconProvider()[name as AparteIconName]?.() : null;
+        const glyph = name ? resolveConfig(this).getIcon(name) : null;
         this.innerHTML = glyph ?? '';
         // Decoration by default — see the class note above for when to name what instead.
         this.firstElementChild?.setAttribute('aria-hidden', 'true');

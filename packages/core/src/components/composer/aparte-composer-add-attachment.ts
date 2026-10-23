@@ -13,7 +13,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * `<aparte-composer-attachments>` draws the pending strip, and sending is the host's job
  * (`event.detail.files` on `aparte-send`) — which is why the default `<aparte-chat>` shell
  * only includes this button when the `attachments` attribute is set. With nothing reading
- * the files, an attach button is an affordance core cannot honour (ratified decision #8).
+ * the files, an attach button is an affordance core cannot honour.
  *
  * Drag & drop is installed on the composer ROOT, not on this button, so a drop anywhere
  * over the composer attaches and the root carries `aparte-is-dragover` while a drag is

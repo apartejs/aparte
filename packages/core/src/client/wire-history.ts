@@ -1,11 +1,10 @@
 /**
  * What one message contributes to the history a turn sends — its tool calls included.
  *
- * The history used to carry user and assistant TEXT only, so a tool's result was on
- * screen and gone from the model's context one turn later: "what did the file say?" had
- * no answer. A reply now goes out in the order it was shown: the text before some calls
- * and those calls as an assistant envelope, each call's answer as a `tool` message, the
- * text after them as the next envelope.
+ * A reply goes out in the order it was shown, so a tool's result stays in the model's
+ * context on later turns: the text before some calls and those calls as an assistant
+ * envelope, each call's answer as a `tool` message, the text after them as the next
+ * envelope.
  *
  * Every call is answered, because a provider rejects a request that declares a call
  * with no `tool` message after it: a refusal sends its reason, a crash its error line,

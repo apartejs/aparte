@@ -95,6 +95,56 @@ const files = [
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
+/**
+ * The names the prose sets up around an excerpt, typed as the prose says they are.
+ *
+ * An excerpt names things declared paragraphs earlier — the `chat` the page made, the
+ * `aparteGlobalConfig` its first fence imported — and an unresolved name degrades every
+ * expression built on it to `any`, so nothing written against it was checked. Declared, those
+ * names keep their real types and the rest of the fence is checked. Measured, not guessed: the
+ * most frequent unresolved names over the corpus. `chat` is the element in a `.ts` fence and the
+ * hook's result in a `.tsx` one, which is how the pages use it; `AparteChat` is a type and a
+ * value, the React component in `.tsx`.
+ *
+ * Injected per fence, only for a name the fence uses and does not declare or import itself,
+ * and on the fence's FIRST line, so the line numbers in a report stay the page's.
+ */
+const EXCERPT_NAMES = {
+    common: {
+        manager: "declare const manager: import('@aparte/core').AparteConversationManager;",
+        aparteGlobalConfig: "declare const aparteGlobalConfig: typeof import('@aparte/core').aparteGlobalConfig;",
+        AparteClient: "declare const AparteClient: typeof import('@aparte/core').AparteClient; type AparteClient = import('@aparte/core').AparteClient;",
+        runStreamAgent: "declare const runStreamAgent: typeof import('@aparte/engine').runStreamAgent;",
+        // The rest of a run's options, spread into an excerpt that shows only the ones it is about.
+        loopOptions: "declare const loopOptions: Omit<import('@aparte/engine').StreamRunOptions, 'baseRequest' | 'onHistoryAppend' | 'transportCall'>;",
+        createScenarioProvider: "declare const createScenarioProvider: typeof import('@aparte/provider-scenario').createScenarioProvider;",
+    },
+    ts: {
+        chat: "declare const chat: HTMLElementTagNameMap['aparte-chat'];",
+        AparteChat: "declare const AparteChat: typeof import('@aparte/core').AparteChat; type AparteChat = import('@aparte/core').AparteChat;",
+    },
+    tsx: {
+        chat: "declare const chat: ReturnType<typeof import('@aparte/react').useAparteChat>;",
+        AparteChat: "declare const AparteChat: typeof import('@aparte/react').AparteChat;",
+        useState: "declare const useState: typeof import('react').useState;",
+    },
+};
+
+function excerptPrelude(body, lang) {
+    const names = { ...EXCERPT_NAMES.common, ...EXCERPT_NAMES[lang] };
+    const out = [];
+    for (const [name, decl] of Object.entries(names)) {
+        if (!new RegExp(`\\b${name}\\b`).test(body)) continue;
+        const declared = new RegExp(
+            `\\b(?:const|let|var|function|class|type|interface)\\s+${name}\\b`      // const chat =
+            + `|\\b(?:const|let|var)\\s*[{[][^=]*\\b${name}\\b[^=]*[}\\]]\\s*=`        // const { chat } =
+            + `|import[^;]*\\b${name}\\b`,
+        ).test(body);
+        if (!declared) out.push(decl);
+    }
+    return out.length ? `${out.join(' ')} ` : '';
+}
+
 let selfContainedCount = 0;
 let candidateCount = 0;
 let skippedExplicit = 0;
@@ -157,7 +207,10 @@ for (const file of files) {
         // diagnostic under redeclaration noise — the first attempt at widening this
         // guard reported nothing at all for the very fence it was written to catch.
         const isModule = /^\s*(?:import|export)\s/m.test(body);
-        writeFileSync(join(OUT, name), `${body}\n${isModule ? '' : 'export {};\n'}`, 'utf8');
+        // Not into a fence that opens with an import: it claims to be complete, so a name it
+        // forgot to import is its own defect, not the prose's.
+        const prelude = selfContained ? '' : excerptPrelude(body, lang);
+        writeFileSync(join(OUT, name), `${prelude}${body}\n${isModule ? '' : 'export {};\n'}`, 'utf8');
         index.push({ name, rel, fence: n, selfContained });
     }
 }

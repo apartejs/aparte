@@ -41,15 +41,11 @@ import { toolCallRenderer } from './segments/tool-call.js';
  * One registry PER CONFIG, not one per module.
  *
  * The wrappers all advertise a `config` prop for "several independently configured
- * chats on one page", and until 0.8.0 no plugin could honour it. That was fixed for
- * what a plugin registers on the config — markdown, highlighting, model preferences
- * — but segment renderers stayed in a module-level `Map`, so two chats could not
- * render the same segment type differently. This closes that half.
+ * chats on one page", so two chats can render the same segment type differently.
  *
  * A WeakMap rather than fields on `AparteConfig`: that class is already the
- * largest thing in the package and the audit named its size as the ceiling. Keying
- * the state here keeps it next to the code that reads it, and it is collected with
- * the config it belongs to.
+ * largest thing in the package. Keying the state here keeps it next to the code that
+ * reads it, and it is collected with the config it belongs to.
  *
  * `styleElement` stays module-level on purpose — renderer CSS is injected once per
  * DOCUMENT, and two configs on one page share that document.
@@ -80,14 +76,13 @@ function registryFor(config: AparteConfig): RendererRegistry {
  * An instance config INHERITS global registrations, and it has to. The documented
  * call is `registerSegmentRenderer(myRenderer)` at app startup — no element, no
  * ambient render config, so `contextConfig()` resolves the global. A chat given a
- * `config` prop then resolved its own registry and found nothing there: the
- * renderer a consumer had registered the only documented way was invisible to
- * every chat that used the feature the `config` prop exists for.
+ * `config` prop would otherwise resolve its own registry and find nothing there: the
+ * renderer registered the documented way would be invisible to every chat that uses
+ * the feature the `config` prop exists for.
  *
  * A config that DECLINED the built-ins inherits nothing — it said it brings its
  * own everything, and quietly handing it the global's renderers would turn
- * `autoRegister: false` back into a no-op, which is the exact thing the decline
- * latch was added to prevent.
+ * `autoRegister: false` into a no-op.
  *
  * Known edge, deliberately not solved: an instance cannot suppress a type that the
  * global registers. That needs a tombstone, and wanting to inherit is far commoner
@@ -134,12 +129,12 @@ export function declineDefaultRenderers(config: AparteConfig = contextConfig()):
  * Fill in the built-in renderers for the types nobody has claimed — called by the
  * bubble the first time a segment has no renderer.
  *
- * Why lazily and not at import time: **`registerDefaultRenderers()` used to have
- * exactly one caller, `new AparteClient()`.** An app on the bring-your-own-loop
- * path — the one the guide tells you not to construct a client on — rendered
- * `[Unknown segment type: text]` for every reply. Bubbles, streaming and scrolling
- * all worked; only the content was missing, which reads as a bug in the consumer's
- * own loop, not as a missing call.
+ * Why lazily and not at import time: `registerDefaultRenderers()` is called by
+ * `new AparteClient()`, and an app on the bring-your-own-loop path — the one the guide
+ * tells you not to construct a client on — never makes that call. Without this sweep
+ * it would render `[Unknown segment type: text]` for every reply, with bubbles,
+ * streaming and scrolling all working, which reads as a bug in the consumer's own
+ * loop rather than as a missing call.
  *
  * Strictly additive: a type someone registered themselves is never replaced, so a
  * custom `text` renderer survives the sweep triggered by a `code` segment.
@@ -196,11 +191,10 @@ export function collectRendererStyles(config: AparteConfig = contextConfig()): s
  *
  * Takes the config, and ACCUMULATES rather than replaces. Both matter.
  *
- * It used to take nothing and assign `collectRendererStyles()` — no argument — so
- * the styles collected were `contextConfig()`'s. At app startup there is no ambient
- * render config, which means the global singleton's: a renderer registered on an
- * instance config wrote into that config's registry and then had the GLOBAL's
- * stylesheet re-emitted over it. The renderer drew, unstyled, and nothing said so.
+ * The styles collected are the given config's, not `contextConfig()`'s: at app startup
+ * there is no ambient render config, which means the global singleton's, and a renderer
+ * registered on an instance config would have the GLOBAL's stylesheet emitted over it
+ * and draw unstyled.
  *
  * Accumulating (rather than assigning the latest config's sheet) is the other half:
  * one `<style>` serves the whole document, so the second config to register must
@@ -212,11 +206,10 @@ const injectedRendererStyles = new Set<string>();
 export function injectRendererStyles(config: AparteConfig = contextConfig()): void {
     if (typeof document === 'undefined') return;
 
-    // `isConnected` as well as null: a detached element still satisfied the old
-    // check, so once anything removed the sheet — a test teardown, a framework
-    // hot-reload, a consumer tidying `<head>` — every later injection wrote into a
-    // node no document could see, and every renderer after that point drew
-    // unstyled. Found by a test's own cleanup.
+    // `isConnected` as well as null: a detached element passes a null check, so once
+    // anything removes the sheet — a test teardown, a framework hot-reload, a consumer
+    // tidying `<head>` — every later injection would write into a node no document can
+    // see, and every renderer after that point would draw unstyled.
     if (!styleElement || !styleElement.isConnected) {
         styleElement = document.createElement('style');
         styleElement.id = 'aparte-renderer-styles';
@@ -239,17 +232,11 @@ export function injectRendererStyles(config: AparteConfig = contextConfig()): vo
 /**
  * Put a tool renderer's stylesheet on the page, once per tool name.
  *
- * It used to be an inline block in two places — the client's `tool-start` handler and
- * the stream adapter's — and nowhere on the path that RE-renders a stored conversation.
- * So a custom tool renderer was styled while its tool ran and bare after a reload: the
- * markup came back (`toolCallRenderer` looks the renderer up and delegates to it), the
- * CSS did not, because nothing replays `tool-start` for history. A consumer worked
- * around it by re-injecting the styles themselves at startup, which is the shape of a
- * library defect, not of an app's concern.
- *
- * Called from the render path as well as the two live ones, so "the renderer drew" and
- * "its rules are on the page" cannot come apart again. Keyed by tool NAME rather than by
- * the CSS text, which is what the two inline copies did and what makes it idempotent.
+ * Called from the stream adapter's `tool-start` handler and from `toolCallRenderer` on
+ * every render, a stored conversation's included (it looks the renderer up and delegates
+ * to it; nothing replays `tool-start` for history), so "the renderer drew"
+ * and "its rules are on the page" cannot come apart. Keyed by tool NAME rather than by
+ * the CSS text, which makes it idempotent.
  */
 export function injectToolRendererStyles(toolName: string, renderer: { getStyles?: () => string }): void {
     if (typeof document === 'undefined') return;

@@ -15,9 +15,15 @@
  * So this reads `coverage/coverage-summary.json` and compares every configured
  * threshold against what was actually achieved:
  *
- *   • slack over MAX_SLACK → fail, and say what to raise it to. This is the drift.
- *   • measured BELOW the floor → fail. Vitest already refuses this, but if the
- *     reporter and the threshold ever disagree, the disagreement is the bug.
+ *   • slack over MAX_SLACK → the floor is raised to the measurement minus one. Locally it
+ *     is written into vitest.config.ts and the run goes on, saying so, so the gate does
+ *     not stop on a ratchet nobody had turned yet; in CI (`CI` set) it fails, because a
+ *     raise nobody commits is a raise that never happened.
+ *   • measured BELOW the floor → fail, everywhere. Vitest already refuses this, but if
+ *     the reporter and the threshold ever disagree, the disagreement is the bug.
+ *
+ * It refuses a summary older than the last test run: a stale summary would grade
+ * today's floors against yesterday's numbers.
  *
  * It reads the config's thresholds as text rather than importing it, because
  * importing a vitest config pulls the whole vitest plugin chain into a gate step
@@ -25,32 +31,26 @@
  *
  * Run by `pnpm gate`, right after `test:coverage`.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const SUMMARY = 'coverage/coverage-summary.json';
+const REPORT = '.vitest-report.json';
 const CONFIG = 'vitest.config.ts';
 /**
- * How far a floor may sit below its measurement. Two points absorbs the jitter of a
+ * How far a floor may sit below its measurement. Three points absorbs the jitter of a
  * v8 run across environments; anything more is a ratchet nobody turned.
  */
-const MAX_SLACK = 3;
+export const MAX_SLACK = 3;
 const METRICS = ['lines', 'statements', 'functions', 'branches'];
 
-if (!existsSync(SUMMARY)) {
-    console.error(
-        `[coverage-floors] FAIL: ${SUMMARY} is missing. It comes from the \`json-summary\`\n`
-        + '  coverage reporter — run `pnpm test:coverage` first, and check that the reporter\n'
-        + '  is still listed in vitest.config.ts.',
-    );
-    process.exit(1);
+/** Where the global block's floors sit: four bare `metric: N,` lines inside `thresholds:`. */
+function globalStart(config) {
+    return config.indexOf('thresholds: {');
 }
 
-const summary = JSON.parse(readFileSync(SUMMARY, 'utf8'));
-const config = readFileSync(CONFIG, 'utf8');
-
-/** The global block: four bare `metric: N,` lines inside `thresholds:`. */
-function globalFloors() {
-    const at = config.indexOf('thresholds: {');
+function globalFloors(config) {
+    const at = globalStart(config);
     if (at === -1) return null;
     const out = {};
     for (const m of METRICS) {
@@ -61,7 +61,7 @@ function globalFloors() {
 }
 
 /** Per-glob blocks: `'some/glob/**': { lines: N, ... },` */
-function globFloors() {
+function globFloors(config) {
     const out = new Map();
     for (const m of config.matchAll(/'([^']+\*\*)':\s*\{([^}]*)\}/g)) {
         const floors = {};
@@ -75,7 +75,7 @@ function globFloors() {
 }
 
 /** Aggregate the summary's per-file entries under a glob prefix. */
-function measure(prefix) {
+function measure(summary, prefix) {
     const totals = Object.fromEntries(METRICS.map((m) => [m, { covered: 0, total: 0 }]));
     let files = 0;
     for (const [file, data] of Object.entries(summary)) {
@@ -94,48 +94,110 @@ function measure(prefix) {
     );
 }
 
-const problems = [];
-const rows = [];
-
-function compare(label, floors, measured) {
-    if (!measured) {
-        problems.push(`"${label}" matched no file in the coverage summary — the glob is stale or the run was partial.`);
-        return;
+/** The config with one floor replaced: the global block's line, or the metric inside a glob's object. */
+function writeFloor(config, label, metric, value) {
+    if (label === 'global') {
+        const at = globalStart(config);
+        const re = new RegExp(`^(\\s{8}${metric}:\\s*)[\\d.]+,`, 'm');
+        return config.slice(0, at) + config.slice(at).replace(re, `$1${value},`);
     }
-    for (const m of METRICS) {
-        if (floors[m] === undefined) continue;
-        const slack = measured[m] - floors[m];
-        rows.push(`${label} ${m}: floor ${floors[m]}, measured ${measured[m].toFixed(2)} (slack ${slack.toFixed(2)})`);
-        if (slack < 0) {
-            problems.push(`"${label}" ${m} measured ${measured[m].toFixed(2)}%, BELOW its floor of ${floors[m]}.`);
-        } else if (slack > MAX_SLACK) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    const re = new RegExp(`('${escaped}':\\s*\\{[^}]*?${metric}:\\s*)[\\d.]+`);
+    return config.replace(re, `$1${value}`);
+}
+
+/**
+ * Grade every floor in `config` against `summary`.
+ *
+ * Returns the problems (a floor above its measurement, a glob that matched nothing,
+ * an unreadable block), the floors to raise with their new value, the config with
+ * those raises written in, and one row per threshold for the report.
+ */
+export function gradeFloors(config, summary) {
+    const problems = [];
+    const raises = [];
+    const rows = [];
+    let next = config;
+
+    const compare = (label, floors, measured) => {
+        if (!measured) {
+            problems.push(`"${label}" matched no file in the coverage summary — the glob is stale or the run was partial.`);
+            return;
+        }
+        for (const m of METRICS) {
+            if (floors[m] === undefined) continue;
+            const slack = measured[m] - floors[m];
+            rows.push(`${label} ${m}: floor ${floors[m]}, measured ${measured[m].toFixed(2)} (slack ${slack.toFixed(2)})`);
+            if (slack < 0) {
+                problems.push(`"${label}" ${m} measured ${measured[m].toFixed(2)}%, BELOW its floor of ${floors[m]}.`);
+            } else if (slack > MAX_SLACK) {
+                const to = Math.floor(measured[m]) - 1;
+                raises.push({ label, metric: m, from: floors[m], to, measured: measured[m] });
+                next = writeFloor(next, label, m, to);
+            }
+        }
+    };
+
+    const global = globalFloors(config);
+    if (!global) {
+        problems.push(`could not read the global thresholds out of ${CONFIG}.`);
+        return { problems, raises, rows, config: next };
+    }
+    compare('global', global, measure(summary, ''));
+    for (const [glob, floors] of globFloors(config)) compare(glob, floors, measure(summary, glob.replace(/\/\*\*$/, '')));
+    return { problems, raises, rows, config: next };
+}
+
+function main() {
+    if (!existsSync(SUMMARY)) {
+        console.error(
+            `[coverage-floors] FAIL: ${SUMMARY} is missing. It comes from the \`json-summary\`\n`
+            + '  coverage reporter — run `pnpm test:coverage` first, and check that the reporter\n'
+            + '  is still listed in vitest.config.ts.',
+        );
+        process.exit(1);
+    }
+    // The summary is written at the end of the coverage run, after the JSON report: one
+    // older than the report belongs to an earlier run than the last `vitest`.
+    if (existsSync(REPORT) && statSync(SUMMARY).mtimeMs + 1000 < statSync(REPORT).mtimeMs) {
+        console.error(
+            `[coverage-floors] FAIL: ${SUMMARY} is older than the last test run (${REPORT}).\n`
+            + '  It would grade the floors against an earlier run. Run `pnpm test:coverage`.',
+        );
+        process.exit(1);
+    }
+
+    const config = readFileSync(CONFIG, 'utf8');
+    const { problems, raises, rows, config: raised } = gradeFloors(config, JSON.parse(readFileSync(SUMMARY, 'utf8')));
+    const inCi = Boolean(process.env.CI);
+
+    if (raises.length && inCi) {
+        for (const r of raises) {
             problems.push(
-                `"${label}" ${m} floor is ${floors[m]} but measures ${measured[m].toFixed(2)}% — `
-                + `${slack.toFixed(1)} points of slack.\n`
-                + `      Raise it to ${Math.floor(measured[m]) - 1}. A floor this far below the real number cannot\n`
+                `"${r.label}" ${r.metric} floor is ${r.from} but measures ${r.measured.toFixed(2)}% — `
+                + `${(r.measured - r.from).toFixed(1)} points of slack.\n`
+                + `      Raise it to ${r.to}. A floor this far below the real number cannot\n`
                 + '      fail, which is how deleting a whole test suite once stayed green.',
             );
         }
     }
+    if (problems.length) {
+        console.error(`\n[coverage-floors] ${problems.length} problem(s):\n`);
+        for (const p of problems) console.error(`  - ${p}\n`);
+        console.error(`Edit the thresholds in ${CONFIG}. Measured values:\n`);
+        for (const r of rows) console.error(`  ${r}`);
+        console.error('');
+        process.exit(1);
+    }
+    if (raises.length) {
+        writeFileSync(CONFIG, raised);
+        console.log(`[coverage-floors] raised ${raises.length} floor(s) to their measurement minus one — commit ${CONFIG}:`);
+        for (const r of raises) console.log(`  ${r.label} ${r.metric}: ${r.from} -> ${r.to} (measured ${r.measured.toFixed(2)})`);
+        return;
+    }
+    console.log(
+        `[coverage-floors] OK: ${rows.length} thresholds, every one within ${MAX_SLACK} points of its measurement.`,
+    );
 }
 
-const global = globalFloors();
-if (!global) {
-    console.error(`[coverage-floors] FAIL: could not read the global thresholds out of ${CONFIG}.`);
-    process.exit(1);
-}
-compare('global', global, measure(''));
-for (const [glob, floors] of globFloors()) compare(glob, floors, measure(glob.replace(/\/\*\*$/, '')));
-
-if (problems.length) {
-    console.error(`\n[coverage-floors] ${problems.length} problem(s):\n`);
-    for (const p of problems) console.error(`  - ${p}\n`);
-    console.error(`Edit the thresholds in ${CONFIG}. Measured values:\n`);
-    for (const r of rows) console.error(`  ${r}`);
-    console.error('');
-    process.exit(1);
-}
-
-console.log(
-    `[coverage-floors] OK: ${rows.length} thresholds, every one within ${MAX_SLACK} points of its measurement.`,
-);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

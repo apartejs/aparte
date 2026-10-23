@@ -96,8 +96,8 @@ export default defineConfig({
         // Raised 89 -> 91 on 2026-09-02 by the UI kit audit: some fifty stylesheet and
         // jsdom suites (the height scale, the type ramp, the focus ring, the rails, the
         // specimens) moved the global to 92.17%. The ratchet asked a fourth time.
-        lines: 91,
-        statements: 91,
+        lines: 93,
+        statements: 93,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
@@ -109,7 +109,8 @@ export default defineConfig({
         // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
-        branches: 87,
+        // 87 -> 89 with the providers lot (2026-10-21): 90.06% measured.
+        branches: 89,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and
@@ -214,30 +215,30 @@ export default defineConfig({
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
-        'packages/plugins/artifacts/src/**': { lines: 79, statements: 79, functions: 83, branches: 71 },
+        'packages/plugins/artifacts/src/**': { lines: 88, statements: 88, functions: 89, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 89, branches: 87 },
-        'packages/plugins/compaction/src/**': { lines: 94, statements: 94, functions: 95, branches: 89 },
+        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
-        'packages/plugins/model-selector/src/**': { lines: 82, statements: 82, functions: 81, branches: 75 },
+        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
-        'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 83 },
+        'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 85 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 95, statements: 95, functions: 90, branches: 83 },
         'packages/providers/ai/openai-compat/src/**': { lines: 94, statements: 94, functions: 93, branches: 87 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
         // Measured 78.04 by the full run after the worker moved to a stable path (its new
         // construction path is exercised by the published-shape test, not by a run): a
         // point under that, as every floor here.
-        'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 83 },
+        'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
-        'packages/wrappers/angular/src/**': { lines: 77, statements: 77, functions: 61, branches: 85 },
+        'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 63, branches: 85 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 57, branches: 86 },
-        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 50, branches: 88 },
-        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 47, branches: 85 },
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 61, branches: 86 },
+        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 88 },
+        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 51, branches: 85 },
       },
     },
   },

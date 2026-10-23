@@ -55,6 +55,28 @@ describe('a clamp in our own window', () => {
         expect(vp._isAutoScrollEnabled, 'a settle clamp read as the reader going up').toBe(true);
     });
 
+    it('is not a gesture however far it moved, when the content got SHORTER', () => {
+        // Measured on react-webkit under load, at the end of a streamed reply: the height
+        // dipped and recovered between two scroll events (1833 at its peak, 1068 at the
+        // event, the last event at 1199), WebKit clamped scrollTop on the way down, and
+        // the event read 665 -> 338. A decrease of 327 is past the settle's bound, but a
+        // shorter transcript is the engine's doing — no reader shortens it — and the
+        // follow was disarmed, the view 490px short for good.
+        geometry(665, 1199, 534);
+        vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now();
+        geometry(338, 1068, 534);
+        expect(vp._isAutoScrollEnabled, 'a clamp on a shorter transcript read as the reader going up').toBe(true);
+    });
+
+    it('still reads a jump as the reader when the content did not get shorter', () => {
+        geometry(665, 1199, 534);
+        vp._ownScrollAt = performance.now();
+        vp._lastMutationAt = performance.now();
+        geometry(338, 1199, 534);
+        expect(vp._isAutoScrollEnabled).toBe(false);
+    });
+
     it('still yields to a reader whose hand is on it', () => {
         geometry(1000, 1500);
         vp._ownScrollAt = performance.now();

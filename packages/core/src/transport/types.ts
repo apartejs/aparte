@@ -1,5 +1,5 @@
 /**
- * Transport seam — separates the two concerns that providers used to bundle:
+ * Transport seam — separates two concerns of a provider:
  *
  *   • **Format adapter** (`AparteFormatAdapter`): the vendor-specific concern —
  *     how to shape the HTTP request and how to parse the response stream into
@@ -9,9 +9,8 @@
  *     BYOK/local) or via your own backend that holds the key
  *     (`AparteBackendTransport`, recommended for production).
  *
- * A "provider" is migrating from a monolithic `chat()` (fetch + key + parse) to
- * a pure format adapter. During the migration a provider may expose EITHER the
- * adapter surface OR a legacy `chat()`; the transports handle both.
+ * A provider exposes EITHER the format-adapter surface OR a legacy monolithic
+ * `chat()` (fetch + key + parse); the transports handle both.
  */
 import type { AparteChatRequest, AparteChatResponse, AparteStreamEvent } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
@@ -92,9 +91,8 @@ export async function vendorErrorMessage(response: Response, label = 'HTTP'): Pr
 
 /**
  * The error a non-ok vendor/backend response becomes: the message the body carries
- * (or `${label} ${status}`), the status, and the code that status stands for. The
- * transports used to throw a bare Error here, so every one of them reached the error
- * card as UNKNOWN_ERROR — a 429 and a 503 read the same to a listener.
+ * (or `${label} ${status}`), the status, and the code that status stands for, so a
+ * 429 and a 503 are told apart by a listener.
  */
 export async function vendorError(response: Response, label = 'HTTP'): Promise<AparteError> {
     const message = await vendorErrorMessage(response, label);
@@ -104,9 +102,8 @@ export async function vendorError(response: Response, label = 'HTTP'): Promise<A
 
 /**
  * Resolve a non-streaming response to text via the adapter's `parseText`.
- * Both transports use this so `stream: false` behaves identically (previously
- * AparteDirectTransport returned '' and AparteBackendTransport returned raw JSON when
- * `parseText` was missing — now both fail loud).
+ * Both transports use this so `stream: false` behaves identically. It throws when the
+ * adapter has no `parseText`.
  */
 export async function parseNonStreamText(
     provider: { parseText?: (json: unknown) => string },

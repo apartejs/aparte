@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 test.beforeEach(async ({ page }) => {
     await installLlmMock(page);
@@ -136,4 +137,80 @@ test('the scroll surface spans the shell, content clears the floating composer, 
         .toBeLessThanOrEqual(grown.composerTop + 1);
 
     expect(errors, 'no runtime errors across the probes').toEqual([]);
+});
+
+/*
+ * The top's counterpart. A header laid over an overlay transcript had no knob: the first message
+ * started under it, and a jump to a message landed under it. `--aparte-top-inset`, set on the
+ * shell by hand, is what both read — padding (core mode) or a spacer (framework mode), plus the
+ * surface's scroll padding.
+ */
+test('a header over the transcript: the first message starts below it, and a jump lands below it', async ({ page }, testInfo) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto(overlayUrl(testInfo.project.name));
+    for (let i = 0; i < 4; i++) await chat.sendAndSettle(`turn ${i}`);
+    const INSET = 60;
+    // Each move waits for the view to stop: the inset re-pins a reader at the bottom, and a
+    // `scrollTop = 0` written while that re-pin is still landing measured the re-pin (the
+    // first message 427px above the edge, under load) instead of the top of the transcript.
+    const move = async (how: 'inset' | 'top' | 'bottom' | 'jump') => {
+        await page.evaluate(([step, inset]) => {
+            const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+                ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+            if (step === 'inset') (document.querySelector('[overlay-composer]') as HTMLElement).style.setProperty('--aparte-top-inset', `${inset}px`);
+            if (step === 'top') surface.scrollTop = 0;
+            if (step === 'bottom') surface.scrollTop = surface.scrollHeight;
+            if (step === 'jump') (surface.querySelectorAll('aparte-chat-bubble')[2] as HTMLElement).scrollIntoView({ block: 'start' });
+        }, [how, INSET] as const);
+        await waitForStill(page);
+    };
+    const offsetOf = (index: number) => page.evaluate((i) => {
+        const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+            ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+        return surface.querySelectorAll('aparte-chat-bubble')[i]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+    }, index);
+    await move('inset');
+    await move('top');
+    const first = await offsetOf(0);
+    await move('bottom');
+    await move('jump');
+    const offsets = { first, jump: await offsetOf(2) };
+    expect(offsets.first, 'the first message starts below the header').toBeGreaterThanOrEqual(INSET);
+    expect(Math.abs(offsets.jump - INSET), `a jump lands at the header's edge (${offsets.jump}px)`).toBeLessThanOrEqual(2);
+
+    // The commonest landing of all: a send pins the question to the top of the view, which
+    // is below the header too.
+    await chat.sendAndSettle('one more short question');
+    // Read once the surface has stopped moving: a glide passes the header's edge on its way
+    // to wherever it lands, so a poll would accept the transit.
+    await waitForStill(page, { frames: 10 });
+    const pinned = await page.evaluate(() => {
+        const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+            ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+        const users = surface.querySelectorAll('aparte-chat-bubble[data-role="user"]');
+        return Math.round(users[users.length - 1]!.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+    });
+    expect(Math.abs(pinned - INSET), `a sent question is pinned at the header's edge (${pinned}px)`).toBeLessThanOrEqual(3);
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});
+
+/*
+ * The compact class under a framework. It declared the transcript's two-value padding on the chat
+ * root, and the framework-managed viewport adds that variable into its bottom spacer's `calc()`:
+ * two values made it invalid, and the spacer — the overlay clearance with it — collapsed.
+ */
+test('aparte-chat--compact keeps the bottom spacer', async ({ page }, testInfo) => {
+    await page.goto(overlayUrl(testInfo.project.name));
+    const chat = new ChatPage(page);
+    await chat.sendAndSettle('one turn');
+    const basis = () => page.evaluate(() => {
+        const vp = document.querySelector('[overlay-composer] aparte-chat-viewport') as HTMLElement;
+        const framework = vp.hasAttribute('framework-managed') || vp.classList.contains('aparte-viewport--framework');
+        return framework ? getComputedStyle(vp, '::after').flexBasis : 'n/a (core mode: no spacer)';
+    });
+    const before = await basis();
+    await page.evaluate(() => (document.querySelector('[overlay-composer]') as HTMLElement).classList.add('aparte-chat--compact'));
+    const after = await basis();
+    expect(after, `the spacer's basis was ${before}`).toEqual(before === 'n/a (core mode: no spacer)' ? before : expect.stringMatching(/px$/));
 });

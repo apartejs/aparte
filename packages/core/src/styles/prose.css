@@ -8,7 +8,8 @@
 .aparte-content {
   font-size: var(--aparte-content-font-size);
   line-height: var(--aparte-content-line-height);
-  color: var(--aparte-content-color);
+  /* `--aparte-message-ink`: the role's ink, set by the message around it (components/bubble.css). */
+  color: var(--aparte-message-ink, var(--aparte-content-color));
   font-family: var(--aparte-font-family);
   white-space: normal;
   word-wrap: break-word;
@@ -148,8 +149,15 @@
 .aparte-thinking-content td {
   border: var(--aparte-border-width) solid var(--aparte-border);
   padding: var(--aparte-space-2) var(--aparte-space-4);
-  text-align: start;
   vertical-align: top;
+}
+
+/* A column the Markdown aligned (`---:`, `:---:`) carries `align`, which a browser reads as
+   `text-align`. A rule on every cell out-weighs that hint, so only the cells nobody aligned
+   start at the start — at the weight the old rule had (`:where`), so a consumer's own cell
+   rule still wins by load order. */
+:is(.aparte-content, .aparte-segment-content, .aparte-thinking-content) :is(th, td):where(:not([align])) {
+  text-align: start;
 }
 
 .aparte-content th,

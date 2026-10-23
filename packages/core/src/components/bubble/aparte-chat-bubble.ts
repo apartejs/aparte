@@ -14,8 +14,8 @@ import type {
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
-import { AparteConfig } from '../../config/aparte-config.js';
-import { resolveConfig, runWithConfig } from '../../config/config-context.js';
+import { AparteConfig, renderingVersionOf } from '../../config/aparte-config.js';
+import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
@@ -24,8 +24,8 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 
 /**
- * Warn ONCE when a segment has no renderer — now only for types core has never
- * heard of, since the built-ins install themselves on first use.
+ * Warn ONCE when a segment has no renderer — only for types core has never heard of,
+ * since the built-ins install themselves on first use.
  */
 let _warnedNoRenderer = false;
 function warnMissingRenderer(type: string): void {
@@ -37,13 +37,10 @@ function warnMissingRenderer(type: string): void {
 /**
  * What a segment renders as when no renderer claims its type.
  *
- * `AparteCustomSegment.fallback` is documented as "Optional fallback text
- * representation" and was read by NOTHING — the field existed, the type published it,
- * and a custom segment arriving where its renderer is not registered (a conversation
- * replayed in another app, a client that loads its views lazily, an export) showed
- * `[Unknown segment type: custom]` while carrying the sentence written for exactly that
- * moment. Found while writing the segment's own `@example`, which is the kind of dead
- * declaration documentation is good at surfacing.
+ * A custom segment arriving where its renderer is not registered (a conversation
+ * replayed in another app, a client that loads its views lazily, an export) shows its
+ * `AparteCustomSegment.fallback` text. Without one it shows
+ * `[Unknown segment type: custom]`.
  *
  * The developer warning is skipped when a fallback is present: an author who supplied
  * one has already said this can happen, and warning then is crying wolf. Without one it
@@ -111,6 +108,30 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
 }
 
 /**
+ * Empty avatar slots waiting to learn whether their role's `--aparte-avatar-image-*` names a
+ * picture, with the bubble and the role each one reads. Flushed together in one microtask, so
+ * a config change that redraws every bubble reads every token first and marks afterwards: a
+ * mark set between two reads dirtied the style the next read had to recompute.
+ *
+ * The token is read on the bubble, not on the slot. A bubble off screen skips its contents
+ * (`content-visibility: auto`), and reading a computed style inside a skipped subtree costs a
+ * style pass of its own: on 200 messages that was ~50ms per config change in Chromium. So
+ * the token is honoured where it is declared on the bubble or any ancestor — `:root`, the
+ * chat — which is where the guide declares it.
+ */
+const pendingAvatarMarks = new Map<HTMLElement, { bubble: HTMLElement; role: string }>();
+
+function flushAvatarMarks(): void {
+    const batch = [...pendingAvatarMarks].filter(([avatar]) => !avatar.firstChild);
+    pendingAvatarMarks.clear();
+    const shown = batch.map(([, { bubble, role }]) => {
+        const image = getComputedStyle(bubble).getPropertyValue(`--aparte-avatar-image-${role}`).trim();
+        return image !== '' && image !== 'none';
+    });
+    batch.forEach(([avatar], i) => avatar.toggleAttribute('data-image', shown[i]));
+}
+
+/**
  * One message: plain content or a list of rich segments, in light DOM.
  *
  * Normally created for you by `<aparte-chat-viewport>`, one per message in the store;
@@ -147,14 +168,10 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * on `.aparte-message`), never from a status attribute, so it behaves identically in
  * vanilla and in every wrapper.
  *
- * All seven events are declared by hand rather than left to the analyser, which
- * found six. `aparte-branch-navigate` is dispatched from the `_onBranchPickerClick`
- * arrow class field, and the auto-detection visits `ts.isMethodDeclaration` only —
- * so the one event belonging to the branch picker was the one missing from the
- * manifest, and from the generated reference, for as long as both existed.
+ * All eight events are declared by hand rather than left to the analyser.
  *
  * The bubble element is `content-visibility: auto` for its streaming/scroll performance
- * (measured, not assumed — see `bubble.css`), and that containment makes the bubble
+ * (see `bubble.css`), and that containment makes the bubble
  * the containing block for `position: fixed` descendants: a popover mounted inside it
  * (an `<aparte-select>` from a `registerToolRenderer` renderer, say) is clipped to the
  * bubble's own box, not the window. Mount it outside instead — [Custom tool
@@ -162,12 +179,12 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *
  * @element aparte-chat-bubble
  *
- * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)
+ * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and does not read a message role from it.)
  * @attr {string} content - Plain text content, for a bubble with no segments.
  * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
- * @attr {string} name - The display name in the header.
+ * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
@@ -179,25 +196,26 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
- * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row. (The composite `--aparte-message-padding` is gone: joined on `:root`, it froze both parts, and the narrow-container override of them never reached the row.)
+ * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row.
  * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
  * @cssprop [--aparte-message-content-radius=var(--aparte-radius-bubble)] - Radius of the painted content box.
- * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the user's box.
+ * @cssprop [--aparte-message-content-padding-assistant=0] - Padding of the assistant's box, none by default: its reply is plain prose across the column.
  * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
- * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
- * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
+ * @cssprop --aparte-message-content-text-user - Colour of the user's words. Unset by default: they keep `--aparte-content-color`.
+ * @cssprop --aparte-message-content-text-assistant - Colour of the assistant's words. Unset by default: they keep `--aparte-content-color`.
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
- * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp; 0.28 × 32px is the 9px it used to be).
+ * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp).
  * @cssprop [--aparte-avatar-initials-ratio=0.34] - Size of the initial, as a fraction of the avatar's size.
  * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
  * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
  * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text)] - Avatar text colour, assistant role.
- * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
+ * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider: the slot shows when it names an image.
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
  *
@@ -242,7 +260,6 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * <aparte-chat-bubble
  *   message-id="a1"
  *   data-role="assistant"
- *   name="Assistant"
  *   content="Hello."
  * ></aparte-chat-bubble>
  *
@@ -258,7 +275,6 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * <aparte-chat-bubble
  *   message-id="a3"
  *   data-role="assistant"
- *   name="Assistant"
  *   content="A second take on the same question."
  * ></aparte-chat-bubble>
  *
@@ -266,7 +282,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *   document.querySelector('aparte-chat-bubble[message-id="a3"]').setSiblings(2, 0);
  * </script>
  */
-export class AparteChatBubble extends HTMLElement {
+export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _contentEl: HTMLDivElement | null = null;
   private _segmentsEl: HTMLDivElement | null = null;
   private _attachmentsEl: HTMLDivElement | null = null;
@@ -281,8 +297,20 @@ export class AparteChatBubble extends HTMLElement {
   private _usage: AparteUsage | null = null;
   /** Cleanup returned by the avatar provider — called on disconnect/re-render. */
   private _avatarCleanup: (() => void) | null = null;
+  /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
+  private _avatarFromProvider = false;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
   private _siblingCount = 1;
+  /**
+   * Which accessible names the bubble wrote itself, and so may refresh on a language switch
+   * or a name change. A custom shell's own are its author's: refreshed, a root's or a bar's
+   * label of their own became "Assistant response" or "Message actions" at the first notify.
+   */
+  private _wroteRootLabel = false;
+  private _wroteBarLabel = false;
+  private _wroteArrowLabels = false;
+  /** The shell renderer the bubble was last drawn with (`null`: the default frame). */
+  private _drawnShell: unknown = null;
   /** Sibling index for tree-based branch navigation (set by setSiblings()) */
   private _siblingIndex = 0;
   /** True while the user-message inline editor is open. */
@@ -336,7 +364,35 @@ export class AparteChatBubble extends HTMLElement {
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
+    // Once, in a microtask: the usual setup sets the Markdown provider, its streaming twin
+    // and a highlighter one after another, and each notifies — drawn on each, every message
+    // on screen was parsed three times over.
+    if (!this._redrawQueued) {
+      this._redrawQueued = true;
+      queueMicrotask(() => {
+        this._redrawQueued = false;
+        if (this.isConnected) this._redrawIfStale();
+      });
+    }
   };
+
+  /** A {@link _redrawIfStale} is queued for the end of the current task. */
+  private _redrawQueued = false;
+
+  /** The {@link renderingVersionOf} count the content was last drawn with. */
+  private _drawnWithVersion = 0;
+
+  /**
+   * A Markdown or highlight provider set after this message was drawn: draw it again.
+   * Not mid-stream — the stream reads the providers as it goes, and its end redraws — and
+   * not mid-edit, where the drawn message is hidden behind the editor and drawing it would
+   * show it again beside the editor; leaving the edit calls this.
+   */
+  private _redrawIfStale(): void {
+    if (this._streaming || this._editing || renderingVersionOf(this._cfg) === this._drawnWithVersion) return;
+    if (this._segments.length > 0) this._renderSegments();
+    else this._updateContent();
+  }
 
   /**
    * Ask every rendered segment to re-read its config-derived text.
@@ -376,9 +432,11 @@ export class AparteChatBubble extends HTMLElement {
     const set = (selector: string, label: string): void => {
       this.querySelector(selector)?.setAttribute('aria-label', label);
     };
-    set('.aparte-branch-prev', locale.previousResponse ?? 'Previous response');
-    set('.aparte-branch-next', locale.nextResponse ?? 'Next response');
-    set('.aparte-action-bar', locale.messageActions ?? 'Message actions');
+    if (this._wroteArrowLabels) {
+      set('.aparte-branch-prev', locale.previousResponse ?? 'Previous response');
+      set('.aparte-branch-next', locale.nextResponse ?? 'Next response');
+    }
+    if (this._wroteBarLabel) set('.aparte-action-bar', locale.messageActions ?? 'Message actions');
   }
 
   /**
@@ -405,6 +463,41 @@ export class AparteChatBubble extends HTMLElement {
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
     this.addEventListener('click', this._onLinkClick);
+  }
+
+  /**
+   * The boundary above this bubble changed — under every wrapper the chat's own config is
+   * attached AFTER the first messages are drawn. When that brings another frame
+   * (`setBubbleShellRenderer`), the bubble is drawn again in it and its content put back,
+   * so every message wears the chat's frame.
+   *
+   * Deferred to a microtask: a wrapper detaches the boundary as it unmounts (Vue's
+   * `onBeforeUnmount`, Svelte's `onDestroy`), while the bubbles are still in the page, and
+   * redrawing every one of them just before their removal would cost a frame per message.
+   * After the microtask a removed bubble is no longer connected, and repeated notices fold
+   * into one.
+   */
+  aparteConfigChanged(): void {
+    queueMicrotask(() => this._redrawFrameIfChanged());
+  }
+
+  private _redrawFrameIfChanged(): void {
+    if (!this.isConnected || this._editing) return;   // an open editor is the reader's: caught up when it closes
+    if ((this._cfg.getBubbleShellRenderer?.() ?? null) === this._drawnShell) return;
+    if (this._avatarCleanup) {
+      try { this._avatarCleanup(); } catch { /* ignore */ }
+      this._avatarCleanup = null;
+    }
+    // The incremental Markdown parser is bound to the content element being replaced: left
+    // bound, a stream would go on writing into the detached one and end blank.
+    this._resetMarkdownStream();
+    this.replaceChildren();
+    this._render();
+    this._updateContent();
+    if (this._segments.length > 0) this._renderSegments();
+    this._updateAttachments();
+    this._updateTimestamp(this.getAttribute('timestamp'));
+    this._updateBranchPicker();
   }
 
   disconnectedCallback(): void {
@@ -557,11 +650,11 @@ export class AparteChatBubble extends HTMLElement {
    * query returns the first match in document order — and sanitized model
    * markdown renders inside that same container, with `data-*` attributes
    * deliberately preserved (they are inert). So a decoy `data-segment-id` planted
-   * in an earlier segment's prose used to win over the real segment element.
+   * in an earlier segment's prose would win over the real segment element.
    *
    * Parser ids are unguessable UUIDs, but a tool segment is `tool-${toolCallId}`
-   * and the MODEL chooses that id — so this was reachable, and pointing an update
-   * at a decoy left a rejected tool rendering as still-running: a spoof against
+   * and the MODEL chooses that id — so a decoy could point an update at the wrong
+   * element and leave a rejected tool rendering as still-running: a spoof against
    * the human-in-the-loop control.
    */
   removeSegment(segmentId: string): void {
@@ -652,6 +745,8 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
+    // The first segment of a message drawn piece by piece sets the count it is drawn with.
+    if (this._segments.length === 1) this._drawnWithVersion = renderingVersionOf(this._cfg);
     const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
@@ -738,6 +833,10 @@ export class AparteChatBubble extends HTMLElement {
     // .aparte-message + carry the region hooks; the queries below are null-guarded
     // so a partial shell degrades gracefully. See AparteBubbleShellRenderer.
     const shell = this._cfg.getBubbleShellRenderer?.();
+    this._drawnShell = shell ?? null;
+    this._avatarFromProvider = false;   // a new frame, a new slot
+    // The default frame's names are all the bubble's; a custom one's, only those stamped below.
+    this._wroteRootLabel = this._wroteBarLabel = this._wroteArrowLabels = !shell;
     if (shell) {
       const out = runWithConfig(this._cfg, () => shell({ role: this._role, name: displayName, avatarInitial: initial }));
       if (out instanceof HTMLElement) this.replaceChildren(out);
@@ -790,12 +889,52 @@ export class AparteChatBubble extends HTMLElement {
     if (messageEl && !messageEl.hasAttribute('role')) {
       messageEl.setAttribute('role', 'article');
       messageEl.setAttribute('aria-label', this._getAriaLabel());
+      this._wroteRootLabel = true;
     }
 
     this._contentEl = this.querySelector('.aparte-content');
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
+    // A custom shell's bar gets the roving tab stop below; it gets the toolbar it implies
+    // too, as the root gets `article` above — the contract lists class hooks, so a shell
+    // written from it carries no ARIA. A bar that declares its own role keeps it.
+    if (this._actionBarEl && !this._actionBarEl.hasAttribute('role')) {
+      this._actionBarEl.setAttribute('role', 'toolbar');
+      if (!this._actionBarEl.hasAttribute('aria-label')) {
+        this._actionBarEl.setAttribute('aria-label', this._cfg.getLocale().messageActions ?? 'Message actions');
+        this._wroteBarLabel = true;
+      }
+    }
+    // The branch arrows are icon buttons, and the contract asks no ARIA of a shell's author:
+    // unnamed ones get the locale's names, and keep them through a language switch. A shell
+    // that named either arrow keeps both as it wrote them — by an attribute, or by words in
+    // the button, which a glyph like ‹ is not: a label stamped over a visible word is a name
+    // the reader cannot see, and a voice command saying the word finds nothing.
+    if (shell) {
+      const prev = this.querySelector('.aparte-branch-prev');
+      const next = this.querySelector('.aparte-branch-next');
+      // Only words a reader can hear: an icon font's ligature or an SVG title under
+      // `aria-hidden` is text in the DOM and no name at all.
+      const audible = (arrow: Element): string => {
+        let text = '';
+        const walker = arrow.ownerDocument.createTreeWalker(arrow, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const hidden = node.parentElement?.closest('[aria-hidden="true"], [hidden]');
+          if (!hidden || !arrow.contains(hidden)) text += node.textContent ?? '';
+        }
+        return text;
+      };
+      const named = (arrow: Element | null): boolean => !!arrow && (
+        arrow.hasAttribute('aria-label') || arrow.hasAttribute('aria-labelledby') || arrow.hasAttribute('title')
+        || /\p{L}/u.test(audible(arrow)));
+      if ((prev || next) && !named(prev) && !named(next)) {
+        const locale = this._cfg.getLocale();
+        prev?.setAttribute('aria-label', locale.previousResponse ?? 'Previous response');
+        next?.setAttribute('aria-label', locale.nextResponse ?? 'Next response');
+        this._wroteArrowLabels = true;
+      }
+    }
     // ONE listener on the bar, not one per button: every build path rewrites the bar's
     // innerHTML, so a per-button listener would have to be re-attached three times and
     // would be lost the first time somebody added a fourth path. The bar element itself
@@ -822,8 +961,7 @@ export class AparteChatBubble extends HTMLElement {
 
   /**
    * Show the built-in waiting indicator while this bubble is in flight and has
-   * nothing to show yet — the gap between "user sends" and the first token, which
-   * used to be a bubble with a name and an empty body.
+   * nothing to show yet — the gap between "user sends" and the first token.
    *
    * The dots are CSS (no per-token work, themable, honours reduced-motion); the
    * accessible name is `locale.typing`, next to the `aria-busy` the streaming state
@@ -869,11 +1007,10 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * Hand the avatar host element off to the registered AvatarProvider, if any.
    *
-   * With no provider the slot is left exactly as the shell rendered it — which for
-   * the default shell means EMPTY, and hidden by `.aparte-avatar:empty`. This used
-   * to claim it "falls back to the default initial rendered by `_render()`"; there
-   * is no such initial, and believing there was is what made `_updateRole` write
-   * one.
+   * With no provider the slot keeps what the shell rendered — for the default shell,
+   * nothing, hidden while empty — and loses what a provider drew there before. An empty
+   * slot still shows when the stylesheet names a picture for its role
+   * (`--aparte-avatar-image-user` / `-assistant`): see `_markAvatarImage`.
    */
   private _renderAvatar(): void {
     const avatar = this.querySelector('.aparte-avatar') as HTMLElement | null;
@@ -886,11 +1023,41 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     const provider = this._cfg.getAvatarProvider();
-    if (!provider) return; // leave the slot as the shell rendered it
+    if (!provider) {
+      // `setAvatarProvider(null)`: what the provider drew goes with it. The slot returned
+      // early here, so the old avatars stayed on every message already on screen.
+      if (this._avatarFromProvider) {
+        avatar.replaceChildren();
+        this._avatarFromProvider = false;
+      }
+      this._markAvatarImage(avatar);
+      return;
+    }
 
     avatar.textContent = '';
     const cleanup = provider.render(this._role, avatar);
+    this._avatarFromProvider = true;
     if (typeof cleanup === 'function') this._avatarCleanup = cleanup;
+    // A provider may draw one role and leave the other's slot empty: the stylesheet's
+    // picture still shows there.
+    this._markAvatarImage(avatar);
+  }
+
+  /**
+   * A picture from the stylesheet alone: an empty slot whose role's `--aparte-avatar-image-*`
+   * names an image gets `data-image`, which lifts the rule that hides an empty slot. Hidden
+   * while empty, the token painted nothing. Read when the message is drawn and on every
+   * config change, in a batch with the other bubbles' (see `pendingAvatarMarks`).
+   */
+  private _markAvatarImage(avatar: HTMLElement): void {
+    if (avatar.firstChild) {
+      pendingAvatarMarks.delete(avatar);
+      avatar.removeAttribute('data-image');
+      return;
+    }
+    // Before the frame, with every other slot this task redraws: see `pendingAvatarMarks`.
+    if (pendingAvatarMarks.size === 0) queueMicrotask(flushAvatarMarks);
+    pendingAvatarMarks.set(avatar, { bubble: this, role: this._role });
   }
 
   private _updateRole(): void {
@@ -904,7 +1071,7 @@ export class AparteChatBubble extends HTMLElement {
       // A shell that declares its own `role` overrides the default (the shell contract
       // says so), and an override that kept the role and lost the name would be half
       // of one.
-      if (message.getAttribute('role') === 'article') {
+      if (this._wroteRootLabel && message.getAttribute('role') === 'article') {
         message.setAttribute('aria-label', this._getAriaLabel());
       }
     }
@@ -914,7 +1081,7 @@ export class AparteChatBubble extends HTMLElement {
       // shell renders this slot empty and the stylesheet hides it while it stays
       // empty. Same rule as `_updateName`, which is where it was actually costing
       // something; the reasoning is written out there.
-      if (avatar.textContent) avatar.textContent = this._getAvatarInitial();
+      if (avatar.textContent && !this._avatarFromProvider) avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) {
       nameEl.textContent = this._getDisplayName();
@@ -934,8 +1101,8 @@ export class AparteChatBubble extends HTMLElement {
      * No provider: otherwise a name change would wipe a live avatar component.
      *
      * Already non-empty: the default shell renders this slot EMPTY and the
-     * stylesheet hides it while it stays empty — `.aparte-avatar:empty { display:
-     * none }`, with the comment "No message avatar by default — the slot only shows
+     * stylesheet hides it while it stays empty — `.aparte-avatar:empty:not(:where([data-image]))
+     * { display: none }`, with the comment "No message avatar by default — the slot only shows
      * once an AvatarProvider (or a consumer) fills it". Writing the initial
      * unconditionally contradicted that, and `_onConfigChange` calls this method, so
      * ANY notifying config change filled the slot: `setLocale` (a language switcher
@@ -948,10 +1115,16 @@ export class AparteChatBubble extends HTMLElement {
      * initial and must still see it refreshed. Empty stays empty; filled stays in
      * sync.
      */
-    if (avatar && avatar.textContent && !this._cfg.getAvatarProvider()) {
+    // Not over what a provider drew either: with the provider just cleared, that DOM is
+    // still there until `_renderAvatar` runs its cleanup and empties the slot.
+    if (avatar && avatar.textContent && !this._cfg.getAvatarProvider() && !this._avatarFromProvider) {
       avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) nameEl.textContent = this._getDisplayName();
+    // The accessible name follows the author too — on a root whose role the bubble wrote,
+    // the same rule as `_updateRole`.
+    const message = this.querySelector('.aparte-message');
+    if (this._wroteRootLabel && message?.getAttribute('role') === 'article') message.setAttribute('aria-label', this._getAriaLabel());
   }
 
   private _updateContent(): void {
@@ -963,6 +1136,7 @@ export class AparteChatBubble extends HTMLElement {
       this._updateWaiting();
       return;
     }
+    this._drawnWithVersion = renderingVersionOf(this._cfg);
 
     this._contentEl.style.display = '';
     /*
@@ -1024,6 +1198,7 @@ export class AparteChatBubble extends HTMLElement {
 
   private _renderSegments(): void {
     if (!this._segmentsEl) return;
+    this._drawnWithVersion = renderingVersionOf(this._cfg);
 
     // Clear existing segments
     this._segmentsEl.innerHTML = '';
@@ -1084,8 +1259,16 @@ export class AparteChatBubble extends HTMLElement {
     }
   }
 
+  /**
+   * Named after its author when it has one: a `name` on the bubble is who wrote it (a human
+   * agent answering on the assistant's side, a second assistant), and naming every one of
+   * them "Assistant response" told a screen-reader user the opposite of what the page shows.
+   * Without a name, the role names it.
+   */
   private _getAriaLabel(): string {
     const locale = this._cfg.getLocale();
+    const name = this.getAttribute('name');
+    if (name) return (locale.messageFrom || 'Message from {name}').replace('{name}', () => name);
     return this._role === 'user'
       ? (locale.yourMessage ?? 'Your message')
       : (locale.assistantResponse ?? 'Assistant response');
@@ -1165,9 +1348,9 @@ export class AparteChatBubble extends HTMLElement {
    *
    * An attachment's `url` is documented as "URL or data URI" and a storage adapter
    * re-mints it when a conversation is restored, so it is the app's value, not the
-   * composer's — it was escaped and written, where every other URL core emits is
-   * asked whether its SCHEME is allowed at all. A picture whose URL is refused is
-   * not half-rendered: it falls back to the file chip, which still names the file.
+   * composer's — and, like every other URL core emits, it is asked whether its SCHEME
+   * is allowed at all. A picture whose URL is refused is not half-rendered: it falls
+   * back to the file chip, which still names the file.
    *
    * `blob:` is added because it is the shape core itself mints — `filesToAttachments`
    * calls `URL.createObjectURL`, and `AparteMessage.attachments` documents the same
@@ -1191,23 +1374,16 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * The branch arrows are handled by DELEGATION, on this element, bound once.
    *
-   * They used to get a fresh listener each, attached by `_render()` to the buttons
-   * `_render()` had just created. So a click that landed while a re-render was
-   * swapping those nodes hit an element about to be discarded, and did nothing at
-   * all — not late, nothing. Invisible on a fast machine; reproducible on
-   * WebKit-Linux in CI, where `‹` left the picker on "2 / 2" and a 20-second
-   * assertion watched it stay there.
-   *
-   * Delegation makes `_render()` irrelevant to it: the listener lives on the host,
-   * which is never replaced, and `closest()` finds whichever button exists at the
-   * moment of the click. It is also less work — one listener per bubble instead of
-   * two per bubble per render.
+   * The listener lives on the host, which is never replaced, and `closest()` finds
+   * whichever button exists at the moment of the click — so a click that lands while
+   * a re-render is swapping the buttons is not lost.
    *
    * Bound in `connectedCallback` and removed in `disconnectedCallback` as a stable
-   * field, because an inline arrow re-added on every re-connect is how this repo has
-   * stacked listeners twice before (the viewport, and `aparte-select`).
+   * field, so a re-connect never stacks listeners.
    */
   private _onBranchPickerClick = (event: Event): void => {
+    // `aparte-branch-navigate` is dispatched from this arrow field, which the manifest
+    // analyser (methods only) does not visit: it is declared by hand in the class `@fires`.
     const target = event.target as HTMLElement | null;
     const button = target?.closest?.('.aparte-branch-prev, .aparte-branch-next');
     if (!button || !this.contains(button)) return;
@@ -1226,7 +1402,7 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * A link the MODEL wrote is about to be followed. Announced as a cancelable event
    * before the browser acts, so a host can route it — an external browser, a
-   * confirmation, an embedded view — without intercepting the DOM (issue #38). With
+   * confirmation, an embedded view — without intercepting the DOM. With
    * no listener the browser follows it, which the sanitizer has already made open in
    * a new tab for an external URL; `preventDefault()` on the event cancels the click.
    *
@@ -1385,7 +1561,7 @@ export class AparteChatBubble extends HTMLElement {
     // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
-    this._appendCustomActions(icons);
+    this._appendCustomActions();
     this._applyTranscriptBusy();
 
     // Wire up button handlers — messageId read dynamically at click time
@@ -1400,18 +1576,14 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * `role="toolbar"` promises a keyboard model. This is it.
    *
-   * The bar has announced itself as a toolbar since it existed, and a toolbar is ONE
-   * tab stop whose members are reached with the arrow keys — that is the whole of what
-   * the role means to a screen-reader user. What shipped was five independent tab
-   * stops per message, so the role described a behaviour that did not exist: a reader
-   * told to press Right heard nothing move, and tabbing through a long transcript
-   * walked every button of every message.
+   * A toolbar is ONE tab stop whose members are reached with the arrow keys — that is
+   * the whole of what the role means to a screen-reader user. Without it, tabbing
+   * through a long transcript would walk every button of every message.
    *
    * The roving index is re-applied from `_syncFooterVisibility`, which is the single
-   * funnel all three build paths already run through (the flag-driven bar, the edit
-   * bar, and the branch picker's own visibility pass). Re-deriving it there rather
-   * than in each builder is what keeps the invariant true after a `setBubbleActions`
-   * rebuild — the drift this pattern usually dies of.
+   * funnel all three build paths run through (the flag-driven bar, the edit bar, and
+   * the branch picker's own visibility pass). Re-deriving it there rather than in each
+   * builder keeps the invariant true after a `setBubbleActions` rebuild.
    *
    * DISABLED buttons are skipped, not merely un-tabbable: while the transcript is busy
    * retry and edit are disabled, and a toolbar whose arrows stop on a dead control
@@ -1462,9 +1634,9 @@ export class AparteChatBubble extends HTMLElement {
   };
 
   /**
-   * An empty action bar is not a bar: with every action off it was still a
-   * `role="toolbar"` with nothing in it (announced as such), and it still reserved
-   * its fixed height plus the footer's under every bubble. So both follow their
+   * An empty action bar is not a bar: with every action off it would be a
+   * `role="toolbar"` with nothing in it (announced as such) that still reserves its
+   * fixed height plus the footer's under every bubble. So both follow their
    * contents — the footer stays as long as the branch picker or the bar has
    * something to show.
    */
@@ -1483,7 +1655,7 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
-  private _appendCustomActions(icons: ReturnType<AparteConfig['getIconProvider']>): void {
+  private _appendCustomActions(): void {
     if (!this._actionBarEl) return;
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
@@ -1496,10 +1668,9 @@ export class AparteChatBubble extends HTMLElement {
       btn.setAttribute('aria-label', a.label);
       btn.setAttribute('title', a.label);
       // Icon: raw inline SVG/HTML, else an icon-provider key (trusted output).
-      const fromProvider = (icons as unknown as Record<string, (() => string) | undefined>)[a.icon];
       btn.innerHTML = a.icon.startsWith('<')
         ? a.icon
-        : (typeof fromProvider === 'function' ? fromProvider() : (a.iconFallback ?? ''));
+        : (this._cfg.getIcon(a.icon) ?? a.iconFallback ?? '');
       this._actionBarEl.appendChild(btn);
     }
   }
@@ -1720,6 +1891,9 @@ export class AparteChatBubble extends HTMLElement {
     if (this._contentEl) this._contentEl.style.display = '';
     this.querySelector('.aparte-message')?.removeAttribute('data-editing');
     this._editing = false;
+    // A frame change that arrived while the editor was open is drawn now.
+    this._redrawFrameIfChanged();
+    this._redrawIfStale();
     this._updateActionBar();
 
     // Both exits destroy the focused element — the editor is removed and the bar is
@@ -1827,6 +2001,12 @@ export class AparteChatBubble extends HTMLElement {
      * highlight too.
      */
     if (wasStreaming && !streaming) this._updateContent();
+    // Segments have no such pass: if a Markdown or highlight provider arrived while they
+    // streamed, the finished message is drawn again with it.
+    if (wasStreaming && !streaming && this._segments.length > 0
+        && renderingVersionOf(this._cfg) !== this._drawnWithVersion) {
+      this._renderSegments();
+    }
   }
 }
 

@@ -319,8 +319,13 @@ function angularSymbols() {
 
 const ANGULAR = angularSymbols();
 
-/** `bare`: the tabs alone, for a catalogue page that writes its own heading and sentence. */
-function frameworkTabs(decl, { bare = false } = {}) {
+/**
+ * `bare`: the tabs alone, for a catalogue page that writes its own heading and sentence.
+ * `plugin`: the element ships in a plugin, not core — `{ pkg, react, vue, svelte, angular }`, each
+ * binding true (the Angular one, the class name) when the package publishes that subpath. Core's
+ * wrappers type core's tags only: a plugin's tag is typed by its own subpath, or by nothing.
+ */
+function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
   const tag = decl.tagName;
   const attrs = decl.attributes ?? [];
   // A presence attribute is the one worth showing: it is where the four frameworks differ most,
@@ -333,7 +338,8 @@ function frameworkTabs(decl, { bare = false } = {}) {
   const ev = events.find((e) => /^CustomEvent<.+>$/.test(e.type?.text ?? '')) ?? events[0];
   const detail = ev && /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
 
-  const openTag = (syntax) => `<${tag}${attr ? ` ${syntax}` : ''}></${tag}>`;
+  // On the syntax, not the attribute: an element with no attribute still shows its event.
+  const openTag = (syntax) => `<${tag}${syntax ? ` ${syntax}` : ''}></${tag}>`;
   const plain = attr ? (bool ? `${attr.name}=""` : `${attr.name}="…"`) : '';
 
   let md = bare
@@ -344,18 +350,33 @@ function frameworkTabs(decl, { bare = false } = {}) {
   if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
   md += `\n</TabItem>\n`;
 
-  md += `<TabItem label="React">\n\n\`\`\`tsx\n${openTag(plain)}\n\`\`\`\n\nThe \`aparte-*\` tags are typed JSX intrinsics as soon as you import from \`@aparte/react\`.${bool ? ` A presence attribute takes \`''\`, never \`true\` — React stringifies it, and \`${attr.name}={false}\` would render \`${attr.name}="false"\`, which \`hasAttribute\` reads as on.` : ''}${ev ? ' Events reach you by ref, typed through the DOM.' : ''}\n\n</TabItem>\n`;
+  // A plugin's subpath import, shown above the tag in the framework's tab.
+  const subpath = (fw) => (plugin?.[fw] ? `\`\`\`ts\nimport '${plugin.pkg}/${fw}';\n\`\`\`\n\n` : '');
+  const noBinding = (fw) => `\`${plugin.pkg}\` ships no ${fw} binding`;
+  const reactTyping = !plugin
+    ? 'The `aparte-*` tags are typed JSX intrinsics as soon as you import from `@aparte/react`.'
+    : plugin.react
+      ? "The import above makes the tag a typed JSX intrinsic; `@aparte/react` types core's tags only."
+      : `${noBinding('React')}, and \`@aparte/react\` types core's tags only: in a \`.tsx\` file the tag is a compile error until you declare it in \`JSX.IntrinsicElements\` ([how](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package)).`;
+  const vueTyping = !plugin || plugin.vue
+    ? `Declared through Vue's \`GlobalComponents\`${plugin ? ' by the import above' : ''}, so \`vue-tsc\` checks the tag in any template.`
+    : `${noBinding('Vue')}: a template accepts the tag, and \`vue-tsc\` does not check its attributes.`;
+  const svelteTyping = !plugin || plugin.svelte
+    ? `Declared through \`SvelteHTMLElements\`${plugin ? ' by the import above' : ''}, so \`svelte-check\` covers the attributes and the \`on:\` handlers.`
+    : `${noBinding('Svelte')}: a template accepts the tag, and \`svelte-check\` does not check its attributes.`;
 
-  md += `<TabItem label="Vue">\n\n\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\nDeclared through Vue's \`GlobalComponents\`, so \`vue-tsc\` checks the tag in any template.${bool ? ` A presence attribute takes \`''\` to set and \`null\` to remove, never \`false\`.` : ''}\n\n</TabItem>\n`;
+  md += `<TabItem label="React">\n\n${subpath('react')}\`\`\`tsx\n${openTag(plain)}\n\`\`\`\n\n${reactTyping}${bool ? ` A presence attribute takes \`''\`, never \`true\` — React stringifies it, and \`${attr.name}={false}\` would render \`${attr.name}="false"\`, which \`hasAttribute\` reads as on.` : ''}${ev ? ' Events reach you by ref, typed through the DOM.' : ''}\n\n</TabItem>\n`;
 
-  md += `<TabItem label="Svelte">\n\n\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\nDeclared through \`SvelteHTMLElements\`, so \`svelte-check\` covers the attributes and the \`on:\` handlers.${bool ? ` A presence attribute takes \`''\`, never \`false\`.` : ''}\n\n</TabItem>\n`;
+  md += `<TabItem label="Vue">\n\n${subpath('vue')}\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\n${vueTyping}${bool ? ` A presence attribute takes \`''\` to set and \`null\` to remove, never \`false\`.` : ''}\n\n</TabItem>\n`;
 
-  const ngSymbol = ANGULAR.get(tag);
+  md += `<TabItem label="Svelte">\n\n${subpath('svelte')}\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\n${svelteTyping}${bool ? ` A presence attribute takes \`''\`, never \`false\`.` : ''}\n\n</TabItem>\n`;
+
+  const ngSymbol = plugin ? plugin.angular : ANGULAR.get(tag);
   const ngKind = ngSymbol?.endsWith('Component') ? 'component' : 'directive';
   md += `<TabItem label="Angular">\n\n${
     ngSymbol
-      ? `\`\`\`ts\nimport { ${ngSymbol} } from '@aparte/angular';\n\`\`\`\n\n`
-      : `\`@aparte/angular\` declares nothing for this tag, so an Angular template needs \`CUSTOM_ELEMENTS_SCHEMA\` to accept it — and \`[x]="v"\` will write a PROPERTY, which is a silent no-op on a read-only accessor.\n\n`
+      ? `\`\`\`ts\nimport { ${ngSymbol} } from '${plugin ? `${plugin.pkg}/angular` : '@aparte/angular'}';\n\`\`\`\n\n`
+      : `${plugin ? noBinding('Angular') : '`@aparte/angular` declares nothing for this tag'}, so an Angular template needs \`CUSTOM_ELEMENTS_SCHEMA\` to accept it — and \`[x]="v"\` will write a PROPERTY, which is a silent no-op on a read-only accessor.\n\n`
   }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\n${
     ngSymbol
       ? `A standalone ${ngKind} whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.`
@@ -621,6 +642,22 @@ const apiElements = [...byTag.values()].map(({ decl }) => apiEntry(decl, '@apart
  */
 let partials = 0;
 const pluginDecls = [];
+
+/** What a plugin publishes for the frameworks: a subpath per framework, and its Angular class. */
+function pluginBindings(dir, pkg) {
+  const exports = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).exports ?? {};
+  const has = (fw) => Object.prototype.hasOwnProperty.call(exports, `./${fw}`);
+  const ng = join(dir, 'src', 'angular.ts');
+  let angular = null;
+  if (has('angular')) {
+    // A published `./angular` whose class cannot be read would print "ships no Angular
+    // binding" on a plugin that has one: fail the generator rather than the page.
+    angular = existsSync(ng) ? (/export\s*\{\s*(\w+Directive)\b/.exec(readFileSync(ng, 'utf8'))?.[1] ?? null) : null;
+    if (!angular) throw new Error(`[gen-element-pages] ${pkg} exports ./angular, but src/angular.ts names no *Directive to show`);
+  }
+  return { pkg, react: has('react'), vue: has('vue'), svelte: has('svelte'), angular };
+}
+
 if (existsSync(PLUGIN_DIR)) {
   mkdirSync(PARTIALS, { recursive: true });
   const seen = new Set();
@@ -633,7 +670,7 @@ if (existsSync(PLUGIN_DIR)) {
       for (const d of mod.declarations ?? []) {
         if (!d.customElement || !d.tagName) continue;
         apiElements.push(apiEntry(d, pkg));
-        pluginDecls.push(d);
+        pluginDecls.push({ decl: d, plugin: pluginBindings(join(PLUGIN_DIR, plugin), pkg) });
         seen.add(`${d.tagName}.mdx`);
         writeIfChanged(
           join(PARTIALS, `${d.tagName}.mdx`),
@@ -668,14 +705,14 @@ const piece = (name, body) => {
   pieces.add(name);
   writeIfChanged(join(ELEMENT_PIECES, name), body);
 };
-for (const d of [...[...byTag.values()].map(({ decl }) => decl), ...pluginDecls]) {
+for (const { decl: d, plugin } of [...[...byTag.values()].map(({ decl }) => ({ decl, plugin: null })), ...pluginDecls]) {
   const tables = apiTables(d, 0) + cssTable(d, 0);
   // The class is named, as the generated page did on its first line: it is what a reader
   // imports to type a reference to the element.
   if (tables.trim()) piece(`${d.tagName}.api.mdx`, `{/* Generated by ${MARKER}. */}\n\n\`<${d.tagName}>\` · class \`${d.name}\`\n${tables}`);
   piece(
     `${d.tagName}.usage.mdx`,
-    `import { Tabs, TabItem } from '../../../components/content/tabs';\n\n{/* Generated by ${MARKER}. */}\n${frameworkTabs(d, { bare: true })}`,
+    `import { Tabs, TabItem } from '../../../components/content/tabs';\n\n{/* Generated by ${MARKER}. */}\n${frameworkTabs(d, { bare: true, plugin })}`,
   );
 }
 for (const f of readdirSync(ELEMENT_PIECES)) if (!pieces.has(f)) rmSync(join(ELEMENT_PIECES, f));

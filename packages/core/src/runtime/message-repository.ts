@@ -106,10 +106,9 @@ export class AparteMessageRepository {
     /**
      * Every message the tree holds — every branch, not just the active path.
      *
-     * `getMessages()` walks head → root, so a question about the whole conversation
-     * ("is anything still streaming?") answered from it could not see a turn that a
-     * retry had just taken off the path — and the viewport wrote that turn's remaining
-     * segments into the bubble which replaced it. No order is promised beyond
+     * Unlike `getMessages()`, which walks head → root, this also sees a turn that a
+     * retry has taken off the active path, so it answers questions about the whole
+     * conversation ("is anything still streaming?"). No order is promised beyond
      * insertion: a caller that needs the topology reads `export()`.
      */
     getAllMessages(): AparteMessage[] {
@@ -191,9 +190,7 @@ export class AparteMessageRepository {
      * Remove all descendants of `messageId` (inclusive) and, when the head was among
      * them, set `head` to the parent of `messageId`. Used by edit/truncate flows.
      *
-     * A head in a branch this call did not touch stays where it is: it used to be
-     * relocated regardless, which took the active path out of the version the reader was
-     * on for a truncate somewhere else entirely.
+     * A head in a branch this call did not touch stays where it is.
      *
      * @param messageId  The first message to remove
      */
@@ -267,9 +264,8 @@ export class AparteMessageRepository {
     /**
      * Import a previously-exported snapshot, rebuilding the full tree and
      * restoring the active head. Replaces any existing content (calls `clear()`
-     * first). Messages must be in topological order (parent before child) —
-     * this is guaranteed by `export()` since `_nodes` is an insertion-order
-     * Map and parents are always inserted before their children.
+     * first). `export()` writes messages in topological order (parent before
+     * child), which is the order this expects.
      */
     import(exported: ExportedMessageRepository): void {
         this.clear();
@@ -312,11 +308,8 @@ export class AparteMessageRepository {
      * Compatible with the assistant-ui ExportedMessageRepository format.
      *
      * Walked from the root through each node's `children`, so a parent is always
-     * written before its children. It used to iterate `_nodes` in insertion order and
-     * call that topological — which holds until `_relink` re-parents an EXISTING node
-     * under one inserted after it (`addOrUpdateMessage` with a known id and a newer
-     * parent). The snapshot then listed the child first, and `import()` threw "parent
-     * not found" on the very tree this method had just produced.
+     * written before its children, even after `addOrUpdateMessage` re-parented an
+     * existing node under a newer one; `import()` relies on that order.
      */
     export(): ExportedMessageRepository {
         const messages: Array<{ message: AparteMessage; parentId: string | null }> = [];

@@ -1,13 +1,16 @@
 'use client';
 
 import React, {
+    useCallback,
     useEffect,
     useId,
     useRef,
     useState,
+    useSyncExternalStore,
     forwardRef,
     useImperativeHandle,
 } from 'react';
+import { afterReactRender } from '../internal/after-render.js';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
@@ -198,7 +201,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         placeholder = 'Type a message...',
         disabled = false,
         isTyping = false,
-        typingText = 'Assistant is thinking...',
+        typingText,
         submitOnEnter = true,
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
@@ -242,7 +245,14 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
     const [hostLoading, setHostLoading] = useState(false);
     const waiting = loading || hostLoading;
-    const loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
+    // The two locale strings this component draws itself, read again on a language switch: a
+    // config change re-renders nothing else here. One snapshot, so only a changed string re-renders.
+    const labelConfig = config ?? aparteGlobalConfig;
+    const readLabels = (): string => `${labelConfig.t('loadingConversation')}\u0000${labelConfig.t('typing')}`;
+    const labels = useSyncExternalStore(useCallback((notify) => labelConfig.subscribe(notify), [labelConfig]), readLabels, readLabels);
+    const [loadingText = '', localeTyping = ''] = labels.split('\u0000');
+    // The status line's word, from the locale like the rest of the chat, unless the prop says.
+    const typingLabel = typingText ?? localeTyping;
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);
@@ -282,7 +292,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             onMessageAppended: (m) => cbRef.current.onMessageAppended?.(m as AparteMessage),
             onTypingChange: (t) => { setTypingActive(t); cbRef.current.onTypingChange?.(t); },
             onStreamingChange: (id) => setIsStreaming(id !== null),
-            afterRender: (cb) => { requestAnimationFrame(() => cb()); },
+            afterRender: afterReactRender,
             resetComposer: () => (composerRef.current as unknown as { reset?: () => void })?.reset?.(),
             onLoadingChange: (on) => setHostLoading(on),
         };
@@ -425,7 +435,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                             />
                         )
                 ))}
-                <aparte-chat-status visible={typingActive ? '' : undefined} text={typingText} />
+                <aparte-chat-status visible={typingActive ? '' : undefined} text={typingLabel} />
             </aparte-chat-viewport>
 
             {elicitation && <aparte-elicitation />}

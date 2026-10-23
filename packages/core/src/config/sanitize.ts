@@ -81,8 +81,8 @@ const RELATIVE_URL = /^(?:[#/.?]|[a-z0-9._~%+-]+(?:[/?#]|$))/i;
 /**
  * `data:` URLs are only honoured for images, and only for a NAMED image subtype.
  *
- * The subtype group used to be optional (`(?:png|…)?`), so `data:image/,x` and
- * `data:image/;whatever,` sailed through with no media type at all.
+ * The subtype is required, so `data:image/,x` and `data:image/;whatever,` (no media
+ * type at all) are refused.
  *
  * `svg+xml` is deliberately kept. An SVG loaded through `<img src>` runs in
  * secure-static mode — no scripts, no external fetches — in every engine, and
@@ -102,20 +102,18 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  * spellings of those a URL parser accepts but a reader does not expect.
  *
  * It is tested against a value already run through `CONTROL_WS`, the same
- * normalisation the accept path (`isSafeUrl`) applies. The check used to read the
- * RAW attribute against `^https?:\/\//`, so `//attacker.example` and
- * `" https://attacker.example"` — both accepted, both external — kept the default
- * target and navigated the frame the chat lives in, which is the one thing the
- * hardening in `copyAttributes` exists to prevent.
+ * normalisation the accept path (`isSafeUrl`) applies, so `//attacker.example` and
+ * `" https://attacker.example"` count as external and get a new tab rather than
+ * navigating the frame the chat lives in.
  *
- * Two more spellings then survived that widening, and the allowlist accepts both:
- * a BACKSLASH is a slash to a URL parser on a special scheme (`/\evil.example`
- * matches `RELATIVE_URL`'s leading `/`), and a SINGLE slash after an explicit
- * scheme enters authority state when that scheme differs from the page's
- * (`http:/evil.example` matches `SAFE_URL`). Measured with Node's WHATWG URL
- * against base `https://site.example/chat/`: `/\evil.example` →
- * `https://evil.example/`, `http:/evil.example` and `http:/\evil.example` →
- * `http://evil.example/`. Hence `[/\\]` in both branches.
+ * Two more spellings are external, and the allowlist accepts both: a BACKSLASH is a
+ * slash to a URL parser on a special scheme (`/\evil.example` matches
+ * `RELATIVE_URL`'s leading `/`), and a SINGLE slash after an explicit scheme enters
+ * authority state when that scheme differs from the page's (`http:/evil.example`
+ * matches `SAFE_URL`). With Node's WHATWG URL against base
+ * `https://site.example/chat/`: `/\evil.example` → `https://evil.example/`,
+ * `http:/evil.example` and `http:/\evil.example` → `http://evil.example/`. Hence
+ * `[/\\]` in both branches.
  *
  * `https:/path` — a single slash after the SAME scheme — matches too and resolves
  * same-site. Sending that one degenerate spelling to a new tab is harmless; the
@@ -145,12 +143,10 @@ const APARTE_CLASS = /^aparte-/i;
  * resolve to an allowed URL: a relative-only srcset has none and passes, while a
  * smuggled scheme is rejected wherever in the value it sits.
  *
- * Found by an audit: `srcset` previously had only a `javascript:|vbscript:`
- * substring test, so `srcset="data:text/html,<script>…</script> 1x"` walked
- * straight through the allowlist that rejects the very same URL on `src`. Low
- * severity — a browser only ever decodes a srcset candidate as an image, never as
- * a document — but the allowlist should not have two different answers for one
- * URL depending on which attribute carries it.
+ * A `srcset` of `data:text/html,<script>…</script> 1x` is rejected, the same as that
+ * URL on `src`. A browser only ever decodes a srcset candidate as an image, never as
+ * a document, so the risk is low, but the allowlist gives one answer for one URL
+ * whichever attribute carries it.
  *
  * `<source>` is validated as `img`: inside a `<picture>` its candidates feed an
  * `<img>`, so the `data:image` policy is the same one that applies there.
@@ -191,12 +187,11 @@ const SAFE_STYLE_PROPS = new Set([
 /**
  * A custom property a highlighter may set, as opposed to one of ours it may not.
  *
- * The allowlist above says what it is for — "properties a syntax highlighter / markdown
- * renderer actually emits" — and it predates dual-theme highlighting. Shiki's documented
- * way to render for light AND dark is `defaultColor: false`, which emits NOTHING but
- * custom properties (`--shiki-light`, `--shiki-dark`) and leaves the choosing to CSS. So
- * every declaration was dropped and every code block came out white: the feature was
- * unreachable, not merely unstyled.
+ * The allowlist above covers the properties a syntax highlighter / markdown renderer
+ * actually emits, and that includes dual-theme highlighting. Shiki's documented way to
+ * render for light AND dark is `defaultColor: false`, which emits NOTHING but custom
+ * properties (`--shiki-light`, `--shiki-dark`) and leaves the choosing to CSS; if those
+ * were dropped, every code block would come out white.
  *
  * Two rules, and the second is the one that matters. A custom property is inert on its
  * own — it paints nothing until some CSS reads it — so the value scrubbing below is what
@@ -274,10 +269,9 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         // markdown/highlight tooling — allowed, matching DOMPurify's default.
         if (!name.startsWith('data-') && !GLOBAL_ATTRS.has(name) && !(extra && extra.has(name))) continue;
         if (URL_ATTRS.has(name) && !isSafeUrl(value, tag)) continue;
-        // `input` is allowlisted for ONE thing — a GFM task-list checkbox — and the
-        // tag's own comment said so while `type` came through unexamined, so
-        // `<input type="password" title="API key">` rendered a credential prompt
-        // inside a reply. Nothing here reads what is typed (`form`, `button` and
+        // `input` is allowlisted for ONE thing — a GFM task-list checkbox — so `type`
+        // is examined: `<input type="password" title="API key">` would render a
+        // credential prompt inside a reply. Nothing here reads what is typed (`form`, `button` and
         // `name` are refused, `on*` never copied, and the style allowlist has no
         // `position`, so it cannot be lifted out of the bubble either) — the ASK is
         // the attack, and the checkbox is the only type the allowlist was for.
@@ -308,16 +302,16 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
     if (tag === 'a') {
         // An external link opens in its own tab by default. The link was written by
         // the model, and a bare `<a href="https://…">` navigates the frame the chat
-        // lives in — in an Electron window, the whole application (issue #38). `marked`
-        // sets no `target`, so until now every reply link did exactly that. A host that
+        // lives in — in an Electron window, the whole application. `marked`
+        // sets no `target`, so without this every reply link would do exactly that. A host that
         // routes links itself listens for the bubble's cancelable `aparte-link-click`.
         // Same-site and in-page links (relative, `#`, `mailto:`) are left as written.
         //
-        // What the model does NOT get is the choice. `target` used to be copied
-        // through, so `_top`/`_parent` broke out of the frame anyway — no external URL
-        // required — and a NAMED target (`target="victimframe"`) opened a page holding
-        // a live `window.opener`, the reverse-tabnabbing this code hardens against two
-        // lines down. `rel` came through too, so `rel="opener"` simply cancelled it.
+        // What the model does NOT get is the choice. Copying `target` through would let
+        // `_top`/`_parent` break out of the frame — no external URL required — and a
+        // NAMED target (`target="victimframe"`) open a page holding a live
+        // `window.opener`, the reverse-tabnabbing this code hardens against two lines
+        // down. `rel` is not copied either, so `rel="opener"` cannot cancel it.
         // So the attribute is read as a WISH and clamped: `_self` is honoured
         // where it changes nothing a browser would not already do — i.e. on a link
         // that was staying here anyway — and anything else becomes a new tab that
@@ -394,10 +388,8 @@ const UNSAFE_SCHEME_ATTR = /(?:href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|v
  * For untrusted content on a non-browser runtime, register a real sanitizer
  * (e.g. DOMPurify + jsdom) via `aparteGlobalConfig.setHtmlSanitizer`.
  *
- * Both tag passes read `DANGEROUS_TAGS`, the one list the DOM path uses. They
- * used to be two hand-written lists that disagreed — `svg`, `math` and `form`
- * were only in the paired pass, so an UNCLOSED one walked straight through, and
- * `button`/`select`/`title`/… were in neither.
+ * Both tag passes read `DANGEROUS_TAGS`, the one list the DOM path uses, so an
+ * UNCLOSED `svg`, `math` or `form` is caught as well as a closed one.
  */
 function fallbackScrub(html: string): string {
     let out = html.replace(PAIRED_DANGEROUS, '').replace(LONE_DANGEROUS, '');

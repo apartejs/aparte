@@ -263,7 +263,7 @@ export class AparteSplit extends HTMLElement {
         );
     }
 
-    /** One pane on demand, whatever the width (#54). Reflected. */
+    /** One pane on demand, whatever the width. Reflected. */
     get single(): boolean {
         return this.hasAttribute('single');
     }
@@ -360,6 +360,7 @@ export class AparteSplit extends HTMLElement {
         // Last: everything above reads the markup directly, and until it has run an
         // attribute change is the upgrade replaying what the author already wrote.
         this._ready = true;
+        this._syncPaneControls();
     }
 
     disconnectedCallback(): void {
@@ -415,6 +416,7 @@ export class AparteSplit extends HTMLElement {
             }
             case 'pane': {
                 const pane = this.pane;
+                this._syncPaneControls();
                 if (pane === this._lastPane) return;
                 this._lastPane = pane;
                 this._commit();
@@ -437,6 +439,8 @@ export class AparteSplit extends HTMLElement {
                 // went to one pane has nothing left to size.
                 if (this.single && this._dragging) this._endDrag('pointer', this._dragStartPercent);
                 this._stampHandle();
+                // One pane shown, or both again: the switch says which, or nothing.
+                this._syncPaneControls();
                 return;
             case 'breakpoint':
                 this._watchBreakpoint();
@@ -530,8 +534,8 @@ export class AparteSplit extends HTMLElement {
      *
      * While STACKED there is nothing to read: one pane is `display: none` and the other
      * spans the single track, so the ratio is 0 or 100 whatever the seam was set to.
-     * Measuring it there is how tapping "Preview" on a phone used to write `position="0"`
-     * into the attribute, the event and the host's storage.
+     * Measuring it there would write `position="0"` into the attribute, the event and the
+     * host's storage when "Preview" is tapped on a phone.
      */
     private _achievedPercent(): number {
         if (this.stacked) return this._position;
@@ -912,6 +916,7 @@ export class AparteSplit extends HTMLElement {
         // first, while there is still a two-pane layout to measure and restore against.
         if (stacked && !was && this._dragging) this._endDrag('pointer', this._dragStartPercent);
         this.toggleAttribute('data-stacked', stacked);
+        if (stacked !== was) this._syncPaneControls();
         if (stacked && !was) {
             if (!this.hasAttribute('pane')) this.showPane('start');
         } else if (!stacked && was) {
@@ -954,6 +959,32 @@ export class AparteSplit extends HTMLElement {
         }
         this.showPane(which ?? (this.pane === 'start' ? 'end' : 'start'));
     };
+
+    /**
+     * The two-button switch says which pane it shows: `aria-pressed` on every
+     * `[data-aparte-split-pane="start"|"end"]` that reaches this split, true on the one
+     * naming the pane in view, while the split is stacked; side by side both panes are in
+     * view and neither button is pressed, so none carries it. A toggle (an id, or empty) is
+     * an action and gets none. Read when the split connects, whenever `pane` changes and
+     * when it stacks or unstacks, so a control added later is stamped at the next switch.
+     */
+    private _syncPaneControls(): void {
+        const roots = new Set<ParentNode>([rootOf(this), document]);
+        for (const root of roots) {
+            for (const control of root.querySelectorAll<HTMLElement>('[data-aparte-split-pane]')) {
+                // Trimmed, as the click reads it; and only on a button, where `aria-pressed` means something.
+                const which = (control.getAttribute('data-aparte-split-pane') ?? '').trim();
+                if (which !== 'start' && which !== 'end') continue;
+                if (control.localName !== 'button' && control.getAttribute('role') !== 'button') continue;
+                const target = control.closest('aparte-split')
+                    ?? rootOf(control).querySelector('aparte-split')
+                    ?? document.querySelector('aparte-split');
+                if (target !== this) continue;
+                if (this.stacked) control.setAttribute('aria-pressed', String(which === this.pane));
+                else control.removeAttribute('aria-pressed');
+            }
+        }
+    }
 
     // ─── Locale ───────────────────────────────────────────────────────────
 

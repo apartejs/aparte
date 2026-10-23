@@ -22,8 +22,9 @@
  * alarms to learn — moved to `scripts/dist-freshness.mjs`, because two of those four
  * barrel guards now ask the same question for themselves: both are run standalone by
  * contributors, and both return a green that means nothing against a stale build. One
- * rule, one implementation. This file is the repo-wide gate step, and the only caller
- * that RECORDS the verified hash.
+ * rule, one implementation. This file is the repo-wide gate step. It records the hash of a
+ * dist it found fresh, and so does every package build at its end (`stamp-dist.mjs`) — the
+ * build's record is what lets a build this step never saw be judged right.
  *
  * Run by `pnpm gate`, AFTER the build.
  */

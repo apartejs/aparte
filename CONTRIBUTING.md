@@ -60,6 +60,15 @@ Run `gate:full` for anything touching the framework boundary, rendering, or befo
 release; `pnpm gate` otherwise. A public API also needs a docs page, and any change to a
 package's public API or shipped CSS needs a changeset.
 
+The steps run cheapest first, so a mistake fails in the first minute rather than after the
+suite: the checks that read only the source (MDX parsing included), then lint and
+typecheck, then the build (every package and the docs site) and the checks that read what it
+made, then the coverage run. One step fixes rather than fails locally, and fails in CI: a
+coverage floor more than three points under its measurement is raised in
+`vitest.config.ts` (commit it). And every package build records the source it was built
+from, so `check:dist-freshness` compares against that record, whichever command ran the
+build.
+
 `check:readmes` is the odd one out: `publint`/`attw` check a package's *shape*, and this
 checks its *claims* — a published README may not say "not yet published", "pre-alpha",
 "coming soon" or carry a TODO. `@aparte/core`'s README announced "🚧 Pre-alpha — not yet
@@ -356,3 +365,6 @@ consumers.
 - No unprefixed class or keyframe name.
 - No bare type selector (`div`, `button`) outside a container that owns its own content —
   prose and code panes qualify; a row that something else can be mounted into does not.
+- No `@element` (or any tag) on the first line of a component's class docblock. The analyser
+  takes the description from the free text before the first tag, so the prose comes first, or
+  the component's description is empty in the manifest and on its generated reference page.

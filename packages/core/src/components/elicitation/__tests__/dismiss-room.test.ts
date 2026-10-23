@@ -20,7 +20,9 @@ describe('elicitation message — room for the corner escape', () => {
 
     it('the message reserves the dismiss room at its inline end', () => {
         const message = sheet.match(/\.aparte-elic-message\s*\{([^}]*)\}/)?.[1] ?? '';
-        expect(message).toMatch(/margin:\s*0 var\(--aparte-elic-dismiss-room\) var\(--aparte-space-3\) var\(--aparte-space-3\)/);
+        // Logical, so a right-to-left page reserves it on the left, where the corner is.
+        expect(message).toMatch(/margin-inline:\s*var\(--aparte-space-3\) var\(--aparte-elic-dismiss-room\)/);
+        expect(message).not.toMatch(/margin:\s*0 var\(--aparte-elic-dismiss-room\)/);
     });
 
     it('from the same token the tab rail already reserves', () => {

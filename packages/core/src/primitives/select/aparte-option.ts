@@ -21,8 +21,9 @@ import { presenceOn } from '../../utils/presence.js';
  *
  * Keep the label one text node: the `label` property reads only the FIRST text node — that
  * is what keeps the injected status dot out of it — so wrapping the label in an element
- * makes `label` fall back to `value`. The select's own trigger label and its search filter
- * read the full `textContent`, so a wrapped label still displays and still matches.
+ * makes `label` fall back to `value`. The select's trigger reads the option's text without
+ * the status dot and without an `.aparte-option__meta` child, the optional line under the
+ * label (a description); its search filter reads the full `textContent`, that line included.
  *
  * `data-status` is a rendering hook, not state core interprets: any non-empty value
  * appends an `aria-hidden` `.aparte-status-dot` span as the last child, and only

@@ -12,7 +12,7 @@
 
 import type { AparteChatMessage } from '@aparte/core';
 import type { CreateRunner, RunnerGenerateInput } from './types.js';
-import { TOOL_TURNS_DROPPED, UNSUPPORTED_PARTS_DROPPED, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
+import { TOOL_TURNS_DROPPED, UNSUPPORTED_PARTS_DROPPED, contextLength, generationOptions, interruptOn, loadOptions, stoppingCriteria, textStreamer } from './shared.js';
 
 type HFPart = { type: 'image' } | { type: 'text'; text: string };
 type HFMessage = { role: 'user' | 'assistant' | 'system'; content: HFPart[] };
@@ -63,6 +63,7 @@ interface VisionProcessor {
 interface VisionModel {
     generate(args: Record<string, unknown>): Promise<unknown>;
     dispose(): Promise<unknown>;
+    config?: unknown;
 }
 
 export const createRunner: CreateRunner = async (ctx) => {
@@ -76,6 +77,7 @@ export const createRunner: CreateRunner = async (ctx) => {
         tf.AutoProcessor.from_pretrained(ctx.modelId),
         tf.AutoModelForImageTextToText.from_pretrained(ctx.modelId, loadOptions(ctx)),
     ]);
+    const contextSize = contextLength(model.config);
 
     return {
         async generate({ messages, options, emit, signal }: RunnerGenerateInput): Promise<void> {
@@ -93,7 +95,7 @@ export const createRunner: CreateRunner = async (ctx) => {
                     ...inputs,
                     ...generationOptions(options),
                     streamer: textStreamer(ctx.transformers, processor.tokenizer, emit),
-                    stopping_criteria: stopping,
+                    stopping_criteria: stoppingCriteria(stopping, ctx.transformers, contextSize),
                 });
             } finally {
                 release();

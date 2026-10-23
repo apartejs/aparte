@@ -45,7 +45,7 @@ export interface AparteSelectChangeDetail {
  * @attr {string} value - The selected option's value.
  * @attr {string} placeholder - Shown while nothing is selected.
  * @attr {boolean} disabled - Blocks opening the dropdown.
- * @attr {boolean} searchable - Adds a filter field above the options. Read on the first render only.
+ * @attr {boolean} searchable - Adds a filter field above the options. Set or removed later, the field comes or goes.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
  * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
@@ -55,10 +55,10 @@ export interface AparteSelectChangeDetail {
  * @cssprop [--aparte-select-bg=var(--aparte-surface-1)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
  * @cssprop [--aparte-select-border=var(--aparte-border-control)] - Border of the trigger and of the dropdown.
  * @cssprop [--aparte-select-border-hover=var(--aparte-border-control)] - Trigger border on hover.
- * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others. (It used to exist twice, as this and a private `--aparte-select-radius` with a different value.)
+ * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others.
  * @cssprop [--aparte-select-text=var(--aparte-text)] - Colour of the trigger label (and of the options).
  * @cssprop [--aparte-select-chevron=var(--aparte-text-muted)] - Colour of the chevron, which rotates 180° while open.
- * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware), so a transparent trigger does not make the panel see-through.
  * @cssprop [--aparte-select-shadow=0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16)] - Dropdown panel shadow.
  * @cssprop [--aparte-select-z=var(--aparte-z-dropdown)] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
@@ -94,24 +94,19 @@ export class AparteSelect extends HTMLElement {
      *
      * `_setupEventListeners()` runs on EVERY `connectedCallback`, and `_render()`'s
      * idempotency guard means the host element survives a re-connect. So each move
-     * of the element (a portal, a Vue teleport, any framework re-parent) added
-     * another option-click listener: measured, one click fired the change handler
-     * FIVE times after five re-connects. `disconnectedCallback` removed the two
-     * document-level handlers and could not touch this one.
-     *
-     * This is verbatim the bug class `aparte-chat-viewport` documents having fixed
-     * for its own listeners.
+     * of the element (a portal, a Vue teleport, any framework re-parent) would add
+     * another option-click listener and one click would fire the change handler once
+     * per re-connect, unless the same bound reference is removed and re-added.
      */
     private _boundHandleOptionClick = this._handleOptionClick.bind(this);
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
     /**
-     * The trigger's own three, bound for the same reason and left inline for a whole
-     * release: they were arrows on `this`, so nothing could ever remove them, and the
-     * trigger element survives a re-connect. One re-parent made a click toggle twice —
-     * open and shut inside the same click, i.e. a control that looks dead — and two made
-     * it announce `aparte-select-open` twice. The docblock above describes exactly this,
-     * fixed for the option click and not for its neighbours.
+     * The trigger's own three, bound for the same reason as the option click: the
+     * trigger element survives a re-connect, so listeners that cannot be removed would
+     * stack. One re-parent would make a click toggle twice — open and shut inside the
+     * same click, i.e. a control that looks dead — and announce `aparte-select-open`
+     * twice.
      */
     private _boundHandleTriggerClick = (): void => { this._toggle(); };
     private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
@@ -149,6 +144,8 @@ export class AparteSelect extends HTMLElement {
         // highlight on the selected option, throwing away where the arrows had got to.
         const wantsOpen = this.hasAttribute('open') && !this._isOpen;
         this._render();
+        // A `searchable` set or removed while detached went past attributeChangedCallback.
+        this._applySearchable();
         this._applyDisabled();
         this._setupEventListeners();
         this._setupMutationObserver();
@@ -190,6 +187,7 @@ export class AparteSelect extends HTMLElement {
             // holds the selected value in the button shape, so the two cannot drift.
             this._updateTriggerLabel();
         }
+        if (name === 'searchable') this._applySearchable();
         if (name === 'disabled') {
             this._applyDisabled();
             // The symmetric half of the close `_applyDisabled()` does on the way in:
@@ -227,6 +225,53 @@ export class AparteSelect extends HTMLElement {
     // ─────────────────────────────────────────────────────────────────────────
     // Rendering
     // ─────────────────────────────────────────────────────────────────────────
+
+    /** The filter field: the combobox of a `searchable` select, since it takes the focus. */
+    private _buildSearchInput(cfg: ReturnType<typeof resolveConfig>): HTMLInputElement {
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'aparte-select-search';
+        // Two locale keys, not literals. The placeholder is VISIBLE text — a
+        // French page opened the model picker and read "Search..." in the box —
+        // and the aria-label is the field's only name.
+        searchInput.placeholder = cfg.t('selectSearchPlaceholder') || 'Search…';
+        searchInput.setAttribute('aria-label', cfg.t('selectSearchLabel') || 'Search options');
+        // This field takes the focus, so it is the combobox (see the trigger in `_render`).
+        searchInput.setAttribute('role', 'combobox');
+        searchInput.setAttribute('aria-haspopup', 'listbox');
+        searchInput.setAttribute('aria-autocomplete', 'list');
+        searchInput.setAttribute('aria-expanded', String(this._isOpen));
+        return searchInput;
+    }
+
+    /**
+     * `searchable` set or removed after the first render: the field comes or goes, and the
+     * combobox moves with it, so a framework that
+     * binds it a beat late — Angular's `[searchable]` inside an `@if` — still gets a field.
+     */
+    private _applySearchable(): void {
+        if (!this._dropdown || !this._trigger) return;
+        const wanted = this.hasAttribute('searchable');
+        if (wanted === Boolean(this._searchInput)) return;
+        if (this._isOpen) this._closeDropdown();
+        const listboxId = this._trigger.getAttribute('aria-controls');
+        if (wanted) {
+            const input = this._buildSearchInput(resolveConfig(this));
+            if (listboxId) input.setAttribute('aria-controls', listboxId);
+            this._dropdown.prepend(input);
+            this._searchInput = input;
+            input.addEventListener('input', this._boundHandleSearchInput);
+            this._trigger.setAttribute('role', 'button');
+        } else {
+            this._searchInput!.removeEventListener('input', this._boundHandleSearchInput);
+            this._searchInput!.remove();
+            this._searchInput = null;
+            this._trigger.setAttribute('role', 'combobox');
+        }
+        // The role decides the name (see `_updateNames`), and on a re-connect nothing else
+        // would rename it: the observer is set up after this runs.
+        this._updateNames();
+    }
 
     private _render(): void {
         const placeholder = this.getAttribute('placeholder') || 'Select...';
@@ -290,23 +335,8 @@ export class AparteSelect extends HTMLElement {
         dropdown.className = 'aparte-select-dropdown';
         dropdown.hidden = !this._isOpen;
 
-        let searchInput: HTMLInputElement | null = null;
-        if (searchable) {
-            searchInput = document.createElement('input');
-            searchInput.type = 'text';
-            searchInput.className = 'aparte-select-search';
-            // Two locale keys, not literals. The placeholder is VISIBLE text — a
-            // French page opened the model picker and read "Search..." in the box —
-            // and the aria-label is the field's only name.
-            searchInput.placeholder = cfg.t('selectSearchPlaceholder') || 'Search…';
-            searchInput.setAttribute('aria-label', cfg.t('selectSearchLabel') || 'Search options');
-            // This field takes the focus, so it is the combobox (see the trigger above).
-            searchInput.setAttribute('role', 'combobox');
-            searchInput.setAttribute('aria-haspopup', 'listbox');
-            searchInput.setAttribute('aria-autocomplete', 'list');
-            searchInput.setAttribute('aria-expanded', String(this._isOpen));
-            dropdown.appendChild(searchInput);
-        }
+        const searchInput = searchable ? this._buildSearchInput(cfg) : null;
+        if (searchInput) dropdown.appendChild(searchInput);
 
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'aparte-select-options';
@@ -382,9 +412,9 @@ export class AparteSelect extends HTMLElement {
      * Put the roving highlight back after the options changed underneath it.
      *
      * `data-active` lives on an option ELEMENT, so replacing the list throws it
-     * away while `_activeIndex` still claims a position: the highlight disappeared,
-     * `aria-activedescendant` kept pointing at an id no longer in the document, and
-     * the next ArrowDown moved from the stale index — skipping an option. Only when
+     * away while `_activeIndex` still claims a position: without this the highlight
+     * disappears, `aria-activedescendant` points at an id no longer in the document, and
+     * the next ArrowDown moves from the stale index — skipping an option. Only when
      * open and only when a position was held, so a refresh never invents one.
      */
     private _restoreActive(): void {
@@ -699,8 +729,8 @@ export class AparteSelect extends HTMLElement {
      * A `combobox` is NAMED by that attribute and VALUED by its visible label span, so
      * the name is the control and nothing else. A `button` — the shape a `searchable`
      * trigger takes, since the filter field is then the combobox — is named by its
-     * CONTENT, which this very attribute overrides: the searchable trigger announced
-     * "Pick a model, button" and never said which model was selected. So the button's
+     * CONTENT, which this very attribute overrides: a name of just the placeholder
+     * ("Pick a model, button") would never say which model is selected. So the button's
      * name carries both halves, and drops the second when it would only repeat the
      * first (nothing selected: the value IS the placeholder).
      */
@@ -750,7 +780,7 @@ export class AparteSelect extends HTMLElement {
         // still counts. `textContent` per span: a label is consumer text, never markup.
         const sizer = this._trigger?.querySelector('.aparte-select-label-sizer');
         if (sizer) {
-            const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => o.textContent?.trim() || '')];
+            const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => optionLabelText(o))];
             const current = Array.from(sizer.children, (s) => s.textContent ?? '');
             if (labels.length !== current.length || labels.some((l, i) => l !== current[i])) {
                 sizer.replaceChildren(...labels.map((text) => {
@@ -782,7 +812,7 @@ export class AparteSelect extends HTMLElement {
         // Match by property, not an interpolated attribute selector — a value with
         // `"`/`]` (e.g. a remote model id) would make querySelector throw SyntaxError.
         for (const opt of this.querySelectorAll('aparte-option')) {
-            if (opt.getAttribute('value') === this._value) return opt.textContent?.trim() || '';
+            if (opt.getAttribute('value') === this._value) return optionLabelText(opt);
         }
         return '';
     }
@@ -814,6 +844,20 @@ export class AparteSelect extends HTMLElement {
 }
 
 // Register
+/**
+ * An option's label as the trigger and its width read it: the option's text without the line
+ * under it (`.aparte-option__meta` — a description, a model's context window) or the status dot.
+ * The search filter still reads the whole text, so a description is searchable.
+ */
+function optionLabelText(option: Element): string {
+    let text = '';
+    for (const node of option.childNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('.aparte-option__meta, .aparte-status-dot')) continue;
+        text += node.textContent ?? '';
+    }
+    return text.trim();
+}
+
 if (!customElements.get('aparte-select')) {
     customElements.define('aparte-select', AparteSelect);
 }

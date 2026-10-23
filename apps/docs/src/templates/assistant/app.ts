@@ -16,6 +16,7 @@ import {
 import type { AparteChatViewport, AparteConversationList, AparteSidebar } from '@aparte/core';
 import { moonIcon, sunIcon } from '@aparte/core/icons';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import '@aparte/plugin-model-selector';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
@@ -44,9 +45,8 @@ async function main(): Promise<void> {
     // English, dates included: the list's date groups follow the locale's tag.
     aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
-    // Every renderer before anything renders: a bubble drawn before its Markdown provider is set
-    // keeps its raw text, and a code block is highlighted when it settles, so a highlighter
-    // registered later would miss the seeded conversations' code.
+    // Every renderer before anything renders: a bubble drawn before its Markdown or highlight
+    // provider would show its raw text first and be drawn a second time when the provider lands.
     registerDefaultRenderers();
     setupStreamingMarkdownProvider();
     setupMarkedProvider();
@@ -89,10 +89,6 @@ async function main(): Promise<void> {
     // Retry and edit are honoured by the client below, so the bubbles may offer them.
     aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
     new AparteClient().start();
-
-    // The model picker reads the providers when it mounts: imported now, once the model is
-    // registered. A static import would be evaluated before this module's body.
-    void import('@aparte/plugin-model-selector');
 
     const chat = document.querySelector<HTMLElement>('.assistant aparte-chat');
     const viewport = chat?.querySelector<AparteChatViewport>('aparte-chat-viewport');

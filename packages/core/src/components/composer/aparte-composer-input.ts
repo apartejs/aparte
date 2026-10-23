@@ -81,11 +81,7 @@ export class AparteComposerInput extends HTMLElement {
     private _maxHeight = 200;
     private _minHeight = 44;
     /**
-     * Re-measures the editor when its WIDTH changes (#55). The three fixed instants
-     * (connect, next frame, fonts.ready) all miss the same case: a box not yet laid
-     * out — the placeholder wraps in a 0 px column, `scrollHeight` reads ~300 px, and
-     * that became the inline height until the first keystroke. Width is the variable
-     * none of them watched.
+     * Re-measures the editor when its WIDTH changes.
      */
     private _resizeObserver: ResizeObserver | null = null;
     private _unsubscribes: (() => void)[] = [];
@@ -117,6 +113,10 @@ export class AparteComposerInput extends HTMLElement {
         this._editor?.addEventListener('paste', this._onPaste);
         this._connectToRoot();
         this._scheduleInitialReflow();
+        // Width is watched because the fixed instants (connect, next frame, fonts.ready)
+        // miss a box not yet laid out: the placeholder wraps in a 0 px column and
+        // `scrollHeight` reads ~300 px, which would stay the inline height until the
+        // first keystroke.
         if (this._editor && typeof ResizeObserver === "function") {
             this._resizeObserver = new ResizeObserver(() => this._adjustHeight());
             this._resizeObserver.observe(this._editor);
@@ -359,10 +359,16 @@ export class AparteComposerInput extends HTMLElement {
         const cd = e.clipboardData;
         if (!cd) return;
 
-        // Image paste → push to root attachments
-        const imageFile = Array.from(cd.items).find(i => i.type.startsWith('image/'))?.getAsFile();
+        // Image paste → push to root attachments, where attachments are on: the same signal
+        // drag and drop answers to, an `<aparte-composer-add-attachment>` in the composer.
+        // Without it a pasted screenshot became an attachment on a chat that offered none —
+        // one the app had not said it could send.
+        const root = this._getRoot();
+        const imageFile = root?.querySelector('aparte-composer-add-attachment')
+            ? Array.from(cd.items).find(i => i.type.startsWith('image/'))?.getAsFile()
+            : undefined;
         if (imageFile) {
-            this._getRoot()?.addAttachments([imageFile]);
+            root?.addAttachments([imageFile]);
             return;
         }
 

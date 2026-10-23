@@ -34,8 +34,8 @@ const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 async function main(): Promise<void> {
     followTheme();
 
-    // Markdown and highlighting before anything renders: a bubble drawn before its renderer is
-    // set keeps its raw text. Shiki's /core entry with the three grammars this app shows, and a
+    // Markdown and highlighting before anything renders: a bubble drawn first would show its raw
+    // text, then be drawn again. Shiki's /core entry with the three grammars this app shows, and a
     // light/dark pair that follows the site's theme.
     setupMarkedProvider();
     setupStreamingMarkdownProvider();
@@ -96,14 +96,6 @@ async function main(): Promise<void> {
     const suggestions = root.querySelector<HTMLElement & { suggestions: typeof SUGGESTIONS }>('aparte-suggestions')!;
     suggestions.suggestions = SUGGESTIONS;
 
-    // The pane switch says which pane it shows (the split itself switches it).
-    const paneButtons = root.querySelectorAll<HTMLButtonElement>('[data-aparte-split-pane]');
-    for (const button of paneButtons) {
-        button.addEventListener('click', () => {
-            for (const other of paneButtons) other.setAttribute('aria-pressed', String(other === button));
-        });
-    }
-
     workspace.open('src/parse.ts', 'opened');
 
     const viewport = root.querySelector<Viewport>('aparte-chat-viewport')!;
@@ -114,8 +106,8 @@ async function main(): Promise<void> {
         // The tile shows the task half done, at once: the same tools, run without the model.
         viewport.setMessages(seedConversation(toolbox));
         workspace.select('files');
-        // The gauge reads the usage a turn reports; the tile has had no turn, so it is told.
-        window.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { usage: { inputTokens: 7400, outputTokens: 520 } } }));
+        // The gauge reads the usage a turn reports; the tile has had no turn, so it is given one.
+        root.querySelector<HTMLElement & { used: number | null }>('aparte-context')!.used = 7920;
     } else if (mode === 'play') {
         // Auto, so the showcase runs to the end without waiting on a click; the switch shows it.
         approval.setMode('auto');

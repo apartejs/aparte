@@ -110,6 +110,8 @@ const KEY_FLOOR = 75;
 const PLUGIN_OWNED = new Set([
     'compactionSummaryTitle', // @aparte/plugin-compaction — the summary message's title
     'download', // @aparte/plugin-artifacts — the card's download button
+    'openArtifact', // @aparte/plugin-artifacts — the card's Open button, when the app asks for it
+    'modelContextWindow', // @aparte/plugin-model-selector — a model's context window under its name (`details`)
     'preview', // @aparte/plugin-artifacts — the card's two tabs
     'code',
     'generating', // @aparte/plugin-artifacts — a binary artifact in flight, then rebuilt

@@ -73,9 +73,8 @@ export class AparteComposerSend extends HTMLElement {
      *
      * This button has four meanings — send, stop, submit an answer, advance to the
      * next question — and three of them are decided by state it does not own: the
-     * root's `streaming`, and this payload. It was read straight out of the event's
-     * arguments and thrown away, so nothing could recompute the button's chrome
-     * afterwards; a config change had no way to know which of the four to write.
+     * root's `streaming`, and this payload. It is kept so the button's chrome can be
+     * recomputed after the event, for example on a config change.
      */
     private _panel: { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode } | null = null;
 
@@ -171,14 +170,13 @@ export class AparteComposerSend extends HTMLElement {
     }
 
     /**
-     * Panel open: this one button now means "submit the answer".
+     * Panel open: this one button means "submit the answer".
      *
-     * The icon has to move with the meaning: it drew a paper plane while the label
-     * already said "Submit", so it read as "send a message" while it meant "answer
-     * this question". It used to draw a chevron too, while a form had questions
-     * ahead, and turn into a "Next" — a second way to do what the panel's chips do,
-     * and a button whose meaning changed under the pointer. It is disabled instead
-     * until every question has an answer, which is what the chips' marks explain.
+     * The icon moves with the meaning: a paper plane would read as "send a message"
+     * while the label says "Submit". The button never turns into a "Next" while a form
+     * has questions ahead (the panel's chips do that, and a button whose meaning
+     * changed under the pointer would be a second way to do it). It is disabled
+     * instead until every question has an answer, which is what the chips' marks explain.
      */
     private _syncPanelState(): void {
         const panel = this._panel;

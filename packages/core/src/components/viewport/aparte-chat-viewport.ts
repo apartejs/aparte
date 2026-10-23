@@ -54,11 +54,10 @@ function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[])
  * Say that THIS array of segments is core's reading of the message's own `content`,
  * not something the host wrote.
  *
- * Merely opening a stored conversation ran the parser over every markdown reply, so
- * `getMessages()` no longer matched what the store held: the manager's "did anything
- * change?" guard saw a change on the first persist, bumped `updatedAt`, and the row
- * jumped date group in the sidebar — one silent rewrite per conversation, for reading
- * it. The marker is what lets that comparison ignore a derived array.
+ * Opening a stored conversation runs the parser over every markdown reply, so
+ * `getMessages()` can differ from what the store holds. The marker lets the manager's
+ * "did anything change?" comparison ignore a derived array, so merely reading a
+ * conversation does not bump `updatedAt` or rewrite the stored row.
  *
  * Non-enumerable on purpose: a spread, `JSON.stringify` and a storage adapter never
  * carry it, so nothing of this reaches the wire. Which is also why every place that
@@ -155,6 +154,8 @@ function hasDerivedSegments(message: AparteMessage): boolean {
  *   the chat host: how far from the host's inline edge its rows start (padding plus the
  *   scrollbar gutter, at the current container step). The composer pads by it, so the two
  *   boxes share one edge at every width. Read-only from the outside.
+ * @cssprop [--aparte-top-inset=0px] - How much of the transcript's top is covered by a header floating over it.
+ *   Set it on the chat, by hand: the first message starts below it, and a jump to a message lands below it.
  * @cssprop [--aparte-bottom-inset=0px] - How much of the transcript's bottom is covered
  *   by content floating over it. Written by the viewport itself under
  *   `[overlay-composer]` (never set it there — it would be overwritten); a host that
@@ -228,17 +229,14 @@ export class AparteChatViewport extends HTMLElement {
      *  Not `readonly`: a test shortens it to run past the window's end in a few frames. */
     private _settleWindowMs = 400;
     /**
-     * Until when a smooth scroll of ours is in flight (#57). A user send glides to the
-     * bottom with `scrollTo({ behavior: 'smooth' })`; the assistant placeholder and the
-     * first tokens used to land INSIDE that glide through the streaming path — an instant
-     * `scrollTop = scrollHeight` plus the settle chain — and an instant write cancels a
-     * running smooth scroll in every engine. Measured before the fix: five instant writes
-     * in the send's own frame (the spacer recalculation scrolls synchronously, the
-     * mutation observer queues another), so there never was a glide to cut — the view
-     * teleported. While this deadline is ahead, every bottom-pin RE-TARGETS the glide
-     * (a second smooth `scrollTo` is continuous) instead of writing `scrollTop`; the
-     * browser's `scrollend` closes it early where supported. Streaming is instant again
-     * after that, as it must be to keep up with token bursts.
+     * Until when a smooth scroll of ours is in flight. A user send glides to the
+     * bottom with `scrollTo({ behavior: 'smooth' })`, and the assistant placeholder and
+     * first tokens land inside that glide. An instant `scrollTop = scrollHeight` write
+     * cancels a running smooth scroll in every engine, so while this deadline is ahead
+     * every bottom-pin RE-TARGETS the glide (a second smooth `scrollTo` is continuous)
+     * instead of writing `scrollTop`; the browser's `scrollend` closes it early where
+     * supported. Streaming is instant after that, as it must be to keep up with token
+     * bursts.
      */
     private _glideUntil = 0;
     /** The glide's budget when `scrollend` is not there to close it: Chromium's smooth scroll over a viewport takes ~300–500 ms. */
@@ -263,10 +261,21 @@ export class AparteChatViewport extends HTMLElement {
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
     /**
+     * Watches the size of the bubbles the bottom spacer measures — the last question and
+     * everything after it. A bubble that has never been on screen measures its
+     * `content-visibility` fallback (320px) until it is shown, and taking its real height
+     * is neither a mutation nor a resize of the scroll container: without this, a spacer
+     * sized from two fallbacks stayed wrong once they came into view.
+     */
+    private _tailObserver: ResizeObserver | null = null;
+    private _tail: Element[] = [];
+    /** Each tail bubble's border-box height, as measured when it started being watched and as last reported. */
+    private _tailHeights = new WeakMap<Element, number>();
+    /**
      * Opening or closing a `<details>` — a tool row, a reasoning block, an artifact card, a host's
      * own — changes the transcript's height through an ATTRIBUTE, which neither observer sees: the
      * mutation observer watches children, and the resize observer leaves the wrapper out on
-     * purpose. `toggle` does not bubble, so it is caught on the way down (#105).
+     * purpose. `toggle` does not bubble, so it is caught on the way down.
      */
     private _onDisclosureToggle = (): void => { this._scheduleSpacerUpdate(); };
     /** The `[overlay-composer]` shell this viewport floats in, if any. Read at observer setup, like `framework-managed`. */
@@ -399,8 +408,8 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * A locale switch changes the reading direction, and `dir` was applied once at
-     * render — so a chat already on screen never flipped to RTL until a reload.
+     * A locale switch changes the reading direction, and `dir` follows it, so a chat
+     * already on screen flips to RTL without a reload.
      * Only OUR config: an instance-scoped change elsewhere must not touch us.
      */
     private _onConfigChange = (e: Event): void => {
@@ -421,15 +430,14 @@ export class AparteChatViewport extends HTMLElement {
      * A scrollable region that no element can hold focus in cannot be scrolled from
      * the keyboard in WebKit: Chromium and Firefox hand an unfocusable overflow box a
      * caret or a "scroller" tab stop of their own, Safari does not. So a plain-text
-     * transcript — no links, no code blocks, nothing focusable inside — was unreadable
-     * past the first screen for a Safari keyboard user, with no error and nothing on
-     * screen to say so.
+     * transcript — no links, no code blocks, nothing focusable inside — would be
+     * unreadable past the first screen for a Safari keyboard user, with no error and
+     * nothing on screen to say so.
      *
-     * `tabindex="0"` on the surface itself, in BOTH DOM modes. The framework mode
-     * appeared to work already, and only by accident: the scroll button is inside the
-     * host and stays tabbable while it is visually hidden, so Tab happened to land
-     * somewhere that scrolled. A tab stop that exists because a hidden button happens
-     * to sit there is not an affordance, it is a coincidence.
+     * `tabindex="0"` on the surface itself, in BOTH DOM modes. In framework mode the
+     * scroll button is inside the host and stays tabbable while it is visually hidden,
+     * but a tab stop that exists because a hidden button happens to sit there is a
+     * coincidence, not an affordance.
      *
      * The name ships WITH the tab stop rather than after it: a focusable `role="log"`
      * with no accessible name is announced as an unnamed region, which is a worse
@@ -600,10 +608,10 @@ export class AparteChatViewport extends HTMLElement {
      * The id of the message currently streaming, if any — searched across the whole
      * TREE, and answering with an OFF-HEAD one first when there are two.
      *
-     * It used to scan `getMessages()`, the active path. A retry or an edit on an
+     * Not a scan of `getMessages()`, the active path: a retry or an edit on an
      * earlier bubble calls `addSiblingOf`, which switches the branch to the new pending
-     * reply: the turn still being written leaves the path, the scan found nothing, and
-     * the rest of that turn was appended to the message that had just replaced it.
+     * reply, so the turn still being written leaves the path and a path scan would find
+     * nothing, appending the rest of that turn to the message that just replaced it.
      *
      * A new pending reply is itself marked streaming, so "the first one found" would
      * answer the head and let the write through — the very case this exists to refuse.
@@ -627,10 +635,10 @@ export class AparteChatViewport extends HTMLElement {
     /**
      * While a reply streams, the transcript is read-only except for Stop.
      *
-     * The streaming message's own footer was already hidden; every OTHER message kept
-     * its branch picker and its retry/edit buttons live. Swapping a branch mid-stream
-     * re-rendered the active path under the reply being written, and a retry cut that
-     * reply off to start another — both seen on the landing page. The state that
+     * The streaming message's own footer is hidden, and the branch picker and the
+     * retry/edit buttons of every OTHER message are disabled: swapping a branch mid-stream would
+     * re-render the active path under the reply being written, and a retry would cut
+     * that reply off to start another. The state that
      * decides it is the whole transcript's, so it lives on the viewport (`data-busy`)
      * and is pushed to the bubbles it holds; a bubble mounted later, under a
      * framework's DOM, reads the attribute itself when it connects.
@@ -666,8 +674,7 @@ export class AparteChatViewport extends HTMLElement {
      *   (head) message" convention (also what a wrapper host installs);
      * - `addSegment(messageId, segment)` — explicit standalone form.
      * The first argument's type disambiguates (string = messageId, object =
-     * segment), so a raw viewport driven by `AparteClient` no longer drops text
-     * (the args used to bind one position short, creating a phantom message).
+     * segment), so a raw viewport can be driven by `AparteClient`.
      */
     addSegment(segment: AparteSegment): void;
     addSegment(messageId: string, segment: AparteSegment): void;
@@ -1321,10 +1328,16 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Enable or disable auto-scroll
+     * Enable or disable auto-scroll. Turned off, it stays off through the scroll that comes
+     * next — a jump of the page's own, smooth or not — and comes back once the reader is at
+     * the bottom again.
      */
     setAutoScroll(enabled: boolean): void {
         this._isAutoScrollEnabled = enabled;
+        // Off is the reader's choice, and the scroll that follows is theirs: marked as their
+        // gesture, so the first frames of a smooth jump — a few pixels, still within the bottom
+        // threshold — are not read as the reader staying at the bottom and armed again.
+        if (!enabled) this._readerInputAt = performance.now();
     }
 
     /**
@@ -1846,7 +1859,26 @@ export class AparteChatViewport extends HTMLElement {
             }
             // Recalculate spacer when DOM mutates (new bubble added, Angular re-render).
             this._scheduleSpacerUpdate();
+            // The turn the spacer measures moves only when a bubble comes or goes. Re-read on
+            // every record, it walked the whole transcript per streamed token.
+            const movesBubbles = (nodes: NodeList): boolean => Array.from(nodes).some((n) =>
+                n instanceof Element && (n.tagName === 'APARTE-CHAT-BUBBLE' || n.querySelector('aparte-chat-bubble') !== null));
+            if (mutations.some((m) => movesBubbles(m.addedNodes) || movesBubbles(m.removedNodes))) this._observeTail();
         });
+
+        // Height only, against what was measured when the bubble started being watched: a
+        // width that moves with a scrollbar says nothing about what the spacer measures, and
+        // re-measuring on it let a spacer and a scrollbar chase each other.
+        this._tailObserver = new ResizeObserver((entries) => {
+            let changed = false;
+            for (const entry of entries) {
+                const height = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+                if (this._tailHeights.get(entry.target) !== height) changed = true;
+                this._tailHeights.set(entry.target, height);
+            }
+            if (changed) this._scheduleSpacerUpdate();
+        });
+        this._observeTail();
 
         // Framework-managed: bubbles are direct children of the host (no wrapper).
         this.addEventListener('toggle', this._onDisclosureToggle, true);
@@ -1906,10 +1938,9 @@ export class AparteChatViewport extends HTMLElement {
      * the transcript's padding plus the scrollbar gutter the scroller reserves on both
      * edges, at whatever step its container query has taken — as
      * `--aparte-transcript-inset`. The composer pads by it (composer.css), so its box
-     * lands on the row's box at every width. The two used to be independent stacks: the
-     * composer cannot know the gutter and a container query cannot reach it, so they sat
-     * 10px apart at 768 and the gutter's half apart at 1280, and the reading-column demo
-     * showed three left edges 12px apart. Written only when the value changes, for the
+     * lands on the row's box at every width. The composer cannot know the gutter
+     * and a container query cannot reach it, so this is the one place both boxes read
+     * it from. Written only when the value changes, for the
      * same reason `_updateOverlayInset` is. On the HOST, not on this element: the
      * composer is a sibling, and a custom property only travels down.
      */
@@ -2009,7 +2040,24 @@ export class AparteChatViewport extends HTMLElement {
         // An engine settling a reply it just re-laid out moves scrollTop within a few
         // frames of the mutation and by tens of pixels; a host's own jump, or a tool's
         // scroll-into-view before a click, comes with no mutation, or moves it by hundreds.
-        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && drop <= this._settleBoundPx;
+        // Unless the content got SHORTER since the last event: then the decrease is the
+        // engine clamping `scrollTop` to a smaller maximum, whatever its size — no reader
+        // shortens the transcript. Measured on react-webkit under load at the end of a
+        // reply: the height dipped and recovered between two events (1199 at the last,
+        // 1833 at its peak, 1068 at this one), the clamp read 665 -> 338, a decrease past
+        // the bound, and the follow was disarmed with the view 490px short for good.
+        //
+        // Not bounded by how much the height fell, which is the one known limit: the height
+        // dips and recovers between two events, so the endpoints understate the clamp (131
+        // against 327 in the measurement above), and the tallest height in between is not
+        // seen in time to bound it (tried: the flake came back, 8 runs in 60). So any jump up
+        // whose first event sees a shorter transcript, within a second of a scroll of ours, is
+        // read as a clamp, and an armed follow pins it back to the bottom — mid-stream that is
+        // almost every jump into history never rendered, whose bubbles leave their 320px
+        // fallback as they come into view. The scroll rail stops the follow before it jumps
+        // (`setAutoScroll(false)`); a host's own jump, or find-in-page, does not.
+        const shrank = height < this._lastScrollHeight - 1;
+        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && (drop <= this._settleBoundPx || shrank);
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs
             && !this._pointerHeld
@@ -2100,9 +2148,8 @@ export class AparteChatViewport extends HTMLElement {
      * The browser says a scroll came to rest — the glide is over ONLY if it rested at the
      * bottom. WebKit fires `scrollend` when a smooth scroll is REPLACED by another (our own
      * re-target), 45–60 ms into the glide and hundreds of pixels short; taken at its word,
-     * that closed the window and the next pin was the cut this guard exists to prevent
-     * (react-webkit and vanilla-webkit, 2 of 2). Short of the bottom, the budget keeps
-     * bounding the window.
+     * that would close the window and the next pin would be the cut this guard exists
+     * to prevent. Short of the bottom, the budget keeps bounding the window.
      */
     private _handleScrollEnd(): void {
         if (!this._container) return;
@@ -2113,37 +2160,27 @@ export class AparteChatViewport extends HTMLElement {
     /**
      * Confirm over the next few frames that we actually reached the bottom.
      *
-     * One assignment is not enough, and the reason is measured rather than guessed.
-     * A timeline of a streamed turn on Safari (framework mode) recorded the content
-     * settling in TWO layout passes — 1118 → 1121 → 1152 px. `scrollTop =
-     * scrollHeight` ran against the middle one, clamped to that layout's max (603),
-     * and nothing ran afterwards: the last 31px never closed. Auto-follow stayed
-     * armed the whole time, so the component was not disarmed — it was SATISFIED.
-     * `_isAtBottom()` answers "yes" for any gap under `_scrollThreshold` (50), which
-     * is the right rule for keeping auto-follow armed and the wrong one as a
-     * definition of "anchored".
-     *
-     * Ruled out on the way here, so nobody pays for it twice: not a WebKit
-     * padding-accounting difference (a probe writing `scrollTop = 1e7` reached
-     * exactly `scrollHeight - clientHeight`), not a missing `characterData`
-     * mutation, and not a child resize a ResizeObserver could see.
+     * One assignment is not enough. Content can settle in several layout passes
+     * (1118 → 1121 → 1152 px on Safari in framework mode), and `scrollTop =
+     * scrollHeight` run against a middle pass clamps to that layout's max and leaves
+     * the rest unclosed. Auto-follow stays armed the whole time, so the component is
+     * not disarmed — it is SATISFIED: `_isAtBottom()` answers "yes" for any gap under
+     * `_scrollThreshold` (50), which is the right rule for keeping auto-follow armed
+     * and the wrong one as a definition of "anchored".
      *
      * A BOUNDED retry, not one corrective frame: a single frame lands on the same
-     * stale layout and was measured leaving a wider gap than doing nothing. Bounded
-     * so it always terminates; re-reads `_isAutoScrollEnabled` every frame so a
-     * reader who scrolls away mid-settle is left alone.
+     * stale layout and can leave a wider gap than doing nothing. Bounded so it always
+     * terminates; re-reads `_isAutoScrollEnabled` every frame so a reader who scrolls
+     * away mid-settle is left alone.
      *
-     * Bounded by TIME, and it does not stop at the first closed gap — both of those
-     * were the second half of the same bug. It used to be four frames (~64ms on an
-     * idle 60Hz machine) and to return permanently the frame the gap first closed.
-     * A branch swap at the bottom of a long transcript on react-webkit falsified
-     * both at once: the rebuild's scrollable max churned 891 -> 1091 -> 891, the gap
-     * WAS closed for a frame against the tall layout, the chain returned, the height
-     * fell back with WebKit holding `scrollTop` at 720 — and the transcript stood
-     * 171px short with auto-follow still armed. A frame count is a proxy for time
-     * that fails exactly on the slow engine, so the budget is real milliseconds now,
-     * and a closed gap only ends the chain when the window is over. One chain, not
-     * one per call: during a stream every token used to start its own.
+     * Bounded by TIME, and it does not stop at the first closed gap. A branch swap at
+     * the bottom of a long transcript churns the scrollable max (891 -> 1091 -> 891):
+     * the gap is closed for a frame against the tall layout, the height falls back with
+     * WebKit holding `scrollTop`, and the transcript would stand short with auto-follow
+     * still armed. A frame count is a proxy for time that fails exactly on the slow
+     * engine, so the budget is real milliseconds, and a closed gap only ends the chain
+     * when the window is over. One chain, not one per call: during a stream every token
+     * would otherwise start its own.
      */
     private _settleAtBottom(): void {
         this._settleUntil = performance.now() + this._settleWindowMs;
@@ -2188,6 +2225,10 @@ export class AparteChatViewport extends HTMLElement {
                 this._glideSettleTimer = null;
                 if (!this._container || !this._isAutoScrollEnabled || this._gliding()) return;
                 const max = this._container.scrollHeight - this._container.clientHeight;
+                // Above where the last scroll event left it, the view was moved by someone the
+                // scroll handler has not heard from yet — a host's jump, a reader — and the
+                // glide never moves up: that one is the handler's to judge, not ours to undo.
+                if (this._container.scrollTop < this._lastScrollTop - 1) return;
                 if (max - this._container.scrollTop > 1) this._scrollToBottom();
             }, this._glideWindowMs + 16);
         } else {
@@ -2206,10 +2247,10 @@ export class AparteChatViewport extends HTMLElement {
      *
      * The two answer different questions: the flag is intent ("should new content
      * pull the view down"), the button is a fact ("is there anything below the
-     * fold"). Mirroring the flag made the button lie whenever the two diverged —
+     * fold"). Mirroring the flag would make the button lie whenever the two diverge —
      * `navigateBranch` deliberately disarms auto-follow, so swapping a branch while
-     * already at the bottom of a scrollable transcript left the button offering to
-     * scroll nowhere (reported from a React consumer). Re-derived on scroll, on the
+     * already at the bottom of a scrollable transcript would leave the button offering
+     * to scroll nowhere. Re-derived on scroll, on the
      * post-mutation frame and after a path swap, so it converges to the truth
      * whatever a framework's render timing does in between.
      */
@@ -2305,7 +2346,10 @@ export class AparteChatViewport extends HTMLElement {
 
         const contentBelowUserTop = scrollHeightWithoutSpacer - userTopInContent;
 
-        const needed = this._container.clientHeight - contentBelowUserTop;
+        // The question lands below a header floating over the transcript (`--aparte-top-inset`,
+        // the surface's scroll padding), not under it at the very top.
+        const covered = parseFloat(getComputedStyle(this._container).scrollPaddingTop) || 0;
+        const needed = this._container.clientHeight - covered - contentBelowUserTop;
         // Hard cap: the spacer can never exceed the visible viewport height.
         // This acts as a safety net against stale layout reads (e.g. mid-swap)
         // that could produce an astronomical value and push content off-screen.
@@ -2321,6 +2365,24 @@ export class AparteChatViewport extends HTMLElement {
         if (this._isAutoScrollEnabled) {
             this._scrollToBottom();
         }
+    }
+
+    /** Point `_tailObserver` at the last question and the bubbles after it, and only those. */
+    private _observeTail(): void {
+        if (!this._tailObserver) return;
+        const bubbles: Element[] = Array.from(this.querySelectorAll('aparte-chat-bubble'));
+        let from = bubbles.length;
+        while (from > 0 && bubbles[from - 1]!.getAttribute('data-role') !== 'user') from--;
+        const tail = from > 0 ? bubbles.slice(from - 1) : [];
+        for (const el of this._tail) if (!tail.includes(el)) this._tailObserver.unobserve(el);
+        for (const el of tail) {
+            if (this._tail.includes(el)) continue;
+            // The height the spacer measures it at right now — its fallback, if it was never
+            // shown — so the report that brings its real height is seen as a change.
+            this._tailHeights.set(el, Math.round((el as HTMLElement).offsetHeight));
+            this._tailObserver.observe(el, { box: 'border-box' });
+        }
+        this._tail = tail;
     }
 
     /**
@@ -2379,6 +2441,9 @@ export class AparteChatViewport extends HTMLElement {
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
+        this._tailObserver?.disconnect();
+        this._tailObserver = null;
+        this._tail = [];
         this.removeEventListener('toggle', this._onDisclosureToggle, true);
         this._overlayObserver?.disconnect();
         this._overlayObserver = null;

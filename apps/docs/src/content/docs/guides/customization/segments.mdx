@@ -15,11 +15,18 @@ import Variant from '../../../../components/catalog/Variant.astro';
 
 ```ts
 import { registerSegmentRenderer } from '@aparte/core';
-import type { AparteSegment, AparteSegmentBase } from '@aparte/core';
+import type { AparteSegmentBase } from '@aparte/core';
 
 interface ChartSegment extends AparteSegmentBase {
   type: 'chart';
   values: number[];
+}
+
+// The chart joins core's segment union, so every method that takes a segment takes it.
+declare module '@aparte/core' {
+  interface AparteSegmentTypes {
+    chart: ChartSegment;
+  }
 }
 
 registerSegmentRenderer<ChartSegment>({
@@ -35,13 +42,13 @@ registerSegmentRenderer<ChartSegment>({
 
 // A chart in the reply a1, once it is on screen:
 const chart: ChartSegment = { id: 'c1', type: 'chart', values: [3, 5, 2] };
-document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart as unknown as AparteSegment);
+document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart);
 ```
 
 A reply is a list of typed parts, segments, and a renderer draws every segment of its type. It
 returns an element, or a string of markup with a single root element that you escape yourself.
-`getStyles()` hands the renderer's CSS to the page once. The methods that take a segment are typed
-for core's own types, hence the cast for one of yours.
+`getStyles()` hands the renderer's CSS to the page once. The `declare module` block adds your type
+to `AparteSegment`, the union every method and `AparteMessage.segments` take, one key per `type`.
 
 ## How a segment reaches a message
 
@@ -140,14 +147,15 @@ reads the tags registered on that one.
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
-aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });   // a <think> block arrives open
+aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });   // reasoning arrives open
 aparteGlobalConfig.setSegmentDefaults('chart', { values: [] });
 ```
 
 A default fills the fields a segment arrives without: one the producer set, even to `undefined`,
 keeps its value, and the identity fields — `id`, `type`, `messageId`, `index` — are never
-defaulted. Reasoning a provider sends on its own channel arrives folded, and folds again when the
-answer starts, whatever the default says. Defaults apply as segments arrive in a live reply or are
+defaulted. Reasoning a provider sends on its own channel follows the default too: with
+`collapsed: false` it arrives open and stays open when the answer starts; without it, it folds
+there. Defaults apply as segments arrive in a live reply or are
 added to one; a restored conversation keeps its segments as saved, and a segment already on screen
 does not change. A chat with its own configuration reads that configuration's defaults.
 `getSegmentDefaults` reads them back and `clearSegmentDefaults` drops them.

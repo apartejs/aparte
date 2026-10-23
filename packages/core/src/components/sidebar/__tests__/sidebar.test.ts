@@ -372,5 +372,59 @@ describe('aparte-sidebar', () => {
             el.filter('old');
             expect(rows()).toEqual({ a: true, b: true, c: false });
         });
+
+        it('filter() says how many match, and the list says when none does', () => {
+            const { el } = withList();
+            expect(el.filter('deploy')).toBe(1);
+            expect(el.filter('nothing like this')).toBe(0);
+            const list = el.querySelector('aparte-conversation-list')!;
+            expect(list.hasAttribute('data-no-match')).toBe(true);
+            expect(el.hasAttribute('data-no-match')).toBe(true);
+            const line = list.querySelector('.aparte-conv-list-no-match')!;
+            expect(line.getAttribute('role')).toBe('status');
+            expect(line.textContent).toBe('No conversation matches');
+            el.filter('');
+            expect(list.hasAttribute('data-no-match')).toBe(false);
+            expect(line.textContent).toBe('');
+        });
+
+        it("the sidebar's no-match follows its list's renders, and is never set while a list loads", async () => {
+            const { el } = withList();
+            const list = el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] };
+            el.filter('zzz');
+            expect(el.hasAttribute('data-no-match')).toBe(true);
+            // A conversation that matches arrives: the list re-renders under the held query.
+            list.conversations = [...items, { id: 'z', title: 'zzz plan', updatedAt: Date.now() }];
+            await Promise.resolve();
+            expect(el.hasAttribute('data-no-match'), 'a match is shown again').toBe(false);
+            // Typing while the list loads: nothing to match yet, nothing to say.
+            list.setAttribute('loading', '');
+            el.filter('nothing like this');
+            await Promise.resolve();
+            expect(el.hasAttribute('data-no-match')).toBe(false);
+        });
+
+        it('says "no conversation matches" once, not again on every render of the list', async () => {
+            const { el } = withList();
+            const list = el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] };
+            el.filter('nothing like this');
+            const line = list.querySelector('.aparte-conv-list-no-match');
+            // Detached and put back, a node is a new live region to the accessibility tree.
+            const observer = new MutationObserver(() => {});
+            observer.observe(list, { childList: true });
+            list.conversations = [...items];
+            const removed = observer.takeRecords().flatMap((r) => [...r.removedNodes]);
+            observer.disconnect();
+            expect(list.querySelector('.aparte-conv-list-no-match'), 'the same live region, not a new one to announce').toBe(line);
+            expect(removed, 'and it never left the document').not.toContain(line);
+        });
+
+        it('the query outlives a re-render of the list: a new conversation obeys it', () => {
+            const { el, rows } = withList();
+            el.filter('deploy');
+            (el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] }).conversations =
+                [...items, { id: 'd', title: 'Unrelated', updatedAt: Date.now() }];
+            expect(rows()).toEqual({ a: false, b: true, c: true, d: true });
+        });
     });
 });

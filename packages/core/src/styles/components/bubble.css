@@ -83,8 +83,9 @@ aparte-chat-bubble {
    genuinely the bubble's: who the avatar belongs to, and what a failed turn does to it. */
 
 /* No message avatar by default — the slot only shows once an AvatarProvider
-   (or a consumer) fills it. Role is carried by layout + colour instead. */
-.aparte-avatar:empty {
+   (or a consumer) fills it, or its role's `--aparte-avatar-image-*` names a picture
+   (`data-image`, set by the bubble). Role is carried by layout + colour instead. */
+.aparte-avatar:empty:not(:where([data-image])) {
   display: none;
 }
 
@@ -125,16 +126,35 @@ aparte-chat-bubble {
 /* AI-chat convention (not messaging): the USER message is a subtle bubble that
    hugs its text; the ASSISTANT message is plain full-width prose — no bubble,
    like ChatGPT / Claude. */
+/* The role's ink, for the words: the text and the segments read `--aparte-message-ink`
+   (prose.css, segment/thinking.css), falling back to the content colour. A token rather than
+   a `color` here: the words' own rules weigh one class, so a consumer's `.aparte-content`
+   rule keeps winning, and the ink still reaches them — set on the box alone, it never did.
+   Unset, the role's token leaves the ink unset and the words keep the content colour. */
+.aparte-message[data-role="user"] {
+  --aparte-message-ink: var(--aparte-message-content-text-user);
+}
+
+.aparte-message[data-role="assistant"] {
+  --aparte-message-ink: var(--aparte-message-content-text-assistant);
+}
+
 .aparte-message[data-role="user"] .aparte-message-content {
   width: fit-content;
   padding: var(--aparte-message-content-padding);
   background: var(--aparte-message-content-bg-user);
-  color: var(--aparte-message-content-text-user);
+  color: var(--aparte-message-ink, var(--aparte-content-color));
 }
 
 .aparte-message[data-role="assistant"] .aparte-message-content {
   background: var(--aparte-message-content-bg-assistant);
-  color: var(--aparte-message-content-text-assistant);
+  color: var(--aparte-message-ink, var(--aparte-content-color));
+}
+
+/* Weightless: the assistant's box had no padding rule, so any padding a consumer gave
+   `.aparte-message-content` reached it, and still does whatever the order of the sheets. */
+:where(.aparte-message[data-role="assistant"] .aparte-message-content) {
+  padding: var(--aparte-message-content-padding-assistant);
 }
 
 .aparte-name {
@@ -377,10 +397,18 @@ aparte-chat-bubble[data-kind="compaction"] .aparte-message {
   justify-content: center;
 }
 
+/* Its ground, ink and size go through the tokens the message reads. Written as properties on
+   the box, at (0,2,1), they lost to the role's rule (0,3,0) and the text's own size: the notice
+   was drawn as the user's bubble, in body type. */
+aparte-chat-bubble[data-kind="compaction"] {
+  --aparte-message-content-bg-user: var(--aparte-surface-2);
+  --aparte-message-content-bg-assistant: var(--aparte-surface-2);
+  --aparte-message-content-text-user: var(--aparte-text-muted);
+  --aparte-message-content-text-assistant: var(--aparte-text-muted);
+  --aparte-content-font-size: var(--aparte-font-size-sm);
+}
+
 aparte-chat-bubble[data-kind="compaction"] .aparte-message-content {
   max-width: 100%;
-  background: var(--aparte-surface-2);
-  color: var(--aparte-text-muted);
   border: var(--aparte-border-width) dashed var(--aparte-border);
-  font-size: var(--aparte-font-size-sm);
 }

@@ -72,7 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: 'Type a message...',
   disabled: false,
   isTyping: false,
-  typingText: 'Assistant is thinking...',
+  typingText: undefined,
   submitOnEnter: true,
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
@@ -132,9 +132,16 @@ function onAction(e: Event) {
 // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
 const hostLoading = ref(false);
 const waiting = computed(() => props.loading || hostLoading.value);
-const loadingText = computed(() => (props.config ?? aparteGlobalConfig).t('loadingConversation'));
+// Bumped on every config change: the two strings below are locale text, and a computed does not
+// see the config — a language switch left them in the old language.
+const localeTick = ref(0);
+let unsubscribeLocale: (() => void) | null = null;
+const loadingText = computed(() => (localeTick.value, (props.config ?? aparteGlobalConfig).t('loadingConversation')));
+// The status line's word, from the locale like the rest of the chat, unless the prop says.
+const typingLabel = computed(() => (localeTick.value, props.typingText ?? (props.config ?? aparteGlobalConfig).t('typing')));
 
 onMounted(() => {
+  unsubscribeLocale = (props.config ? toRaw(props.config) : aparteGlobalConfig).subscribe(() => { localeTick.value++; });
   const binding: AparteChatHostBinding = {
     hostId,
     host: rootRef.value as HTMLElement,
@@ -169,6 +176,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeLocale?.();
+  unsubscribeLocale = null;
   composerRef.value?.removeEventListener('aparte-send', onSend);
   rootRef.value?.removeEventListener('aparte-action', onAction);
   teardown?.();
@@ -265,7 +274,7 @@ defineExpose({
           />
         </slot>
       </template>
-      <aparte-chat-status :visible="typingActive ? '' : null" :text="typingText" />
+      <aparte-chat-status :visible="typingActive ? '' : null" :text="typingLabel" />
     </aparte-chat-viewport>
 
     <!-- The presenter for a request to the human (approval gate, ask_user…). Renders

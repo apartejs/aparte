@@ -43,6 +43,13 @@ export interface ArtifactSegment extends AparteSegmentBase {
     content: string;
 }
 
+/** The artifact joins core's segment union, so `addSegment(id, artifactSegment(…))` takes it as it is. */
+declare module '@aparte/core' {
+    interface AparteSegmentTypes {
+        artifact: ArtifactSegment;
+    }
+}
+
 /**
  * What the model passes to the tool — and what the tool returns as its structured
  * result, so the card reads one shape on both paths.

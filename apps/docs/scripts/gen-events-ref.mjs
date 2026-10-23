@@ -61,10 +61,14 @@ const sources = [
     ...readdirSync(PLUGINS).flatMap((plugin) => (existsSync(join(PLUGINS, plugin, 'src')) ? walk(join(PLUGINS, plugin, 'src')) : [])),
 ].filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
 
-// ── 1. the typed map: name -> detail type ────────────────────────────────────
-const mapSrc = readFileSync(join(CORE, 'src/types/event-map.ts'), 'utf8');
+// ── 1. the typed maps: name -> detail type ───────────────────────────────────
+// Core's `AparteEventMap`, and the `HTMLElementEventMap` augmentation a plugin ships beside an
+// event of its own: the same `'name': CustomEvent<T>` line. Read from core's alone, the table
+// said `aparte-artifact-open` carries no detail, and it carries the artifact.
 const detailOf = new Map(
-    [...mapSrc.matchAll(/^\s*'(aparte-[\w-]+)':\s*CustomEvent<([^>]*)>/gm)].map((m) => [m[1], m[2]]),
+    [join(CORE, 'src/types/event-map.ts'), ...sources.filter((file) => file.startsWith(PLUGINS))]
+        .flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/^\s*'(aparte-[\w-]+)':\s*CustomEvent<([^>]*)>/gm)])
+        .map((m) => [m[1], m[2]]),
 );
 
 // ── 2. `@event <name>` prose, wherever it is authored ────────────────────────

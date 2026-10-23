@@ -297,6 +297,8 @@ describe('AparteChat React Wrapper', () => {
         );
 
         expect(status?.getAttribute('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status?.getAttribute('text')).toBe('Typing');
     });
 
     it('calls onMessageSent when the composer dispatches aparte-send', () => {
@@ -307,10 +309,10 @@ describe('AparteChat React Wrapper', () => {
         const composer = container.querySelector('aparte-composer');
         const detail = { content: 'New message', timestamp: Date.now() };
 
-        if (composer) {
-            const event = new CustomEvent('aparte-send', { detail, bubbles: true, composed: true });
-            composer.dispatchEvent(event);
-        }
+        // In `act`: the send appends the user's message, a state update React wants batched.
+        act(() => {
+            composer?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+        });
 
         expect(mockOnMessageSent).toHaveBeenCalledWith(detail);
     });
@@ -593,15 +595,17 @@ describe('AparteChat React Wrapper', () => {
             <AparteChat messages={[]} config={cfg} onConversationCreated={onConversationCreated} />,
         );
 
-        container.querySelector('aparte-composer')!.dispatchEvent(
-            new CustomEvent('aparte-send', {
-                detail: { content: 'first message' },
-                bubbles: true, composed: true,
-            }),
-        );
-
-        // Creation is async (the adapter is): wait for the callback, not for a delay.
-        await vi.waitFor(() => expect(onConversationCreated).toHaveBeenCalledTimes(1));
+        // Creation is async (the adapter is): wait for the callback, not for a delay — inside
+        // `act`, since what it sets in state lands while the test waits.
+        await act(async () => {
+            container.querySelector('aparte-composer')!.dispatchEvent(
+                new CustomEvent('aparte-send', {
+                    detail: { content: 'first message' },
+                    bubbles: true, composed: true,
+                }),
+            );
+            await vi.waitFor(() => expect(onConversationCreated).toHaveBeenCalledTimes(1));
+        });
         expect(typeof onConversationCreated.mock.calls[0][0]).toBe('string');
     });
 });
@@ -626,11 +630,49 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
     });
 
+    it('says the wait and the typing line in the language the config switches to', () => {
+        const config = new AparteConfig();
+        const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} config={config} loading />);
+        act(() => config.setLocale({ ...config.getLocale(), loadingConversation: 'Chargement de la conversation', typing: 'Réflexion en cours' }));
+        expect(container.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Chargement de la conversation');
+        expect(container.querySelector('aparte-chat-status')?.getAttribute('text')).toBe('Réflexion en cours');
+    });
+
     it('keeps a disabled the consumer set once the wait ends', () => {
         const { container, rerender } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} disabled loading />,
         );
         rerender(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} disabled />);
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});
+
+/*
+ * The binding's `afterRender` is the helper that runs in a hidden tab. Its own test pins the
+ * helper; this one pins that <AparteChat> hands it to the host, so a frame-only callback
+ * restored here (a merge, a refactor) fails a test: a version count from a branch switch, or a
+ * compaction's save, would wait for the reader to come back to the tab.
+ */
+describe('<AparteChat> in a hidden tab', () => {
+    afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); cleanup(); });
+
+    it('still writes a branch switch\'s version counts, with no frame to wait for', () => {
+        const messages: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'Hi', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2 },
+        ];
+        const { container } = render(<AparteChat messages={messages} />);
+        vi.useFakeTimers();
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);   // never fires
+        const bubble = container.querySelector('aparte-chat-bubble[message-id="a1"]') as HTMLElement & { setSiblings(count: number, index: number): void };
+        const setSiblings = vi.spyOn(bubble, 'setSiblings');
+        act(() => {
+            container.querySelector('aparte-chat-viewport')!.dispatchEvent(new CustomEvent('aparte-path-changed', {
+                detail: { messages, siblings: [{ id: 'a1', count: 2, index: 1 }] },
+            }));
+        });
+        act(() => { vi.runAllTimers(); });
+        expect(setSiblings).toHaveBeenCalledWith(2, 1);
     });
 });

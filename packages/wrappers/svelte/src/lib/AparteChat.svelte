@@ -14,7 +14,7 @@
   export let placeholder = 'Type a message...';
   export let disabled = false;
   export let isTyping = false;
-  export let typingText = 'Assistant is thinking...';
+  export let typingText: string | undefined = undefined;
   /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
   export let submitOnEnter = true;
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
@@ -36,7 +36,16 @@
   // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
   let hostLoading = false;
   $: waiting = loading || hostLoading;
-  $: loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
+  // Bumped on every config change: the labels below are locale text, and `$:` does not see the
+  // config — a language switch left them in the old language. Passing the tick is what makes
+  // the two statements re-run.
+  let localeTick = 0;
+  let unsubscribeLocale: (() => void) | null = null;
+  const localeText = (_tick: number, cfg: AparteConfig | undefined, key: 'loadingConversation' | 'typing'): string =>
+    (cfg ?? aparteGlobalConfig).t(key);
+  $: loadingText = localeText(localeTick, config, 'loadingConversation');
+  // The status line's word, from the locale like the rest of the chat, unless the prop says.
+  $: typingLabel = typingText ?? localeText(localeTick, config, 'typing');
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
@@ -183,6 +192,7 @@
   }
 
   onMount(() => {
+    unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     // A caller-supplied `id` wins, so `scopeToTargetId` has something to match.
     hostId = id ?? `aparte-chat-${uuid()}`;
     // Set the id imperatively (deterministic, like Angular's ngAfterViewInit) rather
@@ -219,6 +229,8 @@
   });
 
   onDestroy(() => {
+    unsubscribeLocale?.();
+    unsubscribeLocale = null;
     rootRef?.removeEventListener('aparte-action', handleAction);
     teardown?.();
     teardown = null;
@@ -324,7 +336,7 @@
           streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
       </slot>
     {/each}
-    <aparte-chat-status visible={typingActive ? '' : null} text={typingText}></aparte-chat-status>
+    <aparte-chat-status visible={typingActive ? '' : null} text={typingLabel}></aparte-chat-status>
   </aparte-chat-viewport>
 
   <!-- The presenter for a request to the human (approval gate, ask_user…). Renders

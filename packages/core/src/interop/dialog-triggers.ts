@@ -4,8 +4,8 @@
  * The kit's dialog is the browser's `<dialog>` wearing `.aparte-dialog`
  * (`styles/surface/dialog.css`): `showModal()` gives the top layer, the focus trap,
  * Escape and the focus return, so there is no behaviour left for a custom element to
- * own — and wrapping the host's content in one would have moved children a framework
- * renders, which is the one thing a light-DOM element must not do. What the browser
+ * own — and wrapping the host's content in one would move children a framework
+ * renders, which a light-DOM element must not do. What the browser
  * does NOT give is a way to open a dialog from a button without a line of script, or
  * to close it from the backdrop. That is what this installs, once per document:
  *
@@ -30,7 +30,7 @@ const INSTALLED = Symbol.for('aparte.dialogTriggers');
  * directions (press outside → release inside targets the backdrop too).
  *
  * So the backdrop dismissal asks for both ends on the backdrop. The cost is that a
- * programmatic `dialog.click()` no longer closes the dialog: it never pressed anything.
+ * programmatic `dialog.click()` does not close the dialog: it never pressed anything.
  * That is the right trade — `close()` is the API for closing a dialog.
  */
 let pressTarget: EventTarget | null = null;

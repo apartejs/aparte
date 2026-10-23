@@ -138,6 +138,8 @@ describe('AparteChat.svelte', () => {
         await tick();
 
         expect(status?.getAttribute('visible')).toBe('');
+        // The word comes from the locale (it was 'Assistant is thinking...' in every language).
+        expect(status?.getAttribute('text')).toBe('Typing');
     });
 
     it('dispatches messageSent when the composer fires aparte-send', async () => {
@@ -429,6 +431,16 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
         expect(box.querySelector('.aparte-viewport-loading')).toBeNull();
         expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('says the wait and the typing line in the language the config switches to', async () => {
+        const config = new AparteConfig();
+        const { container } = render(AparteChat, { messages: [], config, loading: true });
+        await tick();
+        config.setLocale({ ...config.getLocale(), loadingConversation: 'Chargement de la conversation', typing: 'Réflexion en cours' });
+        await tick();
+        expect(container.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Chargement de la conversation');
+        expect(container.querySelector('aparte-chat-status')?.getAttribute('text')).toBe('Réflexion en cours');
     });
 
     it('keeps a disabled the consumer set once the wait ends', async () => {

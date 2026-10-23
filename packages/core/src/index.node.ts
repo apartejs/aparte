@@ -3,7 +3,10 @@
  *
  * Resolved via the `node` export condition, so `import '@aparte/core'` in Node
  * (Next.js / Nuxt / Angular Universal / SvelteKit server, tsx, CLI tools) loads
- * THIS module instead of the browser entry. It exposes the same public API
+ * THIS module instead of the browser entry — and via `worker`, `workerd`,
+ * `edge-light`, `deno` and `bun` for a Cloudflare Worker, an edge route or a
+ * `target: 'webworker'` build. A worker built with the page's conditions imports it
+ * by name, as `@aparte/core/headless`. It exposes the same public API
  * surface MINUS the Web Components and CSS side-effects — importing the real
  * `index.ts` in Node throws `HTMLElement is not defined` because the custom
  * elements extend `HTMLElement` at module scope.
@@ -33,6 +36,7 @@ export type {
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
     AparteSegment,
+    AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
     AparteThinkingSegment,
@@ -103,6 +107,7 @@ export type {
     AparteToolContext,
     AparteToolRenderer,
     AparteToolSummary,
+    AparteToolInputFormatter,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,
@@ -242,6 +247,7 @@ export type {
     AparteActionZone,
     AparteIconProvider,
     AparteIconName,
+    AparteCoreIconName,
     AparteAvatarProvider,
     AparteStatusRenderer,
     AparteErrorRenderer,
@@ -349,8 +355,11 @@ export function registerAllComponents(): void {
         console.warn(
             "[aparte] A DOM is present but '@aparte/core' resolved to its DOM-free Node entry, "
                 + 'so no <aparte-*> element will upgrade. Test runners hit this: they run on Node, '
-                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser' "
-                + "(vitest: test.alias { '@aparte/core': '@aparte/core/browser' }).",
+                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser', "
+                // The bare specifier only: a string alias is a PREFIX, and would send
+                // '@aparte/core/icons' to '@aparte/core/browser/icons', which does not exist.
+                + "matching the bare specifier only (vitest: test.alias "
+                + "[{ find: /^@aparte\\/core$/, replacement: '@aparte/core/browser' }]).",
         );
     }
 }

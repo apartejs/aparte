@@ -125,6 +125,21 @@ describe('chat() hands the worker the conversation, not a flattening of it', () 
         expect(generate.runner).toBe(new URL('./runners/mine.js', location.href).href);
         expect(generate.runner).toMatch(/^https?:\/\//);
     });
+
+    it('takes the model\'s maxTokens when the request sets none, and the request\'s when it does', async () => {
+        registerModel({ id: 'Test/Capped', name: 'Capped', capabilities: ['streaming'], maxTokens: 300 });
+        void TransformersProvider.chat({ modelId: 'Test/Capped', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const first = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(first.options.maxTokens).toBe(300);
+
+        terminateWorker();
+        workerPostMessage.mockClear();
+        void TransformersProvider.chat({ modelId: 'Test/Capped', maxTokens: 50, messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const second = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(second.options.maxTokens).toBe(50);
+    });
 });
 
 describe('what comes back from the worker', () => {
@@ -331,6 +346,20 @@ describe('deleteCachedModel', () => {
         expect(deleteMock).toHaveBeenCalledTimes(2);
     });
 
+    it('leaves a sibling whose id starts with the same name', async () => {
+        const modelId = 'onnx-community/Qwen2.5-0.5B';
+        const sibling = 'onnx-community/Qwen2.5-0.5B-Instruct';
+        const { deleteMock } = stubCaches([
+            { url: `https://huggingface.co/${modelId}/resolve/main/config.json` },
+            { url: `https://huggingface.co/${sibling}/resolve/main/config.json` },
+            { url: `https://huggingface.co/${sibling}/resolve/main/onnx/model_q4.onnx` },
+        ]);
+
+        await deleteCachedModel(modelId);
+        expect(deleteMock).toHaveBeenCalledTimes(1);
+        expect((deleteMock.mock.calls[0]![0] as { url: string }).url).toContain(`${modelId}/resolve`);
+    });
+
     it('deletes nothing when no entries match the model', async () => {
         const { deleteMock } = stubCaches([
             { url: 'https://cdn.example.com/other-model/config.json' },
@@ -387,21 +416,12 @@ describe('fetchModels / getModels — cache persistence', () => {
         expect(models.find(m => m.id === 'Test/Reg-C-ONNX')).toBeDefined();
     });
 
-    it('adds a cache-only model to getModels() after fetchModels()', async () => {
-        const modelId = 'Org/FetchModels-CacheOnly-Test-ONNX';
-        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).not.toContain(modelId);
-
-        stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/config.json`, size: 256 }]);
-        await TransformersProvider.fetchModels!();
-
-        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).toContain(modelId);
-    });
-
-    it('fetchModels() return value includes the cache-only model', async () => {
-        const modelId = 'Org/FetchModels-Return-Test-ONNX';
+    it('does not list a cached model nobody registered — an embedder of the app, say', async () => {
+        const modelId = 'Xenova/all-MiniLM-L6-v2';
         stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/config.json`, size: 256 }]);
         const fetched = await TransformersProvider.fetchModels!();
-        expect(fetched.find(m => m.id === modelId)).toBeDefined();
+        expect(fetched.find(m => m.id === modelId)).toBeUndefined();
+        expect((TransformersProvider.getModels() as { id: string }[]).map(m => m.id)).not.toContain(modelId);
     });
 });
 
@@ -421,6 +441,12 @@ describe('getModelStatus', () => {
         stubCaches([{ url: `https://huggingface.co/${modelId}/resolve/main/model.onnx` }]);
         const status = await TransformersProvider.getModelStatus!(modelId);
         expect(status).toBe('cached');
+    });
+
+    it('is not "cached" because a longer sibling is', async () => {
+        stubCaches([{ url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/model.onnx' }]);
+        const status = await TransformersProvider.getModelStatus!('onnx-community/Qwen2.5-0.5B');
+        expect(status).toBe('not-downloaded');
     });
 
     it('returns "ready" when the model is loaded in the worker', async () => {
@@ -451,6 +477,7 @@ describe('cache eviction on pipeline-ready', () => {
         const keepId = 'onnx-community/Qwen2.5-0.5B-ONNX';
         const evictId = 'onnx-community/Llama-3.2-1B-ONNX';
 
+        registerModel({ id: evictId, name: 'Llama', capabilities: ['streaming'] });
         setMaxCachedModels(1);
         const { deleteMock } = stubCaches([
             { url: `https://huggingface.co/${keepId}/resolve/main/config.json`, size: 100 },
@@ -467,6 +494,24 @@ describe('cache eviction on pipeline-ready', () => {
         expect(deleteMock).toHaveBeenCalled();
         const deleted = deleteMock.mock.calls[0]![0] as { url: string };
         expect(deleted.url).toContain(evictId);
+    });
+
+    it('neither counts nor evicts a cached model nobody registered', async () => {
+        const keepId = 'onnx-community/Qwen2.5-0.5B-ONNX';
+        const foreignId = 'Xenova/all-MiniLM-L6-v2';   // the app's own embedder, say
+
+        setMaxCachedModels(1);
+        const { deleteMock } = stubCaches([
+            { url: `https://huggingface.co/${keepId}/resolve/main/config.json`, size: 100 },
+            { url: `https://huggingface.co/${foreignId}/resolve/main/config.json`, size: 200 },
+        ]);
+
+        void TransformersProvider.prepareModel!(keepId, vi.fn()).catch(() => {});
+        const [, msgHandler] = workerAddEventListener.mock.calls.find((args) => args[0] === 'message')!;
+        msgHandler({ data: { type: 'pipeline-ready', modelId: keepId } });
+
+        await new Promise(r => setTimeout(r, 0));
+        expect(deleteMock).not.toHaveBeenCalled();
     });
 
     it('does not evict when the limit is 0 (unlimited)', async () => {

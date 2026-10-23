@@ -39,6 +39,20 @@ export interface BackendTransportOptions {
  * {@link createAparteChatHandler} (Web `fetch` API, same `@aparte/*` adapters run
  * server-side, key held server-side). Drop it into a Next.js route handler,
  * Deno, Bun, or a Worker rather than hand-rolling one.
+ *
+ * The page still registers a provider under each id the route knows: the client
+ * reads a model's capabilities from it and refuses to send to an id it does not
+ * have. Nothing of that provider runs in the page — no request is built from it and
+ * its `chat()` is never called — so the keyless adapter is enough, or, for an id no
+ * client package exists for, a stub:
+ *
+ * @example
+ * aparteGlobalConfig.registerAIProvider({
+ *     id: 'internal',
+ *     getMetadata: () => ({ id: 'internal', name: 'Internal' }),
+ *     getModels: () => [{ id: 'house-model', name: 'House model', capabilities: ['streaming', 'function_calling'] }],
+ *     chat: () => { throw new Error('runs on the server'); },
+ * });
  */
 export class AparteBackendTransport implements AparteTransport {
     constructor(private readonly options: BackendTransportOptions) {}

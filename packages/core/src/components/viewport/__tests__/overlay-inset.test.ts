@@ -17,7 +17,7 @@ const roCallbacks: Array<() => void> = [];
 const observed: Element[] = [];
 
 class CapturingResizeObserver {
-    constructor(cb: () => void) { roCallbacks.push(cb); }
+    constructor(cb: ResizeObserverCallback) { roCallbacks.push(() => cb([], this as unknown as ResizeObserver)); }
     observe(el: Element): void { if (!observed.includes(el)) observed.push(el); }
     unobserve(): void {}
     disconnect(): void {}

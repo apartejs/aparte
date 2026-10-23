@@ -1,5 +1,29 @@
 # @aparte/locale-fr
 
+## 0.20.0
+
+### Minor Changes
+
+- 9a0a1d1: New `setupArtifacts({ open: true })` puts an Open button on the artifact card, which dispatches `aparte-artifact-open` with `{ artifact }` so the app can show it in a pane, a dialog or a tab of its own.
+
+  Off by default: the card cannot know where the app's pane is, and a button nothing answers would be a promise the library cannot keep. The event bubbles out of shadow roots and is typed (`ArtifactOpenEventDetail`) wherever the plugin is imported. Its label is the new locale key `openArtifact` ("Open", "Ouvrir").
+
+- e4fbecb: A conversation search that matches nothing now says so: the list shows a status line (new locale key `conversationSearchEmpty`, "No conversation matches") and carries `data-no-match`, and `sidebar.filter(query)` returns how many conversations match.
+
+  The filter moved into `<aparte-conversation-list>` as `filter(query)`, so the query holds through the list's renders — a conversation added while a search was typed used to appear unfiltered. The sidebar's search field and `filter()` call it on each list inside.
+
+- f8e91ab: A message whose bubble has a `name` is now named after it for screen readers ("Message from Camille"); without one it is still "Your message" or "Assistant response". The new locale key is `messageFrom`, with `{name}`.
+
+  The accessible name followed the role alone, so every message on the assistant's side — a human agent answering there included — was "Assistant response" while the page showed that person's name above it. A custom shell whose root carries its own `role` keeps its own label.
+
+- c1a2816: New `details` attribute on `<aparte-model-selector>`: each model shows its `description` and its `contextWindow` ("Long documents · 128K context") on a line under its name; the trigger keeps the name alone.
+
+  `<aparte-option>` takes that line as an `.aparte-option__meta` child, which the select's trigger and its width leave out and its filter searches. The context window's wording is the new locale key `modelContextWindow` ("{n} context", "{n} de contexte").
+
+- 395583d: An open question or approval panel can now be put aside, to read the transcript behind it: a chevron in its corner leaves a one-line "Waiting for your answer" bar that brings it back. The request stays open meanwhile, and the composer's button cannot send it until it is brought back: what is out of sight is not reviewed.
+
+  The panel takes the composer over and caps at half the viewport, so the reply it asks about could sit right behind it with no way to read it. Both kinds get the button, first in the corner, before a question's Skip. Two locale keys are new: `elicitationHide` ("Hide for now") and `elicitationWaiting` ("Waiting for your answer"), translated in `@aparte/locale-fr`. `--aparte-elic-dismiss-room` defaults to 104px (was 72px) to make room for the button; widen it as before for a locale whose "Skip" is wider.
+
 ## 0.19.3
 
 ### Patch Changes

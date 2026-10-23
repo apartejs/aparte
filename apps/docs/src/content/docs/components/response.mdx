@@ -54,8 +54,15 @@ setupStreamingMarkdownProvider(); // a reply while it streams
 | Variable | What it sets |
 | --- | --- |
 | `--aparte-content-font-size` | The size of the reply's text. |
-| `--aparte-content-color` | Its colour. |
+| `--aparte-content-color` | Its colour. Inside a message, `--aparte-message-content-text-user` or `-assistant` takes over when set. |
 | `--aparte-content-line-height` | Its line height. |
+
+A table takes the width of its columns, and scrolls sideways when it is wider than the reply.
+To have it fill the column instead, at the cost of the scroll:
+
+```css
+.aparte-content table { display: table; width: 100%; }
+```
 
 Another parser plugs in with `aparteGlobalConfig.setMarkdownProvider(fn)`, a function from
 Markdown to HTML. The sanitizer can be replaced with `setHtmlSanitizer()`.

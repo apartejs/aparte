@@ -77,11 +77,12 @@ registerModel({ id: 'my-org/my-model', name: 'Mine', capabilities: ['streaming']
 // runners/mine.js — served by your app; the worker imports it by URL
 export async function createRunner(ctx) {
   // ctx.transformers is the Transformers.js the page installed or mapped — never import your own
-  const { AutoTokenizer, AutoModelForCausalLM, TextStreamer } = ctx.transformers;
+  const { AutoTokenizer, AutoModelForCausalLM, TextStreamer, InterruptableStoppingCriteria } = ctx.transformers;
   const tokenizer = await AutoTokenizer.from_pretrained(ctx.modelId);
   const model = await AutoModelForCausalLM.from_pretrained(ctx.modelId, { dtype: ctx.dtype, device: ctx.device });
   return {
-    async generate({ messages, options, emit }) {
+    async generate({ messages, options, emit, signal }) {
+      if (signal.aborted) return;
       // messages arrive WITH their content parts — render them the way this model wants;
       // this one reads text, so the parts are flattened and tool turns left out
       const turns = messages
@@ -92,7 +93,10 @@ export async function createRunner(ctx) {
         skip_prompt: true, skip_special_tokens: true,
         callback_function: (text) => emit({ type: 'text', delta: text }),
       });
-      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 512, streamer });
+      // Stop: without this the model generates on to its ceiling, and the next reply waits behind it
+      const stopping = new InterruptableStoppingCriteria();
+      signal.addEventListener('abort', () => stopping.interrupt(), { once: true });
+      await model.generate({ ...inputs, max_new_tokens: options.maxTokens ?? 8192, streamer, stopping_criteria: stopping });
       // `done` is optional — the provider closes the stream when generate() resolves
     },
     // anything that is not a generation: the provider passes it through, untouched
@@ -121,14 +125,16 @@ one WebGPU pipeline, so a worker per chat would mean N copies resident in one ta
 the **same** model is the case this is for: they share the load, for free.
 
 Two chats on **different** models is the case that costs. They serialize on the one pipeline,
-and at the default budget of one cached model each turn can evict and reload gigabytes. The
-provider warns once when it sees it:
+so each turn unloads one model and loads the other. The cache budget adds to that: it is how
+many models stay **downloaded** in the browser's Cache API (disk, not memory: one model is
+loaded at a time whatever the budget), and at the default of one, a switch can delete the other
+model's weights and download them again. The provider warns once when it sees it:
 
 ```ts
 import { setMaxCachedModels, getMaxCachedModels } from '@aparte/provider-transformers';
 
-setMaxCachedModels(2);            // keep both resident, if the machine has the memory
-setMaxCachedModels(0);            // no limit — you are managing memory yourself
+setMaxCachedModels(2);            // keep both downloaded, if the browser's storage has room
+setMaxCachedModels(0);            // no limit — the browser's storage quota is the only bound
 getMaxCachedModels();             // the current budget
 ```
 

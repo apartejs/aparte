@@ -153,6 +153,9 @@ test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
     // `list.conversations` (a fresh array every notification) and the list fully
     // re-rendering in response, which replaced the very button Enter had just activated.
     await page.goto('/?scenario&fast');
+    // The rows come from the conversation manager, after the page: Tab pressed before they
+    // are drawn walks the page's other controls and never meets one.
+    await expect(page.locator(`${LIST} [data-conv-id]`)).toHaveCount(10);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
     const focusedRowId = () => page.evaluate(() => {
@@ -173,12 +176,15 @@ test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
     // The conversation opened…
     await expect(page.locator(`${LIST} [data-conv-id="${rowId}"] .aparte-conv-item__select`))
         .toHaveAttribute('aria-current', 'page');
-    // …and the focus is still inside that same row, not lost to the document.
-    const stillInRow = await page.evaluate(
-        (id) => !!(document.activeElement as HTMLElement | null)?.closest(`[data-conv-id="${id}"]`),
-        rowId,
-    );
-    expect(stillInRow, 'focus should remain inside the row after Enter selects it').toBe(true);
+    // …and the focus is still inside that same row, not lost to the document. Polled: the
+    // list puts the keyboard back on the row its re-render drew, a frame after the render.
+    await expect.poll(
+        () => page.evaluate(
+            (id) => !!(document.activeElement as HTMLElement | null)?.closest(`[data-conv-id="${id}"]`),
+            rowId,
+        ),
+        { message: 'focus should remain inside the row after Enter selects it' },
+    ).toBe(true);
 });
 
 test('a sidebar collapsed on a desktop opens again from the header', async ({ page }) => {
@@ -238,3 +244,43 @@ for (const moves of [false, true]) {
         await expect.poll(() => page.evaluate(() => (window as unknown as PressWindow).__selected)).toEqual(['b']);
     });
 }
+
+/*
+ * The welcome's slide, in every framework. `center-empty` / `centerWhenEmpty` slide the composer
+ * once a person is in the page (`data-glide`): under Angular the attribute lands on the
+ * `<aparte-chat>` host while the centring class is on its inner div, and the first send there
+ * snapped the composer down instead.
+ */
+test('the first send glides the composer down', async ({ page }) => {
+    await page.goto('/?scenario&fast');
+    await page.locator('#new-chat').click();   // a person in the page
+    await expect.poll(() => isEmpty(page)).toBe(true);
+    const editor = page.locator('aparte-composer-input [contenteditable], aparte-composer-input textarea').first();
+    await editor.fill('Write a haiku about web components.');
+    await page.evaluate(() => {
+        const composer = document.querySelector('aparte-composer')!;
+        const w = window as unknown as { __tops: number[]; __start: number };
+        // The start is read now, before the send: a jump can land before the first frame.
+        w.__start = Math.round(composer.getBoundingClientRect().top);
+        w.__tops = [];
+        const tick = (): void => {
+            w.__tops.push(Math.round(composer.getBoundingClientRect().top));
+            if (w.__tops.length < 60) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __tops: number[] }).__tops.length)).toBe(60);
+    const { tops, start } = await page.evaluate(() => {
+        const w = window as unknown as { __tops: number[]; __start: number };
+        return { tops: w.__tops, start: w.__start };
+    });
+    const end = tops[tops.length - 1]!;
+    expect(end - start, 'the composer went from the middle to the bottom').toBeGreaterThan(80);
+    // At least one frame on the way, not a count of them: a snap lands in one frame with nothing
+    // in between, while a glide's frame count is a measure of the machine — WebKit on a 2-vCPU
+    // runner draws the whole slide in two or three frames ([328,573,587…]), and "more than two"
+    // failed it there with the glide plainly happening.
+    const between = tops.filter((t) => t > start + 10 && t < end - 10).length;
+    expect(between, `a glide passes a frame in between (${JSON.stringify(tops)})`).toBeGreaterThanOrEqual(1);
+});

@@ -172,6 +172,23 @@ describe('aparte-chat-status — custom renderStatus (charter §6)', () => {
         el.remove();
     });
 
+    it('asks the renderer again when the text changes', () => {
+        aparteGlobalConfig.setStatusRenderer((text) => {
+            const el = document.createElement('span');
+            el.className = 'my-typing';
+            el.textContent = text;
+            return el;
+        });
+        const el = document.createElement('aparte-chat-status');
+        el.setAttribute('text', 'Searching');
+        document.body.appendChild(el);
+        el.setAttribute('text', 'Reading 3 pages');
+        expect(el.querySelectorAll('.my-typing')).toHaveLength(1);
+        expect(el.querySelector('.my-typing')!.textContent).toBe('Reading 3 pages');
+        expect(el.querySelector('.aparte-status-container')!.getAttribute('aria-label')).toBe('Reading 3 pages');
+        el.remove();
+    });
+
     it('accepts an HTML string from the renderer', () => {
         aparteGlobalConfig.setStatusRenderer(() => '<div class="str-typing">…</div>');
         const el = document.createElement('aparte-chat-status');

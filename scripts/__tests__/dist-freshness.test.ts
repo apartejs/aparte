@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 // The rule itself, called directly: these cases are about WHICH files it looks at,
 // and running the gate step instead would only tell us the verdict.
-import { distFreshness } from '../dist-freshness.mjs';
+import { distFreshness, stampBuild } from '../dist-freshness.mjs';
 
 /** Three moments, far enough apart that no filesystem resolution can confuse them. */
 const T0 = new Date('2020-01-01T00:00:00Z');
@@ -103,6 +103,47 @@ describe('dist-freshness reads the built JavaScript', () => {
             'dist/index.js': T1,
         });
         expect(distFreshness({ dirs: [dir] }).stale).toEqual([]);
+    });
+
+    /*
+     * The record is the build's, not the check's. It used to be written only when the
+     * check passed, so a build the check never saw (a pre-push hook, an e2e run) left an
+     * older hash behind; the next `gen` bumped an mtime with the same bytes, the check
+     * compared against that older hash, and failed a dist that was current.
+     */
+    it('a build records its src, so a later touch with the same bytes is not stale', () => {
+        const dir = pkg('stamped', { 'src/index.ts': T0, 'dist/index.js': T1 });
+        expect(stampBuild(dir)).toBe(true);
+        utimesSync(join(dir, 'src/index.ts'), T2, T2);
+        const { stale, mtimeOnly } = distFreshness({ dirs: [dir] });
+        expect(stale).toEqual([]);
+        expect(mtimeOnly.join()).toMatch(/stamped/);
+    });
+
+    it('an edit after the build is still stale, record or not', () => {
+        const dir = pkg('edited', { 'src/index.ts': T0, 'dist/index.js': T1 });
+        stampBuild(dir);
+        writeFileSync(join(dir, 'src/index.ts'), '// edited after the build\n');
+        utimesSync(join(dir, 'src/index.ts'), T2, T2);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/edited/);
+    });
+
+    it('records nothing when src was saved while the build ran: the emit predates it', () => {
+        // vite wrote the bundle from A, src was saved with B while tsc still ran, and the
+        // stamp — the build's last command — would have recorded B for a dist built from A.
+        const dir = pkg('mid-build', { 'src/index.ts': T2, 'dist/index.js': T1 });
+        expect(stampBuild(dir)).toBe(false);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/mid-build/);
+    });
+
+    it('a refused stamp removes the one before it: a dist built from other bytes is not vouched for', () => {
+        // Built from B and stamped; then rebuilt from A while src went back to B mid-build.
+        // The refusal kept B's record, and the check, finding B in src, called A's dist current.
+        const dir = pkg('refused', { 'src/index.ts': T0, 'dist/index.js': T1 });
+        expect(stampBuild(dir)).toBe(true);
+        utimesSync(join(dir, 'src/index.ts'), T2, T2);
+        expect(stampBuild(dir)).toBe(false);
+        expect(distFreshness({ dirs: [dir] }).stale.join('\n')).toMatch(/refused.*no recorded hash/);
     });
 
     it('every directory handed in is actually walked', () => {

@@ -135,8 +135,15 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
         description: `${steps.length} ascending frame(s), ${Math.round(ascent)}px ascent, biggest step ${Math.round(Math.max(0, ...steps))}px`,
     });
 
-    // And it arrives.
-    const last = curve.at(-1)!;
-    expect(last.max - last.top, 'the transcript ends at the bottom').toBeLessThanOrEqual(2);
+    // And it arrives — read live, so a view that is still landing is waited for, and one
+    // that stopped short (the follow disarmed under it) still fails.
+    await expect.poll(
+        () => page.evaluate(() => {
+            const s = (document.querySelector('.aparte-viewport-container')
+                ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
+            return s.scrollHeight - s.clientHeight - s.scrollTop;
+        }),
+        { message: `the transcript ends at the bottom (the recorded curve ended at ${curve.at(-1)!.max - curve.at(-1)!.top}px)` },
+    ).toBeLessThanOrEqual(2);
     expect(errors, 'no runtime errors while probing').toEqual([]);
 });

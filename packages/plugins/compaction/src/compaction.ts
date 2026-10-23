@@ -174,6 +174,28 @@ const withAbort = <T>(work: Promise<T>, signal: AbortSignal): Promise<T> =>
 /** The setup per config, so a hot-reloading host does not stack listeners. */
 const controllers = new WeakMap<AparteConfig, CompactionController>();
 
+/**
+ * The configs whose setup answers the window's requests for any chat on them: listening,
+ * and not scoped to one chat. Only those make another setup step aside — a setup with
+ * `listen: false`, or one scoped to another chat, answers nothing for the rest. In the order
+ * they were set up: a chat whose config has none is answered by the first.
+ */
+const answering = new Set<AparteConfig>();
+
+/**
+ * The chats a listening setup is scoped to (`scopeToTargetId`), with how many setups name each:
+ * a chat named by a scoped setup is that setup's, and the others step aside for it.
+ */
+const scopedChats = new Map<string, number>();
+
+/**
+ * The `resolveTarget` of every listening, unscoped setup that brought its own, with how many
+ * setups pass each: a chat that is not on the page (a transcript in a store) is answered by the
+ * setup whose resolver knows it, and by none of the others. A scoped setup's resolver is not
+ * here — the chat it answers is in `scopedChats`, and it answers no other.
+ */
+const ownResolvers = new Map<(targetId?: string) => CompactionTarget | null, number>();
+
 const asTarget = (candidate: unknown, depth = 0): CompactionTarget | null => {
     if (!candidate || typeof candidate !== 'object' || depth > 1) return null;
     const el = candidate as Partial<CompactionTarget> & { viewport?: unknown };
@@ -313,33 +335,49 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     let disposed = false;
 
     /**
-     * Is a window event for this setup? Scoped: only the chat it names. On the global
-     * config: every event — the single-chat page, which must need no wiring. On a
-     * config of its own, the client's rule: answer a chat unless it demonstrably
-     * belongs to ANOTHER instance — one whose boundary (`attachConfig`) resolves a
-     * different, non-global config. Without this, two setups on two configs both
-     * answered every `aparte-compact`: two summaries, one of them from the wrong model.
+     * Is a window event for this setup? Scoped: only the chat it names. Otherwise a chat
+     * is answered by the setup on ITS OWN config (the one its boundary, `attachConfig`,
+     * resolves), and only when that config has none by another: the global setup answers
+     * every chat (the single-chat page, which must need no wiring), a setup on a config of
+     * its own answers a chat on the global config. Never both: a page with a global setup
+     * and an instance one answered a global chat twice — two summaries, one from the
+     * wrong model.
      */
     const addressed = (e: Event): boolean => {
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
         if (scope) return targetId === scope;
-        if (config === aparteGlobalConfig || typeof document === 'undefined') return true;
+        // A chat a scoped setup names is that setup's alone.
+        if (targetId && scopedChats.has(targetId)) return false;
+        if (typeof document === 'undefined') return true;
         const el = targetId
             ? document.getElementById(targetId)
             : document.querySelector<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
-        if (!el) return true;
-        const owner = resolveConfig(el);
-        return owner === config || owner === aparteGlobalConfig;
+        if (!el && targetId) {
+            // Not on the page: the setup whose own resolver knows it answers it, and only that
+            // one. When no resolver knows it, the routing below picks a setup as for any other
+            // chat, and that one says it found nothing: a request is never dropped in silence.
+            if (options.resolveTarget && resolveTarget(targetId)) return true;
+            for (const other of ownResolvers.keys()) if (other(targetId)) return false;
+        }
+        const owner = el ? resolveConfig(el) : aparteGlobalConfig;
+        if (owner === config) return true;
+        if (answering.has(owner)) return false;
+        if (config === aparteGlobalConfig) return true;
+        // A chat on the global config, which has no setup: one setup answers it, the first that
+        // answers for a whole config. Each of them did, and the chat was summarised — or
+        // reported missing — once per setup on the page.
+        return owner === aparteGlobalConfig && answering.values().next().value === config;
     };
     const onCompact = (e: Event): void => {
         if (!addressed(e)) return;
         void controller.compact((e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId);
     };
     const onAbort = (e: Event): void => {
-        if (!addressed(e) || !running) return;
-        // An abort that names another chat is not ours; an unnamed one stops whatever runs.
+        if (!running) return;
+        // An unnamed abort stops whatever runs. One that names a chat stops ours when it is
+        // the chat we compact — or, compacting an unnamed one, when it is a chat we answer.
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
-        if (targetId && running.targetId && targetId !== running.targetId) return;
+        if (targetId && (running.targetId ? targetId !== running.targetId : !addressed(e))) return;
         controller.abort();
     };
     const listening = options.listen !== false && typeof window !== 'undefined';
@@ -347,6 +385,10 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         window.addEventListener('aparte-compact', onCompact);
         window.addEventListener('aparte-abort', onAbort);
     }
+    if (listening && !scope) answering.add(config);
+    if (listening && scope) scopedChats.set(scope, (scopedChats.get(scope) ?? 0) + 1);
+    const ownResolver = listening && !scope ? options.resolveTarget : undefined;
+    if (ownResolver) ownResolvers.set(ownResolver, (ownResolvers.get(ownResolver) ?? 0) + 1);
 
     const controller: CompactionController = {
         get running() {
@@ -364,8 +406,21 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (listening) {
                 window.removeEventListener('aparte-compact', onCompact);
                 window.removeEventListener('aparte-abort', onAbort);
+                if (scope) {
+                    const left = (scopedChats.get(scope) ?? 1) - 1;
+                    if (left > 0) scopedChats.set(scope, left);
+                    else scopedChats.delete(scope);
+                }
             }
-            if (controllers.get(config) === controller) controllers.delete(config);
+            if (ownResolver) {
+                const left = (ownResolvers.get(ownResolver) ?? 1) - 1;
+                if (left > 0) ownResolvers.set(ownResolver, left);
+                else ownResolvers.delete(ownResolver);
+            }
+            if (controllers.get(config) === controller) {
+                controllers.delete(config);
+                answering.delete(config);
+            }
         },
 
         async compact(requested?: string): Promise<CompactionOutcome> {

@@ -29,7 +29,7 @@ import Variant from '../../../components/catalog/Variant.astro';
 }
 ```
 
-The chat's colours follow these eight: 241 of core's variables read another one, such as
+The chat's colours follow these eight: 240 of core's variables read another one, such as
 `--aparte-input-bg`, which is `var(--aparte-surface-1)`, or `--aparte-avatar-bg-user`, which is
 `var(--aparte-primary)`. Set the bases, not each value they feed. The block wins whichever
 stylesheet loads first, and its second selector keeps it on an element
@@ -45,7 +45,8 @@ your page too (`body { background: var(--aparte-bg); }`).
 ### The text on a fill
 
 ```css
-:root {
+:root,
+[data-aparte-theme="light"] {
   --aparte-primary: #1a1a2e;
   --aparte-on-primary: #f8fafc;
 }
@@ -165,15 +166,17 @@ class with `className` and write `[data-aparte-chat].chat`.
 ### Give the assistant a bubble too
 
 ```css
-aparte-chat.chat { --aparte-message-content-bg-assistant: var(--aparte-surface-2); }
-.aparte-message[data-role="assistant"] .aparte-message-content {
-  width: fit-content;
-  padding: var(--aparte-message-content-padding);
+aparte-chat.chat {
+  --aparte-message-content-bg-assistant: var(--aparte-surface-2);
+  --aparte-message-content-padding-assistant: var(--aparte-message-content-padding);
 }
+.aparte-message[data-role="assistant"] .aparte-message-content { width: fit-content; }
 ```
 
 The assistant's reply is plain text across the column by default, and only the person's words
-sit in a bubble. The token colours the reply; the rule gives it the user bubble's shape.
+sit in a bubble. The two tokens give the reply a ground and the user bubble's padding; the rule
+makes it hug its text. `--aparte-message-content-text-user` and `-assistant` colour each side's
+words, and fall back to `--aparte-content-color`.
 
 ### Resize the composer
 

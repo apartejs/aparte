@@ -1,5 +1,7 @@
 # @aparte/plugin-titler
 
+## 0.20.0
+
 ## 0.19.3
 
 ### Patch Changes

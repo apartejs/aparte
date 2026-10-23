@@ -1,8 +1,7 @@
 /**
  * A failed turn, rendered in the transcript rather than thrown.
  *
- * One renderer, one file. They lived in a single 1900-line module because there was
- * nowhere else to put them; the registry that consumes them is in
+ * One renderer, one file; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
 import { escapeHtml } from '../../utils/escape.js';
@@ -39,10 +38,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
     `;
     },
     /**
-     * The icon and the heading. The heading used to be the hardcoded literal `Error`
-     * while `locale.error` — a REQUIRED key, documented, and already translated to
-     * "Erreur" — was read by nothing at all. A translated string with no consumer and
-     * a literal with no translation, in the same card.
+     * The icon and the heading (`locale.error`).
      *
      * Not the message: that is the model's or the transport's text, in whatever
      * language it arrived in. Relabelling it would be inventing content.

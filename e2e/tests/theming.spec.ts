@@ -294,6 +294,27 @@ for (const order of ['host after core', 'host before core (Vite dev)'] as const)
 }
 
 /*
+ * A forced-light element inside the page. `data-aparte-theme="light"` puts core's light palette
+ * ON the element that carries it, so a rebrand written on `:root` alone is replaced there — the
+ * guide's rule is to name `[data-aparte-theme="light"]` beside `:root`. This holds that rule for a
+ * panel that is not the root, whichever sheet loads first and whatever the system says.
+ */
+for (const order of ['host after core', 'host before core (Vite dev)'] as const) {
+    for (const os of ['light', 'dark'] as const) {
+        test(`a light rebrand reaches a chat in a forced-light panel when it names the attribute: ${order}, OS ${os}`, async ({ page }) => {
+            const read = async (host: string) => {
+                const sheets = order === 'host after core' ? [CORE_THEME, host] : [host, CORE_THEME];
+                await page.setContent(`<!doctype html><html><head>${sheets.map((css) => `<style>${css}</style>`).join('')}</head><body><div data-aparte-theme="light"><aparte-chat></aparte-chat></div></body></html>`);
+                await page.emulateMedia({ colorScheme: os });
+                return cssVar(page, 'aparte-chat', '--aparte-primary');
+            };
+            expect(await read(`:root, [data-aparte-theme="light"] { --aparte-primary: ${HOST_LIGHT}; }`), 'the documented form').toBe(HOST_LIGHT);
+            expect(await read(`:root { --aparte-primary: ${HOST_LIGHT}; }`), 'the root alone is replaced on the panel — why the guide names the attribute').not.toBe(HOST_LIGHT);
+        });
+    }
+}
+
+/*
  * The menu's check mark. Every item of a panel that holds a checkable one keeps a gutter,
  * as a hidden glyph, so the labels share one edge — and the rule that does it weighs
  * (0,4,1), because `:has()` takes the weight of its argument. The rule that shows the glyph
@@ -319,4 +340,235 @@ test('a checked menu item shows its check; the others keep the gutter', async ({
     for (const mark of marks) expect(mark.content, 'every item keeps the gutter').not.toBe('none');
     expect(marks[1]!.visibility).toBe('hidden');
     expect(marks[2]!.visibility).toBe('hidden');
+});
+
+/*
+ * A message's ink, on the words. `--aparte-message-content-text-user` coloured the user's
+ * box, and the text inside painted `--aparte-content-color` over it, so the token reached no
+ * word. The relation tested: the words take the role's token, and without it the content
+ * colour wherever it is set, the message included.
+ */
+test("a role's ink reaches its words, and a content colour set on one message still does", async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'ink-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'ink-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const words = (role: string) => page.evaluate((r) => {
+        const el = document.querySelector(`aparte-chat-bubble[data-role="${r}"] .aparte-content`);
+        if (!el) throw new Error(`no ${r} text`);
+        return getComputedStyle(el).color;
+    }, role);
+    await expect.poll(() => words('user')).not.toBe('');
+    const assistantBefore = await words('assistant');
+
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-content-text-user', 'rgb(1, 2, 3)'));
+    expect(await words('user'), "the user's token reaches the user's words").toBe('rgb(1, 2, 3)');
+    expect(await words('assistant'), "and only the user's").toBe(assistantBefore);
+
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.removeProperty('--aparte-message-content-text-user');
+        const message = document.querySelector('aparte-chat-bubble[data-role="user"] .aparte-message') as HTMLElement;
+        // No role token here, whatever the page's skin says (the example's sets one): `initial`
+        // is the guaranteed-invalid value, so the fallback is what the words read.
+        message.style.setProperty('--aparte-message-content-text-user', 'initial');
+        message.style.setProperty('--aparte-content-color', 'rgb(4, 5, 6)');
+    });
+    expect(await words('user'), 'a content colour scoped on one message still reaches its words').toBe('rgb(4, 5, 6)');
+});
+
+test("the assistant's box takes its own padding token, none by default", async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'pad-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const padding = () => page.evaluate(() => {
+        const box = document.querySelector('aparte-chat-bubble[data-role="assistant"] .aparte-message-content');
+        if (!box) throw new Error('no assistant box');
+        return getComputedStyle(box).paddingTop;
+    });
+    await expect.poll(padding).toBe('0px');
+    await page.evaluate(() => (document.querySelector('aparte-chat') as HTMLElement).style.setProperty('--aparte-message-content-padding-assistant', '7px'));
+    expect(await padding()).toBe('7px');
+});
+
+/*
+ * The compaction notice. Its ground and ink were properties on the box at (0,2,1), under the
+ * role's rule at (0,3,0): the notice wore the user's bubble. Compared with probes that read the
+ * intended tokens in the same chat, so a palette change does not redden it.
+ */
+test('the compaction notice is drawn muted, not as the user bubble', async ({ page }) => {
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'cmp', role: 'user', content: 'Summary of the earlier turns.', timestamp: Date.now(), compaction: true });
+    });
+    await expect(page.locator('aparte-chat-bubble[data-kind="compaction"] .aparte-content')).toHaveText(/Summary/);
+    const drawn = await page.evaluate(() => {
+        const bubble = document.querySelector('aparte-chat-bubble[data-kind="compaction"]')!;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'background: var(--aparte-surface-2); color: var(--aparte-text-muted); font-size: var(--aparte-font-size-sm)';
+        document.querySelector('aparte-chat')!.appendChild(probe);
+        const want = getComputedStyle(probe);
+        const box = getComputedStyle(bubble.querySelector('.aparte-message-content')!);
+        const words = getComputedStyle(bubble.querySelector('.aparte-content')!);
+        const out = {
+            bg: [box.backgroundColor, want.backgroundColor],
+            ink: [words.color, want.color],
+            size: [words.fontSize, want.fontSize],
+        };
+        probe.remove();
+        return out;
+    });
+    expect(drawn.bg[0], 'the muted ground').toBe(drawn.bg[1]);
+    expect(drawn.ink[0], 'the muted ink, on the words').toBe(drawn.ink[1]);
+    expect(drawn.size[0], 'the small size, on the words').toBe(drawn.size[1]);
+});
+
+/*
+ * The mark on a menu row. The row's own transparent ground (same weight, later sheet) erased the
+ * mark's tint, and in a checkable menu the mark's bar and the check gutter shared `::before`:
+ * the gutter left the flow and the marked row's label moved to the start edge.
+ */
+test('a marked menu row shows the tint, and keeps the check gutter in a checkable menu', async ({ page }) => {
+    const drawn = await page.evaluate(() => {
+        const host = document.querySelector('aparte-chat')!;
+        const reference = document.createElement('div');
+        reference.className = 'aparte-mark';
+        const plain = document.createElement('div');
+        plain.className = 'aparte-menu';
+        plain.setAttribute('role', 'menu');
+        plain.innerHTML = '<button class="aparte-menu__item aparte-mark" role="menuitem">Here</button>';
+        const checkable = document.createElement('div');
+        checkable.className = 'aparte-menu';
+        checkable.setAttribute('role', 'menu');
+        checkable.innerHTML =
+            '<button class="aparte-menu__item aparte-mark" role="menuitemradio" aria-checked="true"><span>Ask</span></button>' +
+            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="false"><span>Auto</span></button>' +
+            // A quiet mark hides its bar (`::before { display: none }`) — not the check gutter.
+            '<button class="aparte-menu__item aparte-mark aparte-mark--quiet" role="menuitemradio" aria-checked="false"><span>Plan</span></button>';
+        host.append(reference, plain, checkable);
+        const [marked, other, quiet] = [...checkable.querySelectorAll('span')].map((s) => s.getBoundingClientRect().left);
+        const out = {
+            tint: getComputedStyle(reference).backgroundColor,
+            row: getComputedStyle(plain.firstElementChild!).backgroundColor,
+            checkedRow: getComputedStyle(checkable.firstElementChild!).backgroundColor,
+            labels: [marked, other, quiet],
+            check: getComputedStyle(checkable.firstElementChild!, '::before').visibility,
+        };
+        reference.remove(); plain.remove(); checkable.remove();
+        return out;
+    });
+    expect(drawn.tint, 'the mark has a tint to compare with').not.toBe('rgba(0, 0, 0, 0)');
+    expect(drawn.row, 'a marked menu row wears it').toBe(drawn.tint);
+    expect(drawn.checkedRow).toBe(drawn.tint);
+    expect(drawn.labels[0], 'the marked row keeps the gutter: both labels share one edge').toBeCloseTo(drawn.labels[1]!, 0);
+    expect(drawn.labels[2], 'a quiet marked row keeps it too').toBeCloseTo(drawn.labels[1]!, 0);
+    expect(drawn.check, 'and shows its check').toBe('visible');
+});
+
+/*
+ * A picture from the stylesheet alone. The slot is hidden while empty, so
+ * `--aparte-avatar-image-assistant` painted nothing without a provider writing into it.
+ */
+test('an avatar picture named in the stylesheet alone shows, for its role only', async ({ page }, testInfo) => {
+    // The example's skin hides every message avatar (the product it copies has none);
+    // vanilla-dist wears no skin, so only there is the slot core's to show.
+    test.skip(!testInfo.project.name.startsWith('vanilla-dist'), "the vanilla example's skin hides avatars");
+    await page.evaluate(() => {
+        (document.querySelector('aparte-chat') as HTMLElement).style.setProperty(
+            '--aparte-avatar-image-assistant',
+            `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'/%3E")`,
+        );
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'av-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'av-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    const avatar = (role: string) => page.evaluate((r) => {
+        const el = document.querySelector(`aparte-chat-bubble[data-role="${r}"] .aparte-avatar`);
+        if (!el) throw new Error(`no ${r} avatar slot`);
+        const s = getComputedStyle(el);
+        return { display: s.display, width: el.getBoundingClientRect().width, image: s.backgroundImage };
+    }, role);
+    await expect.poll(async () => (await avatar('assistant')).display).not.toBe('none');
+    const assistant = await avatar('assistant');
+    expect(assistant.width, 'the slot takes its size').toBeGreaterThan(0);
+    expect(assistant.image, 'and paints the picture').toContain('data:image/svg+xml');
+    expect((await avatar('user')).display, "the user's token is none: no slot").toBe('none');
+});
+
+/*
+ * The role's ink and the assistant's padding go through tokens, not heavier rules: a host's
+ * one-class rule on the words, or its padding on the box, wins as it did before them.
+ */
+test("a host's own rule on the words and on the box still wins", async ({ page }) => {
+    await page.evaluate(() => {
+        // The padding BEFORE core's sheets (the Vite dev order), the colour after them.
+        const early = document.createElement('style');
+        early.textContent = 'aparte-chat .aparte-message-content { padding: 11px; }';
+        document.head.prepend(early);
+        const late = document.createElement('style');
+        late.textContent = '.aparte-content { color: rgb(7, 8, 9); }';
+        document.head.append(late);
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'own-u', role: 'user', content: 'mine', timestamp: Date.now() });
+        vp.appendMessage({ id: 'own-a', role: 'assistant', content: 'theirs', timestamp: Date.now() });
+    });
+    await expect(page.locator('aparte-chat-bubble[data-role="assistant"] .aparte-content')).toHaveText(/theirs/);
+    const drawn = await page.evaluate(() => {
+        const of = (role: string, sel: string) => getComputedStyle(document.querySelector(`aparte-chat-bubble[data-role="${role}"] ${sel}`)!);
+        return { user: of('user', '.aparte-content').color, assistant: of('assistant', '.aparte-content').color, pad: of('assistant', '.aparte-message-content').paddingTop };
+    });
+    expect(drawn.user, "the host's colour on the user's words").toBe('rgb(7, 8, 9)');
+    expect(drawn.assistant, "and on the assistant's").toBe('rgb(7, 8, 9)');
+    expect(drawn.pad, "the host's padding reaches the assistant's box").toBe('11px');
+});
+
+/*
+ * Compact density on demand. The narrow container tightened the messages under 520px only, so
+ * a widget wider than that had no switch for the same measures.
+ */
+test('aparte-chat--compact tightens the messages at any width', async ({ page }) => {
+    const read = () => page.evaluate(() => {
+        const chat = document.querySelector('aparte-chat') as HTMLElement;
+        const message = chat.querySelector('aparte-chat-bubble .aparte-message') as HTMLElement;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'padding-top: var(--aparte-space-6)';
+        chat.appendChild(probe);
+        const out = { message: getComputedStyle(message).paddingTop, compact: getComputedStyle(probe).paddingTop };
+        probe.remove();
+        return out;
+    });
+    await page.evaluate(() => {
+        const vp = document.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+        vp.appendMessage({ id: 'cmp-a', role: 'assistant', content: 'a reply', timestamp: Date.now() });
+    });
+    await expect(page.locator('aparte-chat-bubble .aparte-message').first()).toBeVisible();
+    const before = await read();
+    expect(before.message, 'the wide default first').not.toBe(before.compact);
+    await page.evaluate(() => document.querySelector('aparte-chat')!.classList.add('aparte-chat--compact'));
+    const after = await read();
+    expect(after.message).toBe(after.compact);
+});
+
+/*
+ * An option's second line goes under the label AND the status dot. The dot is appended as the
+ * option's last child, after the meta line, so with the meta taking a whole line of its own
+ * the dot fell alone onto a third one.
+ */
+test('an option with a meta line and a status dot keeps the dot beside its label', async ({ page }) => {
+    const rows = await page.evaluate(async () => {
+        const host = document.querySelector('aparte-chat')!;
+        const option = document.createElement('aparte-option');
+        option.setAttribute('value', 'x');
+        option.innerHTML = 'Model name<span class="aparte-option__meta">Long documents · 128K context</span>';
+        option.setAttribute('data-status', 'ready');
+        option.style.width = '320px';
+        host.append(option);
+        await new Promise((r) => requestAnimationFrame(r));
+        const dot = option.querySelector('.aparte-status-dot')!.getBoundingClientRect();
+        const meta = option.querySelector('.aparte-option__meta')!.getBoundingClientRect();
+        option.remove();
+        return { dotTop: dot.top, dotBottom: dot.bottom, metaTop: meta.top };
+    });
+    expect(rows.dotBottom, 'the dot sits on the label line, above the meta line').toBeLessThanOrEqual(rows.metaTop + 1);
 });

@@ -37,14 +37,10 @@ export interface AparteSendEventDetail {
 
     /**
      * Send THIS message to a specific model, overriding the config's default for one
-     * turn — a per-message model picker, the pattern several products now ship.
+     * turn — a per-message model picker.
      *
-     * `AparteClient` has honoured both fields for as long as it has read
-     * `event.detail`, while nothing declared them: the composer never sends them and
-     * this type did not name them, so the capability existed only for someone who
-     * read the client's source. A capability cited nowhere is invisible (ratified
-     * decision #4); declaring it is what makes it real. Dispatch your own
-     * `aparte-send` with them, or set them on the detail from a listener that runs
+     * `AparteClient` honours both fields. The composer never sends them: dispatch your
+     * own `aparte-send` with them, or set them on the detail from a listener that runs
      * before the client's (capture phase).
      */
     modelId?: string;
@@ -69,8 +65,7 @@ export interface AparteMessageDoneEventDetail {
      *
      * Stamped by the client's lifecycle dispatcher on EVERY lifecycle event so
      * several chats on one page stay isolated — a composer reacts only to its own
-     * host's turn. It was undeclared here while being sent at runtime, and the
-     * dispatcher takes `Record<string, unknown>`, so the compiler could not notice.
+     * host's turn.
      */
     targetId?: string;
     messageId: string;
@@ -87,10 +82,6 @@ export interface AparteMessageDoneEventDetail {
  * Detail payload for `aparte-model-change`.
  * Dispatched by `@aparte/plugin-model-selector` when the user picks a different
  * provider or model — the clearest cross-package contract in the set.
- *
- * Its `@event` tag used to sit above `AparteMessageDoneEventDetail`'s doc block
- * instead, so this interface had no documentation of its own and the other one
- * claimed to describe a different event.
  *
  * @event aparte-model-change
  */
@@ -338,7 +329,7 @@ export interface AparteMessageAbortedEventDetail {
  *
  * `AparteClient` listens for it on `window`; a bring-your-own-composer consumer
  * dispatches it to stop a stream. Nothing in core dispatches it on the consumer's
- * behalf, which is exactly why its shape had to be documented somewhere.
+ * behalf, so its shape is documented here.
  *
  * @event aparte-abort
  */

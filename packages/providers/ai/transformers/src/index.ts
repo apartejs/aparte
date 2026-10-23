@@ -119,6 +119,14 @@ export interface TransformersModelConfig {
      * the same Transformers.js instance the built-ins use. Wins over `task`.
      */
     runner?: string;
+    /**
+     * The most tokens a reply from this model may run to, unless the request sets its own
+     * `maxTokens`. Left unset, a built-in runner stops at 8192. With a built-in runner, whatever
+     * the ceiling, a reply also ends where the model's context window does, prompt included, and
+     * Stop interrupts it. A runner of your own receives `options.maxTokens` only when the request
+     * or this setting gives one, so it sets its own default (the README's example uses 8192).
+     */
+    maxTokens?: number;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */
     dtype?: Dtype;
     /** Not read: where models run is one setting for the page, {@link setComputeDevice}. */
@@ -129,7 +137,7 @@ export interface TransformersModelConfig {
 /** Models registered by the app via registerModel(). */
 const _registeredModels = new Map<string, TransformersModelConfig>();
 
-/** Mutable model list — populated by registerModel() and cache discovery. */
+/** Mutable model list — populated by registerModel(). */
 let _knownModels: AparteAIModel[] = [];
 
 /**
@@ -147,20 +155,17 @@ export function registerModel(config: TransformersModelConfig): void {
     }
 }
 
-/** Build an AparteAIModel entry from a cache-discovered modelId not in the registry. */
-function _modelFromCacheEntry(modelId: string): AparteAIModel {
-    const config = _registeredModels.get(modelId);
-    if (config) return { id: config.id, name: config.name, description: config.description, capabilities: config.capabilities };
-    const name = (modelId.split('/').pop() ?? modelId).replace(/-/g, ' ');
-    return { id: modelId, name, capabilities: ['streaming'] };
-}
-
 /** Max number of models to keep in cache. 0 = unlimited. Default: 1. */
 let _maxCachedModels = 1;
 
 /**
- * Set the maximum number of models to keep in cache. When exceeded after a new
- * model is ready, the oldest models are evicted. 0 = unlimited.
+ * Set the maximum number of models to keep downloaded in the browser's Cache API. When
+ * exceeded after a new model is ready, the oldest models' weights are deleted. 0 = unlimited.
+ * It bounds disk, not memory: one model is loaded at a time whatever the budget.
+ *
+ * The budget counts and evicts only the models given to {@link registerModel} (and the
+ * one just loaded). Other Transformers.js weights in the origin's cache, from your own
+ * pipelines or another library, are never counted and never deleted.
  */
 export function setMaxCachedModels(max: number): void {
     _maxCachedModels = max;
@@ -198,7 +203,11 @@ export function getComputeDevice(): ComputeDevice {
 async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
     if (_maxCachedModels === 0) return; // unlimited
     try {
-        const cached = await listCachedModels();
+        // Only the models this provider was given count: the Cache API is the origin's,
+        // and an app's own Transformers.js pipelines (an embedder, a second library) keep
+        // their weights there too. Counting them evicted a model we never loaded.
+        const cached = (await listCachedModels())
+            .filter(e => _registeredModels.has(e.modelId) || e.modelId === keepModelId);
         const inUse = new Set(_queuedModelIds.values());
         const others = cached.filter(e => e.modelId !== keepModelId && !inUse.has(e.modelId));
         const excess = cached.length - _maxCachedModels;
@@ -206,18 +215,6 @@ async function _enforceMaxCachedModels(keepModelId: string): Promise<void> {
         // Delete the excess models (oldest first — they appear first in cache scan order).
         for (let i = 0; i < excess && i < others.length; i++) {
             await deleteCachedModel(others[i]!.modelId);
-        }
-    } catch { /* cache unavailable */ }
-}
-
-/** Merge cached models into _knownModels (idempotent). Called by fetchModels(). */
-async function _refreshKnownModels(): Promise<void> {
-    try {
-        const cached = await listCachedModels();
-        for (const entry of cached) {
-            if (!_knownModels.find(m => m.id === entry.modelId)) {
-                _knownModels = [..._knownModels, _modelFromCacheEntry(entry.modelId)];
-            }
         }
     } catch { /* cache unavailable */ }
 }
@@ -288,12 +285,17 @@ function _warnIfContended(requested: string): void {
     const other = _contendingModelId(requested);
     if (!other) return;
     _warnedModelContention = true;
+    // Only a budget of one deletes a model the other chat needs: 0 is no limit, and two or
+    // more keep both chats' models downloaded.
+    const deletes = _maxCachedModels === 1
+        ? ` With a cache budget of 1, a switch also deletes the other model's downloaded weights `
+          + `and downloads them again; setMaxCachedModels(2) keeps both, if the browser's storage has room.`
+        : '';
     console.warn(
         `[Aparte] Two chats are driving different local models at once ("${requested}" behind `
         + `"${other}"). Transformers.js runs one pipeline per tab, so these generates are `
-        + `serialized, and with a cache budget of ${_maxCachedModels} each switch can evict and `
-        + `reload gigabytes of weights. Point both chats at one model, or raise the budget with `
-        + `setMaxCachedModels(2) if the machine has the memory. This warns once.`,
+        + `serialized: each switch unloads one model and loads the other.${deletes} Point both `
+        + `chats at one model to avoid it. This warns once.`,
     );
 }
 
@@ -514,7 +516,7 @@ function _handleWorkerMessage(event: MessageEvent): void {
             _loadedModelId = msg.modelId;
             _preparingModelId = null;
             // Evict models over the cache limit, then refresh the known list.
-            void _enforceMaxCachedModels(msg.modelId).then(() => _refreshKnownModels());
+            void _enforceMaxCachedModels(msg.modelId);
             break;
         }
         case 'gen-event': {
@@ -594,8 +596,12 @@ export const TransformersProvider: AparteAIProvider
         return _knownModels;
     },
 
+    /**
+     * The registered models. Only those: the Cache API is the origin's, and listing what it
+     * held offered an app's own embedder, or another library's model, as a chat model to
+     * pick. `listCachedModels()` still reports everything downloaded, for a settings panel.
+     */
     async fetchModels(): Promise<AparteAIModel[]> {
-        await _refreshKnownModels();
         return _knownModels;
     },
 
@@ -606,7 +612,7 @@ export const TransformersProvider: AparteAIProvider
     ): Promise<AparteChatResponse> {
         const requestId = uuid();
         const options = {
-            maxTokens: request.maxTokens,
+            maxTokens: request.maxTokens ?? _registeredModels.get(request.modelId)?.maxTokens,
             temperature: request.temperature,
             seed: request.seed,
         };
@@ -710,12 +716,11 @@ export const TransformersProvider: AparteAIProvider
         if (_preparingModelId === modelId) return 'cached';
         if ('caches' in globalThis) {
             try {
-                const encodedId = encodeURIComponent(modelId);
                 const names = await caches.keys();
                 for (const name of names) {
                     const cache = await caches.open(name);
                     const keys = await cache.keys();
-                    if (keys.some(r => r.url.includes(encodedId) || r.url.includes(modelId + '/'))) {
+                    if (keys.some(r => _modelIdOfUrl(r.url) === modelId)) {
                         return 'cached';
                     }
                 }
@@ -823,6 +828,20 @@ export function terminateWorker(): void {
     _warnedModelContention = false;
 }
 
+/**
+ * The model a cached file belongs to, read from its Hugging Face resolve path — or null.
+ * Every cache lookup matches on this, by equality: a substring match took a longer sibling
+ * with it (`Qwen2.5-0.5B` also matched `Qwen2.5-0.5B-Instruct`), so deleting one model
+ * deleted the other's weights.
+ *
+ * e.g. https://huggingface.co/onnx-community/Qwen2.5-0.5B/resolve/main/config.json
+ *   → onnx-community/Qwen2.5-0.5B
+ */
+function _modelIdOfUrl(url: string): string | null {
+    const m = url.match(/huggingface\.co\/([^/]+\/[^/]+)\/resolve\//);
+    return m ? decodeURIComponent(m[1]!) : null;
+}
+
 export interface CachedModelEntry {
     modelId: string;
     name: string;
@@ -841,13 +860,6 @@ export async function listCachedModels(): Promise<CachedModelEntry[]> {
 
     const found = new Map<string, { name: string; sizeBytes: number }>();
 
-    // e.g. https://huggingface.co/onnx-community/Qwen2.5-0.5B/resolve/main/config.json
-    //   → onnx-community/Qwen2.5-0.5B
-    function extractModelId(url: string): string | null {
-        const m = url.match(/huggingface\.co\/([^/]+\/[^/]+)\/resolve\//);
-        return m ? decodeURIComponent(m[1]!) : null;
-    }
-
     function modelName(modelId: string): string {
         const config = _registeredModels.get(modelId);
         if (config) return config.name;
@@ -861,7 +873,7 @@ export async function listCachedModels(): Promise<CachedModelEntry[]> {
                 const cache = await caches.open(cacheName);
                 const requests = await cache.keys();
                 for (const req of requests) {
-                    const modelId = extractModelId(req.url);
+                    const modelId = _modelIdOfUrl(req.url);
                     if (!modelId) continue;
                     if (!found.has(modelId)) {
                         found.set(modelId, { name: modelName(modelId), sizeBytes: 0 });
@@ -907,10 +919,9 @@ export async function deleteCachedModel(modelId: string): Promise<void> {
             try {
                 const cache = await caches.open(cacheName);
                 const requests = await cache.keys();
-                const encoded = encodeURIComponent(modelId);
                 await Promise.all(
                     requests
-                        .filter(r => r.url.includes(modelId) || r.url.includes(encoded))
+                        .filter(r => _modelIdOfUrl(r.url) === modelId)
                         .map(r => cache.delete(r)),
                 );
             } catch { /* skip */ }

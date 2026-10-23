@@ -146,6 +146,13 @@ aparte-chat[center-empty]::after {
   content: '';
   display: block;
   flex: 0 1 0%;
+}
+
+/* The slide waits for a person (`data-glide`, the first key, pointer or send — glide-gate.ts):
+   a conversation a script restores on load lands in one frame instead of sliding the composer
+   down under a reader who did nothing, a layout shift (CLS 0.14 on a phone). After that, a
+   send, an opened conversation or a new chat glides, both ways. */
+aparte-chat[center-empty][data-glide]::after {
   transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
 }
 
@@ -209,6 +216,10 @@ aparte-chat-viewport {
      framework-managed host must carry the same clearance in its ::after instead,
      because there the button is a sticky CHILD and padding would clamp it. */
   padding-bottom: var(--aparte-bottom-inset, 0px);
+  /* The top's counterpart, set by a host whose header floats over the transcript: the first
+     message starts below it, and a jump to a message (`scroll-padding`) lands below it too. */
+  padding-top: var(--aparte-top-inset, 0px);
+  scroll-padding-top: var(--aparte-top-inset, 0px);
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
@@ -323,6 +334,16 @@ aparte-chat-viewport[framework-managed] {
   /* Same gutter rule as `.aparte-viewport-container` above: the host is the scroll
      surface here, so it is the host that reserves it. */
   scrollbar-gutter: stable both-edges;
+  scroll-padding-top: var(--aparte-top-inset, 0px);
+}
+
+/* `--aparte-top-inset` here: a spacer before the first message rather than padding, which is a
+   shorthand of the viewport padding this rule cannot add to — the bottom's clearance is an
+   `::after` for the same family of reasons. */
+aparte-chat-viewport.aparte-viewport--framework::before,
+aparte-chat-viewport[framework-managed]::before {
+  content: '';
+  flex: 0 0 var(--aparte-top-inset, 0px);
 }
 
 /* The framework wrapper renders bubbles as DIRECT flex children of the viewport
@@ -464,6 +485,13 @@ aparte-chat-status:not([visible]) {
   content: '';
   display: block;
   flex: 0 1 0%;
+}
+
+/* Same wait as `center-empty` above. The host sets `data-glide` on the element it binds: the
+   root div under React, Vue and Svelte, which carries this class — and under Angular the
+   `<aparte-chat>` host, whose inner div does. */
+.aparte-chat-container--auto-center[data-glide]::after,
+[data-glide] > .aparte-chat-container--auto-center::after {
   transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
 }
 

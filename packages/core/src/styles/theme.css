@@ -192,6 +192,9 @@
      below (it was a frozen plum hex that outlived every rebrand); the assistant is
      plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
+  /* The assistant's box has no padding: its reply is prose across the column. A skin that
+     gives it a bubble sets this, as the user's box reads --aparte-message-content-padding. */
+  --aparte-message-content-padding-assistant: 0;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
@@ -282,7 +285,7 @@
      underline. No box, no fill, no border. */
   --aparte-elic-step-underline: 2px;
   /* Space kept clear at the end of the tab rail for the corner escape. */
-  --aparte-elic-dismiss-room: 72px;
+  --aparte-elic-dismiss-room: 104px;
 
   /* Code Blocks */
   --aparte-code-copy-hover-bg: rgba(0, 0, 0, 0.05);
@@ -906,6 +909,9 @@
      pressable zone: the rail clips, so a column narrower than the zone would cut the
      target back below 24px on the very edge a reader aims at. */
   --aparte-scroll-rail-width: max(var(--aparte-scroll-rail-hit-size), calc(var(--aparte-scroll-rail-tick-size) * 1.6));
+  /* The lane the chat leaves at its end edge while a rail is in it (scroll-rail.css): the
+     rail's column plus its inset, so no line runs under the ticks. */
+  --aparte-scroll-rail-room: calc(var(--aparte-scroll-rail-width) + var(--aparte-space-2));
   /* The distance between two ticks IS the zone minus the line: gap + thickness = the
      24px pitch, so the zones tile edge to edge. Growing the zone alone would have
      overlapped them by 14px and left the z-order to decide every press. */
@@ -1019,9 +1025,10 @@
      --aparte-scroll-btn-shadow: the whole ring is the knob, not its width. */
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
 
-  /* Messages */
-  --aparte-message-content-text-user: var(--aparte-text);
-  --aparte-message-content-text-assistant: var(--aparte-text);
+  /* Messages. The words' ink per role (`--aparte-message-content-text-user` / `-assistant`)
+     is declared nowhere on purpose: its default is the chat's `--aparte-content-color`, read
+     where the message is (components/bubble.css), so a content colour set on one message still
+     reaches its words. */
   /* The user's bubble: a wash of the accent over the card surface. It was a literal
      (`#efe7f6` light / `#2f2740` dark) — the one palette colour a consumer's eight-line
      rebrand could not reach, so a chat moved to a blue brand kept a plum bubble. Mixed

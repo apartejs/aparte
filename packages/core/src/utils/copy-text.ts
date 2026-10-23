@@ -17,10 +17,11 @@
  * the path clipboard.js and copy-to-clipboard take, for the same reason.
  *
  * Rejects when neither path could copy, so a caller's "copied" confirmation can stay
- * honest. `pnpm check:secure-context` refuses a bare `navigator.clipboard` anywhere but
- * here, so the sweep cannot come undone one call site at a time.
+ * honest.
  */
 export function copyText(text: string): Promise<void> {
+    // In this repo, `pnpm check:secure-context` refuses a bare `navigator.clipboard` anywhere
+    // but here, so the sweep cannot come undone one call site at a time.
     if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         return navigator.clipboard.writeText(text);
     }

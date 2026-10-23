@@ -43,8 +43,11 @@ function esc(value: unknown): string {
  *
  * @element aparte-model-selector
  * @attr {boolean} auto-select - Selects the first model as soon as one is available.
- * @attr {boolean} persist - Writes the selection back through the config, so it survives a reload.
+ * @attr {boolean} persist - Writes the selection into the config, which is what the next message is sent with.
+ *   Without it the picker only fires `aparte-model-change`, and applying the choice is the app's. It does not
+ *   outlive a reload on its own: that takes `setModelPreferenceProvider()` and `restoreModelPreference()`.
  * @attr {boolean} searchable - Adds the dropdown's filter field.
+ * @attr {boolean} details - Shows, under each model's name, its `description` and its `contextWindow` — the metadata a provider already declares. The trigger keeps the name alone; the filter searches the line too.
  * @attr {string} placeholder - Overrides the text shown while nothing is selected.
  * @attr {boolean} disabled - Disables the picker. Inside an `<aparte-composer>` it also follows the
  *   composer's own `disabled`, so a disabled composer does not leave its model picker operable.
@@ -64,6 +67,12 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     private _aparteSelect: AparteSelect | null = null;
     private _isLoading = false;
     private _isRendering = false;
+    /** A load was asked for while one ran; the running one goes round again. */
+    private _reloadQueued = false;
+    /** Bumped by {@link _restartLoading}: a load of an older generation discards its result. */
+    private _loadGeneration = 0;
+    /** The providers the current list was built from, as {@link _providersKey} gives them. */
+    private _loadedProvidersKey = '';
     private _expandedGroups: Set<string> = new Set();
 
     /**
@@ -89,14 +98,13 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     private _boundComposerChange = (): void => { this._syncDisabled(); };
 
     static get observedAttributes(): string[] {
-        return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled'];
+        return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled', 'details'];
     }
 
     async connectedCallback(): Promise<void> {
         this._cfg = resolveConfig(this);
-        // Reset loading flag so a fresh mount always does a full load
-        // (prevents a stale _isLoading=true from a previous mount blocking this one)
-        this._isLoading = false;
+        // A fresh mount always does a full load, whatever a previous mount left running.
+        this._restartLoading();
         this._providerModels = [];
 
         this._setupEventListeners();
@@ -106,6 +114,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._composer?.addEventListener('aparte-composer-change', this._boundComposerChange);
 
         // Seed selection from the resolved config first (handles race conditions)
+        this._seenConfigSelection = this._configSelectionKey();
         const config = this._cfg.getModelConfig();
         if (config.defaultProvider && config.defaultModel) {
             this._currentProviderId = config.defaultProvider;
@@ -114,10 +123,32 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._loadPersistedSelection();
         }
 
-        await this._loadAllProviderModels();
-        this._render();
-
+        // Subscribe BEFORE the first load, not after it. Importing this plugin defines the
+        // element, and a tag already in the page connects right then — before the module
+        // that imported it has run the rest of its body, which is where the providers get
+        // registered. Subscribed after the `await`, that registration fired into nothing
+        // and the picker stayed empty for the life of the page.
         this._subscribeToConfig();
+        if (await this._loadAllProviderModels()) this._render();
+    }
+
+    /**
+     * The config's own selection when this element last read it. A change to IT is someone
+     * choosing a model (an onboarding flow, `setModelConfig`); every other config change — a
+     * language, a provider, an icon — leaves the person's own pick alone. Compared with the
+     * pick instead, a pick made without `persist` (which writes nothing to the config) was
+     * put back to the config's default by the next unrelated change.
+     */
+    private _seenConfigSelection = '';
+
+    private _configSelectionKey(): string {
+        const c = this._cfg.getModelConfig();
+        return `${c.defaultProvider ?? ''}::${c.defaultModel ?? ''}`;
+    }
+
+    /** The registered providers, as one comparable string: what the list was built from. */
+    private _providersKey(): string {
+        return this._cfg.getAIProviders().map(p => p.id).join('\n');
     }
 
     /** Listen for configuration changes (e.g. from an onboarding flow). */
@@ -125,12 +156,13 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._configUnsubscribe?.();
         this._configUnsubscribe = this._cfg.subscribe(() => {
             void (async () => {
-                const cfg = this._cfg.getModelConfig();
-
-                // Guard: only react if the model config actually changed relative to our state
-                if (cfg.defaultProvider === this._currentProviderId &&
-                    cfg.defaultModel === this._currentModelId &&
-                    this._providerModels.length > 0) {
+                // Guard: only react if the model config actually changed relative to what we
+                // read — its selection, or the set of providers the list was built from
+                // (an app that registers a provider once a key is typed in its settings).
+                const selectionMoved = this._configSelectionKey() !== this._seenConfigSelection;
+                if (!selectionMoved &&
+                    this._providerModels.length > 0 &&
+                    this._providersKey() === this._loadedProvidersKey) {
                     // …but a config change is not only a MODEL change. A language
                     // switch fires this subscription too, hit this guard, and left
                     // the placeholder in the previous language — the one string this
@@ -146,9 +178,11 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     return;
                 }
 
-                this._loadPersistedSelection();
-                await this._loadAllProviderModels();
-                this._render();
+                if (selectionMoved) {
+                    this._seenConfigSelection = this._configSelectionKey();
+                    this._loadPersistedSelection();
+                }
+                if (await this._loadAllProviderModels()) this._render();
             })();
         });
     }
@@ -163,6 +197,35 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         if (!this._aparteSelect) return;
         const fromLocale = this._cfg.getLocale()['modelSelectorPlaceholder'] || 'Select a model...';
         this._aparteSelect.setAttribute('placeholder', this.getAttribute('placeholder') || fromLocale);
+        // The `details` lines are locale text too ("{n} context", the number's format): written
+        // in place, so an open list and a typed search survive the language switch.
+        if (!this.hasAttribute('details')) return;
+        // One lookup of the options and one number format for the whole list: a catalogue
+        // of hundreds of models is relabelled on every config change.
+        const options = new Map(Array.from(this.querySelectorAll('aparte-option'), (o) => [o.getAttribute('value'), o]));
+        const tokens = this._tokenFormat();
+        for (const pm of this._providerModels) {
+            for (const m of pm.models) {
+                const line = options.get(`${pm.provider.id}::${m.id}`)?.querySelector('.aparte-option__meta');
+                if (line) line.textContent = this._metaText(m, tokens);
+            }
+        }
+    }
+
+    /** How a token count is written in the locale's language: 128K, 128 k… */
+    private _tokenFormat(): Intl.NumberFormat {
+        return new Intl.NumberFormat(this._cfg.getLocale().tag || undefined, { notation: 'compact', maximumFractionDigits: 1 });
+    }
+
+    /** The line under a model's name with `details`: what its provider declares about it. */
+    private _metaText(m: { description?: string; contextWindow?: number }, tokens: Intl.NumberFormat): string {
+        const parts: string[] = [];
+        if (m.description) parts.push(m.description);
+        if (m.contextWindow && m.contextWindow > 0) {
+            const size = tokens.format(m.contextWindow);
+            parts.push((this._cfg.t('modelContextWindow') || '{n} context').replace('{n}', () => size));
+        }
+        return parts.join(' · ');
     }
 
     disconnectedCallback(): void {
@@ -188,8 +251,9 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._cfg = next;
         if (!this.isConnected) return;
         void (async () => {
-            this._isLoading = false;
+            this._restartLoading();
             this._providerModels = [];
+            this._seenConfigSelection = this._configSelectionKey();
             const model = this._cfg.getModelConfig();
             if (model.defaultProvider && model.defaultModel) {
                 this._currentProviderId = model.defaultProvider;
@@ -197,9 +261,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             } else {
                 this._loadPersistedSelection();
             }
-            await this._loadAllProviderModels();
-            this._render();
             this._subscribeToConfig();
+            if (await this._loadAllProviderModels()) this._render();
         })();
     }
 
@@ -240,55 +303,94 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     // Data Loading
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async _loadAllProviderModels(): Promise<void> {
-        if (this._isLoading) return;
-        this._isLoading = true;
-
-        try {
-            const providers = this._cfg.getAIProviders();
-
-            // Deduplicate providers by ID just in case
-            const uniqueProviders = Array.from(new Map(providers.map(p => [p.id, p])).values());
-
-            const config = this._cfg.getModelConfig();
-
-            // Store in a temporary list to avoid mid-render state corruption.
-            //
-            // Indexed by REGISTRATION order, not filled by completion order. The
-            // fetches run in parallel, so a `push` here ordered the dropdown — and
-            // therefore what `auto-select` picks — by whichever /models endpoint
-            // answered first. A cloud provider on a CDN beats a local server that
-            // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
-            // could silently land on the paid one, and land on a different one on
-            // the next reload. `auto-select` documents itself as "the first model";
-            // first has to mean first, not fastest.
-            const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
-
-            // Fetch all providers in parallel
-            await Promise.all(uniqueProviders.map(async (provider, i) => {
-                try {
-                    const models = await this._cfg.refreshProviderModels(provider.id);
-
-                    // Apply model filters if configured
-                    const filters = config.modelFilters?.[provider.id];
-                    const filteredModels = filters?.length
-                        ? models.filter(m => filters.includes(m.id))
-                        : models;
-
-                    if (filteredModels.length > 0) {
-                        tempList[i] = { provider, models: filteredModels };
-                    }
-                } catch (error) {
-                    console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
-                }
-            }));
-
-            // The holes are the providers that failed or returned nothing: dropped,
-            // which keeps the order of the survivors.
-            this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
-        } finally {
-            this._isLoading = false;
+    /**
+     * Load every provider's models. A call that arrives while a load runs does not start a
+     * second one and does not vanish either: the running load goes round again, reading
+     * what changed meanwhile, and answers `false` so its caller leaves the render to the
+     * load that is still running.
+     */
+    private async _loadAllProviderModels(): Promise<boolean> {
+        if (this._isLoading) {
+            this._reloadQueued = true;
+            return false;
         }
+        const generation = this._loadGeneration;
+        this._isLoading = true;
+        try {
+            do {
+                this._reloadQueued = false;
+                await this._loadOnce(generation);
+            } while (this._reloadQueued && this.isConnected && generation === this._loadGeneration);
+        } finally {
+            // A restart already handed the flag to the load that replaced this one.
+            if (generation === this._loadGeneration) this._isLoading = false;
+        }
+        return generation === this._loadGeneration;
+    }
+
+    /**
+     * Start over: a mount, or a new config above us. A load still in flight from before
+     * keeps running — its fetches cannot be called back — but it is now of an older
+     * generation, so it discards what it brings back instead of writing it over the list
+     * the new load builds. Under every wrapper this is the normal order: the element
+     * connects on the global config, then `bind()` attaches the chat's own, and a slow
+     * global `/models` used to land last and win.
+     */
+    private _restartLoading(): void {
+        this._loadGeneration++;
+        this._isLoading = false;
+        this._reloadQueued = false;
+    }
+
+    private async _loadOnce(generation: number): Promise<void> {
+        const providersKey = this._providersKey();
+        const providers = this._cfg.getAIProviders();
+
+        // Deduplicate providers by ID just in case
+        const uniqueProviders = Array.from(new Map(providers.map(p => [p.id, p])).values());
+
+        const config = this._cfg.getModelConfig();
+
+        // Store in a temporary list to avoid mid-render state corruption.
+        //
+        // Indexed by REGISTRATION order, not filled by completion order. The
+        // fetches run in parallel, so a `push` here ordered the dropdown — and
+        // therefore what `auto-select` picks — by whichever /models endpoint
+        // answered first. A cloud provider on a CDN beats a local server that
+        // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
+        // could silently land on the paid one, and land on a different one on
+        // the next reload. `auto-select` documents itself as "the first model";
+        // first has to mean first, not fastest.
+        const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
+
+        // Fetch all providers in parallel
+        await Promise.all(uniqueProviders.map(async (provider, i) => {
+            try {
+                // A provider with a fixed list has no `fetchModels`: its `getModels()` IS the
+                // list, and `refreshProviderModels` answers `[]` for it.
+                const models = provider.fetchModels
+                    ? await this._cfg.refreshProviderModels(provider.id)
+                    : provider.getModels();
+
+                // Apply model filters if configured
+                const filters = config.modelFilters?.[provider.id];
+                const filteredModels = filters?.length
+                    ? models.filter(m => filters.includes(m.id))
+                    : models;
+
+                if (filteredModels.length > 0) {
+                    tempList[i] = { provider, models: filteredModels };
+                }
+            } catch (error) {
+                console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
+            }
+        }));
+
+        if (generation !== this._loadGeneration) return;
+        // The holes are the providers that failed or returned nothing: dropped,
+        // which keeps the order of the survivors.
+        this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
+        this._loadedProvidersKey = providersKey;
     }
 
     private async _onOptgroupToggle(e: Event): Promise<void> {
@@ -359,6 +461,13 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const localePlaceholder = this._cfg.getLocale()['modelSelectorPlaceholder'] || 'Select a model...';
         const placeholder = this.getAttribute('placeholder') || localePlaceholder;
         const searchable = this.hasAttribute('searchable');
+        // The line under a name: what the provider declares about the model, when asked for.
+        const details = this.hasAttribute('details');
+        const tokens = details ? this._tokenFormat() : null;
+        const meta = (m: { description?: string; contextWindow?: number }): string => {
+            const text = tokens ? this._metaText(m, tokens) : '';
+            return text ? `<span class="aparte-option__meta">${esc(text)}</span>` : '';
+        };
         const autoSelect = this.hasAttribute('auto-select');
 
         // Capture current open state of aparte-select if it exists
@@ -385,7 +494,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         const optionsHtml = singleProvider && only  // safe-text: every value below goes through esc(); the tags are this file's own
             ? only.models.map(m => {
                 const key = `${only.provider.id}::${m.id}`;
-                return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
+                return `<aparte-option value="${esc(key)}">${esc(m.name)}${meta(m)}</aparte-option>`;
             }).join('')
             : this._providerModels.map(pm => {
                 const label = pm.provider.getMetadata().name;
@@ -398,7 +507,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     >
                         ${pm.models.map(m => {
                             const key = `${pm.provider.id}::${m.id}`;
-                            return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
+                            return `<aparte-option value="${esc(key)}">${esc(m.name)}${meta(m)}</aparte-option>`;
                         }).join('')}
                     </aparte-optgroup>
                 `;
@@ -535,6 +644,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             return;
         }
 
+        this._seenConfigSelection = `${this._currentProviderId}::${this._currentModelId}`;
         this._cfg.setModelConfig({
             defaultProvider: this._currentProviderId,
             defaultModel: this._currentModelId,

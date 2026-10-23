@@ -35,7 +35,8 @@ A call is `pending` while your handler runs, `awaiting-approval` when the tool i
 
 `registerToolSummary(name, summary)` adds one line after the tool's name, so `read_file` reads
 `read_file docs/release.md` without opening the row. It returns plain text; the row, its states
-and its disclosure stay the library's.
+and its disclosure stay the library's. `registerToolInputFormatter(name, formatter)` rewrites the
+arguments behind the disclosure, and the approval panel shows the same text.
 
 ### Your own rendering
 

@@ -72,6 +72,17 @@ chat mounts.
 A composer of your own, floated without the attribute, sets the space it covers itself:
 `aparte-chat-viewport { --aparte-bottom-inset: 96px; }`.
 
+A header that floats over the top of the transcript sets the space it covers the same way:
+
+```css
+aparte-chat, [data-aparte-chat] { --aparte-top-inset: 56px; }
+```
+
+The first message then starts below it, and a jump to a message, from the
+[scroll rail](#jump-back-in-a-long-thread) or `scrollIntoView`, lands below it. Write the header
+outside the chat, positioned over it: a child of an `overlay-composer` chat floats at the bottom
+with the composer.
+
 ## Pick a shape
 
 | Shape | Like | How |
@@ -92,6 +103,14 @@ there: change it in a container query of your own.
   .aparte-message { --aparte-message-padding-inline: 12px; }
 }
 ```
+
+The same spacing at any width is a class on the chat, for a widget or a panel wider than 520px:
+
+```html
+<aparte-chat class="aparte-chat--compact"></aparte-chat>
+```
+
+In React, Vue, Svelte and Angular it is the chat component's `className` or `class`.
 
 ## Put a preview beside the chat
 
@@ -193,7 +212,9 @@ aparte-chat[data-empty] .welcome { display: block; }
 <Variant id="layout-empty-state" caption="Send one message: the composer slides from the middle to the bottom." />
 
 `center-empty` holds the composer in the middle of an empty chat and slides it down with the first
-message. While the chat is empty it carries `data-empty`, the hook for the greeting, which goes
+message. The slide waits for a person: a conversation a script restores before the first key,
+pointer or send lands at once, without moving the page under someone who did nothing; the chat
+says it is past that point with `data-glide`. While the chat is empty it carries `data-empty`, the hook for the greeting, which goes
 away as that message lands;
 [`<aparte-suggestions empty-only>`](/components/suggestions/) shows its starters on the same
 condition. In the framework packages the switch is `centerWhenEmpty`, the greeting goes in

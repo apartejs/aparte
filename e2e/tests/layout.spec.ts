@@ -21,6 +21,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 /** The same phone box `responsive.spec.ts` uses, and under the split's 48rem breakpoint. */
 const PHONE = { width: 390, height: 844 };
@@ -492,3 +493,86 @@ test.describe('at phone width', () => {
     });
 });
 
+
+/*
+ * The shell follows the sidebar's own breakpoint. It folded at a fixed 48rem and hid every
+ * sidebar not yet a drawer, so `breakpoint="30rem"` left nothing between 30 and 48rem — no
+ * column, no drawer, a toggle that opened nothing — and a breakpoint over 48rem left a drawer
+ * beside an empty first column.
+ */
+test.describe("the application shell, at the sidebar's own breakpoint", () => {
+    test('a sidebar whose breakpoint is under the window stays a column, one over it folds the grid', async ({ page }) => {
+        await page.setViewportSize({ width: 640, height: 800 });   // 40rem: under the old fixed 48rem
+        const { errors } = await open(page, 'shell');
+        const geometry = () => page.evaluate(() => {
+            const shell = document.querySelector('.aparte-app-shell')!.getBoundingClientRect();
+            const sidebar = document.querySelector('.aparte-app-shell > aparte-sidebar')!;
+            const main = document.querySelector('.aparte-app-shell > .aparte-app-shell__main')!.getBoundingClientRect();
+            const box = sidebar.getBoundingClientRect();
+            return { drawer: sidebar.hasAttribute('data-drawer'), width: box.width, sidebarEnd: box.right - shell.left, mainStart: main.left - shell.left };
+        });
+        await page.evaluate(() => document.querySelector('.aparte-app-shell > aparte-sidebar')!.setAttribute('breakpoint', '30rem'));
+        await expect.poll(async () => (await geometry()).drawer).toBe(false);
+        const column = await geometry();
+        expect(column.width, 'a column, not hidden').toBeGreaterThan(100);
+        expect(column.mainStart, 'the chat beside it').toBeGreaterThanOrEqual(column.sidebarEnd - 1);
+
+        await page.setViewportSize({ width: 900, height: 800 });   // 56rem: over the old 48rem
+        await page.evaluate(() => document.querySelector('.aparte-app-shell > aparte-sidebar')!.setAttribute('breakpoint', '64rem'));
+        await expect.poll(async () => (await geometry()).drawer).toBe(true);
+        expect((await geometry()).mainStart, 'the grid folds on the drawer').toBeLessThan(2);
+        const toggle = page.locator('.aparte-app-header__toggle');
+        await expect(toggle, 'and its control is in the header').toBeVisible();
+        // Over 48rem the header hid its toggle once the drawer was open: only `collapsed`
+        // showed it. Open, a drawer keeps its control too.
+        await toggle.click();
+        await expect(page.locator('.aparte-app-shell > aparte-sidebar')).not.toHaveAttribute('collapsed', '');
+        await expect(toggle, 'an open drawer keeps its control').toBeVisible();
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+});
+
+/*
+ * `center-empty` and a conversation restored by script on load. The welcome painted, then the
+ * composer slid down under a reader who had done nothing — a layout shift. The slide now waits
+ * for a person (`data-glide`): before it, a restore lands in one frame; after a click, it glides.
+ */
+test.describe('center-empty and a restore', () => {
+    test('a restore before any input lands in one frame; after a click, it glides', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        await installLlmMock(page);
+        await page.goto('/');
+        const chat = page.locator('aparte-chat[center-empty]');
+        await expect(chat).toHaveAttribute('data-empty', '');
+        const restoreAndSample = () => page.evaluate(async () => {
+            const host = document.querySelector('aparte-chat[center-empty]')!;
+            const composer = host.querySelector('aparte-composer')!;
+            const vp = host.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+            const start = Math.round(composer.getBoundingClientRect().top);
+            vp.appendMessage({ id: `r-${Math.random()}`, role: 'user', content: 'restored', timestamp: Date.now() });
+            const tops: number[] = [];
+            for (let i = 0; i < 24; i++) {
+                await new Promise((r) => requestAnimationFrame(r));
+                tops.push(Math.round(composer.getBoundingClientRect().top));
+            }
+            const end = tops[tops.length - 1]!;
+            // How much of the way down the composer still had to go on the first frame after the restore.
+            return { left: (tops[0]! - end) / (start - end), start, tops, glide: host.hasAttribute('data-glide') };
+        });
+
+        const before = await restoreAndSample();
+        expect(before.glide, 'no input yet').toBe(false);
+        expect(before.start - before.tops[23]!, 'the welcome centred the composer: there is a slide to measure').toBeLessThan(-80);
+        expect(Math.abs(before.left), 'the composer lands in one frame').toBeLessThan(0.2);
+
+        // A real click, on nothing in particular: a person is in the page now.
+        await page.mouse.click(5, 5);
+        await expect(chat).toHaveAttribute('data-glide');
+        await page.evaluate(() => (document.querySelector('aparte-chat[center-empty] aparte-chat-viewport') as unknown as { setMessages(m: object[]): void }).setMessages([]));
+        await expect(chat).toHaveAttribute('data-empty');
+        await waitForStill(page, { selector: 'aparte-chat[center-empty] aparte-composer' });   // the glide back up settles
+        const after = await restoreAndSample();
+        expect(Math.abs(after.left), 'after a click, the composer is still on its way on the first frame').toBeGreaterThan(0.5);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+});

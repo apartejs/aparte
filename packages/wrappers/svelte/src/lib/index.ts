@@ -80,6 +80,10 @@ type AparteEventFor<K extends string> =
 
 type AparteSvelteHandlers = {
     [K in AparteAnyEventName as `on:${K}`]?: (event: AparteEventFor<K>) => void;
+} & {
+    // Svelte 5's runes form, an event attribute: `<aparte-composer onaparte-send={…}>`. Typed
+    // only as `on:` before, so a runes app's handler on a declared tag failed svelte-check.
+    [K in AparteAnyEventName as `on${K}`]?: (event: AparteEventFor<K>) => void;
 };
 
 type AparteSvelteElements = {

@@ -1,7 +1,7 @@
 {
     "name": "@aparte-workspace/docs",
     "type": "module",
-    "version": "0.0.36",
+    "version": "0.0.37",
     "private": true,
     "scripts": {
         "gen:css-vars": "node scripts/gen-css-vars.mjs",
@@ -53,6 +53,7 @@
         "@aparte/titler-latin-mini": "^1.2.0",
         "@astrojs/check": "^0.9.10",
         "@astrojs/sitemap": "^3.7.3",
+        "@mdx-js/mdx": "^3.1.1",
         "astro-og-canvas": "^0.13.0",
         "canvaskit-wasm": "^0.42.0",
         "typedoc": "^0.28.20",

@@ -200,6 +200,19 @@
   gap: var(--aparte-space-2);
 }
 
+/* `filter()` matched nothing: the line that says so, where the rows would be. Empty, it
+   takes no room but stays in the accessibility tree — a live region, so the next miss is
+   announced. */
+.aparte-conv-list-no-match {
+  margin: 0;
+  padding: var(--aparte-conv-item-padding);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+.aparte-conv-list-no-match:empty {
+  padding: 0;
+}
+
 /* The list on its way (`aparte-conversation-list[loading]`): six rows of the kit's
    skeleton where the rows will be, at the row's own pitch. A list that is not there
    yet is not an empty list — this is the difference on screen. */

@@ -25,7 +25,7 @@ registerModel({
   dtype: 'q4',
 });
 aparteGlobalConfig.registerAIProvider(TransformersProvider);
-new AparteClient({ requestInterceptor: (request) => ({ ...request, maxTokens: request.maxTokens ?? 1024 }) }).start();
+new AparteClient().start();
 ```
 
 The model runs in a Web Worker, off the page's main thread, through the
@@ -33,8 +33,10 @@ The model runs in a Web Worker, off the page's main thread, through the
 its weights download once into the browser's cache. `capabilities` is required: `['streaming']`
 for a chat model. With one model registered, the chat uses it; with several, name one with
 `aparteGlobalConfig.setModelConfig({ defaultProvider: 'transformers', defaultModel })`, or let
-the person pick in the [model selector](/components/model-selector/). A reply stops at 512 new
-tokens unless the request asks for more, which the `requestInterceptor` above does.
+the person pick in the [model selector](/components/model-selector/). A reply stops at 8192
+tokens, or sooner where the model's context window ends, and Stop interrupts it. To change the
+ceiling, give the model a `maxTokens` in `registerModel`, or set `maxTokens` on the request, which
+wins: `new AparteClient({ requestInterceptor: (r) => ({ ...r, maxTokens: 16000 }) })`.
 
 This provider sends a model no tools, and a conversation that already holds tool calls runs with
 those calls and their results left out of the prompt; the console says so once.
@@ -68,16 +70,17 @@ message, reporting each file as a `ModelLoadProgress`, and rejects if the load f
 the first message loads the model and the reply waits with no progress to show.
 `TransformersProvider.getModelStatus(id)` answers `'ready'` once the model is loaded, `'cached'`
 when its files are in the cache or while it loads, and `'not-downloaded'` otherwise. The
-[model selector](/components/model-selector/) lists the registered models and the ones already in
-the cache.
+[model selector](/components/model-selector/) lists the registered models, and only those: register
+a model downloaded earlier to offer it. `listCachedModels()` reports everything in the cache, for a
+settings panel.
 
 ## The cache and the memory
 
 | Function | What it does |
 | --- | --- |
 | `listCachedModels()` | the models in the browser's cache, each a `CachedModelEntry`: `modelId`, `name`, `sizeBytes`, `loaded` |
-| `deleteCachedModel(id)` | deletes the cached files whose address holds that id — those of a model whose id extends it too — ending the worker first if the model is loaded; `TransformersProvider.deleteModel` does the same |
-| `setMaxCachedModels(n)` | how many models the cache keeps: `1` by default, `0` for no limit |
+| `deleteCachedModel(id)` | deletes that model's cached files, and only its own — a model whose id extends it keeps its weights — ending the worker first if the model is loaded; `TransformersProvider.deleteModel` does the same |
+| `setMaxCachedModels(n)` | how many of your registered models stay downloaded: `1` by default, `0` for no limit |
 | `getLoadedModelId()` | the model in the worker's memory, or `null` |
 | `terminateWorker()` | ends the worker and the model in memory; a reply still streaming ends with an error |
 
@@ -87,11 +90,13 @@ the console warns once. Another model replaces the one in memory; closing a chat
 it. `terminateWorker()` does, on leaving the route or behind an "unload" button, and the next
 message starts a new worker.
 
-When a model finishes loading and the cache holds more models than `setMaxCachedModels` allows,
-the others are deleted, the earliest downloaded first. The count takes in every Hugging Face model
-in the site's browser cache, ones your app downloaded with Transformers.js for something else
-included. At the default of one, switching to another model deletes the previous one's weights, so
-switching back downloads it again; `setMaxCachedModels(2)` keeps both, and `0` keeps everything.
+When a model finishes loading and the cache holds more of your registered models than
+`setMaxCachedModels` allows, the others are deleted, the earliest downloaded first. Only the models
+given to `registerModel` count: weights your app downloaded with Transformers.js for something
+else are neither counted nor deleted. The budget bounds what stays on disk, not memory, which
+holds one model whatever it says. At the default of one, switching to another model deletes the
+previous one's weights, so switching back downloads it again; `setMaxCachedModels(2)` keeps both,
+and `0` keeps everything.
 
 ## Choose the device
 
@@ -169,7 +174,7 @@ export async function createRunner(ctx) {
       signal.addEventListener('abort', () => stopping.interrupt(), { once: true });
       await model.generate({
         ...inputs,
-        max_new_tokens: options.maxTokens ?? 512,
+        max_new_tokens: options.maxTokens ?? 8192,   // a runner of yours picks its own ceiling
         streamer: new TextStreamer(tokenizer, {
           skip_prompt: true, skip_special_tokens: true,
           callback_function: (text) => emit({ type: 'text', delta: text }),
@@ -203,6 +208,6 @@ place, with no progress to show. The contract's types are exported — `Transfor
 <Cards
     cards={[
         { href: '/guides/local-models/', title: 'Local models', line: 'A model on a server of your own machine instead: Ollama, LM Studio, llama.cpp.' },
-        { href: '/components/model-selector/', title: 'Model selector', line: 'Let the person pick the model, cached ones included.' },
+        { href: '/components/model-selector/', title: 'Model selector', line: 'Let the person pick among the registered models.' },
     ]}
 />

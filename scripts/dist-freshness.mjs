@@ -9,12 +9,20 @@
  *   bumps an mtime while leaving the bytes identical. nx correctly does not rebuild, and
  *   a naive mtime comparison cries stale. That happened twice, on files whose content had
  *   not changed at all. So mtime is the fast path only: when it says stale, the src
- *   inputs are hashed and compared against the hash recorded the last time the package
- *   was verified fresh, in a gitignored `.dist-freshness/` at the repo ROOT (not inside
- *   `dist`, which the build wipes — the first attempt put it there and the stamp
- *   vanished exactly when it was needed). With no recorded hash — a fresh clone — it
- *   falls back to mtime alone, which is the conservative answer and the one CI wants,
- *   since CI always builds first.
+ *   inputs are hashed and compared against the hash the package's last build recorded,
+ *   in its own gitignored `.dist-stamp` beside `dist` (not inside it, which the build
+ *   wipes — the first attempt put it there and the stamp vanished exactly when it was
+ *   needed). nx caches the stamp as a build output, so a build restored from the cache
+ *   restores its record with it. With no recorded hash — a fresh clone — it falls back to
+ *   mtime alone, which is the conservative answer and the one CI wants, since CI always
+ *   builds first.
+ *
+ * The hash is recorded at the end of every package build (`stamp-dist.mjs`, the last
+ * command of each `build` script), so whatever ran the build — the gate, a pre-push hook,
+ * an e2e run — the recorded hash is the src that dist was built from. It used to be
+ * written only when the check itself passed, and a build the check never saw left an older
+ * hash behind: the next `gen` bumped an mtime, the hash path compared against that stale
+ * record, and the gate failed on a dist that was current.
  *
  * `check-dist-freshness.mjs` is the repo-wide gate step. `check-node-barrel-types.mjs`
  * and `check-node-import.mjs` call this for the packages THEY read, because both are run
@@ -22,7 +30,7 @@
  * measured: a deliberate sabotage passed both in source and failed both the moment the
  * package was rebuilt.
  */
-import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -48,7 +56,27 @@ const IS_INPUT = (name) => /\.(ts|tsx|css|svelte|vue|json)$/.test(name) && !/\.t
  * `import` resolves to.
  */
 const IS_EMIT = (name) => /\.(js|mjs|cjs)$/.test(name);
-const STAMP_DIR = '.dist-freshness';
+/** The package's record of the src its `dist` was built from. */
+export const STAMP_FILE = '.dist-stamp';
+
+/**
+ * Record the src a build was made from. Called at the END of a package's `build`, with
+ * that package's directory, so the record and the dist always describe the same src —
+ * unless src was saved while the build ran, which the emit's mtime tells, or the build
+ * emitted no JavaScript: then the record is removed, so the check sees the dist for what
+ * it is. A record left from an earlier build would vouch for a dist built from other
+ * bytes. Returns whether it recorded.
+ */
+export function stampBuild(dir) {
+    const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
+    const distNewest = existsSync(join(dir, 'dist')) ? newestMtime(join(dir, 'dist'), IS_EMIT) : 0;
+    if (distNewest === 0 || srcNewest > distNewest) {
+        rmSync(join(dir, STAMP_FILE), { force: true });
+        return false;
+    }
+    writeFileSync(join(dir, STAMP_FILE), `${srcHash(join(dir, 'src'))}\n`);
+    return true;
+}
 
 function newestMtime(dir, pick, newest = 0) {
     for (const name of readdirSync(dir)) {
@@ -107,7 +135,6 @@ export function distFreshness({ dirs, record = false } = {}) {
     const stale = [];
     const mtimeOnly = [];
     let checked = 0;
-    if (record) mkdirSync(STAMP_DIR, { recursive: true });
 
     for (const dir of dirs ?? packageDirs()) {
         const dist = join(dir, 'dist');
@@ -116,7 +143,7 @@ export function distFreshness({ dirs, record = false } = {}) {
         const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
         const distNewest = newestMtime(dist, IS_EMIT);
         const rel = relative(process.cwd(), dir).split(sep).join('/');
-        const stamp = join(STAMP_DIR, rel.replace(/[^a-zA-Z0-9]/g, '_'));
+        const stamp = join(dir, STAMP_FILE);
 
         // A dist with no executable emit at all is stale by definition, whatever its
         // mtimes say: every guard that reads built output finds nothing to read, and

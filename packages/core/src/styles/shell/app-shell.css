@@ -10,8 +10,9 @@
  * A recipe: two columns and two rows, the sidebar spanning both rows, the header and
  * the main area stacked in the second column. The chat fills `__main`, which is what
  * gives it the height it needs to scroll (see the layout guide). Size the shell —
- * `height: 100dvh` for a page — and everything inside follows. Under 48rem the sidebar
- * leaves the grid to become a drawer, and the header's toggle appears.
+ * `height: 100dvh` for a page — and everything inside follows. When the sidebar element
+ * turns drawer (its `breakpoint`, 48rem by default) it leaves the grid and the header's
+ * toggle appears; the class recipe alone leaves it under 48rem.
  *
  *     <div class="aparte-app-shell" style="height: 24rem">
  *       <aside class="aparte-sidebar">
@@ -102,24 +103,41 @@
   height: auto;
 }
 
-/* A phone folds the shell to one column. The sidebar ELEMENT already leaves the grid
-   under 48rem — it becomes a fixed drawer behind the header's toggle — but the grid
-   kept its first column for it, and a class-only sidebar had no story at all: at 375px
-   the shell gave 259 of its 303px to the sidebar and left the chat a 43px band with a
-   send button cut in half. Same query as the element's own, so the recipe teaches the
-   screen the element renders. */
+/* The sidebar ELEMENT turns drawer at its own `breakpoint` (48rem unless set) and says so
+   with `data-drawer`: the grid folds to one column on that, at whatever width it happens.
+   It used to fold at a fixed 48rem and hide every sidebar that was not a drawer by then, so
+   `breakpoint="30rem"` left nothing between 30 and 48rem: no column, no drawer, a header
+   toggle that opened nothing.
+
+   The `:has()` sits in `:where()` so each rule weighs what the one it overrides does, and
+   wins by coming later: a host's own one-class rule (its toggle hidden, a grid of its own)
+   still beats it. */
+.aparte-app-shell:where(:has(> aparte-sidebar[data-drawer])) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.aparte-app-shell:where(:has(> aparte-sidebar[data-drawer])) > .aparte-app-header,
+.aparte-app-shell:where(:has(> aparte-sidebar[data-drawer])) > .aparte-app-shell__main {
+  grid-column: 1;
+}
+/* A drawer's control is in the header, open or closed, at any width the drawer exists. */
+:where(.aparte-app-shell:has(> aparte-sidebar[data-drawer]) > .aparte-app-header) .aparte-app-header__toggle {
+  display: inline-flex;
+}
+
+/* The class recipe has no breakpoint of its own, and the element has not read its own yet
+   before it upgrades: under 48rem both fold out of the flow rather than eat the column —
+   at 375px the shell gave 259 of its 303px to the sidebar and left the chat a 43px band.
+   A `breakpoint="none"` element never turns drawer, which is knowable before it upgrades. */
 @media (max-width: 48rem) {
-  .aparte-app-shell {
+  .aparte-app-shell:where(:has(> .aparte-sidebar:not(aparte-sidebar), > aparte-sidebar:not(:defined):not([breakpoint="none"]))) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .aparte-app-shell > .aparte-app-header,
-  .aparte-app-shell__main {
+  .aparte-app-shell:where(:has(> .aparte-sidebar:not(aparte-sidebar), > aparte-sidebar:not(:defined):not([breakpoint="none"]))) > .aparte-app-header,
+  .aparte-app-shell:where(:has(> .aparte-sidebar:not(aparte-sidebar), > aparte-sidebar:not(:defined):not([breakpoint="none"]))) > .aparte-app-shell__main {
     grid-column: 1;
   }
-  /* A sidebar that is not (yet) a drawer — the class recipe alone, or the element
-     before it upgrades — folds out of the flow rather than eating the column. */
-  .aparte-app-shell > .aparte-sidebar:not([data-drawer]),
-  .aparte-app-shell > aparte-sidebar:not([data-drawer]) {
+  .aparte-app-shell > .aparte-sidebar:where(:not(aparte-sidebar):not([data-drawer])),
+  .aparte-app-shell > aparte-sidebar:where(:not(:defined):not([breakpoint="none"])) {
     display: none;
   }
 }

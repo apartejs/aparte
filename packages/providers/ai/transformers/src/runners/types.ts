@@ -12,6 +12,10 @@
  * what is not a generation (swapping an adapter, warming something up), reports progress
  * with a free-form `detail`, and can dispose. A research-grade provider that today
  * carries its own worker fits here without giving up anything of its own.
+ *
+ * `tool_use` is in what a runner can emit, not in what it is given: `RunnerGenerateInput`
+ * carries no tool definitions, because the provider sends a model none. A runner that calls
+ * tools has to know them itself.
  */
 
 import type { AparteChatMessage, AparteStreamEvent } from '@aparte/core';

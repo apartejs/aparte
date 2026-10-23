@@ -76,8 +76,8 @@ export type AparteToolApprovalResolver = (
      * What the user said to do instead, on a refusal.
      *
      * It becomes the `tool` message the model reads, which is possible at all only
-     * because a refusal now hands the model a turn. Optional and additive: a resolver
-     * that returns a bare `{ approved }` behaves exactly as before.
+     * because a refusal hands the model a turn. Optional: a resolver that returns a
+     * bare `{ approved }` is valid.
      */
     instruction?: string;
     /**
@@ -91,6 +91,13 @@ export type AparteToolApprovalResolver = (
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 const COMPACTION_PREAMBLE =
     'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
+
+/** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
+const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
+
+/** A call as an approval remembers it: the call itself, not its id alone, which a later call may reuse. */
+const approvalKey = (call: { id: string; name: string; input: unknown }): string =>
+    JSON.stringify([call.id, call.name, call.input]);
 
 /**
  * Configuration options for AparteClient
@@ -155,7 +162,7 @@ export interface AparteClientOptions {
      *                          that cutoff; a turn a host seeded with NO `status` counts
      *                          as answered, so a restored or server-rendered transcript
      *                          goes out as history without inventing a status for it.
-     * - 'none'               — sends only the current message (original behavior)
+     * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
      */
     history?: 'viewport' | 'none' | ((viewportMessages: AparteMessage[]) => AparteChatMessage[]);
@@ -201,10 +208,9 @@ export interface AparteClientOptions {
     /**
      * Whether a send appends the optimistic USER bubble before the reply streams.
      *
-     * Default `true` — and opt-OUT on purpose: the bubble used to be the host's job
-     * on every path, everyone wrote the same `aparte-send` handler, and whoever
-     * forgot shipped a chat where the person cannot see what they typed. It
-     * compiles, it streams, and nothing errors.
+     * Default `true` — and opt-OUT on purpose: if the host had to append the bubble,
+     * whoever forgot would ship a chat where the person cannot see what they typed.
+     * It compiles, it streams, and nothing errors.
      *
      * Pass `false` when the host owns its transcript and appends the user message
      * itself — the four framework wrappers do (their ConversationController is
@@ -224,8 +230,7 @@ export interface AparteClientOptions {
      *   types (including images) are routed to the application layer. Used
      *   when images go through a captioning pipeline before RAG ingest, so
      *   the chat context only ever sees retrieved text — never raw image
-     *   bytes. Saves bytes on every turn and matches the offline-first
-     *   intent (read file once at upload, retrieve text-only forever after).
+     *   bytes. Saves bytes on every turn.
      *
      * Set `'images-only'` when a `requestInterceptor` retrieves relevant
      * document chunks and injects them as a system message instead, to avoid
@@ -316,15 +321,13 @@ export class AparteClient {
     /**
      * Does this window event belong to this client?
      *
-     * One rule for all four handlers, because it used to be near-copies and
-     * one omission: `aparte-compact` (answered here until 0.16.0) had no guard at all, so in the two-client
-     * layout the JSDoc documents, a single compact event made BOTH clients run —
-     * two paid summarisation calls against whichever chat the DOM scan found
-     * first, and a global reset that wiped the other conversation.
+     * One rule for all the window-event handlers, so none of them can lack the guard:
+     * in a two-client layout an unguarded event would make BOTH clients run — two paid
+     * calls against whichever chat the DOM scan found first.
      *
-     * A scoped client also answers only events ADDRESSED to it. The old guard let
-     * an untargeted event through to every scoped client, which turned one
-     * broadcast into an action on every chat on the page.
+     * A scoped client also answers only events ADDRESSED to it; an untargeted event is
+     * not let through to every scoped client, or one broadcast would act on every chat
+     * on the page.
      */
     private _isForThisInstance(e?: Event): boolean {
         // No event at all means a direct, programmatic call — not a broadcast, so
@@ -339,20 +342,14 @@ export class AparteClient {
          * No `scopeToTargetId`, but a client given its own `config` is still not a
          * page-wide client: it must answer only the chats that resolve THAT config.
          *
-         * Without this, `{ config }` scoped what the client READ and nothing about
-         * what it ANSWERED. Two config-scoped clients on one page therefore both
-         * ran a full agentic turn for every send — two provider calls, two paid
-         * completions, and both replies appended into the single target the event
-         * named. The showcase that demonstrates per-instance config constructed
-         * exactly that pair, and its comment asserted the opposite.
+         * Otherwise `{ config }` would scope what the client READ and nothing about
+         * what it ANSWERED: two config-scoped clients on one page would both run a
+         * full agentic turn for every send. `scopeToTargetId` is not the remedy for
+         * a framework consumer — the wrappers generate the host id internally and do
+         * not expose it.
          *
-         * `scopeToTargetId` was the documented remedy and is not reachable from any
-         * wrapper (they generate the host id internally and do not expose it), so a
-         * framework consumer had no way to apply it.
-         *
-         * A client on the GLOBAL config is deliberately unchanged: it answers
-         * everything, which is every single-chat app on the planet, and narrowing
-         * that would be a silent break for the common case.
+         * A client on the GLOBAL config is deliberately not narrowed: it answers
+         * everything, which is every single-chat app.
          */
         if (this._config === aparteGlobalConfig) return true;
         const target = this._resolveTarget(detail?.targetId, e);
@@ -362,10 +359,9 @@ export class AparteClient {
          * Reject only a target that demonstrably belongs to ANOTHER instance — one
          * whose boundary resolves a different, non-global config.
          *
-         * Not "the target must resolve OUR config", which was the first attempt and
-         * was too strict: passing `{ config }` without ever calling `attachConfig`
-         * is a legitimate shape — the config as a settings bag for the one chat on
-         * the page — and three existing tests do exactly that. A chat with no
+         * Not "the target must resolve OUR config", which is too strict: passing
+         * `{ config }` without ever calling `attachConfig` is a legitimate shape —
+         * the config as a settings bag for the one chat on the page. A chat with no
          * boundary is unclaimed, so answering it is correct.
          */
         return owner === this._config || owner === aparteGlobalConfig;
@@ -393,11 +389,10 @@ export class AparteClient {
          * The key channel this client was given becomes a key source on its CONFIG,
          * so everything that needs a key can see it — not the chat alone.
          *
-         * `refreshProviderModels`, the model selector's one data path, read
-         * `config.getKey` only: an app following the documented primary channel
-         * (`keyResolver`) therefore got an empty picker on every cloud provider,
-         * because `fetchModels` returns `[]` without a key. Nothing warned; the list
-         * simply read as "the vendor returned nothing".
+         * `refreshProviderModels`, the model selector's one data path, reads
+         * `config.getKey` only: without this, an app following the documented primary
+         * channel (`keyResolver`) would get an empty picker on every cloud provider,
+         * because `fetchModels` returns `[]` without a key, with no warning.
          *
          * Registered on the config rather than answered by the client, so the
          * capability stays reachable without one (decision #9).
@@ -423,17 +418,15 @@ export class AparteClient {
     /**
      * What every fresh user action does before it starts a turn.
      *
-     * Clearing the abort flag has to happen at the START of the action rather than inside
+     * Clearing the abort flag happens at the START of the action rather than inside
      * `_streamTurn`, which runs after the auth and file-reading awaits — a reset there
-     * erased an abort that arrived while the user was still waiting for a large attachment
-     * to be read.
+     * would erase an abort that arrived while the user was still waiting for a large
+     * attachment to be read.
      *
      * The superseded turn's TOOL handlers are not cancelled here, and do not need a
      * registry of their own: `_streamTurn` aborts the previous `_streamController`, and
      * the engine links every tool handler's controller to that run signal
-     * (`invokeToolHandler`), so cutting the stream cuts its tools. A `Set<AbortController>`
-     * used to sit here for that job and was never added to — three lines of loop over an
-     * empty set, plus a paragraph describing a cancellation the method did not perform.
+     * (`invokeToolHandler`), so cutting the stream cuts its tools.
      */
     private _beginUserTurn(): void {
         this._isAborted = false;
@@ -443,10 +436,9 @@ export class AparteClient {
      * Put this client's `keyResolver` on its config, and hold the teardown so
      * `stop()` can take it back off.
      *
-     * The registration used to be fire-and-forget, so it outlived the client that
-     * made it: a stopped client kept signing model-list requests, and a remount —
-     * the way the wrappers document swapping options — added a source behind the
-     * one it meant to replace instead of replacing it. Idempotent, so the usual
+     * The teardown means a stopped client stops signing model-list requests, and a
+     * remount — the way the wrappers document swapping options — replaces the source
+     * instead of adding one behind it. Idempotent, so the usual
      * `new AparteClient({…}).start()` registers once.
      */
     private _registerKeyResolver(): void {
@@ -575,41 +567,24 @@ export class AparteClient {
         this._streamController?.abort();
     }
 
-    /*
-     * Two docblocks stood here, both describing `_awaitToolDecision` — the method
-     * this replaced. Deleting a method and leaving its documentation is worse than
-     * leaving the method: only the LAST comment before a declaration is its JSDoc,
-     * so those two were floating prose, and one of them explained a DOM-containment
-     * check as a live security property. It was the fix for a cross-chat hazard that
-     * only existed because the decision travelled as a bubbling `document` event.
-     * Routing through `requestUserInput` removed the hazard rather than guarding it,
-     * so the guard is gone too — and a reader who found that comment would have
-     * believed a containment check was still protecting them.
-     */
     /**
      * Ask the human at the COMPOSER, and report what they decided.
      *
-     * The default channel, replacing a `document` listener for `aparte-tool-decision`
-     * that existed only because the buttons lived in a segment renderer with no
-     * reference to this client. Routing through `requestUserInput` puts the decision
+     * The default channel. Routing through `requestUserInput` puts the decision
      * where every other request for the user already goes, which is the whole point:
      * one queue, one panel slot, one teardown, and the same behaviour whether the
      * request came from a tool handler or from this gate.
      *
      * The tool NAME is the question and its ARGUMENTS are the body, because the
      * arguments are what is being approved — a decision surface that names the act and
-     * hides its subject asks for a signature on a blank page. This paragraph used to
-     * say the opposite ("the arguments stay in the transcript"), and the guide beside
-     * it had always promised what the panel did not do. The transcript row stays the
-     * anchor; it is no longer the only place the call can be read. The panel is capped
+     * hides its subject asks for a signature on a blank page. The transcript row stays the
+     * anchor, but it is not the only place the call can be read. The panel is capped
      * at 50vh and the block inside it scrolls, so a long input cannot push the options
      * off the surface they are asked on.
      *
-     * `aparte-tool-decision` is GONE with the buttons that dispatched it, and so is the
-     * `document` listener that answered it. It existed only because a segment renderer
-     * has no reference to this client; two seams that can disagree about who answers a
-     * decision are one seam too many, and the ratified elicitation rule already said so
-     * — "a typed presenter registered per config instance, never window events". A host
+     * There is no `aparte-tool-decision` event and no `document` listener that answers
+     * one: a decision is answered by a typed presenter registered per config instance,
+     * never by a window event. A host
      * that wants to answer programmatically registers an `approvalResolver` (headless,
      * no DOM) or its own presenter, both strictly more capable than an id on an event.
      */
@@ -628,13 +603,14 @@ export class AparteClient {
              */
             message: () => {
                 const loc = this._config.getLocale();
-                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
+                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => event.name);
             },
-            // A plain string, not a function: the arguments are wire format — the JSON
-            // the model sent — and re-reading them on a language switch would produce
-            // exactly the same bytes. Same text the transcript row shows, from the same
-            // function, so the two surfaces cannot disagree about what is being run.
-            details: describeToolInput(event.input),
+            // A plain string, not a function: the arguments are the model's — its JSON, or
+            // the tool's own formatter's reading of it — and do not change with the
+            // language. Same text the transcript row shows, from the same function and the
+            // same config — the chat's, which the row renders with — so the two surfaces
+            // cannot disagree about what is being run.
+            details: describeToolInput(event.input, resolveConfig(target).getToolInputFormatter(event.name)),
             // Functions, not strings, same as the question: these follow a language
             // switch while the request is open, which a resolved string cannot.
             options: [
@@ -779,6 +755,13 @@ export class AparteClient {
             // otherwise ask forever, and a policy that answers alone would not even pause.
             const maxResumes = this.options.maxTurns ?? 10; // the engine's default
             let resumes = 0;
+            // Calls a person approved at the last pause. An agent can pause on the same call
+            // twice — approve it, then run it in the browser (TanStack AI does exactly that) —
+            // and the second pause must not ask again. Kept for the next pause only, and for the
+            // call itself: a vendor that sends no ids has them minted per stream, so a later call
+            // can carry an id approved earlier in the turn, and that approval was not for it.
+            let approvedAtLastPause = new Set<string>();
+            const rowEvents = createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) });
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
                 if (!stopped && ++resumes > maxResumes) {
@@ -788,7 +771,11 @@ export class AparteClient {
                     );
                     break;
                 }
-                const outcomes = stopped ? undefined : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal);
+                const approvedNow = new Set<string>();
+                const outcomes = stopped
+                    ? undefined
+                    : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
+                approvedAtLastPause = approvedNow;
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
                     // do not run. And no run is left to say the turn stopped, so say it here.
@@ -852,29 +839,21 @@ export class AparteClient {
     /**
      * The registered tools, unless the current model says it cannot call one.
      *
-     * Single source for the gate, so send / retry / edit cannot drift — that drift
-     * is what once shipped `tools` on the initial send while retry and edit omitted
-     * them.
+     * Single source for the gate, so send / retry / edit cannot drift.
      *
-     * The gate used to be "the model DECLARES function_calling", defaulting to
-     * stripping — and that made the whole tool surface unreachable on the primary
-     * documented path. Three things had to line up for a tool to be sent, and one
-     * never did: the app sets a model id by hand (`setModelConfig`) or a selector
-     * sets it from a fetched list, and in both cases the model's declared
-     * capabilities are commonly unknown. `undefined` capabilities then read as "no
-     * function calling", so `tools: []` went on the wire while `getTools()` held
-     * the tool the app had explicitly registered. The model answered, correctly,
-     * that it had no such tool, and nothing anywhere said why.
-     *
-     * So the question is now "did this model say it cannot", not "did it say it
-     * can". Registering a tool is an explicit act by the app; silently dropping it
+     * The question is "did this model say it cannot", not "did it say it can": the
+     * app sets a model id by hand (`setModelConfig`) or a selector sets it from a
+     * fetched list, and in both cases the model's declared capabilities are commonly
+     * unknown. `undefined` capabilities read as "can", or `tools: []` would go on
+     * the wire while `getTools()` held the tool the app had explicitly registered,
+     * and the model would answer that it had no such tool. Registering a tool is an explicit act by the app; silently dropping it
      * because a `/models` listing is terse is the library second-guessing the
      * developer. A model that declares its capabilities and omits function calling
      * is still honoured — that is a statement, and it is respected.
      *
      * Failure modes, both ways round: over-sending means a model that cannot use
      * tools does not call one, or its own endpoint rejects the array with an error
-     * the developer can read. Under-sending was silent, total, and looked like a
+     * the developer can read. Under-sending would be silent, total, and look like a
      * lying model.
      */
     private _toolsForCurrentModel(): AparteTool[] {
@@ -946,10 +925,9 @@ export class AparteClient {
      * The system messages a turn opens with: the app's own template, then the registered
      * tools' `systemPrompt`s.
      *
-     * A helper rather than three copies. The two lines it replaces were written out at each
-     * of the three turn entry points (send, retry, edit), which is exactly how the tool half
-     * would have been added to two of them and forgotten in the third — the same shape as
-     * the abort-flag asymmetry `_beginUserTurn` exists to prevent.
+     * One helper for the three turn entry points (send, retry, edit), so the tool half
+     * cannot be added to two of them and forgotten in the third — the same shape as the
+     * abort-flag asymmetry `_beginUserTurn` exists to prevent.
      */
     private _systemMessages(): AparteChatMessage[] {
         const messages: AparteChatMessage[] = [];
@@ -1050,11 +1028,11 @@ export class AparteClient {
      * The trees a lookup must search, the one the gesture came from FIRST.
      *
      * `document.getElementById` and `document.querySelectorAll` cannot see into a shadow
-     * root, so a chat mounted in one — the arrangement the theming guide endorses — was
-     * invisible to both: alone, the send was dropped with a warning; on a page that also
-     * holds a chat in the light DOM, the scan answered with the WRONG chat, so the
-     * person's message AND the model's reply landed in a transcript they never typed
-     * into. Nearest tree first is what keeps it from swapping the other way round.
+     * root, so a chat mounted in one — the arrangement the theming guide endorses — is
+     * invisible to both: alone, the send would be dropped with a warning; on a page that
+     * also holds a chat in the light DOM, the scan would answer with the WRONG chat, and
+     * the person's message AND the model's reply would land in a transcript they never
+     * typed into. Nearest tree first keeps it from swapping the other way round.
      */
     private _rootsFor(event?: Event | null): ParentNode[] {
         const roots: ParentNode[] = [];
@@ -1163,8 +1141,8 @@ export class AparteClient {
      * The SLICE is each caller's own business — retry cuts before the reply it is
      * regenerating, edit cuts after the message being reworded, send cuts at the last
      * answered turn. What a message CONTRIBUTES to the wire is not: send, retry and
-     * edit must not disagree about it, and they did. This one had no filter at all,
-     * so a failed turn and a turn stopped before its first token both went out as
+     * edit must not disagree about it. A failed turn and a turn stopped before its
+     * first token are filtered out rather than sent as
      * `{ role: 'assistant', content: '' }` — a claim the assistant said nothing, which
      * some providers reject outright and the rest read as an empty reply worth
      * imitating.
@@ -1334,13 +1312,13 @@ export class AparteClient {
             // Said once to the developer, who is the one who can fix it: the error
             // segment below is appended to a message that does not exist yet, so on a
             // page with no listener the send was simply dropped — the user's message
-            // sat there and nothing said why (issue #29).
+            // sat there and nothing said why.
             if (!this._warnedNoModel) {
                 this._warnedNoModel = true;
                 console.warn(
                     '[AparteClient] Send dropped: no model is selected. Call '
                     + 'aparteGlobalConfig.setModelConfig({ defaultProvider, defaultModel }), mount '
-                    + '<aparte-model-selector auto-select>, or register one provider with a single '
+                    + '<aparte-model-selector auto-select persist>, or register one provider with a single '
                     + 'model — that one is selected on its own.',
                 );
             }
@@ -1422,12 +1400,12 @@ export class AparteClient {
      * the question the history gates can ask is "is this still in flight?", never
      * "is this completed?".
      *
-     * The gates below used to ask the second one, and a host that SEEDS a transcript
+     * The gates below ask the first, because a host that SEEDS a transcript
      * — restoring a saved conversation, hydrating a server-rendered one — has no
-     * reason to invent a status for turns that are already over. With none, the
-     * cutoff never advanced past 0 and the whole transcript was sliced away: the
-     * model got the new question with no context, and nothing in the UI said so,
-     * because the viewport still showed every message.
+     * reason to invent a status for turns that are already over. Asking "is this
+     * completed?" would leave the cutoff at 0 and slice away the whole transcript: the
+     * model would get the new question with no context, and nothing in the UI would say
+     * so, because the viewport still shows every message.
      */
     private static _inFlight(m: AparteMessage): boolean {
         return m.status === 'streaming' || m.status === 'pending';
@@ -1467,23 +1445,9 @@ export class AparteClient {
      * What the model is told it said last turn — reconstructed from what was
      * RENDERED, not from the raw-text field.
      *
-     * The order used to be the other way round, and it silently corrupted the
-     * context on the most common opening in a coding chat: a reply starting with a
-     * code fence was sent back as three backticks and nothing else. Three
-     * correct-in-isolation decisions composed into it:
-     *
-     *  1. the parser withholds an ambiguous prefix (``` ``` ```, `` ` ``, `<`)
-     *     waiting for the next delta, and creates no active segment while it waits;
-     *  2. so `_streamLoop` sees zero segments, concludes the parser produced
-     *     nothing, and appends the raw delta straight to `message.content`;
-     *  3. and this method preferred `content`.
-     *
-     * The bubble hides its content element as soon as segments exist, so the UI was
-     * perfect and only the NEXT request showed it. No unit test, no example and
-     * no browser test could see it.
-     *
-     * `content` stays as the fallback, and that is not vestigial: a non-streaming
-     * transport writes the whole reply there and creates no segments at all.
+     * The segments are what the reader saw, so they come first. `content` is the
+     * fallback, and that is not vestigial: a non-streaming transport writes the whole
+     * reply there and creates no segments at all.
      */
     private _extractText(message: AparteMessage): string {
         const rendered = this._segmentsToText(message.segments);
@@ -1502,10 +1466,9 @@ export class AparteClient {
      * A type core does not know — a registered block grammar's (an artifact, a
      * citation, a file), a consumer's custom segment — follows one rule: its
      * `content` if it has one, else its `fallback`, else nothing. Dropping such a
-     * segment made a document the model had just produced invisible on the very next
-     * turn, so it could not be asked to change the thing it had built; there used to
-     * be an `artifact` branch here for exactly that, and the rule is what replaces it
-     * now that the artifact is a plugin's type like any other.
+     * segment would make a document the model had just produced invisible on the very
+     * next turn, so it could not be asked to change the thing it had built. An artifact
+     * is a plugin's type like any other and follows this rule.
      *
      * `thinking` and `tool_call` stay out on purpose — the first is the model's own
      * scratchpad, and most APIs neither want it back nor bill for it kindly; the
@@ -1672,7 +1635,7 @@ export class AparteClient {
         // of this loop inline — five hundred lines "kept in sync" with the engine by
         // hand — and the same tool turn corrupted the history in two different
         // shapes, one per copy, invisible to a parity suite precisely because they
-        // differed. One loop, one shape (audit 2026-08-28, D1).
+        // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
         return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral);
     }
@@ -1841,10 +1804,22 @@ export class AparteClient {
         targetElement: AparteChatTargetElement,
         pending: StreamDeferredCall[],
         signal: AbortSignal,
+        rowEvents?: AparteStreamRunEmitter,
+        approvedBefore: ReadonlySet<string> = new Set(),
+        approvedNow: Set<string> = new Set(),
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
         const resolver = this._approvalResolverFor(targetElement, true);
-        for (const p of pending) {
+        // A refusal ends the pause's later calls, as it ends the turn's in the page's own
+        // loop: nobody is asked about them and none of them runs — but each is ANSWERED, as
+        // not run. Left without an answer, a server pauses on it again and an AG-UI agent
+        // hands its model a call nothing answers, which providers reject.
+        const refuseTheRest = (after: number): void => {
+            for (const rest of pending.slice(after + 1)) {
+                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL };
+            }
+        };
+        for (const [index, p] of pending.entries()) {
             if (signal.aborted) break;
             const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };
             if (p.reason === 'approval') {
@@ -1858,11 +1833,38 @@ export class AparteClient {
                 }
                 if (!decision || signal.aborted) return undefined;
                 outcomes[p.toolCallId] = { kind: 'decision', ...decision };
+                if (decision.approved) approvedNow.add(approvalKey(call));
+                else { refuseTheRest(index); break; }
             } else if (p.reason === 'external') {
+                // The page's gate first, the one its own loop applies: a browser tool asked
+                // for by a server or an AG-UI agent used to run without its `needsApproval`
+                // or the approval policy ever being consulted.
+                let gate: Awaited<ReturnType<StreamApprovalResolver>> | null | undefined = null;
+                const key = approvalKey(call);
+                if (!approvedBefore.has(key) && !approvedNow.has(key)) {
+                    try {
+                        gate = await this._gateBrowserTool(call, signal, targetElement, rowEvents);
+                    } catch (error: unknown) {
+                        if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
+                        gate = undefined;
+                    }
+                }
+                if (gate === undefined || signal.aborted) return undefined;
+                if (gate && !gate.approved) {
+                    outcomes[p.toolCallId] = { kind: 'decision', ...gate };
+                    refuseTheRest(index);
+                    break;
+                }
+                // An approval may carry a payload, merged into the input as the page's own
+                // loop merges it.
+                const payload = gate?.payload;
+                const ran = payload && typeof payload === 'object' && !Array.isArray(payload)
+                    ? { ...call, input: { ...call.input, ...(payload as Record<string, unknown>) } }
+                    : call;
                 const handler = this._config.getToolHandler(p.name);
                 try {
                     if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
-                    const result = await handler(call, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
+                    const result = await handler(ran, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
                     outcomes[p.toolCallId] = {
                         kind: 'result',
                         content: result.content,
@@ -1875,6 +1877,35 @@ export class AparteClient {
             }
         }
         return signal.aborted ? undefined : outcomes;
+    }
+
+    /**
+     * Whether a browser tool a paused run asked for may run, decided as a run in the page
+     * decides it. With a host `approvalResolver`, the tool's own `needsApproval` says whether
+     * to ask and the resolver answers; without one, the approval policy and `needsApproval`
+     * rule (`ruleOnToolCall`) and the default channel asks. `null` when nothing gates the
+     * call, the decision when something did, `undefined` when nobody answered.
+     */
+    private async _gateBrowserTool(
+        call: AparteToolCall,
+        signal: AbortSignal,
+        targetElement: AparteChatTargetElement,
+        rowEvents?: AparteStreamRunEmitter,
+    ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
+        const ruling = this.options.approvalResolver
+            ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
+            : this._config.ruleOnToolCall(call).verdict;
+        if (ruling === 'allow') return null;
+        // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
+        // fires, as for a call gated in the page's own loop. A `deny` is decided already.
+        if (ruling === 'ask') rowEvents?.({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+        const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
+        // Back to running, and still PAUSED: the resume hands this call back open for its
+        // result to answer. Not through `rowEvents` — that adapter never saw the call start,
+        // so it takes any settle for the end of the pause and drops `deferred`, and the
+        // history then answered the call "stopped before it ran".
+        if (decision?.approved && ruling === 'ask') targetElement.updateSegment?.(`tool-${call.id}`, { status: 'pending' } as Partial<AparteSegment>);
+        return decision;
     }
 
     /**
@@ -1902,8 +1933,8 @@ export class AparteClient {
      * Close the reply's calls that can no longer finish — paused, queued, or running on a
      * server the page stopped listening to: each says it stopped, and forgets the pause.
      * A cut connection carries none of their last events, so nothing else would: the rows
-     * spun, and a queued call kept its ticket, which a reload then resumed against a
-     * server that had moved on. By the reply's id, not the chat's head — a retry during
+     * would spin, and a queued call would keep its ticket, which a reload would then
+     * resume against a server that had moved on. By the reply's id, not the chat's head — a retry during
      * the wait moves the head. A run in the page ends every call itself: nothing to do.
      */
     private _closeOpenCalls(targetElement: AparteChatTargetElement, messageId: string): void {
@@ -2049,31 +2080,23 @@ export class AparteClient {
             /*
              * APPEND the error, never replace the reply.
              *
-             * This used to pass `segments: [errorSegment]`, which destroyed
-             * everything already streamed and rendered — text, the thinking block,
-             * artifacts, resolved tool calls — the moment a provider emitted a
-             * mid-stream `error` event, or a tool handler threw anything that was
-             * not an `AbortError`.
-             *
-             * It is the same defect as "Stop erased the reply", fixed one release
-             * earlier on the abort path and left standing on the error path. A
-             * partial answer plus an error is the truth; an empty bubble with an
-             * error in it is a lie about what the model said.
+             * Replacing with `segments: [errorSegment]` would destroy everything already
+             * streamed and rendered — text, the thinking block, artifacts, resolved tool
+             * calls — the moment a provider emits a mid-stream `error` event, or a tool
+             * handler throws anything that is not an `AbortError`. A partial answer plus
+             * an error is the truth; an empty bubble with an error in it is a lie about
+             * what the model said.
              */
             /*
              * TREE-WIDE first, active path second.
              *
-             * The append-not-replace rule above was implemented with `getMessages()`, which
-             * returns only the ACTIVE path — so it held for the message being streamed and
-             * silently became a full replace for any message that had left that path. A
-             * retry or an edit on an earlier bubble does precisely that to a reply still in
-             * flight: the reply stays in the tree, drops off the path, and the error handler
-             * then found no segments, passed `[errorSegment]`, and `updateMessage` —
-             * which resolves ids tree-wide — overwrote every token it had actually streamed.
-             *
-             * The bug was invisible because both halves were individually correct. Found by
-             * a cold audit; deterministic on `AparteBackendTransport`, whose parser turns a
-             * cut connection into a thrown error rather than a quiet close.
+             * `getMessages()` returns only the ACTIVE path, so the append-not-replace rule
+             * would silently become a full replace for any message that has left that
+             * path. A retry or an edit on an earlier bubble does precisely that to a reply
+             * still in flight: the reply stays in the tree, drops off the path, and the
+             * error handler would find no segments, pass `[errorSegment]`, and
+             * `updateMessage` — which resolves ids tree-wide — would overwrite every token
+             * already streamed.
              */
             const rendered =
                 target.getMessage?.(messageId)?.segments

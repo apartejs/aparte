@@ -46,6 +46,37 @@ export interface ArtifactRenderOptions {
     preview?: boolean | ArtifactPreviewBuilder;
     /** See {@link ArtifactBinaryResolver}. */
     onBinary?: ArtifactBinaryResolver;
+    /**
+     * An Open button on the card, which dispatches `aparte-artifact-open` (bubbling, out of
+     * shadow roots) with the artifact, for the app to show it where it wants: a split pane,
+     * a dialog, a tab. Off by default — without a listener nothing would open (ratified
+     * decision #8).
+     */
+    open?: boolean;
+}
+
+/**
+ * The artifact card's Open button was pressed (`setupArtifacts({ open: true })`): show the
+ * artifact where the app wants it. Bubbles out of the chat and out of shadow roots. The
+ * detail is the artifact as the card shows it now.
+ *
+ * @event aparte-artifact-open
+ */
+export interface ArtifactOpenEventDetail {
+    artifact: ArtifactSegment;
+}
+
+// Typed where it is dispatched: `addEventListener('aparte-artifact-open', (e) => e.detail.artifact)`
+// with no cast, on an element, the document or the window (it bubbles out of the chat),
+// wherever the plugin is imported. The type names the plugin's segment, so it cannot live in
+// core's event map.
+interface ArtifactEventMap {
+    'aparte-artifact-open': CustomEvent<ArtifactOpenEventDetail>;
+}
+declare global {
+    interface HTMLElementEventMap extends ArtifactEventMap {}
+    interface DocumentEventMap extends ArtifactEventMap {}
+    interface WindowEventMap extends ArtifactEventMap {}
 }
 
 const settings = new WeakMap<AparteConfig, ArtifactRenderOptions>();

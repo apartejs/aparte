@@ -21,7 +21,7 @@ aparteGlobalConfig.setIconProvider({
 ```
 
 Give the icons you replace, by name; the others keep core's. Each call replaces the whole set, so
-give every icon you replace in one call. A value is markup you trust: an SVG, an icon font's
+give every icon you replace in one call, or add to the set with `registerIcons`. A value is markup you trust: an SVG, an icon font's
 element, an emoji, an `<img>`. An SVG or an `<img>` with `class="aparte-icon"` takes its size from
 the place it sits, through `--aparte-icon-size`, as core's glyphs do; an icon font or an emoji is
 text, and follows the `font-size` around it. The [icon names](/reference/icons/) are listed with
@@ -42,6 +42,29 @@ document.querySelector('#new-chat')?.insertAdjacentHTML('afterbegin', sparklesIc
 `@aparte/core/icons` holds glyphs core does not draw itself, each imported by name, so a bundle
 carries the ones you use. Give one to a name core knows, or put it in your own markup.
 
+## An icon of your own
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { shareIcon } from '@aparte/core/icons';
+
+declare module '@aparte/core' {
+  interface AparteIconProvider {
+    share?: () => string;
+  }
+}
+
+aparteGlobalConfig.registerIcons({ share: () => shareIcon });
+aparteGlobalConfig.registerAction({ id: 'share', icon: 'share', label: 'Share', zones: ['bubble'] });
+```
+
+`registerIcons` adds to the set and keeps the rest, so a plugin and the app can each register
+theirs; a later `setIconProvider` replaces them all. The new name is then an icon like core's: an
+action's `icon`, `<aparte-composer-action icon="share">` and `<aparte-icon name="share">` find it.
+The `declare module` block makes `share` a name the types know: `setIconProvider` takes it beside
+core's, and `AparteIconName` lists it. `getIcon('share')` still returns `string | undefined`, unlike
+one of core's names: a configuration nobody registered it on has no drawing for it.
+
 ## Avatars
 
 <Variant id="message-avatars" caption="An avatar beside each message, drawn by the avatar provider." />
@@ -57,17 +80,24 @@ aparteGlobalConfig.setAvatarProvider({
 });
 ```
 
-A message has no avatar until you set a provider: the slot shows once `render` fills it, and
-`setAvatarProvider(null)` stops them on the messages drawn after. Core empties the slot and calls
-`render` again
-whenever the configuration changes — a new language, a new icon set — or the message's role does.
+A message has no avatar until a provider draws one or the stylesheet names a picture (below): the
+slot shows once `render` fills it, and `setAvatarProvider(null)` takes them off every message. Core empties the slot and calls `render`
+again whenever the configuration changes — a new language, a new icon set — or the message's role
+does.
 If `render` returns a function, core calls it before each new render and when the message goes
 away, so you can unmount a component you put there.
 
-`--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot,
-and `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` the background behind what your
-provider writes. For a picture alone, the provider still puts something in the slot, which shows
-only when filled: `host.innerHTML = '<span></span>'`.
+A picture needs no provider:
+
+```css
+:root { --aparte-avatar-image-assistant: url('/logo.svg'); }
+```
+
+`--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot, and
+an empty slot whose role names one shows it, with or without a provider. Core reads them when a message is drawn and on
+every configuration change, on the message element: declare them on `:root`, on the chat or on `aparte-chat-bubble`, not on
+the slot itself. `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` colour the
+ground behind the picture or what your provider writes.
 
 ## Keep your own element in sync with the icons and language
 

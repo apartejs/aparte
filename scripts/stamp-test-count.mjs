@@ -8,10 +8,12 @@
  * that is printed should not be typed by hand: the landing had four hardcoded
  * counts and every one of them was already drifting.
  *
- * So: `pnpm test` emits vitest's JSON report to a gitignored file, and this reads
- * the totals out of it into a two-line stamp that IS committed. Cost is one extra
- * reporter on a run that was happening anyway — no second suite, which matters
- * because this runs on every pre-push.
+ * So: `pnpm test:coverage` (the gate's run) emits vitest's JSON report to a gitignored
+ * file, and this reads the totals out of it into a two-line stamp that IS committed. Cost
+ * is one extra reporter on a run that was happening anyway — no second suite.
+ *
+ * Only the gate's run stamps. `pnpm test` runs on every pre-push, and when it rewrote the
+ * stamp a push left the tree dirty — which `pnpm release` then refused.
  *
  * Deliberately forgiving: if the report is missing or unparseable it leaves the
  * previous stamp alone and says so. A test run must never fail because a docs

@@ -83,13 +83,16 @@ manager through that configuration's `setConversationManager`.
 
 `createNew`, `delete`, `archive`, `unarchive`, `pin`, `unpin` and `updateTitle` change the list. A
 rename, a pin or an archive leaves `updatedAt` alone, so the conversation keeps its date;
-`updatedAt` moves when its messages change. The
+`updatedAt` moves when its messages change — not when a conversation is opened and left, and not
+when the reader moves between the versions of a reply, which is saved without dating it. The
 [conversations reference](/reference/core/conversations/) lists every method and type.
 
 In a framework, the package's helper builds and registers the manager: call its `init(adapter)`
-once, or `init(adapter, config)` for a chat with its own `config`. The helpers build it without
-options; for `retention` or a title provider, build the manager as above and register it with
-`setConversationManager` — the chat saves to whichever manager is registered.
+once, or `init(adapter, config)` for a chat with its own `config`. A third argument takes the
+manager's options — `init(adapter, aparteGlobalConfig, { retention: { maxMessages: 200 } })`, or a
+`titleProvider` — and the helper's `manager` is the manager itself once `init` has run, for what
+the helper does not mirror (`setTitleProvider`, `ensureFull`). Read it as `cm.manager` after
+`init`: a copy destructured before (`const { manager } = …`) stays `null` in Vue and Svelte.
 
 | Framework | Helper |
 | --- | --- |

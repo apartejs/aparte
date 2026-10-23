@@ -5,6 +5,7 @@ import {
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
+    type ConversationManagerOptions,
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
@@ -21,7 +22,12 @@ export interface UseConversationManager {
      * `<AparteChat config={…}>`; it defaults to the global — the implementation always
      * took it, the interface hid it, so the documented two-argument call did not type.
      */
-    init: (adapter: AparteStorageAdapter, config?: AparteConfig) => Promise<void>;
+    init: (adapter: AparteStorageAdapter, config?: AparteConfig, options?: ConversationManagerOptions) => Promise<void>;
+    /**
+     * The core manager this hook wraps, once `init` has run (`null` before): what the hook
+     * does not mirror — `setTitleProvider`, `ensureFull`, `loadAll` — is reached through it.
+     */
+    readonly manager: AparteConversationManager | null;
     createNew: (title?: string) => Promise<AparteConversation>;
     addMessage: (convId: string, message: AparteMessage) => Promise<void>;
     updateMessages: (convId: string, messages: AparteMessage[]) => Promise<void>;
@@ -56,8 +62,8 @@ export function useConversationManager(): UseConversationManager {
      * with its own — persistence silently does nothing while the optimistic UI
      * keeps working.
      */
-    const init = useCallback(async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig) => {
-        const m = new AparteConversationManager(adapter);
+    const init = useCallback(async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions) => {
+        const m = new AparteConversationManager(adapter, options);
         managerRef.current = m;
         unsubRef.current = m.subscribe((convs) => {
             setConversations([...convs]);
@@ -95,6 +101,7 @@ export function useConversationManager(): UseConversationManager {
         activeId,
         activeConversation,
         init,
+        get manager() { return managerRef.current; },
         createNew: (title) => assert().createNew(title),
         addMessage: (convId, message) => assert().addMessage(convId, message),
         updateMessages: (convId, messages) => assert().updateMessages(convId, messages),

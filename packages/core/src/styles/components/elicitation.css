@@ -51,12 +51,27 @@
   scrollbar-color: var(--aparte-border) transparent;
 }
 
+/* An approval's body keeps the panel's rhythm, and nothing in it shrinks: the BODY
+   scrolls instead. A child left shrinkable gives way first, and the one that did was the
+   arguments block — the thing being approved. */
+.aparte-approval-panel > .aparte-elic-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-elic-gap);
+}
+
+.aparte-approval-panel > .aparte-elic-body > * {
+  flex-shrink: 0;
+}
+
 .aparte-elic-message {
   /* The end margin is the room the corner "Skip" needs, from the same token the tab
      rail reserves — the button is absolutely positioned, so nothing in the flow knows
      it is there, and a long question printed its first line underneath it (#50). One
      token, because the button holds a word and the word changes width per locale. */
-  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-3) var(--aparte-space-3);
+  /* Logical: the corner sits at the inline END, which is the left in a right-to-left page. */
+  margin-block: 0 var(--aparte-space-3);
+  margin-inline: var(--aparte-space-3) var(--aparte-elic-dismiss-room);
   font-size: var(--aparte-elic-message-size);
   font-weight: var(--aparte-font-weight-semibold);
   color: var(--aparte-text);
@@ -187,6 +202,33 @@ textarea.aparte-elic-text {
   top: 0;
   inset-inline-end: 0;
   z-index: var(--aparte-z-raised);
+  /* The hide button, then a question's Skip, on one line. */
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+}
+
+/* ── Put aside: the panel becomes one line ────────────────────────────────────
+   Hiding a panel that still waits must never leave nothing: the bar says an answer is
+   waiting and is the way back. Everything else in the panel steps out of the layout, so
+   the composer shrinks to the bar and the transcript gets the room back. */
+.aparte-elic-reveal {
+  display: none;
+}
+
+.aparte-elic-panel[data-collapsed] {
+  padding-block: var(--aparte-space-1);
+}
+
+.aparte-elic-panel[data-collapsed] > :not(.aparte-elic-reveal) {
+  display: none;
+}
+
+.aparte-elic-panel[data-collapsed] > .aparte-elic-reveal {
+  display: inline-flex;
+  justify-content: space-between;
+  width: 100%;
+  color: var(--aparte-text-muted);
 }
 
 /* ── An approval: a decision, not a value ───────────────────────────────────
@@ -339,7 +381,8 @@ textarea.aparte-elic-text {
    underline sits on, and a step's smaller type. */
 .aparte-elic-steps {
   gap: var(--aparte-elic-step-gap);
-  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-4) var(--aparte-space-3);
+  margin-block: 0 var(--aparte-space-4);
+  margin-inline: var(--aparte-space-3) var(--aparte-elic-dismiss-room);
   border-bottom: var(--aparte-border-width) solid var(--aparte-border);
 }
 

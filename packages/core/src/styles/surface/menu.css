@@ -93,7 +93,6 @@
   padding: var(--aparte-space-3) var(--aparte-space-4);
   border: none;
   border-radius: var(--aparte-radius-sm);
-  background: transparent;
   color: inherit;
   font: inherit;
   font-size: var(--aparte-font-size-md);
@@ -102,6 +101,13 @@
   cursor: pointer;
   user-select: none;
   transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+/* A row wearing the mark (display/mark.css) keeps the mark's tint. Both rules weigh one class
+   and this sheet loads after, so a transparent ground here erased it; `:where()` keeps this rule
+   at that same weight while it skips the marked row. */
+.aparte-menu__item:not(:where(.aparte-mark)) {
+  background: transparent;
 }
 
 .aparte-menu__item:hover:not(:disabled):not([aria-disabled='true']) {
@@ -137,6 +143,13 @@
   content: '✓';
   flex-shrink: 0;
   visibility: hidden;
+  /* The mark draws its start-edge bar on this same pseudo-element. In a checkable menu the check
+     is the row's "this one", so a marked row keeps its gutter in the flow rather than the bar. */
+  position: static;
+  width: auto;
+  background: none;
+  /* And a quiet mark, which hides its bar (`::before { display: none }`), keeps the gutter. */
+  display: inline;
 }
 
 /* The same `:has()` as the gutter above, and on purpose: `:has()` takes the weight of its

@@ -24,7 +24,7 @@ import { deriveArtifactKind } from './kinds.js';
 import { stripCodeFences, labelForKind } from './shared.js';
 import { streamHighlight } from './highlight.js';
 import { PREVIEW_CSP, buildSafePreviewDocument } from './preview-document.js';
-import { renderOptions } from './options.js';
+import { renderOptions, type ArtifactOpenEventDetail } from './options.js';
 import {
     renderBinaryFileArtifact,
     setupBinaryFileArtifact,
@@ -46,6 +46,9 @@ let cardIdSeq = 0;
 
 /** Binary file kinds: their source is implementation noise; the app produces the file. */
 const BINARY_FILE_KINDS: ReadonlySet<string> = new Set(['pdf', 'xlsx', 'docx']);
+
+/** What each card's code pane holds, so an update that changes nothing does not rewrite it. */
+const paneContent = new WeakMap<Element, string>();
 
 /** Whether the Preview tab exists at all, per the app's `preview` option. */
 function previewEnabled(): boolean {
@@ -74,6 +77,8 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         // every language.
         const cfg = contextConfig();
         const downloadLabel = cfg.t('download');
+        const openLabel = cfg.t('openArtifact');
+        const openable = renderOptions(cfg).open === true;
         const previewLabel = cfg.t('preview');
         const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
@@ -136,6 +141,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                         <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             ${contextConfig().getIcon('download')}
                         </button>
+                        ${openable ? `<button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="open" title="${escapeAttr(openLabel)}" aria-label="${escapeAttr(openLabel)}" ${isStreaming ? 'disabled' : ''}>${contextConfig().getIcon('expand')}</button>` : ''}
                     </div>
                 </header>
                 <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
@@ -183,6 +189,12 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             dl.setAttribute('title', label);
             dl.setAttribute('aria-label', label);
         }
+        const open = element.querySelector('.aparte-art-card__btn[data-action="open"]');
+        if (open) {
+            const label = cfg.t('openArtifact');
+            open.setAttribute('title', label);
+            open.setAttribute('aria-label', label);
+        }
         // Text only, and never `aria-selected` or `data-tab`: which pane is open is
         // the reader's state, not the locale's. A relabel that touched it would close
         // a preview somebody had opened.
@@ -203,6 +215,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         if (wrapper) {
             const displayLang = languageForKind(kind);
             const cleanContent = stripCodeFences(segment.content || '');
+            paneContent.set(element, cleanContent);
             void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                 wrapper.innerHTML = html;
             }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
@@ -251,12 +264,31 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             });
         }
 
+        // Open — handed to the app, which shows it where it wants. The LATEST segment.
+        const openBtn = element.querySelector<HTMLButtonElement>('[data-action="open"]');
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                // Not while it streams, like Download: the app would get a half-written document.
+                if (openBtn.disabled) return;
+                const latest = latestSegment.get(element) ?? segment;
+                // As the card shows it, copies it and downloads it: without the code fences a
+                // model may wrap the content in.
+                const artifact = { ...latest, content: stripCodeFences(latest.content || '') };
+                element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
+                    bubbles: true,
+                    composed: true,
+                    detail: { artifact },
+                }));
+            });
+        }
+
         // Copy
         const copyBtn = element.querySelector<HTMLButtonElement>('[data-action="copy"]');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                // Late execution (user click) — resolve from the element.
-                const code = stripCodeFences(segment.content || '');
+                // Late execution (user click) — resolve from the element, and copy the
+                // latest segment, not the one this closure captured: see `latestSegment`.
+                const code = stripCodeFences((latestSegment.get(element) ?? segment).content || '');
                 void copyText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
@@ -304,16 +336,25 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         if (isStreaming) {
             const segId = element.getAttribute('data-segment-id') ?? segment.id;
             streamHighlight(element, '.aparte-code-content-wrapper', cleanContent, languageForKind(kind), segId);
-        } else {
-            const codeEl = element.querySelector('.aparte-code-content-wrapper code');
+        } else if (paneContent.get(element) !== cleanContent) {
+            // Only a CHANGED content is written. A card built from a tool result is settled
+            // from its first paint and still receives every update the tool segment gets;
+            // writing `textContent` each time wiped the token spans `setup` had painted, and
+            // with no stream ending there was no second highlight — a plain block in a Shiki
+            // frame. A changed one is written and coloured again.
+            paneContent.set(element, cleanContent);
+            const displayLang = languageForKind(kind);
+            const wrapper = element.querySelector('.aparte-code-content-wrapper');
+            const codeEl = wrapper?.querySelector('code');
             if (codeEl) {
                 codeEl.textContent = cleanContent;
-            } else {
-                const wrapper = element.querySelector('.aparte-code-content-wrapper');
-                if (wrapper) {
-                    const displayLang = languageForKind(kind);
-                    wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
-                }
+            } else if (wrapper) {
+                wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
+            }
+            if (wrapper && !wasStreaming) {
+                void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
+                    if (paneContent.get(element) === cleanContent) wrapper.innerHTML = html;
+                }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
             }
         }
 

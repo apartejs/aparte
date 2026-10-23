@@ -1,5 +1,7 @@
 # @aparte/provider-ai-sdk
 
+## 0.20.0
+
 ## 0.19.3
 
 ## 0.19.2

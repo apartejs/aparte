@@ -47,7 +47,17 @@ export interface AparteChatBinding {
      * Optional: falls back to the flat `setMessages` load when absent.
      */
     importTree?(tree: ExportedMessageRepository): void;
+    /**
+     * Run a callback after the framework has applied its latest render. Optional: a
+     * binding whose list is current the moment it is written (the vanilla viewport)
+     * leaves it out. One that renders late — a transcript kept in a framework store —
+     * declares it, so a save waits for the list to arrive instead of writing the old one.
+     */
+    afterRender?(cb: () => void): void;
 }
+
+/** How many renders a compaction's save waits for the summary to reach the binding. */
+const MAX_COMPACTION_SAVE_WAITS = 6;
 
 export interface AparteConversationControllerOptions {
     /**
@@ -96,6 +106,7 @@ export class AparteConversationController {
     private _onMessageAborted: (() => void) | null = null;
     private _onMessagePaused: (() => void) | null = null;
     private _onSelectConversation: ((e: Event) => void) | null = null;
+    private _onCompactDone: ((e: Event) => void) | null = null;
     private _unsubscribeManager: (() => void) | null = null;
     /** The manager the subscription above is on, so a replaced manager is re-subscribed. */
     private _subscribedTo: AparteConversationManager | null = null;
@@ -175,9 +186,9 @@ export class AparteConversationController {
     /**
      * Degraded mode is legitimate — a host that never opted into the conversation
      * lifecycle has no manager and should not be nagged. Registering one on the
-     * WRONG config is not: the four wrapper hooks used to write it to the global
-     * singleton unconditionally, so `config` + persistence looked like it worked
-     * (the optimistic UI still appends) and saved nothing at all.
+     * WRONG config is not: a manager registered on the global singleton while the chat
+     * uses its own `config` looks like it works (the optimistic UI still appends) and
+     * saves nothing at all.
      *
      * Warned once per controller, and only in the case that is unambiguously a
      * mistake: no manager here, but one on the global.
@@ -297,8 +308,18 @@ export class AparteConversationController {
             if (targetId && targetId !== this._binding.hostId) return;
             void this.setConversationId(evt.detail?.id ?? null);
         };
+        // A compaction rewrites the transcript (summary in, summarised turns out) and says
+        // so on `window` only. Nothing else fires: the turns it drops and the summary it adds
+        // were saved at the next message, and a reload before it brought the long transcript
+        // back. Saved now, for the chat it names.
+        this._onCompactDone = (e: Event) => {
+            const detail = (e as CustomEvent<{ targetId?: string; summary?: string } | undefined>).detail;
+            if (detail?.targetId && detail.targetId !== this._binding.hostId) return;
+            queueMicrotask(() => this._persistOnceSummarised(detail?.summary, 0));
+        };
         if (typeof window !== 'undefined') {
             window.addEventListener('aparte-conversation-select', this._onSelectConversation);
+            window.addEventListener('aparte-compact-done', this._onCompactDone);
         }
 
         // The manager subscription is installed by `_manager()` — the single lazy
@@ -360,6 +381,10 @@ export class AparteConversationController {
         if (this._onMessagePaused) {
             host.removeEventListener('aparte-message-paused', this._onMessagePaused);
             this._onMessagePaused = null;
+        }
+        if (this._onCompactDone && typeof window !== 'undefined') {
+            window.removeEventListener('aparte-compact-done', this._onCompactDone);
+            this._onCompactDone = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
             window.removeEventListener('aparte-conversation-select', this._onSelectConversation);
@@ -584,6 +609,23 @@ export class AparteConversationController {
      * re-enter streaming UI (caret, spinner, no action buttons) for content
      * that was partially written before a switch or component destruction.
      */
+    /**
+     * Save once the binding holds the summary a compaction announced. A transcript kept in
+     * a framework store reaches the binding only when that framework renders, so a save on
+     * the microtask wrote the conversation as it stood before the compaction. Bounded: a
+     * run with no summary (skipped), or a binding that never shows it, is saved as it is.
+     */
+    private _persistOnceSummarised(summary: string | undefined, waits: number): void {
+        const holds = !summary || this._binding.getMessages().some(
+            (m) => m.compaction === true && typeof m.content === 'string' && m.content.endsWith(summary),
+        );
+        if (holds || !this._binding.afterRender || waits >= MAX_COMPACTION_SAVE_WAITS) {
+            this._persistActive();
+            return;
+        }
+        this._binding.afterRender(() => this._persistOnceSummarised(summary, waits + 1));
+    }
+
     private _persistActive(): void {
         if (!this._activeId) return;
         const manager = this._manager();

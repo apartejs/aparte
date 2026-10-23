@@ -166,6 +166,10 @@ export function writeStreamedMarkdown(
  * — exactly like the code renderer's own call.
  */
 export function highlightMarkdownFences(contentEl: Element): void {
+    // No highlighter: core's fallback is a bare `<pre><code>`, and put in the block's place it
+    // would take the `language-*` class and whatever the Markdown renderer wrote on the `<pre>`.
+    // Unmarked, so a highlighter set later still finds the block when the message is redrawn.
+    if (!contextConfig().hasHighlightProvider()) return;
     const blocks = contentEl.querySelectorAll('pre > code:not([data-aparte-highlighted])');
     for (const block of blocks) {
         const pre = block.parentElement;

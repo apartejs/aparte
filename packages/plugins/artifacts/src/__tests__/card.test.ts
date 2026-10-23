@@ -33,6 +33,22 @@ describe('the artifact card', () => {
     beforeEach(() => { install(); resetBinaryArtifacts(); });
     afterEach(() => { teardown?.(); teardown = null; aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
+    it('keeps the colouring of a settled card through an update that changes nothing', async () => {
+        // A card drawn from a TOOL RESULT is settled from its first paint and still gets every
+        // update its tool segment gets. Writing the code each time wiped the spans setup painted.
+        aparteGlobalConfig.setHighlightProvider((code) => `<pre class="shiki"><code><span class="tok">${code}</span></code></pre>`);
+        const segment = { id: 'a1', type: 'artifact', artifactType: 'diff', title: 'Patch', content: '+ added', isStreaming: false };
+        const el = mountCard(segment);
+        await vi.waitFor(() => expect(el.querySelector('.aparte-code-content-wrapper .tok')).toBeTruthy());
+
+        getSegmentRenderer('artifact')!.update!(el, segment as never);
+        await flush();
+        expect(el.querySelector('.aparte-code-content-wrapper .tok'), 'still coloured').toBeTruthy();
+
+        getSegmentRenderer('artifact')!.update!(el, { ...segment, content: '+ added\n- removed' } as never);
+        await vi.waitFor(() => expect(el.querySelector('.aparte-code-content-wrapper .tok')?.textContent).toContain('- removed'));
+    });
+
     it('is registered by setupArtifacts(), and unregistered by what it returns', () => {
         const hasTool = () => aparteGlobalConfig.getTools().some((t) => t.name === 'create_artifact');
         expect(getSegmentRenderer('artifact')).toBeDefined();
@@ -153,6 +169,23 @@ describe('the artifact card', () => {
         renderer.update!(el, { ...streaming, content: '<p>whole</p>', isStreaming: false } as never);
         expect(el.getAttribute('data-streaming')).toBe('false');
         expect(el.querySelector('.aparte-art-card__pulse')).toBeNull();
+    });
+
+    it('copies the artifact as it ends, not the empty one the card was set up with', () => {
+        // A streamed `<artifact>` is set up before its first chunk and filled by `update`.
+        const writeText = vi.fn(async (_text: string) => {});
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+        try {
+            const renderer = getSegmentRenderer('artifact')!;
+            const streaming = { id: 'a10', type: 'artifact', mimeType: 'text/html', artifactType: 'html', content: '', isStreaming: true };
+            const el = mountCard(streaming);
+            renderer.update!(el, { ...streaming, content: '<p>half' } as never);
+            renderer.update!(el, { ...streaming, content: '<p>done</p>', isStreaming: false } as never);
+            el.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
+            expect(writeText).toHaveBeenCalledWith('<p>done</p>');
+        } finally {
+            Reflect.deleteProperty(navigator, 'clipboard');
+        }
     });
 
     it('stays on the code tab for a non-previewable kind (e.g. python) even when settled', () => {
@@ -281,5 +314,50 @@ describe('a binary artifact', () => {
         const html = getSegmentRenderer('artifact')!.render({ ...pdf('b5', true), title: '<img src=x onerror=alert(1)>' } as never);
         expect(html).not.toContain('<img src=x onerror=');
         expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    });
+});
+
+/*
+ * "Open this artifact in a pane": the card has no idea where the app's pane is, so it hands the
+ * artifact over with an event — and offers the button only when the app asked for it, since
+ * without a listener nothing would open (ratified decision #8).
+ */
+describe('the Open button', () => {
+    afterEach(() => { teardown?.(); teardown = null; aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
+    const segment = { id: 'a1', type: 'artifact', artifactType: 'html', title: 'Page', content: '<p>v1</p>', isStreaming: false };
+
+    it('is not offered unless the app asked', () => {
+        install();
+        expect(mountCard(segment).querySelector('[data-action="open"]')).toBeNull();
+    });
+
+    it("hands the latest artifact over in aparte-artifact-open, out to the page", () => {
+        install({ open: true });
+        const el = mountCard(segment);
+        const btn = el.querySelector<HTMLButtonElement>('[data-action="open"]')!;
+        expect(btn.getAttribute('aria-label')).toBe('Open');
+        getSegmentRenderer('artifact')!.update!(el, { ...segment, content: '<p>v2</p>' } as never);
+        const seen: string[] = [];
+        document.addEventListener('aparte-artifact-open', (e) => seen.push(e.detail.artifact.content));
+        btn.click();
+        expect(seen).toEqual(['<p>v2</p>']);
+    });
+
+    it("hands it over as the card shows it: a model's code fences are not part of the content", () => {
+        install({ open: true });
+        const fenced = { ...segment, content: '```html\n<p>v1</p>\n```' };
+        const el = mountCard(fenced);
+        const seen: string[] = [];
+        document.addEventListener('aparte-artifact-open', (e) => seen.push(e.detail.artifact.content));
+        el.querySelector<HTMLButtonElement>('[data-action="open"]')!.click();
+        expect(seen).toEqual(['<p>v1</p>']);
+    });
+
+    it('follows a language switch', () => {
+        install({ open: true });
+        const el = mountCard(segment);
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), openArtifact: 'Ouvrir' });
+        getSegmentRenderer('artifact')!.relabel?.(el, segment as never);
+        expect(el.querySelector('[data-action="open"]')!.getAttribute('aria-label')).toBe('Ouvrir');
     });
 });

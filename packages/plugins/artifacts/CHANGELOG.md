@@ -1,5 +1,39 @@
 # @aparte/plugin-artifacts
 
+## 0.20.0
+
+### Minor Changes
+
+- 9a0a1d1: New `setupArtifacts({ open: true })` puts an Open button on the artifact card, which dispatches `aparte-artifact-open` with `{ artifact }` so the app can show it in a pane, a dialog or a tab of its own.
+
+  Off by default: the card cannot know where the app's pane is, and a button nothing answers would be a promise the library cannot keep. The event bubbles out of shadow roots and is typed (`ArtifactOpenEventDetail`) wherever the plugin is imported. Its label is the new locale key `openArtifact` ("Open", "Ouvrir").
+
+### Patch Changes
+
+- 30118ab: An artifact card drawn from a tool result keeps its syntax colouring: an update that does not change the code no longer rewrites the pane as plain text.
+
+  A card built from `create_artifact`'s result is settled from its first paint and still receives every update its tool segment gets. Each one set the pane's `textContent`, which wiped the token spans the setup had painted, and with no stream ending there was no second highlight — a plain block in a Shiki frame. The pane is now written only when its content changes, and coloured again when it does.
+
+- 5d6a6ae: Copy on an artifact card now copies the artifact as the card shows it; a streamed artifact used to copy an empty string.
+
+  The card is set up before a streamed `<artifact>` sends its first chunk and is then filled by its updates. Download, Open and the preview read the latest content, but Copy read the content the card was set up with — empty, or the first chunk. The same held for a card from a tool call set up before its result arrived.
+
+- ff458c1: Importing `@aparte/core` (or the approval, artifacts, ask-user or model-selector plugin) from a Cloudflare Worker, a Vercel edge route or a Web Worker that webpack compiles with `target: 'webworker'` now resolves the DOM-free entry instead of the browser one, which failed at import on its first `extends HTMLElement`.
+
+  The DOM-free entry was reachable through the `node` condition only, and those bundlers resolve `workerd`, `edge-light` or `worker` alongside `browser` and `import`. The exports maps now list `worker`, `workerd`, `edge-light`, `deno` and `bun` next to `node`, pointing at the same entry; a browser still gets the elements. A worker started inside a page build is not covered — `new Worker(new URL('./w.js', import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: both resolve it with the browser's conditions, so it gets the browser entry. For core, import the new `@aparte/core/headless` there; the plugins have no such subpath, and how to run a provider or a plugin's tool in that worker is on the [Elements page](https://apartejs.dev/frameworks/elements/#on-the-server). `check:node-import` walks each published map with the conditions of webpack's worker target, wrangler and a Vercel edge route.
+
+- 09ffa64: A segment type of your own now joins `AparteSegment` by declaration merging, so `addSegment`, `appendMessage` and `AparteMessage.segments` take it without `as unknown as AparteSegment`: add it to the new `AparteSegmentTypes` interface, one key per `type`.
+
+  ```ts
+  declare module "@aparte/core" {
+    interface AparteSegmentTypes {
+      chart: ChartSegment;
+    }
+  }
+  ```
+
+  `AparteSegment` was the closed union of core's built-ins, and the segments guide showed the cast. `@aparte/plugin-artifacts` registers its `artifact` segment the same way, so `artifactSegment(…)` is an `AparteSegment` wherever the plugin is imported.
+
 ## 0.19.3
 
 ## 0.19.2

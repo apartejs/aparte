@@ -46,7 +46,7 @@ don't reimplement the loop's tool bookkeeping:
 const log = new PromptLog();                       // your append-only transcript
 
 await runStreamAgent({
-  // …messageId, emitter, signal, toolLookup
+  ...loopOptions,                                     // messageId, emitter, signal, toolLookup
   baseRequest: { messages: [], modelId: 'my-model' }, // your transport may ignore both
   onHistoryAppend: (turn) => log.append(turn),     // the calls · each result · each reply
   transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt

@@ -38,6 +38,13 @@ changes.
 
 <Usage />
 
+### A conversation you restore
+
+The gauge reads the usage each turn reports, so a conversation restored from storage shows nothing
+until its next turn. Give it the last reading you kept, from the last assistant message's
+`usage`, the way the gauge reads a turn: `gauge.used = usage.totalTokens ?? usage.inputTokens +
+usage.outputTokens`, or the `used` attribute. The next turn's usage replaces it.
+
 ### When the window is full
 
 With `auto-compact`, a turn that ends in `danger` dispatches `aparte-compact` for its chat, one

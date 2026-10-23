@@ -64,12 +64,19 @@ export function buildApprovalPanel(
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
+    // Everything but the corner goes in a body that SCROLLS, as the question panel's does.
+    // The panel is capped at half the viewport and does not scroll itself, so with the
+    // parts as its direct flex children the arguments — the shrinkable one — were what
+    // gave way: 13px of a 30px block with three options in a 560px window. The thing
+    // being approved is the last thing that may disappear.
+    const body = el('div', 'aparte-elic-body');
+    panel.appendChild(body);
 
     const askText = (): string => (typeof message === 'function' ? message() : message);
     // `textContent`, never innerHTML: the message names a tool the MODEL chose and can
     // carry its arguments. The string arm of a render hook is a model-to-DOM XSS.
     const ask = askText() ? el('p', 'aparte-elic-message', askText()) : null;
-    if (ask) panel.appendChild(ask);
+    if (ask) body.appendChild(ask);
 
     /*
      * What is being decided, under the question.
@@ -101,7 +108,7 @@ export function buildApprovalPanel(
         // had). It sits BEFORE the options, and `focus()` still lands on the first
         // option, so approving stays one gesture and reading the call is Shift+Tab.
         pre.tabIndex = 0;
-        panel.append(argsLabel, pre);
+        body.append(argsLabel, pre);
     }
 
     const dismiss = el('div', 'aparte-elic-dismiss');
@@ -130,7 +137,7 @@ export function buildApprovalPanel(
     /**
      * Label over description, the question panel's own body — so "Always allow this
      * command" can say `git status` under it and "Always allow any git command" can
-     * say `git *`, which is the whole difference between the two (issue #37).
+     * say `git *`, which is the whole difference between the two.
      */
     const bodyOf = (option: AparteApprovalOption): HTMLElement => optionBody(textOf(option), descriptionOf(option));
     /*
@@ -159,7 +166,7 @@ export function buildApprovalPanel(
         row.appendChild(button);
         labelled.push({ button, option });
     }
-    panel.appendChild(row);
+    body.appendChild(row);
 
     // ── "or tell it what to do instead" ──────────────────────────────────────
     /*
@@ -177,7 +184,7 @@ export function buildApprovalPanel(
     instruction.placeholder = cfg.t('approvalInstructionPlaceholder');
     instruction.setAttribute('aria-label', cfg.t('approvalInstructionPlaceholder'));
     instruction.addEventListener('input', onChange);
-    panel.appendChild(instruction);
+    body.appendChild(instruction);
 
     const typed = (): string => instruction.value.trim();
 

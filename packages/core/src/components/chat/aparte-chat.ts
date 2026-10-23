@@ -6,6 +6,7 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
 import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
+import { gateGlide } from './glide-gate.js';
 
 /**
  * AparteChat - The Shell
@@ -84,6 +85,9 @@ import { isTranscriptEmpty } from '../../utils/transcript.js';
  *   With or without `center-empty`: the stylesheet centers the composer through
  *   `aparte-chat[center-empty][data-empty]`, and an app styles or scripts its own empty state
  *   against `aparte-chat[data-empty]`. Read-only.
+ * @attr {boolean} data-glide - Reflected BY the element at the first key or pointer in the page, or
+ *   the first send: from then on `center-empty` slides the composer between the welcome and the
+ *   conversation. Before it, a conversation a script restores on load lands in one frame. Read-only.
  * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
  *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
@@ -127,6 +131,7 @@ export class AparteChat extends HTMLElement {
 
   private _observer: MutationObserver | null = null;
   private _loadingObserver: MutationObserver | null = null;
+  private _offGlide: (() => void) | null = null;
   /** Waits for a `<aparte-chat-viewport>` child to appear — see `_watchForViewport`. */
   private _childObserver: MutationObserver | null = null;
   /** The viewport is loading and the gate is on — see `_applyLoadingGate`. */
@@ -149,9 +154,13 @@ export class AparteChat extends HTMLElement {
     this._syncEmptyWatch();
     this._syncLoadingWatch();
     this._watchForViewport();
+    this._offGlide?.();
+    this._offGlide = gateGlide(this);
   }
 
   disconnectedCallback(): void {
+    this._offGlide?.();
+    this._offGlide = null;
     this._observer?.disconnect();
     this._observer = null;
     this._loadingObserver?.disconnect();
@@ -217,15 +226,13 @@ export class AparteChat extends HTMLElement {
     const attachments = this.hasAttribute('attachments');
 
     /*
-     * The presenter ships in the default composition, and that is a change of tier.
+     * The presenter ships in the default composition.
      *
      * It renders nothing by itself — it registers as the presenter for this subtree and
-     * mounts a panel in the composer when something asks. It used to be opt-in, which
-     * was right while asking the user was a plugin's business. It is not any more: the
-     * BUILT-IN approval gate asks through it, so a chat without one cannot honour
-     * `needsApproval` at all. An affordance core can honour end to end is on by default
-     * (ratified decision #8, tier a); leaving this out would have made the gate depend
-     * on a tag nobody was told to write.
+     * mounts a panel in the composer when something asks. The BUILT-IN approval gate
+     * asks through it, so a chat without one cannot honour `needsApproval` at all.
+     * An affordance core can honour end to end is on by default; leaving this out would
+     * make the gate depend on a tag nobody was told to write.
      */
     this.innerHTML = `
       <aparte-chat-viewport></aparte-chat-viewport>
@@ -281,11 +288,10 @@ export class AparteChat extends HTMLElement {
   /**
    * Watch the viewport so `data-empty` follows the conversation.
    *
-   * It used to run only under `center-empty`, which made the chat's one statement of
-   * "this conversation is empty" a by-product of a layout option: an app that wanted
-   * starters on an empty thread, or a welcome of its own, had to count messages itself.
-   * Every selector core writes against it still requires `[center-empty]`, so reflecting
-   * it everywhere moves no layout.
+   * Runs whether or not `center-empty` is set, so an app that wants starters on an
+   * empty thread, or a welcome of its own, can read `data-empty` instead of counting
+   * messages itself. Every selector core writes against it requires `[center-empty]`,
+   * so reflecting it everywhere moves no layout.
    */
   private _syncEmptyWatch(): void {
     this._observer?.disconnect();
@@ -318,12 +324,11 @@ export class AparteChat extends HTMLElement {
   }
 
   /**
-   * Both watches above need a viewport to observe, and they were installed once, at
-   * connect, when there might not be one yet: `<aparte-chat framework-managed>` IS
-   * Angular's host element — upgraded on insert, filled by the template afterwards — and
-   * hand-written markup upgrades before its children are parsed. Neither ever got its
-   * observer, so the documented "every chat gates" was inert on exactly the chats whose
-   * transcript is fetched. This waits for the child to arrive, installs them, and stops.
+   * Both watches above need a viewport to observe, and there might not be one at
+   * connect: `<aparte-chat framework-managed>` IS Angular's host element — upgraded on
+   * insert, filled by the template afterwards — and hand-written markup upgrades before
+   * its children are parsed. This waits for the child to arrive, installs them, and
+   * stops, so every chat gates, including those whose transcript is fetched.
    */
   private _watchForViewport(): void {
     this._childObserver?.disconnect();
@@ -362,8 +367,8 @@ export class AparteChat extends HTMLElement {
 
   /**
    * Empty means no message AND none on its way. A viewport that says `loading` holds
-   * no bubble yet, and it used to count as empty: the welcome and the centred composer
-   * showed while a conversation was being fetched.
+   * no bubble yet but does not count as empty, so the welcome and the centred composer
+   * stay hidden while a conversation is being fetched.
    */
   private _updateEmpty(): void {
     const viewport = this.querySelector('aparte-chat-viewport');

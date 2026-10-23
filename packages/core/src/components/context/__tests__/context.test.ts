@@ -49,6 +49,18 @@ describe('<aparte-context>', () => {
         expect(el.used).toBe(700);
     });
 
+    it('reads `used` for a conversation restored without a turn, until the next turn reports', () => {
+        const el = mount(`<aparte-context window="1000" used="400"></aparte-context>`);
+        expect(el.hasAttribute('data-empty')).toBe(false);
+        expect(bar(el)!.getAttribute('aria-valuenow')).toBe('400');
+        el.used = 950;
+        expect(el.getAttribute('data-level')).toBe('danger');
+        turn(100, 50);
+        expect(el.used, "the turn's own usage wins").toBe(150);
+        el.used = null;
+        expect(el.hasAttribute('used')).toBe(false);
+    });
+
     it('shows nothing without a window, and takes the current model\'s when there is one', () => {
         const el = mount(`<aparte-context></aparte-context>`);
         turn(500, 100);

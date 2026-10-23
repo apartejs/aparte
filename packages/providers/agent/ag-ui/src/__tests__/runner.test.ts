@@ -131,11 +131,13 @@ describe('createAgUiRunner: the stream', () => {
         expect(r.types()[2]).toBe('text-delta');
     });
 
-    it('sums usage reported as an array of steps (TanStack AI) into run-done', async () => {
+    it('reports the last step of usage reported as an array of steps (TanStack AI), as the page loop does', async () => {
+        // The context gauge reads it as the size of what the model last saw: summed, a
+        // two-step run read as twice the context.
         const f = fakeFetch(sse(started, finished({ usage: [{ inputTokens: 3, outputTokens: 2, totalTokens: 5 }, { inputTokens: 4, outputTokens: 1, totalTokens: 5, cachedInputTokens: 2 }] })));
         const r = run(f.fetch);
-        expect(await r.done).toEqual({ inputTokens: 7, outputTokens: 3, totalTokens: 10, cacheReadTokens: 2 });
-        expect(r.events.at(-1)).toMatchObject({ type: 'run-done', usage: { inputTokens: 7 } });
+        expect(await r.done).toEqual({ inputTokens: 4, outputTokens: 1, totalTokens: 5, cacheReadTokens: 2 });
+        expect(r.events.at(-1)).toMatchObject({ type: 'run-done', usage: { inputTokens: 4 } });
     });
 
     it('reads an NDJSON body the same way, and skips what is not an event', async () => {
@@ -315,6 +317,18 @@ describe('createAgUiRunner: pauses and resumes', () => {
         // with the result the page holds (a receipt reads it), before the agent's answer.
         expect(b.types().slice(0, 4)).toEqual(['run-start', 'turn-start', 'tool-resolved', 'text-delta']);
         expect(b.events.find((e) => e.type === 'tool-resolved')).toMatchObject({ toolCallId: 'q1', result: 'The blue one.' });
+    });
+
+    it('sends a frontend tool the page refused back as its tool message, and marks the row refused', async () => {
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Understood.' }, { type: 'RUN_FINISHED' }));
+        const b = run(second.fetch, {
+            baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: {} }] }], modelId: 'x', stream: true, tools: [weather] },
+            deferral: { token: JSON.stringify({ v: 1, threadId: 't', runId: 'r', interrupts: [] }), outcomes: { q1: { kind: 'decision', approved: false, reason: 'Not now.' } } },
+        } as never);
+        await b.done;
+        const messages = second.bodies[0]!['messages'] as { role: string }[];
+        expect(messages.at(-1)).toEqual({ id: 'aparte-result-q1', role: 'tool', toolCallId: 'q1', content: 'Not now.' });
+        expect(b.events.find((e) => e.type === 'tool-rejected')).toMatchObject({ toolCallId: 'q1', reason: 'Not now.' });
     });
 
     it('answers a client-tool interrupt (TanStack AI) in the resume batch, a failure marked as one', async () => {

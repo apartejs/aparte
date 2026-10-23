@@ -153,6 +153,21 @@ aparte-option {
     color: var(--aparte-select-text, var(--aparte-text));
 }
 
+/* A second line under the label — a description, a model's context window. It wraps below
+   the label and the status dot; the trigger shows the label alone. */
+aparte-option:has(> .aparte-option__meta) {
+    flex-wrap: wrap;
+}
+
+.aparte-option__meta {
+    flex-basis: 100%;
+    /* Last in the row whatever the markup's order: the status dot is appended after it. */
+    order: 1;
+    margin-block-start: var(--aparte-space-1);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
 aparte-option:hover {
     background: var(--aparte-select-option-hover, var(--aparte-surface-2));
 }

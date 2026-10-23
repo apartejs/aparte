@@ -4,9 +4,11 @@
  * Zero-dependency Web Components for LLM streaming
  *
  * ⚠️ This is the **browser** entry: it defines the custom elements and imports CSS
- * at module scope, so it needs a DOM. **Node resolves `index.node.ts` instead**
- * (via the `node` condition in package.json) — a DOM-free entry with the client,
- * host, transports, the chat handler and every type. This file sits first in the
+ * at module scope, so it needs a DOM. **A server or a worker resolves `index.node.ts`
+ * instead** — through the `node`, `worker`, `workerd`, `edge-light`, `deno` and `bun`
+ * conditions in package.json, or by name as `@aparte/core/headless` in a worker built
+ * with the page's conditions — a DOM-free entry with the client, host, transports,
+ * the chat handler and every type. This file sits first in the
  * exports map only because of the repo-local `@aparte-workspace/source` condition,
  * which is why reading it can look like "this package can't run in Node".
  * See the "Node / SSR" section of the README.
@@ -84,6 +86,7 @@ export type {
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
     AparteSegment,
+    AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
     AparteThinkingSegment,
@@ -159,6 +162,7 @@ export type {
     AparteToolContext,
     AparteToolRenderer,
     AparteToolSummary,
+    AparteToolInputFormatter,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
     // and the <AparteUi> proxy handle the four used to hand-copy).
@@ -279,7 +283,7 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
@@ -416,14 +420,12 @@ import {
  * bundler drops it; all 24 calls sit in it as top-level statements whatever this array
  * references. Naming the classes buys the warning, not the registrations.
  *
- * It used to check four tags out of twenty-four and log "Some components may not be
- * registered", which is the two failures a guide cannot survive: a consumer whose
- * bundler dropped `<aparte-split>` got a silent green, and a consumer who got the
- * warning had no idea which element to import.
+ * It checks every element core defines and names the ones that are missing, so a
+ * consumer whose bundler dropped the browser entry is told so, and how to keep it.
  *
  * `src/types/__tests__/element-map.test.ts` reads the same
  * `customElements.define` literals out of the source, so this list cannot fall behind
- * them again without a red test.
+ * them without a red test.
  */
 const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]> = [
     // Chat shell + transcript
@@ -460,11 +462,12 @@ const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]
 ];
 
 /**
- * Make sure every element core defines is in the registry, and say which are not.
+ * Report which of core's elements are not registered.
  *
- * Importing `@aparte/core` already registers all of them. Call this when a bundler with
- * aggressive side-effect elimination, or a dynamic `import()`, might have dropped the
- * modules — the call itself is what keeps them, because it reaches `APARTE_ELEMENTS`.
+ * Importing `@aparte/core` already registers all of them. Call this to check it: after a
+ * bundler with aggressive side-effect elimination, or a dynamic `import()`, it names on
+ * the console every element that is not registered — the sign the browser entry was
+ * dropped: import `@aparte/core` at module scope, and keep its `sideEffects`.
  *
  * Idempotent, and safe to call more than once: it defines nothing, it reports.
  */

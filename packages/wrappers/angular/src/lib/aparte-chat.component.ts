@@ -101,7 +101,7 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@apar
         }
         <aparte-chat-status
           [attr.visible]="isTyping() ? '' : null"
-          [attr.text]="typingText()"
+          [attr.text]="typingLabel"
         ></aparte-chat-status>
       </aparte-chat-viewport>
 
@@ -253,7 +253,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /** The controller's wait (a conversation fetched through the adapter). */
     readonly hostLoading = signal<boolean>(false);
     readonly waiting = computed(() => this.loading() || this.hostLoading());
-    get loadingText(): string { return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
+    /** Bumped on every config change, so the two locale strings below follow a language switch under OnPush. */
+    private readonly _localeTick = signal(0);
+    private _unsubscribeLocale?: () => void;
+    get loadingText(): string { this._localeTick(); return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
 
     /**
      * Class(es) merged onto the INNER `.aparte-chat-container`, not onto this
@@ -312,8 +315,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly isTyping = signal<boolean>(false);
 
     /** Text to show in the typing status */
-    @Input('typingText') set typingTextInput(val: string) { this.typingText.set(val); }
-    readonly typingText = signal<string>('Assistant is thinking...');
+    @Input('typingText') set typingTextInput(val: string | undefined) { this.typingText.set(val); }
+    readonly typingText = signal<string | undefined>(undefined);
+    /** The status line's word: the input, else the locale's, like the rest of the chat. */
+    get typingLabel(): string { this._localeTick(); return this.typingText() ?? (this.config ?? aparteGlobalConfig).t('typing'); }
 
     /** Duration in ms to freeze spacer recalculation after a conversation swap. */
     @Input({ alias: 'layoutTransitionMs', transform: numberAttribute }) layoutTransitionMs = 0;
@@ -398,6 +403,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     private _bubbleRefsSub?: { unsubscribe(): void };
 
     ngAfterViewInit(): void {
+        this._unsubscribeLocale = (this.config ?? aparteGlobalConfig).subscribe(() => this._localeTick.update((n) => n + 1));
         const host = this.elementRef.nativeElement as HTMLElement;
 
         // Ensure a stable id so aparte-composer can reference the host via `target`,
@@ -450,6 +456,8 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     };
 
     ngOnDestroy(): void {
+        this._unsubscribeLocale?.();
+        this._unsubscribeLocale = undefined;
         if (this._syncRafId !== null) {
             cancelAnimationFrame(this._syncRafId);
             this._syncRafId = null;

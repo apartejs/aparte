@@ -17,8 +17,9 @@ import SelectorApi from '../../../generated/api/elements/aparte-model-selector.a
 <Variant id="model-selector" />
 
 `<aparte-model-selector>` lists the providers your config knows, one group per provider, with
-the models each one fetches; a provider with no list to fetch, such as the Vercel AI SDK bridge,
-is left out. With a single provider it is a flat list. With `persist`, the choice is what the
+the models each one fetches. A provider with no list to fetch shows the models it was given (the
+Vercel AI SDK bridge's `models` option), and one given none is left out. With a single provider it
+is a flat list. With `persist`, the choice is what the
 next message is sent to: the pick is written into the config. Without it, the element only sends
 `aparte-model-change`, for code of yours to act on.
 
@@ -44,6 +45,10 @@ row; the four framework wrappers take it through their `toolbar` slot (see
   <aparte-model-selector auto-select persist searchable style="margin-inline-start: auto"></aparte-model-selector>
 </aparte-composer-toolbar>
 ```
+
+`details` adds a line under each model's name with what its provider declares: its
+`description` and its `contextWindow` ("Long documents · 128K context"). The trigger keeps the
+name alone, and the filter searches the line too.
 
 The plugin types its own element, one subpath per framework, so the tag is checked as soon as
 you import that subpath once:
@@ -124,7 +129,8 @@ import { aparteGlobalConfig } from '@aparte/core';
 aparteGlobalConfig.setRequireModelSelection(true);
 ```
 
-The composer greys out and comes back once `auto-select`, or the reader, picks a model.
+The composer greys out and comes back once a pick reaches the config: `auto-select` or the
+reader's choice, on a selector with `persist`.
 
 ## API
 
