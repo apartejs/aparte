@@ -59,5 +59,21 @@ describe('default renderer: text', () => {
             renderer.update!(el.firstElementChild as HTMLElement, { id: 't2', type: 'text', content: '```ts\nx\n```', isStreaming: true } as any);
             expect(calls).not.toHaveBeenCalled();
         });
+
+        it('is left as the Markdown renderer wrote it when no highlighter is set', async () => {
+            // Core's fallback is a bare `<pre><code>`: put in its place, it took the
+            // `language-*` class a page-level highlighter or a stylesheet looks for.
+            aparteGlobalConfig.setMarkdownProvider(() => '<pre class="md"><code class="language-ts">const a = 1;</code></pre>');
+            const renderer = getSegmentRenderer('text')!;
+            const segment = { id: 't3', type: 'text', content: '```ts\nconst a = 1;\n```', isStreaming: false } as any;
+            const el = document.createElement('div');
+            el.innerHTML = renderer.render(segment) as string;
+            document.body.appendChild(el);
+            renderer.setup!(el.firstElementChild as HTMLElement, segment);
+            renderer.update!(el.firstElementChild as HTMLElement, segment);
+            await new Promise((r) => setTimeout(r, 0));
+            expect(el.querySelector('pre.md > code.language-ts')).toBeTruthy();
+            document.body.innerHTML = '';
+        });
     });
 });
