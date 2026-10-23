@@ -2,6 +2,6 @@
 '@aparte/core': patch
 ---
 
-A custom bubble shell keeps the accessible names it wrote itself — its root's label, its action bar's, its branch arrows' — through a language switch or any config change; the bubble refreshes only the names it wrote.
+A custom bubble shell keeps the accessible names it wrote itself — its action bar's, its branch arrows', its root's — through a language switch or any config change; the bubble refreshes only the names it wrote.
 
-Since the message's name started following its author, every config change refreshed it, so a shell root's own `aria-label` became "Assistant response" at the first language switch, model pick or late provider; the action bar's and the arrows' labels were overwritten the same way. Also: the chat's own frame, now applied to messages drawn before its config, is redrawn in a microtask (a chat unmounting no longer redraws every message first), with the streaming Markdown parser rebound, and after an open edit closes.
+Every config change used to rewrite the action bar's and the branch arrows' `aria-label` with the locale's, a shell's own labels included, so a shell that named them in its own words lost those names at the first language switch, model pick or late provider.
