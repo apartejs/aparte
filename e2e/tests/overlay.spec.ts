@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 test.beforeEach(async ({ page }) => {
     await installLlmMock(page);
@@ -150,24 +151,31 @@ test('a header over the transcript: the first message starts below it, and a jum
     await page.goto(overlayUrl(testInfo.project.name));
     for (let i = 0; i < 4; i++) await chat.sendAndSettle(`turn ${i}`);
     const INSET = 60;
-    const offsets = await page.evaluate(async (inset) => {
-        const shell = document.querySelector('[overlay-composer]') as HTMLElement;
-        shell.style.setProperty('--aparte-top-inset', `${inset}px`);
+    // Each move waits for the view to stop: the inset re-pins a reader at the bottom, and a
+    // `scrollTop = 0` written while that re-pin is still landing measured the re-pin (the
+    // first message 427px above the edge, under load) instead of the top of the transcript.
+    const move = async (how: 'inset' | 'top' | 'bottom' | 'jump') => {
+        await page.evaluate(([step, inset]) => {
+            const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
+                ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
+            if (step === 'inset') (document.querySelector('[overlay-composer]') as HTMLElement).style.setProperty('--aparte-top-inset', `${inset}px`);
+            if (step === 'top') surface.scrollTop = 0;
+            if (step === 'bottom') surface.scrollTop = surface.scrollHeight;
+            if (step === 'jump') (surface.querySelectorAll('aparte-chat-bubble')[2] as HTMLElement).scrollIntoView({ block: 'start' });
+        }, [how, INSET] as const);
+        await waitForStill(page);
+    };
+    const offsetOf = (index: number) => page.evaluate((i) => {
         const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
             ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
-        const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        await frame();
-        surface.scrollTop = 0;
-        await frame();
-        const bubbles = surface.querySelectorAll('aparte-chat-bubble');
-        const first = bubbles[0]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
-        surface.scrollTop = surface.scrollHeight;
-        await frame();
-        bubbles[2]!.scrollIntoView({ block: 'start' });
-        await frame();
-        const jump = bubbles[2]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
-        return { first, jump };
-    }, INSET);
+        return surface.querySelectorAll('aparte-chat-bubble')[i]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
+    }, index);
+    await move('inset');
+    await move('top');
+    const first = await offsetOf(0);
+    await move('bottom');
+    await move('jump');
+    const offsets = { first, jump: await offsetOf(2) };
     expect(offsets.first, 'the first message starts below the header').toBeGreaterThanOrEqual(INSET);
     expect(Math.abs(offsets.jump - INSET), `a jump lands at the header's edge (${offsets.jump}px)`).toBeLessThanOrEqual(2);
 
@@ -176,15 +184,10 @@ test('a header over the transcript: the first message starts below it, and a jum
     await chat.sendAndSettle('one more short question');
     // Read once the surface has stopped moving: a glide passes the header's edge on its way
     // to wherever it lands, so a poll would accept the transit.
-    const pinned = await page.evaluate(async () => {
+    await waitForStill(page, { frames: 10 });
+    const pinned = await page.evaluate(() => {
         const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
             ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
-        let last = -1;
-        for (let still = 0; still < 10;) {
-            await new Promise((r) => requestAnimationFrame(r));
-            still = surface.scrollTop === last ? still + 1 : 0;
-            last = surface.scrollTop;
-        }
         const users = surface.querySelectorAll('aparte-chat-bubble[data-role="user"]');
         return Math.round(users[users.length - 1]!.getBoundingClientRect().top - surface.getBoundingClientRect().top);
     });

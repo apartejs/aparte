@@ -19,6 +19,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 // Enough turns that 24px targets do not fit the rail at this height, so the pitch has
 // to tighten — the case the rail used to clip.
@@ -168,7 +169,7 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
     }, targetId), { timeout: 6_000 }).toBeLessThanOrEqual(1);
     await expect(fifth).toHaveAttribute('aria-current', 'true');
     // And it stays: the observer's mid-scroll opinions do not move it once settled.
-    await page.waitForTimeout(800);
+    await waitForStill(page);
     await expect(fifth).toHaveAttribute('aria-current', 'true');
     expect((await geometry(page)).currentInRail).toBe(true);
 
@@ -226,6 +227,9 @@ test('a jump under a header lands below it, without chasing the inset', async ({
     const targetId = await second.getAttribute('data-message-id');
     await second.click();
     await expect(second).toHaveAttribute('aria-current', 'true');
+    // A fixed wait on purpose, not `waitForStill`: the rail realigns in passes with pauses
+    // between them, so the view is briefly still before the last one, and the count below is
+    // only meaningful once every pass has had its chance to run.
     await page.waitForTimeout(1500);
     const landed = await page.evaluate((id) => {
         const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;

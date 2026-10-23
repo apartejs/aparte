@@ -21,6 +21,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { waitForStill } from '../helpers/settle.js';
 
 /** The same phone box `responsive.spec.ts` uses, and under the split's 48rem breakpoint. */
 const PHONE = { width: 390, height: 844 };
@@ -569,7 +570,7 @@ test.describe('center-empty and a restore', () => {
         await expect(chat).toHaveAttribute('data-glide');
         await page.evaluate(() => (document.querySelector('aparte-chat[center-empty] aparte-chat-viewport') as unknown as { setMessages(m: object[]): void }).setMessages([]));
         await expect(chat).toHaveAttribute('data-empty');
-        await page.waitForTimeout(500);   // the glide back up settles
+        await waitForStill(page, { selector: 'aparte-chat[center-empty] aparte-composer' });   // the glide back up settles
         const after = await restoreAndSample();
         expect(Math.abs(after.left), 'after a click, the composer is still on its way on the first frame').toBeGreaterThan(0.5);
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
