@@ -484,14 +484,15 @@ export class AparteConversationManager {
             // list and the viewport's tree can disagree (a field set through `updateMessage`,
             // a message a controlled prop removed), and the tree alone would drop that edit.
             // A moved head is the one case where the list differs and nothing was edited.
-            contentChanged = storedTree !== undefined && conv.tree !== undefined
-                ? treeContentOf(storedTree) !== treeContentOf(conv.tree)
-                    || (storedTree.headId === conv.tree.headId && contentOf(storedMessages) !== contentOf(conv.messages))
-                : contentOf(storedMessages) !== contentOf(conv.messages);
-            if (storedTree !== undefined) {
-                treeChanged = conv.tree === undefined
-                    || storedTree.headId !== conv.tree.headId
-                    || treeContentOf(storedTree) !== treeContentOf(conv.tree);
+            // Each side is serialised once: a serialisation walks the whole conversation.
+            if (storedTree !== undefined && conv.tree !== undefined) {
+                const treesDiffer = treeContentOf(storedTree) !== treeContentOf(conv.tree);
+                contentChanged = treesDiffer
+                    || (storedTree.headId === conv.tree.headId && contentOf(storedMessages) !== contentOf(conv.messages));
+                treeChanged = treesDiffer || storedTree.headId !== conv.tree.headId;
+            } else {
+                contentChanged = contentOf(storedMessages) !== contentOf(conv.messages);
+                if (storedTree !== undefined) treeChanged = true;
             }
         } catch { /* unserialisable payload → assume changed */ }
         // The title follows the first user message while it is the manager's decision:

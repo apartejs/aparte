@@ -93,6 +93,20 @@ describe('viewing a conversation is not editing it', () => {
         expect(manager.conversations[0]!.updatedAt).toBeGreaterThan(500);
     });
 
+    it('serialises each side once to compare them, not twice', async () => {
+        // Each serialisation walks the whole conversation, sorting every key of every segment,
+        // at the end of every turn, on the main thread, while the next message is typed.
+        const tree = { headId: 'a1', messages: [{ message: user, parentId: null }, { message: reply('a1', 'This one.'), parentId: 'u1' }] };
+        const { manager } = await managerWith({
+            id: 'c1', title: 't', createdAt: 1, updatedAt: 500, messages: [user, reply('a1', 'This one.')], tree,
+        });
+        const stringify = vi.spyOn(JSON, 'stringify');
+        await manager.updateMessages('c1', [user, reply('a1', 'This one.')], tree);
+        const calls = stringify.mock.calls.length;
+        stringify.mockRestore();
+        expect(calls, 'two trees and two lists').toBe(4);
+    });
+
     it('a real edit still dates it', async () => {
         const { manager } = await managerWith({ id: 'c1', title: 't', createdAt: 1, updatedAt: 500, messages: [user, reply('a1', 'This one.')] });
         await manager.updateMessages('c1', [user, reply('a1', 'That one, actually.')]);
