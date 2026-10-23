@@ -735,6 +735,51 @@ describe('setupCompaction — the window events and the page', () => {
         warn.mockRestore();
     });
 
+    it('two setups sharing one resolver: disposing one leaves the other answering its stored chat, alone', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'y'));
+        const resolveStore = (id?: string) => (id === 'chat-b' ? store : null);
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        const globalSummaries = vi.fn(async () => 'G');
+        setup({ selector: (m) => ({ keep: [], drop: m }), summarize: globalSummaries });
+        const first = setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: resolveStore }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: resolveStore }, b.cfg);
+        first.dispose();
+
+        send('aparte-compact', { targetId: 'chat-b' });
+        await vi.waitFor(() => expect(b.chat).toHaveBeenCalledTimes(1));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(globalSummaries, 'the global setup still steps aside').not.toHaveBeenCalled();
+        expect(warn.mock.calls.flat().join(' ')).not.toContain('No chat with id');
+        warn.mockRestore();
+    });
+
+    it('a scoped setup\'s resolver does not make the others step aside for a chat it is not scoped to', async () => {
+        // The resolver knows every chat in the store, but the setup answers 'support' only: a
+        // request for another stored chat is the global setup's, which says it cannot find it.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'v'));
+        const scoped = makeConfig('S');
+        setup({ selector: (m) => ({ keep: [], drop: m }) });
+        setup({ selector: (m) => ({ keep: [], drop: m }), scopeToTargetId: 'support', resolveTarget: () => store }, scoped.cfg);
+
+        send('aparte-compact', { targetId: 'other' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "other"'));
+        expect(scoped.chat).not.toHaveBeenCalled();
+        warn.mockRestore();
+    });
+
+    it('a request for a chat no resolver knows is still answered, with the failure said', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const store = makeTarget(exchange(1, 'w'));
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: (id) => (id === 'store-chat' ? store : null) });
+
+        send('aparte-compact', { targetId: 'conv-42' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "conv-42"'));
+        warn.mockRestore();
+    });
+
     it('a chat whose config has no setup is answered by the one that exists, global or not', async () => {
         const store = makeTarget(exchange(1, 'u'));
         const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;

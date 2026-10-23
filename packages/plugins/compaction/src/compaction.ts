@@ -188,11 +188,12 @@ const answering = new WeakSet<AparteConfig>();
 const scopedChats = new Map<string, number>();
 
 /**
- * The `resolveTarget` of every listening setup that brought its own: a chat that is not on the
- * page (a transcript in a store) is answered by the setup whose resolver knows it, and by none
- * of the others.
+ * The `resolveTarget` of every listening, unscoped setup that brought its own, with how many
+ * setups pass each: a chat that is not on the page (a transcript in a store) is answered by the
+ * setup whose resolver knows it, and by none of the others. A scoped setup's resolver is not
+ * here — the chat it answers is in `scopedChats`, and it answers no other.
  */
-const ownResolvers = new Set<(targetId?: string) => CompactionTarget | null>();
+const ownResolvers = new Map<(targetId?: string) => CompactionTarget | null, number>();
 
 const asTarget = (candidate: unknown, depth = 0): CompactionTarget | null => {
     if (!candidate || typeof candidate !== 'object' || depth > 1) return null;
@@ -351,9 +352,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             ? document.getElementById(targetId)
             : document.querySelector<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
         if (!el && targetId) {
-            // Not on the page: the setup whose own resolver knows it answers it, and only that one.
-            if (options.resolveTarget) return Boolean(resolveTarget(targetId));
-            for (const other of ownResolvers) if (other(targetId)) return false;
+            // Not on the page: the setup whose own resolver knows it answers it, and only that
+            // one. When no resolver knows it, the routing below picks a setup as for any other
+            // chat, and that one says it found nothing: a request is never dropped in silence.
+            if (options.resolveTarget && resolveTarget(targetId)) return true;
+            for (const other of ownResolvers.keys()) if (other(targetId)) return false;
         }
         const owner = el ? resolveConfig(el) : aparteGlobalConfig;
         if (owner === config) return true;
@@ -379,7 +382,8 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     }
     if (listening && !scope) answering.add(config);
     if (listening && scope) scopedChats.set(scope, (scopedChats.get(scope) ?? 0) + 1);
-    if (listening && options.resolveTarget) ownResolvers.add(options.resolveTarget);
+    const ownResolver = listening && !scope ? options.resolveTarget : undefined;
+    if (ownResolver) ownResolvers.set(ownResolver, (ownResolvers.get(ownResolver) ?? 0) + 1);
 
     const controller: CompactionController = {
         get running() {
@@ -402,7 +406,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                     if (left > 0) scopedChats.set(scope, left);
                     else scopedChats.delete(scope);
                 }
-                if (options.resolveTarget) ownResolvers.delete(options.resolveTarget);
+            }
+            if (ownResolver) {
+                const left = (ownResolvers.get(ownResolver) ?? 1) - 1;
+                if (left > 0) ownResolvers.set(ownResolver, left);
+                else ownResolvers.delete(ownResolver);
             }
             if (controllers.get(config) === controller) {
                 controllers.delete(config);
