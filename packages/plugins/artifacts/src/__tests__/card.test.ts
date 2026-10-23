@@ -326,6 +326,16 @@ describe('the Open button', () => {
         expect(seen).toEqual(['<p>v2</p>']);
     });
 
+    it("hands it over as the card shows it: a model's code fences are not part of the content", () => {
+        install({ open: true });
+        const fenced = { ...segment, content: '```html\n<p>v1</p>\n```' };
+        const el = mountCard(fenced);
+        const seen: string[] = [];
+        document.addEventListener('aparte-artifact-open', (e) => seen.push(e.detail.artifact.content));
+        el.querySelector<HTMLButtonElement>('[data-action="open"]')!.click();
+        expect(seen).toEqual(['<p>v1</p>']);
+    });
+
     it('follows a language switch', () => {
         install({ open: true });
         const el = mountCard(segment);

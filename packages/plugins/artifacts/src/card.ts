@@ -270,7 +270,10 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             openBtn.addEventListener('click', () => {
                 // Not while it streams, like Download: the app would get a half-written document.
                 if (openBtn.disabled) return;
-                const artifact = latestSegment.get(element) ?? segment;
+                const latest = latestSegment.get(element) ?? segment;
+                // As the card shows it, copies it and downloads it: without the code fences a
+                // model may wrap the content in.
+                const artifact = { ...latest, content: stripCodeFences(latest.content || '') };
                 element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
                     bubbles: true,
                     composed: true,
