@@ -236,7 +236,7 @@ export default defineConfig({
         'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 63, branches: 85 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 59, branches: 86 },
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 61, branches: 86 },
         'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 88 },
         'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 51, branches: 85 },
       },
