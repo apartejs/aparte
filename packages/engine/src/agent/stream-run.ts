@@ -426,7 +426,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
         // The calls this turn leaves for someone else to answer (see `deferral`).
         const pending: StreamDeferredCall[] = [];
-        const callContext: CallContext = { turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append, deferral };
+        // Without the resume's answers: they were given for the calls a previous run left
+        // pending, never for a new call that carries the same id — and a vendor that sends
+        // no ids has them minted per stream, so the next turn reuses them.
+        const callContext: CallContext = {
+            turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append,
+            deferral: deferral && { ...deferral, outcomes: undefined },
+        };
 
         const iterator = response[Symbol.asyncIterator]();
         const bailOnAbort = async (): Promise<boolean> => {
