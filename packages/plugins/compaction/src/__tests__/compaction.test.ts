@@ -770,6 +770,40 @@ describe('setupCompaction — the window events and the page', () => {
         warn.mockRestore();
     });
 
+    it('with no global setup, a stored chat no resolver knows is reported once, not by each setup', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => null }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => null }, b.cfg);
+
+        send('aparte-compact', { targetId: 'ghost' });
+        await vi.waitFor(() => expect(warn.mock.calls.flat().join(' ')).toContain('No chat with id "ghost"'));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(warn.mock.calls.filter((c) => c.join(' ').includes('No chat with id "ghost"')), 'reported once').toHaveLength(1);
+        warn.mockRestore();
+    });
+
+    it('with no global setup, a chat on the global config is summarised once, not by each setup', async () => {
+        const store = makeTarget(exchange(1, 'g'));
+        const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
+        el.id = 'on-page';
+        el.setAttribute('data-aparte-chat', '');
+        el.getMessages = store.getMessages;
+        el.clearAll = store.clearAll;
+        el.appendMessage = store.appendMessage;
+        document.body.appendChild(el);
+        const a = makeConfig('A');
+        const b = makeConfig('B');
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, a.cfg);
+        setup({ selector: (m) => ({ keep: [], drop: m }) }, b.cfg);
+
+        send('aparte-compact', { targetId: 'on-page' });
+        await vi.waitFor(() => expect(a.chat.mock.calls.length + b.chat.mock.calls.length).toBeGreaterThan(0));
+        await new Promise((r) => setTimeout(r, 10));
+        expect(a.chat.mock.calls.length + b.chat.mock.calls.length, 'summarised once').toBe(1);
+    });
+
     it('a request for a chat no resolver knows is still answered, with the failure said', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const store = makeTarget(exchange(1, 'w'));

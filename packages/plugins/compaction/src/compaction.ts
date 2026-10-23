@@ -177,9 +177,10 @@ const controllers = new WeakMap<AparteConfig, CompactionController>();
 /**
  * The configs whose setup answers the window's requests for any chat on them: listening,
  * and not scoped to one chat. Only those make another setup step aside — a setup with
- * `listen: false`, or one scoped to another chat, answers nothing for the rest.
+ * `listen: false`, or one scoped to another chat, answers nothing for the rest. In the order
+ * they were set up: a chat whose config has none is answered by the first.
  */
-const answering = new WeakSet<AparteConfig>();
+const answering = new Set<AparteConfig>();
 
 /**
  * The chats a listening setup is scoped to (`scopeToTargetId`), with how many setups name each:
@@ -361,7 +362,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const owner = el ? resolveConfig(el) : aparteGlobalConfig;
         if (owner === config) return true;
         if (answering.has(owner)) return false;
-        return config === aparteGlobalConfig || owner === aparteGlobalConfig;
+        if (config === aparteGlobalConfig) return true;
+        // A chat on the global config, which has no setup: one setup answers it, the first that
+        // answers for a whole config. Each of them did, and the chat was summarised — or
+        // reported missing — once per setup on the page.
+        return owner === aparteGlobalConfig && answering.values().next().value === config;
     };
     const onCompact = (e: Event): void => {
         if (!addressed(e)) return;
