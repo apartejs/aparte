@@ -286,8 +286,9 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const copyBtn = element.querySelector<HTMLButtonElement>('[data-action="copy"]');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                // Late execution (user click) — resolve from the element.
-                const code = stripCodeFences(segment.content || '');
+                // Late execution (user click) — resolve from the element, and copy the
+                // latest segment, not the one this closure captured: see `latestSegment`.
+                const code = stripCodeFences((latestSegment.get(element) ?? segment).content || '');
                 void copyText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');

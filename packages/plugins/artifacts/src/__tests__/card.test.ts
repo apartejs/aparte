@@ -171,6 +171,23 @@ describe('the artifact card', () => {
         expect(el.querySelector('.aparte-art-card__pulse')).toBeNull();
     });
 
+    it('copies the artifact as it ends, not the empty one the card was set up with', () => {
+        // A streamed `<artifact>` is set up before its first chunk and filled by `update`.
+        const writeText = vi.fn(async (_text: string) => {});
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+        try {
+            const renderer = getSegmentRenderer('artifact')!;
+            const streaming = { id: 'a10', type: 'artifact', mimeType: 'text/html', artifactType: 'html', content: '', isStreaming: true };
+            const el = mountCard(streaming);
+            renderer.update!(el, { ...streaming, content: '<p>half' } as never);
+            renderer.update!(el, { ...streaming, content: '<p>done</p>', isStreaming: false } as never);
+            el.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
+            expect(writeText).toHaveBeenCalledWith('<p>done</p>');
+        } finally {
+            Reflect.deleteProperty(navigator, 'clipboard');
+        }
+    });
+
     it('stays on the code tab for a non-previewable kind (e.g. python) even when settled', () => {
         const renderer = getSegmentRenderer('artifact')!;
         const html = renderer.render({
