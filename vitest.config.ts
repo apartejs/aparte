@@ -219,7 +219,7 @@ export default defineConfig({
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 89, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
-        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 81 },
+        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
