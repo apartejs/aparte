@@ -63,10 +63,11 @@ package's public API or shipped CSS needs a changeset.
 The steps run cheapest first, so a mistake fails in the first minute rather than after the
 suite: the checks that read only the source (MDX parsing included), then lint and
 typecheck, then the build (every package and the docs site) and the checks that read what it
-made, then the coverage run. Two steps fix rather than fail locally, and fail in CI: a
+made, then the coverage run. One step fixes rather than fails locally, and fails in CI: a
 coverage floor more than three points under its measurement is raised in
-`vitest.config.ts` (commit it), and every package build records the source it was built
-from, so `check:dist-freshness` never compares against a build it did not see.
+`vitest.config.ts` (commit it). And every package build records the source it was built
+from, so `check:dist-freshness` compares against that record, whichever command ran the
+build.
 
 `check:readmes` is the odd one out: `publint`/`attw` check a package's *shape*, and this
 checks its *claims* — a published README may not say "not yet published", "pre-alpha",
