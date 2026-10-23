@@ -232,9 +232,9 @@ export function injectRendererStyles(config: AparteConfig = contextConfig()): vo
 /**
  * Put a tool renderer's stylesheet on the page, once per tool name.
  *
- * Called from the client's `tool-start` handler, the stream adapter's, and the path
- * that RE-renders a stored conversation (`toolCallRenderer` looks the renderer up and
- * delegates to it; nothing replays `tool-start` for history), so "the renderer drew"
+ * Called from the stream adapter's `tool-start` handler and from `toolCallRenderer` on
+ * every render, a stored conversation's included (it looks the renderer up and delegates
+ * to it; nothing replays `tool-start` for history), so "the renderer drew"
  * and "its rules are on the page" cannot come apart. Keyed by tool NAME rather than by
  * the CSS text, which makes it idempotent.
  */

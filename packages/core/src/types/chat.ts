@@ -123,8 +123,9 @@ export interface AparteChatRequest {
 }
 
 /**
- * The well-known keys of `AparteChatRequest._meta`. One, read by core's client and
- * not by the loop; the rest of the bag is the consumer's (index signature).
+ * The well-known keys of `AparteChatRequest._meta`. Two: `prefixSegments`, read by core's
+ * client and not by the loop, and `compaction`, which `@aparte/plugin-compaction` sets for
+ * a transport to route on; the rest of the bag is the consumer's (index signature).
  * An artifact is a plugin's convention, so no artifact key is defined here.
  */
 export interface AparteRequestMeta {

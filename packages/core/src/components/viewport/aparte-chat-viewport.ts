@@ -635,8 +635,8 @@ export class AparteChatViewport extends HTMLElement {
     /**
      * While a reply streams, the transcript is read-only except for Stop.
      *
-     * The streaming message's own footer is hidden, and so are the branch picker and
-     * the retry/edit buttons of every OTHER message: swapping a branch mid-stream would
+     * The streaming message's own footer is hidden, and the branch picker and the
+     * retry/edit buttons of every OTHER message are disabled: swapping a branch mid-stream would
      * re-render the active path under the reply being written, and a retry would cut
      * that reply off to start another. The state that
      * decides it is the whole transcript's, so it lives on the viewport (`data-busy`)

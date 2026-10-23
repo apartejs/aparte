@@ -168,7 +168,7 @@ function flushAvatarMarks(): void {
  * on `.aparte-message`), never from a status attribute, so it behaves identically in
  * vanilla and in every wrapper.
  *
- * All seven events are declared by hand rather than left to the analyser.
+ * All eight events are declared by hand rather than left to the analyser.
  *
  * The bubble element is `content-visibility: auto` for its streaming/scroll performance
  * (see `bubble.css`), and that containment makes the bubble

@@ -1435,22 +1435,9 @@ export class AparteClient {
      * What the model is told it said last turn — reconstructed from what was
      * RENDERED, not from the raw-text field.
      *
-     * Preferring `content` would silently corrupt the context on the most common
-     * opening in a coding chat: a reply starting with a code fence would be sent back
-     * as three backticks and nothing else. Three correct-in-isolation decisions
-     * compose into it:
-     *
-     *  1. the parser withholds an ambiguous prefix (``` ``` ```, `` ` ``, `<`)
-     *     waiting for the next delta, and creates no active segment while it waits;
-     *  2. so `_streamLoop` sees zero segments, concludes the parser produced
-     *     nothing, and appends the raw delta straight to `message.content`;
-     *  3. and this method preferred `content`.
-     *
-     * The bubble hides its content element as soon as segments exist, so the UI looks
-     * right and only the NEXT request would show it.
-     *
-     * `content` is the fallback, and that is not vestigial: a non-streaming
-     * transport writes the whole reply there and creates no segments at all.
+     * The segments are what the reader saw, so they come first. `content` is the
+     * fallback, and that is not vestigial: a non-streaming transport writes the whole
+     * reply there and creates no segments at all.
      */
     private _extractText(message: AparteMessage): string {
         const rendered = this._segmentsToText(message.segments);

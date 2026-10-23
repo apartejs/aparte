@@ -462,9 +462,9 @@ const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]
 /**
  * Make sure every element core defines is in the registry, and say which are not.
  *
- * Importing `@aparte/core` already registers all of them. Call this when a bundler with
- * aggressive side-effect elimination, or a dynamic `import()`, might have dropped the
- * modules — the call itself is what keeps them, because it reaches `APARTE_ELEMENTS`.
+ * Importing `@aparte/core` already registers all of them. Call this to check it: after a
+ * bundler with aggressive side-effect elimination, or a dynamic `import()`, it names on
+ * the console every element that is not registered, so you know which import to add.
  *
  * Idempotent, and safe to call more than once: it defines nothing, it reports.
  */

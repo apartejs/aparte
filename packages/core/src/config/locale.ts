@@ -341,8 +341,8 @@ export type AparteLocale = {
      * A binary artifact being produced, and the same artifact's preview being rebuilt
      * after a reload (defaults: "Generating…" / "Rebuilding preview…").
      *
-     * `generating` is also the `aria-label` of the waiting segment, which is the ONLY
-     * thing a screen-reader user hears while a turn is in flight.
+     * Both are read by `@aparte/plugin-artifacts`: `generating` is the subtext of a binary
+     * artifact being produced and the `aria-label` of the artifact card's streaming pulse.
      */
     generating?: string;
     rebuildingPreview?: string;

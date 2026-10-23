@@ -212,9 +212,10 @@ export class AparteConfig {
      * `getCurrentModel()` reads it beside `provider.getModels()`, the SYNCHRONOUS,
      * hand-declared list, which every preset of `@aparte/provider-openai-compat`
      * leaves empty because a compat endpoint's list is fetched at runtime. Without
-     * the fetched list the current model would resolve to `undefined`, and everything
-     * that reads a capability off it would get nothing: `AparteClient._toolsForCurrentModel()`
-     * gates tools on `capabilities.includes('function_calling')`.
+     * the fetched list the current model resolves to `undefined`, and its declared
+     * capabilities are unknown: `AparteClient._toolsForCurrentModel()` still sends the
+     * tools then, and it is the fetched list that lets a model which declares no
+     * `function_calling` be honoured.
      */
     private _fetchedModels: Map<string, AparteAIModel[]> = new Map();
     private _modelConfig: AparteModelConfig = {};

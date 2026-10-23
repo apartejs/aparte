@@ -126,8 +126,8 @@ export type AparteToolHandler = (
  * A handler needs it to reach the right instance: `requestUserInput` resolves its
  * presenter with `resolveConfig(request.target ?? null)`, so without a `target` it
  * resolves against the GLOBAL config, finds no presenter on an instance config, and
- * returns `{ action: 'cancel' }` — the model is told the user refused a question the
- * user was never shown. Pass `target` from this context.
+ * rejects with an `AparteElicitationAbortError` (`name` `'AbortError'`, reason
+ * `'no-presenter'`): nothing is shown. Pass `target` from this context.
  *
  * The loop supplies it — `runStreamAgent`, or the runner you injected — so
  * a handler behaves the same whichever one is running.

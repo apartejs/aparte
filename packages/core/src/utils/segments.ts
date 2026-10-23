@@ -6,8 +6,8 @@
  * learn its message and its duration.
  *
  * **Why the stamp lives here and not in `AparteStreamParser`.** `tool_call` segments
- * are built by the client and the stream adapter (three sites), `pipeline-waiting` by
- * two more, and `prefixSegments` by the app itself: stamping in the parser would leave
+ * are built by the stream adapter and `prefixSegments` by the app itself: stamping in
+ * the parser would leave
  * a TOOL CALL — the single most useful duration in the whole transcript — with no
  * measurement at all. The parser's own `segmentCounter` would also produce a wrong
  * index: it is recreated on every `turn-start`, while a tool round-trip appends to the
