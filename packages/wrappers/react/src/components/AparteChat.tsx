@@ -10,6 +10,7 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
+import { afterReactRender } from '../internal/after-render.js';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
@@ -291,7 +292,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             onMessageAppended: (m) => cbRef.current.onMessageAppended?.(m as AparteMessage),
             onTypingChange: (t) => { setTypingActive(t); cbRef.current.onTypingChange?.(t); },
             onStreamingChange: (id) => setIsStreaming(id !== null),
-            afterRender: (cb) => { requestAnimationFrame(() => cb()); },
+            afterRender: afterReactRender,
             resetComposer: () => (composerRef.current as unknown as { reset?: () => void })?.reset?.(),
             onLoadingChange: (on) => setHostLoading(on),
         };
