@@ -518,3 +518,21 @@ describe('aparte-model-selector details', () => {
         expect(selector.querySelector('.aparte-option__meta')).toBeNull();
     });
 });
+
+describe('aparte-model-selector details, live', () => {
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
+
+    it('follows a language switch', async () => {
+        const model = { id: 'mu-model', name: 'Big One', contextWindow: 128000 };
+        aparteGlobalConfig.registerAIProvider({
+            id: 'mu', getMetadata: () => ({ id: 'mu', name: 'Provider mu' }),
+            getModels: () => [model], fetchModels: async () => [model],
+        } as unknown as AparteAIProvider);
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('details', '');
+        document.body.appendChild(selector);
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')).toBeTruthy());
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), modelContextWindow: '{n} de contexte' });
+        await vi.waitFor(() => expect(selector.querySelector('.aparte-option__meta')?.textContent).toMatch(/de contexte/));
+    });
+});
