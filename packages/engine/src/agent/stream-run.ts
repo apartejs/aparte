@@ -657,6 +657,15 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     const input = call.input as Record<string, unknown>;
     const cfg = ctx.toolConfigLookup?.(call.name);
 
+    // The answer a resumed run was handed for this call, if any.
+    const answer = ctx.deferral?.outcomes?.[call.id];
+    // A refusal it carries settles the call, whatever the call is: the person's decision on a
+    // gated one, and on any other the page refusing an earlier call of the same pause, which
+    // ends the calls after it there as in a run in the page. Refusing runs nothing, so a
+    // missing handler or a spent turn limit has nothing to stop — checked before them, the
+    // refusal still reaches the model, and the model still takes its turn.
+    if (answer?.kind === 'decision' && !answer.approved) return refuse(ctx, call, answer);
+
     // Per-tool maxTurns — the same arithmetic as the global cap (`>`), so one
     // number means one thing on both knobs. It was `>=`: `maxTurns: 1` on a
     // tool made it un-callable on the very first turn, and `maxTurns: N`
@@ -667,20 +676,16 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         return 'stop-run';
     }
 
-    // The answer a resumed run was handed for this call, if any.
-    const answer = ctx.deferral?.outcomes?.[call.id];
-
     // Known to the model, run elsewhere: its result comes back in the answer, and
     // until it does the call waits. Before the handler lookup, because there is no
     // handler here by definition — without `deferral` it is aborted like a missing one.
+    // The page gates a browser tool as it would in its own loop (its `needsApproval`,
+    // its policy), so an approval is no result yet, and a refusal was answered above.
     if (cfg?.external) {
         if (!ctx.deferral) {
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
             return 'stop-run';
         }
-        // The page gates a browser tool as it would in its own loop (its `needsApproval`,
-        // its policy): a refusal comes back as a decision, and is the model's to read.
-        if (answer?.kind === 'decision' && !answer.approved) return refuse(ctx, call, answer);
         if (!answer || answer.kind === 'decision') return { defer: 'external' };
         if (answer.kind === 'failed') {
             // Like a crashing handler: the row hears it, then the run ends on it.
@@ -801,11 +806,6 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             effectiveInput = { ...input, ...(decision.payload as Record<string, unknown>) };
         }
         ctx.emitter({ type: 'tool-approved', toolCallId: call.id });
-    } else if (answer?.kind === 'decision' && !answer.approved) {
-        // A call with no gate of its own that a resume refuses: the page refused an earlier
-        // call of the same pause, and a refusal ends the calls after it there, as it does in
-        // a run in the page. Refusing never runs anything, so nothing is overruled.
-        return refuse(ctx, call, answer);
     }
 
     // ── handler invocation with per-call timeout ──────────────────

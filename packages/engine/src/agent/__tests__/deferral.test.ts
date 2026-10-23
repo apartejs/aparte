@@ -386,6 +386,30 @@ describe('deferral: the resume', () => {
         expect(suspension(events).pending).toEqual([{ toolCallId: 'd1', name: 'delete_file', input: { path: 'everything' }, reason: 'approval' }]);
     });
 
+    it('hands the model its turn after a refusal even when a later call of the pause has no handler here', async () => {
+        // The model asked for a tool this server does not have (a hallucinated name). The page
+        // refused the first call, so the second is answered "Not run" too: refusing runs nothing,
+        // so a missing handler has nothing to stop, and the model reads both refusals.
+        const t = scripted([{ type: 'text', delta: 'Not deleting.' }, { type: 'done' }] as StreamChatEvent[]);
+        const { done, events } = run({
+            transportCall: t.call,
+            baseRequest: { messages: [user, envelope([
+                { id: 'd1', name: 'delete_file', input: { path: 'x' } },
+                { id: 'x2', name: 'typo_tool', input: {} },
+            ])] } as StreamChatRequest,
+            deferral: { outcomes: {
+                d1: { kind: 'decision', approved: false, reason: 'No.' },
+                x2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.' },
+            } },
+        });
+        await done;
+        expect(types(events)).not.toContain('tool-aborted');
+        expect(t.requests).toHaveLength(1);
+        expect(t.requests[0]!.messages.filter((m) => m.role === 'tool').map((m) => [m.toolCallId, m.content])).toEqual([
+            ['d1', 'No.'], ['x2', 'Not run: an earlier call of the same step was refused.'],
+        ]);
+    });
+
     it('does not refuse a later call because the resume refused one with the same id', async () => {
         const t = scripted(
             [{ type: 'tool_use', id: 'r1', name: 'read_file', input: { path: 'b' } }, { type: 'done' }] as StreamChatEvent[],
