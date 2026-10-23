@@ -172,6 +172,26 @@ check('@aparte/core/browser is the entry with the elements in it', async () => {
     assert.ok(resolved.endsWith('package.json'), '@aparte/core/package.json must be exported');
 });
 
+/**
+ * `@aparte/core/headless` is the DOM-free build, by name.
+ *
+ * A worker started inside a page build — `new Worker(new URL('./w.js', import.meta.url))`
+ * under Vite, or under webpack's default `target: 'web'` — is resolved with the PAGE's
+ * conditions (`browser`, `import`), so `.` hands it the entry with the elements, which fails
+ * at its first `extends HTMLElement`. No export condition can reach that worker; a name can.
+ */
+check('@aparte/core/headless is the DOM-free entry, whatever the conditions', async () => {
+    const pkg = JSON.parse(readFileSync(resolve(ROOT, 'packages/core/package.json'), 'utf8'));
+    const domFree = resolveExport(pkg.exports['.'].node, ['default']);
+    const headless = pkg.exports['./headless'];
+    assert.ok(headless, '@aparte/core must export ./headless');
+    assert.equal(resolveExport(headless, ['browser', 'import', 'module', 'default']), domFree, 'a worker inside a page build resolves the DOM-free entry');
+    assert.equal(resolveExport(headless, ['node', 'import', 'default']), domFree, 'and so does Node');
+    const core = await import('@aparte/core/headless');
+    assert.ok(core.AparteClient && core.aparteGlobalConfig, 'it carries the client and the config');
+    assert.equal(core.AparteChatBubble, undefined, 'and no element');
+});
+
 check('@aparte/engine imports and exposes the headless loop', async () => {
     const engine = await import('@aparte/engine');
     assert.equal(typeof engine.runStreamAgent, 'function');

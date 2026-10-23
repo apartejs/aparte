@@ -245,7 +245,16 @@ Cloudflare Worker, a Vercel edge route and a Web Worker that webpack compiles on
 `target: 'webworker'` take the same entry, through the `workerd`, `edge-light` and `worker`
 conditions. A worker started inside a page build does not — `new Worker(new URL('./w.js',
 import.meta.url))` under Vite, or under webpack with its default `target: 'web'`: it is resolved
-with the browser's conditions, so it gets the browser entry, which needs a DOM.
+with the browser's conditions, so it gets the browser entry, which needs a DOM. Import
+`@aparte/core/headless` there instead: the same entry without elements, by name, whatever the
+bundler.
+
+```ts
+// worker.ts, started with new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+import { AparteMessageRepository } from '@aparte/core/headless';
+
+const history = new AparteMessageRepository();
+```
 
 | Wrapper | On a server |
 | --- | --- |
