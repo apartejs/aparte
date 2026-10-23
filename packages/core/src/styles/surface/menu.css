@@ -148,6 +148,8 @@
   position: static;
   width: auto;
   background: none;
+  /* And a quiet mark, which hides its bar (`::before { display: none }`), keeps the gutter. */
+  display: inline;
 }
 
 /* The same `:has()` as the gutter above, and on purpose: `:has()` takes the weight of its

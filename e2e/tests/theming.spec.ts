@@ -443,14 +443,16 @@ test('a marked menu row shows the tint, and keeps the check gutter in a checkabl
         checkable.setAttribute('role', 'menu');
         checkable.innerHTML =
             '<button class="aparte-menu__item aparte-mark" role="menuitemradio" aria-checked="true"><span>Ask</span></button>' +
-            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="false"><span>Auto</span></button>';
+            '<button class="aparte-menu__item" role="menuitemradio" aria-checked="false"><span>Auto</span></button>' +
+            // A quiet mark hides its bar (`::before { display: none }`) — not the check gutter.
+            '<button class="aparte-menu__item aparte-mark aparte-mark--quiet" role="menuitemradio" aria-checked="false"><span>Plan</span></button>';
         host.append(reference, plain, checkable);
-        const [marked, other] = [...checkable.querySelectorAll('span')].map((s) => s.getBoundingClientRect().left);
+        const [marked, other, quiet] = [...checkable.querySelectorAll('span')].map((s) => s.getBoundingClientRect().left);
         const out = {
             tint: getComputedStyle(reference).backgroundColor,
             row: getComputedStyle(plain.firstElementChild!).backgroundColor,
             checkedRow: getComputedStyle(checkable.firstElementChild!).backgroundColor,
-            labels: [marked, other],
+            labels: [marked, other, quiet],
             check: getComputedStyle(checkable.firstElementChild!, '::before').visibility,
         };
         reference.remove(); plain.remove(); checkable.remove();
@@ -460,6 +462,7 @@ test('a marked menu row shows the tint, and keeps the check gutter in a checkabl
     expect(drawn.row, 'a marked menu row wears it').toBe(drawn.tint);
     expect(drawn.checkedRow).toBe(drawn.tint);
     expect(drawn.labels[0], 'the marked row keeps the gutter: both labels share one edge').toBeCloseTo(drawn.labels[1]!, 0);
+    expect(drawn.labels[2], 'a quiet marked row keeps it too').toBeCloseTo(drawn.labels[1]!, 0);
     expect(drawn.check, 'and shows its check').toBe('visible');
 });
 
@@ -546,3 +549,4 @@ test('aparte-chat--compact tightens the messages at any width', async ({ page })
     const after = await read();
     expect(after.message).toBe(after.compact);
 });
+
