@@ -187,6 +187,16 @@ describe('a confirmed delete', () => {
         expect(document.activeElement).toBe(selectOf(el, 'c3'));
     });
 
+    it('hands the keyboard to the next row a search left visible, not to a hidden one', () => {
+        const el = mount([{ id: 'c1', title: 'Deploy one' }, { id: 'c2', title: 'Other' }, { id: 'c3', title: 'Deploy two' }]);
+        hostDeletes(el);
+        (el as ListEl & { filter(q: string): number }).filter('deploy');
+
+        remove(el, 'c1');
+
+        expect(document.activeElement, 'c2 is hidden by the search').toBe(selectOf(el, 'c3'));
+    });
+
     it('falls back to the row above when the deleted one was the last', () => {
         const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }]);
         hostDeletes(el);

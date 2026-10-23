@@ -362,12 +362,16 @@ export class AparteConversationList extends HTMLElement {
         // confirmed from the row's own menu, so the row the keyboard is on is the row
         // that leaves.
         const heldRow = held?.closest<HTMLElement>('[data-conv-id]') ?? null;
+        // Among the rows a reader can reach: with a search held, the hidden ones do not count.
+        const visible = (el: Element): boolean => !el.closest('[hidden]');
         const heldIndex = heldRow
-            ? Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]')).indexOf(heldRow)
+            ? Array.from(this.querySelectorAll<HTMLElement>('[data-conv-id]')).filter(visible).indexOf(heldRow)
             : -1;
         const loading = this.hasAttribute('loading');
         this.setAttribute('aria-busy', loading ? 'true' : 'false');
         if (loading) {
+            // A list on its way matches nothing yet: no "no match" while it loads.
+            this.removeAttribute('data-no-match');
             // Six rows of the recipe, the widths varied so it reads as a list and not a
             // grid; a status line off screen, because aria-busy alone is often ignored.
             // Literals only, no interpolation at all: the text-escaping guard reads a
@@ -397,7 +401,7 @@ export class AparteConversationList extends HTMLElement {
         // next one, else the one above), and to the list itself when the last
         // conversation goes — never to `<body>`, which would restart the next Tab at the
         // top of the page right after the one action here that cannot be undone.
-        const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-select-id]'));
+        const rows = Array.from(this.querySelectorAll<HTMLElement>('[data-select-id]')).filter(visible);
         const next = heldIndex >= 0 ? (rows[heldIndex] ?? rows[rows.length - 1]) : null;
         if (next) { next.focus(); return; }
         // Borrowed, not taken: a host that made the list focusable keeps its own tab
@@ -427,12 +431,15 @@ export class AparteConversationList extends HTMLElement {
 
     private _applyFilter(): number {
         const needle = this._query;
+        // Rows that are not there yet match nothing and miss nothing: the skeleton is shown.
+        if (this.hasAttribute('loading')) return 0;
         const matches = filterConversationRows(this, needle);
         const noMatch = needle !== '' && matches === 0;
         this.toggleAttribute('data-no-match', noMatch);
         // Always there, empty until a miss: a live region created with its text already in
         // it is a new node, not a change, and several screen readers announce nothing.
         let line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
+        const born = !line;
         if (!line) {
             line = document.createElement('p');
             line.className = 'aparte-conv-list-no-match';
@@ -440,7 +447,11 @@ export class AparteConversationList extends HTMLElement {
             this.appendChild(line);
         }
         const text = noMatch ? this._t('conversationSearchEmpty') : '';
-        if (line.textContent !== text) line.textContent = text;
+        const write = (): void => { if (line!.isConnected && line!.textContent !== text) line!.textContent = text; };
+        // A line a render just made is a new node, and its first text has to come a frame
+        // later to be announced (same as the loading status).
+        if (born && text && typeof requestAnimationFrame === 'function') requestAnimationFrame(write);
+        else write();
         return matches;
     }
 
