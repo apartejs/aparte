@@ -7,7 +7,7 @@ release since May 2025. Parses only the new text and **appends** DOM nodes per s
 per-token re-parse or `innerHTML` rebuild.
 
 ```bash
-npm install @aparte/plugin-streaming-markdown @aparte/core @paulrichez/streaming-markdown
+npm install @aparte/plugin-streaming-markdown @aparte/core
 ```
 
 ```ts
@@ -16,8 +16,8 @@ import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdow
 setupStreamingMarkdownProvider();
 ```
 
-`@aparte/core` and `@paulrichez/streaming-markdown` are **peer dependencies**. Coming from a version that used
-`streaming-markdown`, install `@paulrichez/streaming-markdown` and you can remove `streaming-markdown`.
+`@aparte/core` is a **peer dependency**; the parser installs with the plugin. Coming from a version that used
+`streaming-markdown`, you can remove it.
 
 This plugin is enough on its own: a reply renders the same whether it streams or arrives complete — a
 conversation restored after a reload, a non-streaming provider's answer — because with no one-shot
