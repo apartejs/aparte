@@ -36,9 +36,13 @@
   // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
   let hostLoading = false;
   $: waiting = loading || hostLoading;
-  $: loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
+  // Bumped on every config change: the labels below are locale text, and `$:` does not see the
+  // config — a language switch left them in the old language.
+  let localeTick = 0;
+  let unsubscribeLocale: (() => void) | null = null;
+  $: loadingText = (localeTick, (config ?? aparteGlobalConfig).t('loadingConversation'));
   // The status line's word, from the locale like the rest of the chat (it was English everywhere).
-  $: typingLabel = typingText ?? (config ?? aparteGlobalConfig).t('typing');
+  $: typingLabel = (localeTick, typingText ?? (config ?? aparteGlobalConfig).t('typing'));
   /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
   export let overlayComposer = false;
   /**
@@ -185,6 +189,7 @@
   }
 
   onMount(() => {
+    unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     // A caller-supplied `id` wins, so `scopeToTargetId` has something to match.
     hostId = id ?? `aparte-chat-${uuid()}`;
     // Set the id imperatively (deterministic, like Angular's ngAfterViewInit) rather
@@ -221,6 +226,8 @@
   });
 
   onDestroy(() => {
+    unsubscribeLocale?.();
+    unsubscribeLocale = null;
     rootRef?.removeEventListener('aparte-action', handleAction);
     teardown?.();
     teardown = null;

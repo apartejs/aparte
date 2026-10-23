@@ -1,10 +1,12 @@
 'use client';
 
 import React, {
+    useCallback,
     useEffect,
     useId,
     useRef,
     useState,
+    useSyncExternalStore,
     forwardRef,
     useImperativeHandle,
 } from 'react';
@@ -242,11 +244,14 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
     const [hostLoading, setHostLoading] = useState(false);
     const waiting = loading || hostLoading;
-    const loadingText = (config ?? aparteGlobalConfig).t('loadingConversation');
-    // The status line's word, from the locale like the rest of the chat: it was the English
-    // 'Assistant is thinking...' in every language, and the one string a localised host
-    // could not translate without passing the prop.
-    const typingLabel = typingText ?? (config ?? aparteGlobalConfig).t('typing');
+    // The two locale strings this component draws itself, read again on a language switch: a
+    // config change re-renders nothing else here. One snapshot, so only a changed string re-renders.
+    const labelConfig = config ?? aparteGlobalConfig;
+    const readLabels = (): string => `${labelConfig.t('loadingConversation')}\u0000${labelConfig.t('typing')}`;
+    const labels = useSyncExternalStore(useCallback((notify) => labelConfig.subscribe(notify), [labelConfig]), readLabels, readLabels);
+    const [loadingText = '', localeTyping = ''] = labels.split('\u0000');
+    // The status line's word, from the locale like the rest of the chat, unless the prop says.
+    const typingLabel = typingText ?? localeTyping;
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);

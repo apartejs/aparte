@@ -937,6 +937,20 @@ describe('AparteChatComponent while a conversation is on its way', () => {
         expect(el.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
     });
 
+    it('says the wait and the typing line in the language the config switches to', () => {
+        const config = new AparteConfig();
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('config', config);
+        (fixture.componentRef as any).setInput('loading', true);
+        fixture.detectChanges();
+        config.setLocale({ ...config.getLocale(), loadingConversation: 'Chargement de la conversation', typing: 'Réflexion en cours' });
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.querySelector('.aparte-viewport-loading-status')?.textContent?.trim()).toBe('Chargement de la conversation');
+        expect(el.querySelector('aparte-chat-status')?.getAttribute('text')).toBe('Réflexion en cours');
+    });
+
     it('keeps a disabled the consumer set once the wait ends', () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         (fixture.componentRef as any).setInput('messages', []);

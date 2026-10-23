@@ -493,6 +493,16 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(false);
     });
 
+    it('says the wait and the typing line in the language the config switches to', async () => {
+        const config = new AparteConfig();
+        const wrapper = mount(AparteChat, { props: { messages: [], config, loading: true } });
+        config.setLocale({ ...config.getLocale(), loadingConversation: 'Chargement de la conversation', typing: 'Réflexion en cours' });
+        await wrapper.vm.$nextTick();
+        const box = wrapper.element as HTMLElement;
+        expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Chargement de la conversation');
+        expect(box.querySelector('aparte-chat-status')?.getAttribute('text')).toBe('Réflexion en cours');
+    });
+
     it('keeps a disabled the consumer set once the wait ends', async () => {
         const wrapper = mount(AparteChat, { props: { messages: [], disabled: true, loading: true } });
         await wrapper.setProps({ loading: false });
