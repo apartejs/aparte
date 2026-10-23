@@ -39,7 +39,7 @@ if (COMPONENTS.total < 40) {
 }
 
 /**
- * How many tests ran on the last `pnpm test` (stamped by scripts/stamp-test-count.mjs), or null
+ * How many tests ran on the last `pnpm test:coverage` (stamped by scripts/stamp-test-count.mjs), or null
  * in a clone that never ran the suite: a test count cannot be had without running it.
  */
 export const TESTS: { tests: number; files: number } | null = (() => {

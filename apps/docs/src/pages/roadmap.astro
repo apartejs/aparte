@@ -85,7 +85,7 @@ const PLUGINS = count(() =>
 
 /**
  * How many tests actually RAN, stamped by `scripts/stamp-test-count.mjs` on every
- * `pnpm test`. Absent (a fresh clone that has never run the suite) the page falls
+ * `pnpm test:coverage` (the gate's run; the site the same gate builds shows the run before). Absent (a fresh clone that has never run the suite) the page falls
  * back to the last measured figures rather than to a guess.
  */
 let TESTS = 2067;
