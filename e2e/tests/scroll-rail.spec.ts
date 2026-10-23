@@ -16,7 +16,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { installLlmMock } from '../helpers/mock-llm.js';
+import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 import { waitForStill } from '../helpers/settle.js';
@@ -165,7 +165,7 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
     await expect.poll(async () => page.evaluate((id) => {
         const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
         const surface = document.querySelector('.aparte-viewport-container')!;
-        return Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+        return Math.abs(Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top));
     }, targetId), { timeout: 6_000 }).toBeLessThanOrEqual(1);
     await expect(fifth).toHaveAttribute('aria-current', 'true');
     // And it stays: the observer's mid-scroll opinions do not move it once settled. Sampled
@@ -185,6 +185,70 @@ test('a click lands the transcript on the message, marks its tick, and keeps the
     expect(keptThrough, 'the mark outlasts the hold').toBe(true);
     expect((await geometry(page)).currentInRail).toBe(true);
 
+    expect(errors).toEqual([]);
+});
+
+/*
+ * A jump while a reply streams. The rail turns the follow off before it jumps, and the jump is
+ * smooth: its first frame moves a few pixels, still within the bottom threshold, which the
+ * viewport read as the reader staying at the bottom — it armed the follow again, and the next
+ * token pinned the view back down, aborting the jump.
+ */
+test('a jump while a reply streams stays on the message', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = collectPageErrors(page);
+    // Paced, so the reply is still arriving after the jump lands. 18 frames x 400ms = 7.2s of
+    // stream against a click, a landing and a 2s watch: frames x pace must outlast all three.
+    await installLlmMock(page, { pace: 400 });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    for (let i = 1; i <= 3; i++) await chat.sendAndSettle(`Question ${i}: what about topic ${i}?`, { expect: MOCK_REPLY_MARK });
+    await chat.send('Question 4: and one more?');
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
+
+    const tick = page.locator('aparte-scroll-rail .aparte-scroll-rail__tick').nth(1);
+    const targetId = await tick.getAttribute('data-message-id');
+    await tick.click();
+    // Landed: the message at the top, and no longer moving. (The surface itself never goes
+    // still while the reply grows below, so it is the message that is watched.)
+    let previous = Number.NaN;
+    await expect.poll(async () => {
+        const offset = await page.evaluate((id) => {
+            const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+            const surface = document.querySelector('.aparte-viewport-container')!;
+            return Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top);
+        }, targetId);
+        const landed = offset === previous && Math.abs(offset) <= 24;
+        previous = offset;
+        return landed;
+    }, { timeout: 6_000, intervals: [100] }).toBe(true);
+
+    // Then watched every frame for 2s while the reply goes on arriving below it. Pulled back
+    // toward the bottom, the view would travel down to it. What it may do is re-align by a few
+    // pixels: a bubble above the message taking its real size, which the rail corrects.
+    const watch = await page.evaluate((id) => new Promise<{ down: number; offset: number; grew: boolean }>((resolve) => {
+        const bubble = document.querySelector(`aparte-chat-bubble[message-id="${id}"]`)!;
+        const surface = document.querySelector('.aparte-viewport-container') as HTMLElement;
+        const replies = document.querySelectorAll('aparte-chat-bubble[data-role="assistant"]');
+        const reply = replies[replies.length - 1]!;
+        const start = (reply.textContent ?? '').length;
+        const from = surface.scrollTop;
+        const until = performance.now() + 2000;
+        let down = 0;
+        const sample = (): void => {
+            down = Math.max(down, Math.round(surface.scrollTop - from));
+            if (performance.now() < until) { requestAnimationFrame(sample); return; }
+            resolve({
+                down,
+                offset: Math.round(bubble.getBoundingClientRect().top - surface.getBoundingClientRect().top),
+                grew: (reply.textContent ?? '').length > start,
+            });
+        };
+        sample();
+    }), targetId);
+    expect(watch.grew, 'the reply kept arriving during the watch, so something could have pulled the view').toBe(true);
+    expect(watch.down, 'the view was not pulled toward the bottom while the reply streamed').toBeLessThanOrEqual(40);
+    expect(Math.abs(watch.offset), 'and it is still on the message').toBeLessThanOrEqual(24);
     expect(errors).toEqual([]);
 });
 

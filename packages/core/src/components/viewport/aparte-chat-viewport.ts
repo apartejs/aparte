@@ -1328,10 +1328,16 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Enable or disable auto-scroll
+     * Enable or disable auto-scroll. Turned off, it stays off through the scroll that comes
+     * next — a jump of the page's own, smooth or not — and comes back once the reader is at
+     * the bottom again.
      */
     setAutoScroll(enabled: boolean): void {
         this._isAutoScrollEnabled = enabled;
+        // Off is the reader's choice, and the scroll that follows is theirs: marked as their
+        // gesture, so the first frames of a smooth jump — a few pixels, still within the bottom
+        // threshold — are not read as the reader staying at the bottom and armed again.
+        if (!enabled) this._readerInputAt = performance.now();
     }
 
     /**
