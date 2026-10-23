@@ -439,6 +439,8 @@ export class AparteSplit extends HTMLElement {
                 // went to one pane has nothing left to size.
                 if (this.single && this._dragging) this._endDrag('pointer', this._dragStartPercent);
                 this._stampHandle();
+                // One pane shown, or both again: the switch says which, or nothing.
+                this._syncPaneControls();
                 return;
             case 'breakpoint':
                 this._watchBreakpoint();

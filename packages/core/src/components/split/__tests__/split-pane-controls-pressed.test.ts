@@ -65,6 +65,17 @@ describe('the pane switch', () => {
         expect(end.hasAttribute('aria-pressed')).toBe(false);
     });
 
+    it('follows `single` turned on and then off on a wide split', () => {
+        const { split, start, end } = mount();
+        widen();
+        split.single = true;
+        expect(start.getAttribute('aria-pressed'), 'one pane shown: the switch says which').toBe('true');
+        split.showPane('end');
+        split.single = false;
+        expect(start.hasAttribute('aria-pressed'), 'both panes in view again').toBe(false);
+        expect(end.hasAttribute('aria-pressed')).toBe(false);
+    });
+
     it('leaves a toggle without a pressed state', () => {
         const { toggle } = mount();
         toggle.click();
