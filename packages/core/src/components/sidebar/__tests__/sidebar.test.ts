@@ -388,6 +388,31 @@ describe('aparte-sidebar', () => {
             expect(line.textContent).toBe('');
         });
 
+        it("the sidebar's no-match follows its list's renders, and is never set while a list loads", async () => {
+            const { el } = withList();
+            const list = el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] };
+            el.filter('zzz');
+            expect(el.hasAttribute('data-no-match')).toBe(true);
+            // A conversation that matches arrives: the list re-renders under the held query.
+            list.conversations = [...items, { id: 'z', title: 'zzz plan', updatedAt: Date.now() }];
+            await Promise.resolve();
+            expect(el.hasAttribute('data-no-match'), 'a match is shown again').toBe(false);
+            // Typing while the list loads: nothing to match yet, nothing to say.
+            list.setAttribute('loading', '');
+            el.filter('nothing like this');
+            await Promise.resolve();
+            expect(el.hasAttribute('data-no-match')).toBe(false);
+        });
+
+        it('says "no conversation matches" once, not again on every render of the list', async () => {
+            const { el } = withList();
+            const list = el.querySelector('aparte-conversation-list') as HTMLElement & { conversations: AparteConversationListItem[] };
+            el.filter('nothing like this');
+            const line = list.querySelector('.aparte-conv-list-no-match');
+            list.conversations = [...items];
+            expect(list.querySelector('.aparte-conv-list-no-match'), 'the same live region, not a new one to announce').toBe(line);
+        });
+
         it('the query outlives a re-render of the list: a new conversation obeys it', () => {
             const { el, rows } = withList();
             el.filter('deploy');

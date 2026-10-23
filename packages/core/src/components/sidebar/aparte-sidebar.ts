@@ -141,6 +141,10 @@ export class AparteSidebar extends HTMLElement {
      * Same convention as `_relabel`, which leaves a host-authored `aria-label` alone.
      */
     private _ownHidden = false;
+    /** The query `filter()` was last given, kept so the sidebar's no-match can follow its lists. */
+    private _query = '';
+    /** Watches the lists' own `data-no-match` and `loading`, which change with their renders. */
+    private _listWatch: MutationObserver | null = null;
 
     /** Whether the sidebar is collapsed (hidden in the flow, or closed as a drawer). */
     get collapsed(): boolean {
@@ -167,6 +171,12 @@ export class AparteSidebar extends HTMLElement {
             this._hostIntentSeeded = true;
         }
         this.addEventListener('input', this._onInput);
+        if (typeof MutationObserver === 'function') {
+            this._listWatch = new MutationObserver((records) => {
+                if (records.some((r) => r.target !== this)) this._syncNoMatch();
+            });
+            this._listWatch.observe(this, { subtree: true, attributes: true, attributeFilter: ['data-no-match', 'loading'] });
+        }
         // On the DOCUMENT, not on the element: an overlay that only answers Escape when
         // the focus is already inside it answers nobody — the focus is on the page the
         // drawer is covering.
@@ -205,6 +215,8 @@ export class AparteSidebar extends HTMLElement {
 
     disconnectedCallback(): void {
         this.removeEventListener('input', this._onInput);
+        this._listWatch?.disconnect();
+        this._listWatch = null;
         document.removeEventListener('keydown', this._onKeydown);
         document.removeEventListener('click', this._onDocumentClick);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
@@ -425,14 +437,41 @@ export class AparteSidebar extends HTMLElement {
      * sidebar carries `data-no-match` then too.
      */
     filter(query: string): number {
+        this._query = query;
         let matches = 0;
-        for (const list of this.querySelectorAll<HTMLElement & { filter?: (q: string) => number }>('aparte-conversation-list')) {
+        let waiting = false;
+        for (const list of this._lists()) {
             // A list not upgraded yet has no `filter()`: its rows are the page's markup, and
-            // they are filtered here as they always were.
-            matches += typeof list.filter === 'function' ? list.filter(query) : filterConversationRows(list, foldText(query));
+            // they are filtered here as they always were — and it is handed the query once it
+            // upgrades, or its first render would show every row under the query.
+            if (typeof list.filter === 'function') matches += list.filter(query);
+            else { matches += filterConversationRows(list, foldText(query)); waiting = true; }
         }
-        this.toggleAttribute('data-no-match', query.trim() !== '' && matches === 0);
+        if (waiting && typeof customElements !== 'undefined') {
+            void customElements.whenDefined('aparte-conversation-list').then(() => {
+                if (this._query === query) for (const list of this._lists()) list.filter?.(query);
+                this._syncNoMatch();
+            });
+        }
+        this._syncNoMatch();
         return matches;
+    }
+
+    private _lists(): Array<HTMLElement & { filter?: (q: string) => number }> {
+        return Array.from(this.querySelectorAll<HTMLElement & { filter?: (q: string) => number }>('aparte-conversation-list'));
+    }
+
+    /**
+     * `data-no-match` while the held query matches nothing in any list — read from the lists
+     * themselves, so it follows their renders (a conversation that matches arriving, the last
+     * match leaving) and is never set while one of them is still loading.
+     */
+    private _syncNoMatch(): void {
+        const needle = foldText(this._query);
+        const none = needle !== '' && this._lists().every((list) => (typeof list.filter === 'function'
+            ? list.hasAttribute('data-no-match')
+            : !list.hasAttribute('loading') && filterConversationRows(list, needle) === 0));
+        this.toggleAttribute('data-no-match', none);
     }
 
     // ─── Locale ───────────────────────────────────────────────────────────

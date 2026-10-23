@@ -389,12 +389,17 @@ export class AparteConversationList extends HTMLElement {
             else say();
             return;
         }
+        // The no-match line outlives the rows: rebuilt with them, it was a new live region
+        // whose text is announced again — "No conversation matches" after every save.
+        const line = this.querySelector<HTMLElement>(':scope > .aparte-conv-list-no-match');
         this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
+        if (line) this.appendChild(line);
         this._applyFilter();
         if (!restore) return;
-        // The same row, by id — not the same element, which no longer exists.
+        // The same row, by id — not the same element, which no longer exists — when the
+        // search still shows it: a focus() inside `hidden` lands on <body>.
         const back = this.querySelector<HTMLElement>(restore);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
-        if (back) { back.focus(); return; }
+        if (back && visible(back)) { back.focus(); return; }
         // That row left the list. The keyboard goes to the row that took its place (the
         // next one, else the one above), and to the list itself when the last
         // conversation goes — never to `<body>`, which would restart the next Tab at the

@@ -144,6 +144,17 @@ describe('a re-render of the rows', () => {
         expect(document.activeElement).toBe(selectOf(el, 'c2'));
     });
 
+    it('does not put the keyboard back on a row the search now hides', () => {
+        // A rename under a held search: the row comes back with a title the query no longer
+        // matches, hidden — and a browser lets a focus() inside `hidden` drop to <body>.
+        const el = mount([{ id: 'c1', title: 'Deploy one' }, { id: 'c2', title: 'Other' }, { id: 'c3', title: 'Deploy two' }]);
+        (el as ListEl & { filter(q: string): number }).filter('deploy');
+        selectOf(el, 'c1').focus();
+        el.conversations = [{ id: 'c1', title: 'Release' }, { id: 'c2', title: 'Other' }, { id: 'c3', title: 'Deploy two' }];
+        expect(rowOf(el, 'c1').closest('[hidden]'), 'the renamed row is hidden').not.toBeNull();
+        expect(document.activeElement).toBe(selectOf(el, 'c3'));
+    });
+
     it('leaves the focus alone when it was not in the list', () => {
         const el = mount([{ id: 'c1', title: 'One' }]);
         const outside = document.createElement('button');
