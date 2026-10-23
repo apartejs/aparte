@@ -60,6 +60,14 @@ Run `gate:full` for anything touching the framework boundary, rendering, or befo
 release; `pnpm gate` otherwise. A public API also needs a docs page, and any change to a
 package's public API or shipped CSS needs a changeset.
 
+The steps run cheapest first, so a mistake fails in the first minute rather than after the
+suite: the checks that read only the source (MDX parsing included), then lint and
+typecheck, then the build (every package and the docs site) and the checks that read what it
+made, then the coverage run. Two steps fix rather than fail locally, and fail in CI: a
+coverage floor more than three points under its measurement is raised in
+`vitest.config.ts` (commit it), and every package build records the source it was built
+from, so `check:dist-freshness` never compares against a build it did not see.
+
 `check:readmes` is the odd one out: `publint`/`attw` check a package's *shape*, and this
 checks its *claims* — a published README may not say "not yet published", "pre-alpha",
 "coming soon" or carry a TODO. `@aparte/core`'s README announced "🚧 Pre-alpha — not yet

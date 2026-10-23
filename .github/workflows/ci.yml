@@ -78,6 +78,54 @@ jobs:
             nx-${{ runner.os }}-${{ github.ref_name }}-
             nx-${{ runner.os }}-
 
+      # Source checks first: each reads the tree as it is, needs no build, and answers in
+      # seconds — so a mistake they can see fails the run in its first minute, not after the
+      # build and the suite.
+      #
+      # Listed individually rather than as `pnpm gate` so a failure names the guard
+      # instead of a 20-minute chain. The list is not maintained by hand:
+      # `pnpm check:gate-in-ci` diffs this file's `run:` lines against the gate chain and
+      # fails on anything missing — seven gate steps once ran in no workflow at all, after
+      # a comment here had already narrated the same drift once.
+      - name: Check the lockfile matches every manifest
+        run: pnpm check:lockfile
+
+      - name: Check internal peer ranges are literal and bounded
+        run: pnpm check:peer-ranges
+
+      - name: Check every MDX page parses and names only what it declares
+        run: pnpm check:mdx
+
+      - name: Check wrapper slot parity
+        run: pnpm check:wrapper-slots
+
+      - name: Check attribute escaping
+        run: pnpm check:attr-escaping
+
+      - name: Check text-position escaping
+        run: pnpm check:text-escaping
+
+      - name: Check secure-context-only APIs stay behind their fallback
+        run: pnpm check:secure-context
+
+      - name: Check a segment is stamped in one place
+        run: pnpm check:segment-stamp
+
+      - name: Check derived CSS variables re-anchor where a palette changes
+        run: pnpm check:derived-vars
+
+      - name: Locale keys (every t() read declared, every key read, fr complete)
+        run: pnpm check:locale-keys
+
+      - name: Check the engine seam has a consumer
+        run: pnpm check:engine-consumer
+
+      - name: Check no comment cites code by line number
+        run: pnpm check:cross-refs
+
+      - name: Check every gate step runs in a workflow
+        run: pnpm check:gate-in-ci
+
       - name: Lint
         run: pnpm lint
 
@@ -96,40 +144,18 @@ jobs:
       - name: Typecheck type matrix
         run: pnpm typecheck:matrix
 
+      # Every package and the docs site: `pnpm build` is `nx run-many -t build`, and the
+      # site is one of its projects — the generators run there, so this is what proves
+      # they still produce a site, and where the pages the link checks read are made.
       - name: Build
         run: pnpm build
 
-      # Publish-safety: publint over every publishable package + are-the-types-wrong
-      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
-      # for their .svelte/.vue/APF type entrypoints — publint still covers them. Both
-      # sets are the `pnpm -r --filter "./packages/**"` filter in `check-packaging`, so
-      # a new package is covered the day it exists; count with
-      # `pnpm -r --filter "./packages/**" list --depth -1`.
-      - name: Check packaging
-        run: pnpm check-packaging
+      - name: Check dist is current with src
+        run: pnpm check:dist-freshness
 
-      # The Node contract, executed: imports the BUILT packages in real Node through
-      # the `node` export condition (publint/attw only check the map statically, and
-      # the SSR unit test only sees the source entry).
-      - name: Check Node import contract
-        run: pnpm check:node-import
-
-      # The rest of the mechanical guards.
-      #
-      # A follow-up audit caught this: `pnpm gate` chains twelve `check:*` scripts and
-      # CI ran three of them. So five guards added in this very lot — under a commit
-      # titled "the guards that did not bite now bite" — fired only when a human
-      # remembered to type `pnpm gate`. A PR deleting the engine wiring, unescaping an
-      # attribute, or dropping a documented export went green.
-      #
-      # Listed individually rather than as `pnpm gate` so a failure names the guard
-      # instead of a 20-minute chain, and so the coverage/build steps keep their own
-      # jobs.
-      - name: Check attribute escaping
-        run: pnpm check:attr-escaping
-
-      - name: Check the engine seam has a consumer
-        run: pnpm check:engine-consumer
+      # The checks that read what the build made: manifests, built barrels, the site.
+      - name: Check every element documents an example
+        run: pnpm check:examples
 
       - name: Check every export is documented or exempt
         run: pnpm check:export-mentions
@@ -140,42 +166,6 @@ jobs:
       - name: Check the entry-point weight contracts
         run: pnpm check:bundle-entries
 
-      - name: Check published READMEs
-        run: pnpm check:readmes
-
-      - name: Check wrapper slot parity
-        run: pnpm check:wrapper-slots
-
-      - name: Check every element documents an example
-        run: pnpm check:examples
-
-      # The seven below were in `pnpm gate` and in NO workflow — five of them guards
-      # that bite. The comment at the top of this block already narrated a previous
-      # audit finding this exact shape, on a lot titled "the guards that did not bite
-      # now bite", and it drifted again anyway. So the list is no longer maintained
-      # by hand: `pnpm check:gate-in-ci` (below) diffs this file's `run:` lines
-      # against the gate chain and fails on anything missing. A lesson written down
-      # and not mechanised is a lesson that gets learned twice.
-      - name: Check the lockfile matches every manifest
-        run: pnpm check:lockfile
-
-      - name: Check internal peer ranges are literal and bounded
-        run: pnpm check:peer-ranges
-
-      - name: Check text-position escaping
-        run: pnpm check:text-escaping
-
-      - name: Check secure-context-only APIs stay behind their fallback
-        run: pnpm check:secure-context
-
-      - name: Check a segment is stamped in one place
-        run: pnpm check:segment-stamp
-
-      - name: Check derived CSS variables re-anchor where a palette changes
-        run: pnpm check:derived-vars
-      - name: Locale keys (every t() read declared, every key read, fr complete)
-        run: pnpm check:locale-keys
-
       - name: Check the typed event map is honest
         run: pnpm check:event-map
 
@@ -185,25 +175,6 @@ jobs:
       # upgrade. Needs the build above — it reads the manifests and the built barrels.
       - name: Check the frozen surface still matches the tree
         run: pnpm check:frozen-surface
-
-      - name: Check no comment cites code by line number
-        run: pnpm check:cross-refs
-
-      - name: Check every gate step runs in a workflow
-        run: pnpm check:gate-in-ci
-
-      - name: Test (with coverage gate)
-        run: pnpm test:coverage
-
-      # Runs AFTER the coverage gate: it reads coverage/coverage-summary.json.
-      - name: Check the coverage floors sit on the measurement
-        run: pnpm check:coverage-floors
-
-      # Runs after the build job's artifacts are not available here, so this only
-      # asserts freshness for a tree that built in THIS job — which the docs build
-      # below performs.
-      - name: Check dist is current with src
-        run: pnpm build && pnpm check:dist-freshness
 
       # The documentation, checked rather than assumed.
       #
@@ -216,11 +187,14 @@ jobs:
       - name: Compile the docs' self-contained snippets
         run: pnpm check:doc-snippets
 
-      # The build also runs the four reference generators, so this is what proves
-      # they still produce a site — and it is the only place the generated pages
-      # exist for the link check below.
-      - name: Build the docs site
-        run: pnpm --filter @aparte-workspace/docs build
+      - name: Check published READMEs
+        run: pnpm check:readmes
+
+      # The Node contract, executed: imports the BUILT packages in real Node through
+      # the `node` export condition (publint/attw only check the map statically, and
+      # the SSR unit test only sees the source entry).
+      - name: Check Node import contract
+        run: pnpm check:node-import
 
       # The catalogue is written by hand and grouped by what a person sees; each page claims
       # what it documents, and this holds what the generators used to guarantee by
@@ -236,6 +210,24 @@ jobs:
       # lead to a page — the same one, or the one that replaced it.
       - name: Check every published URL still leads somewhere
         run: pnpm check:legacy-urls
+
+      # Publish-safety: publint over every publishable package + are-the-types-wrong
+      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
+      # for their .svelte/.vue/APF type entrypoints — publint still covers them. Both
+      # sets are the `pnpm -r --filter "./packages/**"` filter in `check-packaging`, so
+      # a new package is covered the day it exists; count with
+      # `pnpm -r --filter "./packages/**" list --depth -1`.
+      - name: Check packaging
+        run: pnpm check-packaging
+
+      # Last: the longest step, so everything cheaper has had its say first.
+      - name: Test (with coverage gate)
+        run: pnpm test:coverage
+
+      # Runs AFTER the coverage gate: it reads coverage/coverage-summary.json. In CI a
+      # floor with too much slack fails (locally the same check raises it in place).
+      - name: Check the coverage floors sit on the measurement
+        run: pnpm check:coverage-floors
 
       # CLAUDE.md requires a changeset for any package with an API or CSS change,
       # and nothing enforced it. In a `fixed` lockstep group a missing changeset does

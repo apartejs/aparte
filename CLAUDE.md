@@ -265,7 +265,7 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 ## ✅ Conventions & before you ship
 
 - **`pnpm gate` at the end of a lot, not per commit** — and `pnpm gate:full` (adds
-  `pnpm e2e`) before anything reaches `main`, always. The gate is now 32 steps, 25 of them
+  `pnpm e2e`) before anything reaches `main`, always. The gate is now 34 steps, 28 of them
   `check:*` guards (count them, don't trust this line:
   `node -e "const g=require('./package.json').scripts.gate.split('&&'); console.log(g.length, g.filter(s=>/pnpm check/.test(s)).length)"`):
   a full build, coverage with per-glob floors, `publint`/`attw` on 15
