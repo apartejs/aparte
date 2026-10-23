@@ -65,20 +65,60 @@ describe('the avatar slot', () => {
         expect(slot(el).querySelector('img'), 'the shell drew it, not a provider').not.toBeNull();
     });
 
-    it('is marked to show when its role names a picture, with no provider', () => {
+    // The mark lands in a microtask, before the frame: see the batching test below.
+    it('is marked to show when its role names a picture, with no provider', async () => {
         stubImage('assistant', 'url("logo.svg")');
-        expect(slot(mount('assistant')).hasAttribute('data-image')).toBe(true);
+        const el = mount('assistant');
+        await Promise.resolve();
+        expect(slot(el).hasAttribute('data-image')).toBe(true);
     });
 
-    it('is not marked when its role names none, the default', () => {
+    it('is not marked when its role names none, the default', async () => {
         stubImage('user', 'none');
-        expect(slot(mount('user')).hasAttribute('data-image'), "the user's token is none").toBe(false);
+        const el = mount('user');
+        await Promise.resolve();
+        expect(slot(el).hasAttribute('data-image'), "the user's token is none").toBe(false);
     });
 
-    it('is marked when a provider leaves its slot empty and the stylesheet names a picture', () => {
+    it('is marked when a provider leaves its slot empty and the stylesheet names a picture', async () => {
         stubImage('assistant', 'url("logo.svg")');
         aparteGlobalConfig.setAvatarProvider({ render: (role, host) => { if (role === 'user') host.textContent = 'Me'; } });
-        expect(slot(mount('assistant')).hasAttribute('data-image')).toBe(true);
+        const el = mount('assistant');
+        await Promise.resolve();
+        expect(slot(el).hasAttribute('data-image')).toBe(true);
+    });
+
+    /*
+     * Every bubble re-reads its token on a config change. Read, write, read, write: each mark
+     * dirtied the style the next read had to recompute, and on a 200-message transcript a
+     * language switch cost ~125ms in Chromium, ~115 of them here. Every read now comes first.
+     */
+    it('reads every slot before it marks any, on a config change', async () => {
+        stubImage('assistant', 'url("logo.svg")');
+        const bubbles = [mount('assistant'), mount('assistant'), mount('assistant')];
+        await Promise.resolve();
+        const log: string[] = [];
+        const readOn = new Set<string>();
+        const computed = window.getComputedStyle;
+        vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+            log.push('read');
+            readOn.add(el.tagName.toLowerCase());
+            return computed(el, pseudo);
+        });
+        const toggle = Element.prototype.toggleAttribute;
+        vi.spyOn(Element.prototype, 'toggleAttribute').mockImplementation(function (this: Element, name: string, force?: boolean) {
+            if (name === 'data-image') log.push('write');
+            return toggle.call(this, name, force);
+        });
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), typing: 'Typing…' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(log.filter((e) => e === 'read').length, 'one read per bubble').toBeGreaterThanOrEqual(bubbles.length);
+        expect(log.indexOf('write'), `no mark before the last read: ${log.join(' ')}`).toBeGreaterThan(log.lastIndexOf('read'));
+        // On the bubble, which an off-screen message still styles — not inside it, which it skips.
+        expect([...readOn]).toEqual(['aparte-chat-bubble']);
     });
 
     it("runs the provider's cleanup on what it drew, not on an initial written over it", () => {

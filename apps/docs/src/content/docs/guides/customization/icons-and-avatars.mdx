@@ -94,7 +94,8 @@ A picture needs no provider:
 
 `--aparte-avatar-image-user` and `--aparte-avatar-image-assistant` paint a picture in the slot, and
 an empty slot whose role names one shows it, with or without a provider. Core reads them when a message is drawn and on
-every configuration change. `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` colour the
+every configuration change, on the message element: declare them on `:root`, on the chat or on `aparte-chat-bubble`, not on
+the slot itself. `--aparte-avatar-bg-user` and `--aparte-avatar-bg-assistant` colour the
 ground behind the picture or what your provider writes.
 
 ## Keep your own element in sync with the icons and language

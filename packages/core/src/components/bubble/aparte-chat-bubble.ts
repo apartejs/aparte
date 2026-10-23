@@ -108,6 +108,30 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
 }
 
 /**
+ * Empty avatar slots waiting to learn whether their role's `--aparte-avatar-image-*` names a
+ * picture, with the bubble and the role each one reads. Flushed together in one microtask, so
+ * a config change that redraws every bubble reads every token first and marks afterwards: a
+ * mark set between two reads dirtied the style the next read had to recompute.
+ *
+ * The token is read on the bubble, not on the slot. A bubble off screen skips its contents
+ * (`content-visibility: auto`), and reading a computed style inside a skipped subtree costs a
+ * style pass of its own: on 200 messages that was ~50ms per config change in Chromium. So
+ * the token is honoured where it is declared on the bubble or any ancestor — `:root`, the
+ * chat — which is where the guide declares it.
+ */
+const pendingAvatarMarks = new Map<HTMLElement, { bubble: HTMLElement; role: string }>();
+
+function flushAvatarMarks(): void {
+    const batch = [...pendingAvatarMarks].filter(([avatar]) => !avatar.firstChild);
+    pendingAvatarMarks.clear();
+    const shown = batch.map(([, { bubble, role }]) => {
+        const image = getComputedStyle(bubble).getPropertyValue(`--aparte-avatar-image-${role}`).trim();
+        return image !== '' && image !== 'none';
+    });
+    batch.forEach(([avatar], i) => avatar.toggleAttribute('data-image', shown[i]));
+}
+
+/**
  * One message: plain content or a list of rich segments, in light DOM.
  *
  * Normally created for you by `<aparte-chat-viewport>`, one per message in the store;
@@ -982,15 +1006,17 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * A picture from the stylesheet alone: an empty slot whose role's `--aparte-avatar-image-*`
    * names an image gets `data-image`, which lifts the rule that hides an empty slot. Hidden
    * while empty, the token painted nothing. Read when the message is drawn and on every
-   * config change.
+   * config change, in a batch with the other bubbles' (see `pendingAvatarMarks`).
    */
   private _markAvatarImage(avatar: HTMLElement): void {
     if (avatar.firstChild) {
+      pendingAvatarMarks.delete(avatar);
       avatar.removeAttribute('data-image');
       return;
     }
-    const image = getComputedStyle(avatar).getPropertyValue(`--aparte-avatar-image-${this._role}`).trim();
-    avatar.toggleAttribute('data-image', image !== '' && image !== 'none');
+    // Before the frame, with every other slot this task redraws: see `pendingAvatarMarks`.
+    if (pendingAvatarMarks.size === 0) queueMicrotask(flushAvatarMarks);
+    pendingAvatarMarks.set(avatar, { bubble: this, role: this._role });
   }
 
   private _updateRole(): void {
