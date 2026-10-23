@@ -55,6 +55,7 @@
     "check:locale-keys": "node scripts/check-locale-keys.mjs",
     "check:dist-freshness": "node scripts/check-dist-freshness.mjs",
     "check:lockfile": "node scripts/check-lockfile.mjs",
+    "check:mdx": "node scripts/check-mdx.mjs",
     "check:peer-ranges": "node scripts/check-peer-ranges.mjs",
     "check:event-map": "node scripts/check-event-map.mjs",
     "check:frozen-surface": "node scripts/frozen-surface.mjs",
