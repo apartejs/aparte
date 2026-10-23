@@ -70,7 +70,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze && node ../../../scripts/stamp-dist.mjs",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

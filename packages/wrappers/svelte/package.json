@@ -49,7 +49,7 @@
     "scripts": {
         "typecheck:tests": "svelte-check --tsconfig ./tsconfig.check.json --threshold error --output human",
         "dev": "vite",
-        "build": "svelte-package -i src/lib -o dist --tsconfig ./tsconfig.dts.json && tsc -b --emitDeclarationOnly --force && node scripts/strip-dist-tests.mjs",
+        "build": "svelte-package -i src/lib -o dist --tsconfig ./tsconfig.dts.json && tsc -b --emitDeclarationOnly --force && node scripts/strip-dist-tests.mjs && node ../../../scripts/stamp-dist.mjs",
         "preview": "vite preview",
         "test": "vitest",
         "test:run": "vitest run",

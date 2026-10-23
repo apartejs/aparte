@@ -16,6 +16,13 @@
  *   falls back to mtime alone, which is the conservative answer and the one CI wants,
  *   since CI always builds first.
  *
+ * The hash is recorded at the end of every package build (`stamp-dist.mjs`, the last
+ * command of each `build` script), so whatever ran the build — the gate, a pre-push hook,
+ * an e2e run — the recorded hash is the src that dist was built from. It used to be
+ * written only when the check itself passed, and a build the check never saw left an older
+ * hash behind: the next `gen` bumped an mtime, the hash path compared against that stale
+ * record, and the gate failed on a dist that was current.
+ *
  * `check-dist-freshness.mjs` is the repo-wide gate step. `check-node-barrel-types.mjs`
  * and `check-node-import.mjs` call this for the packages THEY read, because both are run
  * standalone by contributors and both return a meaningless green against a stale build —
@@ -23,7 +30,8 @@
  * package was rebuilt.
  */
 import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', '.svelte-kit']);
@@ -48,7 +56,23 @@ const IS_INPUT = (name) => /\.(ts|tsx|css|svelte|vue|json)$/.test(name) && !/\.t
  * `import` resolves to.
  */
 const IS_EMIT = (name) => /\.(js|mjs|cjs)$/.test(name);
-const STAMP_DIR = '.dist-freshness';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const STAMP_DIR = join(ROOT, '.dist-freshness');
+
+/** One file per package under the stamp directory, named after its path from the repo root. */
+function stampPath(dir, stampDir) {
+    const rel = relative(ROOT, resolve(dir)).split(sep).join('/');
+    return join(stampDir, rel.replace(/[^a-zA-Z0-9]/g, '_'));
+}
+
+/**
+ * Record the src a build was made from. Called at the END of a package's `build`, with
+ * that package's directory, so the record and the dist always describe the same src.
+ */
+export function stampBuild(dir, { stampDir = STAMP_DIR } = {}) {
+    mkdirSync(stampDir, { recursive: true });
+    writeFileSync(stampPath(dir, stampDir), `${srcHash(join(dir, 'src'))}\n`);
+}
 
 function newestMtime(dir, pick, newest = 0) {
     for (const name of readdirSync(dir)) {
@@ -103,11 +127,11 @@ export function* packageDirs(root = 'packages') {
  * verified hash; the repo-wide gate step does that, the narrower callers do not, so a
  * scoped run cannot stamp a package it did not fully consider.
  */
-export function distFreshness({ dirs, record = false } = {}) {
+export function distFreshness({ dirs, record = false, stampDir = STAMP_DIR } = {}) {
     const stale = [];
     const mtimeOnly = [];
     let checked = 0;
-    if (record) mkdirSync(STAMP_DIR, { recursive: true });
+    if (record) mkdirSync(stampDir, { recursive: true });
 
     for (const dir of dirs ?? packageDirs()) {
         const dist = join(dir, 'dist');
@@ -116,7 +140,7 @@ export function distFreshness({ dirs, record = false } = {}) {
         const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
         const distNewest = newestMtime(dist, IS_EMIT);
         const rel = relative(process.cwd(), dir).split(sep).join('/');
-        const stamp = join(STAMP_DIR, rel.replace(/[^a-zA-Z0-9]/g, '_'));
+        const stamp = stampPath(dir, stampDir);
 
         // A dist with no executable emit at all is stale by definition, whatever its
         // mtimes say: every guard that reads built output finds nothing to read, and

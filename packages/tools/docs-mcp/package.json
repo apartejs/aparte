@@ -28,7 +28,7 @@
         "node": ">=18"
     },
     "scripts": {
-        "build": "vite build && tsc -b --emitDeclarationOnly --force",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && node ../../../scripts/stamp-dist.mjs",
         "test": "vitest",
         "test:run": "vitest run",
         "test:coverage": "vitest run --coverage"

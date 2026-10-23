@@ -74,7 +74,7 @@
     },
     "scripts": {
         "dev": "vite",
-        "build": "vite build && tsc -b --emitDeclarationOnly --force && node scripts/clean-declarations.mjs && pnpm run analyze",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && node scripts/clean-declarations.mjs && pnpm run analyze && node ../../scripts/stamp-dist.mjs",
         "analyze": "cem analyze",
         "preview": "vite preview",
         "test": "vitest",
