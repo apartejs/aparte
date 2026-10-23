@@ -31,4 +31,14 @@ if ! pnpm typecheck; then
     exit 1
 fi
 
+# The `.svelte` components are type-checked by svelte-check alone, which `pnpm typecheck`
+# does not run (it is the gate's `typecheck:tests`): a component only svelte-check refuses
+# reached the gate that way, minutes later. Only when a component is staged.
+if git diff --cached --name-only | grep -q '\.svelte$'; then
+    if ! pnpm --filter @aparte/svelte run typecheck:tests; then
+        printf '\n[aparte] FAIL: svelte-check. Fix it before committing (not --no-verify).\n\n'
+        exit 1
+    fi
+fi
+
 printf '[aparte] OK: lint + typecheck clean\n\n'
