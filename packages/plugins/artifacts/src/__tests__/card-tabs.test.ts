@@ -102,9 +102,11 @@ describe('artifact card — the tablist pattern', () => {
         const preview = host.querySelector<HTMLButtonElement>('[role="tab"][data-tab-target="preview"]')!;
         const code = host.querySelector<HTMLButtonElement>('[role="tab"][data-tab-target="code"]')!;
         expect(preview.disabled, 'nothing to preview yet').toBe(true);
+        (document.activeElement as HTMLElement | null)?.blur();
         press(code, 'End');
-        press(code, 'ArrowRight');
-        expect(code.getAttribute('aria-selected')).toBe('true');
+        // Skipped, the press lands on the next enabled tab, which takes the focus — here Code
+        // itself. Selecting the disabled tab would do nothing, and the focus would stay put.
+        expect(document.activeElement, 'the focus moved on, past the disabled tab').toBe(code);
         expect(preview.getAttribute('aria-selected')).not.toBe('true');
     });
 
