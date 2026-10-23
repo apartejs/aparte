@@ -309,10 +309,10 @@ describe('AparteChat React Wrapper', () => {
         const composer = container.querySelector('aparte-composer');
         const detail = { content: 'New message', timestamp: Date.now() };
 
-        if (composer) {
-            const event = new CustomEvent('aparte-send', { detail, bubbles: true, composed: true });
-            composer.dispatchEvent(event);
-        }
+        // In `act`: the send appends the user's message, a state update React wants batched.
+        act(() => {
+            composer?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+        });
 
         expect(mockOnMessageSent).toHaveBeenCalledWith(detail);
     });
@@ -595,15 +595,17 @@ describe('AparteChat React Wrapper', () => {
             <AparteChat messages={[]} config={cfg} onConversationCreated={onConversationCreated} />,
         );
 
-        container.querySelector('aparte-composer')!.dispatchEvent(
-            new CustomEvent('aparte-send', {
-                detail: { content: 'first message' },
-                bubbles: true, composed: true,
-            }),
-        );
-
-        // Creation is async (the adapter is): wait for the callback, not for a delay.
-        await vi.waitFor(() => expect(onConversationCreated).toHaveBeenCalledTimes(1));
+        // Creation is async (the adapter is): wait for the callback, not for a delay — inside
+        // `act`, since what it sets in state lands while the test waits.
+        await act(async () => {
+            container.querySelector('aparte-composer')!.dispatchEvent(
+                new CustomEvent('aparte-send', {
+                    detail: { content: 'first message' },
+                    bubbles: true, composed: true,
+                }),
+            );
+            await vi.waitFor(() => expect(onConversationCreated).toHaveBeenCalledTimes(1));
+        });
         expect(typeof onConversationCreated.mock.calls[0][0]).toBe('string');
     });
 });
