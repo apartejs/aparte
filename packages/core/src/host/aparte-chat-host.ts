@@ -166,8 +166,11 @@ const MAX_SIBLING_RETRIES = 6;
 /** A message's fields the viewport's tree derives itself, which a framework's list never overwrites. */
 const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStreaming']);
 
-/** The fields `syncRepoFromMessages` hands to the viewport's own update, which redraws them. */
-const REDRAWN_FIELDS = new Set(['content', 'segments', 'status', 'usage', 'model']);
+/**
+ * The fields every message carries, which a framework's list never clears: its text, its
+ * segments (which the viewport may derive from the text) and its status.
+ */
+const ALWAYS_PRESENT_FIELDS = new Set(['content', 'segments', 'status']);
 
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
@@ -854,7 +857,7 @@ export class AparteChatHost {
                     // a reopen loads the tree, which brought an un-pinned message back pinned.
                     const own = msg as unknown as Record<string, unknown>;
                     for (const key of Object.keys(stored)) {
-                        if (!TREE_OWNED_FIELDS.has(key) && !REDRAWN_FIELDS.has(key) && own[key] === undefined) delete stored[key];
+                        if (!TREE_OWNED_FIELDS.has(key) && !ALWAYS_PRESENT_FIELDS.has(key) && own[key] === undefined) delete stored[key];
                     }
                 }
             }

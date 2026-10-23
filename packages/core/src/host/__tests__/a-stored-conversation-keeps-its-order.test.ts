@@ -174,4 +174,25 @@ describe('a field the app writes on a message under a framework', () => {
         expect(host.getMessages().find((m) => m.id === 'a1')?.metadata, 'un-pinned, it does not come back pinned').toBeUndefined();
         teardown();
     });
+
+    it('stays gone for the model too, which the sync carries like the text', async () => {
+        // A cleared model came back on reopen, and a paused turn resumed on it.
+        const { host, root, teardown, ids } = await setup();
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+
+        host.updateMessage('a1', { model: 'big-model' });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+        host.updateMessage('a1', { model: undefined });
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a1' }, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 20));
+
+        select('c2');
+        await vi.waitFor(() => expect(ids()).toEqual([]));
+        select('c1');
+        await vi.waitFor(() => expect(ids()).toEqual(['u1', 'a1']));
+        expect(host.getMessages().find((m) => m.id === 'a1')?.model).toBeUndefined();
+        teardown();
+    });
 });
