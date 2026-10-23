@@ -22,7 +22,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 const callbacks: Array<() => void> = [];
 
 class CapturingResizeObserver {
-    constructor(cb: () => void) { callbacks.push(cb); }
+    constructor(cb: ResizeObserverCallback) { callbacks.push(() => cb([], this as unknown as ResizeObserver)); }
     observe(): void {}
     unobserve(): void {}
     disconnect(): void {}

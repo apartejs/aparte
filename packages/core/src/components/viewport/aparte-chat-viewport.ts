@@ -261,6 +261,17 @@ export class AparteChatViewport extends HTMLElement {
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
     /**
+     * Watches the size of the bubbles the bottom spacer measures — the last question and
+     * everything after it. A bubble that has never been on screen measures its
+     * `content-visibility` fallback (320px) until it is shown, and taking its real height
+     * is neither a mutation nor a resize of the scroll container: without this, a spacer
+     * sized from two fallbacks stayed wrong once they came into view.
+     */
+    private _tailObserver: ResizeObserver | null = null;
+    private _tail: Element[] = [];
+    /** Each tail bubble's border-box height, as measured when it started being watched and as last reported. */
+    private _tailHeights = new WeakMap<Element, number>();
+    /**
      * Opening or closing a `<details>` — a tool row, a reasoning block, an artifact card, a host's
      * own — changes the transcript's height through an ATTRIBUTE, which neither observer sees: the
      * mutation observer watches children, and the resize observer leaves the wrapper out on
@@ -1842,7 +1853,22 @@ export class AparteChatViewport extends HTMLElement {
             }
             // Recalculate spacer when DOM mutates (new bubble added, Angular re-render).
             this._scheduleSpacerUpdate();
+            this._observeTail();
         });
+
+        // Height only, against what was measured when the bubble started being watched: a
+        // width that moves with a scrollbar says nothing about what the spacer measures, and
+        // re-measuring on it let a spacer and a scrollbar chase each other.
+        this._tailObserver = new ResizeObserver((entries) => {
+            let changed = false;
+            for (const entry of entries) {
+                const height = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+                if (this._tailHeights.get(entry.target) !== height) changed = true;
+                this._tailHeights.set(entry.target, height);
+            }
+            if (changed) this._scheduleSpacerUpdate();
+        });
+        this._observeTail();
 
         // Framework-managed: bubbles are direct children of the host (no wrapper).
         this.addEventListener('toggle', this._onDisclosureToggle, true);
@@ -2322,6 +2348,24 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
+    /** Point `_tailObserver` at the last question and the bubbles after it, and only those. */
+    private _observeTail(): void {
+        if (!this._tailObserver) return;
+        const bubbles: Element[] = Array.from(this.querySelectorAll('aparte-chat-bubble'));
+        let from = bubbles.length;
+        while (from > 0 && bubbles[from - 1]!.getAttribute('data-role') !== 'user') from--;
+        const tail = from > 0 ? bubbles.slice(from - 1) : [];
+        for (const el of this._tail) if (!tail.includes(el)) this._tailObserver.unobserve(el);
+        for (const el of tail) {
+            if (this._tail.includes(el)) continue;
+            // The height the spacer measures it at right now — its fallback, if it was never
+            // shown — so the report that brings its real height is seen as a change.
+            this._tailHeights.set(el, Math.round((el as HTMLElement).offsetHeight));
+            this._tailObserver.observe(el, { box: 'border-box' });
+        }
+        this._tail = tail;
+    }
+
     /**
      * Schedule a spacer recalculation on the next animation frame.
      * Batches multiple rapid calls (e.g. during token streaming) into one.
@@ -2378,6 +2422,9 @@ export class AparteChatViewport extends HTMLElement {
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
+        this._tailObserver?.disconnect();
+        this._tailObserver = null;
+        this._tail = [];
         this.removeEventListener('toggle', this._onDisclosureToggle, true);
         this._overlayObserver?.disconnect();
         this._overlayObserver = null;
