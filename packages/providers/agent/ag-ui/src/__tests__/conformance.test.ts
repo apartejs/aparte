@@ -73,7 +73,15 @@ const OUTCOME_ONLY: Record<string, string> = {
  * Where the reference client's expectation contradicts the specification, and we follow
  * the specification. The corpus README asks a third-party lane to relax exactly this.
  */
-const OVERRIDES: Record<string, { intentional: string } & Record<string, unknown>> = {};
+const OVERRIDES: Record<string, { intentional: string } & Record<string, unknown>> = {
+    'unknown-enum-value-role-fatal': {
+        intentional: 'the fixture pins an ADMITTED GAP of the reference client (it rejects an unknown role); the specification says an unrecognised member of a closed set is stripped, and this runner follows the specification',
+        outcome: 'completed',
+        warnings: ['/role'],
+        messageCount: 1,
+        messages: [{ role: 'assistant', content: 'the role above is the only defect in this stream' }],
+    },
+};
 
 /**
  * Our reason for each stream the specification requires a client to reject. The
@@ -115,11 +123,6 @@ const KNOWN_GAPS: Record<string, string> = {
     'era-current-peer-keeps-modern-content': 'content',
     'tool-result-file-source-passes-through': 'content',
     'tool-result-parts-mint-tool-message': 'content',
-    'unknown-event-dropped': 'strip-and-warn',
-    'unknown-property-stripped': 'strip-and-warn',
-    'unknown-outcome-stripped': 'strip-and-warn',
-    'unknown-enum-value-role-fatal': 'strip-and-warn',
-    'unknown-part-in-message-list': 'strip-and-warn',
 };
 
 /** aparté's history for a fixture's `input.messages`. */

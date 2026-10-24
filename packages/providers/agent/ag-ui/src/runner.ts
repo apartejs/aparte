@@ -6,6 +6,7 @@ import type {
     AparteStreamRunOptions,
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
+import { enforce } from './enforce.js';
 import { applyStateDelta } from './state.js';
 import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
@@ -363,9 +364,12 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         };
 
         const verify = createVerifier(!declare);
-        for await (const event of readAgUiEvents(response.body, response.headers.get('content-type'))) {
-            // A stream 1.0 says to reject is rejected before its event is drawn; what was
+        for await (const raw of readAgUiEvents(response.body, response.headers.get('content-type'))) {
+            // What 1.0 does not describe is dropped or stripped first, with a warning; then a
+            // stream 1.0 says to reject is rejected before its event is drawn — what was
             // drawn before it stays, and the error lands below it.
+            const event = enforce(raw, warn);
+            if (!event) continue;
             verify(event);
             begin();
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
