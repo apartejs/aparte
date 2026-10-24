@@ -317,6 +317,24 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(b.types()).not.toContain('tool-resolved');
     });
 
+    it('ends on an interrupt the page cannot answer, and cancels it on the next run of the thread', async () => {
+        const f = fakeFetch(
+            sse(started, finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i9', reason: 'approval', message: 'Approve the transfer?' }] } })),
+            sse(started, finished()),
+        );
+        const runner = createAgUiRunner({ endpoint: '/agui', fetch: f.fetch, threadId: 'conv' });
+        const events: Event[] = [];
+        const opts = {
+            messageId: 'm1', providerId: 'agent', baseRequest: { messages: [{ role: 'user', content: 'pay' }], modelId: 'x', stream: true },
+            transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
+            emitter: (e: Event) => events.push(e), signal: new AbortController().signal,
+        } as unknown as AparteStreamRunOptions;
+        await runner(opts);
+        expect(events.at(-1)).toMatchObject({ type: 'run-done' });
+        await runner(opts);
+        expect(f.bodies[1]!['resume']).toEqual([{ interruptId: 'i9', status: 'cancelled' }]);
+    });
+
     it("gives a paused run its agent's state back when it resumes, on a thread minted for the turn", async () => {
         const f = fakeFetch(
             sse(started, { type: 'STATE_SNAPSHOT', snapshot: { step: 'asked' } },
@@ -423,8 +441,26 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(f.bodies[0]!['threadId']).not.toBe('t');
     });
 
-    it('fails clearly on an interrupt it cannot answer yet', async () => {
-        const r = run(fakeFetch(sse(started, finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i', reason: 'input_required' }] } }))).fetch);
-        await expect(r.done).rejects.toThrow('interrupt reason "input_required"');
+    it('answers an interrupt it cannot handle as cancelled, in the same batch as the ones it can', async () => {
+        const a = run(fakeFetch(sse(
+            started,
+            { type: 'TOOL_CALL_START', toolCallId: 'd1', toolCallName: 'delete_file' },
+            { type: 'TOOL_CALL_END', toolCallId: 'd1' },
+            finished({ outcome: { type: 'interrupt', interrupts: [
+                { id: 'i1', reason: 'tool_call', toolCallId: 'd1' },
+                { id: 'i2', reason: 'input_required', message: 'Which account?' },
+            ] } }),
+        )).fetch);
+        await a.done;
+        expect(a.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'd1', reason: 'approval' }] });
+
+        const second = fakeFetch(sse(started, finished()));
+        const b = run(second.fetch, { deferral: { token: String(a.events.at(-1)!['ticket']), outcomes: { d1: { kind: 'decision', approved: true } } } } as never);
+        await b.done;
+        // The protocol refuses a partial batch: both interrupts are answered.
+        expect(second.bodies[0]!['resume']).toEqual([
+            { interruptId: 'i1', status: 'resolved', payload: { approved: true } },
+            { interruptId: 'i2', status: 'cancelled' },
+        ]);
     });
 });

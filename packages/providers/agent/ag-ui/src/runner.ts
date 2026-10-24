@@ -81,7 +81,8 @@ interface Ticket {
     v: 1;
     threadId: string;
     runId: string;
-    interrupts: { id: string; toolCallId: string; kind: 'approval' | 'external' }[];
+    /** `unanswerable`: an interrupt the page could not answer, cancelled in this batch. */
+    interrupts: { id: string; toolCallId: string; kind: 'approval' | 'external' | 'unanswerable' }[];
 }
 
 function readTicket(token: string | undefined): Ticket | undefined {
@@ -203,6 +204,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     // — only a resume reuses it.
     const states = new Map<string, unknown>();
     const stableThread = options.threadId !== undefined;
+    /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
+    const unanswered = new Map<string, string[]>();
     return async (opts) => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
@@ -233,9 +236,11 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     : outcome.content,
             });
         }
+        const left = ticket ? [] : (unanswered.get(threadId) ?? []);
+        unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
-            ? ticket.interrupts.map((interrupt) => resumeItem(interrupt, outcomes[interrupt.toolCallId]))
-            : undefined;
+            ? ticket.interrupts.map((interrupt) => resumeItem(interrupt, interrupt.kind === 'unanswerable' ? undefined : outcomes[interrupt.toolCallId]))
+            : left.length ? left.map((interruptId): AgUiResumeItem => ({ interruptId, status: 'cancelled' })) : undefined;
 
         const body: AgUiRunAgentInput = {
             threadId,
@@ -489,14 +494,16 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
 
         const pending: PendingCall[] = [];
         const interrupts: Ticket['interrupts'] = [];
+        // Interrupts the page has no way to answer — no call to approve or run, or a reason
+        // it does not know. The run ends without failing; they are answered `cancelled`
+        // in the next resume of the thread, which a paused thread needs to continue.
+        const unanswerable: string[] = [];
         if (finished.outcome?.type === 'interrupt') {
             for (const interrupt of finished.outcome.interrupts ?? []) {
                 const kind = interruptKind(interrupt);
                 if (!kind || !interrupt.toolCallId) {
-                    throw new AparteError(
-                        `The agent paused for something aparté cannot answer yet (interrupt reason "${interrupt.reason}").`,
-                        AparteErrorCode.PROVIDER_ERROR,
-                    );
+                    unanswerable.push(interrupt.id);
+                    continue;
                 }
                 // A resumed run can pause again on a call an earlier run started (TanStack AI
                 // asks to approve a client tool, then to run it): its name comes from there.
@@ -524,9 +531,11 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         }
         if (pending.length > 0) {
-            const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts };
+            const cancelled = unanswerable.map((id) => ({ id, toolCallId: '', kind: 'unanswerable' as const }));
+            const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts: [...interrupts, ...cancelled] };
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
+            if (unanswerable.length && stableThread) unanswered.set(threadId, unanswerable);
             if (!stableThread) states.delete(threadId);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }

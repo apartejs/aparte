@@ -120,7 +120,6 @@ const KNOWN_GAPS: Record<string, string> = {
     'unknown-outcome-stripped': 'strip-and-warn',
     'unknown-enum-value-role-fatal': 'strip-and-warn',
     'unknown-part-in-message-list': 'strip-and-warn',
-    'run-finished-interrupt-outcome-accepted': 'interrupts',
 };
 
 /** aparté's history for a fixture's `input.messages`. */
