@@ -38,15 +38,34 @@ the approval panel work as they do with aparté's own loop.
 | `TOOL_CALL_START`, `TOOL_CALL_ARGS` or `TOOL_CALL_CHUNK`, `TOOL_CALL_END` | a [tool row](/components/tool/), drawn with its whole arguments once the call ends |
 | `TOOL_CALL_RESULT` | the row's result |
 | `RUN_FINISHED` | the end of the reply, with its usage — or, with an interrupt, a decision to make or a tool the page runs |
-| `RUN_ERROR` | the reply's error, with the agent's message |
+| `RUN_ERROR` | the reply's error, with the agent's message, below what the stream drew |
+| `STATE_SNAPSHOT`, `STATE_DELTA` | nothing drawn: the agent's state, kept for the thread and sent back as the next run's `state` |
 | an HTTP error | the reply's error, with the start of the response body — keep secrets out of it |
 
 Each model step of the run is a turn of its own in the reply, and the reply reports the usage of
 its last step, as a run in the page does: the size of what the model last saw, which is what the
-context gauge reads. A stream that ends without `RUN_FINISHED` ends the reply
-with an error. `STEP_*`, `STATE_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`, `CUSTOM` and
-sub-agent events are not drawn. The runner reads the answer as server-sent events, or as NDJSON
-when its content type says so.
+context gauge reads. A `RUN_ERROR` does not cut the stream: the runner reads it to the end, as the
+protocol asks, and the error lands below what was drawn. A stream that ends without
+`RUN_FINISHED` ends the reply with an error. `STEP_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`,
+`CUSTOM` and sub-agent events are checked, not drawn. The runner reads the answer as server-sent
+events, or as NDJSON when its content type says so.
+
+## The protocol's own rules
+
+The runner speaks AG-UI 1.0: it declares `protocolVersion: "1.0"` on every request, and holds the
+agent's stream to the rules 1.0 sets a client. A run opens with `RUN_STARTED` and ends with
+`RUN_FINISHED`, a message is opened before its content and closed before the run ends, a step or a
+sub-agent is started before it finishes. A stream that breaks one ends the reply with an error that
+names the rule; what was drawn before it stays. What the agent sends that 1.0 does not describe —
+an event type, a property, an outcome — is dropped, and the runner tells `onWarning` what and
+where, `console.warn` by default.
+
+It is held to that by the protocol's own conformance corpus: the 68 streams of AG-UI's
+`spec/1.0/conformance`, replayed through the runner on every build, each with what the
+specification requires of a client. They were written for clients that keep the run's messages
+and state themselves, so the runner's suite says, stream by stream, what it reads through and
+what aparté does not draw yet: activities, a messages snapshot rewriting what was drawn, and
+message metadata.
 
 ## Tools the page runs
 
@@ -94,10 +113,15 @@ const runner = createAgUiRunner({
 | `threadId` | the AG-UI thread a turn runs in: a string, or a function of the run's options |
 | `forwardedProps` | `RunAgentInput.forwardedProps`: settings your agent reads from the request |
 | `context` | `RunAgentInput.context`: `{ description, value }` entries for the agent |
+| `onWarning` | told what the runner dropped or translated; `console.warn` by default |
+| `relaxedRunFraming` | reads runs framed otherwise than 1.0 frames them — a `RUN_FINISHED` per model step, a resume answered before `RUN_STARTED` — as [TanStack AI](/providers/agent/tanstack-ai/) does; every other rule holds |
+| `peerProtocolVersion` | the version of an agent older than 1.0, such as `'0.0.47'`: its stream is read by that version's rules, and the request leaves out `protocolVersion` |
 
 These are the `AgUiRunnerOptions`. By default every turn runs in a new thread with the whole
 history, which suits a stateless agent; give `threadId` when the agent keeps state per thread, as
-Agno does with its session — the conversation's id is the usual choice. A paused run resumes in
+Agno does with its session — the conversation's id is the usual choice. The state the agent streams
+is kept for that thread and sent back as the next run's `state`; on a thread minted for one turn,
+it lasts as long as the turn, pauses included. A paused run resumes in
 its own thread, whatever `threadId` answers. An agent on another origin than the page has to allow
 it: answer the preflight (`OPTIONS`) with `Access-Control-Allow-Origin` (the page's origin) and
 `Access-Control-Allow-Headers: content-type` plus the headers you send, and with
@@ -123,9 +147,10 @@ Agno serves an agent or a team over AG-UI with the `AGUI` interface of its `Agen
 
 ## What is not supported
 
-- A person's message goes as text: images and files are left out.
-- An interrupt the page cannot answer ends the reply with an error that names its reason: one
-  such as `input_required`, or one that names no `toolCallId`.
+- A person's message goes as text and images, as AG-UI 1.0 content; other files are left out.
+- An interrupt the page cannot answer — one such as `input_required`, or one that names no
+  `toolCallId` — ends the reply without an error, and is answered `cancelled` when the thread
+  resumes or runs again.
 - A refusal reaches the agent as `{ approved: false }`, without the words the person wrote.
 
 ## Next
