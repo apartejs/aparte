@@ -54,18 +54,77 @@ function stateBadge(segment: AparteToolCallSegment): string {
 }
 
 /**
+ * The note after the state word: why the call ended, for the PERSON reading the row.
+ *
+ * `result` on a refused call is the sentence the model read, written about the reader in
+ * the third person and in English; it is not shown to them any more. Who refused and what
+ * they said ride on the segment (`refusal`), and why a call stopped (`abortCause`), so the
+ * row says it in the reader's language. `''` when the state word is the whole story — a
+ * bare refusal, a Stop — or when the segment predates those fields.
+ */
+function noteOf(segment: AparteToolCallSegment): string {
+    const cfg = contextConfig();
+    if (segment.status === 'rejected') {
+        const by = segment.refusal?.by;
+        if (by === 'policy') return cfg.t('toolRefusedByPolicy');
+        if (by === 'earlier-refusal') return cfg.t('toolNotRunAfterRefusal');
+        const said = segment.refusal?.instruction?.trim();
+        return said ? cfg.t('toolRejectedSaid').replace('{instruction}', () => said) : '';
+    }
+    if (segment.status === 'aborted') {
+        switch (segment.abortCause) {
+            case 'timeout': return cfg.t('toolTimedOut');
+            case 'no-handler': return cfg.t('toolUnavailable');
+            case 'no-resolver': return cfg.t('toolNoApprover');
+            case 'turn-limit': return cfg.t('toolTurnLimit');
+            default: return '';
+        }
+    }
+    return '';
+}
+
+/**
+ * What the detail shows under the arguments, and under which label.
+ *
+ * A result, as Output — except on a call refused by someone the segment names: the person
+ * reads the note instead, and only a POLICY's refusal keeps its text, under "Reason", since
+ * that sentence is the policy's own and the one place its rule is written down. A refused
+ * segment saved before `refusal` existed keeps its Output, as it always read.
+ */
+function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput' | 'toolReason'; text: string } | null {
+    const text = segment.result ?? '';
+    if (!text) return null;
+    if (segment.status === 'rejected' && segment.refusal) {
+        return segment.refusal.by === 'policy' ? { key: 'toolReason', text } : null;
+    }
+    return { key: 'toolOutput', text };
+}
+
+/** Write the note into its container — always in the pill, like the target, so `update` can patch it. */
+function setNote(element: Element, segment: AparteToolCallSegment): void {
+    const el = element.querySelector('.aparte-tool-note');
+    if (!el) return;
+    const text = noteOf(segment);
+    if (el.textContent !== text) el.textContent = text;
+    el.toggleAttribute('hidden', !text);
+}
+
+/**
  * Write one part's text, or take the part out when there is nothing to show.
  *
  * `textContent`, never `innerHTML`: the arguments are the MODEL's and the result is
  * whatever a tool returned, so both are the exact shape the escaping guard exists for.
  * The colour comes afterwards, from a provider whose output is sanitised.
  */
-function setPart(element: HTMLElement, part: 'input' | 'output', text: string): void {
+function setPart(element: HTMLElement, part: 'input' | 'output', text: string, labelKey: 'toolInput' | 'toolOutput' | 'toolReason'): void {
     const existing = element.querySelector<HTMLElement>(`[data-part="${part}"]`);  // safe-attr: selector position, and `part` is a typed literal union ('input' | 'output') — not input
     if (!text) { existing?.remove(); return; }
     if (existing) {
         const code = existing.querySelector('code');
         if (code && code.textContent !== text) code.textContent = text;
+        const label = existing.querySelector('.aparte-tool-part-label');
+        const word = contextConfig().t(labelKey);
+        if (label && label.textContent !== word) label.textContent = word;
         return;
     }
     // The part appeared between two updates — a call that had no result now has one.
@@ -77,7 +136,7 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string): 
     wrap.dataset['part'] = part;  // safe-attr: a typed literal union ('input' | 'output'), not input
     const label = document.createElement('span');
     label.className = 'aparte-tool-part-label';
-    label.textContent = cfg.t(part === 'input' ? 'toolInput' : 'toolOutput');
+    label.textContent = cfg.t(labelKey);
     const body = document.createElement('div');
     body.className = 'aparte-tool-part-body';
     const pre = document.createElement('pre');
@@ -156,6 +215,7 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
 function pillMarkup(segment: AparteToolCallSegment, name: string, status: string): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment);
+    const note = noteOf(segment);
     return `
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
@@ -163,7 +223,8 @@ function pillMarkup(segment: AparteToolCallSegment, name: string, status: string
                     <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
-                <span class="aparte-tool-state">${badge}</span>`;
+                <span class="aparte-tool-state">${badge}</span>
+                <span class="aparte-tool-note"${note ? '' : ' hidden'}>${escapeHtml(note)}</span>`;
 }
 
 export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
@@ -234,8 +295,8 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * with no arguments and no result yet has nothing to reveal.
          */
         const input = describeInput(segment);
-        const result = segment.result;
-        if (!input && !result) {
+        const outcome = outcomeOf(segment);
+        if (!input && !outcome) {
             return `
             <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">${pill}
             </div>
@@ -252,10 +313,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
                         <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>
                         <div class="aparte-tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
                     </div>` : ''}
-                    ${result ? `
+                    ${outcome ? `
                     <div class="aparte-tool-part" data-part="output">
-                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolOutput'))}</span>
-                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(result)}</code></pre></div>
+                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t(outcome.key))}</span>
+                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
                     </div>` : ''}
                 </div>
             </details>
@@ -284,6 +345,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
         setTarget(element, segment);
+        setNote(element, segment);
+        // The part labels are locale text too; the parts themselves stay (relabel adds none).
+        const inputLabel = element.querySelector('[data-part="input"] .aparte-tool-part-label');
+        if (inputLabel) inputLabel.textContent = cfg.t('toolInput');
+        const outcome = outcomeOf(segment);
+        const outputLabel = element.querySelector('[data-part="output"] .aparte-tool-part-label');
+        if (outputLabel && outcome) outputLabel.textContent = cfg.t(outcome.key);
         // Through `stateBadge`, which is the whole point of it existing.
         //
         // This used to rebuild the badge by hand as the ICON ALONE, so any config change
@@ -317,7 +385,8 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
     update: (element, segment) => {
         const status = segment.status ?? 'pending';
         const input = describeInput(segment);
-        const wantsDetail = !!input || !!segment.result;
+        const outcome = outcomeOf(segment);
+        const wantsDetail = !!input || !!outcome;
 
         /*
          * Two cases this cannot patch, and both rebuild instead.
@@ -361,9 +430,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // read, and jsdom has no layout to ask. Same treatment as the cancel button.
         element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
         setTarget(element, segment);
+        setNote(element, segment);
 
-        setPart(element, 'input', input);
-        setPart(element, 'output', segment.result ?? '');
+        setPart(element, 'input', input, 'toolInput');
+        setPart(element, 'output', outcome?.text ?? '', outcome?.key ?? 'toolOutput');
         highlightParts(element);
     },
     setup: (element, segment) => {

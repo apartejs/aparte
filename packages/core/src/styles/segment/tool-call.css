@@ -134,6 +134,17 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     user-select: none;
 }
 .aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
+/* Why the call ended — who refused, why it stopped — for the person reading the row.
+   The state word's quieter continuation, as the target is the name's: one line, cut
+   with an ellipsis before it can push the row wider. */
+.aparte-tool-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+}
 /* Scoped to the segment, not to a bare [data-status].
    These three were the only rules in this file whose leftmost compound is an unprefixed
    non-element selector, which means they reached OUT of core: a host wrapping the chat in

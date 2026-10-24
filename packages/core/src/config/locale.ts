@@ -254,6 +254,26 @@ export type AparteLocale = {
     toolInput?: string;
     /** Label above a tool call's result (default: "Output") */
     toolOutput?: string;
+    /**
+     * The note after a refused call's state word, quoting what the person typed instead
+     * (default: "You said: “{instruction}”"). The model reads its own sentence; this is
+     * the person's words given back to them.
+     */
+    toolRejectedSaid?: string;
+    /** The note on a call an approval policy refused, not a person (default: "Refused by policy"). */
+    toolRefusedByPolicy?: string;
+    /** Label above the policy's own reason, in a refused call's detail (default: "Reason"). */
+    toolReason?: string;
+    /** The note on a call not run because an earlier call of the same step was refused (default: "Not run: an earlier call was refused"). */
+    toolNotRunAfterRefusal?: string;
+    /** The note on a call whose handler outlived its timeout (default: "Timed out"). */
+    toolTimedOut?: string;
+    /** The note on a call nothing on this page can run — no handler for it (default: "Not available here"). */
+    toolUnavailable?: string;
+    /** The note on a call that needed an approval nobody could give — no approval channel (default: "No one could approve it"). */
+    toolNoApprover?: string;
+    /** The note on a call stopped by its tool's own turn limit (default: "Turn limit reached"). */
+    toolTurnLimit?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -456,6 +476,14 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolFailed: "Failed",
     toolInput: "Input",
     toolOutput: "Output",
+    toolRejectedSaid: "You said: “{instruction}”",
+    toolRefusedByPolicy: "Refused by policy",
+    toolReason: "Reason",
+    toolNotRunAfterRefusal: "Not run: an earlier call was refused",
+    toolTimedOut: "Timed out",
+    toolUnavailable: "Not available here",
+    toolNoApprover: "No one could approve it",
+    toolTurnLimit: "Turn limit reached",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",
