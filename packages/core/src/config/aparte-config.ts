@@ -1381,13 +1381,21 @@ export class AparteConfig {
      * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
      */
     registerToolDisplay(match: AparteToolMatcher, display: AparteToolDisplay): void {
-        this._toolDisplays.set(match, { ...this._toolDisplays.get(match), ...display });
+        const before = this._toolDisplays.get(match);
+        const next = { ...before, ...display };
+        this._toolDisplays.set(match, next);
+        // `hidden` and `open` change ELEMENTS (a row becomes a placeholder, a disclosure
+        // opens), which a relabel does not do: the messages on screen are drawn again. A
+        // label, an icon or a summary only relabels, keeping what the reader opened.
+        if (before?.hidden !== next.hidden || before?.open !== next.open) bumpRenderingVersion(this);
         this._notify();
     }
 
     /** Forget the display registered under this matcher. */
     unregisterToolDisplay(match: AparteToolMatcher): void {
+        const before = this._toolDisplays.get(match);
         this._toolDisplays.delete(match);
+        if (before?.hidden !== undefined || before?.open !== undefined) bumpRenderingVersion(this);
         this._notify();
     }
 
