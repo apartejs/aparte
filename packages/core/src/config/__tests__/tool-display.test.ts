@@ -126,3 +126,16 @@ describe('registerToolRenderer takes the same matchers', () => {
         expect(config.getToolRenderer('read_file')).toBeUndefined();
     });
 });
+
+describe('a call with no name', () => {
+    it('resolves nothing, instead of throwing once a pattern is registered', () => {
+        // A segment built by hand without `toolCall` reaches the lookups with `undefined`:
+        // `Map.get(undefined)` was harmless, `undefined.search(re)` is not.
+        const config = new AparteConfig();
+        config.registerToolRenderer(/^mcp__/, { render: () => '<div></div>' });
+        config.registerToolDisplay(/^mcp__/, { hidden: true });
+        expect(() => config.getToolRenderer(undefined as never)).not.toThrow();
+        expect(config.getToolRenderer(undefined as never)).toBeUndefined();
+        expect(config.isToolHidden(undefined as never)).toBe(false);
+    });
+});

@@ -46,6 +46,8 @@ export class ToolTable<T> {
 
     /** The value that applies to a tool named `name`, and how specifically it names it. */
     resolve(name: string): { value: T; level: ToolMatchLevel } | undefined {
+        // A segment built without `toolCall` asks with `undefined`: nothing names it.
+        if (typeof name !== 'string') return undefined;
         const own = this.exact.get(name);
         if (own !== undefined) return { value: own, level: 'exact' };
         // `search`, not `test`: it ignores `lastIndex`, so a `g` flag cannot make every
