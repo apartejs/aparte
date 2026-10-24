@@ -25,7 +25,13 @@ client.start();
 - **Approvals.** When the agent pauses on a call that needs a person (an AG-UI interrupt, such
   as TanStack AI's `needsApproval`), the page asks through its usual approval panel, and the
   answer resumes the run on the agent's server.
-- **Its own state** (`STATE_*`, `CUSTOM`, sub-agents) is read and left alone in this version.
+- **Its state** (`STATE_SNAPSHOT`, `STATE_DELTA`) is kept for the thread and sent back as the
+  next run's `state`. `CUSTOM`, activities and sub-agents are checked, not drawn, in this version.
+- **AG-UI 1.0, held to its own corpus.** The runner declares `protocolVersion: "1.0"`, rejects
+  the streams 1.0 tells a client to reject, drops what 1.0 does not describe (reported to
+  `onWarning`), and passes the protocol's 68 conformance streams on every build.
+- **TanStack AI** frames its runs its own way — a `RUN_FINISHED` per model step — so its routes
+  take `createAgUiRunner({ endpoint: '/api/chat', relaxedRunFraming: true })`.
 
 No AG-UI SDK is pulled in: the wire is plain JSON over Server-Sent Events, parsed here, with
 `@aparte/core` as the only peer dependency.
