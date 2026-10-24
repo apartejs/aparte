@@ -45,12 +45,29 @@ const UNOBSERVABLE_KEYS: Record<string, string> = {
     eventAbsentPaths: 'same: the values inside delivered AG-UI events are not exposed',
 };
 
-/** Message fields a runner does not carry: core keys messages and attributes them its own way. */
+/**
+ * Message fields a runner does not carry: core keys messages and attributes them its own
+ * way. Lifted from the MESSAGE only — a tool call's own `id` is the run event's
+ * `toolCallId`, and is asserted.
+ */
 const UNOBSERVABLE_MESSAGE_KEYS: Record<string, string> = {
     id: 'core mints its own message ids; the AG-UI messageId does not reach a run event, and aparté history carries none to send',
     subagentRunId: 'subagent attribution is not drawn yet (rendering subagents is a MAY, and comes with the agentic lot)',
     metadata: 'run events carry no message or tool-call metadata: nothing in aparté reads it',
 };
+
+/** An expected message list without what a runner cannot observe: the message's own keys above, and a call's metadata. */
+function observable(messages: unknown): unknown {
+    if (!Array.isArray(messages)) return messages;
+    return messages.map((message) => {
+        if (!message || typeof message !== 'object') return message;
+        const out = Object.fromEntries(Object.entries(message).filter(([key]) => !(key in UNOBSERVABLE_MESSAGE_KEYS)));
+        if (Array.isArray(out['toolCalls'])) {
+            out['toolCalls'] = (out['toolCalls'] as Record<string, unknown>[]).map(({ metadata: _metadata, ...call }) => call);
+        }
+        return out;
+    });
+}
 
 /**
  * Fixtures whose observable is something aparté does not draw yet. The keys named are
@@ -74,6 +91,12 @@ const OUTCOME_ONLY: Record<string, string> = {
  * the specification. The corpus README asks a third-party lane to relax exactly this.
  */
 const OVERRIDES: Record<string, { intentional: string } & Record<string, unknown>> = {
+    'run-error-then-new-run-continues': {
+        intentional: 'a run that failed and was run again in the same stream is superseded: the new run decides how the reply ends (a pause it ends on still stands), so the failure is delivered to onWarning rather than thrown — a runner has no event to show it above the new run. The warning IS the delivered run error here',
+        runError: undefined,
+        noWarnings: undefined,
+        warnings: ['run-error-restart: the first run failed'],
+    },
     'unknown-enum-value-role-fatal': {
         intentional: 'the fixture pins an ADMITTED GAP of the reference client (it rejects an unknown role); the specification says an unrecognised member of a closed set is stripped, and this runner follows the specification',
         outcome: 'completed',
@@ -290,7 +313,8 @@ describe('AG-UI conformance corpus', () => {
         (gap ? it.fails : it)(`${fixture.area} · ${fixture.name}${gap ? ` (known gap: ${gap})` : ''}`, async () => {
             const { intentional: _intentional, ...override } = OVERRIDES[fixture.name] ?? { intentional: '' };
             const notDrawn = new Set(NOT_DRAWN[fixture.name]?.keys ?? []);
-            const e = Object.fromEntries(Object.entries({ ...fixture.expect, ...override }).filter(([key]) => !notDrawn.has(key)));
+            // An override's `undefined` lifts the base key for this lane.
+            const e = Object.fromEntries(Object.entries({ ...fixture.expect, ...override }).filter(([key, value]) => !notDrawn.has(key) && value !== undefined));
             const r = await replay(fixture);
             const problems: string[] = [];
             let observed = 0;
@@ -311,7 +335,7 @@ describe('AG-UI conformance corpus', () => {
             }
             if ('messages' in e) {
                 observed++;
-                subset(r.messages, e['messages'], 'messages', problems, UNOBSERVABLE_MESSAGE_KEYS);
+                subset(r.messages, observable(e['messages']), 'messages', problems);
             }
             if ('messageCount' in e) {
                 observed++;
@@ -323,7 +347,8 @@ describe('AG-UI conformance corpus', () => {
             }
             if ('request' in e) {
                 observed++;
-                subset(r.request, e['request'], 'request', problems, UNOBSERVABLE_MESSAGE_KEYS);
+                const request = e['request'] as Record<string, unknown>;
+                subset(r.request, { ...request, ...(request['messages'] ? { messages: observable(request['messages']) } : {}) }, 'request', problems);
             }
             if ('requestAbsentPaths' in e) {
                 observed++;

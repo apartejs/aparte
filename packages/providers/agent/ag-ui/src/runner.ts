@@ -223,7 +223,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     const stableThread = options.threadId !== undefined;
     /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
     const unanswered = new Map<string, string[]>();
-    return async (opts) => {
+    const runOnce = async (opts: AparteStreamRunOptions, track: { threadId?: string; suspended: boolean }): Promise<Usage | undefined> => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
         const request = opts.baseRequest as AparteChatRequest;
@@ -232,6 +232,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const threadId = ticket?.threadId
             ?? (typeof options.threadId === 'function' ? options.threadId(opts) : options.threadId)
             ?? `aparte-${uuid()}`;
+        track.threadId = threadId;
         const runId = `aparte-run-${uuid()}`;
         const interrupted = new Set((ticket?.interrupts ?? []).map((i) => i.toolCallId));
 
@@ -399,6 +400,18 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
             switch (event.type) {
                 case 'RUN_STARTED': {
+                    // A run after a failed one supersedes it: the stream ran again, and the new
+                    // run decides how the reply ends. The failure is the developer's to know;
+                    // the calls the failed run left are stopped, nobody will answer them.
+                    if (runError) {
+                        warn(`the agent's run failed ("${runError.message}") and the stream ran it again; the reply shows the new run.`);
+                        for (const [toolCallId] of started) {
+                            if (answered.has(toolCallId)) continue;
+                            emit({ type: 'tool-aborted', toolCallId });
+                            answered.add(toolCallId);
+                        }
+                        runError = undefined;
+                    }
                     // The producer's own version. Newer, or not a version at all: proceed
                     // under 1.0's rules and say so, as the protocol asks of a consumer.
                     const declared = event['protocolVersion'];
@@ -520,6 +533,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         if (!endedOnFinish) {
             throw new AparteError('The agent stream was cut: it ended in the middle of a step, after a RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
         }
+        verify.end();
         if (textOpen) emit({ type: 'text-flush' });
 
         const pending: PendingCall[] = [];
@@ -563,12 +577,22 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         if (pending.length > 0) {
             const cancelled = unanswerable.map((id) => ({ id, toolCallId: '', kind: 'unanswerable' as const }));
             const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts: [...interrupts, ...cancelled] };
+            track.suspended = true;
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
             if (unanswerable.length && stableThread) unanswered.set(threadId, unanswerable);
-            if (!stableThread) states.delete(threadId);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }
         return usage;
+    };
+    return async (opts) => {
+        const track: { threadId?: string; suspended: boolean } = { suspended: false };
+        try {
+            return await runOnce(opts, track);
+        } finally {
+            // A thread minted for one turn is forgotten when the turn ends, however it ends —
+            // done, failed or stopped — unless it paused, since only a resume reuses it.
+            if (track.threadId && !stableThread && !track.suspended) states.delete(track.threadId);
+        }
     };
 }

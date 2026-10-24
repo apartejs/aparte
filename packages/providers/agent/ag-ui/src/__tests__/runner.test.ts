@@ -180,6 +180,24 @@ describe('createAgUiRunner: the stream', () => {
         });
     });
 
+    it('sends base64 data URLs as data sources, whatever their parameters, and any other data URL as a url source', async () => {
+        const f = fakeFetch(sse(started, finished()));
+        await run(f.fetch, {
+            baseRequest: {
+                messages: [{ role: 'user', content: [
+                    { type: 'image', image: 'data:image/png;name=cat.png;base64,iVBORw0KGgo=' },
+                    { type: 'image', image: 'data:image/svg+xml,%3Csvg%3E%3C/svg%3E' },
+                ] }],
+                modelId: 'x', stream: true,
+            },
+        } as never).done;
+        const content = ((f.bodies[0]!['messages'] as { content: unknown[] }[])[0]!).content;
+        expect(content).toEqual([
+            { type: 'image', source: { type: 'data', value: 'iVBORw0KGgo=', mimeType: 'image/png' } },
+            { type: 'image', source: { type: 'url', value: 'data:image/svg+xml,%3Csvg%3E%3C/svg%3E' } },
+        ]);
+    });
+
     it('reads on past a RUN_ERROR, keeps what was drawn, and reports the failure at the end', async () => {
         const r = run(fakeFetch(sse(
             started,
@@ -194,6 +212,32 @@ describe('createAgUiRunner: the stream', () => {
         // The text stays, and the call nobody will answer stops waiting.
         expect(r.types()).toContain('text-delta');
         expect(r.events).toContainEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
+
+    it('lets a later run supersede a failed one: its pause stands, and the failure goes to onWarning', async () => {
+        const warnings: string[] = [];
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'RUN_ERROR', message: 'first attempt failed' },
+            { type: 'RUN_STARTED', threadId: 't', runId: 'r2' },
+            { type: 'TOOL_CALL_START', toolCallId: 'q1', toolCallName: 'ask_user' },
+            { type: 'TOOL_CALL_END', toolCallId: 'q1' },
+            { type: 'RUN_FINISHED', threadId: 't', runId: 'r2' },
+        )).fetch, { baseRequest: { messages: [{ role: 'user', content: 'hi' }], modelId: 'x', stream: true, tools: [weather] } } as never,
+        undefined, { onWarning: (w: string) => { warnings.push(w); } });
+        await r.done;
+        expect(r.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'q1', reason: 'external' }] });
+        expect(warnings.join(' ')).toContain('first attempt failed');
+    });
+
+    it('holds a relaxed run framing to closing what it opened, by the end of the stream', async () => {
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'never closed' },
+            finished(),
+        )).fetch, {}, undefined, { relaxedRunFraming: true });
+        await expect(r.done).rejects.toThrow('still running at the end of the stream');
     });
 
     it('rejects a RUN_FINISHED per step by default, naming the option that reads it', async () => {
@@ -214,12 +258,14 @@ describe('createAgUiRunner: the stream', () => {
             started,
             { type: 'REASONING_MESSAGE_START', messageId: 'r1' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r1', delta: 'Look it up.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r1' },
             { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
             { type: 'TOOL_CALL_END', toolCallId: 'c1' },
             finished({ metadata: { tanstack: { finishReason: 'tool_calls' } } }),
             { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
             { type: 'REASONING_MESSAGE_START', messageId: 'r2' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r2', delta: 'Now answer.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r2' },
             { type: 'TEXT_MESSAGE_START', messageId: 'a2', role: 'assistant' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a2', delta: 'Cloudy.' },
             { type: 'TEXT_MESSAGE_END', messageId: 'a2' },
