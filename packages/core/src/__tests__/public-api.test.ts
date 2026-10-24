@@ -106,6 +106,7 @@ describe('@aparte/core public API', () => {
             "segmentDuration",
             "segmentTiming",
             "subscribeConfigChange",
+            "toolRefusal",
             "unregisterSegmentRenderer",
             "uuid",
           ]
