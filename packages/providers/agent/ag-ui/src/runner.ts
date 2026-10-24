@@ -6,6 +6,7 @@ import type {
     AparteStreamRunOptions,
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
+import { applyStateDelta } from './state.js';
 import { readAgUiEvents } from './wire.js';
 import type { AgUiInterrupt, AgUiMessage, AgUiResumeItem, AgUiRunAgentInput } from './wire.js';
 
@@ -195,6 +196,11 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     const peer = options.peerProtocolVersion ? versionParts(options.peerProtocolVersion) : undefined;
     // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`.
     const declare = !peer || compareVersions(peer, [1, 0]) >= 0;
+    // The agent's state, per thread: what its last snapshot and deltas left, sent back as
+    // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
+    // — only a resume reuses it.
+    const states = new Map<string, unknown>();
+    const stableThread = options.threadId !== undefined;
     return async (opts) => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
@@ -234,7 +240,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             runId,
             ...(declare ? { protocolVersion: PROTOCOL_VERSION } : {}),
             ...(ticket ? { parentRunId: ticket.runId } : {}),
-            state: {},
+            state: states.has(threadId) ? states.get(threadId) : {},
             messages,
             tools: toAgUiTools(request.tools),
             context: options.context ?? [],
@@ -434,6 +440,12 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     );
                     break;
                 }
+                case 'STATE_SNAPSHOT':
+                    states.set(threadId, event['snapshot']);
+                    break;
+                case 'STATE_DELTA':
+                    states.set(threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
+                    break;
                 case 'RUN_FINISHED': {
                     // Not the end of the stream: TanStack AI closes each model step with a
                     // RUN_FINISHED of its own (`finishReason: tool_calls`), then streams the
@@ -509,6 +521,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts };
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
+            if (!stableThread) states.delete(threadId);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }
         return usage;

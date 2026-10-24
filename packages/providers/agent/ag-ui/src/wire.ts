@@ -65,7 +65,7 @@ export interface AgUiRunAgentInput {
     runId: string;
     protocolVersion?: string;
     parentRunId?: string;
-    state: Record<string, unknown>;
+    state: unknown;
     messages: AgUiMessage[];
     tools: { name: string; description: string; parameters: unknown }[];
     context: { description: string; value: string }[];

@@ -308,6 +308,25 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(b.types()).not.toContain('tool-resolved');
     });
 
+    it("gives a paused run its agent's state back when it resumes, on a thread minted for the turn", async () => {
+        const f = fakeFetch(
+            sse(started, { type: 'STATE_SNAPSHOT', snapshot: { step: 'asked' } },
+                { type: 'TOOL_CALL_START', toolCallId: 'q1', toolCallName: 'ask_user' }, { type: 'TOOL_CALL_END', toolCallId: 'q1' }, finished()),
+            sse(started, finished()),
+        );
+        const runner = createAgUiRunner({ endpoint: '/agui', fetch: f.fetch });
+        const events: Event[] = [];
+        const base = {
+            messageId: 'm1', providerId: 'agent', transportCall: async () => { throw new Error('never called'); },
+            toolLookup: () => undefined, emitter: (e: Event) => events.push(e), signal: new AbortController().signal,
+        };
+        const request = { messages: [{ role: 'user', content: 'hi' }], modelId: 'x', stream: true, tools: [weather] };
+        await runner({ ...base, baseRequest: request } as unknown as AparteStreamRunOptions);
+        const ticket = String(events.at(-1)!['ticket']);
+        await runner({ ...base, baseRequest: request, deferral: { token: ticket, outcomes: { q1: { kind: 'result', content: 'Blue.' } } } } as unknown as AparteStreamRunOptions);
+        expect(f.bodies[1]!['state']).toEqual({ step: 'asked' });
+    });
+
     it('hands a frontend tool the agent called to the page, and sends its result back as a tool message', async () => {
         const f = fakeFetch(sse(
             started,
