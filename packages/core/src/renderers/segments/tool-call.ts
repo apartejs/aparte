@@ -11,6 +11,7 @@ import type {
     AparteToolCallSegment,
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
+import { copyButtonMarkup, wireCopyButton, relabelCopyButton } from '../copy-button.js';
 import { describeToolInput } from '../../utils/tool-input.js';
 import { toolNameOf, toolTargetOf } from '../../utils/tool-line.js';
 
@@ -136,9 +137,14 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string, l
     const wrap = document.createElement('div');
     wrap.className = 'aparte-tool-part';
     wrap.dataset['part'] = part;  // safe-attr: a typed literal union ('input' | 'output'), not input
+    const head = document.createElement('div');
+    head.className = 'aparte-tool-part-head';
     const label = document.createElement('span');
     label.className = 'aparte-tool-part-label';
     label.textContent = cfg.t(labelKey);
+    const tpl = document.createElement('template');
+    tpl.innerHTML = copyButtonMarkup('aparte-tool-copy');
+    head.append(label, tpl.content);
     const body = document.createElement('div');
     body.className = 'aparte-tool-part-body';
     const pre = document.createElement('pre');
@@ -146,10 +152,25 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string, l
     code.textContent = text;
     pre.appendChild(code);
     body.appendChild(pre);
-    wrap.append(label, body);
+    wrap.append(head, body);
     // Input before output, whichever arrived first.
     if (part === 'input') detail.prepend(wrap);
     else detail.appendChild(wrap);
+    wireParts(wrap);
+}
+
+/**
+ * Wire each part's copy button, once: from `setup` for the parts the row was drawn with,
+ * from `setPart` for one that appears on an update. It copies what the part holds at the
+ * click — an update may have rewritten it since.
+ */
+function wireParts(root: Element): void {
+    for (const button of root.querySelectorAll<HTMLElement>('.aparte-tool-copy')) {
+        if (button.dataset['wired']) continue;
+        button.dataset['wired'] = '1';
+        const part = button.closest('.aparte-tool-part');
+        wireCopyButton(button, () => part?.querySelector('.aparte-tool-part-body')?.textContent ?? '');
+    }
 }
 
 /**
@@ -345,6 +366,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         }
 
         const cfg = contextConfig();
+        const copy = copyButtonMarkup('aparte-tool-copy');  // safe-text: markup built by copyButtonMarkup, whose own interpolations are each escaped or marked there
         // Closed unless asked: the segment's own `collapsed` (a segment default reaches it
         // at insertion), else the tool's display. Read here only — `update` never forces it.
         const open = segment.collapsed !== undefined ? !segment.collapsed : cfg.getToolDisplay(name)?.open === true;
@@ -354,12 +376,12 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
                 <div class="aparte-tool-detail">
                     ${input ? `
                     <div class="aparte-tool-part" data-part="input">
-                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>
+                        <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>${copy}</div>
                         <div class="aparte-tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
                     </div>` : ''}
                     ${outcome ? `
                     <div class="aparte-tool-part" data-part="output">
-                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t(outcome.key))}</span>
+                        <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t(outcome.key))}</span>${copy}</div>
                         <div class="aparte-tool-part-body"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
                     </div>` : ''}
                 </div>
@@ -398,6 +420,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const outcome = outcomeOf(segment);
         const outputLabel = element.querySelector('[data-part="output"] .aparte-tool-part-label');
         if (outputLabel && outcome) outputLabel.textContent = cfg.t(outcome.key);
+        for (const button of element.querySelectorAll<HTMLElement>('.aparte-tool-copy')) relabelCopyButton(button);
         // Through `stateBadge`, which is the whole point of it existing.
         //
         // This used to rebuild the badge by hand as the ICON ALONE, so any config change
@@ -493,9 +516,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
     },
     setup: (element, segment) => {
         if (isPlaceholder(element)) return;
-        // Nothing of ours to WIRE: the transcript holds no control any more. What used
-        // to be here built the two buttons' click listeners and dispatched
-        // `aparte-tool-decision`; the decision is answered at the composer now.
+        // The one control of ours is each part's copy button. The approval buttons that
+        // used to be wired here dispatched `aparte-tool-decision`; the decision is
+        // answered at the composer now, and the transcript holds no decision control.
+        wireParts(element);
         highlightParts(element);
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         customRenderer?.setup?.(element, segment);
