@@ -169,7 +169,9 @@ export interface AparteThinkingSegment extends AparteSegmentBase {
      * which is the model's thinking time only when the provider streams its reasoning — a
      * provider that sends it in one piece would read "1s", and a reload shows it only if
      * the stored segment kept its `meta`. Usually turned on for every block with
-     * `setSegmentDefaults('thinking', { showDuration: true })`.
+     * `setSegmentDefaults('thinking', { showDuration: true })`, which a block restored
+     * from storage follows too (it is read when the block is drawn); the block's own
+     * field wins.
      */
     showDuration?: boolean;
 }

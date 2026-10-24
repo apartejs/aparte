@@ -43,7 +43,11 @@ function labelOf(segment: AparteThinkingSegment): string {
     if (segment.label && segment.label !== 'Thinking') return segment.label;
     const cfg = contextConfig();
     if (!isSegmentSettled(segment)) return cfg.t('thinking');
-    const ms = segment.showDuration ? segmentDuration(segment) : undefined;
+    // The block's own field, else the default — read HERE, not only written at insertion: a
+    // block restored from storage never passed through insertion, and a display setting
+    // must reach it both ways.
+    const show = segment.showDuration ?? cfg.getSegmentDefaults('thinking')?.['showDuration'] === true;
+    const ms = show ? segmentDuration(segment) : undefined;
     if (ms === undefined) return cfg.t('thought');
     return cfg.t('thoughtFor').replace('{duration}', () => formatDuration(ms, cfg.getLocale().tag || undefined));
 }

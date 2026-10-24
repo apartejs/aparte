@@ -77,6 +77,15 @@ describe('the reasoning label', () => {
         expect(label(inserted)).toBe(`Thought for ${unit('en', 8, 'second')}`);
     });
 
+    it('the default is read when the block is drawn, so a restored block follows it too', () => {
+        // A block loaded from storage never passed through insertion, where defaults are
+        // written: the setting has to reach it at render, both ways.
+        aparteGlobalConfig.extendLocale({ tag: 'en' });
+        aparteGlobalConfig.setSegmentDefaults('thinking', { showDuration: true });
+        expect(label(block({ isStreaming: false, ...timed(8_000) }))).toBe(`Thought for ${unit('en', 8, 'second')}`);
+        expect(label(block({ isStreaming: false, showDuration: false, ...timed(8_000) })), "the block's own field wins").toBe('Thought');
+    });
+
     it('an app\'s own label wins', () => {
         expect(label(block({ isStreaming: false, showDuration: true, label: 'Plan', ...timed(8_000) }))).toBe('Plan');
     });
