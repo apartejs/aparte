@@ -248,6 +248,18 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
      * (`AparteClient.resumeDeferred`).
      */
     deferred?: { reason: 'approval' | 'external' | 'queued'; ticket?: string };
+    /**
+     * On a `rejected` call, who refused it — a person, a policy, or the loop because an
+     * earlier call of the same step was refused — and what the person typed instead.
+     * `result` is the sentence the MODEL read; this is what a row tells a person, in their
+     * language. Absent on a call refused by a runner that does not say.
+     */
+    refusal?: { by: import('@aparte/engine').StreamRefusalOrigin; instruction?: string };
+    /**
+     * On an `aborted` call, why: a Stop, its handler's timeout, no handler here, a gate
+     * with nobody to ask, or its own turn limit. Absent when the run ended before it.
+     */
+    abortCause?: import('@aparte/engine').StreamAbortCause | 'turn-limit';
 }
 
 /**

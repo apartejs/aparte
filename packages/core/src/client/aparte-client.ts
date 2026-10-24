@@ -1,7 +1,7 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
 import { runStreamAgent } from '@aparte/engine';
-import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, StreamDeferredOutcome } from '@aparte/engine';
+import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, StreamDeferredOutcome, StreamRefusalOrigin } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
@@ -86,6 +86,8 @@ export type AparteToolApprovalResolver = (
      * which for a mode is a lie; with it, it reads the policy's own sentence.
      */
     reason?: string;
+    /** Who refused, for the row; without it a `reason` is read as a policy's. */
+    by?: StreamRefusalOrigin;
 }>;
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
@@ -592,7 +594,7 @@ export class AparteClient {
         event: { id: string; name: string; input: Record<string, unknown> },
         signal: AbortSignal,
         target: HTMLElement,
-    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string }> {
+    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string; by?: StreamRefusalOrigin }> {
         const answer = await requestUserInput({
             kind: 'approval',
             /*
@@ -622,13 +624,13 @@ export class AparteClient {
         });
         // `decline` is the corner escape, which for a decision means "not this": the
         // safe reading of an unanswered approval is never "go ahead".
-        if (answer.action !== 'accept') return { approved: false };
+        if (answer.action !== 'accept') return { approved: false, by: 'person' };
         const content = answer.content as { option?: string; instruction?: string } | undefined;
         const instruction = content?.instruction?.trim();
         // Typed text with no option chosen IS the refusal — "no, do this instead" — so
         // the instruction alone denies. An option decides on its own.
-        if (instruction) return { approved: false, instruction };
-        return { approved: content?.option === 'allow' };
+        if (instruction) return { approved: false, instruction, by: 'person' };
+        return content?.option === 'allow' ? { approved: true } : { approved: false, by: 'person' };
     }
 
 
@@ -1785,7 +1787,7 @@ export class AparteClient {
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
                     // `tool` message, or fall through to "the user rejected this" downstream.
-                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
+                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.', by: 'policy' };
                 }
                 return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
             });
@@ -1816,7 +1818,7 @@ export class AparteClient {
         // hands its model a call nothing answers, which providers reject.
         const refuseTheRest = (after: number): void => {
             for (const rest of pending.slice(after + 1)) {
-                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL };
+                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL, by: 'earlier-refusal' };
             }
         };
         for (const [index, p] of pending.entries()) {

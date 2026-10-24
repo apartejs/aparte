@@ -220,7 +220,7 @@ describe('the client resumes a paused server run', () => {
         cfg.setApprovalPolicy(() => ({ verdict: 'deny', reason: 'Plan mode: nothing is written.' }));
         await send(c);
         expect(handler).not.toHaveBeenCalled();
-        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.' } });
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.', by: 'policy' } });
     });
 
     it('paints the row as waiting while the page asks about a browser tool', async () => {
@@ -289,7 +289,8 @@ describe('the client resumes a paused server run', () => {
         // again, and an AG-UI agent would hand its model a call with no answer.
         expect(r.calls[1]!.deferral!.outcomes).toEqual({
             w1: { kind: 'decision', approved: false },
-            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.' },
+            // `by`: a reason alone reads as a policy's, and no policy refused this one.
+            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.', by: 'earlier-refusal' },
         });
     });
 

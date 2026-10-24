@@ -238,7 +238,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-rejected':
-                settle(e.toolCallId, { status: 'rejected', result: e.reason });
+                settle(e.toolCallId, {
+                    status: 'rejected',
+                    result: e.reason,
+                    ...(e.by ? { refusal: e.instruction ? { by: e.by, instruction: e.instruction } : { by: e.by } } : {}),
+                });
                 break;
 
             case 'tool-resolved':
@@ -250,7 +254,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-aborted':
-                settle(e.toolCallId, { status: 'aborted' });
+                settle(e.toolCallId, e.cause ? { status: 'aborted', abortCause: e.cause } : { status: 'aborted' });
                 break;
 
             case 'tool-failed':
@@ -268,7 +272,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         details: 'MAX_TURNS_EXCEEDED',
                     });
                 } else if (e.toolCallId) {
-                    settle(e.toolCallId, { status: 'aborted' });
+                    settle(e.toolCallId, { status: 'aborted', abortCause: 'turn-limit' });
                 }
                 break;
 

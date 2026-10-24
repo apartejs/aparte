@@ -122,6 +122,8 @@ describe('the client honours the policy', () => {
         const results = patches.map(p => p['result']).filter(Boolean);
         expect(results).toContain('Tool execution was refused by the approval policy.');
         expect(results.join(' ')).not.toMatch(/rejected by the user/);
+        // And the row knows it, for the person: the sentence above is the model's.
+        expect(patches.find(p => p['status'] === 'rejected')?.['refusal']).toEqual({ by: 'policy' });
     });
 
     it('`ask` on an unflagged tool pauses it at the gate', async () => {
