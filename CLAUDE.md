@@ -98,9 +98,12 @@ put down on purpose, so a future session does not re-derive the answer from scra
   against the rule in #7 rather than assumed: the one in-repo consumer of
   `registerToolRenderer` is `@aparte/plugin-ask-user`, and it REPLACES the row with a
   receipt card, so it would not call such a builder. A layer no in-repo caller uses is a
-  contract maintained for nobody. *Trigger: a consumer that wants the default row with a
-  body of its own — which is the request to listen for, since it is the one thing
-  `registerToolRenderer` cannot do today without copying core's markup.*
+  contract maintained for nobody. The trigger it waited for came (2026-10-24: the Assistant
+  template wanted core's line with a list of sources behind it, and the research template had
+  copied the whole row to get one) and was answered WITHOUT the builders: a display's
+  `details` is either `false` (the line alone) or a function whose output stands in for
+  Input/Output under core's line. *Trigger now: a consumer that wants to rearrange the line
+  itself, or reuse the Input/Output parts beside its own body.*
 - **The artifact rework (D7) — DONE 2026-08-29.** It was a bidirectional app protocol
   living beside the segment system (file-gen events the app dispatched,
   redownload/rehydrate, a preview builder, a binary cache, three ingestion modes, a
