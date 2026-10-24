@@ -285,6 +285,8 @@ export type AparteLocale = {
      * sentence; this is the person's.
      */
     questionDeclined?: string;
+    /** `@aparte/plugin-artifacts`: a `create_artifact` call that was refused, stopped or failed (default: "Not created"). */
+    artifactNotCreated?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -497,6 +499,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolTurnLimit: "Turn limit reached",
     maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
     questionDeclined: "You declined to answer.",
+    artifactNotCreated: "Not created",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

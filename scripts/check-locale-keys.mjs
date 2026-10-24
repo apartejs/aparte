@@ -121,6 +121,7 @@ const PLUGIN_OWNED = new Set([
     'sandboxErrorHint',
     'approvalModeLabel', // @aparte/plugin-approval — the mode picker's label
     'questionDeclined', // @aparte/plugin-ask-user — the receipt's line when the person declined
+    'artifactNotCreated', // @aparte/plugin-artifacts — a refused, stopped or failed create_artifact
     'modelSelectorPlaceholder', // @aparte/plugin-model-selector — the empty picker's placeholder
 ]);
 

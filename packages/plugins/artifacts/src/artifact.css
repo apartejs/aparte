@@ -85,6 +85,20 @@
     font-size: var(--aparte-font-size-base); font-weight: var(--aparte-font-weight-medium);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* A call with no artifact to hand over — waiting for a decision, refused, stopped,
+   failed: the card's badge and title on one line, the header's padding, and what became
+   of it in the muted voice. No buttons: there is nothing to copy or download. */
+.aparte-art-stub {
+    display: flex; align-items: center; gap: var(--aparte-space-4);
+    min-width: 0;
+    padding: var(--aparte-space-4) var(--aparte-space-5);
+}
+.aparte-art-stub__state {
+    margin-inline-start: auto;
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+    white-space: nowrap;
+}
 /* The geometry is `.aparte-dot`; a streaming card breathes on the accent rather than
    the status colour, and larger, because it marks a whole card and not a line. */
 .aparte-art-card__pulse {

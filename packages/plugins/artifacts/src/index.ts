@@ -23,6 +23,7 @@ import { createArtifactTool, artifactHandler } from './tool.js';
 import { artifactRenderer } from './card.js';
 import { artifactBlock, artifactFromToolCall, ARTIFACT_TAG, ARTIFACT_SEGMENT_TYPE } from './segment.js';
 import { setRenderOptions, clearRenderOptions, type ArtifactsSetupOptions } from './options.js';
+import { artifactCallView, artifactStubMarkup, relabelArtifactStub } from './stub.js';
 
 /**
  * Register the tool, its renderer, the block grammar and the segment renderer on
@@ -36,12 +37,38 @@ export function setupArtifacts(options: ArtifactsSetupOptions = {}, config: Apar
     config.registerTool(tool, artifactHandler);
     // The card, on the tool's result: the same renderer the segment gets, adapted to
     // the tool-call segment it is handed. `update` and `relabel` are forwarded, so a
-    // preview a reader mounted survives the result landing.
+    // preview a reader mounted survives the result landing. A call with no artifact to
+    // hand over — waiting for a decision, refused, stopped, failed — shows a stub that
+    // says so instead (see `stub.ts`).
     const toolRenderer: AparteToolRenderer = {
-        render: (segment) => artifactRenderer.render(artifactFromToolCall(segment)),
-        setup: (element, segment) => artifactRenderer.setup?.(element, artifactFromToolCall(segment)),
-        update: (element, segment) => artifactRenderer.update?.(element, artifactFromToolCall(segment)),
-        relabel: (element, segment) => artifactRenderer.relabel?.(element, artifactFromToolCall(segment)),
+        render: (segment) => {
+            const view = artifactCallView(segment);
+            return view === 'card' ? artifactRenderer.render(artifactFromToolCall(segment)) : artifactStubMarkup(segment, view);
+        },
+        setup: (element, segment) => {
+            if (artifactCallView(segment) === 'card') artifactRenderer.setup?.(element, artifactFromToolCall(segment));
+        },
+        update: (element, segment) => {
+            const view = artifactCallView(segment);
+            const drawn = element.getAttribute('data-view') ?? 'card';
+            if (view === drawn) {
+                if (view === 'card') artifactRenderer.update?.(element, artifactFromToolCall(segment));
+                return;
+            }
+            // From waiting to the card, or to "not created": a different element.
+            const tpl = document.createElement('template');
+            const out = toolRenderer.render(segment);
+            tpl.innerHTML = typeof out === 'string' ? out.trim() : '';
+            const next = (typeof out === 'string' ? tpl.content.firstElementChild : out) as HTMLElement | null;
+            if (!next) return;
+            element.replaceWith(next);
+            toolRenderer.setup?.(next, segment);
+        },
+        relabel: (element, segment) => {
+            const view = artifactCallView(segment);
+            if (view === 'card') artifactRenderer.relabel?.(element, artifactFromToolCall(segment));
+            else relabelArtifactStub(element, view);
+        },
         getStyles: () => artifactRenderer.getStyles?.() ?? '',
     };
     config.registerToolRenderer(tool.name, toolRenderer);
