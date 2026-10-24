@@ -105,7 +105,7 @@ export default defineConfig({
         // exercises the whole surface rather than a sample.
         // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
         // its least-covered; measured 84.09% after. The ratchet asked for it.
-        functions: 85,
+        functions: 87,
         // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 80 },
+        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 85 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
@@ -215,8 +215,8 @@ export default defineConfig({
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
-        'packages/plugins/artifacts/src/**': { lines: 88, statements: 88, functions: 89, branches: 73 },
-        'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 89, branches: 87 },
+        'packages/plugins/artifacts/src/**': { lines: 88, statements: 88, functions: 92, branches: 73 },
+        'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
