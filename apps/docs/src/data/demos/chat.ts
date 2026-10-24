@@ -18,7 +18,16 @@ export const CHAT_DEMOS: DemoEntry[] = [
       <aparte-composer-send></aparte-composer-send>
     </div>
   </div>
-</aparte-composer>`,
+</aparte-composer>
+<p class="aparte-field-hint" aria-live="polite">Type something and press Enter.</p>
+
+<script>
+  // Sending clears the field and emits aparte-send; your app takes it from there.
+  const hint = document.querySelector('.aparte-field-hint');
+  document.querySelector('aparte-composer').addEventListener('aparte-send', (event) => {
+    hint.textContent = 'Sent: ' + event.detail.content;
+  });
+</script>`,
     },
     {
         id: 'composer-attachments',

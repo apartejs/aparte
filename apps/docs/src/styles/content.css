@@ -21,3 +21,13 @@ starlight-tabs.site-tabs {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
+
+/*
+ * A live frame's placeholder (src/components/frame-skeleton.ts): the kit's skeleton over the
+ * frame, its whole box, until the frame has loaded. The frame's container is positioned.
+ */
+.frame-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}

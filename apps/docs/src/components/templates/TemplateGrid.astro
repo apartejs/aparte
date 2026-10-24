@@ -14,6 +14,7 @@ import { TEMPLATES } from '../../templates/registry';
             <li class="template-tile aparte-card">
                 <div class="template-tile__frame">
                     <iframe src={`/templates/${t.slug}/?thumb`} title={`${t.title}, live`} loading="lazy" tabindex="-1" aria-hidden="true" inert />
+                    <span class="aparte-skeleton frame-skeleton" aria-hidden="true" />
                 </div>
                 <div class="template-tile__text">
                     <a class="template-tile__link" href={`/templates/${t.slug}/`}>
@@ -30,6 +31,8 @@ import { TEMPLATES } from '../../templates/registry';
 </ul>
 
 <script>
+    import '../frame-skeleton';
+
     // The tiles follow the page's theme toggle: the frames read the stored choice at load, and the
     // page tells them when it changes.
     const tell = (): void => {
