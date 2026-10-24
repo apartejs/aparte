@@ -54,12 +54,15 @@ import { AparteClient } from '@aparte/core';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
 
 new AparteClient({
-  streamRunner: createAgUiRunner({ endpoint: '/api/chat' }),
+  streamRunner: createAgUiRunner({ endpoint: '/api/chat', relaxedRunFraming: true }),
 }).start();
 ```
 
 The route streams AG-UI, so [`@aparte/runner-ag-ui`](/providers/agent/ag-ui/) draws it as it is:
-text, reasoning, tool rows, the approval panel. Your route stays a TanStack AI route. Under a
+text, reasoning, tool rows, the approval panel. Your route stays a TanStack AI route.
+`relaxedRunFraming` is what lets the runner read it: TanStack AI, 1.0 included, closes each model
+step with a `RUN_FINISHED` and answers a resume before its `RUN_STARTED`, a framing AG-UI 1.0 asks a
+client to reject. Every other rule of the protocol still holds. Under a
 framework, hand the same runner to the wrapper's client: `useAparteClient({ streamRunner })` in
 React and Vue, `createAparteClient({ streamRunner })` in Svelte,
 `provideAparte({ clientOptions: { streamRunner } })` in Angular.

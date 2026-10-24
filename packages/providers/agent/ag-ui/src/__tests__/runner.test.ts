@@ -9,6 +9,7 @@ import { RunAgentInputSchema } from '@ag-ui/core/schemas';
 import { AparteError } from '@aparte/core';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createAgUiRunner } from '../index.js';
+import type { AgUiRunnerOptions } from '../index.js';
 
 type Event = { type: string; [key: string]: unknown };
 
@@ -34,7 +35,10 @@ function fakeFetch(...responses: (Response | ((body: Record<string, unknown>) =>
 
 const weather = { name: 'ask_user', description: 'Ask the user.', inputSchema: { type: 'object' } };
 
-function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptions> = {}, signal = new AbortController().signal) {
+/** TanStack AI: a RUN_FINISHED per model step, which AG-UI 1.0's framing forbids. */
+const olderPeer = { relaxedRunFraming: true };
+
+function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptions> = {}, signal = new AbortController().signal, runner: Partial<AgUiRunnerOptions> = {}) {
     const events: Event[] = [];
     const opts = {
         messageId: 'm1',
@@ -46,7 +50,7 @@ function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptio
         signal,
         ...extra,
     } as unknown as AparteStreamRunOptions;
-    const done = createAgUiRunner({ endpoint: '/agui', fetch })(opts);
+    const done = createAgUiRunner({ endpoint: '/agui', fetch, ...runner })(opts);
     return { done, events, types: () => events.map((e) => e.type) };
 }
 
@@ -57,7 +61,9 @@ describe('createAgUiRunner: the stream', () => {
     it('draws text, reasoning and a server tool the agent ran, then ends the run', async () => {
         const f = fakeFetch(sse(
             started,
+            { type: 'REASONING_MESSAGE_START', messageId: 'r', role: 'reasoning' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r', delta: 'Thinking.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r' },
             { type: 'TEXT_MESSAGE_START', messageId: 'a1', role: 'assistant' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'Let me ' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'check.' },
@@ -141,7 +147,7 @@ describe('createAgUiRunner: the stream', () => {
     });
 
     it('reads an NDJSON body the same way, and skips what is not an event', async () => {
-        const body = [started, { nope: 1 }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'ok' }, finished()].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
+        const body = [started, { nope: 1 }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'ok' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, finished()].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
         const f = fakeFetch(new Response(body, { headers: { 'content-type': 'application/x-ndjson' } }));
         const r = run(f.fetch);
         await r.done;
@@ -156,22 +162,115 @@ describe('createAgUiRunner: the stream', () => {
         await expect(http.done).rejects.toMatchObject({ message: 'Unauthorized agent' });
     });
 
+    it("sends an attached image as AG-UI 1.0 content: a data URL as a data source", async () => {
+        const f = fakeFetch(sse(started, finished()));
+        await run(f.fetch, {
+            baseRequest: {
+                messages: [{ role: 'user', content: [{ type: 'text', text: 'What is this?' }, { type: 'image', image: 'data:image/png;base64,iVBORw0KGgo=' }] }],
+                modelId: 'x', stream: true,
+            },
+        } as never).done;
+        expect((f.bodies[0]!['messages'] as unknown[])[0]).toEqual({
+            id: 'aparte-0',
+            role: 'user',
+            content: [
+                { type: 'text', text: 'What is this?' },
+                { type: 'image', source: { type: 'data', value: 'iVBORw0KGgo=', mimeType: 'image/png' } },
+            ],
+        });
+    });
+
+    it('sends base64 data URLs as data sources, whatever their parameters, and any other data URL as a url source', async () => {
+        const f = fakeFetch(sse(started, finished()));
+        await run(f.fetch, {
+            baseRequest: {
+                messages: [{ role: 'user', content: [
+                    { type: 'image', image: 'data:image/png;name=cat.png;base64,iVBORw0KGgo=' },
+                    { type: 'image', image: 'data:image/svg+xml,%3Csvg%3E%3C/svg%3E' },
+                ] }],
+                modelId: 'x', stream: true,
+            },
+        } as never).done;
+        const content = ((f.bodies[0]!['messages'] as { content: unknown[] }[])[0]!).content;
+        expect(content).toEqual([
+            { type: 'image', source: { type: 'data', value: 'iVBORw0KGgo=', mimeType: 'image/png' } },
+            { type: 'image', source: { type: 'url', value: 'data:image/svg+xml,%3Csvg%3E%3C/svg%3E' } },
+        ]);
+    });
+
+    it('reads on past a RUN_ERROR, keeps what was drawn, and reports the failure at the end', async () => {
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'TEXT_MESSAGE_START', messageId: 'a1', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'Checking.' },
+            { type: 'TEXT_MESSAGE_END', messageId: 'a1' },
+            { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
+            { type: 'TOOL_CALL_END', toolCallId: 'c1' },
+            { type: 'RUN_ERROR', message: 'Model overloaded', code: 'overloaded' },
+        )).fetch);
+        await expect(r.done).rejects.toMatchObject({ message: 'Model overloaded', data: { agUi: 'run-error', code: 'overloaded' } });
+        // The text stays, and the call nobody will answer stops waiting.
+        expect(r.types()).toContain('text-delta');
+        expect(r.events).toContainEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
+
+    it('lets a later run supersede a failed one: its pause stands, and the failure goes to onWarning', async () => {
+        const warnings: string[] = [];
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'RUN_ERROR', message: 'first attempt failed' },
+            { type: 'RUN_STARTED', threadId: 't', runId: 'r2' },
+            { type: 'TOOL_CALL_START', toolCallId: 'q1', toolCallName: 'ask_user' },
+            { type: 'TOOL_CALL_END', toolCallId: 'q1' },
+            { type: 'RUN_FINISHED', threadId: 't', runId: 'r2' },
+        )).fetch, { baseRequest: { messages: [{ role: 'user', content: 'hi' }], modelId: 'x', stream: true, tools: [weather] } } as never,
+        undefined, { onWarning: (w: string) => { warnings.push(w); } });
+        await r.done;
+        expect(r.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'q1', reason: 'external' }] });
+        expect(warnings.join(' ')).toContain('first attempt failed');
+    });
+
+    it('holds a relaxed run framing to closing what it opened, by the end of the stream', async () => {
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'never closed' },
+            finished(),
+        )).fetch, {}, undefined, { relaxedRunFraming: true });
+        await expect(r.done).rejects.toThrow('still running at the end of the stream');
+    });
+
+    it('rejects a RUN_FINISHED per step by default, naming the option that reads it', async () => {
+        const perStep = () => fakeFetch(sse(
+            started,
+            { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
+            { type: 'TOOL_CALL_END', toolCallId: 'c1' },
+            finished(),
+            { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
+            finished(),
+        )).fetch;
+        await expect(run(perStep()).done).rejects.toThrow('relaxedRunFraming');
+        await expect(run(perStep(), {}, undefined, { relaxedRunFraming: true }).done).resolves.toBeUndefined();
+    });
+
     it('opens a turn per model step: a second step reasons in a block of its own', async () => {
         const r = run(fakeFetch(sse(
             started,
             { type: 'REASONING_MESSAGE_START', messageId: 'r1' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r1', delta: 'Look it up.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r1' },
             { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
             { type: 'TOOL_CALL_END', toolCallId: 'c1' },
             finished({ metadata: { tanstack: { finishReason: 'tool_calls' } } }),
             { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
             { type: 'REASONING_MESSAGE_START', messageId: 'r2' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r2', delta: 'Now answer.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r2' },
             { type: 'TEXT_MESSAGE_START', messageId: 'a2', role: 'assistant' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a2', delta: 'Cloudy.' },
             { type: 'TEXT_MESSAGE_END', messageId: 'a2' },
             finished(),
-        )).fetch);
+        )).fetch, {}, undefined, olderPeer);
         await r.done;
         // The step's reasoning and its text share one turn; the next step opens another.
         expect(r.types()).toEqual([
@@ -187,8 +286,9 @@ describe('createAgUiRunner: the stream', () => {
             { type: 'TOOL_CALL_END', toolCallId: 'c1' },
             finished(),
             { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
-            { type: 'TEXT_MESSAGE_CONTENT', delta: 'Cloudy in' },
-        )).fetch);
+            { type: 'TEXT_MESSAGE_START', messageId: 'a2', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a2', delta: 'Cloudy in' },
+        )).fetch, {}, undefined, olderPeer);
         await expect(r.done).rejects.toThrow('was cut');
     });
 
@@ -222,7 +322,7 @@ describe('createAgUiRunner: the stream', () => {
     });
 
     it('fails a stream that ends without RUN_FINISHED, but not a stopped one', async () => {
-        const cut = run(fakeFetch(sse(started, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Hal' })).fetch);
+        const cut = run(fakeFetch(sse(started, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Hal' })).fetch);
         await expect(cut.done).rejects.toThrow('without RUN_FINISHED');
         const controller = new AbortController();
         controller.abort();
@@ -261,7 +361,9 @@ describe('createAgUiRunner: pauses and resumes', () => {
         const second = fakeFetch(sse(
             { type: 'RUN_STARTED', threadId, runId: 'r2' },
             { type: 'TOOL_CALL_RESULT', toolCallId: 'd1', content: 'deleted' },
-            { type: 'TEXT_MESSAGE_CONTENT', delta: 'Done.' },
+            { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Done.' },
+            { type: 'TEXT_MESSAGE_END', messageId: 'a' },
             { type: 'RUN_FINISHED', threadId, runId: 'r2' },
         ));
         const b = run(second.fetch, {
@@ -292,6 +394,43 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(b.types()).not.toContain('tool-resolved');
     });
 
+    it('ends on an interrupt the page cannot answer, and cancels it on the next run of the thread', async () => {
+        const f = fakeFetch(
+            sse(started, finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i9', reason: 'approval', message: 'Approve the transfer?' }] } })),
+            sse(started, finished()),
+        );
+        const runner = createAgUiRunner({ endpoint: '/agui', fetch: f.fetch, threadId: 'conv' });
+        const events: Event[] = [];
+        const opts = {
+            messageId: 'm1', providerId: 'agent', baseRequest: { messages: [{ role: 'user', content: 'pay' }], modelId: 'x', stream: true },
+            transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
+            emitter: (e: Event) => events.push(e), signal: new AbortController().signal,
+        } as unknown as AparteStreamRunOptions;
+        await runner(opts);
+        expect(events.at(-1)).toMatchObject({ type: 'run-done' });
+        await runner(opts);
+        expect(f.bodies[1]!['resume']).toEqual([{ interruptId: 'i9', status: 'cancelled' }]);
+    });
+
+    it("gives a paused run its agent's state back when it resumes, on a thread minted for the turn", async () => {
+        const f = fakeFetch(
+            sse(started, { type: 'STATE_SNAPSHOT', snapshot: { step: 'asked' } },
+                { type: 'TOOL_CALL_START', toolCallId: 'q1', toolCallName: 'ask_user' }, { type: 'TOOL_CALL_END', toolCallId: 'q1' }, finished()),
+            sse(started, finished()),
+        );
+        const runner = createAgUiRunner({ endpoint: '/agui', fetch: f.fetch });
+        const events: Event[] = [];
+        const base = {
+            messageId: 'm1', providerId: 'agent', transportCall: async () => { throw new Error('never called'); },
+            toolLookup: () => undefined, emitter: (e: Event) => events.push(e), signal: new AbortController().signal,
+        };
+        const request = { messages: [{ role: 'user', content: 'hi' }], modelId: 'x', stream: true, tools: [weather] };
+        await runner({ ...base, baseRequest: request } as unknown as AparteStreamRunOptions);
+        const ticket = String(events.at(-1)!['ticket']);
+        await runner({ ...base, baseRequest: request, deferral: { token: ticket, outcomes: { q1: { kind: 'result', content: 'Blue.' } } } } as unknown as AparteStreamRunOptions);
+        expect(f.bodies[1]!['state']).toEqual({ step: 'asked' });
+    });
+
     it('hands a frontend tool the agent called to the page, and sends its result back as a tool message', async () => {
         const f = fakeFetch(sse(
             started,
@@ -304,7 +443,7 @@ describe('createAgUiRunner: pauses and resumes', () => {
         await a.done;
         expect(a.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'q1', name: 'ask_user', reason: 'external' }] });
 
-        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Blue it is.' }, { type: 'RUN_FINISHED' }));
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Blue it is.' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, { type: 'RUN_FINISHED' }));
         const b = run(second.fetch, {
             baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: { question: 'Which?' } }] }], modelId: 'x', stream: true, tools: [weather] },
             deferral: { token: String(a.events.at(-1)!['ticket']), outcomes: { q1: { kind: 'result', content: 'The blue one.' } } },
@@ -320,7 +459,7 @@ describe('createAgUiRunner: pauses and resumes', () => {
     });
 
     it('sends a frontend tool the page refused back as its tool message, and marks the row refused', async () => {
-        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Understood.' }, { type: 'RUN_FINISHED' }));
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Understood.' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, { type: 'RUN_FINISHED' }));
         const b = run(second.fetch, {
             baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: {} }] }], modelId: 'x', stream: true, tools: [weather] },
             deferral: { token: JSON.stringify({ v: 1, threadId: 't', runId: 'r', interrupts: [] }), outcomes: { q1: { kind: 'decision', approved: false, reason: 'Not now.' } } },
@@ -379,8 +518,26 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(f.bodies[0]!['threadId']).not.toBe('t');
     });
 
-    it('fails clearly on an interrupt it cannot answer yet', async () => {
-        const r = run(fakeFetch(sse(started, finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i', reason: 'input_required' }] } }))).fetch);
-        await expect(r.done).rejects.toThrow('interrupt reason "input_required"');
+    it('answers an interrupt it cannot handle as cancelled, in the same batch as the ones it can', async () => {
+        const a = run(fakeFetch(sse(
+            started,
+            { type: 'TOOL_CALL_START', toolCallId: 'd1', toolCallName: 'delete_file' },
+            { type: 'TOOL_CALL_END', toolCallId: 'd1' },
+            finished({ outcome: { type: 'interrupt', interrupts: [
+                { id: 'i1', reason: 'tool_call', toolCallId: 'd1' },
+                { id: 'i2', reason: 'input_required', message: 'Which account?' },
+            ] } }),
+        )).fetch);
+        await a.done;
+        expect(a.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'd1', reason: 'approval' }] });
+
+        const second = fakeFetch(sse(started, finished()));
+        const b = run(second.fetch, { deferral: { token: String(a.events.at(-1)!['ticket']), outcomes: { d1: { kind: 'decision', approved: true } } } } as never);
+        await b.done;
+        // The protocol refuses a partial batch: both interrupts are answered.
+        expect(second.bodies[0]!['resume']).toEqual([
+            { interruptId: 'i1', status: 'resolved', payload: { approved: true } },
+            { interruptId: 'i2', status: 'cancelled' },
+        ]);
     });
 });

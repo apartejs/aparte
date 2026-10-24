@@ -6,6 +6,10 @@ import type {
     AparteStreamRunOptions,
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
+import { enforce } from './enforce.js';
+import { applyStateDelta } from './state.js';
+import { createTranslator } from './translate.js';
+import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
 import type { AgUiInterrupt, AgUiMessage, AgUiResumeItem, AgUiRunAgentInput } from './wire.js';
 
@@ -34,6 +38,47 @@ export interface AgUiRunnerOptions {
     forwardedProps?: Record<string, unknown>;
     /** `RunAgentInput.context`: extra context entries for the agent. */
     context?: { description: string; value: string }[];
+    /**
+     * The AG-UI version the agent speaks, when it is older than 1.0 and does not say so
+     * itself, e.g. `'0.0.47'`. The protocol forbids guessing a peer's age, so an older
+     * agent has to be named here. The runner then reads its stream with that version's
+     * rules (its run framing, its retired shapes) and leaves `protocolVersion` out of the
+     * request, a field that agent predates.
+     * @default the agent speaks 1.0
+     */
+    peerProtocolVersion?: string;
+    /**
+     * Read a stream whose runs are framed otherwise than AG-UI 1.0 frames them: a
+     * `RUN_FINISHED` per model step with more events after it, or a resume answered before
+     * its `RUN_STARTED`. TanStack AI does both, so its routes need this; every other rule
+     * of the protocol still holds. By default such a stream is rejected, as 1.0 asks.
+     * @default false
+     */
+    relaxedRunFraming?: boolean;
+    /**
+     * Told what the runner dropped or could not read in the agent's stream — an event
+     * type it does not know, a translation that lost something. For the developer, not
+     * the person chatting.
+     * @default `console.warn`
+     */
+    onWarning?: (message: string) => void;
+}
+
+/** The AG-UI version this runner speaks, and declares on every request. */
+const PROTOCOL_VERSION = '1.0';
+
+/** A version identifier as numbers, compared component by component; undefined when it is not one. */
+function versionParts(version: string): number[] | undefined {
+    return /^\d+(\.\d+)*$/.test(version) ? version.split('.').map(Number) : undefined;
+}
+
+/** Negative, zero or positive, as `a` is older than, equal to or newer than `b`. */
+function compareVersions(a: number[], b: number[]): number {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const d = (a[i] ?? 0) - (b[i] ?? 0);
+        if (d !== 0) return d;
+    }
+    return 0;
 }
 
 /**
@@ -45,7 +90,8 @@ interface Ticket {
     v: 1;
     threadId: string;
     runId: string;
-    interrupts: { id: string; toolCallId: string; kind: 'approval' | 'external' }[];
+    /** `unanswerable`: an interrupt the page could not answer, cancelled in this batch. */
+    interrupts: { id: string; toolCallId: string; kind: 'approval' | 'external' | 'unanswerable' }[];
 }
 
 function readTicket(token: string | undefined): Ticket | undefined {
@@ -93,10 +139,16 @@ function parseArgs(args: string): unknown {
     try { return JSON.parse(args); } catch { return { arguments: args }; }
 }
 
-/** A tool result as the row shows it: text as is, anything else as JSON. */
+/** A tool result as the row shows it: text as is, the text of content parts, anything else as JSON. */
 function resultText(content: unknown): string {
     if (typeof content === 'string') return content;
     if (content === undefined || content === null) return '';
+    if (Array.isArray(content)) {
+        const text = content
+            .filter((part): part is { type: 'text'; text: string } => (part as { type?: unknown })?.type === 'text' && typeof (part as { text?: unknown }).text === 'string')
+            .map((part) => part.text);
+        if (text.length) return text.join('\n');
+    }
     return JSON.stringify(content);
 }
 
@@ -157,7 +209,21 @@ function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | 
  * `resume` batch for the interrupts.
  */
 export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner {
-    return async (opts) => {
+    const warn = options.onWarning ?? ((message: string) => console.warn(`[aparte] AG-UI: ${message}`));
+    const peer = options.peerProtocolVersion ? versionParts(options.peerProtocolVersion) : undefined;
+    // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`, and its
+    // run framing is read with the older rules.
+    const declare = !peer || compareVersions(peer, [1, 0]) >= 0;
+    // A peer of 0.0.39 or older takes a user message's content as text only.
+    const flatten = peer !== undefined && compareVersions(peer, [0, 0, 39]) <= 0;
+    // The agent's state, per thread: what its last snapshot and deltas left, sent back as
+    // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
+    // — only a resume reuses it.
+    const states = new Map<string, unknown>();
+    const stableThread = options.threadId !== undefined;
+    /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
+    const unanswered = new Map<string, string[]>();
+    const runOnce = async (opts: AparteStreamRunOptions, track: { threadId?: string; suspended: boolean }): Promise<Usage | undefined> => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
         const request = opts.baseRequest as AparteChatRequest;
@@ -166,13 +232,14 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const threadId = ticket?.threadId
             ?? (typeof options.threadId === 'function' ? options.threadId(opts) : options.threadId)
             ?? `aparte-${uuid()}`;
+        track.threadId = threadId;
         const runId = `aparte-run-${uuid()}`;
         const interrupted = new Set((ticket?.interrupts ?? []).map((i) => i.toolCallId));
 
         // Answers to calls the agent left to the browser without an interrupt go back as
         // `tool` messages after the history; answers to interrupts go in one `resume`
         // batch, since the protocol refuses a partial one.
-        const messages: AgUiMessage[] = toAgUiMessages(request.messages);
+        const messages: AgUiMessage[] = toAgUiMessages(request.messages, flatten, warn);
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
             if (interrupted.has(toolCallId)) continue;
             // A page tool the page refused (its `needsApproval`, its policy): the refusal is
@@ -187,15 +254,18 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     : outcome.content,
             });
         }
+        const left = ticket ? [] : (unanswered.get(threadId) ?? []);
+        unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
-            ? ticket.interrupts.map((interrupt) => resumeItem(interrupt, outcomes[interrupt.toolCallId]))
-            : undefined;
+            ? ticket.interrupts.map((interrupt) => resumeItem(interrupt, interrupt.kind === 'unanswerable' ? undefined : outcomes[interrupt.toolCallId]))
+            : left.length ? left.map((interruptId): AgUiResumeItem => ({ interruptId, status: 'cancelled' })) : undefined;
 
         const body: AgUiRunAgentInput = {
             threadId,
             runId,
+            ...(declare ? { protocolVersion: PROTOCOL_VERSION } : {}),
             ...(ticket ? { parentRunId: ticket.runId } : {}),
-            state: {},
+            state: states.has(threadId) ? states.get(threadId) : {},
             messages,
             tools: toAgUiTools(request.tools),
             context: options.context ?? [],
@@ -229,6 +299,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const rejected = new Set<string>();
         const settledByPage = new Set<string>();
         let textOpen = false;
+        let runError: AparteError | undefined;
         let usage: Usage | undefined;
         let finished: { runId: string; outcome?: { type?: string; interrupts?: AgUiInterrupt[] } } | undefined;
         const emit = opts.emitter;
@@ -309,12 +380,48 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         };
 
-        for await (const event of readAgUiEvents(response.body, response.headers.get('content-type'))) {
+        const verify = createVerifier(!declare || options.relaxedRunFraming === true);
+        const translate = createTranslator(peer, warn);
+        // Older shapes are translated first; then what 1.0 does not describe is dropped or
+        // stripped, with a warning — the order the protocol requires of a consumer.
+        async function* incoming(body: ReadableStream<Uint8Array>, contentType: string | null) {
+            for await (const raw of readAgUiEvents(body, contentType)) {
+                for (const translated of translate(raw)) {
+                    const event = enforce(translated, warn);
+                    if (event) yield event;
+                }
+            }
+        }
+        for await (const event of incoming(response.body, response.headers.get('content-type'))) {
+            // A stream 1.0 says to reject is rejected before its event is drawn; what was
+            // drawn before it stays, and the error lands below it.
+            verify(event);
             begin();
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
             switch (event.type) {
-                case 'RUN_STARTED':
+                case 'RUN_STARTED': {
+                    // A run after a failed one supersedes it: the stream ran again, and the new
+                    // run decides how the reply ends. The failure is the developer's to know;
+                    // the calls the failed run left are stopped, nobody will answer them.
+                    if (runError) {
+                        warn(`the agent's run failed ("${runError.message}") and the stream ran it again; the reply shows the new run.`);
+                        for (const [toolCallId] of started) {
+                            if (answered.has(toolCallId)) continue;
+                            emit({ type: 'tool-aborted', toolCallId });
+                            answered.add(toolCallId);
+                        }
+                        runError = undefined;
+                    }
+                    // The producer's own version. Newer, or not a version at all: proceed
+                    // under 1.0's rules and say so, as the protocol asks of a consumer.
+                    const declared = event['protocolVersion'];
+                    if (typeof declared === 'string') {
+                        const parts = versionParts(declared);
+                        if (!parts) warn(`the agent declares protocol version "${declared}", which this runner cannot interpret; reading its stream as ${PROTOCOL_VERSION}.`);
+                        else if (compareVersions(parts, versionParts(PROTOCOL_VERSION)!) > 0) warn(`the agent speaks AG-UI ${declared}, newer than the ${PROTOCOL_VERSION} this runner speaks; reading its stream as ${PROTOCOL_VERSION}.`);
+                    }
                     break;
+                }
                 case 'TEXT_MESSAGE_START':
                 case 'REASONING_START':
                 case 'REASONING_MESSAGE_START':
@@ -369,17 +476,30 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     if (meta?.tanstack?.state === 'output-error') {
                         emit({ type: 'tool-failed', toolCallId, error: content });
                     } else {
-                        emit({ type: 'tool-resolved', toolCallId, result: content });
+                        // A result in content parts keeps them for a renderer; the model reads their text.
+                        const parts = Array.isArray(event['content']) ? { structuredResult: event['content'] } : {};
+                        emit({ type: 'tool-resolved', toolCallId, result: content, ...parts });
                     }
                     break;
                 }
                 case 'RUN_ERROR': {
-                    throw new AparteError(
+                    // The agent reporting its own failure does not end the stream: a
+                    // RUN_STARTED may follow and run again, and a late one can come after a
+                    // run that finished. What was drawn stays; the failure is said once the
+                    // stream is over, and core appends it below the reply.
+                    runError = new AparteError(
                         typeof event['message'] === 'string' && event['message'] ? event['message'] : 'The agent run failed.',
                         AparteErrorCode.PROVIDER_ERROR,
-                        typeof event['code'] === 'string' ? { code: event['code'] } : undefined,
+                        { agUi: 'run-error', ...(typeof event['code'] === 'string' ? { code: event['code'] } : {}) },
                     );
+                    break;
                 }
+                case 'STATE_SNAPSHOT':
+                    states.set(threadId, event['snapshot']);
+                    break;
+                case 'STATE_DELTA':
+                    states.set(threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
+                    break;
                 case 'RUN_FINISHED': {
                     // Not the end of the stream: TanStack AI closes each model step with a
                     // RUN_FINISHED of its own (`finishReason: tool_calls`), then streams the
@@ -402,24 +522,32 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         }
         if (opts.signal.aborted) return usage;
+        if (runError) {
+            for (const [toolCallId] of started) if (!answered.has(toolCallId)) emit({ type: 'tool-aborted', toolCallId });
+            if (textOpen) emit({ type: 'text-flush' });
+            throw runError;
+        }
         if (!finished) {
             throw new AparteError('The agent stream ended without RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
         }
         if (!endedOnFinish) {
             throw new AparteError('The agent stream was cut: it ended in the middle of a step, after a RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
         }
+        verify.end();
         if (textOpen) emit({ type: 'text-flush' });
 
         const pending: PendingCall[] = [];
         const interrupts: Ticket['interrupts'] = [];
+        // Interrupts the page has no way to answer — no call to approve or run, or a reason
+        // it does not know. The run ends without failing; they are answered `cancelled`
+        // in the next resume of the thread, which a paused thread needs to continue.
+        const unanswerable: string[] = [];
         if (finished.outcome?.type === 'interrupt') {
             for (const interrupt of finished.outcome.interrupts ?? []) {
                 const kind = interruptKind(interrupt);
                 if (!kind || !interrupt.toolCallId) {
-                    throw new AparteError(
-                        `The agent paused for something aparté cannot answer yet (interrupt reason "${interrupt.reason}").`,
-                        AparteErrorCode.PROVIDER_ERROR,
-                    );
+                    unanswerable.push(interrupt.id);
+                    continue;
                 }
                 // A resumed run can pause again on a call an earlier run started (TanStack AI
                 // asks to approve a client tool, then to run it): its name comes from there.
@@ -447,11 +575,24 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         }
         if (pending.length > 0) {
-            const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts };
+            const cancelled = unanswerable.map((id) => ({ id, toolCallId: '', kind: 'unanswerable' as const }));
+            const next: Ticket = { v: 1, threadId, runId: finished.runId, interrupts: [...interrupts, ...cancelled] };
+            track.suspended = true;
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
+            if (unanswerable.length && stableThread) unanswered.set(threadId, unanswerable);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }
         return usage;
+    };
+    return async (opts) => {
+        const track: { threadId?: string; suspended: boolean } = { suspended: false };
+        try {
+            return await runOnce(opts, track);
+        } finally {
+            // A thread minted for one turn is forgotten when the turn ends, however it ends —
+            // done, failed or stopped — unless it paused, since only a resume reuses it.
+            if (track.threadId && !stableThread && !track.suspended) states.delete(track.threadId);
+        }
     };
 }

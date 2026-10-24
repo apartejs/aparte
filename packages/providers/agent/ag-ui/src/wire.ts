@@ -39,10 +39,15 @@ export type AgUiEvent =
     | { type: 'TOOL_CALL_CHUNK'; toolCallId?: string; toolCallName?: string; delta?: string }
     | { type: 'TOOL_CALL_RESULT'; toolCallId: string; content?: unknown; metadata?: Record<string, unknown> };
 
+/** A part of a user message's content, as AG-UI 1.0 describes it — the two aparté sends. */
+export type AgUiInputContent =
+    | { type: 'text'; text: string }
+    | { type: 'image'; source: { type: 'data' | 'url'; value: string; mimeType?: string } };
+
 /** One message of `RunAgentInput.messages`. */
 export type AgUiMessage =
     | { id: string; role: 'system'; content: string }
-    | { id: string; role: 'user'; content: string }
+    | { id: string; role: 'user'; content: string | AgUiInputContent[] }
     | {
         id: string;
         role: 'assistant';
@@ -63,8 +68,9 @@ export interface AgUiResumeItem {
 export interface AgUiRunAgentInput {
     threadId: string;
     runId: string;
+    protocolVersion?: string;
     parentRunId?: string;
-    state: Record<string, unknown>;
+    state: unknown;
     messages: AgUiMessage[];
     tools: { name: string; description: string; parameters: unknown }[];
     context: { description: string; value: string }[];

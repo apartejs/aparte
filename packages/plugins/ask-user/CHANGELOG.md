@@ -1,5 +1,7 @@
 # @aparte/plugin-ask-question
 
+## 0.22.0
+
 ## 0.21.0
 
 ## 0.20.0
@@ -184,6 +186,7 @@
   that will lie. What an element accepts as children, and where those children land, is now prose.
 
   ## Five published claims were false, and are corrected rather than softened
+
   - `<aparte-chat-viewport>`'s `framework-managed` said it "relocates none of its children". It
     re-appends core's own scroll-to-bottom button whenever that stops being last, and that path
     runs in framework-managed mode only. The guarantee is about the nodes the FRAMEWORK renders.
