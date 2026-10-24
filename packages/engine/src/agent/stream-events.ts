@@ -251,9 +251,16 @@ export interface StreamDeferredCall {
     reason: StreamDeferredReason;
 }
 
+/**
+ * Who refused a call, for the row: the model reads one sentence whoever it was from, the
+ * person reading the transcript needs to know. `'earlier-refusal'` is a call the loop did
+ * not run because another call of the same step had been refused.
+ */
+export type StreamRefusalOrigin = 'person' | 'policy' | 'earlier-refusal';
+
 /** The answer to a deferred call, handed to the run that resumes it. */
 export type StreamDeferredOutcome =
-    | { kind: 'decision'; approved: boolean; reason?: string; instruction?: string; payload?: unknown }
+    | { kind: 'decision'; approved: boolean; reason?: string; instruction?: string; by?: StreamRefusalOrigin; payload?: unknown }
     | { kind: 'result'; content: string; structuredContent?: unknown }
     | { kind: 'failed'; error: string };
 
@@ -290,6 +297,8 @@ export type StreamApprovalResolver = (
      * write attributes the refusal to the user, which would be a lie here.
      */
     reason?: string;
+    /** Who refused, when a `reason` alone would say it wrong; without it a reason is a policy's. */
+    by?: StreamRefusalOrigin;
 }>;
 
 // ─── The events runStreamAgent emits ─────────────────────────────────────────
@@ -331,7 +340,11 @@ export type StreamRunEvent =
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-approved'; toolCallId: string }
-    | { type: 'tool-rejected'; toolCallId: string; reason: string }
+    /**
+     * `reason` is the sentence the model reads; `by` and `instruction` are for the row, which
+     * speaks to a person in their own language (optional for a runner that emits its own).
+     */
+    | { type: 'tool-rejected'; toolCallId: string; reason: string; by?: StreamRefusalOrigin; instruction?: string }
     /** The handler threw (not an abort): the row hears of the crash before the run ends on it. */
     | { type: 'tool-failed'; toolCallId: string; error: string }
     | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }

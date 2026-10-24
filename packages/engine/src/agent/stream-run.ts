@@ -33,6 +33,7 @@ import type {
     StreamDeferral,
     StreamDeferredCall,
     StreamDeferredReason,
+    StreamRefusalOrigin,
 } from './stream-events.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
@@ -626,24 +627,43 @@ interface CallContext {
 }
 
 /**
- * A refused call: the row says so and the model reads why — the person's own words when
- * they gave them, else the fixed sentence, byte-identical to core's. Answers `'stop-turn'`:
- * the turn's other calls must not run, but the loop takes another turn so the model reads it.
+ * What a refusal says, and to whom. `reason` is the sentence the model reads: the refuser's
+ * own when it gave one, else the person's words quoted, else the fixed sentence. `by` and
+ * `instruction` are for the row, which tells a person who refused in their own language —
+ * a reason with no origin is a policy's, as {@link StreamApprovalResolver} defines it.
+ *
+ * Exported so a runner that answers an agent elsewhere writes the same sentence.
+ */
+export function toolRefusal(decision: { reason?: string; instruction?: string; by?: StreamRefusalOrigin }): {
+    reason: string;
+    by: StreamRefusalOrigin;
+    instruction?: string;
+} {
+    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
+    // empty `tool` message.
+    const reason = decision.reason?.trim();
+    const sentence = reason
+        || (decision.instruction
+            ? `The user rejected this tool call and said: ${decision.instruction}`
+            : 'Tool execution was rejected by the user.');
+    const by = decision.by ?? (reason ? 'policy' : 'person');
+    return decision.instruction ? { reason: sentence, by, instruction: decision.instruction } : { reason: sentence, by };
+}
+
+/**
+ * A refused call: the row says so and the model reads why (see {@link toolRefusal}).
+ * Answers `'stop-turn'`: the turn's other calls must not run, but the loop takes another
+ * turn so the model reads it.
  */
 function refuse(
     ctx: CallContext,
     call: StreamToolCall,
-    decision: { reason?: string; instruction?: string },
+    decision: { reason?: string; instruction?: string; by?: StreamRefusalOrigin },
 ): 'stop-turn' {
-    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
-    // empty `tool` message.
-    const rejection = decision.reason?.trim()
-        || (decision.instruction
-            ? `The user rejected this tool call and said: ${decision.instruction}`
-            : 'Tool execution was rejected by the user.');
-    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
+    const refusal = toolRefusal(decision);
+    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, ...refusal });
     ctx.declareCall(call);
-    ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+    ctx.append({ role: 'tool', content: refusal.reason, toolCallId: call.id, toolName: call.name });
     return 'stop-turn';
 }
 
