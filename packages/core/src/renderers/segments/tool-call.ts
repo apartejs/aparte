@@ -12,6 +12,7 @@ import type {
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
 import { describeToolInput } from '../../utils/tool-input.js';
+import { toolNameOf, toolTargetOf } from '../../utils/tool-line.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
@@ -180,14 +181,7 @@ function highlightParts(element: HTMLElement): void {
  * the row its one line, not the bubble its render.
  */
 function toolTarget(segment: AparteToolCallSegment): string {
-    const summary = contextConfig().getToolSummary(segment.toolCall?.name ?? '');
-    if (!summary) return '';
-    try {
-        const text = summary(segment);
-        return typeof text === 'string' ? text.trim() : '';
-    } catch {
-        return '';
-    }
+    return toolTargetOf(segment, contextConfig());
 }
 
 /**
@@ -210,15 +204,7 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
  * label that throws or says nothing costs the row its label, not its render.
  */
 function nameOf(segment: AparteToolCallSegment): { text: string; isLabel: boolean } {
-    const identifier = segment.toolCall?.name ?? 'tool';
-    const label = contextConfig().getToolDisplay(identifier)?.label;
-    if (label !== undefined) {
-        try {
-            const text = typeof label === 'function' ? label(segment) : label;
-            if (typeof text === 'string' && text.trim()) return { text: text.trim(), isLabel: true };
-        } catch { /* the identifier, below */ }
-    }
-    return { text: identifier, isLabel: false };
+    return toolNameOf(segment, contextConfig());
 }
 
 /** The row's glyph: the display's icon key when the provider knows it, else `tool`. */

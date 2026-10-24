@@ -17,6 +17,7 @@ import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
 import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
+import { toolNameOf, toolTargetOf } from '../utils/tool-line.js';
 import { requestUserInput } from '../elicitation/index.js';
 
 /**
@@ -605,7 +606,16 @@ export class AparteClient {
              */
             message: () => {
                 const loc = this._config.getLocale();
-                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => event.name);
+                // The call as its row names it — the label the app declared, then what it
+                // targets — read from the chat's config, the one the row renders with.
+                const chat = resolveConfig(target);
+                const call = {
+                    id: `tool-${event.id}`, type: 'tool_call', status: 'awaiting-approval',
+                    toolCall: { id: event.id, name: event.name, input: event.input },
+                } as AparteToolCallSegment;
+                const name = toolNameOf(call, chat).text;
+                const what = toolTargetOf(call, chat);
+                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => (what ? `${name} ${what}` : name));
             },
             // A plain string, not a function: the arguments are the model's — its JSON, or
             // the tool's own formatter's reading of it — and do not change with the

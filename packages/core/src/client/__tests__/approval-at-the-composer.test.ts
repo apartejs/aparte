@@ -222,3 +222,30 @@ describe('the built-in gate asks at the composer', () => {
         await turn;
     });
 });
+
+describe('the question names the call as its row does', () => {
+    // The panel asked "Run delete_file?" whatever the app had declared: the row could read
+    // "Delete a file a.ts" while the one surface whose job is to stop the model printed
+    // the identifier. Same line as the row now — its label, then what it targets.
+    async function asked(declare: (cfg: AparteConfig) => void): Promise<string | null | undefined> {
+        const { cfg, target } = harness(vi.fn());
+        declare(cfg);
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        const turn = run(client, cfg, target);
+        await vi.waitFor(() => expect(document.querySelector('.aparte-approval-panel')).not.toBeNull());
+        const question = document.querySelector('.aparte-elic-message')?.textContent;
+        optionLabelled('Reject').click();
+        await turn;
+        return question;
+    }
+    const path = (s: { toolCall: { input: Record<string, unknown> } }) => String(s.toolCall.input['path'] ?? '');
+
+    it('with the label and the summary the app declared', async () => {
+        expect(await asked((cfg) => cfg.registerToolDisplay('delete_file', { label: 'Delete a file', summary: path })))
+            .toBe('Run Delete a file a.ts?');
+    });
+
+    it('with a summary alone, after the identifier', async () => {
+        expect(await asked((cfg) => cfg.registerToolSummary('delete_file', path))).toBe('Run delete_file a.ts?');
+    });
+});
