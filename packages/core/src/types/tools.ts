@@ -4,6 +4,7 @@
  */
 
 import type { AparteToolCallSegment } from './segments.js';
+import type { AparteIconName } from '../config/icon-provider.js';
 
 /** Definition of a tool the AI can call */
 export interface AparteTool {
@@ -204,7 +205,7 @@ export interface AparteToolDisplay {
      * The row's glyph: an icon-provider key (`file`, `edit`, `terminal`… — or `search`,
      * `globe` from `@aparte/core/icons` once registered). Unknown keys fall back to `tool`.
      */
-    icon?: string;
+    icon?: AparteIconName | (string & {});
     /** What the call targets, after the label — see {@link AparteToolSummary}. */
     summary?: AparteToolSummary;
     /** The arguments as a person reads them — see {@link AparteToolInputFormatter}. */
