@@ -8,6 +8,7 @@ import type {
 import { toAgUiMessages, toAgUiTools } from './messages.js';
 import { enforce } from './enforce.js';
 import { applyStateDelta } from './state.js';
+import { createTranslator } from './translate.js';
 import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
 import type { AgUiInterrupt, AgUiMessage, AgUiResumeItem, AgUiRunAgentInput } from './wire.js';
@@ -131,10 +132,16 @@ function parseArgs(args: string): unknown {
     try { return JSON.parse(args); } catch { return { arguments: args }; }
 }
 
-/** A tool result as the row shows it: text as is, anything else as JSON. */
+/** A tool result as the row shows it: text as is, the text of content parts, anything else as JSON. */
 function resultText(content: unknown): string {
     if (typeof content === 'string') return content;
     if (content === undefined || content === null) return '';
+    if (Array.isArray(content)) {
+        const text = content
+            .filter((part): part is { type: 'text'; text: string } => (part as { type?: unknown })?.type === 'text' && typeof (part as { text?: unknown }).text === 'string')
+            .map((part) => part.text);
+        if (text.length) return text.join('\n');
+    }
     return JSON.stringify(content);
 }
 
@@ -200,6 +207,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`, and its
     // run framing is read with the older rules.
     const declare = !peer || compareVersions(peer, [1, 0]) >= 0;
+    // A peer of 0.0.39 or older takes a user message's content as text only.
+    const flatten = peer !== undefined && compareVersions(peer, [0, 0, 39]) <= 0;
     // The agent's state, per thread: what its last snapshot and deltas left, sent back as
     // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
     // — only a resume reuses it.
@@ -222,7 +231,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // Answers to calls the agent left to the browser without an interrupt go back as
         // `tool` messages after the history; answers to interrupts go in one `resume`
         // batch, since the protocol refuses a partial one.
-        const messages: AgUiMessage[] = toAgUiMessages(request.messages);
+        const messages: AgUiMessage[] = toAgUiMessages(request.messages, flatten, warn);
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
             if (interrupted.has(toolCallId)) continue;
             // A page tool the page refused (its `needsApproval`, its policy): the refusal is
@@ -364,12 +373,20 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         };
 
         const verify = createVerifier(!declare);
-        for await (const raw of readAgUiEvents(response.body, response.headers.get('content-type'))) {
-            // What 1.0 does not describe is dropped or stripped first, with a warning; then a
-            // stream 1.0 says to reject is rejected before its event is drawn — what was
+        const translate = createTranslator(peer, warn);
+        // Older shapes are translated first; then what 1.0 does not describe is dropped or
+        // stripped, with a warning — the order the protocol requires of a consumer.
+        async function* incoming(body: ReadableStream<Uint8Array>, contentType: string | null) {
+            for await (const raw of readAgUiEvents(body, contentType)) {
+                for (const translated of translate(raw)) {
+                    const event = enforce(translated, warn);
+                    if (event) yield event;
+                }
+            }
+        }
+        for await (const event of incoming(response.body, response.headers.get('content-type'))) {
+            // A stream 1.0 says to reject is rejected before its event is drawn; what was
             // drawn before it stays, and the error lands below it.
-            const event = enforce(raw, warn);
-            if (!event) continue;
             verify(event);
             begin();
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
@@ -439,7 +456,9 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     if (meta?.tanstack?.state === 'output-error') {
                         emit({ type: 'tool-failed', toolCallId, error: content });
                     } else {
-                        emit({ type: 'tool-resolved', toolCallId, result: content });
+                        // A result in content parts keeps them for a renderer; the model reads their text.
+                        const parts = Array.isArray(event['content']) ? { structuredResult: event['content'] } : {};
+                        emit({ type: 'tool-resolved', toolCallId, result: content, ...parts });
                     }
                     break;
                 }

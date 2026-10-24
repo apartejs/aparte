@@ -116,21 +116,30 @@ const REJECTIONS: Record<string, string> = {
  * until it leaves this list — the list can only shrink, and never silently.
  */
 const KNOWN_GAPS: Record<string, string> = {
-    'era-0-0-39-flattens-content': 'eras',
-    'era-0-0-45-thinking-translated': 'eras',
-    'era-0-0-57-subagent-dropped-with-warning': 'eras',
-    'era-0-0-47-upgrades-binary-content': 'content',
-    'era-current-peer-keeps-modern-content': 'content',
-    'tool-result-file-source-passes-through': 'content',
-    'tool-result-parts-mint-tool-message': 'content',
 };
 
-/** aparté's history for a fixture's `input.messages`. */
-function historyOf(fixture: Fixture): { role: string; content: string }[] {
-    return (fixture.input?.messages ?? []).map((m) => ({
-        role: String(m['role']),
-        content: typeof m['content'] === 'string' ? m['content'] : '',
-    }));
+/**
+ * aparté's history for a fixture's `input.messages`, which are AG-UI messages. Text and
+ * images carry over; a legacy `binary` part becomes the image it is, since aparté's
+ * history has no binary part — so the upgrade the reference client performs on the way
+ * out has already happened on the way in, and what this lane checks is that the runner
+ * sends aparté's images as AG-UI 1.0 image parts. Message ids and attribution have no
+ * place in aparté's history (see UNOBSERVABLE_MESSAGE_KEYS).
+ */
+function historyOf(fixture: Fixture): { role: string; content: unknown }[] {
+    return (fixture.input?.messages ?? []).map((m) => {
+        const content = m['content'];
+        if (!Array.isArray(content)) return { role: String(m['role']), content: typeof content === 'string' ? content : '' };
+        const parts = content.flatMap((part: Record<string, unknown>) => {
+            if (part['type'] === 'text') return [{ type: 'text', text: part['text'] }];
+            const source = part['source'] as { type?: string; value?: string; mimeType?: string } | undefined;
+            if (part['type'] === 'image' && source?.type === 'url') return [{ type: 'image', image: source.value, mimeType: source.mimeType }];
+            if (part['type'] === 'image' && source?.type === 'data') return [{ type: 'image', image: `data:${source.mimeType};base64,${source.value}`, mimeType: source.mimeType }];
+            if (part['type'] === 'binary' && typeof part['url'] === 'string') return [{ type: 'image', image: part['url'], mimeType: part['mimeType'] }];
+            return [];
+        });
+        return { role: String(m['role']), content: parts };
+    });
 }
 
 /** The messages a client would hold after the run, rebuilt from the runner's events. */
@@ -164,7 +173,8 @@ function messagesOf(fixture: Fixture, events: { type: string; [key: string]: unk
             }
             case 'tool-resolved':
             case 'tool-failed':
-                out.push({ role: 'tool', toolCallId: e['toolCallId'], content: e['result'] ?? e['error'] });
+                // A result in parts keeps them as the structured result; its text is what the model reads.
+                out.push({ role: 'tool', toolCallId: e['toolCallId'], content: e['structuredResult'] ?? e['result'] ?? e['error'] });
                 assistant = undefined;
                 break;
         }
@@ -215,7 +225,7 @@ async function replay(fixture: Fixture) {
         onWarning: (message: string) => { warnings.push(message); },
         ...(fixture.client?.maxProtocolVersion ? { peerProtocolVersion: fixture.client.maxProtocolVersion } : {}),
     } as Parameters<typeof createAgUiRunner>[0]);
-    const runOnce = async (history: { role: string; content: string }[]) => {
+    const runOnce = async (history: { role: string; content: unknown }[]) => {
         const events: { type: string; [key: string]: unknown }[] = [];
         let error: unknown;
         try {
@@ -313,7 +323,7 @@ describe('AG-UI conformance corpus', () => {
             }
             if ('request' in e) {
                 observed++;
-                subset(r.request, e['request'], 'request', problems);
+                subset(r.request, e['request'], 'request', problems, UNOBSERVABLE_MESSAGE_KEYS);
             }
             if ('requestAbsentPaths' in e) {
                 observed++;

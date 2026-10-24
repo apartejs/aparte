@@ -162,6 +162,24 @@ describe('createAgUiRunner: the stream', () => {
         await expect(http.done).rejects.toMatchObject({ message: 'Unauthorized agent' });
     });
 
+    it("sends an attached image as AG-UI 1.0 content: a data URL as a data source", async () => {
+        const f = fakeFetch(sse(started, finished()));
+        await run(f.fetch, {
+            baseRequest: {
+                messages: [{ role: 'user', content: [{ type: 'text', text: 'What is this?' }, { type: 'image', image: 'data:image/png;base64,iVBORw0KGgo=' }] }],
+                modelId: 'x', stream: true,
+            },
+        } as never).done;
+        expect((f.bodies[0]!['messages'] as unknown[])[0]).toEqual({
+            id: 'aparte-0',
+            role: 'user',
+            content: [
+                { type: 'text', text: 'What is this?' },
+                { type: 'image', source: { type: 'data', value: 'iVBORw0KGgo=', mimeType: 'image/png' } },
+            ],
+        });
+    });
+
     it('reads on past a RUN_ERROR, keeps what was drawn, and reports the failure at the end', async () => {
         const r = run(fakeFetch(sse(
             started,
