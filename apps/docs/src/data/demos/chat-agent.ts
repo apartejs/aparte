@@ -115,7 +115,10 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
     }],
   });
 
-  // The decision is asked at the composer, with the arguments it is about.
+  // The decision is asked at the composer, with the arguments it is about. AparteClient
+  // runs or refuses the call on the answer; here the answer is played onto the row by hand.
+  const row = (updates) => chat.viewport.updateSegment('a1', 's1', updates);
+  const reply = (content) => chat.viewport.addSegment('a1', { id: 's2', type: 'text', content });
   requestUserInput({
     kind: 'approval',
     message: 'Allow delete_file?',
@@ -124,6 +127,23 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
       { value: 'approve', label: 'Approve' },
       { value: 'reject', label: 'Reject', tone: 'deny' },
     ],
+  }).then((answer) => {
+    const typed = answer.action === 'accept' ? (answer.content.instruction || '').trim() : '';
+    if (answer.action === 'accept' && !typed && answer.content.option === 'approve') {
+      row({ status: 'pending' });
+      setTimeout(() => {
+        row({ status: 'resolved', result: 'Deleted src/legacy/old-client.ts.' });
+        reply('Done: the old client is gone.');
+      }, 900);
+    } else {
+      // Typing instead of choosing is a refusal that carries the person's words.
+      row({
+        status: 'rejected',
+        result: 'Tool execution was rejected by the user.',
+        refusal: typed ? { by: 'person', instruction: typed } : { by: 'person' },
+      });
+      reply(typed ? 'Understood, I will do that instead.' : 'Understood, I left it in place.');
+    }
   }).catch(() => {});
 </script>`,
     },
@@ -159,16 +179,26 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 
 <script>
   const { requestUserInput } = window.aparte;
+  const chat = document.querySelector('aparte-chat');
+  const options = [
+    { value: 'md', label: 'Markdown', description: 'For the repository', recommended: true },
+    { value: 'pdf', label: 'PDF', description: 'To send around' },
+    { value: 'html', label: 'Web page', description: 'To publish' },
+  ];
   requestUserInput({
     message: 'Which format should the report use?',
-    schema: {
-      type: 'enum',
-      options: [
-        { value: 'md', label: 'Markdown', description: 'For the repository', recommended: true },
-        { value: 'pdf', label: 'PDF', description: 'To send around' },
-        { value: 'html', label: 'Web page', description: 'To publish' },
-      ],
-    },
+    schema: { type: 'enum', options },
+  }).then((answer) => {
+    // The answer is the chosen value (or the words typed under "Other…"). Here it goes
+    // into the conversation by hand; with the plugin, a receipt in the reply keeps it.
+    if (answer.action !== 'accept') return;
+    const chosen = options.find((o) => o.value === answer.content);
+    const said = chosen ? chosen.label : String(answer.content);
+    chat.viewport.appendMessage({ id: 'u1', role: 'user', content: said, timestamp: Date.now() });
+    chat.viewport.appendMessage({
+      id: 'a1', role: 'assistant', timestamp: Date.now(),
+      content: 'Noted: the report will be written as ' + said + '.',
+    });
   }).catch(() => {});
 </script>`,
     },
