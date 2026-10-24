@@ -107,6 +107,10 @@ function setNote(element: Element, segment: AparteToolCallSegment): void {
     const text = noteOf(segment);
     if (el.textContent !== text) el.textContent = text;
     el.toggleAttribute('hidden', !text);
+    // Its own title: one line cut by an ellipsis must still be readable whole — the
+    // person's own words, among others.
+    if (text) el.setAttribute('title', text);
+    else el.removeAttribute('title');
 }
 
 /**
@@ -293,7 +297,7 @@ function pillMarkup(segment: AparteToolCallSegment, status: string): string {
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state">${badge}</span>
-                <span class="aparte-tool-note"${note ? '' : ' hidden'}>${escapeHtml(note)}</span>`;
+                <span class="aparte-tool-note"${note ? ` title="${escapeAttr(note)}"` : ' hidden'}>${escapeHtml(note)}</span>`;
 }
 
 /**

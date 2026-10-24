@@ -88,6 +88,14 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     margin: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    /* One surface whether a highlighter coloured the part or not — the coloured part
+       had a panel and the plain one sat bare beside it — at a size under the row's. */
+    padding: var(--aparte-space-3) var(--aparte-space-4);
+    border-radius: var(--aparte-radius-code);
+    background: var(--aparte-code-bg);
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-code-block-line-height);
 }
 /* Always in the DOM so update can leave the node alone and toggle hidden
    instead — an attribute a test can read, where a CSS-only rule is invisible
@@ -119,7 +127,15 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     color: var(--aparte-text-muted);
 }
 .aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
-.aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* The name yields last, and with an ellipsis: it used to spill over the state word at
+   375px once a note shared the line (the label shrank, the text inside it did not). */
+.aparte-tool-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--aparte-code-font-family);
+}
 /* A label the app declared (registerToolDisplay) is words for a person, not an
    identifier: it reads in the chat's own face. */
 .aparte-tool-name--label { font-family: inherit; }
@@ -127,6 +143,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    line, cut with an ellipsis, so a long path gives way before the state word does. */
 .aparte-tool-target {
     min-width: 0;
+    /* Gives way before the name does. */
+    flex-shrink: 1000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -142,6 +160,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    state word drifted 63px from the name at 375 and 596px at 1280. The state belongs to
    the label (T18). */
 .aparte-tool-state {
+    /* Never yields: the state is the one word on the row a reader must not lose. */
+    flex: none;
     display: inline-flex;
     vertical-align: middle; align-items: center; gap: var(--aparte-space-2);
     font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
@@ -154,6 +174,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    with an ellipsis before it can push the row wider. */
 .aparte-tool-note {
     min-width: 0;
+    /* Gives way first, before the label; its full text is its title. */
+    flex-shrink: 1000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
