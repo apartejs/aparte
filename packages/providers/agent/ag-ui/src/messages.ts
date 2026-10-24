@@ -2,9 +2,13 @@ import { contentToText } from '@aparte/core';
 import type { AparteChatMessage, AparteContentPart, AparteTool } from '@aparte/core';
 import type { AgUiInputContent, AgUiMessage, AgUiRunAgentInput } from './wire.js';
 
-/** An aparté image as AG-UI 1.0 content: a data URL becomes a `data` source, anything else a `url` one. */
+/**
+ * An aparté image as AG-UI 1.0 content: a base64 data URL becomes a `data` source, whose
+ * value AG-UI defines as base64; anything else — a link, or a data URL that is not base64,
+ * such as a percent-encoded SVG — goes whole as a `url` source.
+ */
 function imagePart(part: Extract<AparteContentPart, { type: 'image' }>): AgUiInputContent {
-    const data = /^data:([^;,]*)(?:;base64)?,(.*)$/s.exec(part.image);
+    const data = /^data:([^;,]*)(?:;[^;,]*)*;base64,(.*)$/s.exec(part.image);
     if (data) return { type: 'image', source: { type: 'data', value: data[2]!, mimeType: part.mimeType ?? (data[1] || 'application/octet-stream') } };
     return { type: 'image', source: { type: 'url', value: part.image, ...(part.mimeType ? { mimeType: part.mimeType } : {}) } };
 }
