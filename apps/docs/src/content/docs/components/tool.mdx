@@ -137,11 +137,13 @@ opening the rows.
 
 ## Accessibility
 
-- When there is an input or a result to show, the row is a native `<details>`: its summary opens
-  with Enter or Space and announces whether it is expanded. With nothing behind it, it is a
+- When there is something behind the line (an input or a result, or the detail your `details`
+  function draws), the row is a native `<details>`: its summary opens with Enter or Space and
+  announces whether it is expanded. With nothing behind it (`details: false` included), it is a
   plain row and takes no tab stop.
 - The status is written in words (locale keys such as `toolRunning`, `toolCompleted`,
-  `toolFailed`), not only shown as a colour or an icon.
+  `toolFailed`), not only shown as a colour or an icon. A quiet row keeps "Running" and "Done"
+  for a screen reader only; its label's tense says them on screen.
 - Input and Output are focusable regions named by their label, so a long part that scrolls past
   `--aparte-tool-part-max-height` (300px) can be read with the keyboard; each has a copy button.
 

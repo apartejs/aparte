@@ -229,7 +229,9 @@ export interface AparteToolDisplay {
      * The line a person reads in a conversational chat, where the default is an agent's.
      * While the call runs, the label shimmers (`aparte-shimmer`) instead of a spinner and
      * "Running"; once it is done, nothing marks success — the label's tense says it, so
-     * write one that reads the status ("Searching the web…" / "Searched the web"). A wait
+     * write one that reads the status ("Searching the web…" / "Searched the web" / a plain
+     * "Search the web" for the rest). Under reduced motion the shimmer holds still, so that
+     * label is what says the call runs. A wait
      * for approval, a refusal, a failure and a stop still show their word and note. The
      * words it does not show are still read by a screen reader. The target is set in the
      * chat's font and the chevron moves to the end of the line; the row carries
@@ -251,7 +253,8 @@ export interface AparteToolDisplay {
  * line yet: no disclosure, which appears once there is something (a result, say).
  *
  * A function that throws costs the row its detail, never its line, and never falls back
- * to the raw Input and Output.
+ * to the raw Input and Output. Register the same function rather than a new closure each
+ * time: a different `details` redraws the messages on screen.
  */
 export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
 

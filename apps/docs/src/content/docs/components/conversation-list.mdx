@@ -40,8 +40,10 @@ on a question or an approval, and a mark sits beside the title. A screen reader 
 with the title ("Answering", "Waiting for you", in the reader's language).
 
 With a [conversation controller](/guides/conversation-persistence/) you write nothing: it sends
-`aparte-conversation-status` on `window` as each turn starts, pauses and ends, and every list
-applies it. Without one, say it yourself:
+`aparte-conversation-status` on `window` as each turn starts (`running`), pauses on the page
+(`waiting`), resumes (`running`) and ends (`null`), from the turn's own `aparte-message-start`,
+`-paused`, `-resumed`, `-done`, `-error` and `-aborted`. Without one, say it yourself, from the
+same events:
 
 ```js
 const list = document.querySelector('aparte-conversation-list');
@@ -51,7 +53,12 @@ list.setConversationStatus('c1', null);   // neither
 
 `running` is always the conversation on screen: opening another one stops the turn. `waiting` is
 the one state a conversation keeps once the person has gone elsewhere, because a paused run
-survives the switch.
+survives the switch. After a reload, a paused conversation shows it again once it is opened and
+its question is put again.
+
+A state is about a conversation, not about one list: it is kept for the page, every list draws
+it, and a list that appears later (a drawer opened on demand, a remount) draws it too. It is
+keyed by conversation id, so two chats on one page whose ids collide share their states.
 
 The state is data on the row (`data-status`) and the look is CSS, so it is yours to change. The
 mark (`.aparte-conv-item__status`) is an empty slot until a state draws it. A dot for `running`
@@ -62,6 +69,7 @@ instead of the shimmer:
   animation: none;
   background-image: none;
   -webkit-text-fill-color: currentColor;
+  color: inherit;
 }
 .aparte-conv-item[data-status="running"] .aparte-conv-item__status {
   display: block;

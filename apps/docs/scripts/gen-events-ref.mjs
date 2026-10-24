@@ -146,7 +146,12 @@ for (const file of sources) {
     // preview its state is not a dispatch site, and it credited the gauge with the loop's event.
     const src = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const defined = src.match(/customElements\.define\(\s*'(aparte-[\w-]+)'/);
-    const who = file.startsWith(PLUGINS) ? '`' + packageNameOf(file) + '`' : defined ? '`<' + defined[1] + '>`' : '`AparteClient`';
+    // Not an element: the class the file exports, else the conversation controller for its
+    // folder's helpers, else the client. Everything used to fall to the client, which put
+    // the controller's own events under `AparteClient`.
+    const ownClass = src.match(/export class (Aparte\w+)/)?.[1];
+    const byFolder = /[\\/]conversations[\\/]/.test(file) ? 'AparteConversationController' : undefined;
+    const who = file.startsWith(PLUGINS) ? '`' + packageNameOf(file) + '`' : defined ? '`<' + defined[1] + '>`' : '`' + (ownClass ?? byFolder ?? 'AparteClient') + '`';
     for (const m of src.matchAll(/addEventListener\(\s*'(aparte-[\w-]+)'/g)) listened.add(m[1]);
     /*
      * A SET per name, because an event can legitimately go out from two places and picking
