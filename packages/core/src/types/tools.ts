@@ -230,7 +230,8 @@ export interface AparteToolDisplay {
 /**
  * What a row shows behind its line, in place of Input and Output: a list of sources for a
  * search, a sentence for a write. Called when the row is drawn and on every update of the
- * call, so it can read the status and the result as they land.
+ * call, so it can read the status and the result as they land — and on a language switch,
+ * whose words are written into the nodes already there when the shape is the same.
  *
  * Return an **HTMLElement** and nothing goes through `innerHTML`. Return a **string** and
  * core inserts it as HTML, so every value from the call — `segment.toolCall.input`, chosen

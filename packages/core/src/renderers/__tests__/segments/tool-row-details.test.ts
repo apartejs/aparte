@@ -57,6 +57,15 @@ describe('details: false — the line alone', () => {
         expect(el.textContent).not.toContain('lake varden');
     });
 
+    it('its line is the same flex line a summary is, so the narrow-screen rules reach it', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: false });
+        const line = draw(call()).querySelector('.aparte-tool-line');
+        expect(line).not.toBeNull();
+        expect(line!.querySelector('.aparte-tool-name')).not.toBeNull();
+        expect(line!.querySelector('.aparte-tool-state')).not.toBeNull();
+        expect(line!.querySelector('.aparte-tool-note')).not.toBeNull();
+    });
+
     it('stays the line alone as the call runs and resolves', () => {
         aparteGlobalConfig.registerToolDisplay('web_search', { details: false });
         let el = draw(call({ status: 'pending', result: undefined }));
@@ -152,5 +161,86 @@ describe('details: a function — the app\'s detail under the default line', () 
     it('open applies as it does to the default detail', () => {
         aparteGlobalConfig.registerToolDisplay('web_search', { details: sources, open: true });
         expect((draw(call()) as HTMLDetailsElement).open).toBe(true);
+    });
+
+    it('goes back to the line alone when it returns \'\' on an update', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: (segment) => (segment.status === 'resolved' ? '<p>found</p>' : '') });
+        let el = draw(call());
+        expect(el.tagName).toBe('DETAILS');
+        el = updated(el, call({ status: 'failed' }));
+        expect(el.tagName).toBe('DIV');
+        expect(el.querySelector('.aparte-tool-line .aparte-tool-name')).not.toBeNull();
+    });
+
+    it('a string is drawn again on an update', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: (segment) => `<p class="said">${segment.status}</p>` });
+        const el = draw(call({ status: 'pending' }));
+        expect(updated(el, call()).querySelector('.said')?.textContent).toBe('resolved');
+    });
+
+    it('is asked once per update, and never for a call another renderer draws', () => {
+        let asked = 0;
+        aparteGlobalConfig.registerToolDisplay('*', { details: () => { asked++; return '<p>x</p>'; } });
+        let el = draw(call({ status: 'pending', result: undefined }));
+        asked = 0;
+        el = updated(el, call());
+        expect(asked, 'one update, one call — the rebuild reuses it').toBe(1);
+
+        aparteGlobalConfig.registerToolRenderer('web_search', { render: () => '<div class="mine">mine</div>' });
+        asked = 0;
+        updated(el, call());
+        expect(asked, 'a renderer draws this tool: its output could not be used').toBe(0);
+    });
+
+    it('when the display drops it, the next update draws Input and Output alone — not around the app\'s detail', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: sources });
+        const el = draw(call());
+        aparteGlobalConfig.unregisterToolDisplay('web_search');
+        const after = updated(el, call());
+        expect(after.querySelector('.sources')).toBeNull();
+        expect(after.querySelectorAll('.aparte-tool-part').length).toBe(2);
+    });
+});
+
+describe('details on a language switch', () => {
+    afterEach(() => aparteGlobalConfig.resetLocale());
+
+    // An app detail that reads aparté's locale, as one written with `t()` would.
+    const said = (segment: AparteToolCallSegment): HTMLElement => {
+        const p = document.createElement('p');
+        p.className = 'said';
+        p.textContent = `${aparteGlobalConfig.t('toolOutput')}: ${segment.result}`;
+        return p;
+    };
+
+    it('asks the function again and writes the new words into the nodes already there', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: said });
+        const el = draw(call({ result: '3 pages' })) as HTMLDetailsElement;
+        el.open = true;
+        const before = el.querySelector('.said')!;
+        aparteGlobalConfig.extendLocale({ toolOutput: 'Sortie' });
+        renderer().relabel!(el, call({ result: '3 pages' }));
+        expect(el.querySelector('.said')).toBe(before);
+        expect(before.textContent).toBe('Sortie: 3 pages');
+        expect(el.open).toBe(true);
+    });
+
+    it('adds or removes no node when nothing it draws changed', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: sources });
+        const el = draw(call());
+        const seen: MutationRecord[] = [];
+        const observer = new MutationObserver((records) => seen.push(...records));
+        observer.observe(el.querySelector('.aparte-tool-detail')!, { childList: true, subtree: true, characterData: true, attributes: true });
+        renderer().relabel!(el, call());
+        seen.push(...observer.takeRecords());
+        observer.disconnect();
+        expect(seen).toEqual([]);
+    });
+
+    it('replaces it when what it draws changed shape', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: sources });
+        const el = draw(call());
+        renderer().relabel!(el, call({ result: '[{"title":"Trail guide"},{"title":"Off-season"}]' }));
+        expect(el.querySelectorAll('.sources li').length).toBe(2);
     });
 });
