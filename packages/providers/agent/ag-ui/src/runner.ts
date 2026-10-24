@@ -1,4 +1,4 @@
-import { AparteError, AparteErrorCode, uuid } from '@aparte/core';
+import { AparteError, AparteErrorCode, toolRefusal, uuid } from '@aparte/core';
 import type {
     AparteChatRequest,
     AparteStreamRunEvent,
@@ -152,10 +152,9 @@ function resultText(content: unknown): string {
     return JSON.stringify(content);
 }
 
-/** What the model reads about a refusal: the person's words, else core's fixed sentence. */
-function rejectionText(decision: { reason?: string; instruction?: string }): string {
-    return decision.reason?.trim()
-        || (decision.instruction ? `The user rejected this tool call and said: ${decision.instruction}` : 'Tool execution was rejected by the user.');
+/** What the model reads about a refusal: the sentence core's loop writes (`toolRefusal`). */
+function rejectionText(decision: Parameters<typeof toolRefusal>[0]): string {
+    return toolRefusal(decision).reason;
 }
 
 /** The answer a resumed interrupt carries, in the shape AG-UI (and TanStack AI) reads. */
@@ -374,7 +373,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 if (outcome.approved) {
                     emit({ type: 'tool-approved', toolCallId });
                 } else {
-                    emit({ type: 'tool-rejected', toolCallId, reason: rejectionText(outcome) });
+                    // Who refused and what they said ride along for the row; `reason` is the agent's.
+                    emit({ type: 'tool-rejected', toolCallId, ...toolRefusal(outcome) });
                     rejected.add(toolCallId);
                 }
             }

@@ -25,6 +25,7 @@ import type {
 } from '../types/segments.js';
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
+import { toolRefusal as engineToolRefusal } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
 import { resolveConfig } from '../config/config-context.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
@@ -36,6 +37,22 @@ import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
  * for the per-event documentation.
  */
 export type AparteStreamRunEvent = StreamRunEvent;
+
+/**
+ * What a refused tool call tells the model, and who refused it — engine's `toolRefusal`,
+ * under core's roof. `reason` is the sentence the model reads (the refuser's own, else
+ * the person's words quoted, else "Tool execution was rejected by the user."); `by` and
+ * `instruction` are what a row shows the person.
+ *
+ * For a runner that answers an agent the loop does not run (an AG-UI agent, a server):
+ * it writes the sentence the loop writes, so the model reads one refusal however it ran.
+ *
+ * @example
+ * toolRefusal({ instruction: 'use the staging bucket' });
+ * // → { reason: 'The user rejected this tool call and said: use the staging bucket',
+ * //     by: 'person', instruction: 'use the staging bucket' }
+ */
+export const toolRefusal: typeof engineToolRefusal = engineToolRefusal;
 
 /** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
 export type AparteStreamRunEmitter = StreamRunEmitter;
