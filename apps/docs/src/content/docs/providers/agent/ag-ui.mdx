@@ -45,7 +45,8 @@ the approval panel work as they do with aparté's own loop.
 Each model step of the run is a turn of its own in the reply, and the reply reports the usage of
 its last step, as a run in the page does: the size of what the model last saw, which is what the
 context gauge reads. A `RUN_ERROR` does not cut the stream: the runner reads it to the end, as the
-protocol asks, and the error lands below what was drawn. A stream that ends without
+protocol asks, and the error lands below what was drawn — unless the agent runs again in the same
+stream, in which case the new run decides how the reply ends and the failure goes to `onWarning`. A stream that ends without
 `RUN_FINISHED` ends the reply with an error. `STEP_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`,
 `CUSTOM` and sub-agent events are checked, not drawn. The runner reads the answer as server-sent
 events, or as NDJSON when its content type says so.
@@ -54,8 +55,9 @@ events, or as NDJSON when its content type says so.
 
 The runner speaks AG-UI 1.0: it declares `protocolVersion: "1.0"` on every request, and holds the
 agent's stream to the rules 1.0 sets a client. A run opens with `RUN_STARTED` and ends with
-`RUN_FINISHED`, a message is opened before its content and closed before the run ends, a step or a
-sub-agent is started before it finishes. A stream that breaks one ends the reply with an error that
+`RUN_FINISHED` or `RUN_ERROR`; a message, a tool call, a step or a sub-agent is opened before it
+continues and closed before the run finishes, each owner — the agent, or each sub-agent — keeping
+its own; a known field has its type. A stream that breaks one ends the reply with an error that
 names the rule; what was drawn before it stays. What the agent sends that 1.0 does not describe —
 an event type, a property, an outcome — is dropped, and the runner tells `onWarning` what and
 where, `console.warn` by default.
