@@ -128,3 +128,31 @@ describe('a turn of nothing but hidden calls', () => {
         expect(el.querySelector('.aparte-message')!.hasAttribute('data-empty')).toBe(true);
     });
 });
+
+describe('a hidden call reaches the model on the next turn', () => {
+    it('the message the adapter built sends the call and its answer through wireTurns', async () => {
+        const { wireTurns } = await import('../wire-history.js');
+        aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+        const segments: AparteSegment[] = [];
+        const emit = createStreamAdapter({
+            target: {
+                addSegment: (s: AparteSegment) => { segments.push(s); },
+                updateSegment: (id: string, u: Partial<AparteSegment>) => {
+                    const i = segments.findIndex((s) => s.id === id);
+                    if (i !== -1) segments[i] = { ...segments[i], ...u } as AparteSegment;
+                },
+                updateMessage: () => {}, dispatchEvent: () => true,
+            },
+            config: aparteGlobalConfig,
+            messageId: 'm1',
+        });
+        emit({ type: 'tool-start', toolCallId: 'c1', name: 'lookup', input: { q: 'x' } });
+        emit({ type: 'tool-resolved', toolCallId: 'c1', result: 'found' });
+        const message = { id: 'm1', role: 'assistant', content: '', timestamp: 1, status: 'completed', segments } as AparteMessage;
+        const history = wireTurns(message, () => '');
+        expect(history).toEqual([
+            { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'lookup', input: { q: 'x' } }] },
+            { role: 'tool', content: 'found', toolCallId: 'c1', toolName: 'lookup' },
+        ]);
+    });
+});

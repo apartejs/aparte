@@ -245,6 +245,14 @@ describe('the question names the call as its row does', () => {
             .toBe('Allow Delete a file a.ts?');
     });
 
+    it("a label function reads the chat's config, as it does on the row", async () => {
+        const { contextConfig } = await import('../../config/index.js');
+        expect(await asked((cfg) => {
+            cfg.extendLocale({ toolInput: 'Entrée' });
+            cfg.registerToolDisplay('delete_file', { label: () => contextConfig().t('toolInput') });
+        })).toBe('Allow Entrée?');
+    });
+
     it('with a summary alone, after the identifier', async () => {
         expect(await asked((cfg) => cfg.registerToolSummary('delete_file', path))).toBe('Allow delete_file a.ts?');
     });
