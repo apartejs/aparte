@@ -39,18 +39,19 @@ function describeInput(segment: AparteToolCallSegment): string {
 function stateBadge(segment: AparteToolCallSegment): string {
     const cfg = contextConfig();
     const status = segment.status ?? 'pending';
-    const word = (key: string): string => escapeHtml(cfg.t(key as never));
+    // Literal `t('…')` reads, typed and visible to the locale guard.
+    const word = (text: string): string => escapeHtml(text);
     // Paused for a person: two bars, so the one state a reader must act on wears a glyph
     // like every other — it used to be the only bare word in the row.
-    if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word('approvalWaiting')}`;
-    if (status === 'pending') return word('toolRunning');
-    if (status === 'resolved') return `${cfg.getIcon('check')}${word('toolCompleted')}`;
-    if (status === 'rejected') return `${cfg.getIcon('close')}${word('toolRejected')}`;
+    if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word(cfg.t('approvalWaiting'))}`;
+    if (status === 'pending') return word(cfg.t('toolRunning'));
+    if (status === 'resolved') return `${cfg.getIcon('check')}${word(cfg.t('toolCompleted'))}`;
+    if (status === 'rejected') return `${cfg.getIcon('close')}${word(cfg.t('toolRejected'))}`;
     // A stop square, not the cross rejected wears: stopped and declined are two
     // different outcomes, and they used to share the glyph and the colour.
-    if (status === 'aborted') return `${cfg.getIcon('stop')}${word('toolStopped')}`;
+    if (status === 'aborted') return `${cfg.getIcon('stop')}${word(cfg.t('toolStopped'))}`;
     // A crash is a third outcome: not declined, not stopped — the handler threw.
-    if (status === 'failed') return `${cfg.getIcon('close')}${word('toolFailed')}`;
+    if (status === 'failed') return `${cfg.getIcon('close')}${word(cfg.t('toolFailed'))}`;
     return '';
 }
 
