@@ -1,5 +1,11 @@
 # @aparte/locale-fr
 
+## 0.24.0
+
+### Minor Changes
+
+- 6b28491: French for the conversation list's new states: « Réponse en cours », « Attend votre réponse ».
+
 ## 0.23.0
 
 ### Minor Changes

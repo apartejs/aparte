@@ -1,5 +1,54 @@
 # @aparte/core
 
+## 0.24.0
+
+### Minor Changes
+
+- 6b28491: `<aparte-conversation-list>` shows what each conversation is doing: its title shimmers while an AI answers in it, and a mark appears while its run is paused on the page (a server run waiting on an approval, a question or a browser tool). With a conversation controller, nothing to write.
+
+  `setConversationStatus(id, 'running' | 'waiting' | null)` and `getConversationStatus(id)` on the list; the row carries `data-status`, a screen reader hears the state with the title (new locale keys `conversationRunning`, `conversationWaiting`), and the mark (`.aparte-conv-item__status`) is an empty slot until a state draws it, so the look is yours in CSS. The conversation controller sends the new `aparte-conversation-status` event on `window` as turns start (`running`), pause on the person (`waiting`) and end (`null`), always about the conversation the turn started in; every list applies it. New types: `AparteConversationStatus`, `AparteConversationStatusDetail`.
+
+  A state is kept for the page, not per list: every list draws it, one that connects later (a drawer, a remount) included, keyed by conversation id. The controller follows the turn in flight by its message id, so a replaced turn's end does not clear the new turn's state, and a chat unbound mid-turn (a route change) leaves no row running.
+
+- 010ed41: `AparteClient` sends the new `aparte-message-resumed` when a paused turn goes on after the page answered its paused calls, and a turn that starts from a saved pause now sends `aparte-message-paused` right after `aparte-message-start`.
+
+  `aparte-message-paused` had no other half: a listener tracking a turn heard it stop to wait and never heard it run again until `aparte-message-done`, and a turn resumed after a reload said "start" while it was asking. New type: `AparteMessageResumedEventDetail`; `APARTE_DEFAULT_UI_EVENTS` lists the event.
+
+  `resumeDeferred` no longer starts a reply a turn is already running into: loading the open conversation again (a click on it) while its pause waited put the same question twice and started the same reply a second time.
+
+- 6b28491: New kit recipe `.aparte-shimmer`: a light sweeping across a label while something runs.
+
+  Put it on the span that holds the words of a step in progress ("Searching the web…", "Thinking"). It is drawn through the text fill, so the element keeps a real colour; it holds still under `prefers-reduced-motion`, and reads as plain text in forced colours and where `background-clip: text` is not supported. New tokens: `--aparte-shimmer-base` and `--aparte-shimmer-shine` (muted to full ink, which keeps its order in both themes) and `--aparte-duration-shimmer` (2s). The reasoning line, a quiet tool row and a running conversation's title wear it.
+
+- 6b28491: The reasoning label now shimmers while the block streams. Nothing to change in your code; the light stops when the block settles.
+
+  "Thinking" was a still word above a block that was filling up; conversational chats sweep a light across it while the model is still reasoning, and AI Elements and assistant-ui do it by default. It follows the block's own `isStreaming: true`, so a block written by hand or restored from storage stays still, and it never moves under `prefers-reduced-motion`. The label is drawn through its text fill while it shimmers, so a colour you set on `.aparte-thinking-label` shows once the block settles (recolour the sweep with `--aparte-shimmer-base` / `--aparte-shimmer-shine`). To keep the label still:
+
+  ```css
+  .aparte-thinking-label.aparte-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    color: inherit;
+  }
+  ```
+
+  The client now marks a streamed reasoning block `isStreaming: true` while it arrives (it was left unset), and settles it at the model's first tool call and at a new step as well as at its first answer token, so a block followed by a tool call no longer reads "Thinking" while the tool runs. Only the answer folds it: a tool call does not close a block the reader opened.
+
+- 140517e: `registerToolDisplay` takes `details`: `false` for the line alone, or a function that draws what is behind it in place of Input and Output.
+
+  Behind a tool row's line, core shows the arguments and the result, raw: a developer's view, and it stays the default. A chat for people had no way out of it but hiding the call or rewriting the whole row. `details: false` keeps core's line with no disclosure at all, so nothing raw is one click away; on `'*'` it covers every tool nothing more specific describes. A function returns what stands in for Input and Output under core's line, a list of sources for a search, say: an element, or a string inserted as HTML after the config's HTML sanitizer (the one Markdown goes through), since what it shows comes from a tool's result. It is called on every update of the call, and on a language switch, whose words are written into the nodes already there; `''` means nothing behind the line yet, and the row gets its disclosure once there is something. A function that throws costs the row its detail, never its line, and never brings the raw parts back.
+
+  `hidden` and a tool renderer keep their precedence. Registering or dropping `details` redraws the rows already on screen, as `hidden` and `open` do. New type: `AparteToolDetails`.
+
+- 6b28491: `registerToolDisplay` takes `quiet`: the line a person reads, with a shimmer while the call runs and no "Done" once it is done.
+
+  The default row is an agent's: a spinner and "Running", then "✓ Done", and it stays the default. `quiet: true` drops the spinner and the word while the call runs (the label shimmers instead), and shows nothing once it succeeded: the label's tense says it, so give it one that reads the status ("Searching the web…" / "Searched the web" / a plain "Search the web" for the rest). A wait for approval, a refusal, a failure and a stop still show their word and note; the words a quiet row does not show are still read by a screen reader. The target is set in the chat's font and the chevron moves to the end of the line; the row carries `data-quiet`. Registering or dropping it redraws the rows on screen.
+
+### Patch Changes
+
+- @aparte/engine@0.24.0
+
 ## 0.23.0
 
 ### Minor Changes
