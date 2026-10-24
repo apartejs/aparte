@@ -262,6 +262,21 @@ function pillMarkup(segment: AparteToolCallSegment, status: string): string {
                 <span class="aparte-tool-note"${note ? '' : ' hidden'}>${escapeHtml(note)}</span>`;
 }
 
+/**
+ * A call that draws nothing — hidden by its display, or drawn as nothing by its renderer.
+ *
+ * Still an element, empty and `hidden`, with the row's identity: updates find their row by
+ * id, and an empty render made every one of them miss and rebuild the whole message,
+ * closing whatever the reader had opened. The call itself stays in the message and in the
+ * model's history; only its row is empty.
+ */
+function placeholderMarkup(segment: AparteToolCallSegment): string {
+    return `<div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(segment.status ?? 'pending')}" data-tool-call-id="${escapeAttr(segment.toolCall?.id ?? '')}" data-tool-name="${escapeAttr(segment.toolCall?.name ?? 'tool')}" hidden></div>`;
+}
+
+const isPlaceholder = (element: Element): boolean =>
+    (element as HTMLElement).hidden && element.classList.contains('aparte-segment-tool-call') && element.childElementCount === 0;
+
 export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
     type: 'tool_call',
     render: (segment) => {
@@ -288,14 +303,17 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * never draw anything while a tool awaited approval. The lookup is now first,
          * and a tool renders its own surface at every status.
          */
-        const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
+        if (contextConfig().isToolHidden(name)) return placeholderMarkup(segment);
+        const customRenderer = contextConfig().getToolRenderer(name);
         if (customRenderer) {
             // Its stylesheet, here as well as on the live path: this is what runs when a
             // stored conversation is re-rendered, and nothing replays `tool-start` for
-            // history. Idempotent, keyed by tool name.
-            injectToolRendererStyles(segment.toolCall?.name ?? '', customRenderer);
-            const out = customRenderer.render(segment);
-            if (out) return out;
+            // history. Idempotent, keyed by renderer.
+            injectToolRendererStyles(name, customRenderer);
+            // Drawing nothing hides the call, the same element as a display's `hidden`
+            // — it used to bring back the default row here while the live path dropped
+            // the call, so a reload showed what the live chat had hidden.
+            return customRenderer.render(segment) || placeholderMarkup(segment);
         }
 
         // Status/tool glyphs come from the icon provider (fallbacks: ✓ / ✕ / 🔧)
@@ -368,6 +386,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      * No child node is added or removed, per the relabel contract.
      */
     relabel: (element, segment) => {
+        if (isPlaceholder(element)) return;
         const cfg = contextConfig();
         // A registered renderer owns its markup, so none of the selectors below exist
         // in it; its own `relabel` — when it declares one — is the only thing that can
@@ -420,6 +439,12 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      */
     update: (element, segment) => {
         const status = segment.status ?? 'pending';
+        const hidden = contextConfig().isToolHidden(segment.toolCall?.name ?? 'tool');
+        // A hidden call stays hidden: its placeholder only follows the status.
+        if (hidden && isPlaceholder(element)) {
+            element.setAttribute('data-status', status);
+            return;
+        }
         const input = describeInput(segment);
         const outcome = outcomeOf(segment);
         const wantsDetail = !!input || !!outcome;
@@ -441,11 +466,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // A registered renderer that declares `update` owns the patch — a mounted
         // preview or an opened disclosure in its markup survives the change. One
         // that does not is rebuilt, as it always was.
-        if (custom?.update) {
+        // Never on a placeholder: it is not the renderer's markup, and a call it drew as
+        // nothing may draw something now — a rebuild asks it.
+        if (custom?.update && !hidden && !isPlaceholder(element)) {
             custom.update(element, segment);
             return;
         }
-        if (custom || wantsDetail !== (element.tagName === 'DETAILS')) {
+        if (custom || hidden || isPlaceholder(element) || wantsDetail !== (element.tagName === 'DETAILS')) {
             // A `<template>`, not the bubble's own converter: this file is a renderer
             // and must not import from the component that consumes it.
             const out = toolCallRenderer.render(segment);
@@ -474,6 +501,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         highlightParts(element);
     },
     setup: (element, segment) => {
+        if (isPlaceholder(element)) return;
         // Nothing of ours to WIRE: the transcript holds no control any more. What used
         // to be here built the two buttons' click listeners and dispatched
         // `aparte-tool-decision`; the decision is answered at the composer now.

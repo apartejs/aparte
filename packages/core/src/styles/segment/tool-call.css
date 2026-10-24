@@ -1,4 +1,7 @@
 .aparte-segment-tool-call { display: block; padding: var(--aparte-space-1) 0; }
+/* A call that draws nothing (registerToolDisplay `hidden`, or a renderer that returns
+   nothing) is an empty placeholder: the rule above would otherwise beat the UA's [hidden]. */
+.aparte-segment-tool-call[hidden] { display: none; }
 /* The row is the summary. list-style:none plus the ::-webkit- pseudo is the
    pair that actually removes the native marker across engines. */
 /* A ROW, not a badge.

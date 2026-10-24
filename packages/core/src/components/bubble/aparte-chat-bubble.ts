@@ -969,7 +969,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * (same null-guarded degradation as the other region hooks).
    */
   private _updateWaiting(): void {
-    const empty = this._segments.length === 0 && !this._content.trim();
+    // A segment counts when it draws something: a call the app hides is in the message
+    // but its row is an empty `hidden` placeholder, which is nothing for the reader.
+    const shown = this._segmentsEl
+      ? Array.from(this._segmentsEl.children).some((child) => !(child as HTMLElement).hidden)
+      : this._segments.length > 0;
+    const empty = !shown && !this._content.trim();
     const waiting = this._streaming && this._role !== 'user' && empty;
 
     // The painted box is hidden when it has nothing to paint. It carries the user

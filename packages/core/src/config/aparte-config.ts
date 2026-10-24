@@ -1396,6 +1396,21 @@ export class AparteConfig {
         return this._toolDisplays.resolve(toolName)?.value;
     }
 
+    /**
+     * Whether a tool's calls draw nothing: its display says `hidden`, and no renderer is
+     * registered for it MORE specifically. A `'*'` hide therefore leaves a tool with its
+     * own renderer drawn (a plugin's receipt), while a hide as specific as the renderer
+     * wins — the app said so for that tool. A hidden call stays in the message, in storage
+     * and in the model's history; only its row is empty.
+     */
+    isToolHidden(toolName: string): boolean {
+        const display = this._toolDisplays.resolve(toolName);
+        if (!display?.value.hidden) return false;
+        const renderer = this._toolRenderers.resolve(toolName);
+        const rank = { exact: 2, pattern: 1, any: 0 } as const;
+        return !renderer || rank[renderer.level] <= rank[display.level];
+    }
+
     /** Drop one field of the entry under `match`, and the entry when nothing is left. */
     private _dropToolDisplayField(match: AparteToolMatcher, field: keyof AparteToolDisplay): void {
         const entry = this._toolDisplays.get(match);

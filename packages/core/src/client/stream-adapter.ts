@@ -121,11 +121,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
-    // Each call's segment as `tool-start` built it, and whether it reached the target:
-    // a renderer that draws nothing keeps it out, and a suspended call must exist in the
-    // message anyway (see `run-suspended`).
+    // Each call's segment as `tool-start` built it: a call this run did not start is one a
+    // paused run left (see `settle`).
     const toolSegments = new Map<string, AparteToolCallSegment>();
-    const addedTools = new Set<string>();
     // A call this run never started is one a paused run left — a resume replays no
     // `tool-start`. Settling it ends the pause, so its row drops `deferred`, and the
     // server's ticket with it: a saved conversation keeps no answered call "paused".
@@ -234,14 +232,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 };
                 toolSegments.set(toolSeg.id, toolSeg);
                 const renderer = config.getToolRenderer(e.name);
-                if (renderer) {
-                    injectToolRendererStyles(e.name, renderer);
-                    const html = renderer.render(toolSeg);
-                    if (html) { target.addSegment?.(toolSeg); addedTools.add(toolSeg.id); }
-                } else {
-                    target.addSegment?.(toolSeg);
-                    addedTools.add(toolSeg.id);
-                }
+                if (renderer) injectToolRendererStyles(e.name, renderer);
+                // Always added, whatever it draws. A call a renderer or a display hides
+                // used to be left out of the message, and the history a later turn sends
+                // is rebuilt from its segments — so the model lost the call it had made,
+                // and a reload drew the default row for it. Hiding is the row's business:
+                // the call draws an empty placeholder (see the tool_call renderer).
+                target.addSegment?.(toolSeg);
                 break;
             }
 
@@ -308,16 +305,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 for (const p of e.pending) {
                     const id = `tool-${p.toolCallId}`;
                     const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
-                    // A call this run never started is a resumed one: its row exists, from
-                    // the run that paused first, and it pauses again with this ticket.
-                    if (addedTools.has(id) || !toolSegments.has(id)) {
-                        target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
-                    } else {
-                        // Its renderer drew nothing at `tool-start`, so the call never became a
-                        // segment; a paused call must exist in the message, or a reload loses it.
-                        const seg = toolSegments.get(id);
-                        if (seg) { target.addSegment?.({ ...seg, deferred }); addedTools.add(id); }
-                    }
+                    // Every call is in the message — started here at `tool-start`, or by the run
+                    // that paused first — so a pause is always an update of its row.
+                    target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
                 }
                 // The RUN is over; the TURN goes on, through the run that resumes it.
                 target.updateMessage?.(messageId, { status: 'completed' });

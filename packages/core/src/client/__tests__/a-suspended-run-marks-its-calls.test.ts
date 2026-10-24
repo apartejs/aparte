@@ -42,21 +42,18 @@ describe('the adapter on run-suspended', () => {
         expect(t.messageUpdates.at(-1)).toEqual({ status: 'completed' });
     });
 
-    it('adds a pending call whose renderer drew nothing, so a reload can find it', () => {
-        // A tool renderer that renders '' (ask_user with `receipt: false`) left the call
-        // out of the message at `tool-start` — nowhere to write `deferred` on.
+    it('marks a pending call whose renderer draws nothing, so a reload can find it', () => {
+        // A tool renderer that renders '' (ask_user with `receipt: false`) used to leave the
+        // call out of the message at `tool-start`, and the pause had to add it. Every call
+        // is in the message now, so the pause writes `deferred` on its row like any other.
         aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
         const t = target();
         const emit = createStreamAdapter({ target: t, config: aparteGlobalConfig, messageId: 'm1' });
         emit({ type: 'tool-start', toolCallId: 'q1', name: 'ask_user', input: { question: 'Which?' } });
-        expect(t.added).toHaveLength(0);
+        expect(t.added.map((s) => s.id)).toEqual(['tool-q1']);
         emit({ type: 'run-suspended', pending: [{ toolCallId: 'q1', name: 'ask_user', input: { question: 'Which?' }, reason: 'external' }], ticket: 'T' } as never);
 
-        expect(t.added).toEqual([{
-            id: 'tool-q1', type: 'tool_call', status: 'pending',
-            toolCall: { id: 'q1', name: 'ask_user', input: { question: 'Which?' } },
-            deferred: { reason: 'external', ticket: 'T' },
-        }]);
+        expect(t.updates).toContainEqual(['tool-q1', { deferred: { reason: 'external', ticket: 'T' } }]);
     });
 
     it('marks a call a RESUME pauses again — its row is from the run that paused first', () => {
