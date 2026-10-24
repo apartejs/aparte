@@ -1379,15 +1379,24 @@ export class AparteConfig {
      * @example
      * // A consumer chat: the reply is what matters; the calls stay in the history.
      * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+     *
+     * @example
+     * // The line, and no raw JSON behind it: nothing, or a detail of the app's own.
+     * aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Reading a file', details: false });
+     * aparteGlobalConfig.registerToolDisplay('web_search', {
+     *     label: 'Searched the web',
+     *     details: (segment) => sourcesList(segment.result),
+     * });
      */
     registerToolDisplay(match: AparteToolMatcher, display: AparteToolDisplay): void {
         const before = this._toolDisplays.get(match);
         const next = { ...before, ...display };
         this._toolDisplays.set(match, next);
-        // `hidden` and `open` change ELEMENTS (a row becomes a placeholder, a disclosure
-        // opens), which a relabel does not do: the messages on screen are drawn again. A
-        // label, an icon or a summary only relabels, keeping what the reader opened.
-        if (before?.hidden !== next.hidden || before?.open !== next.open) bumpRenderingVersion(this);
+        // `hidden`, `open` and `details` change ELEMENTS (a row becomes a placeholder, a
+        // disclosure opens or goes), which a relabel does not do: the messages on screen
+        // are drawn again. A label, an icon or a summary only relabels, keeping what the
+        // reader opened.
+        if (before?.hidden !== next.hidden || before?.open !== next.open || before?.details !== next.details) bumpRenderingVersion(this);
         this._notify();
     }
 
@@ -1395,7 +1404,7 @@ export class AparteConfig {
     unregisterToolDisplay(match: AparteToolMatcher): void {
         const before = this._toolDisplays.get(match);
         this._toolDisplays.delete(match);
-        if (before?.hidden !== undefined || before?.open !== undefined) bumpRenderingVersion(this);
+        if (before?.hidden !== undefined || before?.open !== undefined || before?.details !== undefined) bumpRenderingVersion(this);
         this._notify();
     }
 

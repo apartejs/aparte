@@ -57,6 +57,26 @@ describe('a display registered after the rows are drawn', () => {
         expect((row(el) as HTMLDetailsElement).open).toBe(true);
     });
 
+    it('takes the detail off a row already on screen, and gives it back when unregistered', async () => {
+        const el = drawn();
+        expect(row(el).querySelector('.aparte-tool-part')).not.toBeNull();
+        aparteGlobalConfig.registerToolDisplay('*', { details: false });
+        await settle();
+        expect(row(el).tagName).toBe('DIV');
+        expect(row(el).querySelector('.aparte-tool-part')).toBeNull();
+        aparteGlobalConfig.unregisterToolDisplay('*');
+        await settle();
+        expect(row(el).querySelector('.aparte-tool-part')).not.toBeNull();
+    });
+
+    it('draws an app\'s detail on a row already on screen', async () => {
+        const el = drawn();
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: () => '<p class="said">11 degrees</p>' });
+        await settle();
+        expect(row(el).querySelector('.said')?.textContent).toBe('11 degrees');
+        expect(row(el).querySelector('.aparte-tool-part')).toBeNull();
+    });
+
     it('a label change only relabels: the element the reader opened stays', async () => {
         const el = drawn();
         const before = row(el) as HTMLDetailsElement;
