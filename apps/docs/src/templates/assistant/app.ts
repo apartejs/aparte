@@ -83,14 +83,17 @@ async function main(): Promise<void> {
         },
         async (call) => ({ toolCallId: call.id, content: TRIP_RESULTS }),
     );
-    // A person reads the search the way a chat app shows it: what was searched, in words, and
-    // the pages it found behind the line, never the call's JSON.
+    // A person reads the search the way a chat app shows it: the quiet line (a shimmer while
+    // it runs, no "Done" once it is — the label's tense says it), what was searched in words,
+    // and the pages it found behind the line, never the call's JSON.
     aparteGlobalConfig.registerIcons({ search: () => searchIcon });
     aparteGlobalConfig.registerToolDisplay('web_search', {
-        label: (segment) => (segment.status === 'resolved' ? 'Searched the web' : 'Searching the web'),
+        // The tense says where the search is: running, done, or a plain name for a failure.
+        label: (segment) => (segment.status === 'pending' ? 'Searching the web…' : segment.status === 'resolved' ? 'Searched the web' : 'Search the web'),
         icon: 'search',
         summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
         details: sourcesOf,
+        quiet: true,
     });
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
     // Retry and edit are honoured by the client below, so the bubbles may offer them.

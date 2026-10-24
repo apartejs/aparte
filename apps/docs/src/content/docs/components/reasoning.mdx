@@ -26,7 +26,10 @@ segment during the turn; you can also build one yourself, as these demos do.
 <Variant id="thinking-streaming" />
 
 The block takes tokens as they arrive. `isStreaming: true` marks it open-ended; the client
-settles it with `isStreaming: false` when the reasoning ends.
+settles it with `isStreaming: false` when the reasoning ends. While it streams, its label
+[shimmers](/components/shimmer/), the way conversational chats show a model still thinking; the
+light stops when the block settles, and never moves under `prefers-reduced-motion`. A block
+written by hand or restored from storage, which never streamed on this page, stays still.
 
 ### Opened on purpose
 

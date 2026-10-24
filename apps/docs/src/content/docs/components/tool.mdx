@@ -6,7 +6,7 @@ catalog:
   order: 11
   claims:
     segments: [tool_call]
-  demos: [tool, tool-statuses, tool-summary, tool-display, tool-details, tool-hidden, tool-open, tool-renderer]
+  demos: [tool, tool-statuses, tool-summary, tool-display, tool-details, tool-quiet, tool-hidden, tool-open, tool-renderer]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -67,6 +67,19 @@ Input and Output under the same line: here, the pages a search found. Return an 
 nothing the tool returned goes through `innerHTML`. Return `''` and the row shows no disclosure
 until there is something to show. The details are in
 [Showing tool calls](/guides/tool-display/#whats-behind-the-line).
+
+### A line for a person
+
+<Variant id="tool-quiet" />
+
+The default row is an agent's: a spinner and "Running", then "✓ Done". A chat for people says it
+differently, and `quiet: true` gives that line. While the call runs, the label
+[shimmers](/components/shimmer/) instead of a spinner and a word. Once it is done, nothing marks
+success: the label's tense says it, so write one that reads the status ("Searching the web…",
+then "Searched the web", and a plain "Search the web" for the rest). A wait for approval, a refusal, a failure and a stop still show their
+word and their note, because the person has to know. The words a quiet row does not show are
+still read by a screen reader. The target is set in the chat's font, the chevron moves to the
+end of the line, and the row carries `data-quiet` for a stylesheet of your own.
 
 ### Hidden calls
 

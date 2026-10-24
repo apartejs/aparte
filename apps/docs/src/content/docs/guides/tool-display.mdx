@@ -43,26 +43,34 @@ the few that are worth a line.
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolCallSegment } from '@aparte/core';
 import { searchIcon, globeIcon } from '@aparte/core/icons';
 
 aparteGlobalConfig.registerIcons({ search: () => searchIcon, globe: () => globeIcon });
+
+// The label's tense says where the call is, so a quiet line needs no "Running" and no "Done":
+// running, done, and a plain name for the rest (a wait for approval, a refusal, a failure).
+const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment) =>
+  segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
 
 // Every tool nothing more specific describes: no row. A tool with an entry of its own
 // (below) is described whole by it, so it is not hidden.
 aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
 
 aparteGlobalConfig.registerToolDisplay('web_search', {
-  label: 'Searching the web',
+  label: tense('Searching the web…', 'Searched the web', 'Search the web'),
   icon: 'search',
   summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
   details: false,   // the line alone: no raw JSON behind it
+  quiet: true,      // a person's line: a shimmer while it runs, nothing once done
 });
 
 aparteGlobalConfig.registerToolDisplay('fetch_page', {
-  label: 'Reading a page',
+  label: tense('Reading a page…', 'Read a page', 'Open a page'),
   icon: 'globe',
   summary: (segment) => String(segment.toolCall.input['url'] ?? ''),
   details: false,
+  quiet: true,
 });
 ```
 
@@ -70,8 +78,13 @@ aparteGlobalConfig.registerToolDisplay('fetch_page', {
 
 What the person sees:
 
-- **A label** in the chat's own font, in place of the identifier: "Searching the web". The
+- **A label** in the chat's own font, in place of the identifier: "Searching the web…" while it
+  runs, "Searched the web" once done, "Search the web" when it waits for approval or failed. The
   identifier stays on the row as `data-tool-name`, for a stylesheet or a test.
+- **A quiet line** (`quiet: true`): the label [shimmers](/components/shimmer/) while the call runs,
+  where an agent's row shows a spinner and "Running", and nothing marks success once it is done.
+  A wait for approval, a refusal, a failure and a stop still show their word and their note. The
+  target is set in the chat's font and the chevron sits at the end of the line.
 - **An icon** from the icon provider. `file`, `edit` and `terminal` are core's; `search` and
   `globe` are in `@aparte/core/icons`, and are drawn once you register them as above. A key
   nobody registered falls back to `tool`.
@@ -89,13 +102,13 @@ What the person sees:
 Hiding is a matter of the screen only. A hidden call stays in the message, in storage, and in the
 history the model reads on its next turns; a reload draws it hidden again. An approval it needs is
 still asked, and the question names it by its label and summary, so the person is never asked about
-something they cannot see described. The default question is `Allow {tool}?`, so "Allow Searching the web?"; it is the
+something they cannot see described. The default question is `Allow {tool}?`, so "Allow Search the web?"; it is the
 built-in approval channel's (`AparteClient`'s), and an app with its own loop writes its own.
 `extendLocale({ approvalAsk: … })` changes the wording.
 
 Registering a display notifies the chats on the page. One that changes a label, an icon or a
 summary relabels the rows already drawn, keeping what the reader opened; one that sets or drops
-`hidden`, `open` or `details` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
+`hidden`, `open`, `details` or `quiet` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
 on the call:
 
 ```ts
