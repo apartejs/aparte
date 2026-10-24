@@ -27,6 +27,7 @@ import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
 import { toolRefusal as engineToolRefusal } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
+import { AparteErrorCode } from '../types/errors.js';
 import { resolveConfig } from '../config/config-context.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
@@ -282,10 +283,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     target.addSegment?.({
                         id: `max-turns-${uuid()}`,
                         type: 'error',
-                        // The chat's text, in its language: the one string of the turn
-                        // that used to bypass the locale.
-                        content: config.t('maxTurnsReached').replace('{n}', () => String(e.limit)),
-                        code: 'MAX_TURNS_EXCEEDED',
+                        // The CHAT's text, in its language — resolved from the target, as the
+                        // reasoning default is: a client on the global config also answers a
+                        // chat with its own.
+                        content: (typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config)
+                            .t('maxTurnsReached').replace('{n}', () => String(e.limit)),
+                        code: AparteErrorCode.MAX_TURNS_EXCEEDED,
                     });
                 } else if (e.toolCallId) {
                     settle(e.toolCallId, { status: 'aborted', abortCause: 'turn-limit' });

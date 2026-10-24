@@ -224,7 +224,7 @@ export interface AparteErrorSegment extends AparteSegmentBase {
     details?: string;
     /**
      * A machine-readable code for the app to branch on — an `AparteErrorCode` value when
-     * core made the error (`MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…). Never drawn: the
+     * core made the error (`AparteErrorCode.MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…). Never drawn: the
      * alert carries it as `data-error-code`, and a custom error renderer receives it.
      */
     code?: string;

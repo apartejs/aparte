@@ -14,6 +14,7 @@ import { getSegmentRenderer, registerDefaultRenderers } from '../../segment-rend
 import { aparteGlobalConfig, AparteConfig } from '../../../config/index.js';
 import { createStreamAdapter } from '../../../client/stream-adapter.js';
 import type { AparteSegment, AparteErrorSegment } from '../../../types/index.js';
+import { AparteErrorCode } from '../../../types/errors.js';
 
 registerDefaultRenderers();
 
@@ -50,6 +51,8 @@ describe('an error code', () => {
         emit({ type: 'turn-limit-exceeded', scope: 'global', limit: 2 });
         const error = added.find((s) => s.type === 'error') as AparteErrorSegment;
         expect(error.code).toBe('MAX_TURNS_EXCEEDED');
+        // A code an app can branch on through the enum, not a string it has to know.
+        expect(error.code).toBe(AparteErrorCode.MAX_TURNS_EXCEEDED);
         expect(error.details).toBeUndefined();
     });
 });

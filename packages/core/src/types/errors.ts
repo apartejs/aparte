@@ -21,6 +21,10 @@ export enum AparteErrorCode {
     PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE', // HTTP 503
     PROVIDER_POLICY = 'PROVIDER_POLICY',         // Moderation / Policy
 
+    // The loop
+    /** The turn reached `maxTurns`: the loop stopped asking the model, to avoid an endless loop. */
+    MAX_TURNS_EXCEEDED = 'MAX_TURNS_EXCEEDED',
+
     // Internal
     UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 }
