@@ -288,7 +288,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         // The chat's text, in its language: the one string of the turn
                         // that used to bypass the locale.
                         content: config.t('maxTurnsReached').replace('{n}', () => String(e.limit)),
-                        details: 'MAX_TURNS_EXCEEDED',
+                        code: 'MAX_TURNS_EXCEEDED',
                     });
                 } else if (e.toolCallId) {
                     settle(e.toolCallId, { status: 'aborted', abortCause: 'turn-limit' });

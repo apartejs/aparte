@@ -2070,12 +2070,13 @@ export class AparteClient {
         // A valid AparteErrorSegment: the renderer keys off `id` + `content`, so the
         // old `code`/`data` fields were dead here (the full error — including
         // `error.data` — still reaches consumers via the `aparte-message-error` event
-        // below). The error code is preserved as `details`.
+        // below). The code rides as `code`, which the alert never draws: `details` is for
+        // text an app chooses to show, and the person had no use for `UNKNOWN_ERROR`.
         const errorSegment: AparteErrorSegment = {
             id: `error-${uuid()}`,
             type: 'error',
             content: error.message,
-            details: error.code,
+            code: error.code,
         };
 
         if (target.updateMessage) {

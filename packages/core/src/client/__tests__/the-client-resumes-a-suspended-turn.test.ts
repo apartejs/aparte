@@ -553,7 +553,7 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(asked).toEqual(['c1', 'c2', 'c3']);
         expect(runs).toBe(4);
         expect(rowOf(messages, 'c4')).toMatchObject({ status: 'aborted' });
-        expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { details?: string }).details === 'MAX_TURNS_EXCEEDED')).toBe(true);
+        expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { code?: string }).code === 'MAX_TURNS_EXCEEDED')).toBe(true);
         expect(events.filter((e) => e !== 'aparte-message-paused')).toEqual(['aparte-message-start', 'aparte-message-done']);
     });
 });

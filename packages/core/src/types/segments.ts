@@ -208,7 +208,14 @@ export interface AparteCodeSegment extends AparteSegmentBase {
 export interface AparteErrorSegment extends AparteSegmentBase {
     type: 'error';
     content: string; // Renamed from message for consistency
+    /** Text the alert shows under the message, in a block — a stack, a status line an app chooses to show. */
     details?: string;
+    /**
+     * A machine-readable code for the app to branch on — an `AparteErrorCode` value when
+     * core made the error (`MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…). Never drawn: the
+     * alert carries it as `data-error-code`, and a custom error renderer receives it.
+     */
+    code?: string;
     /**
      * @deprecated Set by nothing and read by nothing: the error renderer draws `content` and
      * `details` only. Put a stack in `details` to show it. It will be removed in a later minor.

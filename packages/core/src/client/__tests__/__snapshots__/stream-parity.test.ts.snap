@@ -79,7 +79,7 @@ exports[`runStreamAgent — parity on the paths that STOP > the global turn ceil
     "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
     "updateSegment ["tool-c1",{"status":"resolved","result":"SAVED"}]",
     "updateSegment ["seg-#1",{"content":"again","isStreaming":false}]",
-    "addSegment [{"id":"max-turns-#2","type":"error","content":"Stopped after 2 turns to avoid an endless loop.","details":"MAX_TURNS_EXCEEDED"}]",
+    "addSegment [{"id":"max-turns-#2","type":"error","content":"Stopped after 2 turns to avoid an endless loop.","code":"MAX_TURNS_EXCEEDED"}]",
     "updateMessage ["assistant-1",{"status":"completed"}]",
   ],
   "error": undefined,
