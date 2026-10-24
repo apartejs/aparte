@@ -34,6 +34,40 @@ export interface AgUiRunnerOptions {
     forwardedProps?: Record<string, unknown>;
     /** `RunAgentInput.context`: extra context entries for the agent. */
     context?: { description: string; value: string }[];
+    /**
+     * The AG-UI version the agent speaks, when it is older than 1.0 and does not say so
+     * itself. The protocol forbids guessing a peer's age, so an agent that breaks 1.0's
+     * stream rules — TanStack AI before 1.0 closes each step with a `RUN_FINISHED` and
+     * answers a resume before its `RUN_STARTED` — has to be named here, e.g. `'0.0.52'`.
+     * The runner then reads its stream with the older rules, and leaves `protocolVersion`
+     * out of the request, a field that agent predates.
+     * @default the agent speaks 1.0
+     */
+    peerProtocolVersion?: string;
+    /**
+     * Told what the runner dropped or could not read in the agent's stream — an event
+     * type it does not know, a translation that lost something. For the developer, not
+     * the person chatting.
+     * @default `console.warn`
+     */
+    onWarning?: (message: string) => void;
+}
+
+/** The AG-UI version this runner speaks, and declares on every request. */
+const PROTOCOL_VERSION = '1.0';
+
+/** A version identifier as numbers, compared component by component; undefined when it is not one. */
+function versionParts(version: string): number[] | undefined {
+    return /^\d+(\.\d+)*$/.test(version) ? version.split('.').map(Number) : undefined;
+}
+
+/** Negative, zero or positive, as `a` is older than, equal to or newer than `b`. */
+function compareVersions(a: number[], b: number[]): number {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const d = (a[i] ?? 0) - (b[i] ?? 0);
+        if (d !== 0) return d;
+    }
+    return 0;
 }
 
 /**
@@ -157,6 +191,10 @@ function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | 
  * `resume` batch for the interrupts.
  */
 export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner {
+    const warn = options.onWarning ?? ((message: string) => console.warn(`[aparte] AG-UI: ${message}`));
+    const peer = options.peerProtocolVersion ? versionParts(options.peerProtocolVersion) : undefined;
+    // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`.
+    const declare = !peer || compareVersions(peer, [1, 0]) >= 0;
     return async (opts) => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
@@ -194,6 +232,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const body: AgUiRunAgentInput = {
             threadId,
             runId,
+            ...(declare ? { protocolVersion: PROTOCOL_VERSION } : {}),
             ...(ticket ? { parentRunId: ticket.runId } : {}),
             state: {},
             messages,
@@ -313,8 +352,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             begin();
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
             switch (event.type) {
-                case 'RUN_STARTED':
+                case 'RUN_STARTED': {
+                    // The producer's own version. Newer, or not a version at all: proceed
+                    // under 1.0's rules and say so, as the protocol asks of a consumer.
+                    const declared = event['protocolVersion'];
+                    if (typeof declared === 'string') {
+                        const parts = versionParts(declared);
+                        if (!parts) warn(`the agent declares protocol version "${declared}", which this runner cannot interpret; reading its stream as ${PROTOCOL_VERSION}.`);
+                        else if (compareVersions(parts, versionParts(PROTOCOL_VERSION)!) > 0) warn(`the agent speaks AG-UI ${declared}, newer than the ${PROTOCOL_VERSION} this runner speaks; reading its stream as ${PROTOCOL_VERSION}.`);
+                    }
                     break;
+                }
                 case 'TEXT_MESSAGE_START':
                 case 'REASONING_START':
                 case 'REASONING_MESSAGE_START':

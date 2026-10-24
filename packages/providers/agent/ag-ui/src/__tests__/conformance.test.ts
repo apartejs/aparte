@@ -88,9 +88,6 @@ const REJECTIONS: Record<string, string> = {};
  * until it leaves this list — the list can only shrink, and never silently.
  */
 const KNOWN_GAPS: Record<string, string> = {
-    'current-peer-declares-protocol-version': 'version',
-    'producer-declares-newer-version-warns': 'version',
-    'producer-declares-uninterpretable-version-warns': 'version',
     'chunk-conflicting-role-fatal': 'verify',
     'chunk-conflicting-tool-name-fatal': 'verify',
     'content-without-start-fatal': 'verify',

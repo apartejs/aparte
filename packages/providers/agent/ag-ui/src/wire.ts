@@ -63,6 +63,7 @@ export interface AgUiResumeItem {
 export interface AgUiRunAgentInput {
     threadId: string;
     runId: string;
+    protocolVersion?: string;
     parentRunId?: string;
     state: Record<string, unknown>;
     messages: AgUiMessage[];
