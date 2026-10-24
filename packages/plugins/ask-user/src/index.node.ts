@@ -41,7 +41,8 @@ import { createAskUserTool, askUserHandler, type AskUserSetupOptions } from './a
 export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteConfig = aparteGlobalConfig): void {
     const tool = createAskUserTool(options);
     config.registerTool(tool, askUserHandler);
-    config.registerToolRenderer(tool.name, { render: () => '' });
+    // Hidden: the receipt builds DOM, and the call must stay in the history all the same.
+    config.registerToolDisplay(tool.name, { hidden: true });
 }
 
 export { createAskUserTool, askUserHandler, ASK_USER_DECLINED } from './ask-user.js';

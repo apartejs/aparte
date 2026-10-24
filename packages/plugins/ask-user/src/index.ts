@@ -34,7 +34,9 @@ export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteCo
     config.registerTool(tool, askUserHandler);
 
     if (options.receipt === false) {
-        config.registerToolRenderer(tool.name, { render: () => '' });
+        // Hidden, not drawn as nothing by a renderer: the call stays in the message and
+        // in the history the model reads on later turns, which an empty render lost.
+        config.registerToolDisplay(tool.name, { hidden: true });
         return;
     }
 

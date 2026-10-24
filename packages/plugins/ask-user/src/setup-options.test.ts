@@ -55,12 +55,14 @@ describe('setupAskUser', () => {
         expect(config.getToolRenderer('ask_user')).toBeUndefined();
     });
 
-    it('renders nothing for the call when the receipt is declined', () => {
+    it('hides the call when the receipt is declined — through the display, so it stays in the history', () => {
+        // A render-nothing renderer used to do this, which kept the call out of the
+        // message and so out of the history the model reads on later turns. `hidden` is
+        // the one way to draw nothing, and an app can still override it per tool.
         const config = new AparteConfig();
         setupAskUser({ receipt: false }, config);
-        const renderer = config.getToolRenderer('ask_user');
-        expect(renderer).toBeDefined();
-        expect(renderer!.render({} as never)).toBe('');
+        expect(config.getToolRenderer('ask_user')).toBeUndefined();
+        expect(config.isToolHidden('ask_user')).toBe(true);
     });
 });
 
