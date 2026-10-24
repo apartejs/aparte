@@ -114,9 +114,11 @@ test('plan runs the reads and refuses the write, without asking anyone', async (
     // A `deny` is a decision already made, so nobody is asked: announcing a pause for it
     // would paint `awaiting-approval` on a row nobody will ever answer.
     await expect(page.locator(PANEL)).toHaveCount(0);
-    // The refusal the MODEL reads is the policy's own sentence, verbatim — the reason a
-    // ruling carries one at all.
-    await expect(chat.lastReply).toContainText('Plan mode:');
+    // The person reads who refused — "Refused by policy" — and not the policy's sentence,
+    // which is written to the MODEL ("Describe what you would do instead…") and reaches
+    // it verbatim (unit-tested in core's approval-policy suite).
+    await expect(rows(chat, 'rejected').locator('.aparte-tool-note')).toHaveText('Refused by policy');
+    await expect(chat.lastReply).not.toContainText('Plan mode:');
     await expect(chat.lastReply).toContainText('I have not run it');
     // The rest of the turn is skipped: refusing one call cannot license the ones after it.
     await expect(rows(chat)).toHaveCount(3);
