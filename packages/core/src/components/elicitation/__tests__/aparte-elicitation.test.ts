@@ -308,7 +308,7 @@ describe('<aparte-elicitation> presenter', () => {
          * called.
          */
         mountChat();
-        const ask = () => (aparteGlobalConfig.getLocale().approvalAsk ?? 'Run {tool}?')
+        const ask = () => (aparteGlobalConfig.getLocale().approvalAsk ?? 'Allow {tool}?')
             .replace('{tool}', 'delete_file');
         const p = requestUserInput({
             kind: 'approval',
@@ -317,7 +317,7 @@ describe('<aparte-elicitation> presenter', () => {
         });
 
         const shown = () => document.querySelector('.aparte-elic-message')?.textContent;
-        expect(shown()).toBe('Run delete_file?');
+        expect(shown()).toBe('Allow delete_file?');
 
         aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalAsk: 'Exécuter {tool} ?' });
 

@@ -615,7 +615,7 @@ export class AparteClient {
                 } as AparteToolCallSegment;
                 const name = toolNameOf(call, chat).text;
                 const what = toolTargetOf(call, chat);
-                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => (what ? `${name} ${what}` : name));
+                return (loc.approvalAsk ?? 'Allow {tool}?').replace('{tool}', () => (what ? `${name} ${what}` : name));
             },
             // A plain string, not a function: the arguments are the model's — its JSON, or
             // the tool's own formatter's reading of it — and do not change with the

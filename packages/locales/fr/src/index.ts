@@ -29,7 +29,7 @@ export const fr: AparteLocale = {
     approvalInstructionPlaceholder: "Ou dites-lui quoi faire à la place…",
     approvalOptionsLabel: "Votre décision",
     approvalArgsLabel: "Arguments",
-    approvalAsk: "Exécuter {tool} ?",
+    approvalAsk: "Autoriser {tool} ?",
     approvalWaiting: "En attente",
     scrollToBottom: "Aller en bas de la conversation",
     suggestionsLabel: "Suggestions de messages",

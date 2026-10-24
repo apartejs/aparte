@@ -96,7 +96,7 @@ describe('the built-in gate asks at the composer', () => {
         const turn = run(client, cfg, target);
 
         await vi.waitFor(() => expect(document.querySelector('.aparte-approval-panel')).not.toBeNull());
-        expect(document.querySelector('.aparte-elic-message')?.textContent).toBe('Run delete_file?');
+        expect(document.querySelector('.aparte-elic-message')?.textContent).toBe('Allow delete_file?');
         // And WHICH file. The tool's name alone is a question with its subject missing:
         // the arguments the model chose are the thing being approved, and they used to
         // exist only in the transcript row, behind a disclosure that stays closed.
@@ -242,10 +242,10 @@ describe('the question names the call as its row does', () => {
 
     it('with the label and the summary the app declared', async () => {
         expect(await asked((cfg) => cfg.registerToolDisplay('delete_file', { label: 'Delete a file', summary: path })))
-            .toBe('Run Delete a file a.ts?');
+            .toBe('Allow Delete a file a.ts?');
     });
 
     it('with a summary alone, after the identifier', async () => {
-        expect(await asked((cfg) => cfg.registerToolSummary('delete_file', path))).toBe('Run delete_file a.ts?');
+        expect(await asked((cfg) => cfg.registerToolSummary('delete_file', path))).toBe('Allow delete_file a.ts?');
     });
 });

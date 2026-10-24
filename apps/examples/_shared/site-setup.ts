@@ -97,10 +97,7 @@ async function run(): Promise<SiteSetup> {
     //    is the right default for a library — so on a French machine the list's month
     //    headings came out as "Juillet" under "Yesterday". A site that has chosen its
     //    language says so, and the tag pins the formatting to it.
-    //    And the approval question asks to ALLOW the call, because the tools below carry
-    //    labels that are actions ("Write file CHANGELOG.md"): core's "Run {tool}?" reads
-    //    a bare identifier well and an action twice.
-    aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en', approvalAsk: 'Allow {tool}?' });
+    aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
     // 0b. Two glyphs of the product's: an up arrow on the send button, a plus on the
     //     attachment button. The icon provider covers only the names it cares about; the

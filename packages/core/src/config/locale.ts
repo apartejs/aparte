@@ -197,11 +197,13 @@ export type AparteLocale = {
      */
     approvalInstructionPlaceholder?: string;
     /**
-     * The question an approval asks (default: "Run {tool}?").
+     * The question an approval asks (default: "Allow {tool}?").
      *
-     * `{tool}` is replaced with the tool's name. A placeholder rather than three
-     * concatenated fragments, because word order is the first thing a translation
-     * changes and "Run" + name + "?" only works in English.
+     * `{tool}` is replaced with the call as its row names it: the tool's label when the
+     * app declared one (`registerToolDisplay`), else its identifier, then what the call
+     * targets. "Allow" reads with either — "Run" read a label that is an action twice
+     * ("Run Run command…"). A placeholder rather than three concatenated fragments,
+     * because word order is the first thing a translation changes.
      */
     approvalAsk?: string;
     /**
@@ -484,7 +486,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
-    approvalAsk: "Run {tool}?",
+    approvalAsk: "Allow {tool}?",
     approvalWaiting: "Waiting",
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
