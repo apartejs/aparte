@@ -644,6 +644,9 @@ let classTokens = 0;
         }
         for (const m of text.matchAll(/\.className\s*=\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
         for (const m of text.matchAll(/setAttribute\(\s*['"]class['"]\s*,\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
+        // The shared copy button (`renderers/copy-button.ts`) takes its component's own
+        // class as an argument: that literal is an emitted class like any other.
+        for (const m of text.matchAll(/copyButtonMarkup\(\s*['"`]([^'"`]*)['"`]\s*\)/g)) record(m[1]);
     }
 
     for (const [token, where] of [...badClasses].sort()) {
