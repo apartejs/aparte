@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 85 },
+        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 87 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
