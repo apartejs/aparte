@@ -25,7 +25,8 @@ import { ChatPage } from '../helpers/chat.js';
 
 interface Instruments {
     /** `seq` is the write's ORDER: WebKit rounds `performance.now()` to the millisecond, so two writes in one frame share a `t`. */
-    writes: { t: number; seq: number; kind: 'instant' | 'smooth' | 'scrollTo-instant'; top: number; from: number; max: number }[];
+    /** `left`: ms the component's own glide window still had to run at the write (negative = closed). */
+    writes: { t: number; seq: number; kind: 'instant' | 'smooth' | 'scrollTo-instant'; top: number; from: number; max: number; left: number }[];
     curve: { t: number; top: number; max: number }[];
     ends: { t: number; top: number; max: number }[];
 }
@@ -52,7 +53,12 @@ async function arm(page: Page): Promise<void> {
         // records where the view stood (`from`) and how far down it could go (`max`) at
         // that instant, which the frame-sampled curve cannot say.
         const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!;
-        const here = (): { from: number; max: number } => ({ from: (desc.get as () => number).call(s), max: s.scrollHeight - s.clientHeight });
+        const vp = (s.closest('aparte-chat-viewport') ?? s) as unknown as { _glideUntil?: number };
+        const here = (): { from: number; max: number; left: number } => ({
+            from: (desc.get as () => number).call(s),
+            max: s.scrollHeight - s.clientHeight,
+            left: Math.round((vp._glideUntil ?? 0) - performance.now()),
+        });
         Object.defineProperty(s, 'scrollTop', {
             configurable: true,
             get() { return (desc.get as () => number).call(this); },
@@ -134,7 +140,7 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
     // read a pre-glide write as a cut, about one run in eight on react-webkit, and never
     // on an engine whose clock resolves microseconds.
     const cut = writes.filter((w) => w.kind === 'instant' && w.seq > smooth[0]!.seq && w.t < Math.min(glideStart + 450, arrivedAt));
-    expect(cut, `instant writes inside the glide (glide at ${Math.round(glideStart)}ms, arrived at ${Math.round(arrivedAt)}ms, target ${target}): ${JSON.stringify(cut)}; all writes: ${JSON.stringify(writes.slice(0, 16))}; scrollend: ${JSON.stringify(ends.slice(0, 8))}; curve near the cut: ${JSON.stringify(curve.filter((p) => cut.some((c) => Math.abs(p.t - c.t) < 60)))}`)
+    expect(cut, `instant writes inside the glide (glide at ${Math.round(glideStart)}ms, arrived at ${Math.round(arrivedAt)}ms, target ${target}): ${JSON.stringify(cut)}; writes around it: ${JSON.stringify(writes.filter((w) => cut.some((c) => Math.abs(w.seq - c.seq) <= 8)))}; first writes: ${JSON.stringify(writes.slice(0, 6))}; scrollend: ${JSON.stringify(ends.slice(0, 8))}; curve near the cut: ${JSON.stringify(curve.filter((p) => cut.some((c) => Math.abs(p.t - c.t) < 60)))}`)
         .toEqual([]);
 
     // ── 2. The curve — recorded, not judged ───────────────────────────────

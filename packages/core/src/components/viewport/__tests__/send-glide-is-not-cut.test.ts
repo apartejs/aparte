@@ -108,6 +108,33 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(smoothCalls()).toBeGreaterThan(afterPlaceholder);
     });
 
+    it('a re-target is a new smooth scroll: it keeps the window open for its own run, not the first glide\'s', async () => {
+        // react-webkit in CI, measured: a glide already ran when the send re-targeted it;
+        // the window still ended where the FIRST glide's did, ~330 ms into the re-targeted
+        // one, and the next pin wrote scrollTop 4 px short of the bottom — a cut.
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+        await frame();
+        const start = performance.now();
+        vp._glideUntil = start + 20;   // the first glide's window, almost over
+        vp.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: 3, status: 'streaming' });
+        await frame();
+        await frame();
+        expect(vp._glideUntil, 'the re-target opens a window of its own').toBeGreaterThan(start + 300);
+
+        // Past the first glide's deadline, inside the re-targeted one: still a re-target.
+        const now = vi.spyOn(performance, 'now').mockReturnValue(start + 120);
+        try {
+            const before = smoothCalls();
+            vp.appendToken('a1', 'Hel');
+            await frame();
+            await frame();
+            expect(instantWrites, 'a token inside the re-targeted glide must not cut it').toEqual([]);
+            expect(smoothCalls()).toBeGreaterThan(before);
+        } finally {
+            now.mockRestore();
+        }
+    });
+
     it('a scrollend that arrives before the bottom does not close the glide — WebKit fires one when a smooth scroll is replaced', async () => {
         // Measured on react-webkit and vanilla-webkit: instant writes 45–60 ms into the
         // glide, before the curve had arrived. Re-targeting the smooth scroll ended the
