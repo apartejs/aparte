@@ -19,6 +19,7 @@
     --aparte-duration-slower: 0.01ms;
     --aparte-duration-pulse: 0.01ms;
     --aparte-duration-spin: 0.01ms;
+    --aparte-duration-shimmer: 0.01ms;
     --aparte-slide-distance: 0px;
   }
 }

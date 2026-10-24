@@ -73,6 +73,7 @@ export type {
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteMessagePausedEventDetail,
+    AparteMessageResumedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -110,6 +111,7 @@ export type {
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
+    AparteToolDetails,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,
@@ -161,7 +163,7 @@ export type { AparteElicitation } from './components/elicitation/aparte-elicitat
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 

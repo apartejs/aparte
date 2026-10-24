@@ -6,7 +6,7 @@ catalog:
   order: 11
   claims:
     segments: [tool_call]
-  demos: [tool, tool-statuses, tool-summary, tool-display, tool-hidden, tool-open, tool-renderer]
+  demos: [tool, tool-statuses, tool-summary, tool-display, tool-details, tool-quiet, tool-hidden, tool-open, tool-renderer]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -54,6 +54,32 @@ replaces the identifier `web_search` with words, drawn in the chat's own font, n
 `icon` is an icon-provider key (an unknown one falls back to `tool`; `search` and `globe` come from
 `@aparte/core/icons`). The identifier stays on the row as `data-tool-name`. Core never turns an
 identifier into words on its own: the label is yours to write.
+
+### What is behind the line
+
+<Variant id="tool-details" />
+
+Behind the line, a row shows Input and Output: the arguments and the result, raw. That is a
+developer's view. A display's `details` changes it. `false` keeps the line alone, with no
+disclosure, so the row never puts the person one click from JSON (a call that needs approval
+still shows its arguments in the approval panel; `formatInput` writes them in words). A function returns what stands in for
+Input and Output under the same line: here, the pages a search found. Return an element, and
+nothing the tool returned goes through `innerHTML`; a string goes through the HTML sanitizer. Return `''` and the row shows no disclosure
+until there is something to show. The details are in
+[Showing tool calls](/guides/tool-display/#whats-behind-the-line).
+
+### A line for a person
+
+<Variant id="tool-quiet" />
+
+The default row is an agent's: a spinner and "Running", then "✓ Done". A chat for people says it
+differently, and `quiet: true` gives that line. While the call runs, the label
+[shimmers](/components/shimmer/) instead of a spinner and a word. Once it is done, nothing marks
+success: the label's tense says it, so write one that reads the status ("Searching the web…",
+then "Searched the web", and a plain "Search the web" for the rest). A wait for approval, a refusal, a failure and a stop still show their
+word and their note, because the person has to know. The words a quiet row does not show are
+still read by a screen reader. The target is set in the chat's font, the chevron moves to the
+end of the line, and the row carries `data-quiet` for a stylesheet of your own.
 
 ### Hidden calls
 
@@ -111,11 +137,13 @@ opening the rows.
 
 ## Accessibility
 
-- When there is an input or a result to show, the row is a native `<details>`: its summary opens
-  with Enter or Space and announces whether it is expanded. With nothing behind it, it is a
+- When there is something behind the line (an input or a result, or the detail your `details`
+  function draws), the row is a native `<details>`: its summary opens with Enter or Space and
+  announces whether it is expanded. With nothing behind it (`details: false` included), it is a
   plain row and takes no tab stop.
 - The status is written in words (locale keys such as `toolRunning`, `toolCompleted`,
-  `toolFailed`), not only shown as a colour or an icon.
+  `toolFailed`), not only shown as a colour or an icon. A quiet row keeps "Running" and "Done"
+  for a screen reader only; its label's tense says them on screen.
 - Input and Output are focusable regions named by their label, so a long part that scrolls past
   `--aparte-tool-part-max-height` (300px) can be read with the keyboard; each has a copy button.
 

@@ -88,6 +88,20 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
+        id: 'conversation-list-status',
+        title: 'Conversations that answer, or wait for you',
+        html: `<!-- With a conversation controller this is set for you, from the turn's own events. -->
+<aparte-conversation-list active-id="c1" style="max-width: 20rem"></aparte-conversation-list>
+
+<script>${FILL_LIST}
+  const list = document.querySelector('aparte-conversation-list');
+  // An AI is answering in the open conversation: its title shimmers.
+  list.setConversationStatus('c1', 'running');
+  // A run paused on a question for you, in a conversation you left: a mark beside it.
+  list.setConversationStatus('c2', 'waiting');
+</script>`,
+    },
+    {
         id: 'conversation-list-loading',
         title: 'The list while the conversations load',
         html: `<!-- loading until your store answers: a list that is not there yet is not an empty list. -->

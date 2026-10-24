@@ -27,6 +27,7 @@ import './styles/display/thumbnail.css';
 import './styles/display/spinner.css';
 import './styles/display/progress.css';
 import './styles/display/skeleton.css';
+import './styles/display/shimmer.css';
 import './styles/display/divider.css';
 import './styles/display/alert.css';
 import './styles/display/card.css';
@@ -126,6 +127,7 @@ export type {
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteMessagePausedEventDetail,
+    AparteMessageResumedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -165,6 +167,7 @@ export type {
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
+    AparteToolDetails,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
     // and the <AparteUi> proxy handle the four used to hand-copy).
@@ -243,7 +246,7 @@ export type { AparteSplitResizeDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
 export type {

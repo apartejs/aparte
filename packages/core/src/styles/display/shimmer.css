@@ -1,0 +1,73 @@
+/* =========================================
+   aparte-shimmer — a label while something runs
+   =========================================
+   A light sweeping across the text: what a conversational chat shows on a step in
+   progress ("Searching the web", "Thinking") where an agent's row shows a spinner and
+   a word. Put it on the span holding the words, not on a row: the sweep is clipped to
+   the glyphs, so an icon beside them stays out of it. Take it off when the step ends;
+   the text is the same element before, during and after.
+
+       <span class="aparte-shimmer">Searching the web…</span>
+
+   Still under reduced motion, plain text in forced colours and where
+   `background-clip: text` is not supported: in each case the words read in the base
+   colour, the muted ink. The sweep goes through `-webkit-text-fill-color`, not
+   `color`, so the element keeps a real colour for everything that reads it.
+   */
+
+.aparte-shimmer {
+  color: var(--aparte-shimmer-base);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .aparte-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      var(--aparte-shimmer-base) 40%,
+      var(--aparte-shimmer-shine) 50%,
+      var(--aparte-shimmer-base) 60%
+    );
+    /* Repeating, not `no-repeat`: the fill is transparent, so a letter shows only what is
+       behind it, and a 200%-wide gradient that does not repeat leaves half the box bare at
+       both ends of its travel — half the label vanished at the start and end of every
+       loop. The travel is one tile wide, so the repeat is seamless. */
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: aparte-shimmer var(--aparte-duration-shimmer) linear infinite;
+  }
+}
+
+/* The light enters at the START edge, which a gradient's physical positions do not
+   follow: in a right-to-left text the sweep runs the other way. */
+.aparte-shimmer:dir(rtl) {
+  animation-direction: reverse;
+}
+
+/* The loop stops outright, as every looping recipe here does: the reset of the
+   duration tokens in responsive.css leaves `infinite` running as a flicker. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* The UA repaints colours; a gradient clipped to the text would be dropped and leave
+   transparent glyphs behind. */
+@media (forced-colors: active) {
+  .aparte-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* The light enters at the start edge and leaves at the end one: the 20% band of a
+   200%-wide gradient travels from -50% to 150% of the text. */
+@keyframes aparte-shimmer {
+  0%   { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}

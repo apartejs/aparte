@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 85 },
+        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 87 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
@@ -211,7 +211,7 @@ export default defineConfig({
         // where nobody stands is a floor that gets lowered.
         // Engine branches 93 -> 95 with the server-loop lot (2026-09-26): the deferral
         // suite measured 96.64%, and the ratchet asked.
-        'packages/core/src/**': { lines: 93, statements: 93, functions: 92, branches: 90 },
+        'packages/core/src/**': { lines: 95, statements: 95, functions: 92, branches: 90 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },

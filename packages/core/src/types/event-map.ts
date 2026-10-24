@@ -42,6 +42,7 @@ import type {
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteMessagePausedEventDetail,
+    AparteMessageResumedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -68,6 +69,7 @@ import type {
     AparteConversationArchiveDetail,
     AparteConversationPinDetail,
     AparteConversationRenameDetail,
+    AparteConversationStatusDetail,
 } from '../components/conversation-list/aparte-conversation-list.js';
 // event-map is a top-level aggregator (imported by the barrel, never by a
 // component), so importing this component-coupled detail type is cycle-free.
@@ -126,6 +128,8 @@ interface AparteEventMap {
     // The controller's, not the list's: a conversation's messages are on screen.
     'aparte-conversation-loaded': CustomEvent<AparteConversationLoadedDetail>;
     'aparte-conversation-unpin': CustomEvent<AparteConversationPinDetail>;
+    // The controller's, on window, to every list: what a conversation is doing.
+    'aparte-conversation-status': CustomEvent<AparteConversationStatusDetail>;
 
     // ── The turn lifecycle, minus the one entry it used to have ────────────────
     // `aparte-message-done` was in the map alone. Its siblings — start, error,
@@ -136,6 +140,7 @@ interface AparteEventMap {
     'aparte-message-error': CustomEvent<AparteMessageErrorEventDetail>;
     'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
     'aparte-message-paused': CustomEvent<AparteMessagePausedEventDetail>;
+    'aparte-message-resumed': CustomEvent<AparteMessageResumedEventDetail>;
 
     // ── The compaction conversation, and the one command core listens for ─────
     // `aparte-abort` is the only one here core NEVER sends: it listens for it, so an

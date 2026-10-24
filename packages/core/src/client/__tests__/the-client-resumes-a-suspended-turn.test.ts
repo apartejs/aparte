@@ -36,7 +36,7 @@ function chat(initial: AparteMessage[] = []) {
         updateLastMessage: () => {}, typeName: () => {}, setUsage: () => {},
         getMessages: () => messages,
     });
-    for (const type of ['aparte-message-start', 'aparte-message-paused', 'aparte-message-done', 'aparte-message-aborted', 'aparte-message-error']) {
+    for (const type of ['aparte-message-start', 'aparte-message-paused', 'aparte-message-resumed', 'aparte-message-done', 'aparte-message-aborted', 'aparte-message-error']) {
         el.addEventListener(type, () => events.push(type));
     }
     document.body.appendChild(el);
@@ -341,7 +341,7 @@ describe('the client resumes a paused server run', () => {
         const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
         await send(c);
         // The pause is said in between, for whoever saves the conversation.
-        expect(events).toEqual(['aparte-message-start', 'aparte-message-paused', 'aparte-message-done']);
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-paused', 'aparte-message-resumed', 'aparte-message-done']);
     });
 
     it('marks the calls stopped and does not resume when Stop lands while a panel waits', async () => {
@@ -400,7 +400,8 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls[0]!.messageId).toBe('a1');
         expect(r.calls[0]!.deferral).toEqual({ outcomes: { c1: { kind: 'decision', approved: true } }, token: 'T' });
         expect(r.calls[0]!.baseRequest.messages.at(-1)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }] });
-        expect(events).toEqual(['aparte-message-start', 'aparte-message-done']);
+        // A turn from a saved pause starts paused, and the answers send it on its way.
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-paused', 'aparte-message-resumed', 'aparte-message-done']);
         // Nothing left to resume.
         expect(await c.resumeDeferred(el)).toBe(false);
     });
@@ -446,7 +447,7 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(r.calls).toHaveLength(0);
         expect(rowOf(messages, 'c1')).toMatchObject({ status: 'aborted' });
         expect(rowOf(messages, 'c1').deferred).toBeUndefined();
-        expect(events).toEqual(['aparte-message-start', 'aparte-message-aborted']);
+        expect(events).toEqual(['aparte-message-start', 'aparte-message-paused', 'aparte-message-aborted']);
     });
 
     it('closes the calls a Stop cuts in the middle of a resume, instead of saving them open', async () => {
@@ -554,7 +555,7 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(runs).toBe(4);
         expect(rowOf(messages, 'c4')).toMatchObject({ status: 'aborted' });
         expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { code?: string }).code === 'MAX_TURNS_EXCEEDED')).toBe(true);
-        expect(events.filter((e) => e !== 'aparte-message-paused')).toEqual(['aparte-message-start', 'aparte-message-done']);
+        expect(events.filter((e) => e !== 'aparte-message-paused' && e !== 'aparte-message-resumed')).toEqual(['aparte-message-start', 'aparte-message-done']);
     });
 });
 

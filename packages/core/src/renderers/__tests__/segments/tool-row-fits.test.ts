@@ -41,6 +41,29 @@ describe('the tool row on a narrow screen', () => {
     });
 });
 
+describe('a row with nothing behind its line', () => {
+    // `details: false`, or a call with no arguments and no result yet: no <summary>, so the
+    // line needs its own flex container, or the rules above — which only work on flex
+    // items — never apply, and it sits tighter than the rows beside it.
+    const block = (): string => {
+        const at = css.search(/\.aparte-tool-line\s*[,{]/);
+        expect(at, 'a rule for .aparte-tool-line').toBeGreaterThan(-1);
+        return css.slice(css.indexOf('{', at), css.indexOf('}', at));
+    };
+
+    it('is laid out as the summary line is: a flex row with its gap, padding and column margin', () => {
+        const line = block();
+        expect(line).toMatch(/display:\s*flex/);
+        expect(line).toMatch(/gap:\s*var\(--aparte-space-4\)/);
+        expect(line).toMatch(/padding:\s*var\(--aparte-space-2\) var\(--aparte-space-3\)/);
+        expect(line).toMatch(/margin-inline:/);
+    });
+
+    it('offers no pointer: there is nothing to open (decision #8)', () => {
+        expect(block()).not.toMatch(/cursor:\s*pointer/);
+    });
+});
+
 describe('a tool part', () => {
     it('reads on the code surface, coloured or not, at the small size', () => {
         const pre = rule('.aparte-tool-part-body pre');

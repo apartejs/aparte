@@ -10,7 +10,13 @@
    line: the disclosure control, the call's identity, and its state at the far
    end. The chip also had to carry a border and a fill, so it competed with the
    reply text beside it for attention it did not deserve. */
-.aparte-tool-summary {
+/* `.aparte-tool-line` is the same line for a row with nothing behind it (`details: false`,
+   or a call with no arguments and no result yet): no <summary> there, and without a flex
+   container of its own the narrow-screen rules below, which only work on flex items, never
+   reached it, and it sat tighter than the rows beside it. Same layout; no pointer and no
+   hover, since there is nothing to open (decision #8). */
+.aparte-tool-summary,
+.aparte-tool-line {
     display: flex; align-items: center; gap: var(--aparte-space-4);
     /* The negative margin is what puts the row's CONTENT on the message column rather
        than one padding in from it — the padding here is the hover surface, not the
@@ -23,8 +29,8 @@
        the hover surface symmetric with it. */
     padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline: calc(var(--aparte-space-3) * -1);
     border-radius: var(--aparte-tool-row-radius);
-    cursor: pointer; list-style: none;
 }
+.aparte-tool-summary { cursor: pointer; list-style: none; }
 .aparte-tool-summary:hover { background: var(--aparte-surface-2); }
 .aparte-tool-summary::-webkit-details-marker { display: none; }
 /* SIZES the marker; does not draw it. This was a triangle built out of CSS borders — a
@@ -151,6 +157,16 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     font-family: var(--aparte-code-font-family);
     font-weight: var(--aparte-font-weight-normal);
     color: var(--aparte-text-muted);
+}
+/* The quiet line (registerToolDisplay `quiet`), the one a person reads: what the call is
+   about in the chat's own font — a search's words are not code — and the chevron at the
+   end of the line, where chat apps put it, so every icon of a turn starts on the same
+   edge whether or not its row opens. */
+.aparte-segment-tool-call[data-quiet] .aparte-tool-target {
+    font-family: inherit;
+}
+.aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
+    order: 1;
 }
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is

@@ -308,6 +308,22 @@ export interface AparteMessagePausedEventDetail {
 }
 
 /**
+ * Detail payload for `aparte-message-resumed`.
+ * Dispatched when a paused turn goes on: the page answered the paused calls (a person's
+ * decision, a browser tool) and the run starts again, into the same reply. The other half
+ * of `aparte-message-paused` — what the turn does between the two is wait for the page;
+ * after this one, it runs again until `aparte-message-done`.
+ *
+ * @event aparte-message-resumed
+ */
+export interface AparteMessageResumedEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /** Id of the reply the run goes on in. */
+    messageId: string;
+}
+
+/**
  * Detail payload for `aparte-message-aborted`.
  * Dispatched when the user stops a turn.
  *

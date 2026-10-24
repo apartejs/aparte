@@ -1,6 +1,6 @@
 ---
 title: Showing tool calls to a person, or to a developer
-description: Name your tools in words, give them icons, hide the calls a consumer chat does not need, or open every row with raw input and output for a developer — with registerToolDisplay.
+description: Name your tools in words, give them icons, keep the raw JSON from a person or put a detail of your own behind the line, hide the calls a consumer chat does not need, or open every row with raw input and output for a developer — with registerToolDisplay.
 sidebar:
   order: 2
   label: Showing tool calls
@@ -28,6 +28,7 @@ const display: AparteToolDisplay = {
   formatInput: (input) => String(input['query'] ?? ''),
   hidden: false,         // true draws nothing
   open: false,           // true opens the row
+  // details: false      // the line alone; or a function that draws what is behind it
 };
 
 aparteGlobalConfig.registerToolDisplay('web_search', display);
@@ -42,24 +43,34 @@ the few that are worth a line.
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolCallSegment } from '@aparte/core';
 import { searchIcon, globeIcon } from '@aparte/core/icons';
 
 aparteGlobalConfig.registerIcons({ search: () => searchIcon, globe: () => globeIcon });
+
+// The label's tense says where the call is, so a quiet line needs no "Running" and no "Done":
+// running, done, and a plain name for the rest (a wait for approval, a refusal, a failure).
+const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment) =>
+  segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
 
 // Every tool nothing more specific describes: no row. A tool with an entry of its own
 // (below) is described whole by it, so it is not hidden.
 aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
 
 aparteGlobalConfig.registerToolDisplay('web_search', {
-  label: 'Searching the web',
+  label: tense('Searching the web…', 'Searched the web', 'Search the web'),
   icon: 'search',
   summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
+  details: false,   // the line alone: no raw JSON behind it
+  quiet: true,      // a person's line: a shimmer while it runs, nothing once done
 });
 
 aparteGlobalConfig.registerToolDisplay('fetch_page', {
-  label: 'Reading a page',
+  label: tense('Reading a page…', 'Read a page', 'Open a page'),
   icon: 'globe',
   summary: (segment) => String(segment.toolCall.input['url'] ?? ''),
+  details: false,
+  quiet: true,
 });
 ```
 
@@ -67,12 +78,20 @@ aparteGlobalConfig.registerToolDisplay('fetch_page', {
 
 What the person sees:
 
-- **A label** in the chat's own font, in place of the identifier: "Searching the web". The
+- **A label** in the chat's own font, in place of the identifier: "Searching the web…" while it
+  runs, "Searched the web" once done, "Search the web" when it waits for approval or failed. The
   identifier stays on the row as `data-tool-name`, for a stylesheet or a test.
+- **A quiet line** (`quiet: true`): the label [shimmers](/components/shimmer/) while the call runs,
+  where an agent's row shows a spinner and "Running", and nothing marks success once it is done.
+  A wait for approval, a refusal, a failure and a stop still show their word and their note. The
+  target is set in the chat's font and the chevron sits at the end of the line.
 - **An icon** from the icon provider. `file`, `edit` and `terminal` are core's; `search` and
   `globe` are in `@aparte/core/icons`, and are drawn once you register them as above. A key
   nobody registered falls back to `tool`.
 - **A summary**, the line after the label, as before.
+- **No raw JSON** behind the two lines: `details: false` keeps the line alone, with nothing to
+  open. Each described tool says it, since an entry is used whole; a list of sources or any other
+  detail of your own is in [what's behind the line](#whats-behind-the-line).
 - **No row** for every other tool: they fall to the `'*'` entry. The two described tools are not
   hidden although they never say so, because an entry is used whole (see
   [how a display is matched](#how-a-display-is-matched)). A turn made only of hidden calls shows no header either, just
@@ -83,13 +102,13 @@ What the person sees:
 Hiding is a matter of the screen only. A hidden call stays in the message, in storage, and in the
 history the model reads on its next turns; a reload draws it hidden again. An approval it needs is
 still asked, and the question names it by its label and summary, so the person is never asked about
-something they cannot see described. The default question is `Allow {tool}?`, so "Allow Searching the web?"; it is the
+something they cannot see described. The default question is `Allow {tool}?`, so "Allow Search the web?"; it is the
 built-in approval channel's (`AparteClient`'s), and an app with its own loop writes its own.
 `extendLocale({ approvalAsk: … })` changes the wording.
 
 Registering a display notifies the chats on the page. One that changes a label, an icon or a
 summary relabels the rows already drawn, keeping what the reader opened; one that sets or drops
-`hidden` or `open` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
+`hidden`, `open`, `details` or `quiet` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
 on the call:
 
 ```ts
@@ -101,6 +120,67 @@ aparteGlobalConfig.registerToolDisplay('delete_file', {
 ```
 
 A label that throws, or is empty, falls back to the identifier.
+
+## What's behind the line
+
+An opened row shows **Input** and **Output**: the arguments and the result, raw. That is right
+for a developer and wrong for a person. `details` decides what is behind the line:
+
+- left out, Input and Output, as in [a developer's view](#a-developers-view);
+- `false`, nothing: the line alone, with no disclosure, so `open` and a segment's `collapsed`
+  have nothing to open;
+- a function, what it returns, in place of Input and Output, under the same line.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolCallSegment } from '@aparte/core';
+
+// A finished search shows the pages it found; nothing while it runs.
+function sources(segment: AparteToolCallSegment): HTMLElement | string {
+  if (segment.status !== 'resolved') return '';
+  const list = document.createElement('ul');
+  for (const page of JSON.parse(segment.result ?? '[]') as { title: string }[]) {
+    const item = document.createElement('li');
+    item.textContent = page.title;
+    list.append(item);
+  }
+  return list;
+}
+
+aparteGlobalConfig.registerToolDisplay('web_search', { label: 'Searched the web', details: sources });
+aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read a file', details: false });
+```
+
+<Variant id="tool-details" caption="A read with nothing behind its line, and a search whose detail is the pages it found." />
+
+The function:
+
+- is called when the row is drawn and on every update of the call, so it reads the status and the
+  result as they land. An update replaces what it drew and leaves the row as open or as closed as
+  the reader left it.
+- returns an element, or a string that core inserts as HTML after the
+  [HTML sanitizer](/guides/markdown/), the one Markdown goes through: a script or an event handler
+  that came in with the tool's result is removed. Prefer the element all the same, or escape every
+  value from the call with `escapeHtml`: the sanitizer keeps harmless markup, which can still
+  mislead.
+- returns `''` when there is nothing behind the line yet. The row then has no disclosure, and gets
+  one once the function returns something.
+- costs the row its detail if it throws. The line stays, and the raw Input and Output never come
+  back in its place.
+
+A language switch asks the function again, so a detail written with
+[`t()`](/guides/localization/) follows the reader's language like the line does. What it draws
+now is written into the nodes already there: unchanged, nothing is touched; the same shape with
+other words, only the words change, and the reader's scroll and what they opened stay. Only a
+detail whose shape changed is replaced.
+
+The approval panel is not the row: a call that needs approval shows its arguments there, as
+JSON unless the tool has a `formatInput`.
+
+`hidden` wins over `details`, and a tool renderer draws the whole row instead. `details` is for
+keeping core's line with a detail of your own. An entry is used whole, so
+`registerToolDisplay('*', { details: false })` keeps the raw JSON off every tool nothing more
+specific describes, and a tool with an entry of its own says its own `details`.
 
 ## A developer's view
 
@@ -220,7 +300,8 @@ A `'*'` hide therefore leaves a tool with a renderer of its own drawn, such as
 
 ## On a narrow screen
 
-The row keeps its state word whatever the width. The note and the target give way first, cut
+The row keeps its state word whatever the width (a quiet row shows it only when something went
+wrong or waits for approval, and then keeps it too). The note and the target give way first, cut
 with an ellipsis, and the note carries its full text as a `title`, so a hover still reads it.
 
 ## Next

@@ -24,6 +24,7 @@
 @import './display/spinner.css';
 @import './display/progress.css';
 @import './display/skeleton.css';
+@import './display/shimmer.css';
 @import './display/divider.css';
 @import './display/alert.css';
 @import './display/card.css';

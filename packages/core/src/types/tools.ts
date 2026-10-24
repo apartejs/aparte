@@ -217,7 +217,47 @@ export interface AparteToolDisplay {
     hidden?: boolean;
     /** Open the row's disclosure by default (a segment's own `collapsed` wins). */
     open?: boolean;
+    /**
+     * What is behind the line. Left out, Input and Output: the arguments and the result,
+     * a developer's view. `false`, nothing: the line alone, with no disclosure, for a chat
+     * whose reader should not be one click from raw JSON (`open` and a segment's
+     * `collapsed` then have nothing to open). A function: what it returns, in place of
+     * Input and Output — see {@link AparteToolDetails}.
+     */
+    details?: false | AparteToolDetails;
+    /**
+     * The line a person reads in a conversational chat, where the default is an agent's.
+     * While the call runs, the label shimmers (`aparte-shimmer`) instead of a spinner and
+     * "Running"; once it is done, nothing marks success — the label's tense says it, so
+     * write one that reads the status ("Searching the web…" / "Searched the web" / a plain
+     * "Search the web" for the rest). Under reduced motion the shimmer holds still, so that
+     * label is what says the call runs. A wait
+     * for approval, a refusal, a failure and a stop still show their word and note. The
+     * words it does not show are still read by a screen reader. The target is set in the
+     * chat's font and the chevron moves to the end of the line; the row carries
+     * `data-quiet` for a stylesheet of your own.
+     */
+    quiet?: boolean;
 }
+
+/**
+ * What a row shows behind its line, in place of Input and Output: a list of sources for a
+ * search, a sentence for a write. Called when the row is drawn and on every update of the
+ * call, so it can read the status and the result as they land — and on a language switch,
+ * whose words are written into the nodes already there when the shape is the same.
+ *
+ * Return an **HTMLElement** and nothing goes through `innerHTML`. Return a **string** and
+ * core inserts it as HTML after the config's HTML sanitizer (`setHtmlSanitizer`, as for
+ * Markdown): what it shows comes from a tool's result, so a script or an event handler in
+ * it is removed. Escape the call's values all the same (`escapeHtml`): the sanitizer keeps
+ * markup that is harmless but can still mislead. Return `''` for nothing behind the
+ * line yet: no disclosure, which appears once there is something (a result, say).
+ *
+ * A function that throws costs the row its detail, never its line, and never falls back
+ * to the raw Input and Output. Register the same function rather than a new closure each
+ * time: a different `details` redraws the messages on screen.
+ */
+export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
 
 /**
  * Per-tool segment renderer.

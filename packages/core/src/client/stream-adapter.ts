@@ -135,6 +135,31 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
+    /**
+     * The reasoning block has ended: the model moved on, to its answer or to a tool call.
+     *
+     * Reasoning arrived on its OWN channel (`reasoning_content`), so it never passes through
+     * the parser and has no closing delimiter. Its end in band is exactly this: the provider
+     * started sending answer text, or a call, so it has stopped sending reasoning. Saying
+     * `isStreaming: false` here is what lets a UI show the block's duration, and stop its
+     * shimmer, WHILE the answer streams or the tool runs, instead of holding "Thinking" on
+     * screen until the turn ends. `endedAt` is unaffected — it was frozen by the last
+     * reasoning delta. Folded unless the app keeps reasoning open (`setSegmentDefaults`) —
+     * read from the CHAT's config, the one that opened the block on insert: a client on the
+     * global config also answers a chat with its own, and reading the client's here snapped
+     * an open block shut at the first answer token. Once per block.
+     *
+     * `fold` only at the answer: a tool call or a new step settles the block without
+     * closing one the reader opened to watch it — the answer is the moment it gives way.
+     */
+    const settleThinking = (fold: boolean): void => {
+        if (!thinkingId || thinkingCollapsed) return;
+        const chatConfig = typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config;
+        const keepOpen = !fold || chatConfig.getSegmentDefaults('thinking')?.collapsed === false;
+        target.updateSegment?.(thinkingId, keepOpen ? { isStreaming: false } : { collapsed: true, isStreaming: false });
+        thinkingCollapsed = true;
+    };
+
     return (e: AparteStreamRunEvent): void => {
         switch (e.type) {
             case 'run-start':
@@ -142,6 +167,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'turn-start':
+                // A step that was reasoning only (an AG-UI run that finished on it) ends here.
+                settleThinking(false);
                 parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
                 streaming = new Set();
                 thinkingId = null;
@@ -156,10 +183,14 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     // `setSegmentDefaults('thinking', …)`, and `true` here meant a streaming
                     // reasoning block could never arrive open. Left unset it renders closed,
                     // as before, unless the app asked for it open.
+                    // `isStreaming: true`: the block is arriving, which is what a renderer reads
+                    // for it (the label's shimmer). It was left unset and only ever written
+                    // `false`, so "still arriving" was never true on this path.
                     const seg: AparteThinkingSegment = {
                         id: `think-${uuid()}`,
                         type: 'thinking',
                         content: thinkingContent,
+                        isStreaming: true,
                     };
                     thinkingId = seg.id;
                     streaming.add(seg.id);
@@ -172,24 +203,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'text-delta': {
                 // Collapse the thinking block when response text starts.
-                if (thinkingId && !thinkingCollapsed) {
-                    // Reasoning arrived on its OWN channel (`reasoning_content`),
-                    // so it never passes through the parser and has no closing
-                    // delimiter. Its end in band is exactly this: the provider
-                    // started sending answer text, so it has stopped sending
-                    // reasoning. Saying `isStreaming: false` here is what lets a UI
-                    // show the block's duration WHILE the answer streams, instead of
-                    // holding "Thinking" on screen until the turn ends. `endedAt` is
-                    // unaffected — it was frozen by the last reasoning delta.
-                    // Folded unless the app keeps reasoning open (`setSegmentDefaults`) — read
-                    // from the CHAT's config, the one that opened the block on insert: a client
-                    // on the global config also answers a chat with its own, and reading the
-                    // client's here snapped an open block shut at the first answer token.
-                    const chatConfig = typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config;
-                    const keepOpen = chatConfig.getSegmentDefaults('thinking')?.collapsed === false;
-                    target.updateSegment?.(thinkingId, keepOpen ? { isStreaming: false } : { collapsed: true, isStreaming: false });
-                    thinkingCollapsed = true;
-                }
+                settleThinking(true);
                 const result = parser.parse(e.delta);
                 for (const segment of result.segments) {
                     if (!streaming.has(segment.id)) {
@@ -225,6 +239,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'tool-start': {
+                // A call ends the reasoning before it, as answer text does.
+                settleThinking(false);
                 const toolSeg: AparteToolCallSegment = {
                     id: `tool-${e.toolCallId}`,
                     type: 'tool_call',

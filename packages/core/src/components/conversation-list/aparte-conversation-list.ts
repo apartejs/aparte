@@ -6,6 +6,12 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
+import {
+    conversationStatusOf,
+    rememberConversationStatus,
+    tellConversationStatus,
+    type AparteConversationStatus,
+} from '../../conversations/conversation-status.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -40,6 +46,24 @@ export interface AparteConversationRenameDetail {
     title: string;
 }
 
+export type { AparteConversationStatus };
+
+/**
+ * A conversation's state changed, on `window`. The conversation controller sends it as
+ * turns start, pause and end; every list on the page applies it to its row. `null` for
+ * neither state.
+ *
+ * @event aparte-conversation-status
+ */
+export interface AparteConversationStatusDetail {
+    id: string;
+    status: AparteConversationStatus | null;
+}
+
+/** A status that is one of the two, from anyone's event: anything else is none. */
+const statusOf = (value: unknown): AparteConversationStatus | null =>
+    value === 'running' || value === 'waiting' ? value : null;
+
 /** A date group: its heading (null for the undated tail) and its rows, in host order. */
 interface ConversationGroup {
     key: string;
@@ -61,7 +85,8 @@ type ListLocaleKey =
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
-    | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty';
+    | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty'
+    | 'conversationRunning' | 'conversationWaiting';
 
 /** A selector for the row button carrying `id` on `attr`. */
 function rowSelector(attr: string, id: string): string {
@@ -238,6 +263,7 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('pointerdown', this._onPress);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
+        window.addEventListener('aparte-conversation-status', this._onStatus);
     }
 
     disconnectedCallback(): void {
@@ -251,6 +277,7 @@ export class AparteConversationList extends HTMLElement {
         this._pressed = false;
         this._renderAfterPress = false;
         window.removeEventListener('aparte-config-change', this._onConfigChange);
+        window.removeEventListener('aparte-conversation-status', this._onStatus);
     }
 
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -275,7 +302,59 @@ export class AparteConversationList extends HTMLElement {
         this._render();
     };
 
+    /**
+     * `aparte-conversation-status`, on `window`: the controller's, a list's, or an app's own.
+     * Kept page-wide too (an app may dispatch the event itself), then drawn on this row.
+     */
+    private _onStatus = (e: Event): void => {
+        const detail = (e as CustomEvent<Partial<AparteConversationStatusDetail> | undefined>).detail;
+        if (typeof detail?.id !== 'string') return;
+        rememberConversationStatus(detail.id, statusOf(detail.status));
+        const row = this.querySelector<HTMLElement>(rowSelector('data-conv-id', detail.id));
+        if (row) this._applyStatus(row, detail.id);
+    };
+
     // ─── Public API ───────────────────────────────────────────────────────
+
+    /**
+     * Say what a conversation is doing: `running` while an AI answers in it, `waiting`
+     * while its turn waits for the person, `null` for neither. The row carries it as
+     * `data-status`, a running title wears `aparte-shimmer`, a waiting row shows its mark
+     * (`.aparte-conv-item__status`, an empty slot otherwise), and a screen reader hears
+     * the state with the title. The look is CSS on `data-status`: a site that wants a dot
+     * for `running` draws it in the slot and takes the shimmer off.
+     *
+     * A state is about a conversation, not about this list: it is kept page-wide and every
+     * list on the page draws it, one that connects later included. Patched in place, and
+     * kept across re-renders and for rows not drawn yet. The conversation controller sets
+     * it on its own through `aparte-conversation-status`.
+     */
+    setConversationStatus(id: string, status: AparteConversationStatus | null): void {
+        tellConversationStatus(id, statusOf(status));
+    }
+
+    /** What a conversation is doing, as last told; `null` for neither. */
+    getConversationStatus(id: string): AparteConversationStatus | null {
+        return conversationStatusOf(id);
+    }
+
+    /** Write a conversation's state onto its row — the same three things `_renderItem` draws. */
+    private _applyStatus(row: HTMLElement, id: string): void {
+        const status = conversationStatusOf(id);
+        if (status) row.setAttribute('data-status', status);
+        else row.removeAttribute('data-status');
+        const answering = status === 'running';
+        row.querySelector('.aparte-conv-item__title')?.classList.toggle('aparte-shimmer', answering);
+        const heard = row.querySelector('.aparte-conv-item__state');
+        if (heard) heard.textContent = this._statusWords(status);
+    }
+
+    /** The words a screen reader hears for a state. Literal `t('…')` reads, for the locale guard. */
+    private _statusWords(status: AparteConversationStatus | null): string {
+        if (status === 'running') return this._t('conversationRunning');
+        if (status === 'waiting') return this._t('conversationWaiting');
+        return '';
+    }
 
     /** Set the list of conversations to display. Triggers a re-render. */
     set conversations(items: AparteConversationListItem[]) {
@@ -547,14 +626,21 @@ export class AparteConversationList extends HTMLElement {
         // Marked at the declaration because the use site is inside a multi-line template
         // literal, where a `//` would render as text rather than exempt anything.
         const moreGlyph = resolveConfig(this).getIcon('more');  // safe-text: the icon provider's SVG — markup by contract, which is what getIcon returns everywhere in core.
+        // What the conversation is doing (setConversationStatus): data on the row, a
+        // shimmer on a running title, the mark's slot, and the words a screen reader hears
+        // with the title. `status` is one of two literals: `statusOf` let nothing else in.
+        const status = conversationStatusOf(conv.id);
+        const statusAttr = status ? ` data-status="${escapeAttr(status)}"` : '';
+        const titleClass = escapeAttr(status === 'running' ? 'aparte-conv-item__title aparte-shimmer' : 'aparte-conv-item__title');
+        const heard = escapeHtml(this._statusWords(status));
         return `
-<div class="${escapeAttr(classes)}" data-conv-id="${escapedId}">
+<div class="${escapeAttr(classes)}" data-conv-id="${escapedId}"${statusAttr}>
   <button
     class="aparte-conv-item__select"
     type="button"
     data-select-id="${escapedId}"
     aria-current="${isActive ? 'page' : 'false'}"
-  ><span class="aparte-conv-item__title">${title}</span></button>
+  ><span class="${titleClass}">${title}</span><span class="aparte-conv-item__status" aria-hidden="true"></span><span class="aparte-conv-item__state aparte-sr-only">${heard}</span></button>
   <button
     class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-conv-item__more"
     type="button"

@@ -141,6 +141,9 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
     renderingVersions.set(cfg, renderingVersionOf(cfg) + 1);
 }
 
+/** The fields of a tool display that change a row's ELEMENT, so registering one redraws. */
+const ELEMENT_SHAPING = ['hidden', 'open', 'details', 'quiet'] as const satisfies readonly (keyof AparteToolDisplay)[];
+
 /**
  * A provider's drawing for `name`, own or inherited — a provider may be a class — but never
  * one `Object.prototype` lends every object (`toString`, `constructor`).
@@ -1379,15 +1382,28 @@ export class AparteConfig {
      * @example
      * // A consumer chat: the reply is what matters; the calls stay in the history.
      * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+     *
+     * @example
+     * // The line, and no raw JSON behind it: nothing, or a detail of the app's own.
+     * aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Reading a file', details: false });
+     * aparteGlobalConfig.registerToolDisplay('web_search', {
+     *     label: 'Searched the web',
+     *     details: (segment) => sourcesList(segment.result),
+     * });
      */
     registerToolDisplay(match: AparteToolMatcher, display: AparteToolDisplay): void {
         const before = this._toolDisplays.get(match);
         const next = { ...before, ...display };
         this._toolDisplays.set(match, next);
-        // `hidden` and `open` change ELEMENTS (a row becomes a placeholder, a disclosure
-        // opens), which a relabel does not do: the messages on screen are drawn again. A
-        // label, an icon or a summary only relabels, keeping what the reader opened.
-        if (before?.hidden !== next.hidden || before?.open !== next.open) bumpRenderingVersion(this);
+        // `hidden`, `open`, `details` and `quiet` change ELEMENTS (a row becomes a
+        // placeholder, a disclosure opens or goes, the line changes shape), which a relabel
+        // does not do: the messages on screen are drawn again. A label, an icon or a summary
+        // only relabels, keeping what the reader opened. And a NEW entry is used whole by
+        // the tools it names, so it can take a quiet line or a hidden row away from them
+        // while saying nothing of either: it redraws when another entry shapes rows.
+        const shapes = ELEMENT_SHAPING.some((field) => before?.[field] !== next[field])
+            || (before === undefined && this._anotherShapes(next));
+        if (shapes) bumpRenderingVersion(this);
         this._notify();
     }
 
@@ -1395,8 +1411,16 @@ export class AparteConfig {
     unregisterToolDisplay(match: AparteToolMatcher): void {
         const before = this._toolDisplays.get(match);
         this._toolDisplays.delete(match);
-        if (before?.hidden !== undefined || before?.open !== undefined) bumpRenderingVersion(this);
+        // Dropping an entry hands its tools to a less specific one, which may shape them.
+        const shapes = ELEMENT_SHAPING.some((field) => before?.[field] !== undefined)
+            || (before !== undefined && this._anotherShapes(before));
+        if (shapes) bumpRenderingVersion(this);
         this._notify();
+    }
+
+    /** Whether an entry other than `own` sets a field that shapes a row. */
+    private _anotherShapes(own: AparteToolDisplay): boolean {
+        return this._toolDisplays.values().some((entry) => entry !== own && ELEMENT_SHAPING.some((field) => entry[field] !== undefined));
     }
 
     /** How a tool named `toolName` is shown — the entry that applies to it — or undefined. */

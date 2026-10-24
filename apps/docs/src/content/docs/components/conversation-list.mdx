@@ -6,7 +6,7 @@ catalog:
   order: 4
   claims:
     elements: [aparte-conversation-list]
-  demos: [conversation-list, conversation-list-loading]
+  demos: [conversation-list, conversation-list-status, conversation-list-loading]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -29,6 +29,53 @@ Each row is two buttons: its title, which selects it, and a `⋯` that opens its
 Press `⋯` on a row above: rename, pin or unpin, archive or unarchive, delete. Every item fires an
 event and stops. Rename turns the title into a field (Enter or leaving it commits, Escape cancels); delete asks first,
 inside the menu, because it is the one action you cannot undo.
+
+### While a conversation answers
+
+<Variant id="conversation-list-status" />
+
+A row says what its conversation is doing. `running`: an AI is answering in it, and its title
+[shimmers](/components/shimmer/). `waiting`: its turn waits for the person, a server run paused
+on a question or an approval, and a mark sits beside the title. A screen reader hears the state
+with the title ("Answering", "Waiting for you", in the reader's language).
+
+With a [conversation controller](/guides/conversation-persistence/) you write nothing: it sends
+`aparte-conversation-status` on `window` as each turn starts (`running`), pauses on the page
+(`waiting`), resumes (`running`) and ends (`null`), from the turn's own `aparte-message-start`,
+`-paused`, `-resumed`, `-done`, `-error` and `-aborted`. Without one, say it yourself, from the
+same events:
+
+```js
+const list = document.querySelector('aparte-conversation-list');
+list.setConversationStatus('c1', 'running');
+list.setConversationStatus('c1', null);   // neither
+```
+
+`running` is always the conversation on screen: opening another one stops the turn. `waiting` is
+the one state a conversation keeps once the person has gone elsewhere, because a paused run
+survives the switch. After a reload, a paused conversation shows it again once it is opened and
+its question is put again.
+
+A state is about a conversation, not about one list: it is kept for the page, every list draws
+it, and a list that appears later (a drawer opened on demand, a remount) draws it too. It is
+keyed by conversation id, so two chats on one page whose ids collide share their states.
+
+The state is data on the row (`data-status`) and the look is CSS, so it is yours to change. The
+mark (`.aparte-conv-item__status`) is an empty slot until a state draws it. A dot for `running`
+instead of the shimmer:
+
+```css
+.aparte-conv-item[data-status="running"] .aparte-conv-item__title {
+  animation: none;
+  background-image: none;
+  -webkit-text-fill-color: currentColor;
+  color: inherit;
+}
+.aparte-conv-item[data-status="running"] .aparte-conv-item__status {
+  display: block;
+  background: var(--aparte-success);
+}
+```
 
 ### While it loads
 
