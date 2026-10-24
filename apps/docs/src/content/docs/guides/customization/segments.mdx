@@ -148,8 +148,13 @@ reads the tags registered on that one.
 import { aparteGlobalConfig } from '@aparte/core';
 
 aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });   // reasoning arrives open
+aparteGlobalConfig.setSegmentDefaults('tool_call', { collapsed: false });  // every tool row arrives open
 aparteGlobalConfig.setSegmentDefaults('chart', { values: [] });
 ```
+
+A `tool_call` segment has a `collapsed` field like reasoning's. One tool's rows can be opened with
+`registerToolDisplay(name, { open: true })` instead, and a segment's own `collapsed` wins over
+both ([opening the rows](/guides/tool-display/#a-developers-view)).
 
 A default fills the fields a segment arrives without: one the producer set, even to `undefined`,
 keeps its value, and the identity fields — `id`, `type`, `messageId`, `index` — are never

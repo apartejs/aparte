@@ -73,7 +73,8 @@ React and Vue, `createAparteClient({ streamRunner })` in Svelte,
   [approval panel](/guides/tools/#require-approval-human-in-the-loop), and its
   [approval policy](/components/approval-mode/) can answer first. Approve runs the tool on your
   server; Reject sends `{ approved: false }`, without the words the person wrote, and the row stays
-  refused.
+  refused; it still says who refused (`You said: “…”` for a person's words, `Refused by policy` for
+  your approval policy).
 - **A tool that needs the page** — `ask_user` through `setupAskUser()`, your own through
   `registerTool` — reaches your route as a declared tool, which `mergeAgentTools` adds. TanStack
   AI pauses on it, the page runs it, and its result resumes the run: TanStack's `.client()`

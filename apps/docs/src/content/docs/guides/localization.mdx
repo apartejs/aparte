@@ -61,8 +61,17 @@ aparteGlobalConfig.setLocale(es);
 
 Start from the English default and override the keys you translate: the type lists the chat's
 built-in strings, and a key you leave out shows in English. These keys take a placeholder the
-chat fills in: `{tool}` in `approvalAsk`, `{name}` in `removeAttachment` and `{title}` in
-`deleteConversationConfirm`.
+chat fills in: `{tool}` in `approvalAsk`, `{name}` in `removeAttachment`, `{title}` in
+`deleteConversationConfirm`, `{duration}` in `thoughtFor` (`Thought for {duration}`; the duration
+is formatted by `Intl` in the locale's `tag`), `{instruction}` in `toolRejectedSaid` and `{n}` in
+`maxTurnsReached` (`Stopped after {n} turns to avoid an endless loop.`; the turn-limit error follows
+the locale).
+
+A tool row's notes are keys too: `toolRejectedSaid`, `toolRefusedByPolicy`, `toolReason`,
+`toolNotRunAfterRefusal`, `toolTimedOut`, `toolUnavailable`, `toolNoApprover` and `toolTurnLimit`.
+So are the reasoning block's `thought` ("Thought") and `thoughtFor` (shown with `showDuration`), and two read by plugins:
+`questionDeclined` (`@aparte/plugin-ask-user`) and `artifactNotCreated`
+(`@aparte/plugin-artifacts`). `@aparte/locale-fr` translates them all.
 
 `tag` and `direction` are not words:
 

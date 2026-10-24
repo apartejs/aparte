@@ -53,6 +53,28 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
+        id: 'artifact-not-created',
+        title: 'A create_artifact call that has no document to show',
+        plugins: ['artifacts'],
+        html: `<!-- In your app: import { setupArtifacts } from '@aparte/plugin-artifacts'. -->
+<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+
+<script>
+  const { setupArtifacts } = window.apartePlugins.artifacts;
+  setupArtifacts();
+
+  const input = (title) => ({ mimeType: 'text/markdown', title, content: '## Draft' });
+
+  // create_artifact is a tool: while it waits for a decision the block is quiet, and once it
+  // is refused, stopped or failed it says "Not created" and offers no Copy or Download.
+  document.querySelector('aparte-chat-bubble').setSegments([
+    { id: 's1', type: 'tool_call', status: 'awaiting-approval', toolCall: { id: 't1', name: 'create_artifact', input: input('Launch note') } },
+    { id: 's2', type: 'tool_call', status: 'rejected', toolCall: { id: 't2', name: 'create_artifact', input: input('Pricing page') }, refusal: { by: 'person' } },
+    { id: 's3', type: 'tool_call', status: 'aborted', toolCall: { id: 't3', name: 'create_artifact', input: input('Roadmap') }, abortCause: 'stopped' },
+  ]);
+</script>`,
+    },
+    {
         id: 'artifact-markdown',
         title: 'A Markdown note as an artifact',
         plugins: ['artifacts'],

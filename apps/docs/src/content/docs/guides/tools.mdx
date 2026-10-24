@@ -56,17 +56,34 @@ reaches it ends on an error message. A model whose declared `capabilities` leave
 <Variant id="tool-statuses" caption="A tool call in each of its states." />
 
 Each call is one line in the reply, in the order it happened: the tool's name and its state.
-Opened, it shows the arguments the model chose under **Input** and the result under **Output**, as
-formatted JSON, coloured when a [highlighter](/guides/markdown/) is registered.
+Opened, it shows the arguments the model chose under **Input** and the result under **Output**.
+A part that is JSON is pretty-printed, and coloured when a [highlighter](/guides/markdown/) is
+registered; any other text stays as it is. Each part has a copy button, and a long one scrolls
+inside a box capped by `--aparte-tool-part-max-height` (300px), a focusable region a keyboard can
+scroll. What a tool is called, and whether its row is drawn at all, is yours to say:
+[Showing tool calls to a person, or to a developer](/guides/tool-display/).
 
-| State | Word | When |
-| --- | --- | --- |
-| `awaiting-approval` | Waiting | a person has not decided yet |
-| `pending` | Running | the handler runs, with a spinner |
-| `resolved` | Done | the handler answered |
-| `rejected` | Rejected | a person, or a [policy](#decide-in-code), refused it |
-| `aborted` | Stopped | the reply was stopped, or the call could not run — no handler, no one to ask, past its time or its turns — and the reply ends there |
-| `failed` | Failed | the handler threw |
+| State | Word | Note after the word | When |
+| --- | --- | --- | --- |
+| `awaiting-approval` | Waiting | | a person has not decided yet |
+| `pending` | Running | | the handler runs, with a spinner |
+| `resolved` | Done | | the handler answered |
+| `rejected` | Rejected | `You said: “…”`, when the person wrote something instead of choosing | a person refused it |
+| `rejected` | Rejected | `Refused by policy`; the policy's reason is under **Reason** once opened | a [policy](#decide-in-code) refused it |
+| `rejected` | Rejected | `Not run: an earlier call was refused` | a paused [server](/guides/server-loop/) or agent run asked about several calls, and an earlier one was refused |
+| `aborted` | Stopped | none | the reply was stopped (Stop) |
+| `aborted` | Stopped | `Timed out` | the handler outlived `toolTimeoutMs` |
+| `aborted` | Stopped | `Not available here` | no handler is registered for the tool |
+| `aborted` | Stopped | `No one could approve it` | the call needs approval and nothing can ask |
+| `aborted` | Stopped | `Turn limit reached` | the tool's own `maxTurns` ran out |
+| `failed` | Failed | | the handler threw |
+
+The note tells the person who refused a call, or why it did not run, in their language. It is
+not the sentence the model reads: a refused row shows the note, and its **Output** stays empty
+rather than repeat "Tool execution was rejected by the user." (a conversation saved by an earlier
+version keeps its Output). On the segment, `refusal` holds `{ by, instruction? }` (`by` is
+`'person'`, `'policy'` or `'earlier-refusal'`) and `abortCause` holds `'stopped'`, `'timeout'`,
+`'no-handler'`, `'no-resolver'` or `'turn-limit'`; `result` stays the model's sentence.
 
 A handler that throws marks its call failed and ends the reply on the error. A failure the model
 should read and work around is a result instead: return it as `content`. The words are locale keys,
@@ -79,12 +96,16 @@ aparteGlobalConfig.extendLocale({
   toolRunning: 'Working…', toolCompleted: 'Done', toolRejected: 'Refused',
   toolStopped: 'Stopped', toolFailed: 'Failed', approvalWaiting: 'Waiting',
   toolInput: 'Arguments', toolOutput: 'Result',
+  // the notes after the word
+  toolRejectedSaid: 'You answered: “{instruction}”', toolRefusedByPolicy: 'Blocked by a rule',
+  toolReason: 'Why', toolNotRunAfterRefusal: 'Skipped', toolTimedOut: 'Took too long',
+  toolUnavailable: 'Not available', toolNoApprover: 'Nobody to ask', toolTurnLimit: 'Too many steps',
 });
 ```
 
 The row is `.aparte-segment-tool-call`: its line `.aparte-tool-summary`, rounded by
-`--aparte-tool-row-radius`, the word `.aparte-tool-state`, and the opened part
-`.aparte-tool-detail`. The [class reference](/reference/classes/) lists them all.
+`--aparte-tool-row-radius`, the word `.aparte-tool-state`, the note `.aparte-tool-note`, and the
+opened part `.aparte-tool-detail`. The [class reference](/reference/classes/) lists them all.
 
 ## Show what a call targets
 
@@ -102,6 +123,13 @@ A summary is the line the row writes after the tool's name: `read_file skills.js
 and written as text; an empty string, or a summary that throws, shows nothing. A tool drawn by a
 [renderer of its own](#custom-tool-renderer) shows no summary.
 
+`registerToolSummary` writes the `summary` field of the tool's display, on its own. Its first
+argument is a tool name, a `RegExp` tested against it, or `'*'` for every tool nothing more
+specific describes, so `registerToolSummary(/^mcp__/, …)` covers every tool an MCP server
+brings. `registerToolDisplay` sets a summary beside a label, an icon and the rest, and
+`unregisterToolSummary` drops only the summary. See
+[how a display is matched](/guides/tool-display/#how-a-display-is-matched).
+
 ## Show the arguments as a person reads them
 
 ```ts
@@ -116,6 +144,9 @@ disclosure; both show the JSON the model sent, until the tool has a formatter. T
 text, so a person approves the call the row describes. It is written as text; an empty string
 shows no arguments, and a formatter that throws falls back to the JSON. The panel reads the
 client's configuration and the row the chat's, so register it on the one the chat uses.
+
+Like the summary, it is a field of the tool's display (`formatInput`), takes a name, a `RegExp`
+or `'*'`, and `unregisterToolInputFormatter` drops only that field.
 
 ## Require approval (human-in-the-loop)
 
@@ -142,10 +173,17 @@ and the framework wrappers already hold; a layout you compose yourself has to in
 no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` (`Run {tool}?`),
 `approveTool`, `rejectTool` and `approvalInstructionPlaceholder`.
 
+The question names the call the way its row does: `{tool}` is the row's label (else the tool's
+identifier), then what the summary says it targets. With a label and a summary it can read "Run
+Delete a file a.ts?". A label written as an action sits awkwardly in "Run …?", and `approvalAsk`
+is the lever: `extendLocale({ approvalAsk: 'Allow {tool}?' })`. The arguments block under the
+question is unchanged.
+
 - **Approve** runs the handler.
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
   and the model gets a turn to answer it.
-- **Writing instead of choosing** is a refusal that carries your words, which the model reads —
+- **Writing instead of choosing** is a refusal that carries your words, which the model reads and
+  the row quotes back to the person (`You said: “…”`) —
   except when an [AG-UI agent](/providers/agent/ag-ui/) paused on its own tool (an interrupt),
   which gets only `{ approved: false }`.
 - **Stop** ends the reply, and the call shows Stopped; the model is told nothing.
@@ -176,7 +214,8 @@ aparteGlobalConfig.setApprovalPolicy((call) => {
 ```
 
 A policy rules on each call before anyone is asked: `allow` runs it, `ask` asks the person as
-`needsApproval` would, and `deny` refuses it, with the `reason` the model reads. The modes people
+`needsApproval` would, and `deny` refuses it, with the `reason` the model reads; the row says
+`Refused by policy` and shows that reason under **Reason**. The modes people
 know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
 [`@aparte/plugin-approval`](/components/approval-mode/).
 
@@ -199,7 +238,10 @@ new AparteClient({
 ```
 
 A resolver may also answer a `payload`, an object merged into the arguments before the handler
-runs, to correct a path while approving; the row still shows what the model sent.
+runs, to correct a path while approving; the row still shows what the model sent. On a refusal it
+may answer `by: 'policy'` when a rule refused the call and not a person, so the row says
+`Refused by policy` and not `You said: …`; without `by`, a `reason` is read as a policy's and an
+`instruction` as the person's.
 
 ## Custom tool renderer
 
