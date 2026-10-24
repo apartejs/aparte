@@ -177,6 +177,14 @@ function sourcesOf(segment: AparteToolCallSegment): HTMLElement | string {
     list.className = 'assistant-sources';
     for (const hit of hits as { title?: unknown; url?: unknown; snippet?: unknown }[]) {
         const url = typeof hit.url === 'string' && /^https?:\/\//.test(hit.url) ? hit.url : '';
+        // Read here, not later: a string the pattern lets through can still fail to parse,
+        // and one bad link must cost its site line, not the whole list.
+        let host = '';
+        try {
+            host = url ? new URL(url).hostname : '';
+        } catch {
+            host = '';
+        }
         const item = document.createElement('li');
         const title = document.createElement(url ? 'a' : 'span');
         title.className = 'assistant-sources__title';
@@ -187,10 +195,10 @@ function sourcesOf(segment: AparteToolCallSegment): HTMLElement | string {
             title.rel = 'noopener';
         }
         item.append(title);
-        if (url) {
+        if (host) {
             const site = document.createElement('span');
             site.className = 'assistant-sources__site';
-            site.textContent = new URL(url).hostname;
+            site.textContent = host;
             item.append(site);
         }
         if (typeof hit.snippet === 'string') {

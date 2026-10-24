@@ -95,7 +95,7 @@ built-in approval channel's (`AparteClient`'s), and an app with its own loop wri
 
 Registering a display notifies the chats on the page. One that changes a label, an icon or a
 summary relabels the rows already drawn, keeping what the reader opened; one that sets or drops
-`hidden` or `open` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
+`hidden`, `open` or `details` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
 on the call:
 
 ```ts
@@ -153,8 +153,14 @@ The function:
 - costs the row its detail if it throws. The line stays, and the raw Input and Output never come
   back in its place.
 
-What it drew is yours: a language switch relabels the line, not your detail, which is drawn again
-on the call's next update.
+A language switch asks the function again, so a detail written with
+[`t()`](/guides/localization/) follows the reader's language like the line does. What it draws
+now is written into the nodes already there: unchanged, nothing is touched; the same shape with
+other words, only the words change, and the reader's scroll and what they opened stay. Only a
+detail whose shape changed is replaced.
+
+The approval panel is not the row: a call that needs approval shows its arguments there, as
+JSON unless the tool has a `formatInput`.
 
 `hidden` wins over `details`, and a tool renderer draws the whole row instead. `details` is for
 keeping core's line with a detail of your own. An entry is used whole, so

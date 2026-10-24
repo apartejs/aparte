@@ -61,7 +61,8 @@ identifier into words on its own: the label is yours to write.
 
 Behind the line, a row shows Input and Output: the arguments and the result, raw. That is a
 developer's view. A display's `details` changes it. `false` keeps the line alone, with no
-disclosure, so the person is never one click from JSON. A function returns what stands in for
+disclosure, so the row never puts the person one click from JSON (a call that needs approval
+still shows its arguments in the approval panel; `formatInput` writes them in words). A function returns what stands in for
 Input and Output under the same line: here, the pages a search found. Return an element, and
 nothing the tool returned goes through `innerHTML`. Return `''` and the row shows no disclosure
 until there is something to show. The details are in
