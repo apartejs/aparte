@@ -100,6 +100,37 @@ function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput'; text: s
     return { key: 'toolOutput', text };
 }
 
+/**
+ * What is behind the row's line, from its display's `details`: the raw parts (Input and
+ * Output — the default), nothing (`false`, or a function that returned `''`), or what the
+ * app's function drew. A function that throws is nothing too, never the raw parts: an app
+ * that wrote one did so to keep its reader from them.
+ */
+type Behind = { kind: 'parts' } | { kind: 'none' } | { kind: 'body'; body: HTMLElement | string };
+
+function behindOf(segment: AparteToolCallSegment): Behind {
+    const details = contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.details;
+    if (details === false) return { kind: 'none' };
+    if (typeof details !== 'function') return { kind: 'parts' };
+    try {
+        const body = details(segment);
+        return body ? { kind: 'body', body } : { kind: 'none' };
+    } catch {
+        return { kind: 'none' };
+    }
+}
+
+/**
+ * Put what the app drew behind the line. Its own markup, so the whole detail is replaced;
+ * the `<details>` around it stays, and with it what the reader opened.
+ */
+function setBody(element: Element, body: HTMLElement | string): void {
+    const detail = element.querySelector('.aparte-tool-detail');
+    if (!detail) return;
+    if (typeof body === 'string') detail.innerHTML = body;
+    else detail.replaceChildren(body);
+}
+
 /** Write the note into its container — always in the pill, like the target, so `update` can patch it. */
 function setNote(element: Element, segment: AparteToolCallSegment): void {
     const el = element.querySelector('.aparte-tool-note');
@@ -384,11 +415,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          *
          * A `<details>` only when there IS something behind it: a disclosure that
          * reveals nothing is an affordance that lies (ratified decision #8), and a tool
-         * with no arguments and no result yet has nothing to reveal.
+         * with no arguments and no result yet has nothing to reveal — nor one whose
+         * display says `details: false`, the line alone for a reader who should not be
+         * one click from raw JSON.
          */
-        const input = describeInput(segment);
-        const outcome = outcomeOf(segment);
-        if (!input && !outcome) {
+        const behind = behindOf(segment);
+        const input = behind.kind === 'parts' ? describeInput(segment) : '';
+        const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
+        if (behind.kind === 'none' || (behind.kind === 'parts' && !input && !outcome)) {
             return `
             <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}">${pill}
             </div>
@@ -400,6 +434,19 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // Closed unless asked: the segment's own `collapsed` (a segment default reaches it
         // at insertion), else the tool's display. Read here only — `update` never forces it.
         const open = segment.collapsed !== undefined ? !segment.collapsed : cfg.getToolDisplay(name)?.open === true;
+        if (behind.kind === 'body') {
+            // The app's own detail, which may be an element: the row is built as one so
+            // nothing of it goes through a string.
+            const tpl = document.createElement('template');
+            tpl.innerHTML = `
+            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
+                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
+                <div class="aparte-tool-detail"></div>
+            </details>`.trim();
+            const row = tpl.content.firstElementChild as HTMLElement;
+            setBody(row, behind.body);
+            return row;
+        }
         return `
             <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
                 <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
@@ -491,9 +538,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             element.setAttribute('data-status', status);
             return;
         }
-        const input = describeInput(segment);
-        const outcome = outcomeOf(segment);
-        const wantsDetail = !!input || !!outcome;
+        const behind = behindOf(segment);
+        const input = behind.kind === 'parts' ? describeInput(segment) : '';
+        const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
+        const wantsDetail = behind.kind === 'body' || !!input || !!outcome;
 
         /*
          * Two cases this cannot patch, and both rebuild instead.
@@ -542,6 +590,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         setTarget(element, segment);
         setNote(element, segment);
 
+        if (behind.kind === 'body') {
+            setBody(element, behind.body);
+            return;
+        }
         setPart(element, 'input', input, 'toolInput');
         setPart(element, 'output', outcome?.text ?? '', outcome?.key ?? 'toolOutput');
         highlightParts(element);

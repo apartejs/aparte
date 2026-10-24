@@ -110,6 +110,7 @@ export type {
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
+    AparteToolDetails,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,

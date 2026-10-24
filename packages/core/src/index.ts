@@ -165,6 +165,7 @@ export type {
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
+    AparteToolDetails,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
     // and the <AparteUi> proxy handle the four used to hand-copy).

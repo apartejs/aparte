@@ -131,6 +131,7 @@ export type {
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
+    AparteToolDetails,
     AparteToolApprovalRequestDetail,
 } from './tools.js';
 

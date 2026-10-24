@@ -217,7 +217,31 @@ export interface AparteToolDisplay {
     hidden?: boolean;
     /** Open the row's disclosure by default (a segment's own `collapsed` wins). */
     open?: boolean;
+    /**
+     * What is behind the line. Left out, Input and Output: the arguments and the result,
+     * a developer's view. `false`, nothing: the line alone, with no disclosure, for a chat
+     * whose reader should not be one click from raw JSON (`open` and a segment's
+     * `collapsed` then have nothing to open). A function: what it returns, in place of
+     * Input and Output — see {@link AparteToolDetails}.
+     */
+    details?: false | AparteToolDetails;
 }
+
+/**
+ * What a row shows behind its line, in place of Input and Output: a list of sources for a
+ * search, a sentence for a write. Called when the row is drawn and on every update of the
+ * call, so it can read the status and the result as they land.
+ *
+ * Return an **HTMLElement** and nothing goes through `innerHTML`. Return a **string** and
+ * core inserts it as HTML, so every value from the call — `segment.toolCall.input`, chosen
+ * by the model, and `segment.result`, returned by the tool — must go through `escapeHtml`
+ * (the contract of {@link AparteToolRenderer.render}). Return `''` for nothing behind the
+ * line yet: no disclosure, which appears once there is something (a result, say).
+ *
+ * A function that throws costs the row its detail, never its line, and never falls back
+ * to the raw Input and Output.
+ */
+export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
 
 /**
  * Per-tool segment renderer.
