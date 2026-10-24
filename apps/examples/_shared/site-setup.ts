@@ -135,9 +135,12 @@ async function run(): Promise<SiteSetup> {
     // the Code/Preview card that renders both, in one call.
     setupArtifacts();
 
-    // 1b. "Thought for 8s" on a settled reasoning block is core's own line now
-    //     (`thoughtFor` in the locale) — this file used to build it, and a wrapper is
-    //     still how a product writes "8.2s · 1.2k tokens" instead (see the reasoning page).
+    // 1b. "Thought for 8s" on a settled reasoning block. Core draws "Thought" and leaves
+    //     the number to the app, because it measures it in the browser — from the first
+    //     reasoning delta to the last — which is the model's thinking time only when the
+    //     provider streams its reasoning. Both of this site's models do, so it turns the
+    //     duration on. (A product that wants "8.2s · 1.2k tokens" wraps the renderer.)
+    aparteGlobalConfig.setSegmentDefaults('thinking', { showDuration: true });
 
     // 2. The model. The SCRIPTED one by default (`@aparte/provider-scenario`): no server,
     //    no key, the same replies every time — so a fresh clone shows a working site, and

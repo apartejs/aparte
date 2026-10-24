@@ -86,8 +86,9 @@ export interface AparteSegmentBase {
  * `aparte` because `meta` is the consumer's: a flat `startedAt` there would collide
  * with a key of their own.
  *
- * Core reads it through {@link segmentDuration} and {@link isSegmentSettled}; it never
- * renders either number.
+ * Core reads it through {@link segmentDuration} and {@link isSegmentSettled}. It draws
+ * one number, and only when asked: a reasoning block with `showDuration` reads its
+ * duration once settled. Every other display of it is the app's.
  */
 export interface AparteSegmentTiming {
     /** Epoch ms when the segment entered a LIVE transcript. Absent for history. */
@@ -162,6 +163,15 @@ export interface AparteThinkingSegment extends AparteSegmentBase {
      */
     collapsed?: boolean;
     label?: string; // e.g., "Reasoning", "Analysis"
+    /**
+     * Once settled, read "Thought for 8s" rather than "Thought". Off by default: the
+     * duration is measured in the browser, from the first reasoning delta to the last,
+     * which is the model's thinking time only when the provider streams its reasoning — a
+     * provider that sends it in one piece would read "1s", and a reload shows it only if
+     * the stored segment kept its `meta`. Usually turned on for every block with
+     * `setSegmentDefaults('thinking', { showDuration: true })`.
+     */
+    showDuration?: boolean;
 }
 
 /**

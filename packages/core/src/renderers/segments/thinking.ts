@@ -34,15 +34,16 @@ const THINKING_ANCHOR_SLACK = 24;
  * A block's own label, else the locale's. `'Thinking'` counts as none: streamed blocks carried
  * that English literal until 0.19.3, and a conversation saved then would keep it in every locale.
  *
- * The locale's label says where the block is: "Thinking" while it streams; once settled,
- * how long it took ("Thought for 8s"), or "Thought" when no timing came with it — a block
- * that finished must not read as one still running.
+ * The locale's label says where the block is: "Thinking" while it streams, "Thought" once
+ * settled — a block that finished must not read as one still running. How long it took
+ * ("Thought for 8s") only when the app asked (`showDuration`): the number is measured
+ * here, in the browser, and is the model's thinking time only when its reasoning streams.
  */
 function labelOf(segment: AparteThinkingSegment): string {
     if (segment.label && segment.label !== 'Thinking') return segment.label;
     const cfg = contextConfig();
     if (!isSegmentSettled(segment)) return cfg.t('thinking');
-    const ms = segmentDuration(segment);
+    const ms = segment.showDuration ? segmentDuration(segment) : undefined;
     if (ms === undefined) return cfg.t('thought');
     return cfg.t('thoughtFor').replace('{duration}', () => formatDuration(ms, cfg.getLocale().tag || undefined));
 }
