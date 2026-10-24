@@ -18,7 +18,7 @@ looking, at the composer: which tool, with which arguments, approve or reject.
 
 The question names the call the way its row does: the tool's label (its identifier when it has
 none), then what its summary says it targets, so a tool labelled "Delete a file" can ask "Run
-Delete a file a.ts?". The arguments block under it is unchanged. The locale key `approvalAsk` is
+Delete a file a.ts?" ("Allow …?" by default). The arguments block under it is unchanged. The question is the built-in channel's, `AparteClient`'s; an app with its own loop writes its own. The locale key `approvalAsk` is
 the lever for the wording; an app that gives its tools action labels would write `'Allow {tool}?'`.
 
 The person can also type an answer instead of clicking: "no, archive it instead". That

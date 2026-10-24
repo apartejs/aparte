@@ -69,7 +69,7 @@ scroll. What a tool is called, and whether its row is drawn at all, is yours to 
 | `pending` | Running | | the handler runs, with a spinner |
 | `resolved` | Done | | the handler answered |
 | `rejected` | Rejected | `You said: “…”`, when the person wrote something instead of choosing | a person refused it |
-| `rejected` | Rejected | `Refused by policy`; the policy's reason is under **Reason** once opened | a [policy](#decide-in-code) refused it |
+| `rejected` | Rejected | `Refused by policy` | a [policy](#decide-in-code) refused it |
 | `rejected` | Rejected | `Not run: an earlier call was refused` | a paused [server](/guides/server-loop/) or agent run asked about several calls, and an earlier one was refused |
 | `aborted` | Stopped | none | the reply was stopped (Stop) |
 | `aborted` | Stopped | `Timed out` | the handler outlived `toolTimeoutMs` |
@@ -79,9 +79,9 @@ scroll. What a tool is called, and whether its row is drawn at all, is yours to 
 | `failed` | Failed | | the handler threw |
 
 The note tells the person who refused a call, or why it did not run, in their language. It is
-not the sentence the model reads: a refused row shows the note, and its **Output** stays empty
-rather than repeat "Tool execution was rejected by the user." (a conversation saved by an earlier
-version keeps its Output). On the segment, `refusal` holds `{ by, instruction? }` (`by` is
+not the sentence the model reads: a refused row shows the note and **no Output at all**, because
+its result is the sentence written for the model, a policy's reason included (a conversation
+saved by an earlier version keeps its Output). On the segment, `refusal` holds `{ by, instruction? }` (`by` is
 `'person'`, `'policy'` or `'earlier-refusal'`) and `abortCause` holds `'stopped'`, `'timeout'`,
 `'no-handler'`, `'no-resolver'` or `'turn-limit'`; `result` stays the model's sentence.
 
@@ -98,7 +98,7 @@ aparteGlobalConfig.extendLocale({
   toolInput: 'Arguments', toolOutput: 'Result',
   // the notes after the word
   toolRejectedSaid: 'You answered: “{instruction}”', toolRefusedByPolicy: 'Blocked by a rule',
-  toolReason: 'Why', toolNotRunAfterRefusal: 'Skipped', toolTimedOut: 'Took too long',
+  toolNotRunAfterRefusal: 'Skipped', toolTimedOut: 'Took too long',
   toolUnavailable: 'Not available', toolNoApprover: 'Nobody to ask', toolTurnLimit: 'Too many steps',
 });
 ```
@@ -170,14 +170,15 @@ With `needsApproval`, the call waits before its handler runs. The row says which
 the decision is asked at the composer: the question, the arguments the model chose, the choices,
 and a field to write something else. The panel is `<aparte-elicitation>`, which `<aparte-chat>`
 and the framework wrappers already hold; a layout you compose yourself has to include it, or, with
-no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` (`Run {tool}?`),
+no one to ask, the call is stopped. Its words are the locale keys `approvalAsk` (`Allow {tool}?`),
 `approveTool`, `rejectTool` and `approvalInstructionPlaceholder`.
 
 The question names the call the way its row does: `{tool}` is the row's label (else the tool's
-identifier), then what the summary says it targets. With a label and a summary it can read "Run
-Delete a file a.ts?". A label written as an action sits awkwardly in "Run …?", and `approvalAsk`
-is the lever: `extendLocale({ approvalAsk: 'Allow {tool}?' })`. The arguments block under the
-question is unchanged.
+identifier), then what the summary says it targets. With a label and a summary it can read "Allow
+Delete a file a.ts?". The question belongs to the built-in approval channel, `AparteClient`'s; an
+app with its own loop writes its own. `approvalAsk` is the lever for the wording of this one:
+`extendLocale({ approvalAsk: 'Run {tool}?' })`. The arguments block under the question is
+unchanged.
 
 - **Approve** runs the handler.
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
@@ -215,7 +216,7 @@ aparteGlobalConfig.setApprovalPolicy((call) => {
 
 A policy rules on each call before anyone is asked: `allow` runs it, `ask` asks the person as
 `needsApproval` would, and `deny` refuses it, with the `reason` the model reads; the row says
-`Refused by policy` and shows that reason under **Reason**. The modes people
+`Refused by policy`; the person does not read the reason, the model does. The modes people
 know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
 [`@aparte/plugin-approval`](/components/approval-mode/).
 
@@ -233,6 +234,7 @@ new AparteClient({
   approvalResolver: async (call, signal) => ({
     approved: await askTheTeam(call.name, call.input, signal),
     instruction: 'Use the staging bucket instead.',   // read by the model on a refusal
+    by: 'person',   // the row quotes the instruction back: You said: “…”
   }),
 }).start();
 ```
@@ -241,7 +243,8 @@ A resolver may also answer a `payload`, an object merged into the arguments befo
 runs, to correct a path while approving; the row still shows what the model sent. On a refusal it
 may answer `by: 'policy'` when a rule refused the call and not a person, so the row says
 `Refused by policy` and not `You said: …`; without `by`, a `reason` is read as a policy's and an
-`instruction` as the person's.
+`instruction` as the person's. So an answer that carries a `reason` of its own and no `by` shows
+`Refused by policy`: say `by: 'person'` when a person gave it.
 
 ## Custom tool renderer
 
@@ -284,6 +287,33 @@ they are. Set them as `textContent`, as above, or pass them through `escapeHtml`
 A result meant to be shown as a thing — a document, a form, a receipt — comes as the handler's
 `structuredContent`, which the renderer reads as `segment.structuredResult`; the
 [question](/components/question/) and [artifact](/components/artifact/) plugins draw their cards so.
+
+A renderer is shown a refused or stopped call too, with the reason on the segment: `refusal`
+(`{ by, instruction? }`) and `abortCause`. Read them to say it in your own words:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolCallSegment } from '@aparte/core';
+
+function whyNot(segment: AparteToolCallSegment): string {
+  if (segment.refusal?.by === 'person')
+    return segment.refusal.instruction ? `You said: ${segment.refusal.instruction}` : 'You refused it';
+  if (segment.refusal?.by === 'policy') return 'A rule blocked it';
+  if (segment.refusal?.by === 'earlier-refusal') return 'Skipped after a refusal';
+  if (segment.abortCause === 'timeout') return 'It took too long';
+  return 'It did not run';
+}
+
+aparteGlobalConfig.registerToolRenderer('send_email', {
+  render(segment) {
+    const el = document.createElement('div');
+    el.textContent = segment.status === 'rejected' || segment.status === 'aborted'
+      ? `Email not sent. ${whyNot(segment)}`
+      : `Email to ${String(segment.toolCall.input['to'] ?? '')}`;
+    return el;
+  },
+});
+```
 
 A message clips what its parts draw outside it, so a renderer's menu or popover goes on
 `document.body`, placed from its trigger's position:

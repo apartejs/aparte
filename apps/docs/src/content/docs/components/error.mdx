@@ -48,6 +48,19 @@ aparteGlobalConfig.setErrorRenderer(({ message }) => {
 
 The `code` is the machine-readable name of the failure (`MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…), for your code to branch on: the card never draws it, and carries it as `data-error-code` for a stylesheet or a test. `details` stays for text you want the reader to see, a status line or a stack.
 
+```ts
+import { aparteGlobalConfig, AparteErrorCode } from '@aparte/core';
+
+aparteGlobalConfig.setErrorRenderer(({ message, code }) => {
+  const card = document.createElement('div');
+  card.className = 'aparte-alert aparte-alert--danger';
+  card.textContent = code === AparteErrorCode.MAX_TURNS_EXCEEDED
+    ? 'The assistant went round in circles. Try asking differently.'
+    : message;
+  return card;
+});
+```
+
 The built-in card wears the kit's [Alert](/components/alert/) recipe, so its colours are the alert's.
 
 ## Fields

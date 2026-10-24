@@ -66,9 +66,10 @@ the history the model reads, and an approval they need is still asked.
 
 <Variant id="tool-open" />
 
-A row is closed unless something opens it: `open: true` on a tool's display opens its rows, and
-`setSegmentDefaults('tool_call', { collapsed: false })` opens every row. A segment's own
-`collapsed` wins over both.
+A row is closed unless something opens it. It opens in this order: the segment's `collapsed`
+(where a `setSegmentDefaults('tool_call', { collapsed: false })` default lands, written onto each
+segment as it enters a chat), then the display's `open: true`, then closed. A bubble drawn by
+hand, as in this demo, never applies a segment default, so it uses `registerToolDisplay('*', { open: true })`.
 
 ### Your own rendering
 

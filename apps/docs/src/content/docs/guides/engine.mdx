@@ -105,7 +105,11 @@ toolRefusal({ instruction: 'use the staging bucket' });
 //   by: 'person', instruction: 'use the staging bucket' }
 toolRefusal({});                                  // reason: 'Tool execution was rejected by the user.'
 toolRefusal({ reason: 'Read-only mode.' });       // by: 'policy', reason as given
+toolRefusal({ by: 'policy' });                    // reason: 'Tool execution was refused by the approval policy.'
 ```
+
+The default sentence follows `by`. A handler that rejects with its own `AbortError`, with no Stop
+and no timeout behind it, aborts the call with no `cause`.
 
 `@aparte/core` re-exports it. `reason` is the one sentence the model reads, whoever refused; `by`
 and `instruction` are for the row, which tells the person in their own language.

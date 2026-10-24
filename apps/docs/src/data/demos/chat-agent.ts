@@ -118,7 +118,7 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
   // The decision is asked at the composer, with the arguments it is about.
   requestUserInput({
     kind: 'approval',
-    message: 'Run delete_file?',
+    message: 'Allow delete_file?',
     details: JSON.stringify({ path: 'src/legacy/old-client.ts' }, null, 2),
     options: [
       { value: 'approve', label: 'Approve' },

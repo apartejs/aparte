@@ -124,7 +124,7 @@ export const CHAT_DEMOS: DemoEntry[] = [
     { id: 's2', type: 'tool_call', status: 'awaiting-approval', toolCall: call('t2', 'run_command', { cmd: 'pnpm publish' }) },
     { id: 's3', type: 'tool_call', status: 'resolved', toolCall: call('t3', 'read_file', { path: 'CHANGELOG.md' }), result: '## 0.19.2' },
     // Refused, and the row says by whom: a person who wrote something instead of choosing
-    // (refusal.instruction), a policy (its reason is the detail's Reason), or the loop, which
+    // (refusal.instruction), a policy (the note says so; the reason went to the model), or the loop, which
     // did not run a call because an earlier one of the same step was refused.
     { id: 's4', type: 'tool_call', status: 'rejected', toolCall: call('t4', 'delete_file', { path: 'src/legacy.ts' }),
       result: 'The user rejected this tool call and said: archive it instead',
@@ -228,9 +228,10 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
 <script>
   const { aparteGlobalConfig } = window.aparte;
-  // Every tool row arrives open: raw Input and Output on screen, each with a copy button.
-  // (registerToolDisplay('run_command', { open: true }) would open one tool's rows only.)
-  aparteGlobalConfig.setSegmentDefaults('tool_call', { collapsed: false });
+  // Every tool row arrives open: Input and Output on screen, each with a copy button. A display's
+  // open is read when the row is drawn; in a chat, setSegmentDefaults('tool_call', { collapsed: false })
+  // does the same for every row (a bare bubble like this one never applies a segment default).
+  aparteGlobalConfig.registerToolDisplay('*', { open: true });
 
   document.querySelector('aparte-chat-bubble').setSegments([
     { id: 's1', type: 'tool_call', status: 'resolved', toolCall: { id: 't1', name: 'search_docs', input: { query: 'release checklist', limit: 3 } }, result: JSON.stringify({ hits: [{ title: 'Release', score: 0.92 }, { title: 'Changelog', score: 0.71 }] }) },
