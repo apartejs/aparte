@@ -1,5 +1,11 @@
 # @aparte/core
 
+## 0.22.0
+
+### Patch Changes
+
+- @aparte/engine@0.22.0
+
 ## 0.21.0
 
 ### Minor Changes
@@ -316,6 +322,7 @@
 - 34160c3: A suggestion chip that sends now hands the focus to the composer, instead of dropping it to the page when its row hides.
 
   With `empty-only`, the row hides as soon as the message is on its way, and the chip a keyboard user had pressed went with it: the focus fell to `<body>`. When the chip held the focus, the composer now takes it after the send. A click that did not focus the chip changes nothing.
+
   - @aparte/engine@0.19.3
 
 ## 0.19.2
@@ -329,6 +336,7 @@
 - cd4a48f: The open sidebar drawer shows its own background again instead of being greyed out by its scrim. Nothing to change in your code.
 
   The open drawer is a stacking context, and its scrim is a child at `z-index: -1`, which paints above the drawer's own background. The panel came out dimmed: a white ground measured 166,166,166 under the default scrim. Only the children with a background of their own (the search field, the selected row) stayed bright. The drawer's ground is now painted again by an `::after` above the scrim. It inherits the element's background, so a ground set through `--aparte-sidebar-bg` or through a selector of your own is the one shown.
+
   - @aparte/engine@0.19.2
 
 ## 0.19.1
@@ -340,6 +348,7 @@
   Before, `AparteClient` dropped every send with `Send dropped: no model is selected` unless the page registered a provider whose id matched a key of the server's `providers`. A retry or an edit did nothing, without a word. The server-loop guide's browser snippet left this out, so following it as written sent nothing.
 
   Now a runner other than the page's own loop (`runStreamAgent`) needs no provider in the page. A provider and model the page names anyway (`setModelConfig`, a model selector) travel with the turn, registered or not, and the server uses them. With several providers, the handler answers 400 and asks the page to name one. A stub provider registered as a workaround keeps working and can be removed.
+
   - @aparte/engine@0.19.1
 
 ## 0.19.0
@@ -363,6 +372,7 @@
 - 16001e5: Fixed: clicking a conversation in `<aparte-conversation-list>` while the list re-rendered (a save had just moved a row) could do nothing. The list now waits until the click has landed before it redraws.
 
   A row replaced between the press and the release lost its click. Chromium sent the click to the list, where nothing handled it, and WebKit sent none. While a pointer is down on the list, a new `conversations` or any other change is held and drawn once, right after the click. Keeping the row node would not have been enough: a row moved to its new place leaves the document on the way, and the moving row is often the one pressed.
+
   - @aparte/engine@0.19.0
 
 ## 0.18.0
@@ -401,6 +411,7 @@
 - 2e4f9ee: With `@aparte/plugin-streaming-markdown` as your only Markdown renderer, a reply that arrives complete — a conversation restored after a reload, a non-streaming provider's answer — now renders as Markdown instead of its raw source. Nothing to change on your side; a one-shot provider registered as a workaround can go (#93).
 
   The plugin rendered a reply while it streamed, and a reply that never streamed went through `renderMarkdown`, which knew only the one-shot provider and fell back to core's escape-and-`<br>` default. So the same text rendered two ways depending on how it arrived, and the plugin page's "that is all you need" held for half of them. `renderMarkdown` now runs a complete string through the incremental provider when no one-shot provider is registered — into a detached element, then through the sanitizer, the same two steps a streamed reply takes. A registered one-shot provider still takes precedence, a server render with no `document` still gets the escaping default, and a provider that throws on the whole string falls back to it too.
+
   - @aparte/engine@0.17.2
 
 ## 0.17.1
@@ -427,6 +438,7 @@
   Until now the only way to add that line was `registerToolRenderer`, which replaces the whole row: its six states, the spinner, the disclosure and the relabel contract, re-implemented and kept in step with core for one line of text. The summary is keyed by the tool's name, like a renderer, so a display-only chat that registers no `AparteTool` gets it too.
 
   The text is written as text, never parsed as HTML; `''` shows nothing, and a summary that throws shows nothing rather than breaking the row. It is read again on every update of the call, so it follows arguments that are still arriving, and on a config change, so one registered after a row is on screen reaches it. A tool with its own renderer draws its own row and its summary is not read. `unregisterToolSummary` and `getToolSummary` complete the pair, `reset()` clears them, and the `AparteToolSummary` type is exported. The new `.aparte-tool-target` element is muted, in the code font, and cut with an ellipsis, so a long path gives way before the state word does.
+
   - @aparte/engine@0.17.1
 
 ## 0.17.0
@@ -810,6 +822,7 @@
 - 6d3272e: The README carries the webcomponents.org badge; nothing changes in the code you import.
 
   The listing at webcomponents.org/element/@aparte/core exists as of 2026-09-05 and the badge links to it from npm and GitHub. Only core is listed, by decision: the plugins stay off the catalogue for now.
+
   - @aparte/engine@0.16.11
 
 ## 0.16.10
@@ -829,6 +842,7 @@
   In `overlay-composer` mode the viewport no longer counts the rail as part of the floating bottom stack when it measures `--aparte-bottom-inset`: the stylesheet already named the rail as not the stack, the measurement had not, and a rail centred on the transcript froze the inset at the distance from its own top while the composer grew under a draft.
 
   If you had styled the rail: it is a flex column now, `overflow-y: auto` with no visible scrollbar, and its `top` is the middle of the transcript's measured span rather than of the host.
+
   - @aparte/engine@0.16.10
 
 ## 0.16.9
@@ -1114,6 +1128,7 @@
 - 54ab107: The type ramp rises in the order of its names: `--aparte-font-size-lg` is 1.0625rem (above the body's `base`, it was 0.875rem — below it), and `--aparte-font-size-xl` (1.25rem) and `--aparte-font-size-2xl` (1.5rem) exist. Every reader of the old `lg` moved to the step it meant: the text a person types is the body size, a sender name sits one step under the prose, a card title is above its body, an elicitation question is larger than its options, a dialog title takes the new `lg`, the large field and the large buttons speak at the body size.
 
   Measured: a welcome title and a placeholder at the same size, a card's title smaller than its body, a full-screen dialog's title at 14px, and the typed text the smallest in the chat. A scale whose name lies is worse than a short one. The artifact card's labels that read `lg` for "a notch above the control text" now read `base` or `md`, so they keep their size.
+
   - @aparte/engine@0.16.8
 
 ## 0.16.7
@@ -1186,6 +1201,7 @@
   was removed, the opposite of what the template asked for, silently. On a presence
   property an empty string now means ON, exactly as an empty attribute does; `false`,
   `null` and `undefined` still mean OFF.
+
   - @aparte/engine@0.16.6
 
 ## 0.16.5
@@ -1201,6 +1217,7 @@
   - **Split (#54).** `single` (boolean) shows one pane — the one `pane` names — whatever the width: the seam and the other pane are gone, as under the breakpoint, and the seam loses its tab stop. `collapsed` still folds the primary pane to `--aparte-split-min` and keeps the seam; the CSS route `.aparte-split--only-start/--only-end` is unchanged.
 
   Measured with two new browser specs (the send's per-frame `scrollTop` curve and every write to it, on vanilla, React and WebKit; the older reply's bar geometry, hovered, on vanilla and React) plus 16 unit tests; the scroll-button, overlay, bubble-actions and framework-smoke geometry specs stay green. The `check:derived-vars` ceiling on responsive sizes moves 8 → 9 for the split padding token.
+
   - @aparte/engine@0.16.5
 
 ## 0.16.4
@@ -1239,6 +1256,7 @@
   Two side effects of the rework, caught on screen and now asserted in the smoke suite: an empty transcript no longer grows a scrollbar (the `::after` paid the column's gap the padding never did, and the hidden button's slide overhung the content end), and the hidden button now **fades instead of sliding** in framework-managed mode — its flow position is the very end of the content, so the 8px slide was pure scrollable overflow. Core mode keeps the slide.
 
   Measured in the browser (spacer 0/60/130/230px): the button holds 16px at every distance from the bottom; before, it floated 48/108/178/278px. A new e2e spec (`scroll-button.spec.ts`) asserts the rendered geometry in both transcript modes on Chromium and WebKit — the first assertion in the repo that _locates_ this button rather than driving it.
+
   - @aparte/engine@0.16.2
 
 ## 0.16.1
@@ -1251,7 +1269,7 @@
 
 - 6a786c3: A fenced code block written by the model now wraps instead of being silently cut off. Nothing to change on your side.
 
-  `@aparte/plugin-marked` renders ``` as a bare `<pre><code>`, and the stylesheet's only `pre` rule was scoped to `.aparte-code-content-wrapper` — a class only the `code` **segment** renderer emits, which marked cannot produce. So a markdown block matched no rule and kept the browser's `white-space: pre`: it never wrapped, laid itself out at its own intrinsic width, and the bubble's `overflow: hidden` amputated the tail. No scrollbar, no ellipsis — the code past the edge was simply gone.
+  `@aparte/plugin-marked` renders ```as a bare`<pre><code>`, and the stylesheet's only `pre`rule was scoped to`.aparte-code-content-wrapper`— a class only the`code`**segment** renderer emits, which marked cannot produce. So a markdown block matched no rule and kept the browser's`white-space: pre`: it never wrapped, laid itself out at its own intrinsic width, and the bubble's `overflow: hidden` amputated the tail. No scrollbar, no ellipsis — the code past the edge was simply gone.
 
   Measured on one block: `scrollWidth` was a constant 963px at chat widths 1500, 800, 600, 512 and 380, against client widths of 776 / 724 / 524 / 460 / 328. It overflowed even at 1500. The same two declarations the code card already carries — `white-space: pre-wrap` and `overflow-wrap: anywhere` — now apply to prose as well, and the block ends on the column at every width.
 
@@ -1276,6 +1294,7 @@
   The threshold's generosity is right and stays: a few pixels of layout drift must not read as "the reader walked away". What was missing is that it outranked the reader. `_readerInputAt` — the wheel, touchmove, a navigation key, a press in the scrollbar gutter — already tells a gesture from drift, and the settle logic already trusted it; the arming side did not consult it. It does now, so a decrease with a hand on it disarms whatever its size, while the same 33px with no gesture behind it is still drift and still keeps the follow.
 
   Measured from CI's own timestamped scroll log: wheel at 135ms, the reader at 565, `scrollTop = 598` written back at 155ms, repeat.
+
   - @aparte/engine@0.16.1
 
 ## 0.16.0
@@ -1527,7 +1546,7 @@
 
 - 5e0c4e7: Reusing an `AparteStreamParser` after a reply that ended mid-fence or mid-block no longer swallows the next reply.
 
-  `finalize()` flushed what was left but never spent the mode it was in. A reply cut off inside a ``` fence, a `<think>` block or a registered `<tag>` left the parser waiting for a closing delimiter that would never come, so the first characters of the NEXT reply were eaten by that wait — silently, with no segment to show for them. The built-in client builds a fresh parser for every turn, so this bites a consumer who drives `AparteStreamParser` themselves and keeps it across replies — the bring-your-own-loop path. `finalize()` now returns the parser to `text` with an empty buffer and no armed delimiter.
+  `finalize()` flushed what was left but never spent the mode it was in. A reply cut off inside a ```fence, a`<think>`block or a registered`<tag>`left the parser waiting for a closing delimiter that would never come, so the first characters of the NEXT reply were eaten by that wait — silently, with no segment to show for them. The built-in client builds a fresh parser for every turn, so this bites a consumer who drives`AparteStreamParser`themselves and keeps it across replies — the bring-your-own-loop path.`finalize()`now returns the parser to`text` with an empty buffer and no armed delimiter.
 
 - 3a0f593: `<aparte-context auto-compact>` asks for a compaction again after one was refused or failed; it used to ask once and never again.
 
@@ -1768,7 +1787,7 @@
 
 - 213add8: A code block no longer closes on a streamed chunk that merely ends in three backticks — a fence has to start a line.
 
-  `const s = "```"` split by the tokenizer right after the quotes used to close the block mid-code, and the rest of the file streamed as prose. A reply that genuinely ends on ``` with no newline is still handled: the fence is stripped once, at the end of the stream, where it cannot mis-close anything.
+  ` const s = "```" ` split by the tokenizer right after the quotes used to close the block mid-code, and the rest of the file streamed as prose. A reply that genuinely ends on ``` with no newline is still handled: the fence is stripped once, at the end of the stream, where it cannot mis-close anything.
 
 - e083712: The 25 built-in glyphs and the 41 icons behind `@aparte/core/icons` are redrawn. Every name, export and size is the same — an icon provider you registered, and any `--aparte-icon-size` a container declares, are unaffected.
 
@@ -2158,6 +2177,7 @@
   The name pointed at the wrong widget, next to a `<aparte-select>` it did not control.
 
   ### Visible changes, on purpose
+
   - **The `<aparte-select>` focus ring follows the theme.** It was a second, diverged
     implementation hardcoded to Tailwind blue `rgba(59,130,246,.2)`; it now uses
     `--aparte-focus-ring` like every other focus ring, so it is brass in the default
@@ -2237,6 +2257,7 @@
   that will lie. What an element accepts as children, and where those children land, is now prose.
 
   ## Five published claims were false, and are corrected rather than softened
+
   - `<aparte-chat-viewport>`'s `framework-managed` said it "relocates none of its children". It
     re-appends core's own scroll-to-bottom button whenever that stops being last, and that path
     runs in framework-managed mode only. The guarantee is about the nodes the FRAMEWORK renders.

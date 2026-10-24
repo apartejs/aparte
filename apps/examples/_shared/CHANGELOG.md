@@ -1,5 +1,23 @@
 # @aparte-workspace/example-shared
 
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [5aa792c]
+  - @aparte/runner-ag-ui@0.22.0
+  - @aparte/core@0.22.0
+  - @aparte/engine@0.22.0
+  - @aparte/plugin-approval@0.22.0
+  - @aparte/plugin-artifacts@0.22.0
+  - @aparte/plugin-ask-user@0.22.0
+  - @aparte/plugin-compaction@0.22.0
+  - @aparte/plugin-marked@0.22.0
+  - @aparte/plugin-model-selector@0.22.0
+  - @aparte/plugin-shiki@0.22.0
+  - @aparte/provider-openai-compat@0.22.0
+  - @aparte/provider-scenario@0.22.0
+
 ## 0.0.11
 
 ### Patch Changes
