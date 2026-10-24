@@ -56,11 +56,13 @@ describe('a refused call says who refused', () => {
         expect(part(el, 'output')).toBeNull();
     });
 
-    it('a policy: "Refused by policy", and its reason under Reason', () => {
+    it('a policy: "Refused by policy", and its reason kept for the model only', () => {
+        // The policy's reason is written TO the model ("Describe what you would do
+        // instead…"), in English: the person reads the note, not that sentence.
         const el = draw(seg({ status: 'rejected', result: 'Plan mode: write_file changes files.', refusal: { by: 'policy' } }));
         expect(note(el)?.textContent).toBe('Refused by policy');
-        expect(part(el, 'output')?.querySelector('.aparte-tool-part-label')?.textContent).toBe('Reason');
-        expect(part(el, 'output')?.querySelector('code')?.textContent).toBe('Plan mode: write_file changes files.');
+        expect(part(el, 'output')).toBeNull();
+        expect(el.textContent).not.toContain('Plan mode');
     });
 
     it('the loop, after an earlier refusal', () => {
@@ -112,10 +114,9 @@ describe('the note follows the row', () => {
     it('and a language switch reaches it, and the part labels', () => {
         const refused = seg({ status: 'rejected', result: 'Plan mode.', refusal: { by: 'policy' } });
         const el = draw(refused);
-        aparteGlobalConfig.extendLocale({ toolRefusedByPolicy: 'Refusé par une règle', toolReason: 'Raison', toolInput: 'Entrée' });
+        aparteGlobalConfig.extendLocale({ toolRefusedByPolicy: 'Refusé par une règle', toolInput: 'Entrée' });
         renderer().relabel!(el, refused);
         expect(note(el)?.textContent).toBe('Refusé par une règle');
-        expect(part(el, 'output')?.querySelector('.aparte-tool-part-label')?.textContent).toBe('Raison');
         expect(part(el, 'input')?.querySelector('.aparte-tool-part-label')?.textContent).toBe('Entrée');
     });
 });

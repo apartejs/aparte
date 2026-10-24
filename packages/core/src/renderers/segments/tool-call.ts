@@ -87,19 +87,16 @@ function noteOf(segment: AparteToolCallSegment): string {
 }
 
 /**
- * What the detail shows under the arguments, and under which label.
- *
- * A result, as Output — except on a call refused by someone the segment names: the person
- * reads the note instead, and only a POLICY's refusal keeps its text, under "Reason", since
- * that sentence is the policy's own and the one place its rule is written down. A refused
- * segment saved before `refusal` existed keeps its Output, as it always read.
+ * What the detail shows under the arguments: the result, as Output — except on a call
+ * refused by someone the segment names. Its `result` is then the sentence the MODEL read
+ * (a policy's included, which is written to the model: "Describe what you would do
+ * instead…"), so the person reads the note and no Output. A refused segment saved before
+ * `refusal` existed keeps its Output, as it always read.
  */
-function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput' | 'toolReason'; text: string } | null {
+function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput'; text: string } | null {
     const text = displayText(segment.result ?? '');
     if (!text) return null;
-    if (segment.status === 'rejected' && segment.refusal) {
-        return segment.refusal.by === 'policy' ? { key: 'toolReason', text } : null;
-    }
+    if (segment.status === 'rejected' && segment.refusal) return null;
     return { key: 'toolOutput', text };
 }
 
@@ -119,7 +116,7 @@ function setNote(element: Element, segment: AparteToolCallSegment): void {
  * whatever a tool returned, so both are the exact shape the escaping guard exists for.
  * The colour comes afterwards, from a provider whose output is sanitised.
  */
-function setPart(element: HTMLElement, part: 'input' | 'output', text: string, labelKey: 'toolInput' | 'toolOutput' | 'toolReason'): void {
+function setPart(element: HTMLElement, part: 'input' | 'output', text: string, labelKey: 'toolInput' | 'toolOutput'): void {
     const existing = element.querySelector<HTMLElement>(`[data-part="${part}"]`);  // safe-attr: selector position, and `part` is a typed literal union ('input' | 'output') — not input
     if (!text) { existing?.remove(); return; }
     if (existing) {

@@ -44,7 +44,6 @@ export const fr: AparteLocale = {
     toolOutput: "Sortie",
     toolRejectedSaid: "Vous avez dit : « {instruction} »",
     toolRefusedByPolicy: "Refusé par une règle",
-    toolReason: "Raison",
     toolNotRunAfterRefusal: "Non exécuté : un appel précédent a été refusé",
     toolTimedOut: "Délai dépassé",
     toolUnavailable: "Indisponible ici",

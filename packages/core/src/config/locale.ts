@@ -264,8 +264,6 @@ export type AparteLocale = {
     toolRejectedSaid?: string;
     /** The note on a call an approval policy refused, not a person (default: "Refused by policy"). */
     toolRefusedByPolicy?: string;
-    /** Label above the policy's own reason, in a refused call's detail (default: "Reason"). */
-    toolReason?: string;
     /** The note on a call not run because an earlier call of the same step was refused (default: "Not run: an earlier call was refused"). */
     toolNotRunAfterRefusal?: string;
     /** The note on a call whose handler outlived its timeout (default: "Timed out"). */
@@ -501,7 +499,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolOutput: "Output",
     toolRejectedSaid: "You said: “{instruction}”",
     toolRefusedByPolicy: "Refused by policy",
-    toolReason: "Reason",
     toolNotRunAfterRefusal: "Not run: an earlier call was refused",
     toolTimedOut: "Timed out",
     toolUnavailable: "Not available here",
