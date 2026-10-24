@@ -2137,11 +2137,39 @@ export class AparteChatViewport extends HTMLElement {
         return performance.now() < this._glideUntil;
     }
 
-    /** A second smooth `scrollTo` is continuous where an instant write is a cut. */
+    /**
+     * A second smooth `scrollTo` is continuous where an instant write is a cut. It is also a
+     * new smooth scroll: the engine runs it from where the view is, for as long as a first
+     * one takes, so it opens a window of its own. Left on the first glide's deadline, the
+     * window closed in the middle of the re-targeted run and the next pin cut it —
+     * react-webkit in CI, a write 4 px short of the bottom ~330 ms into a send that had
+     * re-targeted a glide already running.
+     */
     private _retargetGlide(): void {
         if (!this._container) return;
         this._ownScrollAt = performance.now();
+        this._armGlide();
         this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
+    }
+
+    /** Open the glide window from now, and arm the pin that catches a glide that missed. */
+    private _armGlide(): void {
+        this._glideUntil = performance.now() + this._glideWindowMs;
+        // A glide can miss: its target was read before a height churn, or the engine
+        // dropped it. Nothing re-pins once the mutations are over, so the glide arms
+        // the pin itself — an instant one, with the settle chain, once the window is
+        // closed and only if the view is still short and the reader still followed.
+        if (this._glideSettleTimer !== null) clearTimeout(this._glideSettleTimer);
+        this._glideSettleTimer = setTimeout(() => {
+            this._glideSettleTimer = null;
+            if (!this._container || !this._isAutoScrollEnabled || this._gliding()) return;
+            const max = this._container.scrollHeight - this._container.clientHeight;
+            // Above where the last scroll event left it, the view was moved by someone the
+            // scroll handler has not heard from yet — a host's jump, a reader — and the
+            // glide never moves up: that one is the handler's to judge, not ours to undo.
+            if (this._container.scrollTop < this._lastScrollTop - 1) return;
+            if (max - this._container.scrollTop > 1) this._scrollToBottom();
+        }, this._glideWindowMs + 16);
     }
 
     /**
@@ -2214,23 +2242,8 @@ export class AparteChatViewport extends HTMLElement {
         // prefers-reduced-motion block cannot reach a JS-driven smooth scroll.
         this._ownScrollAt = performance.now();
         if (typeof this._container.scrollTo === 'function' && !this._prefersReducedMotion()) {
-            this._glideUntil = performance.now() + this._glideWindowMs;
+            this._armGlide();
             this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
-            // A glide can miss: its target was read before a height churn, or the engine
-            // dropped it. Nothing re-pins once the mutations are over, so the glide arms
-            // the pin itself — an instant one, with the settle chain, once the window is
-            // closed and only if the view is still short and the reader still followed.
-            if (this._glideSettleTimer !== null) clearTimeout(this._glideSettleTimer);
-            this._glideSettleTimer = setTimeout(() => {
-                this._glideSettleTimer = null;
-                if (!this._container || !this._isAutoScrollEnabled || this._gliding()) return;
-                const max = this._container.scrollHeight - this._container.clientHeight;
-                // Above where the last scroll event left it, the view was moved by someone the
-                // scroll handler has not heard from yet — a host's jump, a reader — and the
-                // glide never moves up: that one is the handler's to judge, not ours to undo.
-                if (this._container.scrollTop < this._lastScrollTop - 1) return;
-                if (max - this._container.scrollTop > 1) this._scrollToBottom();
-            }, this._glideWindowMs + 16);
         } else {
             this._container.scrollTop = this._container.scrollHeight;
         }
