@@ -324,10 +324,11 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * AI Elements has `ToolInput` / `ToolOutput` inside a collapsible `Tool`,
          * assistant-ui has `ToolFallback.Args` / `.Result`.
          *
-         * COLLAPSED, always, including while the loop waits for a decision. The
+         * COLLAPSED by default, including while the loop waits for a decision. The
          * `thinking` block stays closed while it is being produced — the most live
-         * moment there is — so a tool call has no stronger claim to unroll itself. One
-         * rule, no special cases.
+         * moment there is — so a tool call has no stronger claim to unroll itself. An
+         * app that shows a developer what the agent did opens them the way reasoning is
+         * opened: the segment's `collapsed` (a segment default), or the tool's display.
          *
          * A `<details>` only when there IS something behind it: a disclosure that
          * reveals nothing is an affordance that lies (ratified decision #8), and a tool
@@ -343,8 +344,11 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         }
 
         const cfg = contextConfig();
+        // Closed unless asked: the segment's own `collapsed` (a segment default reaches it
+        // at insertion), else the tool's display. Read here only — `update` never forces it.
+        const open = segment.collapsed !== undefined ? !segment.collapsed : cfg.getToolDisplay(name)?.open === true;
         return `
-            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}">
+            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
                 <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
                 <div class="aparte-tool-detail">
                     ${input ? `

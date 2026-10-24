@@ -267,6 +267,12 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
      * with nobody to ask, or its own turn limit. Absent when the run ended before it.
      */
     abortCause?: import('@aparte/engine').StreamAbortCause | 'turn-limit';
+    /**
+     * Whether the row's disclosure starts closed. Absent: closed, unless the tool's display
+     * says `open`. `setSegmentDefaults('tool_call', { collapsed: false })` opens every row;
+     * like reasoning's, it is read when the row is drawn and never forced on an update.
+     */
+    collapsed?: boolean;
 }
 
 /**
