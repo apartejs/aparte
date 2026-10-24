@@ -215,7 +215,7 @@ export default defineConfig({
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
-        'packages/plugins/artifacts/src/**': { lines: 88, statements: 88, functions: 92, branches: 73 },
+        'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
