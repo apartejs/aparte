@@ -7,6 +7,7 @@ import type {
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
 import { applyStateDelta } from './state.js';
+import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
 import type { AgUiInterrupt, AgUiMessage, AgUiResumeItem, AgUiRunAgentInput } from './wire.js';
 
@@ -194,7 +195,8 @@ function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | 
 export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner {
     const warn = options.onWarning ?? ((message: string) => console.warn(`[aparte] AG-UI: ${message}`));
     const peer = options.peerProtocolVersion ? versionParts(options.peerProtocolVersion) : undefined;
-    // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`.
+    // A peer configured older than 1.0 predates `RunAgentInput.protocolVersion`, and its
+    // run framing is read with the older rules.
     const declare = !peer || compareVersions(peer, [1, 0]) >= 0;
     // The agent's state, per thread: what its last snapshot and deltas left, sent back as
     // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
@@ -355,7 +357,11 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         };
 
+        const verify = createVerifier(!declare);
         for await (const event of readAgUiEvents(response.body, response.headers.get('content-type'))) {
+            // A stream 1.0 says to reject is rejected before its event is drawn; what was
+            // drawn before it stays, and the error lands below it.
+            verify(event);
             begin();
             if (/^(TEXT_MESSAGE|REASONING|TOOL_CALL)_/.test(event.type)) endedOnFinish = false;
             switch (event.type) {

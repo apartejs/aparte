@@ -80,7 +80,27 @@ const OVERRIDES: Record<string, { intentional: string } & Record<string, unknown
  * fixture's `errorContains` is the reference client's wording; this is ours, so the
  * lane still says WHICH rejection happened rather than accepting any.
  */
-const REJECTIONS: Record<string, string> = {};
+const REJECTIONS: Record<string, string> = {
+    'first-event-not-run-started-fatal': 'the first event must be RUN_STARTED',
+    'nested-run-started-fatal': 'RUN_STARTED while a run is still active',
+    'event-after-run-finished-fatal': 'after the run finished',
+    'open-message-at-run-finished-fatal': 'still running at RUN_FINISHED',
+    'run-finished-with-active-subagent-fatal': 'subagent "s-run-finished-active-subagent-1" still running at RUN_FINISHED',
+    'content-without-start-fatal': 'no open text message has that id',
+    'reasoning-discipline-verified': 'no open reasoning message has that id',
+    'reasoning-message-wrong-role-fatal': 'only role "reasoning" is allowed',
+    'first-chunk-missing-id-fatal': 'the first TEXT_MESSAGE_CHUNK of a stream needs a messageId',
+    'custom-closes-chunk-stream-fatal': 'the first TEXT_MESSAGE_CHUNK of a stream needs a messageId',
+    'first-tool-chunk-missing-name-fatal': 'the first TOOL_CALL_CHUNK of a call needs a toolCallId and a toolCallName',
+    'chunk-conflicting-role-fatal': 'changes its role',
+    'chunk-conflicting-tool-name-fatal': 'changes its toolCallName',
+    'malformed-known-field-fatal': '"delta" must be a string',
+    'step-finished-without-start-fatal': 'which was not started',
+    'subagent-finished-unstarted-fatal': 'subagent "s-subagent-finished-unstarted-1", which was not started',
+    'subagent-started-missing-name-fatal': 'needs a name',
+    'subagent-attribution-mismatch-fatal': 'started attributed to',
+    'unknown-outcome-array-fatal': 'RUN_FINISHED.outcome must be an object',
+};
 
 /**
  * The ratchet: fixtures this runner does not pass YET, by the family of the change that
@@ -88,25 +108,6 @@ const REJECTIONS: Record<string, string> = {};
  * until it leaves this list — the list can only shrink, and never silently.
  */
 const KNOWN_GAPS: Record<string, string> = {
-    'chunk-conflicting-role-fatal': 'verify',
-    'chunk-conflicting-tool-name-fatal': 'verify',
-    'content-without-start-fatal': 'verify',
-    'custom-closes-chunk-stream-fatal': 'verify',
-    'event-after-run-finished-fatal': 'verify',
-    'first-chunk-missing-id-fatal': 'verify',
-    'first-event-not-run-started-fatal': 'verify',
-    'first-tool-chunk-missing-name-fatal': 'verify',
-    'malformed-known-field-fatal': 'verify',
-    'nested-run-started-fatal': 'verify',
-    'open-message-at-run-finished-fatal': 'verify',
-    'reasoning-discipline-verified': 'verify',
-    'reasoning-message-wrong-role-fatal': 'verify',
-    'run-finished-with-active-subagent-fatal': 'verify',
-    'step-finished-without-start-fatal': 'verify',
-    'subagent-attribution-mismatch-fatal': 'verify',
-    'subagent-finished-unstarted-fatal': 'verify',
-    'subagent-started-missing-name-fatal': 'verify',
-    'unknown-outcome-array-fatal': 'verify',
     'era-0-0-39-flattens-content': 'eras',
     'era-0-0-45-thinking-translated': 'eras',
     'era-0-0-57-subagent-dropped-with-warning': 'eras',

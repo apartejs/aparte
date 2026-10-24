@@ -7,6 +7,10 @@
  * of a resumed call arriving BEFORE RUN_STARTED, usage as an array, a refusal answered
  * with an `output-error` result, and browser tools as a `tanstack:client_tool_execution`
  * interrupt. Every round trip below goes through their validation and comes back.
+ *
+ * The first two break AG-UI 1.0's run framing, which the runner enforces by default: this
+ * is TanStack AI 0.x, and the runner reads it as the older peer it is, through
+ * `peerProtocolVersion` — the lever its documentation gives TanStack AI 0.x users.
  */
 import { describe, it, expect } from 'vitest';
 import { chat, chatParamsFromRequest, mergeAgentTools, toServerSentEventsResponse, toolDefinition } from '@tanstack/ai';
@@ -58,7 +62,7 @@ function tanstackRoute(responses: object[]) {
 
 async function turn(fetch: typeof globalThis.fetch, extra: object): Promise<Event[]> {
     const events: Event[] = [];
-    await createAgUiRunner({ endpoint: '/api/chat', fetch, threadId: 'conv-1' })({
+    await createAgUiRunner({ endpoint: '/api/chat', fetch, threadId: 'conv-1', peerProtocolVersion: '0.0.52' })({
         messageId: 'm1',
         providerId: 'agent',
         transportCall: async () => '',

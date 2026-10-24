@@ -9,6 +9,7 @@ import { RunAgentInputSchema } from '@ag-ui/core/schemas';
 import { AparteError } from '@aparte/core';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createAgUiRunner } from '../index.js';
+import type { AgUiRunnerOptions } from '../index.js';
 
 type Event = { type: string; [key: string]: unknown };
 
@@ -34,7 +35,10 @@ function fakeFetch(...responses: (Response | ((body: Record<string, unknown>) =>
 
 const weather = { name: 'ask_user', description: 'Ask the user.', inputSchema: { type: 'object' } };
 
-function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptions> = {}, signal = new AbortController().signal) {
+/** TanStack AI 0.x: a RUN_FINISHED per model step, which AG-UI 1.0's framing forbids. */
+const olderPeer = { peerProtocolVersion: '0.0.52' };
+
+function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptions> = {}, signal = new AbortController().signal, runner: Partial<AgUiRunnerOptions> = {}) {
     const events: Event[] = [];
     const opts = {
         messageId: 'm1',
@@ -46,7 +50,7 @@ function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptio
         signal,
         ...extra,
     } as unknown as AparteStreamRunOptions;
-    const done = createAgUiRunner({ endpoint: '/agui', fetch })(opts);
+    const done = createAgUiRunner({ endpoint: '/agui', fetch, ...runner })(opts);
     return { done, events, types: () => events.map((e) => e.type) };
 }
 
@@ -57,7 +61,9 @@ describe('createAgUiRunner: the stream', () => {
     it('draws text, reasoning and a server tool the agent ran, then ends the run', async () => {
         const f = fakeFetch(sse(
             started,
+            { type: 'REASONING_MESSAGE_START', messageId: 'r', role: 'reasoning' },
             { type: 'REASONING_MESSAGE_CONTENT', messageId: 'r', delta: 'Thinking.' },
+            { type: 'REASONING_MESSAGE_END', messageId: 'r' },
             { type: 'TEXT_MESSAGE_START', messageId: 'a1', role: 'assistant' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'Let me ' },
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'check.' },
@@ -141,7 +147,7 @@ describe('createAgUiRunner: the stream', () => {
     });
 
     it('reads an NDJSON body the same way, and skips what is not an event', async () => {
-        const body = [started, { nope: 1 }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'ok' }, finished()].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
+        const body = [started, { nope: 1 }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'ok' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, finished()].map((e) => JSON.stringify(e)).join('\n') + '\nnot json\n';
         const f = fakeFetch(new Response(body, { headers: { 'content-type': 'application/x-ndjson' } }));
         const r = run(f.fetch);
         await r.done;
@@ -187,7 +193,7 @@ describe('createAgUiRunner: the stream', () => {
             { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a2', delta: 'Cloudy.' },
             { type: 'TEXT_MESSAGE_END', messageId: 'a2' },
             finished(),
-        )).fetch);
+        )).fetch, {}, undefined, olderPeer);
         await r.done;
         // The step's reasoning and its text share one turn; the next step opens another.
         expect(r.types()).toEqual([
@@ -203,8 +209,9 @@ describe('createAgUiRunner: the stream', () => {
             { type: 'TOOL_CALL_END', toolCallId: 'c1' },
             finished(),
             { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
-            { type: 'TEXT_MESSAGE_CONTENT', delta: 'Cloudy in' },
-        )).fetch);
+            { type: 'TEXT_MESSAGE_START', messageId: 'a2', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a2', delta: 'Cloudy in' },
+        )).fetch, {}, undefined, olderPeer);
         await expect(r.done).rejects.toThrow('was cut');
     });
 
@@ -238,7 +245,7 @@ describe('createAgUiRunner: the stream', () => {
     });
 
     it('fails a stream that ends without RUN_FINISHED, but not a stopped one', async () => {
-        const cut = run(fakeFetch(sse(started, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Hal' })).fetch);
+        const cut = run(fakeFetch(sse(started, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Hal' })).fetch);
         await expect(cut.done).rejects.toThrow('without RUN_FINISHED');
         const controller = new AbortController();
         controller.abort();
@@ -277,7 +284,9 @@ describe('createAgUiRunner: pauses and resumes', () => {
         const second = fakeFetch(sse(
             { type: 'RUN_STARTED', threadId, runId: 'r2' },
             { type: 'TOOL_CALL_RESULT', toolCallId: 'd1', content: 'deleted' },
-            { type: 'TEXT_MESSAGE_CONTENT', delta: 'Done.' },
+            { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Done.' },
+            { type: 'TEXT_MESSAGE_END', messageId: 'a' },
             { type: 'RUN_FINISHED', threadId, runId: 'r2' },
         ));
         const b = run(second.fetch, {
@@ -339,7 +348,7 @@ describe('createAgUiRunner: pauses and resumes', () => {
         await a.done;
         expect(a.events.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'q1', name: 'ask_user', reason: 'external' }] });
 
-        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Blue it is.' }, { type: 'RUN_FINISHED' }));
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Blue it is.' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, { type: 'RUN_FINISHED' }));
         const b = run(second.fetch, {
             baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: { question: 'Which?' } }] }], modelId: 'x', stream: true, tools: [weather] },
             deferral: { token: String(a.events.at(-1)!['ticket']), outcomes: { q1: { kind: 'result', content: 'The blue one.' } } },
@@ -355,7 +364,7 @@ describe('createAgUiRunner: pauses and resumes', () => {
     });
 
     it('sends a frontend tool the page refused back as its tool message, and marks the row refused', async () => {
-        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_CONTENT', delta: 'Understood.' }, { type: 'RUN_FINISHED' }));
+        const second = fakeFetch(sse({ type: 'RUN_STARTED' }, { type: 'TEXT_MESSAGE_START', messageId: 'a', role: 'assistant' }, { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a', delta: 'Understood.' }, { type: 'TEXT_MESSAGE_END', messageId: 'a' }, { type: 'RUN_FINISHED' }));
         const b = run(second.fetch, {
             baseRequest: { messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '', toolCalls: [{ id: 'q1', name: 'ask_user', input: {} }] }], modelId: 'x', stream: true, tools: [weather] },
             deferral: { token: JSON.stringify({ v: 1, threadId: 't', runId: 'r', interrupts: [] }), outcomes: { q1: { kind: 'decision', approved: false, reason: 'Not now.' } } },
