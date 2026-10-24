@@ -285,7 +285,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     target.addSegment?.({
                         id: `max-turns-${uuid()}`,
                         type: 'error',
-                        content: `Stopped after ${e.limit} tool calls to prevent an infinite loop.`,
+                        // The chat's text, in its language: the one string of the turn
+                        // that used to bypass the locale.
+                        content: config.t('maxTurnsReached').replace('{n}', () => String(e.limit)),
                         details: 'MAX_TURNS_EXCEEDED',
                     });
                 } else if (e.toolCallId) {

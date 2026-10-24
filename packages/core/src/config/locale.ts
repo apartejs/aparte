@@ -274,6 +274,11 @@ export type AparteLocale = {
     toolNoApprover?: string;
     /** The note on a call stopped by its tool's own turn limit (default: "Turn limit reached"). */
     toolTurnLimit?: string;
+    /**
+     * The error a turn ends on when the loop reaches `maxTurns`; `{n}` is the limit
+     * (default: "Stopped after {n} turns to avoid an endless loop.").
+     */
+    maxTurnsReached?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -484,6 +489,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolUnavailable: "Not available here",
     toolNoApprover: "No one could approve it",
     toolTurnLimit: "Turn limit reached",
+    maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

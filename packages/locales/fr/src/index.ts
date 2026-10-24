@@ -50,6 +50,7 @@ export const fr: AparteLocale = {
     toolUnavailable: "Indisponible ici",
     toolNoApprover: "Personne ne pouvait l'approuver",
     toolTurnLimit: "Limite de tours atteinte",
+    maxTurnsReached: "Arrêté après {n} tours pour éviter une boucle sans fin.",
     actionUpload: "Joindre un fichier",
     removeAttachment: "Retirer {name}",
     messageFrom: "Message de {name}",
