@@ -63,3 +63,34 @@
         font-size: var(--aparte-font-size-xl);
     }
 }
+
+/* A finished search's pages, behind its line: the title, its site, the line under it. */
+.assistant-sources {
+    display: grid;
+    gap: var(--aparte-space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.assistant-sources > li {
+    display: grid;
+    gap: var(--aparte-space-1);
+    min-width: 0;
+}
+.assistant-sources__title {
+    color: var(--aparte-text);
+    font-weight: 550;
+    text-decoration: none;
+}
+a.assistant-sources__title:hover {
+    text-decoration: underline;
+}
+.assistant-sources__site {
+    font-size: var(--aparte-font-size-xs);
+    color: var(--aparte-text-muted);
+}
+.assistant-sources__line {
+    margin: 0;
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+}

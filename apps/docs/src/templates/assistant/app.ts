@@ -13,8 +13,8 @@ import {
     aparteGlobalConfig,
     registerDefaultRenderers,
 } from '@aparte/core';
-import type { AparteChatViewport, AparteConversationList, AparteSidebar } from '@aparte/core';
-import { moonIcon, sunIcon } from '@aparte/core/icons';
+import type { AparteChatViewport, AparteConversationList, AparteSidebar, AparteToolCallSegment } from '@aparte/core';
+import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
@@ -83,8 +83,15 @@ async function main(): Promise<void> {
         },
         async (call) => ({ toolCallId: call.id, content: TRIP_RESULTS }),
     );
-    // The tool row's one line: what was searched for.
-    aparteGlobalConfig.registerToolSummary('web_search', (segment) => String(segment.toolCall.input['query'] ?? ''));
+    // A person reads the search the way a chat app shows it: what was searched, in words, and
+    // the pages it found behind the line, never the call's JSON.
+    aparteGlobalConfig.registerIcons({ search: () => searchIcon });
+    aparteGlobalConfig.registerToolDisplay('web_search', {
+        label: (segment) => (segment.status === 'resolved' ? 'Searched the web' : 'Searching the web'),
+        icon: 'search',
+        summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
+        details: sourcesOf,
+    });
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
     // Retry and edit are honoured by the client below, so the bubbles may offer them.
     aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
@@ -149,6 +156,52 @@ async function main(): Promise<void> {
     }
     // The welcome state, now that the first view is up (see Template.astro).
     chat.setAttribute('center-empty', '');
+}
+
+/**
+ * What a finished search shows behind its line: the pages it found, title, site and the line
+ * under each. Built as elements, so nothing the tool returned goes through `innerHTML`; a
+ * link is kept only when it is http(s). Nothing yet while the search runs, nor for a result
+ * that is not the list it should be.
+ */
+function sourcesOf(segment: AparteToolCallSegment): HTMLElement | string {
+    if (segment.status !== 'resolved') return '';
+    let hits: unknown;
+    try {
+        hits = JSON.parse(segment.result ?? '');
+    } catch {
+        return '';
+    }
+    if (!Array.isArray(hits) || hits.length === 0) return '';
+    const list = document.createElement('ol');
+    list.className = 'assistant-sources';
+    for (const hit of hits as { title?: unknown; url?: unknown; snippet?: unknown }[]) {
+        const url = typeof hit.url === 'string' && /^https?:\/\//.test(hit.url) ? hit.url : '';
+        const item = document.createElement('li');
+        const title = document.createElement(url ? 'a' : 'span');
+        title.className = 'assistant-sources__title';
+        title.textContent = String(hit.title ?? url);
+        if (title instanceof HTMLAnchorElement) {
+            title.href = url;
+            title.target = '_blank';
+            title.rel = 'noopener';
+        }
+        item.append(title);
+        if (url) {
+            const site = document.createElement('span');
+            site.className = 'assistant-sources__site';
+            site.textContent = new URL(url).hostname;
+            item.append(site);
+        }
+        if (typeof hit.snippet === 'string') {
+            const line = document.createElement('p');
+            line.className = 'assistant-sources__line';
+            line.textContent = hit.snippet;
+            item.append(line);
+        }
+        list.append(item);
+    }
+    return list;
 }
 
 /** Light or dark for this page, on the two attributes the site and core's tokens read. */
