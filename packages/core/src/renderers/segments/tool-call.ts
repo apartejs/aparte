@@ -128,6 +128,7 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string, l
         const label = existing.querySelector('.aparte-tool-part-label');
         const word = contextConfig().t(labelKey);
         if (label && label.textContent !== word) label.textContent = word;
+        existing.querySelector('.aparte-tool-part-body')?.setAttribute('aria-label', word);
         return;
     }
     // The part appeared between two updates — a call that had no result now has one.
@@ -147,6 +148,11 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string, l
     head.append(label, tpl.content);
     const body = document.createElement('div');
     body.className = 'aparte-tool-part-body';
+    // A scrolling region past --aparte-tool-part-max-height: focusable and named, so a
+    // keyboard can reach what overflows (the reasoning block's precedent).
+    body.setAttribute('role', 'region');
+    body.tabIndex = 0;
+    body.setAttribute('aria-label', label.textContent);
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     code.textContent = text;
@@ -400,12 +406,12 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
                     ${input ? `
                     <div class="aparte-tool-part" data-part="input">
                         <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>${copy}</div>
-                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
+                        <div class="aparte-tool-part-body" role="region" tabindex="0" aria-label="${escapeAttr(cfg.t('toolInput'))}"><pre><code>${escapeHtml(input)}</code></pre></div>
                     </div>` : ''}
                     ${outcome ? `
                     <div class="aparte-tool-part" data-part="output">
                         <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t(outcome.key))}</span>${copy}</div>
-                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
+                        <div class="aparte-tool-part-body" role="region" tabindex="0" aria-label="${escapeAttr(cfg.t(outcome.key))}"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
                     </div>` : ''}
                 </div>
             </details>
@@ -440,9 +446,11 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // The part labels are locale text too; the parts themselves stay (relabel adds none).
         const inputLabel = element.querySelector('[data-part="input"] .aparte-tool-part-label');
         if (inputLabel) inputLabel.textContent = cfg.t('toolInput');
+        element.querySelector('[data-part="input"] .aparte-tool-part-body')?.setAttribute('aria-label', cfg.t('toolInput'));
         const outcome = outcomeOf(segment);
         const outputLabel = element.querySelector('[data-part="output"] .aparte-tool-part-label');
         if (outputLabel && outcome) outputLabel.textContent = cfg.t(outcome.key);
+        if (outcome) element.querySelector('[data-part="output"] .aparte-tool-part-body')?.setAttribute('aria-label', cfg.t(outcome.key));
         for (const button of element.querySelectorAll<HTMLElement>('.aparte-tool-copy')) relabelCopyButton(button);
         // Through `stateBadge`, which is the whole point of it existing.
         //

@@ -486,6 +486,9 @@
   --aparte-range-track-height: 4px;
 
   --aparte-tool-spinner-size: 10px;
+  /* How tall a tool call's Input or Output grows before it scrolls — the reasoning
+     block's cap, so a 30 000-character result is a box and not a wall. */
+  --aparte-tool-part-max-height: 300px;
 }
 
 /* =========================================

@@ -80,6 +80,10 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    a one-line result ran past the bubble: measured 1 823px of text in a 723px body
    (407px on a phone), the whole disclosure clipped at the message's edge. Same pair
    the code block uses; `anywhere` breaks the unbreakable (a long path, a hash). */
+.aparte-tool-part-body {
+    max-height: var(--aparte-tool-part-max-height);
+    overflow: auto;
+}
 .aparte-tool-part-body pre {
     margin: 0;
     white-space: pre-wrap;
