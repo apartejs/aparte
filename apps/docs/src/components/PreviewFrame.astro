@@ -75,6 +75,7 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
     </div>
     <div class="aparte-preview-frame" id={`${id}-preview`} role={code ? 'tabpanel' : undefined} aria-labelledby={code ? `${id}-tab-preview` : undefined}>
         <iframe title={label} loading="lazy" src={src} style={height ? `height: ${height}px` : undefined}></iframe>
+        <span class="aparte-skeleton frame-skeleton" aria-hidden="true"></span>
     </div>
     {
         code && (
@@ -112,6 +113,7 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
     /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
        reader's to change, so it is not clamped beyond the column. */
     .aparte-preview-frame {
+        position: relative;
         overflow: hidden;
         resize: horizontal;
         min-width: 20rem;
@@ -166,6 +168,8 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
      * The width presets, because core declares breakpoints and a preview that cannot reach
      * them does not demonstrate them. And the view, Preview or Code, where the bar has one.
      */
+    import './frame-skeleton';
+
     const MIN_HEIGHT = 96;
     const MAX_HEIGHT = 640;
 

@@ -22,7 +22,10 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
             <span class="product-frame__dots"><i></i><i></i><i></i></span>
             <span class="product-frame__address">apartejs.dev/templates/{meta.slug}</span>
         </div>
-        <iframe class="product-frame__app" src={`/templates/${meta.slug}/?play`} title={`The ${meta.title} template, live`}></iframe>
+        <div class="product-frame__screen">
+            <iframe class="product-frame__app" src={`/templates/${meta.slug}/?play`} title={`The ${meta.title} template, live`}></iframe>
+            <span class="aparte-skeleton frame-skeleton" aria-hidden="true"></span>
+        </div>
     </div>
     <figcaption class="product-frame__caption">
         The <a href={`/templates/${meta.slug}/`}>{meta.title} template</a>, live: every piece is an aparté component.
@@ -31,6 +34,8 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
 </figure>
 
 <script>
+    import '../frame-skeleton';
+
     // Tell each frame when it is on screen, so its run starts where the reader can see it; and
     // when the page's theme changes, so it follows the toggle. A frame that loads after it was
     // seen hears it again on load: its listener only exists once its script has run.
@@ -99,6 +104,10 @@ const code = `${REPO_URL}/tree/main/apps/docs/src/templates/${meta.slug}`;
         text-align: center;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+    /* The app's box, under the bar: what the placeholder covers while it loads. */
+    .product-frame__screen {
+        position: relative;
     }
     .product-frame__app {
         display: block;

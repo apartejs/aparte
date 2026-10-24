@@ -59,6 +59,7 @@ const playIcon = '<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColo
                                 inert
                                 {...(i === 0 ? { src: slide.src } : { 'data-src': slide.src })}
                             />
+                            <span class="aparte-skeleton frame-skeleton" aria-hidden="true" />
                         </div>
                     </div>
                 ))
@@ -85,6 +86,8 @@ const playIcon = '<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColo
 </section>
 
 <script>
+    import '../frame-skeleton';
+
     const DELAY = 6000;
     const still = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -216,6 +219,7 @@ const playIcon = '<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColo
         --aparte-icon-size: 1em;
     }
     .carousel__frame {
+        position: relative;
         height: 27.5rem;
         border-inline-start: var(--aparte-border-width, 1px) solid var(--aparte-border);
         background: var(--aparte-bg);
