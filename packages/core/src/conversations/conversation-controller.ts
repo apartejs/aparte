@@ -7,6 +7,7 @@ import { aparteGlobalConfig } from '../config/aparte-config.js';
 import type { AparteConfig } from '../config/aparte-config.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
+import type { AparteConversationStatus } from '../components/conversation-list/aparte-conversation-list.js';
 
 /**
  * Abstract binding between a chat UI and the conversation lifecycle.
@@ -97,6 +98,8 @@ export class AparteConversationController {
     private _isStreaming = false;
     private _isLoadingConversation = false;
     private _ensureInFlight: Promise<string> | null = null;
+    /** The conversation the turn in flight started in, and what the lists were told of it. */
+    private _turn: { id: string; status: AparteConversationStatus } | null = null;
 
     private _onSendCapture: ((e: Event) => void) | null = null;
     private _onPathChanged: ((e: Event) => void) | null = null;
@@ -206,6 +209,35 @@ export class AparteConversationController {
     }
 
     /**
+     * Tell every conversation list on the page what the turn is doing, through
+     * `aparte-conversation-status` on `window` — the mirror of the list's
+     * `aparte-conversation-select`, which this controller hears. Always about the
+     * conversation the turn started in: the person may have opened another since. A turn
+     * that starts before its conversation exists (a first message) is told once it does.
+     */
+    private _setTurn(status: AparteConversationStatus | null): void {
+        if (!status) {
+            if (this._turn) this._tellLists(this._turn.id, null);
+            this._turn = null;
+            return;
+        }
+        // `createNew()` assigns the manager's active id before its promise resolves, so a
+        // first message's conversation is usually known here already.
+        const id = this._turn?.id ?? this._activeId ?? this._manager()?.activeId ?? null;
+        if (!id) return;
+        this._turn = { id, status };
+        this._tellLists(id, status);
+    }
+
+    private _tellLists(id: string, status: AparteConversationStatus | null): void {
+        try {
+            window.dispatchEvent(new CustomEvent('aparte-conversation-status', { detail: { id, status } }));
+        } catch {
+            /* environments without window */
+        }
+    }
+
+    /**
      * Attach event listeners to the binding host. Returns an unbind function.
      */
     bind(): () => void {
@@ -267,9 +299,14 @@ export class AparteConversationController {
         // persist freshly-completed assistant turns to storage. Without this,
         // assistant messages would only ever live in the in-memory binding
         // because aparte-path-changed is reserved for branch operations.
-        this._onMessageStart = () => { this._isStreaming = true; };
+        // And tell the conversation lists what the turn is doing (`_setTurn`).
+        this._onMessageStart = () => {
+            this._isStreaming = true;
+            this._setTurn('running');
+        };
         this._onMessageDone = () => {
             this._isStreaming = false;
+            this._setTurn(null);
             // Defer one microtask so any synchronous listener that finalises
             // the message in the binding (e.g. viewport state flush) runs
             // before we snapshot getMessages().
@@ -277,16 +314,19 @@ export class AparteConversationController {
         };
         this._onMessageError = () => {
             this._isStreaming = false;
+            this._setTurn(null);
             queueMicrotask(() => this._persistActive());
         };
         this._onMessageAborted = () => {
             this._isStreaming = false;
+            this._setTurn(null);
             queueMicrotask(() => this._persistActive());
         };
         // A server paused the turn on calls the page must answer. The turn goes on, but a
         // person who closes the tab now comes back to what was saved — the paused calls,
-        // with the server's ticket, have to be in it.
+        // with the server's ticket, have to be in it. Its conversation now waits for them.
         this._onMessagePaused = () => {
+            this._setTurn('waiting');
             queueMicrotask(() => this._persistActive());
         };
         host.addEventListener('aparte-message-start', this._onMessageStart);
@@ -413,6 +453,11 @@ export class AparteConversationController {
         // Abort any in-flight stream tied to this binding only when actually
         // switching to a different conversation.
         if (isSwitch && this._isStreaming) {
+            // The lists first, about the conversation being left: a running turn ends
+            // here, whenever its aborted event comes; a paused one survives the switch
+            // (see a-paused-turn-survives-a-switch), so its conversation keeps waiting.
+            if (this._turn?.status === 'waiting') this._turn = null;
+            else this._setTurn(null);
             // Persist the current state (user message + partial assistant reply)
             // BEFORE aborting. The abort event fires asynchronously; if we
             // persist after it, the binding may already be cleared/replaced.
@@ -712,6 +757,8 @@ export class AparteConversationController {
 
             this._activeId = convId;
             this._options.onConversationCreated?.(convId);
+            // A turn that started before its conversation existed is told about now.
+            if (this._isStreaming && !this._turn) this._setTurn('running');
         } else if (this._activeId !== null && this._activeId !== convId) {
             // Existing-conv path but the user switched between the optimistic
             // append and now. The message was visually shown in the old conv;
