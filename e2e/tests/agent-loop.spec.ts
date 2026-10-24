@@ -131,16 +131,18 @@ test('leaving during the wait keeps the question: it comes back with the convers
  * `resume` batch, and `ask_user` a frontend tool the agent leaves to the page, answered with a
  * `tool` message — the two ways AG-UI hands a call back. Its input and its events are checked
  * against `@ag-ui/core`'s schemas on the way. `POST /agui/tanstack` is TanStack AI's real
- * server (`chat()`), which pauses for `ask_user` with an interrupt of its own.
+ * server (`chat()`), which pauses for `ask_user` with an interrupt of its own — and frames its
+ * runs its own way (a RUN_FINISHED per model step), so the page reads it as its users are
+ * told to, with `relaxedRunFraming` (`&agui-framing=relaxed`).
  */
-for (const [agent, AGUI] of [
-    ['an AG-UI agent', 'http://localhost:5399/agui'],
-    ['a TanStack AI route', 'http://localhost:5399/agui/tanstack'],
+for (const [agent, AGUI, framing] of [
+    ['an AG-UI agent', 'http://localhost:5399/agui', ''],
+    ['a TanStack AI route', 'http://localhost:5399/agui/tanstack', '&agui-framing=relaxed'],
 ] as const) {
 
 async function openAgUiSite(page: Page): Promise<ChatPage> {
     const chat = new ChatPage(page);
-    await page.goto(`/?scenario&agui=${encodeURIComponent(AGUI)}`);
+    await page.goto(`/?scenario&agui=${encodeURIComponent(AGUI)}${framing}`);
     await expect(chat.approvalMode.locator('aparte-select')).toBeVisible();
     return chat;
 }
