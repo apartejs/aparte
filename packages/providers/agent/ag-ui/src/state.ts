@@ -92,11 +92,18 @@ function step(doc: unknown, op: Record<string, unknown>): unknown {
     const path = op['path'];
     if (typeof path !== 'string') throw new Error('an operation has no path');
     const from = typeof op['from'] === 'string' ? op['from'] : undefined;
+    if ((op['op'] === 'add' || op['op'] === 'replace' || op['op'] === 'test') && !('value' in op)) throw new Error(`${String(op['op'])} has no value`);
     switch (op['op']) {
         case 'add': return add(doc, path, structuredClone(op['value']));
         case 'remove': return remove(doc, path);
         case 'replace': return replace(doc, path, structuredClone(op['value']));
-        case 'move': { if (from === undefined) throw new Error('move has no from'); const value = get(doc, from); return add(remove(doc, from), path, value); }
+        case 'move': {
+            if (from === undefined) throw new Error('move has no from');
+            // §4.4: a location cannot move into one of its own children.
+            if (path.startsWith(`${from}/`)) throw new Error(`"${from}" cannot move into its own child "${path}"`);
+            const value = get(doc, from);
+            return add(remove(doc, from), path, value);
+        }
         case 'copy': { if (from === undefined) throw new Error('copy has no from'); return add(doc, path, structuredClone(get(doc, from))); }
         case 'test': if (!equal(get(doc, path), op['value'])) throw new Error(`test failed at "${path}"`); return doc;
         default: throw new Error(`unknown operation "${String(op['op'])}"`);

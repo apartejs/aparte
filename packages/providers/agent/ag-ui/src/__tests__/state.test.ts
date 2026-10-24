@@ -47,6 +47,15 @@ describe('applyStateDelta', () => {
         expect(before).toEqual({ n: 1 });   // never mutated in place
     });
 
+    it('refuses a move into its own child, and an add or replace with no value (RFC 6902 §4.4, §4.1)', () => {
+        const state = { arr: [{ n: 1 }, { n: 2 }] };
+        const moved = apply(state, [{ op: 'move', from: '/arr/0', path: '/arr/0/child' }]);
+        expect(moved.state).toEqual(state);
+        expect(moved.warnings.join(' ')).toContain('Failed to apply state patch');
+        expect(apply({ a: 1 }, [{ op: 'add', path: '/b' }]).state).toEqual({ a: 1 });
+        expect(apply({ a: 1 }, [{ op: 'replace', path: '/a' }]).state).toEqual({ a: 1 });
+    });
+
     it('drops an operation RFC 6902 does not define, and applies the rest', () => {
         const r = apply({ n: 1 }, [{ op: 'increment', path: '/n' }, { op: 'replace', path: '/n', value: 5 }]);
         expect(r.state).toEqual({ n: 5 });
