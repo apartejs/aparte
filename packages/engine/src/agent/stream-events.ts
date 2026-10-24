@@ -258,6 +258,12 @@ export interface StreamDeferredCall {
  */
 export type StreamRefusalOrigin = 'person' | 'policy' | 'earlier-refusal';
 
+/**
+ * Why a call was aborted: a Stop, its handler's timeout, no handler for it here, or a gate
+ * with nobody to ask.
+ */
+export type StreamAbortCause = 'stopped' | 'timeout' | 'no-handler' | 'no-resolver';
+
 /** The answer to a deferred call, handed to the run that resumes it. */
 export type StreamDeferredOutcome =
     | { kind: 'decision'; approved: boolean; reason?: string; instruction?: string; by?: StreamRefusalOrigin; payload?: unknown }
@@ -348,7 +354,12 @@ export type StreamRunEvent =
     /** The handler threw (not an abort): the row hears of the crash before the run ends on it. */
     | { type: 'tool-failed'; toolCallId: string; error: string }
     | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }
-    | { type: 'tool-aborted'; toolCallId: string }
+    /**
+     * The call did not run to an answer. `cause` says why, for the row: `'no-handler'` and
+     * `'no-resolver'` are the page's setup, not anything the person did. Absent on the calls
+     * a run ended before reaching.
+     */
+    | { type: 'tool-aborted'; toolCallId: string; cause?: StreamAbortCause }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     | { type: 'run-aborted' }
     | { type: 'run-done'; usage?: StreamUsage }

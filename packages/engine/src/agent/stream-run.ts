@@ -34,6 +34,7 @@ import type {
     StreamDeferredCall,
     StreamDeferredReason,
     StreamRefusalOrigin,
+    StreamAbortCause,
 } from './stream-events.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
@@ -273,14 +274,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
             const handler = toolLookup(tc.name);
             if (!handler) {
-                emitter({ type: 'tool-aborted', toolCallId: syntheticId });
+                emitter({ type: 'tool-aborted', toolCallId: syntheticId, cause: 'no-handler' });
                 continueLoop = false;
                 continue;
             }
 
             const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs);
             if (outcome.status === 'aborted') {
-                emitter({ type: 'tool-aborted', toolCallId: syntheticId });
+                emitter({ type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause });
                 continueLoop = false;
                 continue;
             }
@@ -703,7 +704,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     // its policy), so an approval is no result yet, and a refusal was answered above.
     if (cfg?.external) {
         if (!ctx.deferral) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
             return 'stop-run';
         }
         if (!answer || answer.kind === 'decision') return { defer: 'external' };
@@ -720,7 +721,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
 
     const handler = ctx.toolLookup(call.name);
     if (!handler) {
-        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
         return 'stop-run';
     }
 
@@ -756,7 +757,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
          * call, not a decision.
          */
         if (!provided && !ctx.approvalResolver) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-resolver' });
             return 'stop-run';
         }
         /*
@@ -785,7 +786,8 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             }
         }
         if (signal.aborted || !decision) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            // No decision without an abort is a resolver that threw an AbortError: a stop too.
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
             return 'stop-run';
         }
 
@@ -839,7 +841,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // Same rule as the rejection / turn-limit / missing-handler
         // exits above, which this branch was missing: a stopped turn
         // must not go on running the tool calls that follow it.
-        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: outcome.cause });
         return 'stop-run';
     } else if (outcome.status === 'failed') {
         // A crash is the handler's, and the run ends on it as before —
@@ -861,14 +863,14 @@ async function invokeToolHandler(
     toolTimeoutMs: number,
 ): Promise<
     | { status: 'resolved'; content: string; structuredContent?: unknown }
-    | { status: 'aborted' }
+    | { status: 'aborted'; cause: Extract<StreamAbortCause, 'stopped' | 'timeout'> }
     /** The handler threw something that is not an abort: a crash, reported by the caller then re-thrown. */
     | { status: 'failed'; error: unknown }
 > {
     // If the run was already aborted before we got here, don't invoke the
     // handler at all: a past 'abort' event will never re-fire on the listener
     // below, so the handler would otherwise run to completion despite cancel.
-    if (signal.aborted) return { status: 'aborted' };
+    if (signal.aborted) return { status: 'aborted', cause: 'stopped' };
 
     const controller = new AbortController();
     const onParentAbort = () => controller.abort();
@@ -886,8 +888,8 @@ async function invokeToolHandler(
      * terms; this racer is what makes the Stop true when it does not.
      */
     let onParentAbortRace: (() => void) | undefined;
-    const parentAborted = new Promise<{ status: 'aborted' }>((resolve) => {
-        onParentAbortRace = () => resolve({ status: 'aborted' });
+    const parentAborted = new Promise<{ status: 'aborted'; cause: 'stopped' }>((resolve) => {
+        onParentAbortRace = () => resolve({ status: 'aborted', cause: 'stopped' });
         signal.addEventListener('abort', onParentAbortRace, { once: true });
     });
 
@@ -905,10 +907,12 @@ async function invokeToolHandler(
      * makes the promise true when it does not.
      */
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<{ status: 'aborted' }>((resolve) => {
+    let expired = false;
+    const timedOut = new Promise<{ status: 'aborted'; cause: 'timeout' }>((resolve) => {
         timeout = setTimeout(() => {
+            expired = true;
             controller.abort();
-            resolve({ status: 'aborted' });
+            resolve({ status: 'aborted', cause: 'timeout' });
         }, toolTimeoutMs);
     });
 
@@ -920,7 +924,9 @@ async function invokeToolHandler(
         ]);
         return result;
     } catch (err: unknown) {
-        if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted' };
+        // A handler that honoured the signal rejects with its own AbortError: whichever
+        // fired it is the cause.
+        if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted', cause: expired && !signal.aborted ? 'timeout' : 'stopped' };
         // Not thrown from here: the call was announced with `tool-start`, and the
         // loop's invariant is that an announced call gets exactly one terminal
         // event. Throwing from inside skipped it — the row spun "Running" for good
