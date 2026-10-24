@@ -268,6 +268,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const rejected = new Set<string>();
         const settledByPage = new Set<string>();
         let textOpen = false;
+        let runError: AparteError | undefined;
         let usage: Usage | undefined;
         let finished: { runId: string; outcome?: { type?: string; interrupts?: AgUiInterrupt[] } } | undefined;
         const emit = opts.emitter;
@@ -422,11 +423,16 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     break;
                 }
                 case 'RUN_ERROR': {
-                    throw new AparteError(
+                    // The agent reporting its own failure does not end the stream: a
+                    // RUN_STARTED may follow and run again, and a late one can come after a
+                    // run that finished. What was drawn stays; the failure is said once the
+                    // stream is over, and core appends it below the reply.
+                    runError = new AparteError(
                         typeof event['message'] === 'string' && event['message'] ? event['message'] : 'The agent run failed.',
                         AparteErrorCode.PROVIDER_ERROR,
-                        typeof event['code'] === 'string' ? { code: event['code'] } : undefined,
+                        { agUi: 'run-error', ...(typeof event['code'] === 'string' ? { code: event['code'] } : {}) },
                     );
+                    break;
                 }
                 case 'RUN_FINISHED': {
                     // Not the end of the stream: TanStack AI closes each model step with a
@@ -450,6 +456,11 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         }
         if (opts.signal.aborted) return usage;
+        if (runError) {
+            for (const [toolCallId] of started) if (!answered.has(toolCallId)) emit({ type: 'tool-aborted', toolCallId });
+            if (textOpen) emit({ type: 'text-flush' });
+            throw runError;
+        }
         if (!finished) {
             throw new AparteError('The agent stream ended without RUN_FINISHED.', AparteErrorCode.PROVIDER_ERROR);
         }

@@ -156,6 +156,22 @@ describe('createAgUiRunner: the stream', () => {
         await expect(http.done).rejects.toMatchObject({ message: 'Unauthorized agent' });
     });
 
+    it('reads on past a RUN_ERROR, keeps what was drawn, and reports the failure at the end', async () => {
+        const r = run(fakeFetch(sse(
+            started,
+            { type: 'TEXT_MESSAGE_START', messageId: 'a1', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'Checking.' },
+            { type: 'TEXT_MESSAGE_END', messageId: 'a1' },
+            { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
+            { type: 'TOOL_CALL_END', toolCallId: 'c1' },
+            { type: 'RUN_ERROR', message: 'Model overloaded', code: 'overloaded' },
+        )).fetch);
+        await expect(r.done).rejects.toMatchObject({ message: 'Model overloaded', data: { agUi: 'run-error', code: 'overloaded' } });
+        // The text stays, and the call nobody will answer stops waiting.
+        expect(r.types()).toContain('text-delta');
+        expect(r.events).toContainEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
+
     it('opens a turn per model step: a second step reasons in a block of its own', async () => {
         const r = run(fakeFetch(sse(
             started,

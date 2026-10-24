@@ -115,9 +115,6 @@ const KNOWN_GAPS: Record<string, string> = {
     'state-falsy-snapshot-applies': 'state',
     'state-null-snapshot-applies': 'state',
     'state-snapshot-replaces': 'state',
-    'late-run-error-after-finished-run-continues': 'run-error',
-    'run-error-first-run-continues': 'run-error',
-    'run-error-then-new-run-continues': 'run-error',
     'era-0-0-39-flattens-content': 'eras',
     'era-0-0-45-thinking-translated': 'eras',
     'era-0-0-57-subagent-dropped-with-warning': 'eras',
@@ -249,8 +246,8 @@ async function replay(fixture: Fixture) {
     const first = await runOnce(historyOf(fixture));
     // The state the runner keeps for the thread is what it sends on the next run.
     await runOnce([{ role: 'user', content: 'next' }]);
-    const rejected = first.error instanceof AparteError && (first.error.details as { agUi?: string } | undefined)?.agUi === 'malformed';
-    const runError = first.error instanceof AparteError && (first.error.details as { agUi?: string } | undefined)?.agUi === 'run-error';
+    const rejected = first.error instanceof AparteError && (first.error.data as { agUi?: string } | undefined)?.agUi === 'malformed';
+    const runError = first.error instanceof AparteError && (first.error.data as { agUi?: string } | undefined)?.agUi === 'run-error';
     if (first.error && !rejected && !runError) throw first.error;   // a bug, not a verdict
     return {
         rejected,
