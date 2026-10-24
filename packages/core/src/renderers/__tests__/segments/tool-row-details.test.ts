@@ -126,9 +126,22 @@ describe('details: a function — the app\'s detail under the default line', () 
         expect(el.textContent).not.toContain('lake varden');
     });
 
-    it('a string is inserted as HTML, the renderer\'s contract', () => {
+    it('a string is inserted as HTML', () => {
         aparteGlobalConfig.registerToolDisplay('web_search', { details: () => '<p class="said">3 pages</p>' });
         expect(draw(call()).querySelector('.aparte-tool-detail .said')?.textContent).toBe('3 pages');
+    });
+
+    it('a string goes through the HTML sanitizer: what a tool returned can carry a script', () => {
+        // The simple API, fed straight from a tool's result (a web page's title): an app that
+        // interpolates it unescaped must not put a script on the page.
+        const hostile = '<p class="said">Trail guide</p><img src="x" onerror="window.__pwned = 1"><script>window.__pwned = 1</script>';
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: () => hostile });
+        const el = draw(call());
+        expect(el.querySelector('.said')?.textContent).toBe('Trail guide');
+        expect(el.querySelector('script')).toBeNull();
+        expect(el.querySelector('[onerror]')).toBeNull();
+        const after = updated(el, call({ result: '[]' }));
+        expect(after.querySelector('script, [onerror]')).toBeNull();
     });
 
     it('\'\' is nothing behind the line yet, and the disclosure appears once there is something', () => {

@@ -247,9 +247,10 @@ export interface AparteToolDisplay {
  * whose words are written into the nodes already there when the shape is the same.
  *
  * Return an **HTMLElement** and nothing goes through `innerHTML`. Return a **string** and
- * core inserts it as HTML, so every value from the call — `segment.toolCall.input`, chosen
- * by the model, and `segment.result`, returned by the tool — must go through `escapeHtml`
- * (the contract of {@link AparteToolRenderer.render}). Return `''` for nothing behind the
+ * core inserts it as HTML after the config's HTML sanitizer (`setHtmlSanitizer`, as for
+ * Markdown): what it shows comes from a tool's result, so a script or an event handler in
+ * it is removed. Escape the call's values all the same (`escapeHtml`): the sanitizer keeps
+ * markup that is harmless but can still mislead. Return `''` for nothing behind the
  * line yet: no disclosure, which appears once there is something (a result, say).
  *
  * A function that throws costs the row its detail, never its line, and never falls back

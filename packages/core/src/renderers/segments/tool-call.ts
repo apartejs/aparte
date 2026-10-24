@@ -113,8 +113,12 @@ function behindOf(segment: AparteToolCallSegment): Behind {
     if (details === false) return { kind: 'none' };
     if (typeof details !== 'function') return { kind: 'parts' };
     try {
-        const body = details(segment);
-        return body ? { kind: 'body', body } : { kind: 'none' };
+        const out = details(segment);
+        if (!out) return { kind: 'none' };
+        // A string goes through the HTML sanitizer, as Markdown does: this is the simple API,
+        // and what it shows comes straight from a tool's result — a page title, a snippet —
+        // that an app may interpolate unescaped. An element is the app's own, as built.
+        return { kind: 'body', body: typeof out === 'string' ? contextConfig().sanitizeHtml(out) : out };
     } catch {
         return { kind: 'none' };
     }

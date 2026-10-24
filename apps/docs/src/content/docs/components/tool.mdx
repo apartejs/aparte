@@ -64,7 +64,7 @@ developer's view. A display's `details` changes it. `false` keeps the line alone
 disclosure, so the row never puts the person one click from JSON (a call that needs approval
 still shows its arguments in the approval panel; `formatInput` writes them in words). A function returns what stands in for
 Input and Output under the same line: here, the pages a search found. Return an element, and
-nothing the tool returned goes through `innerHTML`. Return `''` and the row shows no disclosure
+nothing the tool returned goes through `innerHTML`; a string goes through the HTML sanitizer. Return `''` and the row shows no disclosure
 until there is something to show. The details are in
 [Showing tool calls](/guides/tool-display/#whats-behind-the-line).
 

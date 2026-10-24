@@ -158,9 +158,11 @@ The function:
 - is called when the row is drawn and on every update of the call, so it reads the status and the
   result as they land. An update replaces what it drew and leaves the row as open or as closed as
   the reader left it.
-- returns an element, or a string that core inserts as HTML. Prefer the element: with a string,
-  every value from the call, the arguments the model chose and the result the tool returned, must
-  go through `escapeHtml`, exactly as in a [tool renderer](/guides/tools/#custom-tool-renderer).
+- returns an element, or a string that core inserts as HTML after the
+  [HTML sanitizer](/guides/markdown/), the one Markdown goes through: a script or an event handler
+  that came in with the tool's result is removed. Prefer the element all the same, or escape every
+  value from the call with `escapeHtml`: the sanitizer keeps harmless markup, which can still
+  mislead.
 - returns `''` when there is nothing behind the line yet. The row then has no disclosure, and gets
   one once the function returns something.
 - costs the row its detail if it throws. The line stays, and the raw Input and Output never come

@@ -263,6 +263,7 @@
       "aparte-message-error",
       "aparte-message-info",
       "aparte-message-paused",
+      "aparte-message-resumed",
       "aparte-message-start",
       "aparte-model-change",
       "aparte-optgroup-toggle",
