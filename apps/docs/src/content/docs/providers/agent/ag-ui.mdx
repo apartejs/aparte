@@ -153,7 +153,10 @@ Agno serves an agent or a team over AG-UI with the `AGUI` interface of its `Agen
 - An interrupt the page cannot answer — one such as `input_required`, or one that names no
   `toolCallId` — ends the reply without an error, and is answered `cancelled` when the thread
   resumes or runs again.
-- A refusal reaches the agent as `{ approved: false }`, without the words the person wrote.
+- A refusal reaches the agent as `{ approved: false }`, without the words the person wrote. The
+  row still shows them: the runner takes the refusal from core's `toolRefusal`, so the row says
+  who refused (`You said: “…”`, `Refused by policy`), and the agent reads the same sentence as
+  before.
 
 ## Next
 

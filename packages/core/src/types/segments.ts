@@ -86,8 +86,9 @@ export interface AparteSegmentBase {
  * `aparte` because `meta` is the consumer's: a flat `startedAt` there would collide
  * with a key of their own.
  *
- * Core reads it through {@link segmentDuration} and {@link isSegmentSettled}; it never
- * renders either number.
+ * Core reads it through {@link segmentDuration} and {@link isSegmentSettled}. It draws
+ * one number, and only when asked: a reasoning block with `showDuration` reads its
+ * duration once settled. Every other display of it is the app's.
  */
 export interface AparteSegmentTiming {
     /** Epoch ms when the segment entered a LIVE transcript. Absent for history. */
@@ -162,6 +163,17 @@ export interface AparteThinkingSegment extends AparteSegmentBase {
      */
     collapsed?: boolean;
     label?: string; // e.g., "Reasoning", "Analysis"
+    /**
+     * Once settled, read "Thought for 8s" rather than "Thought". Off by default: the
+     * duration is measured in the browser, from the first reasoning delta to the last,
+     * which is the model's thinking time only when the provider streams its reasoning — a
+     * provider that sends it in one piece would read "1s", and a reload shows it only if
+     * the stored segment kept its `meta`. Usually turned on for every block with
+     * `setSegmentDefaults('thinking', { showDuration: true })`, which a block restored
+     * from storage follows too (it is read when the block is drawn); the block's own
+     * field wins.
+     */
+    showDuration?: boolean;
 }
 
 /**
@@ -208,7 +220,14 @@ export interface AparteCodeSegment extends AparteSegmentBase {
 export interface AparteErrorSegment extends AparteSegmentBase {
     type: 'error';
     content: string; // Renamed from message for consistency
+    /** Text the alert shows under the message, in a block — a stack, a status line an app chooses to show. */
     details?: string;
+    /**
+     * A machine-readable code for the app to branch on — an `AparteErrorCode` value when
+     * core made the error (`AparteErrorCode.MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…). Never drawn: the
+     * alert carries it as `data-error-code`, and a custom error renderer receives it.
+     */
+    code?: string;
     /**
      * @deprecated Set by nothing and read by nothing: the error renderer draws `content` and
      * `details` only. Put a stack in `details` to show it. It will be removed in a later minor.
@@ -248,6 +267,24 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
      * (`AparteClient.resumeDeferred`).
      */
     deferred?: { reason: 'approval' | 'external' | 'queued'; ticket?: string };
+    /**
+     * On a `rejected` call, who refused it — a person, a policy, or the loop because an
+     * earlier call of the same step was refused — and what the person typed instead.
+     * `result` is the sentence the MODEL read; this is what a row tells a person, in their
+     * language. Absent on a call refused by a runner that does not say.
+     */
+    refusal?: { by: import('@aparte/engine').StreamRefusalOrigin; instruction?: string };
+    /**
+     * On an `aborted` call, why: a Stop, its handler's timeout, no handler here, a gate
+     * with nobody to ask, or its own turn limit. Absent when the run ended before it.
+     */
+    abortCause?: import('@aparte/engine').StreamAbortCause | 'turn-limit';
+    /**
+     * Whether the row's disclosure starts closed. Absent: closed, unless the tool's display
+     * says `open`. `setSegmentDefaults('tool_call', { collapsed: false })` opens every row;
+     * like reasoning's, it is read when the row is drawn and never forced on an update.
+     */
+    collapsed?: boolean;
 }
 
 /**

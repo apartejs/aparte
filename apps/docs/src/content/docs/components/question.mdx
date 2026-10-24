@@ -90,7 +90,9 @@ the click (on by default) rather than with the composer's button.
 
 The `ask_user` tool is built, not fixed. `setupAskUser()` takes `maxOptions` (4 by default)
 and `maxQuestions` (5), the tool's `name`, `description` and `systemPrompt` (or `false` to
-send none), and `receipt: false` for an app that records the exchange itself. These are
+send none), and `receipt: false` for an app that records the exchange itself. With `receipt: false` the call is
+hidden through `registerToolDisplay`: nothing is drawn, and the call stays in the message and in
+the history the model reads. These are
 `AskUserSetupOptions`, which extends `AskUserToolOptions`, what `createAskUserTool()` takes.
 
 To wire it by hand: `createAskUserTool()` and `askUserHandler` for the tool,
@@ -115,7 +117,9 @@ aparteGlobalConfig.registerToolRenderer('ask_user', {
 
 The tool returns the answer twice: as a sentence for the model, and as a value,
 `AskUserStructuredResult`, which the receipt reads. A skipped question returns the sentence
-`ASK_USER_DECLINED`; compare with the constant rather than a copy of it.
+`ASK_USER_DECLINED`, which the model reads and whose value does not change; compare with the
+constant rather than a copy of it. The receipt does not show that sentence: a declined line reads
+the `questionDeclined` locale key ("You declined to answer."), so it follows the chat's language.
 
 ## API
 

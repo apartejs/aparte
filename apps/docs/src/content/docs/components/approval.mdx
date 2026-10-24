@@ -16,9 +16,17 @@ Mark such a tool `needsApproval` and the turn stops before its handler runs. The
 in the transcript says it is waiting, and the question is asked where the person is already
 looking, at the composer: which tool, with which arguments, approve or reject.
 
+The question names the call the way its row does: the tool's label (its identifier when it has
+none), then what its summary says it targets, so a tool labelled "Delete a file" can ask "Run
+Delete a file a.ts?" ("Allow …?" by default). The arguments block under it is unchanged. The question is the built-in channel's, `AparteClient`'s; an app with its own loop writes its own. The locale key `approvalAsk` is
+the lever for the wording; an app that gives its tools action labels would write `'Allow {tool}?'`.
+
 The person can also type an answer instead of clicking: "no, archive it instead". That
 refuses the call, and the words reach the model as the tool's result, so the next step can
-follow them.
+follow them. The row quotes them back to the person (`You said: “no, archive it instead”`);
+a call refused by a [policy](/guides/tools/#decide-in-code) says `Refused by policy`
+instead. When a paused [server run](/guides/server-loop/) asks about several calls at once, the
+ones after a refusal are not run, and say `Not run: an earlier call was refused`.
 
 The chevron in the panel's corner puts it aside, to read the transcript behind it, and leaves a
 one-line bar that brings it back; the call keeps waiting meanwhile.
@@ -81,7 +89,10 @@ language changes while the question is open.
 - Which calls ask is a policy: the [approval mode](/components/approval-mode/) switch decides
   by mode (plan, ask, auto-edit, auto) from your tool names.
 - `AparteClient`'s `approvalResolver` option takes the whole decision instead, for a CLI, a
-  webhook or a rule written in code.
+  webhook or a rule written in code. On a refusal it can answer `by: 'policy'` so the row does
+  not credit the refusal to a person.
+- `registerToolDisplay` gives a tool a label, an icon and a summary, which the question then
+  reads: [Showing tool calls](/guides/tool-display/).
 - The panel is capped at `--aparte-elic-max-height`, half the window by default.
 
 ## Accessibility

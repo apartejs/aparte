@@ -4,7 +4,7 @@
  * One renderer, one file; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
-import { escapeHtml } from '../../utils/escape.js';
+import { escapeHtml, escapeAttr } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
 import type {
     AparteSegmentRenderer,
@@ -18,7 +18,11 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
         // UI — the one place to customize it, string or live HTMLElement.
         const custom = contextConfig().getErrorRenderer?.();
         if (custom) {
-            const out = custom({ message: segment.content, details: segment.details });
+            const out = custom({
+                message: segment.content,
+                ...(segment.details !== undefined ? { details: segment.details } : {}),
+                ...(segment.code !== undefined ? { code: segment.code } : {}),
+            });
             if (out instanceof HTMLElement) {
                 // Tag the root so in-place segment updates can still target it.
                 out.setAttribute('data-segment-id', segment.id);
@@ -27,7 +31,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
             return out;
         }
         return `
-        <div class="aparte-segment aparte-alert aparte-alert--danger aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}">
+        <div class="aparte-segment aparte-alert aparte-alert--danger aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}"${segment.code ? ` data-error-code="${escapeAttr(segment.code)}"` : ''}>
             <span class="aparte-alert__icon">${contextConfig().getIcon('error') || '⚠'}</span>
             <div class="aparte-alert__body">
                 <div class="aparte-alert__title">${escapeHtml(contextConfig().t('error'))}</div>

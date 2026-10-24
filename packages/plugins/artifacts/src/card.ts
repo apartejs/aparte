@@ -392,7 +392,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
     getStyles: () => artifactStyles,
 };
 
-function languageForKind(kind: string): string {
+export function languageForKind(kind: string): string {
     if (kind === 'react') return 'jsx';
     if (kind === 'markdown') return 'md';
     if (kind === 'pdf' || kind === 'xlsx' || kind === 'docx') return 'js';

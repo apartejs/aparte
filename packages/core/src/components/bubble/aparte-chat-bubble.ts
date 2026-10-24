@@ -11,6 +11,7 @@ import type {
   AparteMessageInfoEventDetail,
   AparteUsage,
   AparteMessage,
+  AparteToolCallSegment,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
@@ -18,7 +19,7 @@ import { AparteConfig, renderingVersionOf } from '../../config/aparte-config.js'
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
-import { mergeSegmentUpdate } from '../../utils/segments.js';
+import { mergeSegmentUpdate, isSegmentSettled } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
@@ -624,6 +625,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
       this._syncCopyAction();
+      // A call that settles is a step that ended: the dots may be due again.
+      if ('status' in updates || 'isStreaming' in updates) this._updateWaiting();
     }
   }
 
@@ -969,8 +972,23 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * (same null-guarded degradation as the other region hooks).
    */
   private _updateWaiting(): void {
-    const empty = this._segments.length === 0 && !this._content.trim();
-    const waiting = this._streaming && this._role !== 'user' && empty;
+    // A segment counts when it draws something: a call the app hides is in the message
+    // but its row is an empty `hidden` placeholder, which is nothing for the reader.
+    const shown = this._segmentsEl
+      ? Array.from(this._segmentsEl.children).some((child) => !(child as HTMLElement).hidden)
+      : this._segments.length > 0;
+    const empty = !shown && !this._content.trim();
+    // Between two steps: the last thing drawn is a call that has finished (or one the app
+    // hides) and the next model turn has not written yet. The dots used to stop at the
+    // first segment, so a long agent turn looked frozen after each "Done". Not while a
+    // person is asked: nothing comes until they answer.
+    const last = this._segments.at(-1);
+    const lastEl = this._segmentsEl?.lastElementChild as HTMLElement | null | undefined;
+    // A call waiting for approval is a person being asked — hidden or not, an empty reply
+    // included: nothing comes until they answer.
+    const asking = last?.type === 'tool_call' && (last as AparteToolCallSegment).status === 'awaiting-approval';
+    const betweenSteps = last?.type === 'tool_call' && (isSegmentSettled(last) || lastEl?.hidden === true);
+    const waiting = this._streaming && this._role !== 'user' && !asking && (empty || betweenSteps);
 
     // The painted box is hidden when it has nothing to paint. It carries the user
     // bubble's background, padding and radius, so an empty one is a coloured

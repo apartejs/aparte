@@ -1,4 +1,7 @@
 .aparte-segment-tool-call { display: block; padding: var(--aparte-space-1) 0; }
+/* A call that draws nothing (registerToolDisplay `hidden`, or a renderer that returns
+   nothing) is an empty placeholder: the rule above would otherwise beat the UA's [hidden]. */
+.aparte-segment-tool-call[hidden] { display: none; }
 /* The row is the summary. list-style:none plus the ::-webkit- pseudo is the
    pair that actually removes the native marker across engines. */
 /* A ROW, not a badge.
@@ -63,19 +66,36 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     margin: var(--aparte-space-2) 0 var(--aparte-space-3) var(--aparte-space-2); padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-6);
     border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
 }
+/* A part's label and its copy button, on one line above the text they belong to. */
+.aparte-tool-part-head {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--aparte-space-2);
+    margin-bottom: var(--aparte-space-1);
+}
 .aparte-tool-part-label {
     display: block; font-size: var(--aparte-font-size-xs); text-transform: uppercase;
-    letter-spacing: 0.04em; color: var(--aparte-text-muted); margin-bottom: var(--aparte-space-1);
+    letter-spacing: 0.04em; color: var(--aparte-text-muted);
 }
 /* A tool's input and result WRAP. They are a message, a path, a JSON object — not
    code to read line by line — and a `<pre>` keeps `white-space: pre` by default, so
    a one-line result ran past the bubble: measured 1 823px of text in a 723px body
    (407px on a phone), the whole disclosure clipped at the message's edge. Same pair
    the code block uses; `anywhere` breaks the unbreakable (a long path, a hash). */
+.aparte-tool-part-body {
+    max-height: var(--aparte-tool-part-max-height);
+    overflow: auto;
+}
 .aparte-tool-part-body pre {
     margin: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    /* One surface whether a highlighter coloured the part or not — the coloured part
+       had a panel and the plain one sat bare beside it — at a size under the row's. */
+    padding: var(--aparte-space-3) var(--aparte-space-4);
+    border-radius: var(--aparte-radius-code);
+    background: var(--aparte-code-bg);
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-code-block-line-height);
 }
 /* Always in the DOM so update can leave the node alone and toggle hidden
    instead — an attribute a test can read, where a CSS-only rule is invisible
@@ -107,11 +127,24 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     color: var(--aparte-text-muted);
 }
 .aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
-.aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* The name yields last, and with an ellipsis: it used to spill over the state word at
+   375px once a note shared the line (the label shrank, the text inside it did not). */
+.aparte-tool-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--aparte-code-font-family);
+}
+/* A label the app declared (registerToolDisplay) is words for a person, not an
+   identifier: it reads in the chat's own face. */
+.aparte-tool-name--label { font-family: inherit; }
 /* What the call targets (`registerToolSummary`): the name's quieter continuation. One
    line, cut with an ellipsis, so a long path gives way before the state word does. */
 .aparte-tool-target {
     min-width: 0;
+    /* Gives way before the name does. */
+    flex-shrink: 1000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -127,6 +160,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    state word drifted 63px from the name at 375 and 596px at 1280. The state belongs to
    the label (T18). */
 .aparte-tool-state {
+    /* Never yields: the state is the one word on the row a reader must not lose. */
+    flex: none;
     display: inline-flex;
     vertical-align: middle; align-items: center; gap: var(--aparte-space-2);
     font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
@@ -134,6 +169,19 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     user-select: none;
 }
 .aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
+/* Why the call ended — who refused, why it stopped — for the person reading the row.
+   The state word's quieter continuation, as the target is the name's: one line, cut
+   with an ellipsis before it can push the row wider. */
+.aparte-tool-note {
+    min-width: 0;
+    /* Gives way first, before the label; its full text is its title. */
+    flex-shrink: 1000;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+}
 /* Scoped to the segment, not to a bare [data-status].
    These three were the only rules in this file whose leftmost compound is an unprefixed
    non-element selector, which means they reached OUT of core: a host wrapping the chat in

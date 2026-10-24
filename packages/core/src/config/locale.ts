@@ -197,11 +197,13 @@ export type AparteLocale = {
      */
     approvalInstructionPlaceholder?: string;
     /**
-     * The question an approval asks (default: "Run {tool}?").
+     * The question an approval asks (default: "Allow {tool}?").
      *
-     * `{tool}` is replaced with the tool's name. A placeholder rather than three
-     * concatenated fragments, because word order is the first thing a translation
-     * changes and "Run" + name + "?" only works in English.
+     * `{tool}` is replaced with the call as its row names it: the tool's label when the
+     * app declared one (`registerToolDisplay`), else its identifier, then what the call
+     * targets. "Allow" reads with either — "Run" read a label that is an action twice
+     * ("Run Run command…"). A placeholder rather than three concatenated fragments,
+     * because word order is the first thing a translation changes.
      */
     approvalAsk?: string;
     /**
@@ -254,6 +256,45 @@ export type AparteLocale = {
     toolInput?: string;
     /** Label above a tool call's result (default: "Output") */
     toolOutput?: string;
+    /**
+     * The note after a refused call's state word, quoting what the person typed instead
+     * (default: "You said: “{instruction}”"). The model reads its own sentence; this is
+     * the person's words given back to them.
+     */
+    toolRejectedSaid?: string;
+    /** The note on a call an approval policy refused, not a person (default: "Refused by policy"). */
+    toolRefusedByPolicy?: string;
+    /** The note on a call not run because an earlier call of the same step was refused (default: "Not run: an earlier call was refused"). */
+    toolNotRunAfterRefusal?: string;
+    /** The note on a call whose handler outlived its timeout (default: "Timed out"). */
+    toolTimedOut?: string;
+    /** The note on a call nothing on this page can run — no handler for it (default: "Not available here"). */
+    toolUnavailable?: string;
+    /** The note on a call that needed an approval nobody could give — no approval channel (default: "No one could approve it"). */
+    toolNoApprover?: string;
+    /** The note on a call stopped by its tool's own turn limit (default: "Turn limit reached"). */
+    toolTurnLimit?: string;
+    /**
+     * The error a turn ends on when the loop reaches `maxTurns`; `{n}` is the limit
+     * (default: "Stopped after {n} turns to avoid an endless loop.").
+     */
+    maxTurnsReached?: string;
+    /**
+     * `@aparte/plugin-ask-user`: the receipt's line when the person declined to answer
+     * (default: "You declined to answer."). The model reads `ASK_USER_DECLINED`, its own
+     * sentence; this is the person's.
+     */
+    questionDeclined?: string;
+    /** `@aparte/plugin-artifacts`: a `create_artifact` call that was refused, stopped or failed (default: "Not created"). */
+    artifactNotCreated?: string;
+    /**
+     * A settled reasoning block's label when the app shows durations (`showDuration`)
+     * (default: "Thought for {duration}"). `{duration}` is formatted by `Intl` in the
+     * locale's `tag`: "8s", "1m 12s".
+     */
+    thoughtFor?: string;
+    /** A settled reasoning block's label (default: "Thought") — and with `showDuration`, when no timing came with it. */
+    thought?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -443,7 +484,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
-    approvalAsk: "Run {tool}?",
+    approvalAsk: "Allow {tool}?",
     approvalWaiting: "Waiting",
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
@@ -456,6 +497,18 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolFailed: "Failed",
     toolInput: "Input",
     toolOutput: "Output",
+    toolRejectedSaid: "You said: “{instruction}”",
+    toolRefusedByPolicy: "Refused by policy",
+    toolNotRunAfterRefusal: "Not run: an earlier call was refused",
+    toolTimedOut: "Timed out",
+    toolUnavailable: "Not available here",
+    toolNoApprover: "No one could approve it",
+    toolTurnLimit: "Turn limit reached",
+    maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
+    questionDeclined: "You declined to answer.",
+    artifactNotCreated: "Not created",
+    thoughtFor: "Thought for {duration}",
+    thought: "Thought",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

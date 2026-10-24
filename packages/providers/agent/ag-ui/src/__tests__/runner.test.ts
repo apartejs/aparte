@@ -394,6 +394,27 @@ describe('createAgUiRunner: pauses and resumes', () => {
         expect(b.types()).not.toContain('tool-resolved');
     });
 
+    it('a refusal tells the row who refused and what they said, in the sentence core writes', async () => {
+        const a = run(fakeFetch(interruptRun()).fetch);
+        await a.done;
+        const second = fakeFetch(sse(
+            { type: 'RUN_STARTED', runId: 'r2' },
+            { type: 'RUN_FINISHED', runId: 'r2' },
+        ));
+        const b = run(second.fetch, {
+            baseRequest: { messages: [{ role: 'assistant', content: '', toolCalls: [{ id: 'd1', name: 'delete_file', input: {} }] }], modelId: 'x', stream: true },
+            deferral: { token: String(a.events.at(-1)!['ticket']), outcomes: { d1: { kind: 'decision', approved: false, instruction: 'use the staging bucket', by: 'person' } } },
+        } as never);
+        await b.done;
+        expect(b.events.find((e) => e.type === 'tool-rejected')).toEqual({
+            type: 'tool-rejected',
+            toolCallId: 'd1',
+            reason: 'The user rejected this tool call and said: use the staging bucket',
+            by: 'person',
+            instruction: 'use the staging bucket',
+        });
+    });
+
     it('ends on an interrupt the page cannot answer, and cancels it on the next run of the thread', async () => {
         const f = fakeFetch(
             sse(started, finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i9', reason: 'approval', message: 'Approve the transfer?' }] } })),

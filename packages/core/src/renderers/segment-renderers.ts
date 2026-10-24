@@ -229,20 +229,30 @@ export function injectRendererStyles(config: AparteConfig = contextConfig()): vo
 }
 
 
+/** The `<style>` id each renderer's sheet went in under, by renderer. */
+const toolRendererSheetIds = new WeakMap<object, string>();
+
 /**
- * Put a tool renderer's stylesheet on the page, once per tool name.
+ * Put a tool renderer's stylesheet on the page, once per RENDERER.
  *
  * Called from the stream adapter's `tool-start` handler and from `toolCallRenderer` on
  * every render, a stored conversation's included (it looks the renderer up and delegates
  * to it; nothing replays `tool-start` for history), so "the renderer drew"
- * and "its rules are on the page" cannot come apart. Keyed by tool NAME rather than by
- * the CSS text, which makes it idempotent.
+ * and "its rules are on the page" cannot come apart.
+ *
+ * Keyed by the renderer, named after the first tool it drew: the name was the renderer's
+ * identity while one renderer drew one tool, and a renderer registered for a pattern or
+ * `'*'` draws many, which put a copy of the same rules on the page per tool.
  */
 export function injectToolRendererStyles(toolName: string, renderer: { getStyles?: () => string }): void {
     if (typeof document === 'undefined') return;
     const css = renderer.getStyles?.();
     if (!css) return;
-    const id = `aparte-tool-renderer-${toolName}`;
+    let id = toolRendererSheetIds.get(renderer);
+    if (!id) {
+        id = `aparte-tool-renderer-${toolName}`;
+        toolRendererSheetIds.set(renderer, id);
+    }
     if (document.getElementById(id)) return;
     const el = document.createElement('style');
     el.id = id;

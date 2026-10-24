@@ -39,15 +39,18 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         expect(html).not.toContain('aparte-tool-name'); // the default pill is bypassed
     });
 
-    it('falls back to the default pill when the custom render returns empty', () => {
+    it('hides the call when the custom render returns empty — never the default pill', () => {
+        // It used to bring the default pill back here, on the path a stored conversation
+        // takes, while the live path had hidden the call: a reload showed what the chat hid.
         aparteGlobalConfig.registerToolRenderer('visual_tool', { render: () => '' });
         const seg = {
             id: 'vt2', type: 'tool_call',
             toolCall: { id: 'c2', name: 'visual_tool', input: {} },
             status: 'pending',
         };
-        const html = getSegmentRenderer('tool_call')!.render(seg as any);
-        expect(html).toContain('aparte-tool-label'); // empty custom output => hide-to-default
+        const html = String(getSegmentRenderer('tool_call')!.render(seg as any));
+        expect(html).not.toContain('aparte-tool-label');
+        expect(html).toMatch(/data-segment-id="vt2"[^>]* hidden>/);
     });
 
     it('invokes the consumer setup() hook with the mounted element + segment', () => {

@@ -6,7 +6,7 @@ catalog:
   order: 12
   claims:
     plugin: '@aparte/plugin-artifacts'
-  demos: [artifact, artifact-markdown]
+  demos: [artifact, artifact-markdown, artifact-not-created]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -29,6 +29,16 @@ calls, the card, and an `<artifact>` tag for a model that writes the document in
 <Variant id="artifact-markdown" />
 
 The card offers what the kind allows: a note has no preview, so it has no Preview tab.
+
+### A document that was not created
+
+<Variant id="artifact-not-created" />
+
+A `create_artifact` call shows the card only when there is a document to hand over. While the
+call waits for an approval it shows a quiet block with its badge, its title and "Waiting"; once
+it is refused, stopped or failed, the same block reads "Not created" (the `artifactNotCreated`
+locale key), with no Copy or Download, so a refused call does not offer the document the
+person just turned down. A call that is running or done shows the card.
 
 ## Usage
 

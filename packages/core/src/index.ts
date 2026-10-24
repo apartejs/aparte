@@ -163,6 +163,8 @@ export type {
     AparteToolRenderer,
     AparteToolSummary,
     AparteToolInputFormatter,
+    AparteToolMatcher,
+    AparteToolDisplay,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
     // and the <AparteUi> proxy handle the four used to hand-copy).
@@ -339,6 +341,7 @@ export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
+export { toolRefusal } from './client/stream-adapter.js';
 export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 

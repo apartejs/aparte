@@ -1,5 +1,13 @@
 # @aparte/runner-ag-ui
 
+## 0.23.0
+
+### Patch Changes
+
+- 494cd79: A refused AG-UI tool call's row now says who refused and what they wrote; the agent receives the same sentence as before.
+
+  The runner wrote its own copy of the refusal sentence. It takes `toolRefusal` from `@aparte/core` now, so its `tool-rejected` carries `by` and `instruction` like the loop's.
+
 ## 0.22.0
 
 ### Minor Changes

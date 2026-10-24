@@ -6,7 +6,7 @@ catalog:
   order: 9
   claims:
     segments: [thinking]
-  demos: [thinking, thinking-streaming, thinking-open]
+  demos: [thinking, thinking-streaming, thinking-timed, thinking-open]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -37,9 +37,32 @@ reasoning is the point, such as a worked answer.
 
 ## Customize
 
-The label reads "Thinking" until you set `label` on the segment. The library measures how long
-the block streamed but writes no duration of its own, because products phrase it differently
-("Thought for 8s", "8.2s · 1.2k tokens"). Write yours by wrapping the built-in renderer:
+The label reads "Thinking" while the block streams and "Thought" once it settles (the `thinking`
+and `thought` locale keys). A `label` you set on the segment wins over both.
+
+### With how long it took
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setSegmentDefaults('thinking', { showDuration: true });
+```
+
+<Variant id="thinking-timed" />
+
+With `showDuration`, a settled block reads "Thought for 8s" (the `thoughtFor` locale key; the
+duration is written by `Intl` in the locale's `tag`, with a floor of one second). A block with no
+timing still reads "Thought". A block's own `showDuration` (`showDuration?: boolean` on the segment) wins; otherwise
+the default decides. It is read when the block is drawn, so a block restored from storage follows
+the setting too.
+
+It is opt-in because the duration is measured in the browser, from the first reasoning delta to
+the last. That is the model's thinking time only when your provider streams its reasoning; one
+that sends the reasoning in a single piece would show "1s". After a reload the duration shows only
+if your storage kept the segment's `meta`. Turn it on when your provider streams reasoning.
+
+A product that phrases it differently ("8.2s · 1.2k tokens") writes its own by wrapping the
+built-in renderer:
 
 ```ts
 import { getSegmentRenderer, registerSegmentRenderer, isSegmentSettled, segmentDuration } from '@aparte/core';

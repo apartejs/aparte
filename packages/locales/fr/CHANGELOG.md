@@ -1,5 +1,11 @@
 # @aparte/locale-fr
 
+## 0.23.0
+
+### Minor Changes
+
+- 494cd79: French for the new tool-row notes, the reasoning label and duration, the turn-limit message, the ask-user declined line and the artifact "not created" state; the approval question reads « Autoriser {tool} ? ».
+
 ## 0.22.0
 
 ## 0.21.0

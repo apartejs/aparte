@@ -80,12 +80,39 @@ turns are back to `'auto'`.
 | `text-delta`, `thinking-delta` | the reply's text and reasoning arrive |
 | `text-flush` | a turn's text is complete |
 | `tool-start` | the model calls a tool: `{ toolCallId, name, input }` |
-| `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it |
-| `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either |
+| `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it; a rejection carries `reason` (the sentence the model reads), `by` and the person's `instruction` |
+| `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either; an abort carries a `cause` |
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
 | `run-aborted` | the run was stopped; `run-done` follows |
 | `run-done` | the run ends, with its usage |
 | `run-suspended` | the run ends paused, with its pending calls, in place of `run-done` |
+
+The fields the row speaks from: `tool-rejected` has `by`, `'person' | 'policy' | 'earlier-refusal'`
+(the last is a call the loop did not run because another call of the same step was refused), and
+`instruction`, what the person wrote instead of choosing. `tool-aborted` has `cause`:
+`'stopped'`, `'timeout'`, `'no-handler'` or `'no-resolver'`, and none for a call the run ended
+before reaching. A runner of your own may leave them out. An `approvalResolver` can return `by`
+beside a `reason`; without it a `reason` is a policy's and an `instruction` a person's.
+
+`toolRefusal(decision)` writes the refusal for you, and a runner that answers an agent elsewhere
+should use it so the model reads the same sentence:
+
+```ts
+import { toolRefusal } from '@aparte/engine';
+
+toolRefusal({ instruction: 'use the staging bucket' });
+// { reason: 'The user rejected this tool call and said: use the staging bucket',
+//   by: 'person', instruction: 'use the staging bucket' }
+toolRefusal({});                                  // reason: 'Tool execution was rejected by the user.'
+toolRefusal({ reason: 'Read-only mode.' });       // by: 'policy', reason as given
+toolRefusal({ by: 'policy' });                    // reason: 'Tool execution was refused by the approval policy.'
+```
+
+The default sentence follows `by`. A handler that rejects with its own `AbortError`, with no Stop
+and no timeout behind it, aborts the call with no `cause`.
+
+`@aparte/core` re-exports it. `reason` is the one sentence the model reads, whoever refused; `by`
+and `instruction` are for the row, which tells the person in their own language.
 
 A run that fails emits neither of the last two: `runStreamAgent` throws. `StreamRunEvent` types
 them all, and the [engine reference](/reference/engine/) lists every field.

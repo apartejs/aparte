@@ -33,6 +33,8 @@ import type {
     StreamDeferral,
     StreamDeferredCall,
     StreamDeferredReason,
+    StreamRefusalOrigin,
+    StreamAbortCause,
 } from './stream-events.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
@@ -272,14 +274,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
             const handler = toolLookup(tc.name);
             if (!handler) {
-                emitter({ type: 'tool-aborted', toolCallId: syntheticId });
+                emitter({ type: 'tool-aborted', toolCallId: syntheticId, cause: 'no-handler' });
                 continueLoop = false;
                 continue;
             }
 
             const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs);
             if (outcome.status === 'aborted') {
-                emitter({ type: 'tool-aborted', toolCallId: syntheticId });
+                emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: syntheticId });
                 continueLoop = false;
                 continue;
             }
@@ -626,24 +628,47 @@ interface CallContext {
 }
 
 /**
- * A refused call: the row says so and the model reads why — the person's own words when
- * they gave them, else the fixed sentence, byte-identical to core's. Answers `'stop-turn'`:
- * the turn's other calls must not run, but the loop takes another turn so the model reads it.
+ * What a refusal says, and to whom. `reason` is the sentence the model reads: the refuser's
+ * own when it gave one, else the person's words quoted, else the fixed sentence. `by` and
+ * `instruction` are for the row, which tells a person who refused in their own language —
+ * a reason with no origin is a policy's, as {@link StreamApprovalResolver} defines it.
+ *
+ * Exported so a runner that answers an agent elsewhere writes the same sentence.
+ */
+export function toolRefusal(decision: { reason?: string; instruction?: string; by?: StreamRefusalOrigin }): {
+    reason: string;
+    by: StreamRefusalOrigin;
+    instruction?: string;
+} {
+    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
+    // empty `tool` message.
+    const reason = decision.reason?.trim();
+    const by = decision.by ?? (reason ? 'policy' : 'person');
+    // Without a reason of its own, the sentence follows the origin: a policy's refusal
+    // never tells the model "the user rejected this".
+    const sentence = reason
+        || (by === 'policy' ? 'Tool execution was refused by the approval policy.'
+            : by === 'earlier-refusal' ? 'Not run: an earlier call of the same step was refused.'
+            : decision.instruction
+                ? `The user rejected this tool call and said: ${decision.instruction}`
+                : 'Tool execution was rejected by the user.');
+    return decision.instruction ? { reason: sentence, by, instruction: decision.instruction } : { reason: sentence, by };
+}
+
+/**
+ * A refused call: the row says so and the model reads why (see {@link toolRefusal}).
+ * Answers `'stop-turn'`: the turn's other calls must not run, but the loop takes another
+ * turn so the model reads it.
  */
 function refuse(
     ctx: CallContext,
     call: StreamToolCall,
-    decision: { reason?: string; instruction?: string },
+    decision: { reason?: string; instruction?: string; by?: StreamRefusalOrigin },
 ): 'stop-turn' {
-    // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
-    // empty `tool` message.
-    const rejection = decision.reason?.trim()
-        || (decision.instruction
-            ? `The user rejected this tool call and said: ${decision.instruction}`
-            : 'Tool execution was rejected by the user.');
-    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, reason: rejection });
+    const refusal = toolRefusal(decision);
+    ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, ...refusal });
     ctx.declareCall(call);
-    ctx.append({ role: 'tool', content: rejection, toolCallId: call.id, toolName: call.name });
+    ctx.append({ role: 'tool', content: refusal.reason, toolCallId: call.id, toolName: call.name });
     return 'stop-turn';
 }
 
@@ -683,7 +708,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     // its policy), so an approval is no result yet, and a refusal was answered above.
     if (cfg?.external) {
         if (!ctx.deferral) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
             return 'stop-run';
         }
         if (!answer || answer.kind === 'decision') return { defer: 'external' };
@@ -700,7 +725,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
 
     const handler = ctx.toolLookup(call.name);
     if (!handler) {
-        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
         return 'stop-run';
     }
 
@@ -736,7 +761,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
          * call, not a decision.
          */
         if (!provided && !ctx.approvalResolver) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-resolver' });
             return 'stop-run';
         }
         /*
@@ -765,7 +790,8 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             }
         }
         if (signal.aborted || !decision) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+            // No decision without an abort is a resolver that threw an AbortError: a stop too.
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
             return 'stop-run';
         }
 
@@ -819,7 +845,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // Same rule as the rejection / turn-limit / missing-handler
         // exits above, which this branch was missing: a stopped turn
         // must not go on running the tool calls that follow it.
-        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id });
+        ctx.emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: call.id, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: call.id });
         return 'stop-run';
     } else if (outcome.status === 'failed') {
         // A crash is the handler's, and the run ends on it as before —
@@ -841,14 +867,15 @@ async function invokeToolHandler(
     toolTimeoutMs: number,
 ): Promise<
     | { status: 'resolved'; content: string; structuredContent?: unknown }
-    | { status: 'aborted' }
+    /** `cause` is absent for a handler that aborted itself, with no Stop and no timeout. */
+    | { status: 'aborted'; cause?: Extract<StreamAbortCause, 'stopped' | 'timeout'> }
     /** The handler threw something that is not an abort: a crash, reported by the caller then re-thrown. */
     | { status: 'failed'; error: unknown }
 > {
     // If the run was already aborted before we got here, don't invoke the
     // handler at all: a past 'abort' event will never re-fire on the listener
     // below, so the handler would otherwise run to completion despite cancel.
-    if (signal.aborted) return { status: 'aborted' };
+    if (signal.aborted) return { status: 'aborted', cause: 'stopped' };
 
     const controller = new AbortController();
     const onParentAbort = () => controller.abort();
@@ -866,8 +893,8 @@ async function invokeToolHandler(
      * terms; this racer is what makes the Stop true when it does not.
      */
     let onParentAbortRace: (() => void) | undefined;
-    const parentAborted = new Promise<{ status: 'aborted' }>((resolve) => {
-        onParentAbortRace = () => resolve({ status: 'aborted' });
+    const parentAborted = new Promise<{ status: 'aborted'; cause: 'stopped' }>((resolve) => {
+        onParentAbortRace = () => resolve({ status: 'aborted', cause: 'stopped' });
         signal.addEventListener('abort', onParentAbortRace, { once: true });
     });
 
@@ -885,10 +912,12 @@ async function invokeToolHandler(
      * makes the promise true when it does not.
      */
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<{ status: 'aborted' }>((resolve) => {
+    let expired = false;
+    const timedOut = new Promise<{ status: 'aborted'; cause: 'timeout' }>((resolve) => {
         timeout = setTimeout(() => {
+            expired = true;
             controller.abort();
-            resolve({ status: 'aborted' });
+            resolve({ status: 'aborted', cause: 'timeout' });
         }, toolTimeoutMs);
     });
 
@@ -900,7 +929,14 @@ async function invokeToolHandler(
         ]);
         return result;
     } catch (err: unknown) {
-        if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted' };
+        // A handler that honoured the signal rejects with its own AbortError: whichever
+        // fired it is the cause.
+        if ((err as { name?: string })?.name === 'AbortError') {
+            if (signal.aborted) return { status: 'aborted', cause: 'stopped' };
+            if (expired) return { status: 'aborted', cause: 'timeout' };
+            // Its own abort — nobody pressed Stop and it did not run out of time.
+            return { status: 'aborted' };
+        }
         // Not thrown from here: the call was announced with `tool-start`, and the
         // loop's invariant is that an announced call gets exactly one terminal
         // event. Throwing from inside skipped it — the row spun "Running" for good

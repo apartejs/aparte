@@ -55,11 +55,34 @@ describe('setupAskUser', () => {
         expect(config.getToolRenderer('ask_user')).toBeUndefined();
     });
 
-    it('renders nothing for the call when the receipt is declined', () => {
+    it('hides the call when the receipt is declined — through the display, so it stays in the history', () => {
+        // A render-nothing renderer used to do this, which kept the call out of the
+        // message and so out of the history the model reads on later turns. `hidden` is
+        // the one way to draw nothing, and an app can still override it per tool.
         const config = new AparteConfig();
         setupAskUser({ receipt: false }, config);
-        const renderer = config.getToolRenderer('ask_user');
-        expect(renderer).toBeDefined();
-        expect(renderer!.render({} as never)).toBe('');
+        expect(config.getToolRenderer('ask_user')).toBeUndefined();
+        expect(config.isToolHidden('ask_user')).toBe(true);
+    });
+});
+
+describe('the receipt follows a language switch', () => {
+    it('relabels a declined line in place', async () => {
+        const { runWithConfig } = await import('@aparte/core');
+        const { ASK_USER_DECLINED } = await import('./ask-user.js');
+        const config = new AparteConfig();
+        setupAskUser({}, config);
+        const renderer = config.getToolRenderer('ask_user')!;
+        const segment = {
+            id: 's1', type: 'tool_call', messageId: 'm1', index: 0, status: 'resolved',
+            toolCall: { id: 'c1', name: 'ask_user', input: { questions: [{ question: 'Colour?' }] } },
+            result: ASK_USER_DECLINED,
+            structuredResult: { action: 'decline' },
+        } as never;
+        const el = runWithConfig(config, () => renderer.render(segment)) as HTMLElement;
+        expect(el.textContent).toBe('You declined to answer.');
+        config.extendLocale({ questionDeclined: 'Vous n’avez pas répondu.' });
+        runWithConfig(config, () => renderer.relabel!(el, segment));
+        expect(el.textContent).toBe('Vous n’avez pas répondu.');
     });
 });

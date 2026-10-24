@@ -25,7 +25,9 @@ import type {
 } from '../types/segments.js';
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
+import { toolRefusal as engineToolRefusal } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
+import { AparteErrorCode } from '../types/errors.js';
 import { resolveConfig } from '../config/config-context.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
@@ -36,6 +38,22 @@ import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
  * for the per-event documentation.
  */
 export type AparteStreamRunEvent = StreamRunEvent;
+
+/**
+ * What a refused tool call tells the model, and who refused it — engine's `toolRefusal`,
+ * under core's roof. `reason` is the sentence the model reads (the refuser's own, else
+ * the person's words quoted, else "Tool execution was rejected by the user."); `by` and
+ * `instruction` are what a row shows the person.
+ *
+ * For a runner that answers an agent the loop does not run (an AG-UI agent, a server):
+ * it writes the sentence the loop writes, so the model reads one refusal however it ran.
+ *
+ * @example
+ * toolRefusal({ instruction: 'use the staging bucket' });
+ * // → { reason: 'The user rejected this tool call and said: use the staging bucket',
+ * //     by: 'person', instruction: 'use the staging bucket' }
+ */
+export const toolRefusal: typeof engineToolRefusal = engineToolRefusal;
 
 /** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
 export type AparteStreamRunEmitter = StreamRunEmitter;
@@ -104,11 +122,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
-    // Each call's segment as `tool-start` built it, and whether it reached the target:
-    // a renderer that draws nothing keeps it out, and a suspended call must exist in the
-    // message anyway (see `run-suspended`).
+    // Each call's segment as `tool-start` built it: a call this run did not start is one a
+    // paused run left (see `settle`).
     const toolSegments = new Map<string, AparteToolCallSegment>();
-    const addedTools = new Set<string>();
     // A call this run never started is one a paused run left — a resume replays no
     // `tool-start`. Settling it ends the pause, so its row drops `deferred`, and the
     // server's ticket with it: a saved conversation keeps no answered call "paused".
@@ -217,14 +233,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 };
                 toolSegments.set(toolSeg.id, toolSeg);
                 const renderer = config.getToolRenderer(e.name);
-                if (renderer) {
-                    injectToolRendererStyles(e.name, renderer);
-                    const html = renderer.render(toolSeg);
-                    if (html) { target.addSegment?.(toolSeg); addedTools.add(toolSeg.id); }
-                } else {
-                    target.addSegment?.(toolSeg);
-                    addedTools.add(toolSeg.id);
-                }
+                if (renderer) injectToolRendererStyles(e.name, renderer);
+                // Always added, whatever it draws. A call a renderer or a display hides
+                // used to be left out of the message, and the history a later turn sends
+                // is rebuilt from its segments — so the model lost the call it had made,
+                // and a reload drew the default row for it. Hiding is the row's business:
+                // the call draws an empty placeholder (see the tool_call renderer).
+                target.addSegment?.(toolSeg);
                 break;
             }
 
@@ -238,7 +253,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-rejected':
-                settle(e.toolCallId, { status: 'rejected', result: e.reason });
+                settle(e.toolCallId, {
+                    status: 'rejected',
+                    result: e.reason,
+                    ...(e.by ? { refusal: e.instruction ? { by: e.by, instruction: e.instruction } : { by: e.by } } : {}),
+                });
                 break;
 
             case 'tool-resolved':
@@ -250,7 +269,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-aborted':
-                settle(e.toolCallId, { status: 'aborted' });
+                settle(e.toolCallId, e.cause ? { status: 'aborted', abortCause: e.cause } : { status: 'aborted' });
                 break;
 
             case 'tool-failed':
@@ -264,11 +283,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     target.addSegment?.({
                         id: `max-turns-${uuid()}`,
                         type: 'error',
-                        content: `Stopped after ${e.limit} tool calls to prevent an infinite loop.`,
-                        details: 'MAX_TURNS_EXCEEDED',
+                        // The CHAT's text, in its language — resolved from the target, as the
+                        // reasoning default is: a client on the global config also answers a
+                        // chat with its own.
+                        content: (typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config)
+                            .t('maxTurnsReached').replace('{n}', () => String(e.limit)),
+                        code: AparteErrorCode.MAX_TURNS_EXCEEDED,
                     });
                 } else if (e.toolCallId) {
-                    settle(e.toolCallId, { status: 'aborted' });
+                    settle(e.toolCallId, { status: 'aborted', abortCause: 'turn-limit' });
                 }
                 break;
 
@@ -285,16 +308,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 for (const p of e.pending) {
                     const id = `tool-${p.toolCallId}`;
                     const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
-                    // A call this run never started is a resumed one: its row exists, from
-                    // the run that paused first, and it pauses again with this ticket.
-                    if (addedTools.has(id) || !toolSegments.has(id)) {
-                        target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
-                    } else {
-                        // Its renderer drew nothing at `tool-start`, so the call never became a
-                        // segment; a paused call must exist in the message, or a reload loses it.
-                        const seg = toolSegments.get(id);
-                        if (seg) { target.addSegment?.({ ...seg, deferred }); addedTools.add(id); }
-                    }
+                    // Every call is in the message — started here at `tool-start`, or by the run
+                    // that paused first — so a pause is always an update of its row.
+                    target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
                 }
                 // The RUN is over; the TURN goes on, through the run that resumes it.
                 target.updateMessage?.(messageId, { status: 'completed' });

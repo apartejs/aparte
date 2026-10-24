@@ -12,7 +12,7 @@
  *   // mount <aparte-elicitation> (or <aparte-ask-user>) in your chat
  */
 
-import { aparteGlobalConfig, registerSegmentRenderer, type AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig, contextConfig, registerSegmentRenderer, type AparteConfig } from '@aparte/core';
 import { createAskUserTool, askUserHandler, type AskUserSetupOptions } from './ask-user.js';
 import { questionReceiptRenderer } from './question-receipt.renderer.js';
 import { buildReceipt } from './receipt.js';
@@ -34,7 +34,9 @@ export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteCo
     config.registerTool(tool, askUserHandler);
 
     if (options.receipt === false) {
-        config.registerToolRenderer(tool.name, { render: () => '' });
+        // Hidden, not drawn as nothing by a renderer: the call stays in the message and
+        // in the history the model reads on later turns, which an empty render lost.
+        config.registerToolDisplay(tool.name, { hidden: true });
         return;
     }
 
@@ -64,6 +66,13 @@ export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteCo
         render: (segment) => buildReceipt({
             input: segment.toolCall.input, result: segment.result, structuredResult: segment.structuredResult,
         }),
+        // The one locale string a receipt draws; the questions and answers are the model's
+        // and the person's, in whatever language they were written.
+        relabel: (element) => {
+            for (const line of element.querySelectorAll('.aparte-question-receipt__answer--declined')) {
+                line.textContent = contextConfig().t('questionDeclined');
+            }
+        },
     });
 }
 

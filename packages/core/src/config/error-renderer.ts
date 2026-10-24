@@ -20,6 +20,8 @@
 export type AparteErrorRenderer = (ctx: {
     /** Human-readable error message (the error segment's content). */
     message: string;
-    /** Optional error code/details (the error segment's `details`). */
+    /** Text an app chose to show under the message (the error segment's `details`). */
     details?: string;
+    /** The machine-readable code (the error segment's `code`), e.g. `MAX_TURNS_EXCEEDED`. */
+    code?: string;
 }) => string | HTMLElement;

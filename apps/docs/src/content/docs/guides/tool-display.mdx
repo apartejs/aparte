@@ -1,0 +1,234 @@
+---
+title: Showing tool calls to a person, or to a developer
+description: Name your tools in words, give them icons, hide the calls a consumer chat does not need, or open every row with raw input and output for a developer — with registerToolDisplay.
+sidebar:
+  order: 2
+  label: Showing tool calls
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+A tool call is drawn as a row that names the tool by its identifier, `web_search` or
+`delete_file`, because that is all core knows: the identifier is your wire format, and core never
+turns it into words. Who reads the row decides what it should say. A person asking a question wants
+"Searching the web"; a developer watching an agent wants the raw input and output, open. Both are
+one call, `registerToolDisplay(match, display)`.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolDisplay } from '@aparte/core';
+
+const display: AparteToolDisplay = {
+  label: 'Web search',   // in place of web_search
+  icon: 'search',        // an icon-provider key
+  summary: (segment) => String(segment.toolCall.input['query'] ?? ''),
+  formatInput: (input) => String(input['query'] ?? ''),
+  hidden: false,         // true draws nothing
+  open: false,           // true opens the row
+};
+
+aparteGlobalConfig.registerToolDisplay('web_search', display);
+```
+
+Every field is optional, and what you leave out keeps core's row.
+
+## A consumer chat
+
+The person asked a question; what matters is the answer. Hide every call by default, then describe
+the few that are worth a line.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { searchIcon, globeIcon } from '@aparte/core/icons';
+
+aparteGlobalConfig.registerIcons({ search: () => searchIcon, globe: () => globeIcon });
+
+// Every tool nothing more specific describes: no row. A tool with an entry of its own
+// (below) is described whole by it, so it is not hidden.
+aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+
+aparteGlobalConfig.registerToolDisplay('web_search', {
+  label: 'Searching the web',
+  icon: 'search',
+  summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
+});
+
+aparteGlobalConfig.registerToolDisplay('fetch_page', {
+  label: 'Reading a page',
+  icon: 'globe',
+  summary: (segment) => String(segment.toolCall.input['url'] ?? ''),
+});
+```
+
+<Variant id="tool-display" caption="Labels, icons and summaries on three tools." />
+
+What the person sees:
+
+- **A label** in the chat's own font, in place of the identifier: "Searching the web". The
+  identifier stays on the row as `data-tool-name`, for a stylesheet or a test.
+- **An icon** from the icon provider. `file`, `edit` and `terminal` are core's; `search` and
+  `globe` are in `@aparte/core/icons`, and are drawn once you register them as above. A key
+  nobody registered falls back to `tool`.
+- **A summary**, the line after the label, as before.
+- **No row** for every other tool: they fall to the `'*'` entry. The two described tools are not
+  hidden although they never say so, because an entry is used whole (see
+  [how a display is matched](#how-a-display-is-matched)). A turn made only of hidden calls shows no header either, just
+  the reply.
+
+<Variant id="tool-hidden" caption="A '*' hide: the calls happened, and the reply is all the person sees." />
+
+Hiding is a matter of the screen only. A hidden call stays in the message, in storage, and in the
+history the model reads on its next turns; a reload draws it hidden again. An approval it needs is
+still asked, and the question names it by its label and summary, so the person is never asked about
+something they cannot see described. The default question is `Allow {tool}?`, so "Allow Searching the web?"; it is the
+built-in approval channel's (`AparteClient`'s), and an app with its own loop writes its own.
+`extendLocale({ approvalAsk: … })` changes the wording.
+
+Registering a display notifies the chats on the page. One that changes a label, an icon or a
+summary relabels the rows already drawn, keeping what the reader opened; one that sets or drops
+`hidden` or `open` redraws the messages already on screen. A `label` can be a function of the segment, for a label that depends
+on the call:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('delete_file', {
+  label: (segment) => (segment.status === 'resolved' ? 'Deleted a file' : 'Delete a file'),
+});
+```
+
+A label that throws, or is empty, falls back to the identifier.
+
+## A developer's view
+
+The reader wants to see what the agent did: every call, open, with the input and output, and
+how long it took.
+
+```ts
+import { aparteGlobalConfig, isSegmentSettled, segmentDuration } from '@aparte/core';
+import type { AparteToolSummary } from '@aparte/core';
+
+// Every row arrives open in a chat (the default is written onto each segment as it enters it).
+// A row drawn by hand, as in the demo below, takes `open` from a display instead.
+aparteGlobalConfig.setSegmentDefaults('tool_call', { collapsed: false });
+
+// How long each call took, on the row's line.
+const took: AparteToolSummary = (segment) => {
+  const ms = segmentDuration(segment);
+  return isSegmentSettled(segment) && ms !== undefined ? `${(ms / 1000).toFixed(1)}s` : '';
+};
+aparteGlobalConfig.registerToolDisplay('*', { summary: took });
+
+// Or open only the tools you are debugging. An entry is used whole, so it repeats the summary.
+aparteGlobalConfig.registerToolDisplay('run_command', { open: true, summary: took });
+```
+
+<Variant id="tool-open" caption="Rows opened by default. The demo draws one bubble by hand, which never applies a segment default, so it opens them with a display's open." />
+
+An opened row shows the arguments under **Input** and the result under **Output**, as the model
+and the tool wrote them (unless the tool has a `formatInput`, which then writes the Input): JSON is
+pretty-printed, and coloured when a [highlighter](/guides/markdown/) is registered; anything else
+stays as it is. Each
+part has a copy button, and a part longer than `--aparte-tool-part-max-height` (300px) scrolls in
+its own box, on the code surface at the small size. A refused call shows who refused it, as a
+note after the state word, and no Output.
+
+A row opens in this order: the segment's own `collapsed` — which is where a `setSegmentDefaults`
+default lands, written onto the segment when it enters the message — else the display's `open`,
+else closed. So a segment default wins over a display's `open`. The choice is read when the row is
+drawn; an update never forces it, so a row the reader closed stays closed. The duration comes from the timing every
+segment carries: [Durations](/guides/customization/segment-timing/) explains it, and core draws
+none for a tool.
+
+A `summary` registered on `'*'` is used for every tool that has no entry of its own. A tool with
+its own entry gets that entry whole, and not the `'*'` one: add the summary there too, or register
+by pattern, below.
+
+## How a display is matched
+
+`match` is one of three things:
+
+- an exact tool name, `'web_search'`;
+- a `RegExp`, tested against the name with `name.search(re)`, so `/^mcp__/` covers every tool an
+  MCP server brings and a `g` flag is harmless;
+- `'*'`, every tool nothing more specific describes.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('*', { icon: 'tool' });
+aparteGlobalConfig.registerToolDisplay(/^mcp__/, { icon: 'terminal', label: 'MCP tool' });
+aparteGlobalConfig.registerToolDisplay('mcp__github__search', { label: 'GitHub search' });
+
+aparteGlobalConfig.getToolDisplay('mcp__github__search');   // the exact entry: { label }
+aparteGlobalConfig.getToolDisplay('mcp__slack__post');      // the pattern entry: { icon, label }
+aparteGlobalConfig.getToolDisplay('read_file');             // the '*' entry: { icon }
+```
+
+Three rules:
+
+1. **Exact name, else the first pattern registered that matches, else `'*'`.** Patterns are tried
+   in the order you registered them.
+2. **One entry per matcher, and calls merge into it.** Registering `'web_search'` twice, once with
+   a label and once with an icon, leaves one entry with both.
+3. **The entry that applies is used whole, never mixed.** `'mcp__github__search'` above gets its
+   label and nothing from the pattern's entry, not even the icon. Repeat what it should keep.
+
+`unregisterToolDisplay(match)` drops an entry:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('web_search', { label: 'Searching the web' });
+aparteGlobalConfig.unregisterToolDisplay('web_search');   // back to web_search
+```
+
+`registerToolSummary` and
+`registerToolInputFormatter` are shorthands that write the `summary` and `formatInput` fields of
+the same entry, with the same matchers, and their `unregister…` twins drop only that field.
+`registerToolRenderer` and `unregisterToolRenderer` take the same matchers too, and `'*'` there is
+one renderer for every tool without its own.
+
+## Hide, or draw something else
+
+`hidden: true` and a tool renderer that returns `''` do the same thing: an empty placeholder
+stands in for the call, which stays in the message and the history. Use `hidden` when the point is
+to draw nothing; use a [renderer](/guides/tools/#custom-tool-renderer) when you draw something
+else, a card or a receipt.
+
+When both exist for one tool, the more specific one wins, and `isToolHidden(name)` answers which:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+aparteGlobalConfig.registerToolRenderer('ask_user', {
+  render: () => 'Question asked',   // a receipt, drawn by a plugin in practice
+});
+
+aparteGlobalConfig.isToolHidden('web_search');   // true: the '*' hide applies
+aparteGlobalConfig.isToolHidden('ask_user');     // false: the renderer is more specific than '*'
+```
+
+A `'*'` hide therefore leaves a tool with a renderer of its own drawn, such as
+[`ask_user`](/components/question/)'s receipt. A hide as specific as the renderer wins:
+`registerToolDisplay('ask_user', { hidden: true })` hides it, and that is what `receipt: false` on
+`setupAskUser()` does.
+
+## On a narrow screen
+
+The row keeps its state word whatever the width. The note and the target give way first, cut
+with an ellipsis, and the note carries its full text as a `title`, so a hover still reads it.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/tools/', title: 'Tools and approval', line: 'Register a tool, see the row in every state, ask a person first.' },
+        { href: '/components/tool/', title: 'Tool call', line: 'The row, its states and its options, live.' },
+        { href: '/guides/customization/segment-timing/', title: 'Durations', line: 'How long a reasoning block or a tool call took.' },
+    ]}
+/>

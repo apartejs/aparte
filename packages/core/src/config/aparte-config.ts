@@ -22,7 +22,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
 import type {
-    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolInputFormatter, AparteToolCall,
+    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolInputFormatter, AparteToolCall, AparteToolMatcher, AparteToolDisplay,
     AparteApprovalPolicy, AparteApprovalRuling,
 } from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
@@ -34,6 +34,7 @@ import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicit
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 import { chatBoundaryOf } from '../utils/chat-boundary.js';
+import { ToolTable } from './tool-table.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
 export type AparteHighlightProvider =
@@ -282,9 +283,9 @@ export class AparteConfig {
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
-    private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
-    private _toolSummaries: Map<string, AparteToolSummary> = new Map();
-    private _toolInputFormatters: Map<string, AparteToolInputFormatter> = new Map();
+    // By exact name, pattern or '*' — see `tool-table.ts` for the one resolution rule.
+    private _toolRenderers = new ToolTable<AparteToolRenderer>();
+    private _toolDisplays = new ToolTable<AparteToolDisplay>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -1285,16 +1286,20 @@ export class AparteConfig {
      * instead — see [Custom tool
      * renderer](https://apartejs.dev/guides/tools/#custom-tool-renderer).
      *
-     * @example
-     * // Hide the segment entirely (UI-only tool like ask_user)
-     * aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
+     * The matcher is an exact name, a RegExp, or `'*'` — the same rule as
+     * {@link registerToolDisplay}: the exact name wins, then the first pattern registered,
+     * then `'*'`, which is one renderer for every tool without its own.
      *
      * @example
      * // Custom pill for a web-search tool
      * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="aparte-tool-label">Searching...</div>` });
+     *
+     * @example
+     * // One look for every tool an MCP server brings
+     * aparteGlobalConfig.registerToolRenderer(/^mcp__/, { render: (seg) => myMcpCard(seg) });
      */
-    registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void {
-        this._toolRenderers.set(toolName, renderer);
+    registerToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): void {
+        this._toolRenderers.set(match, renderer);
     }
 
     /**
@@ -1340,14 +1345,88 @@ export class AparteConfig {
         this._segmentDefaults.delete(type);
     }
 
-    /** Unregister a per-tool renderer */
-    unregisterToolRenderer(toolName: string): void {
-        this._toolRenderers.delete(toolName);
+    /** Unregister the renderer registered under this matcher. */
+    unregisterToolRenderer(match: AparteToolMatcher): void {
+        this._toolRenderers.delete(match);
     }
 
-    /** Get the renderer for a specific tool name. Returns undefined if none registered. */
+    /** The renderer that draws a tool named `toolName` — exact, pattern or `'*'` — or undefined. */
     getToolRenderer(toolName: string): AparteToolRenderer | undefined {
-        return this._toolRenderers.get(toolName);
+        return this._toolRenderers.resolve(toolName)?.value;
+    }
+
+    /**
+     * Say how a tool's calls are shown: a label in place of its identifier, an icon, what
+     * the call targets, how its arguments read, whether its row is drawn at all, and
+     * whether it opens.
+     *
+     * The matcher is an exact name, a RegExp, or `'*'` — "every tool nothing more
+     * specific describes". One entry per matcher, and calls MERGE into it; the entry that
+     * applies to a tool is the exact name's, else the first pattern registered that
+     * matches, else `'*'`'s — whole, never a mix of two. Registering tells the chats on
+     * the page, so a label reaches rows already drawn.
+     *
+     * Core never makes a label up: without one the row shows the identifier, which is the
+     * app's wire format.
+     *
+     * @example
+     * aparteGlobalConfig.registerToolDisplay('web_search', {
+     *     label: 'Web search',
+     *     icon: 'search',
+     *     summary: (segment) => String(segment.toolCall.input['query'] ?? ''),
+     * });
+     *
+     * @example
+     * // A consumer chat: the reply is what matters; the calls stay in the history.
+     * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
+     */
+    registerToolDisplay(match: AparteToolMatcher, display: AparteToolDisplay): void {
+        const before = this._toolDisplays.get(match);
+        const next = { ...before, ...display };
+        this._toolDisplays.set(match, next);
+        // `hidden` and `open` change ELEMENTS (a row becomes a placeholder, a disclosure
+        // opens), which a relabel does not do: the messages on screen are drawn again. A
+        // label, an icon or a summary only relabels, keeping what the reader opened.
+        if (before?.hidden !== next.hidden || before?.open !== next.open) bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** Forget the display registered under this matcher. */
+    unregisterToolDisplay(match: AparteToolMatcher): void {
+        const before = this._toolDisplays.get(match);
+        this._toolDisplays.delete(match);
+        if (before?.hidden !== undefined || before?.open !== undefined) bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** How a tool named `toolName` is shown — the entry that applies to it — or undefined. */
+    getToolDisplay(toolName: string): Readonly<AparteToolDisplay> | undefined {
+        return this._toolDisplays.resolve(toolName)?.value;
+    }
+
+    /**
+     * Whether a tool's calls draw nothing: its display says `hidden`, and no renderer is
+     * registered for it MORE specifically. A `'*'` hide therefore leaves a tool with its
+     * own renderer drawn (a plugin's receipt), while a hide as specific as the renderer
+     * wins — the app said so for that tool. A hidden call stays in the message, in storage
+     * and in the model's history; only its row is empty.
+     */
+    isToolHidden(toolName: string): boolean {
+        const display = this._toolDisplays.resolve(toolName);
+        if (!display?.value.hidden) return false;
+        const renderer = this._toolRenderers.resolve(toolName);
+        const rank = { exact: 2, pattern: 1, any: 0 } as const;
+        return !renderer || rank[renderer.level] <= rank[display.level];
+    }
+
+    /** Drop one field of the entry under `match`, and the entry when nothing is left. */
+    private _dropToolDisplayField(match: AparteToolMatcher, field: keyof AparteToolDisplay): void {
+        const entry = this._toolDisplays.get(match);
+        if (!entry || !(field in entry)) return;
+        const { [field]: _dropped, ...rest } = entry;
+        if (Object.keys(rest).length) this._toolDisplays.set(match, rest);
+        else this._toolDisplays.delete(match);
+        this._notify();
     }
 
     /**
@@ -1365,47 +1444,51 @@ export class AparteConfig {
      * on every config change — so registering one after a row is on screen shows up on
      * that row's next update.
      *
+     * The `summary` field of {@link registerToolDisplay}, on its own: same matcher, same
+     * entry.
+     *
      * @example
      * // read_file skills.json
      * aparteGlobalConfig.registerToolSummary('read_file', (segment) =>
      *     String(segment.toolCall.input['path'] ?? ''));
      */
-    registerToolSummary(toolName: string, summary: AparteToolSummary): void {
-        this._toolSummaries.set(toolName, summary);
+    registerToolSummary(match: AparteToolMatcher, summary: AparteToolSummary): void {
+        this.registerToolDisplay(match, { summary });
     }
 
-    /** Unregister a per-tool summary. */
-    unregisterToolSummary(toolName: string): void {
-        this._toolSummaries.delete(toolName);
+    /** Drop the summary registered under this matcher; the rest of its display stays. */
+    unregisterToolSummary(match: AparteToolMatcher): void {
+        this._dropToolDisplayField(match, 'summary');
     }
 
-    /** Get the summary for a specific tool name. Returns undefined if none registered. */
+    /** The summary that applies to a tool named `toolName`, or undefined. */
     getToolSummary(toolName: string): AparteToolSummary | undefined {
-        return this._toolSummaries.get(toolName);
+        return this.getToolDisplay(toolName)?.summary;
     }
 
     /**
      * Show a tool's arguments as a person reads them, in the approval panel and in the
      * default tool row's disclosure — one formatter for both. Without one, both show the
-     * JSON the model sent.
+     * JSON the model sent. The `formatInput` field of {@link registerToolDisplay}, on its
+     * own: same matcher, same entry.
      *
      * @example
      * // Approve "write_file notes.md (2 KB)" rather than a JSON object.
      * aparteGlobalConfig.registerToolInputFormatter('write_file', (input) =>
      *     `${String(input['path'] ?? '')} (${Math.ceil(String(input['content'] ?? '').length / 1024)} KB)`);
      */
-    registerToolInputFormatter(toolName: string, formatter: AparteToolInputFormatter): void {
-        this._toolInputFormatters.set(toolName, formatter);
+    registerToolInputFormatter(match: AparteToolMatcher, formatter: AparteToolInputFormatter): void {
+        this.registerToolDisplay(match, { formatInput: formatter });
     }
 
-    /** Unregister a tool's input formatter. */
-    unregisterToolInputFormatter(toolName: string): void {
-        this._toolInputFormatters.delete(toolName);
+    /** Drop the input formatter registered under this matcher; the rest of its display stays. */
+    unregisterToolInputFormatter(match: AparteToolMatcher): void {
+        this._dropToolDisplayField(match, 'formatInput');
     }
 
-    /** Get the input formatter for a tool name. Returns undefined if none registered. */
+    /** The input formatter that applies to a tool named `toolName`, or undefined. */
     getToolInputFormatter(toolName: string): AparteToolInputFormatter | undefined {
-        return this._toolInputFormatters.get(toolName);
+        return this.getToolDisplay(toolName)?.formatInput;
     }
 
     /**
@@ -1677,8 +1760,7 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
-        this._toolSummaries.clear();
-        this._toolInputFormatters.clear();
+        this._toolDisplays.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;

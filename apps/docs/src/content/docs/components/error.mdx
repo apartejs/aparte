@@ -18,9 +18,8 @@ When a turn fails (the provider rejects the request, the network drops, a limit 
 failure is an `error` segment in the reply that failed, not a toast somewhere else on the page.
 The reader sees which question went unanswered.
 
-With `AparteClient`, you write nothing: a failed turn gets this card, its message from the error,
-its detail from the error's code, and the full error still reaches your code on the
-`aparte-message-error` event.
+With `AparteClient`, you write nothing: a failed turn gets this card, its message from the error, and the full error still reaches
+your code on the `aparte-message-error` event.
 
 ## Variants
 
@@ -32,8 +31,8 @@ The card is added after what had already streamed; the partial reply stays.
 
 ## Customize
 
-`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the message and the
-detail and returns an element or an HTML string, for a product that adds a "Try again" button
+`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the `message`, the
+`details` an app chose to show and the `code` and returns an element or an HTML string, for a product that adds a "Try again" button
 or a link to its status page:
 
 ```ts
@@ -43,6 +42,21 @@ aparteGlobalConfig.setErrorRenderer(({ message }) => {
   const card = document.createElement('div');
   card.className = 'aparte-alert aparte-alert--danger';
   card.textContent = `${message} — see status.example.com`;
+  return card;
+});
+```
+
+The `code` is the machine-readable name of the failure (`MAX_TURNS_EXCEEDED`, `PROVIDER_ERROR`…), for your code to branch on: the card never draws it, and carries it as `data-error-code` for a stylesheet or a test. `details` stays for text you want the reader to see, a status line or a stack.
+
+```ts
+import { aparteGlobalConfig, AparteErrorCode } from '@aparte/core';
+
+aparteGlobalConfig.setErrorRenderer(({ message, code }) => {
+  const card = document.createElement('div');
+  card.className = 'aparte-alert aparte-alert--danger';
+  card.textContent = code === AparteErrorCode.MAX_TURNS_EXCEEDED
+    ? 'The assistant went round in circles. Try asking differently.'
+    : message;
   return card;
 });
 ```

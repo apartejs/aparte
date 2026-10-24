@@ -4,17 +4,13 @@
  *
  * Everything here is what an app writes, in the order an app writes it: the locale
  * and two glyphs, the renderers and the markdown, highlighting, the tool plugins,
- * the "Thought for 1.4s" line, the model (scripted by default, a local server from
+ * how the tools read, the model (scripted by default, a local server from
  * the settings), the transport, the affordances this site can honour, the client
  * that drives the turns, compaction, and the image lightbox. Nothing in this file
  * knows which framework renders the page.
  */
 import {
     registerDefaultRenderers,
-    registerSegmentRenderer,
-    getSegmentRenderer,
-    isSegmentSettled,
-    segmentDuration,
     aparteGlobalConfig,
     APARTE_DEFAULT_LOCALE,
     AparteClient,
@@ -22,8 +18,8 @@ import {
     contentToText,
     createAgentStreamRunner,
 } from '@aparte/core';
-import type { AparteThinkingSegment } from '@aparte/core';
-import { arrowUpIcon, plusIcon } from '@aparte/core/icons';
+import type { AparteToolCallSegment } from '@aparte/core';
+import { arrowUpIcon, plusIcon, searchIcon, globeIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
@@ -105,8 +101,10 @@ async function run(): Promise<SiteSetup> {
 
     // 0b. Two glyphs of the product's: an up arrow on the send button, a plus on the
     //     attachment button. The icon provider covers only the names it cares about; the
-    //     rest fall back to core's set.
+    //     rest fall back to core's set. And two names core does not draw at all, for the
+    //     tools below — `registerIcons` adds them to the set rather than replacing it.
     aparteGlobalConfig.setIconProvider({ send: () => arrowUpIcon, paperclip: () => plusIcon });
+    aparteGlobalConfig.registerIcons({ search: () => searchIcon, globe: () => globeIcon });
 
     // 1. Renderers + Markdown rendering for assistant replies.
     registerDefaultRenderers();
@@ -134,43 +132,12 @@ async function run(): Promise<SiteSetup> {
     // the Code/Preview card that renders both, in one call.
     setupArtifacts();
 
-    // 1b. "Thought for 1.4s" — the market's collapsed reasoning line, built HERE.
-    //
-    // Core measures the span (it owns the stream, so it writes `meta.aparte`
-    // on every segment) and deliberately renders nothing: the line reads "Thought for
-    // 8s" in one product and "8.2s · 1.2k tokens" in another, and a library that
-    // picks one is wrong in the other. So this is ~15 lines of app code, and it is
-    // here rather than only in the guide because a capability with no running
-    // consumer is a capability nobody can see working.
-    //
-    // Two things this wrapping has to get right, both learned the hard way:
-    //  - keep the ROOT the built-in produced. The bubble finds a segment to update
-    //    with `:scope > [data-segment-id="…"]`, so wrapping it in a div of your own
-    //    hides that attribute and every token falls back to a full transcript
-    //    re-render instead of the in-place write.
-    //  - delegate `setup` and `update`. They carry the scroll anchoring, the
-    //    incremental markdown writer and the highlight-on-settle; reimplementing them
-    //    is how you lose 80 lines of behaviour without noticing.
-    const builtInThinking = getSegmentRenderer('thinking')!;
-    registerSegmentRenderer<AparteThinkingSegment>({
-        type: 'thinking',
-        render(segment) {
-            const out = builtInThinking.render(segment);
-            const host = typeof out === 'string' ? parseRoot(out) : out;
-            writeDuration(host, segment);
-            return host;
-        },
-        setup: (el, segment) => builtInThinking.setup?.(el, segment),
-        update(el, segment) {
-            builtInThinking.update?.(el, segment);
-            // ALSO here, and this is the whole trick: a block is created open and
-            // settles later, and a settle reaches a renderer through `update` — never
-            // through a second `render`. Writing the label in `render` alone leaves it
-            // reading "Thinking" forever, which is exactly what the first browser run
-            // showed.
-            writeDuration(el, segment);
-        },
-    });
+    // 1b. "Thought for 8s" on a settled reasoning block. Core draws "Thought" and leaves
+    //     the number to the app, because it measures it in the browser — from the first
+    //     reasoning delta to the last — which is the model's thinking time only when the
+    //     provider streams its reasoning. Both of this site's models do, so it turns the
+    //     duration on. (A product that wants "8.2s · 1.2k tokens" wraps the renderer.)
+    aparteGlobalConfig.setSegmentDefaults('thinking', { showDuration: true });
 
     // 2. The model. The SCRIPTED one by default (`@aparte/provider-scenario`): no server,
     //    no key, the same replies every time — so a fresh clone shows a working site, and
@@ -253,6 +220,23 @@ async function run(): Promise<SiteSetup> {
             async (call) => ({ toolCallId: call.id, content: CANNED[name] ?? '' }),
         );
     }
+
+    // 2a'. How those calls read. A tool's NAME is the app's wire format, and core shows
+    //      it until the app says how a person should read the call: a label, an icon,
+    //      and what the call targets. The rows read "Write file CHANGELOG.md" rather than
+    //      `write_file`, and the approval question asks about the same line.
+    const arg = (segment: AparteToolCallSegment, ...keys: string[]): string => {
+        for (const key of keys) {
+            const value = segment.toolCall.input[key];
+            if (typeof value === 'string') return value;
+        }
+        return '';
+    };
+    aparteGlobalConfig.registerToolDisplay('get_weather', { label: 'Weather', icon: 'globe', summary: (s) => arg(s, 'city') });
+    aparteGlobalConfig.registerToolDisplay('search_docs', { label: 'Search docs', icon: 'search', summary: (s) => arg(s, 'query') });
+    aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read file', icon: 'file', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('write_file', { label: 'Write file', icon: 'edit', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('run_command', { label: 'Run command', icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model
@@ -339,31 +323,6 @@ export function mountModelSelector(slot: HTMLElement | null, fallback?: HTMLElem
         selector.style.marginInlineStart = 'auto';
         fallback?.appendChild(selector);
     });
-}
-
-/** "Thinking" → "Thought for 1.4s", once the span is closed. */
-function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
-    // `isSegmentSettled` and `segmentDuration` are core's own rules, imported rather
-    // than re-derived. The hand-written version of this was
-    //     if (!isSegmentSettled(s) || !s.meta?.aparte?.startedAt) return;
-    // which is three conditions to get right and wrong at epoch 0.
-    if (!isSegmentSettled(segment)) return;
-    const ms = segmentDuration(segment);
-    const label = host.querySelector('.aparte-thinking-label');
-    // A settled block with no measurement — a reply that came back from a store, or
-    // was handed over as a string — thought, but nobody timed it. "Thinking…" would
-    // say it still is.
-    if (ms === undefined) { if (label) label.textContent = 'Thought'; return; }
-    // A sub-second span is "<1s", not "0.0s": a duration that reads as zero says the
-    // model did not think, which is the opposite of what the block means.
-    if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
-}
-
-/** A markup string back to the single root element it describes. */
-function parseRoot(html: string): HTMLElement {
-    const t = document.createElement('template');
-    t.innerHTML = html;
-    return t.content.firstElementChild as HTMLElement;
 }
 
 /**

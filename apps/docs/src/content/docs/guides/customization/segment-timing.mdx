@@ -18,13 +18,19 @@ import Cards from '../../../../components/content/Cards.astro';
 | `meta.aparte.endedAt` | when its content last arrived — it moves while the segment streams |
 | `meta` | yours: token counts, cost, anything else |
 
-Core measures the span and draws none of it: you write the label. Read it with
+Core measures the span. A reasoning block draws it itself once you opt in with
+`setSegmentDefaults('thinking', { showDuration: true })` ("Thought for 8s", from the `thoughtFor`
+locale key); for anything else, and for a reasoning label in your own format, you write the label. Read it with
 `segmentDuration(segment)`, ask `isSegmentSettled(segment)` whether it is final, and take the two
 numbers with `segmentTiming(segment)`. A segment you built by hand has not arrived yet, so it has
 no start. While a segment streams, its end moves with each piece of content, so the duration grows
 until the segment settles. A segment restored from storage keeps what you saved with it.
 
 ## Write the duration on a reasoning block
+
+You do not need this for "Thought for 8s": `setSegmentDefaults('thinking', { showDuration: true })`
+makes a settled block read it, in the language of the chat. Write it yourself when your product's
+format differs ("8.2s · 1.2k tokens"), and the built-in label is then replaced.
 
 ```ts
 import { getSegmentRenderer, registerSegmentRenderer, installDefaultRenderersOnce, isSegmentSettled, segmentDuration } from '@aparte/core';
@@ -69,8 +75,8 @@ registerSegmentRenderer<AparteThinkingSegment>({
 
 The built-in renderer keeps drawing the block; yours rewrites its label. Three places, because a
 block appears with `render`, settles later through `update`, and gets the built-in's label back on
-a language switch through `relabel` — a label written in `render` only would read "Thinking" for
-good. The example writes English: take the words from your own translations inside
+a language switch through `relabel` — a label written in `render` only would be overwritten by the built-in label on
+the next update. The example writes English: take the words from your own translations inside
 `writeDuration`. Keep the root the built-in returned, without a wrapper of yours around it. For a
 chat with its own configuration, pass it to `getSegmentRenderer` and `registerSegmentRenderer` as
 their last argument.
@@ -92,7 +98,8 @@ aparteGlobalConfig.registerToolSummary('read_file', (segment) => {
 ```
 
 A tool's summary is the line the default row writes after the tool's name, read again each time
-the call changes. A call settles once its status leaves `pending` and `awaiting-approval`, so its
+the call changes; it is the `summary` field of the tool's [display](/guides/tool-display/), and
+takes a tool name, a `RegExp` or `'*'`. Core draws no tool duration of its own. A call settles once its status leaves `pending` and `awaiting-approval`, so its
 span runs from the moment the call appears to its result, the time a person took to approve it
 included.
 

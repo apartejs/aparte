@@ -220,7 +220,7 @@ describe('the client resumes a paused server run', () => {
         cfg.setApprovalPolicy(() => ({ verdict: 'deny', reason: 'Plan mode: nothing is written.' }));
         await send(c);
         expect(handler).not.toHaveBeenCalled();
-        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.' } });
+        expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.', by: 'policy' } });
     });
 
     it('paints the row as waiting while the page asks about a browser tool', async () => {
@@ -289,7 +289,8 @@ describe('the client resumes a paused server run', () => {
         // again, and an AG-UI agent would hand its model a call with no answer.
         expect(r.calls[1]!.deferral!.outcomes).toEqual({
             w1: { kind: 'decision', approved: false },
-            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.' },
+            // `by`: a reason alone reads as a policy's, and no policy refused this one.
+            w2: { kind: 'decision', approved: false, reason: 'Not run: an earlier call of the same step was refused.', by: 'earlier-refusal' },
         });
     });
 
@@ -552,7 +553,7 @@ describe('a paused turn stops, fails and ends like any other', () => {
         expect(asked).toEqual(['c1', 'c2', 'c3']);
         expect(runs).toBe(4);
         expect(rowOf(messages, 'c4')).toMatchObject({ status: 'aborted' });
-        expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { details?: string }).details === 'MAX_TURNS_EXCEEDED')).toBe(true);
+        expect(messages.at(-1)!.segments!.some((seg) => seg.type === 'error' && (seg as { code?: string }).code === 'MAX_TURNS_EXCEEDED')).toBe(true);
         expect(events.filter((e) => e !== 'aparte-message-paused')).toEqual(['aparte-message-start', 'aparte-message-done']);
     });
 });

@@ -1,7 +1,7 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
 import { runStreamAgent } from '@aparte/engine';
-import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, StreamDeferredOutcome } from '@aparte/engine';
+import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, StreamDeferredOutcome, StreamRefusalOrigin } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
@@ -17,6 +17,7 @@ import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
 import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
+import { toolNameOf, toolTargetOf } from '../utils/tool-line.js';
 import { requestUserInput } from '../elicitation/index.js';
 
 /**
@@ -65,28 +66,11 @@ interface AparteChatTargetElement extends HTMLElement {
  * naming what — the built-in channel needs the tool's name for its question, and an
  * id alone forced a lookup table filled by one event and read by another, which is the
  * shape that breaks in silence.
+ *
+ * Engine's `StreamApprovalResolver`, under core's name — one type, not a twin to keep in
+ * step: its result's `instruction`, `reason` and `by` are documented there.
  */
-export type AparteToolApprovalResolver = (
-    call: { id: string; name: string; input: Record<string, unknown> },
-    signal: AbortSignal,
-) => Promise<{
-    approved: boolean;
-    payload?: unknown;
-    /**
-     * What the user said to do instead, on a refusal.
-     *
-     * It becomes the `tool` message the model reads, which is possible at all only
-     * because a refusal hands the model a turn. Optional: a resolver that returns a
-     * bare `{ approved }` is valid.
-     */
-    instruction?: string;
-    /**
-     * The refusal, verbatim, when nobody said anything — an approval policy that
-     * refused on its own. Without it the model is told "the user rejected this",
-     * which for a mode is a lie; with it, it reads the policy's own sentence.
-     */
-    reason?: string;
-}>;
+export type AparteToolApprovalResolver = StreamApprovalResolver;
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 const COMPACTION_PREAMBLE =
@@ -592,7 +576,7 @@ export class AparteClient {
         event: { id: string; name: string; input: Record<string, unknown> },
         signal: AbortSignal,
         target: HTMLElement,
-    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string }> {
+    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string; by?: StreamRefusalOrigin }> {
         const answer = await requestUserInput({
             kind: 'approval',
             /*
@@ -603,7 +587,16 @@ export class AparteClient {
              */
             message: () => {
                 const loc = this._config.getLocale();
-                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', () => event.name);
+                // The call as its row names it — the label the app declared, then what it
+                // targets — read from the chat's config, the one the row renders with.
+                const chat = resolveConfig(target);
+                const call = {
+                    id: `tool-${event.id}`, type: 'tool_call', status: 'awaiting-approval',
+                    toolCall: { id: event.id, name: event.name, input: event.input },
+                } as AparteToolCallSegment;
+                const name = toolNameOf(call, chat).text;
+                const what = toolTargetOf(call, chat);
+                return (loc.approvalAsk ?? 'Allow {tool}?').replace('{tool}', () => (what ? `${name} ${what}` : name));
             },
             // A plain string, not a function: the arguments are the model's — its JSON, or
             // the tool's own formatter's reading of it — and do not change with the
@@ -622,13 +615,13 @@ export class AparteClient {
         });
         // `decline` is the corner escape, which for a decision means "not this": the
         // safe reading of an unanswered approval is never "go ahead".
-        if (answer.action !== 'accept') return { approved: false };
+        if (answer.action !== 'accept') return { approved: false, by: 'person' };
         const content = answer.content as { option?: string; instruction?: string } | undefined;
         const instruction = content?.instruction?.trim();
         // Typed text with no option chosen IS the refusal — "no, do this instead" — so
         // the instruction alone denies. An option decides on its own.
-        if (instruction) return { approved: false, instruction };
-        return { approved: content?.option === 'allow' };
+        if (instruction) return { approved: false, instruction, by: 'person' };
+        return content?.option === 'allow' ? { approved: true } : { approved: false, by: 'person' };
     }
 
 
@@ -1785,7 +1778,7 @@ export class AparteClient {
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
                     // `tool` message, or fall through to "the user rejected this" downstream.
-                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
+                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.', by: 'policy' };
                 }
                 return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
             });
@@ -1816,7 +1809,7 @@ export class AparteClient {
         // hands its model a call nothing answers, which providers reject.
         const refuseTheRest = (after: number): void => {
             for (const rest of pending.slice(after + 1)) {
-                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL };
+                outcomes[rest.toolCallId] = { kind: 'decision', approved: false, reason: NOT_RUN_AFTER_A_REFUSAL, by: 'earlier-refusal' };
             }
         };
         for (const [index, p] of pending.entries()) {
@@ -2068,12 +2061,13 @@ export class AparteClient {
         // A valid AparteErrorSegment: the renderer keys off `id` + `content`, so the
         // old `code`/`data` fields were dead here (the full error — including
         // `error.data` — still reaches consumers via the `aparte-message-error` event
-        // below). The error code is preserved as `details`.
+        // below). The code rides as `code`, which the alert never draws: `details` is for
+        // text an app chooses to show, and the person had no use for `UNKNOWN_ERROR`.
         const errorSegment: AparteErrorSegment = {
             id: `error-${uuid()}`,
             type: 'error',
             content: error.message,
-            details: error.code,
+            code: error.code,
         };
 
         if (target.updateMessage) {

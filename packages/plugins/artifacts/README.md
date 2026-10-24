@@ -46,6 +46,8 @@ returns a function that unregisters all four.
 - **Copy** and **Download** on every text artifact; a binary one (`pdf`, `xlsx`, `docx`)
   downloads only once your `onBinary` produced it — without one there is no button, because
   the library holds no bytes.
+- Only a call that ran shows the card. One waiting for a person's approval says so; one that was
+  refused, stopped or failed shows its title and "Not created", with nothing to copy or download.
 
 ## Two ways in, one card
 

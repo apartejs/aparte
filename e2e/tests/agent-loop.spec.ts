@@ -46,7 +46,7 @@ test('a server tool that needs a person asks in the page, and Approve lets it ru
 
     const panel = page.locator(APPROVAL_PANEL);
     await expect(panel).toBeVisible();
-    await expect(panel).toContainText('get_weather');
+    await expect(panel).toContainText('Allow Weather Lille?');
     await expect(rows(chat, 'awaiting-approval')).toHaveCount(1);
 
     await panel.locator(APPROVE).click();
@@ -155,7 +155,7 @@ test.describe(agent, () => {
 
         const panel = page.locator(APPROVAL_PANEL);
         await expect(panel).toBeVisible();
-        await expect(panel).toContainText('get_weather');
+        await expect(panel).toContainText('Allow Weather Lille?');
         await panel.locator(APPROVE).click();
 
         await expect(panel).toHaveCount(0);

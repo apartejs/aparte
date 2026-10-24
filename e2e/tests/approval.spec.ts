@@ -49,8 +49,10 @@ test('a gated call asks before it runs, and Approve lets it through', async ({ p
 
     const panel = page.locator(PANEL);
     await expect(panel).toBeVisible();
-    // The tool the model chose, by the name it called — wire format, never translated.
-    await expect(panel).toContainText('get_weather');
+    // The call as its row names it: the site's label for the tool and what it targets
+    // (`registerToolDisplay`) — the identifier the model called stays on the row.
+    await expect(panel).toContainText('Allow Weather Lille?');
+    await expect(rows(chat, 'awaiting-approval')).toHaveAttribute('data-tool-name', 'get_weather');
     // And the ARGUMENTS, which are the whole of what a person approves. They used to sit
     // in the transcript row behind a closed disclosure while the panel asked "Run this?".
     await expect(panel.locator(ARGS)).toContainText('Lille');
@@ -112,9 +114,11 @@ test('plan runs the reads and refuses the write, without asking anyone', async (
     // A `deny` is a decision already made, so nobody is asked: announcing a pause for it
     // would paint `awaiting-approval` on a row nobody will ever answer.
     await expect(page.locator(PANEL)).toHaveCount(0);
-    // The refusal the MODEL reads is the policy's own sentence, verbatim — the reason a
-    // ruling carries one at all.
-    await expect(chat.lastReply).toContainText('Plan mode:');
+    // The person reads who refused — "Refused by policy" — and not the policy's sentence,
+    // which is written to the MODEL ("Describe what you would do instead…") and reaches
+    // it verbatim (unit-tested in core's approval-policy suite).
+    await expect(rows(chat, 'rejected').locator('.aparte-tool-note')).toHaveText('Refused by policy');
+    await expect(chat.lastReply).not.toContainText('Plan mode:');
     await expect(chat.lastReply).toContainText('I have not run it');
     // The rest of the turn is skipped: refusing one call cannot license the ones after it.
     await expect(rows(chat)).toHaveCount(3);

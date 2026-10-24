@@ -11,7 +11,9 @@ import type {
     AparteToolCallSegment,
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
+import { copyButtonMarkup, wireCopyButton, relabelCopyButton } from '../copy-button.js';
 import { describeToolInput } from '../../utils/tool-input.js';
+import { toolNameOf, toolTargetOf } from '../../utils/tool-line.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
@@ -38,19 +40,77 @@ function describeInput(segment: AparteToolCallSegment): string {
 function stateBadge(segment: AparteToolCallSegment): string {
     const cfg = contextConfig();
     const status = segment.status ?? 'pending';
-    const word = (key: string): string => escapeHtml(cfg.t(key as never));
+    // Literal `t('…')` reads, typed and visible to the locale guard.
+    const word = (text: string): string => escapeHtml(text);
     // Paused for a person: two bars, so the one state a reader must act on wears a glyph
     // like every other — it used to be the only bare word in the row.
-    if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word('approvalWaiting')}`;
-    if (status === 'pending') return word('toolRunning');
-    if (status === 'resolved') return `${cfg.getIcon('check')}${word('toolCompleted')}`;
-    if (status === 'rejected') return `${cfg.getIcon('close')}${word('toolRejected')}`;
+    if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word(cfg.t('approvalWaiting'))}`;
+    if (status === 'pending') return word(cfg.t('toolRunning'));
+    if (status === 'resolved') return `${cfg.getIcon('check')}${word(cfg.t('toolCompleted'))}`;
+    if (status === 'rejected') return `${cfg.getIcon('close')}${word(cfg.t('toolRejected'))}`;
     // A stop square, not the cross rejected wears: stopped and declined are two
     // different outcomes, and they used to share the glyph and the colour.
-    if (status === 'aborted') return `${cfg.getIcon('stop')}${word('toolStopped')}`;
+    if (status === 'aborted') return `${cfg.getIcon('stop')}${word(cfg.t('toolStopped'))}`;
     // A crash is a third outcome: not declined, not stopped — the handler threw.
-    if (status === 'failed') return `${cfg.getIcon('close')}${word('toolFailed')}`;
+    if (status === 'failed') return `${cfg.getIcon('close')}${word(cfg.t('toolFailed'))}`;
     return '';
+}
+
+/**
+ * The note after the state word: why the call ended, for the PERSON reading the row.
+ *
+ * `result` on a refused call is the sentence the model read, written about the reader in
+ * the third person and in English; it is not shown to them any more. Who refused and what
+ * they said ride on the segment (`refusal`), and why a call stopped (`abortCause`), so the
+ * row says it in the reader's language. `''` when the state word is the whole story — a
+ * bare refusal, a Stop — or when the segment predates those fields.
+ */
+function noteOf(segment: AparteToolCallSegment): string {
+    const cfg = contextConfig();
+    if (segment.status === 'rejected') {
+        const by = segment.refusal?.by;
+        if (by === 'policy') return cfg.t('toolRefusedByPolicy');
+        if (by === 'earlier-refusal') return cfg.t('toolNotRunAfterRefusal');
+        const said = segment.refusal?.instruction?.trim();
+        return said ? cfg.t('toolRejectedSaid').replace('{instruction}', () => said) : '';
+    }
+    if (segment.status === 'aborted') {
+        switch (segment.abortCause) {
+            case 'timeout': return cfg.t('toolTimedOut');
+            case 'no-handler': return cfg.t('toolUnavailable');
+            case 'no-resolver': return cfg.t('toolNoApprover');
+            case 'turn-limit': return cfg.t('toolTurnLimit');
+            default: return '';
+        }
+    }
+    return '';
+}
+
+/**
+ * What the detail shows under the arguments: the result, as Output — except on a call
+ * refused by someone the segment names. Its `result` is then the sentence the MODEL read
+ * (a policy's included, which is written to the model: "Describe what you would do
+ * instead…"), so the person reads the note and no Output. A refused segment saved before
+ * `refusal` existed keeps its Output, as it always read.
+ */
+function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput'; text: string } | null {
+    const text = displayText(segment.result ?? '');
+    if (!text) return null;
+    if (segment.status === 'rejected' && segment.refusal) return null;
+    return { key: 'toolOutput', text };
+}
+
+/** Write the note into its container — always in the pill, like the target, so `update` can patch it. */
+function setNote(element: Element, segment: AparteToolCallSegment): void {
+    const el = element.querySelector('.aparte-tool-note');
+    if (!el) return;
+    const text = noteOf(segment);
+    if (el.textContent !== text) el.textContent = text;
+    el.toggleAttribute('hidden', !text);
+    // Its own title: one line cut by an ellipsis must still be readable whole — the
+    // person's own words, among others.
+    if (text) el.setAttribute('title', text);
+    else el.removeAttribute('title');
 }
 
 /**
@@ -60,12 +120,16 @@ function stateBadge(segment: AparteToolCallSegment): string {
  * whatever a tool returned, so both are the exact shape the escaping guard exists for.
  * The colour comes afterwards, from a provider whose output is sanitised.
  */
-function setPart(element: HTMLElement, part: 'input' | 'output', text: string): void {
+function setPart(element: HTMLElement, part: 'input' | 'output', text: string, labelKey: 'toolInput' | 'toolOutput'): void {
     const existing = element.querySelector<HTMLElement>(`[data-part="${part}"]`);  // safe-attr: selector position, and `part` is a typed literal union ('input' | 'output') — not input
     if (!text) { existing?.remove(); return; }
     if (existing) {
         const code = existing.querySelector('code');
         if (code && code.textContent !== text) code.textContent = text;
+        const label = existing.querySelector('.aparte-tool-part-label');
+        const word = contextConfig().t(labelKey);
+        if (label && label.textContent !== word) label.textContent = word;
+        existing.querySelector('.aparte-tool-part-body')?.setAttribute('aria-label', word);
         return;
     }
     // The part appeared between two updates — a call that had no result now has one.
@@ -75,38 +139,86 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string): 
     const wrap = document.createElement('div');
     wrap.className = 'aparte-tool-part';
     wrap.dataset['part'] = part;  // safe-attr: a typed literal union ('input' | 'output'), not input
+    const head = document.createElement('div');
+    head.className = 'aparte-tool-part-head';
     const label = document.createElement('span');
     label.className = 'aparte-tool-part-label';
-    label.textContent = cfg.t(part === 'input' ? 'toolInput' : 'toolOutput');
+    label.textContent = cfg.t(labelKey);
+    const tpl = document.createElement('template');
+    tpl.innerHTML = copyButtonMarkup('aparte-tool-copy');
+    head.append(label, tpl.content);
     const body = document.createElement('div');
     body.className = 'aparte-tool-part-body';
+    // A scrolling region past --aparte-tool-part-max-height: focusable and named, so a
+    // keyboard can reach what overflows (the reasoning block's precedent).
+    body.setAttribute('role', 'region');
+    body.tabIndex = 0;
+    body.setAttribute('aria-label', label.textContent);
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     code.textContent = text;
     pre.appendChild(code);
     body.appendChild(pre);
-    wrap.append(label, body);
+    wrap.append(head, body);
     // Input before output, whichever arrived first.
     if (part === 'input') detail.prepend(wrap);
     else detail.appendChild(wrap);
+    wireParts(wrap);
 }
 
 /**
- * Colour both parts, best-effort.
+ * Wire each part's copy button, once: from `setup` for the parts the row was drawn with,
+ * from `setPart` for one that appears on an update. It copies what the part holds at the
+ * click — an update may have rewritten it since.
+ */
+function wireParts(root: Element): void {
+    for (const button of root.querySelectorAll<HTMLElement>('.aparte-tool-copy')) {
+        if (button.dataset['wired']) continue;
+        button.dataset['wired'] = '1';
+        const part = button.closest('.aparte-tool-part');
+        wireCopyButton(button, () => part?.querySelector('.aparte-tool-part-body')?.textContent ?? '');
+    }
+}
+
+/** Past this size a part is shown as it came: parsing and colouring it would cost the frame. */
+const JSON_PART_LIMIT = 200_000;
+
+/** The value when `text` is a JSON object or array, else `undefined` — a scalar is not "JSON" to a reader. */
+function jsonStructureOf(text: string): object | undefined {
+    const trimmed = text.trim();
+    if (trimmed.length > JSON_PART_LIMIT || !(trimmed.startsWith('{') || trimmed.startsWith('['))) return undefined;
+    try {
+        const value: unknown = JSON.parse(trimmed);
+        return value !== null && typeof value === 'object' ? value : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** A part's text as shown: a JSON object or array pretty-printed, as the input is; anything else as it came. */
+function displayText(raw: string): string {
+    const value = jsonStructureOf(raw);
+    return value === undefined ? raw : JSON.stringify(value, null, 2);
+}
+
+/**
+ * Colour the parts that are JSON, best-effort.
  *
  * Async and from `setup`/`update`, the same shape the `code` segment uses: `render`
  * returns escaped text so the block is readable with no provider at all, and a
  * registered highlighter upgrades it after. A failure degrades to the escaped text
  * rather than to an empty box.
  *
- * `json` for both: the input IS json, and a tool result is a string a tool chose —
- * usually json, and a highlighter given json that is not json returns it unharmed.
+ * `json` only for a part that IS JSON. Both parts used to go as `json` whatever they
+ * held — a prose result, a shell transcript, a formatter's sentence came back tinted as
+ * if it were an object. Anything else stays the text it is, and the highlighter is not
+ * asked.
  */
 function highlightParts(element: HTMLElement): void {
     const cfg = contextConfig();
     for (const body of element.querySelectorAll<HTMLElement>('.aparte-tool-part-body')) {
         const text = body.querySelector('code')?.textContent ?? '';
-        if (!text) continue;
+        if (!text || jsonStructureOf(text) === undefined) continue;
         void cfg.highlightCode(text, 'json').then((html) => {
             // Re-read: an update may have replaced this text while we awaited.
             if ((body.querySelector('code')?.textContent ?? '') !== text) return;
@@ -121,14 +233,7 @@ function highlightParts(element: HTMLElement): void {
  * the row its one line, not the bubble its render.
  */
 function toolTarget(segment: AparteToolCallSegment): string {
-    const summary = contextConfig().getToolSummary(segment.toolCall?.name ?? '');
-    if (!summary) return '';
-    try {
-        const text = summary(segment);
-        return typeof text === 'string' ? text.trim() : '';
-    } catch {
-        return '';
-    }
+    return toolTargetOf(segment, contextConfig());
 }
 
 /**
@@ -146,6 +251,31 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
 }
 
 /**
+ * The name the row shows: the label the app declared (`registerToolDisplay`), else the
+ * identifier — the app's wire format, which core never turns into words on its own. A
+ * label that throws or says nothing costs the row its label, not its render.
+ */
+function nameOf(segment: AparteToolCallSegment): { text: string; isLabel: boolean } {
+    return toolNameOf(segment, contextConfig());
+}
+
+/** The row's glyph: the display's icon key when the provider knows it, else `tool`. */
+function iconOf(segment: AparteToolCallSegment): string {
+    const cfg = contextConfig();
+    const key = cfg.getToolDisplay(segment.toolCall?.name ?? '')?.icon;
+    return (key ? cfg.getIcon(key) : undefined) || cfg.getIcon('tool');
+}
+
+/** Write the name into its container: a label function may read the status, so `update` calls it too. */
+function setName(element: Element, segment: AparteToolCallSegment): void {
+    const el = element.querySelector('.aparte-tool-name');
+    if (!el) return;
+    const { text, isLabel } = nameOf(segment);
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.toggle('aparte-tool-name--label', isLabel);
+}
+
+/**
  * The pill, as markup.
  *
  * A function and not an inline template, so its escaping exemption can sit on a
@@ -153,18 +283,37 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
  * literal and rendered as visible text in the bubble — the exact trap this file's
  * `getStyles` block warns about, walked into one edit later.
  */
-function pillMarkup(segment: AparteToolCallSegment, name: string, status: string): string {
+function pillMarkup(segment: AparteToolCallSegment, status: string): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
+    const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment);
+    const note = noteOf(segment);
+    const name = nameOf(segment);
     return `
                 <span class="aparte-tool-label">
-                    <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
-                    <span class="aparte-tool-name">${escapeHtml(name)}</span>
+                    <span class="aparte-tool-icon">${icon}</span>
+                    <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}">${escapeHtml(name.text)}</span>
                     <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
-                <span class="aparte-tool-state">${badge}</span>`;
+                <span class="aparte-tool-state">${badge}</span>
+                <span class="aparte-tool-note"${note ? ` title="${escapeAttr(note)}"` : ' hidden'}>${escapeHtml(note)}</span>`;
 }
+
+/**
+ * A call that draws nothing — hidden by its display, or drawn as nothing by its renderer.
+ *
+ * Still an element, empty and `hidden`, with the row's identity: updates find their row by
+ * id, and an empty render made every one of them miss and rebuild the whole message,
+ * closing whatever the reader had opened. The call itself stays in the message and in the
+ * model's history; only its row is empty.
+ */
+function placeholderMarkup(segment: AparteToolCallSegment): string {
+    return `<div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(segment.status ?? 'pending')}" data-tool-call-id="${escapeAttr(segment.toolCall?.id ?? '')}" data-tool-name="${escapeAttr(segment.toolCall?.name ?? 'tool')}" hidden></div>`;
+}
+
+const isPlaceholder = (element: Element): boolean =>
+    (element as HTMLElement).hidden && element.classList.contains('aparte-segment-tool-call') && element.childElementCount === 0;
 
 export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
     type: 'tool_call',
@@ -192,14 +341,17 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * never draw anything while a tool awaited approval. The lookup is now first,
          * and a tool renders its own surface at every status.
          */
-        const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
+        if (contextConfig().isToolHidden(name)) return placeholderMarkup(segment);
+        const customRenderer = contextConfig().getToolRenderer(name);
         if (customRenderer) {
             // Its stylesheet, here as well as on the live path: this is what runs when a
             // stored conversation is re-rendered, and nothing replays `tool-start` for
-            // history. Idempotent, keyed by tool name.
-            injectToolRendererStyles(segment.toolCall?.name ?? '', customRenderer);
-            const out = customRenderer.render(segment);
-            if (out) return out;
+            // history. Idempotent, keyed by renderer.
+            injectToolRendererStyles(name, customRenderer);
+            // Drawing nothing hides the call, the same element as a display's `hidden`
+            // — it used to bring back the default row here while the live path dropped
+            // the call, so a reload showed what the live chat had hidden.
+            return customRenderer.render(segment) || placeholderMarkup(segment);
         }
 
         // Status/tool glyphs come from the icon provider (fallbacks: ✓ / ✕ / 🔧)
@@ -212,7 +364,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * spinner is always in the DOM and CSS shows it only while `pending`, and the
          * status slot is one element whose CONTENT is the waiting label or the glyph.
          */
-        const pill = pillMarkup(segment, name, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+        const pill = pillMarkup(segment, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
         const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
 
         /*
@@ -224,38 +376,43 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * AI Elements has `ToolInput` / `ToolOutput` inside a collapsible `Tool`,
          * assistant-ui has `ToolFallback.Args` / `.Result`.
          *
-         * COLLAPSED, always, including while the loop waits for a decision. The
+         * COLLAPSED by default, including while the loop waits for a decision. The
          * `thinking` block stays closed while it is being produced — the most live
-         * moment there is — so a tool call has no stronger claim to unroll itself. One
-         * rule, no special cases.
+         * moment there is — so a tool call has no stronger claim to unroll itself. An
+         * app that shows a developer what the agent did opens them the way reasoning is
+         * opened: the segment's `collapsed` (a segment default), or the tool's display.
          *
          * A `<details>` only when there IS something behind it: a disclosure that
          * reveals nothing is an affordance that lies (ratified decision #8), and a tool
          * with no arguments and no result yet has nothing to reveal.
          */
         const input = describeInput(segment);
-        const result = segment.result;
-        if (!input && !result) {
+        const outcome = outcomeOf(segment);
+        if (!input && !outcome) {
             return `
-            <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">${pill}
+            <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}">${pill}
             </div>
         `;
         }
 
         const cfg = contextConfig();
+        const copy = copyButtonMarkup('aparte-tool-copy');  // safe-text: markup built by copyButtonMarkup, whose own interpolations are each escaped or marked there
+        // Closed unless asked: the segment's own `collapsed` (a segment default reaches it
+        // at insertion), else the tool's display. Read here only — `update` never forces it.
+        const open = segment.collapsed !== undefined ? !segment.collapsed : cfg.getToolDisplay(name)?.open === true;
         return `
-            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
+            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
                 <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
                 <div class="aparte-tool-detail">
                     ${input ? `
                     <div class="aparte-tool-part" data-part="input">
-                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>
-                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
+                        <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>${copy}</div>
+                        <div class="aparte-tool-part-body" role="region" tabindex="0" aria-label="${escapeAttr(cfg.t('toolInput'))}"><pre><code>${escapeHtml(input)}</code></pre></div>
                     </div>` : ''}
-                    ${result ? `
+                    ${outcome ? `
                     <div class="aparte-tool-part" data-part="output">
-                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolOutput'))}</span>
-                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(result)}</code></pre></div>
+                        <div class="aparte-tool-part-head"><span class="aparte-tool-part-label">${escapeHtml(cfg.t(outcome.key))}</span>${copy}</div>
+                        <div class="aparte-tool-part-body" role="region" tabindex="0" aria-label="${escapeAttr(cfg.t(outcome.key))}"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
                     </div>` : ''}
                 </div>
             </details>
@@ -272,6 +429,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      * No child node is added or removed, per the relabel contract.
      */
     relabel: (element, segment) => {
+        if (isPlaceholder(element)) return;
         const cfg = contextConfig();
         // A registered renderer owns its markup, so none of the selectors below exist
         // in it; its own `relabel` — when it declares one — is the only thing that can
@@ -282,8 +440,19 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             return;
         }
         const icon = element.querySelector('.aparte-tool-icon');
-        if (icon) icon.innerHTML = cfg.getIcon('tool');
+        if (icon) icon.innerHTML = iconOf(segment);
+        setName(element, segment);
         setTarget(element, segment);
+        setNote(element, segment);
+        // The part labels are locale text too; the parts themselves stay (relabel adds none).
+        const inputLabel = element.querySelector('[data-part="input"] .aparte-tool-part-label');
+        if (inputLabel) inputLabel.textContent = cfg.t('toolInput');
+        element.querySelector('[data-part="input"] .aparte-tool-part-body')?.setAttribute('aria-label', cfg.t('toolInput'));
+        const outcome = outcomeOf(segment);
+        const outputLabel = element.querySelector('[data-part="output"] .aparte-tool-part-label');
+        if (outputLabel && outcome) outputLabel.textContent = cfg.t(outcome.key);
+        if (outcome) element.querySelector('[data-part="output"] .aparte-tool-part-body')?.setAttribute('aria-label', cfg.t(outcome.key));
+        for (const button of element.querySelectorAll<HTMLElement>('.aparte-tool-copy')) relabelCopyButton(button);
         // Through `stateBadge`, which is the whole point of it existing.
         //
         // This used to rebuild the badge by hand as the ICON ALONE, so any config change
@@ -316,8 +485,15 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      */
     update: (element, segment) => {
         const status = segment.status ?? 'pending';
+        const hidden = contextConfig().isToolHidden(segment.toolCall?.name ?? 'tool');
+        // A hidden call stays hidden: its placeholder only follows the status.
+        if (hidden && isPlaceholder(element)) {
+            element.setAttribute('data-status', status);
+            return;
+        }
         const input = describeInput(segment);
-        const wantsDetail = !!input || !!segment.result;
+        const outcome = outcomeOf(segment);
+        const wantsDetail = !!input || !!outcome;
 
         /*
          * Two cases this cannot patch, and both rebuild instead.
@@ -336,11 +512,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // A registered renderer that declares `update` owns the patch — a mounted
         // preview or an opened disclosure in its markup survives the change. One
         // that does not is rebuilt, as it always was.
-        if (custom?.update) {
+        // Never on a placeholder: it is not the renderer's markup, and a call it drew as
+        // nothing may draw something now — a rebuild asks it.
+        if (custom?.update && !hidden && !isPlaceholder(element)) {
             custom.update(element, segment);
             return;
         }
-        if (custom || wantsDetail !== (element.tagName === 'DETAILS')) {
+        if (custom || hidden || isPlaceholder(element) || wantsDetail !== (element.tagName === 'DETAILS')) {
             // A `<template>`, not the bubble's own converter: this file is a renderer
             // and must not import from the component that consumes it.
             const out = toolCallRenderer.render(segment);
@@ -360,16 +538,20 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can
         // read, and jsdom has no layout to ask. Same treatment as the cancel button.
         element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
+        setName(element, segment);
         setTarget(element, segment);
+        setNote(element, segment);
 
-        setPart(element, 'input', input);
-        setPart(element, 'output', segment.result ?? '');
+        setPart(element, 'input', input, 'toolInput');
+        setPart(element, 'output', outcome?.text ?? '', outcome?.key ?? 'toolOutput');
         highlightParts(element);
     },
     setup: (element, segment) => {
-        // Nothing of ours to WIRE: the transcript holds no control any more. What used
-        // to be here built the two buttons' click listeners and dispatched
-        // `aparte-tool-decision`; the decision is answered at the composer now.
+        if (isPlaceholder(element)) return;
+        // The one control of ours is each part's copy button. The approval buttons that
+        // used to be wired here dispatched `aparte-tool-decision`; the decision is
+        // answered at the composer now, and the transcript holds no decision control.
+        wireParts(element);
         highlightParts(element);
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         customRenderer?.setup?.(element, segment);

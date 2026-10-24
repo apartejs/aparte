@@ -293,6 +293,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     approvalResolver: async (call) => ({
                         approved: false,
                         reason: rule(call as AparteToolCall)?.reason?.trim() || 'Tool execution was refused by the server policy.',
+                        by: 'policy',
                     }),
                     deferral: { outcomes },
                     emitter,

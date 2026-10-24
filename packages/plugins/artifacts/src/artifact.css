@@ -85,6 +85,25 @@
     font-size: var(--aparte-font-size-base); font-weight: var(--aparte-font-weight-medium);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* A call with no artifact to hand over — waiting for a decision, refused, stopped,
+   failed: the card's badge and title on one line, the header's padding, and what became
+   of it in the muted voice. No buttons: there is nothing to copy or download. */
+.aparte-art-stub {
+    /* A row, said here: the `.aparte-card` recipe it wears is a column, which stacked the
+       badge over the title and left the state word alone at the bottom. And a card's
+       rhythm between messages, which consecutive stubs lacked. */
+    display: flex; flex-direction: row; align-items: center; gap: var(--aparte-space-4);
+    min-width: 0;
+    margin: var(--aparte-space-4) 0;
+    padding: var(--aparte-space-4) var(--aparte-space-5);
+    font: inherit;
+}
+.aparte-art-stub__state {
+    margin-inline-start: auto;
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+    white-space: nowrap;
+}
 /* The geometry is `.aparte-dot`; a streaming card breathes on the accent rather than
    the status colour, and larger, because it marks a whole card and not a line. */
 .aparte-art-card__pulse {

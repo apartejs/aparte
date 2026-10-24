@@ -123,3 +123,65 @@ describe('deriveArtifactKind', () => {
         expect(deriveArtifactKind('font/woff2', 'text')).toBe('text');
     });
 });
+
+describe('the card follows the call', () => {
+    // A refused, stopped or failed create_artifact still drew the card, Download enabled:
+    // the person was handed the result of an action they had just refused. Only a call
+    // that ran shows the card; one waiting for a decision shows that, and one that never
+    // ran says it was not created.
+    let off: (() => void) | null = null;
+    beforeEach(() => { installDefaultRenderersOnce(); off = setupArtifacts(); });
+    afterEach(() => { off?.(); off = null; aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
+
+    const call = (status: AparteToolCallSegment['status'], extra: Partial<AparteToolCallSegment> = {}): AparteToolCallSegment => ({
+        id: 'seg-2', type: 'tool_call', status,
+        toolCall: { id: 'c9', name: 'create_artifact', input: { mimeType: 'image/svg+xml', title: 'Mark', content: '<svg/>' } },
+        ...extra,
+    } as AparteToolCallSegment);
+    const resolved = () => call('resolved', { result: 'Artifact created', structuredResult: { mimeType: 'image/svg+xml', title: 'Mark', content: '<svg/>' } });
+
+    function draw(segment: AparteToolCallSegment): { host: HTMLElement; el: () => HTMLElement } {
+        const generic = getSegmentRenderer('tool_call')!;
+        const host = document.createElement('div');
+        host.innerHTML = generic.render(segment) as string;
+        document.body.appendChild(host);
+        generic.setup?.(host.firstElementChild as HTMLElement, segment);
+        return { host, el: () => host.firstElementChild as HTMLElement };
+    }
+
+    for (const status of ['rejected', 'aborted', 'failed'] as const) {
+        it(`a ${status} call says "Not created", with nothing to download`, () => {
+            const { el } = draw(call(status));
+            expect(el().textContent).toContain('Not created');
+            expect(el().textContent).toContain('Mark');
+            expect(el().querySelector('[data-action="download"]')).toBeNull();
+            expect(el().querySelector('button')).toBeNull();
+        });
+    }
+
+    it('a call waiting for a decision says so, and has no card yet', () => {
+        const { el } = draw(call('awaiting-approval'));
+        expect(el().textContent).toContain('Waiting');
+        expect(el().querySelector('[data-action="download"]')).toBeNull();
+    });
+
+    it('approved and run, the waiting block becomes the card', () => {
+        const { el } = draw(call('awaiting-approval'));
+        getSegmentRenderer('tool_call')!.update!(el(), resolved());
+        expect(el().classList.contains('aparte-segment-artifact-card')).toBe(true);
+        expect(el().querySelector<HTMLButtonElement>('[data-action="download"]')?.disabled).toBe(false);
+    });
+
+    it('refused, the waiting block says it was not created', () => {
+        const { el } = draw(call('awaiting-approval'));
+        getSegmentRenderer('tool_call')!.update!(el(), call('rejected'));
+        expect(el().textContent).toContain('Not created');
+    });
+
+    it('the words follow a language switch', () => {
+        const { el } = draw(call('rejected'));
+        aparteGlobalConfig.extendLocale({ artifactNotCreated: 'Non créé' });
+        getSegmentRenderer('tool_call')!.relabel!(el(), call('rejected'));
+        expect(el().textContent).toContain('Non créé');
+    });
+});

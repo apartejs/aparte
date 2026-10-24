@@ -185,7 +185,9 @@ setupAskUser({ maxOptions: 4, maxQuestions: 3 });
 needed, and the answer, with what was asked, stays in the conversation as a receipt. Its options
 are the tool's `name` and `description`, the `systemPrompt` that tells the model when to ask
 (`false` for none), the most options and questions in one call, and `receipt: false` to keep the
-receipt out. Ask from your own code when your code knows what to ask; let the model ask when it
+receipt out (the call is then hidden, not removed: it stays in the history the model reads, as
+a [hidden tool call](/guides/tool-display/#hide-or-draw-something-else)). A declined question's
+receipt line follows the chat's language (`questionDeclined`, "You declined to answer."). Ask from your own code when your code knows what to ask; let the model ask when it
 should decide. The [Question](/components/question/) page shows both.
 
 ## Draw it yourself

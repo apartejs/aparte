@@ -6,7 +6,7 @@ catalog:
   order: 11
   claims:
     segments: [tool_call]
-  demos: [tool, tool-statuses, tool-summary, tool-renderer]
+  demos: [tool, tool-statuses, tool-summary, tool-display, tool-hidden, tool-open, tool-renderer]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -27,22 +27,57 @@ the result your handler returned. The row is drawn for you; a tool registered wi
 
 A call is `pending` while your handler runs, `awaiting-approval` when the tool is marked
 `needsApproval` and a person has to decide (see [Tools and approval](/guides/tools/)), then
-`resolved`, `rejected`, `aborted` or `failed`. Only the first two are still open.
+`resolved`, `rejected`, `aborted` or `failed`. Only the first two are still open. A refused or stopped call also says why, in a note after
+the state word: `You said: “…”` when the person wrote something instead of choosing, `Refused by
+policy`, `Not run: an earlier call was refused`, `Timed out`, `Not available here`, `No one could
+approve it` or `Turn limit reached`. A plain Stop has no note. The segment keeps `refusal`
+(`{ by, instruction? }`) and `abortCause`, and its `result` stays the sentence the model read;
+the full table is in [Tools and approval](/guides/tools/#what-the-row-shows).
 
 ### A summary of what it ran on
 
 <Variant id="tool-summary" />
 
-`registerToolSummary(name, summary)` adds one line after the tool's name, so `read_file` reads
+`registerToolSummary(match, summary)` adds one line after the tool's name, so `read_file` reads
 `read_file docs/release.md` without opening the row. It returns plain text; the row, its states
-and its disclosure stay the library's. `registerToolInputFormatter(name, formatter)` rewrites the
-arguments behind the disclosure, and the approval panel shows the same text.
+and its disclosure stay the library's. `registerToolInputFormatter(match, formatter)` rewrites the
+arguments behind the disclosure, and the approval panel shows the same text. `match` is a tool
+name, a `RegExp` or `'*'` (every tool nothing more specific describes); both write one field of the
+tool's display, below.
+
+### A name and an icon of its own
+
+<Variant id="tool-display" />
+
+`registerToolDisplay(match, display)` gathers everything about how a tool's calls look. `label`
+replaces the identifier `web_search` with words, drawn in the chat's own font, not the code font;
+`icon` is an icon-provider key (an unknown one falls back to `tool`; `search` and `globe` come from
+`@aparte/core/icons`). The identifier stays on the row as `data-tool-name`. Core never turns an
+identifier into words on its own: the label is yours to write.
+
+### Hidden calls
+
+<Variant id="tool-hidden" />
+
+`hidden: true` draws nothing for the tool's calls. They stay in the message, in storage and in
+the history the model reads, and an approval they need is still asked.
+
+### Rows opened by default
+
+<Variant id="tool-open" />
+
+A row is closed unless something opens it. It opens in this order: the segment's `collapsed`
+(where a `setSegmentDefaults('tool_call', { collapsed: false })` default lands, written onto each
+segment as it enters a chat), then the display's `open: true`, then closed. A bubble drawn by
+hand, as in this demo, never applies a segment default, so it uses `registerToolDisplay('*', { open: true })`.
 
 ### Your own rendering
 
 <Variant id="tool-renderer" />
 
-`registerToolRenderer(name, renderer)` replaces the row for one tool. Return an element rather
+`registerToolRenderer(match, renderer)` replaces the row for one tool, for every tool a pattern
+names, or, with `'*'`, for every tool without a renderer of its own. An empty render hides the
+call (it stays in the history). Return an element rather
 than an HTML string: the input and the result come from the model and your tool, so a string
 would have to escape every value it interpolates. Add an `update()` to patch the element when
 the result lands, instead of rebuilding it.
@@ -66,6 +101,10 @@ The client offers the tool to the model, runs the handler when it is called and 
 for each call. Building a segment by hand, as these demos do, is for a reply your own code
 assembles.
 
+To choose labels, icons and what is shown, read [Showing tool calls to a person, or to a
+developer](/guides/tool-display/): it covers how a display is matched, hiding every call, and
+opening the rows.
+
 ## Fields
 
 <Fields />
@@ -77,7 +116,10 @@ assembles.
   plain row and takes no tab stop.
 - The status is written in words (locale keys such as `toolRunning`, `toolCompleted`,
   `toolFailed`), not only shown as a colour or an icon.
+- Input and Output are focusable regions named by their label, so a long part that scrolls past
+  `--aparte-tool-part-max-height` (300px) can be read with the keyboard; each has a copy button.
 
 ## Related
 
 - [Tools and approval](/guides/tools/) — registering tools, what the row shows, and asking a person first.
+- [Showing tool calls to a person, or to a developer](/guides/tool-display/) — labels, icons, hiding and opening rows.
