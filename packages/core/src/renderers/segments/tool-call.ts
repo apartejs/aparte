@@ -95,7 +95,7 @@ function noteOf(segment: AparteToolCallSegment): string {
  * segment saved before `refusal` existed keeps its Output, as it always read.
  */
 function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput' | 'toolReason'; text: string } | null {
-    const text = segment.result ?? '';
+    const text = displayText(segment.result ?? '');
     if (!text) return null;
     if (segment.status === 'rejected' && segment.refusal) {
         return segment.refusal.by === 'policy' ? { key: 'toolReason', text } : null;
@@ -173,22 +173,45 @@ function wireParts(root: Element): void {
     }
 }
 
+/** Past this size a part is shown as it came: parsing and colouring it would cost the frame. */
+const JSON_PART_LIMIT = 200_000;
+
+/** The value when `text` is a JSON object or array, else `undefined` — a scalar is not "JSON" to a reader. */
+function jsonStructureOf(text: string): object | undefined {
+    const trimmed = text.trim();
+    if (trimmed.length > JSON_PART_LIMIT || !(trimmed.startsWith('{') || trimmed.startsWith('['))) return undefined;
+    try {
+        const value: unknown = JSON.parse(trimmed);
+        return value !== null && typeof value === 'object' ? value : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** A part's text as shown: a JSON object or array pretty-printed, as the input is; anything else as it came. */
+function displayText(raw: string): string {
+    const value = jsonStructureOf(raw);
+    return value === undefined ? raw : JSON.stringify(value, null, 2);
+}
+
 /**
- * Colour both parts, best-effort.
+ * Colour the parts that are JSON, best-effort.
  *
  * Async and from `setup`/`update`, the same shape the `code` segment uses: `render`
  * returns escaped text so the block is readable with no provider at all, and a
  * registered highlighter upgrades it after. A failure degrades to the escaped text
  * rather than to an empty box.
  *
- * `json` for both: the input IS json, and a tool result is a string a tool chose —
- * usually json, and a highlighter given json that is not json returns it unharmed.
+ * `json` only for a part that IS JSON. Both parts used to go as `json` whatever they
+ * held — a prose result, a shell transcript, a formatter's sentence came back tinted as
+ * if it were an object. Anything else stays the text it is, and the highlighter is not
+ * asked.
  */
 function highlightParts(element: HTMLElement): void {
     const cfg = contextConfig();
     for (const body of element.querySelectorAll<HTMLElement>('.aparte-tool-part-body')) {
         const text = body.querySelector('code')?.textContent ?? '';
-        if (!text) continue;
+        if (!text || jsonStructureOf(text) === undefined) continue;
         void cfg.highlightCode(text, 'json').then((html) => {
             // Re-read: an update may have replaced this text while we awaited.
             if ((body.querySelector('code')?.textContent ?? '') !== text) return;
