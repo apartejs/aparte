@@ -13,15 +13,19 @@ const STRING_DELTA = new Set([
     'REASONING_MESSAGE_CONTENT', 'REASONING_MESSAGE_CHUNK',
 ]);
 
+/** The run-framing rejections end on the lever that reads such a stream, since one well-known producer needs it. */
+const FRAMING_HINT = ' (TanStack AI frames runs this way: give createAgUiRunner relaxedRunFraming: true to read it)';
+
 /**
  * The stream rules of AG-UI 1.0 a consumer enforces before anything is drawn: a run is
  * framed by RUN_STARTED and RUN_FINISHED, a message is opened before its content and
  * closed before the run ends, a chunk stream starts with its identity and keeps it, a
- * step or a subagent is started before it is finished. `older` is a peer configured
- * older than 1.0: its run framing is read with the older rules (TanStack AI closes each
- * step with a RUN_FINISHED and answers a resume before its RUN_STARTED); the rest holds.
+ * step or a subagent is started before it is finished. `relaxed` reads the run framing
+ * with the older rules — a peer older than 1.0, or a producer named as framing runs its
+ * own way (TanStack AI closes each step with a RUN_FINISHED and answers a resume before
+ * its RUN_STARTED); every other rule holds.
  */
-export function createVerifier(older: boolean): (event: AgUiEvent) => void {
+export function createVerifier(relaxed: boolean): (event: AgUiEvent) => void {
     let seen = false;
     let running = false;
     let finished = false;
@@ -49,15 +53,15 @@ export function createVerifier(older: boolean): (event: AgUiEvent) => void {
 
         // Lifecycle: the run's framing.
         if (type === 'RUN_STARTED') {
-            if (running && !older) throw malformed('RUN_STARTED while a run is still active');
+            if (running && !relaxed) throw malformed('RUN_STARTED while a run is still active');
             running = true;
             finished = false;
             return;
         }
         if (type === 'RUN_ERROR') { running = false; return; }
-        if (!older) {
-            if (first) throw malformed(`the first event must be RUN_STARTED, not ${type}`);
-            if (finished) throw malformed(`${type} after the run finished`);
+        if (!relaxed) {
+            if (first) throw malformed(`the first event must be RUN_STARTED, not ${type}${FRAMING_HINT}`);
+            if (finished) throw malformed(`${type} after the run finished${FRAMING_HINT}`);
         }
 
         for (const key of ['delta'] as const) {
@@ -166,9 +170,9 @@ export function createVerifier(older: boolean): (event: AgUiEvent) => void {
                 const open = [...text].map((id) => `text message "${id}"`)
                     .concat([...reasoning].map((id) => `reasoning message "${id}"`))
                     .concat([...subagents].map((id) => `subagent "${id}"`));
-                if (open.length && !older) throw malformed(`${open.join(', ')} still running at RUN_FINISHED`);
+                if (open.length && !relaxed) throw malformed(`${open.join(', ')} still running at RUN_FINISHED`);
                 running = false;
-                finished = !older;
+                finished = !relaxed;
                 break;
             }
         }

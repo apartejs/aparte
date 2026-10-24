@@ -40,14 +40,21 @@ export interface AgUiRunnerOptions {
     context?: { description: string; value: string }[];
     /**
      * The AG-UI version the agent speaks, when it is older than 1.0 and does not say so
-     * itself. The protocol forbids guessing a peer's age, so an agent that breaks 1.0's
-     * stream rules — TanStack AI before 1.0 closes each step with a `RUN_FINISHED` and
-     * answers a resume before its `RUN_STARTED` — has to be named here, e.g. `'0.0.52'`.
-     * The runner then reads its stream with the older rules, and leaves `protocolVersion`
-     * out of the request, a field that agent predates.
+     * itself, e.g. `'0.0.47'`. The protocol forbids guessing a peer's age, so an older
+     * agent has to be named here. The runner then reads its stream with that version's
+     * rules (its run framing, its retired shapes) and leaves `protocolVersion` out of the
+     * request, a field that agent predates.
      * @default the agent speaks 1.0
      */
     peerProtocolVersion?: string;
+    /**
+     * Read a stream whose runs are framed otherwise than AG-UI 1.0 frames them: a
+     * `RUN_FINISHED` per model step with more events after it, or a resume answered before
+     * its `RUN_STARTED`. TanStack AI does both, so its routes need this; every other rule
+     * of the protocol still holds. By default such a stream is rejected, as 1.0 asks.
+     * @default false
+     */
+    relaxedRunFraming?: boolean;
     /**
      * Told what the runner dropped or could not read in the agent's stream — an event
      * type it does not know, a translation that lost something. For the developer, not
@@ -372,7 +379,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         };
 
-        const verify = createVerifier(!declare);
+        const verify = createVerifier(!declare || options.relaxedRunFraming === true);
         const translate = createTranslator(peer, warn);
         // Older shapes are translated first; then what 1.0 does not describe is dropped or
         // stripped, with a warning — the order the protocol requires of a consumer.

@@ -35,8 +35,8 @@ function fakeFetch(...responses: (Response | ((body: Record<string, unknown>) =>
 
 const weather = { name: 'ask_user', description: 'Ask the user.', inputSchema: { type: 'object' } };
 
-/** TanStack AI 0.x: a RUN_FINISHED per model step, which AG-UI 1.0's framing forbids. */
-const olderPeer = { peerProtocolVersion: '0.0.52' };
+/** TanStack AI: a RUN_FINISHED per model step, which AG-UI 1.0's framing forbids. */
+const olderPeer = { relaxedRunFraming: true };
 
 function run(fetch: typeof globalThis.fetch, extra: Partial<AparteStreamRunOptions> = {}, signal = new AbortController().signal, runner: Partial<AgUiRunnerOptions> = {}) {
     const events: Event[] = [];
@@ -194,6 +194,19 @@ describe('createAgUiRunner: the stream', () => {
         // The text stays, and the call nobody will answer stops waiting.
         expect(r.types()).toContain('text-delta');
         expect(r.events).toContainEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
+
+    it('rejects a RUN_FINISHED per step by default, naming the option that reads it', async () => {
+        const perStep = () => fakeFetch(sse(
+            started,
+            { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'get_weather' },
+            { type: 'TOOL_CALL_END', toolCallId: 'c1' },
+            finished(),
+            { type: 'TOOL_CALL_RESULT', toolCallId: 'c1', content: 'Cloudy' },
+            finished(),
+        )).fetch;
+        await expect(run(perStep()).done).rejects.toThrow('relaxedRunFraming');
+        await expect(run(perStep(), {}, undefined, { relaxedRunFraming: true }).done).resolves.toBeUndefined();
     });
 
     it('opens a turn per model step: a second step reasons in a block of its own', async () => {
