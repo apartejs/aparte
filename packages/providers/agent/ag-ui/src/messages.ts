@@ -20,8 +20,8 @@ function imagePart(part: Extract<AparteContentPart, { type: 'image' }>): AgUiInp
  */
 export function toAgUiMessages(
     messages: readonly AparteChatMessage[],
-    flatten = false,
-    warn: (message: string) => void = () => {},
+    flatten: boolean,
+    warn: (message: string) => void,
 ): AgUiMessage[] {
     const out: AgUiMessage[] = [];
     messages.forEach((m, index) => {
