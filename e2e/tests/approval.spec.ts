@@ -49,8 +49,10 @@ test('a gated call asks before it runs, and Approve lets it through', async ({ p
 
     const panel = page.locator(PANEL);
     await expect(panel).toBeVisible();
-    // The tool the model chose, by the name it called — wire format, never translated.
-    await expect(panel).toContainText('get_weather');
+    // The call as its row names it: the site's label for the tool and what it targets
+    // (`registerToolDisplay`) — the identifier the model called stays on the row.
+    await expect(panel).toContainText('Allow Weather Lille?');
+    await expect(rows(chat, 'awaiting-approval')).toHaveAttribute('data-tool-name', 'get_weather');
     // And the ARGUMENTS, which are the whole of what a person approves. They used to sit
     // in the transcript row behind a closed disclosure while the panel asked "Run this?".
     await expect(panel.locator(ARGS)).toContainText('Lille');

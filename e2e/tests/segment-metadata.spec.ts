@@ -3,23 +3,19 @@
  *
  * Core stamps `messageId` and `index` on every segment and puts its own measurements
  * in `meta.aparte` — no protocol carries a timestamp on a content block, so a span is a
- * LOCAL measurement and its shape says so. Core
- * renders none of it — the display belongs to the app, because the line reads
- * "Thought for 8s" in one product and "8.2s · 1.2k tokens" in another. That split
- * is only believable if both halves are exercised somewhere, so this spec asserts
- * them separately:
+ * LOCAL measurement and its shape says so. A settled reasoning block draws it:
+ * "Thought for 8s" (`thoughtFor`, the duration in the locale's units). This spec
+ * asserts both halves in a real browser:
  *
  *   - the DATA: the segments in the viewport's own model carry the fields, after a
  *     real stream through a real parser. Unit tests drive the owners directly; this
  *     is the only place the whole chain runs.
- *   - the RENDER: the vanilla example's ~15 lines of app code turn the reasoning
- *     label into "Thought for 1.4s". It is the running consumer of the recipe in
- *     the customization guide, which is what keeps that snippet from rotting.
+ *   - the RENDER: the reasoning label turns into its duration once the block settles,
+ *     while the answer still streams.
  *
- * `vanilla` only, and deliberately — same reasoning as `bubble-layout`. The wrapper
- * is APP code, so porting it to the other four examples would be four more copies
- * of a `toFixed` proving nothing new about the wrapper boundary. The data half is
- * covered on both owners by the unit suite.
+ * `vanilla` only, and deliberately — same reasoning as `bubble-layout`: the label is
+ * core's, so four more frameworks would prove nothing new. The data half is covered
+ * on both owners by the unit suite.
  */
 import { test, expect } from '@playwright/test';
 import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
@@ -77,7 +73,7 @@ test('a streamed reply leaves every segment knowing its message, its place and i
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('the app turns that span into the reasoning line users expect', async ({ page }) => {
+test('a settled reasoning block reads its duration', async ({ page }) => {
     const errors = collectPageErrors(page);
     await installLlmMock(page, { scenario: 'thinking' });
     const chat = new ChatPage(page);
@@ -85,13 +81,11 @@ test('the app turns that span into the reasoning line users expect', async ({ pa
 
     await chat.sendAndSettle('measure this too', { expect: MOCK_REPLY_MARK });
 
-    // Asserted as a PATTERN, not as "not empty": the built-in label is also
-    // non-empty, so a looser assertion would stay green with the app's renderer
-    // removed entirely — the exact hole a substring check leaves. The app floors a
-    // sub-second span at "<1s" (a mocked stream settles in milliseconds), so both
-    // spellings are the app's line; neither is the built-in's.
+    // Asserted as a PATTERN, not as "not empty": "Thinking" is non-empty too, so a
+    // looser assertion would stay green with the duration never drawn. A mocked stream
+    // settles in milliseconds, and the label floors a span at one second.
     await expect(chat.segment('thinking').first().locator('.aparte-thinking-label'))
-        .toHaveText(/Thought for (<1s|\d+\.\d+s)/, { timeout: 15_000 });
+        .toHaveText(/^Thought for \d+(s|m)/, { timeout: 15_000 });
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
@@ -114,7 +108,7 @@ test('the reasoning line is readable while the answer is still streaming', async
     // …and the reasoning block already reports its own duration. Asserted in this
     // order on purpose: the label must be readable BEFORE the turn ends, not after.
     await expect(chat.segment('thinking').first().locator('.aparte-thinking-label'))
-        .toHaveText(/Thought for \d+\.\d+s/, { timeout: 20_000 });
+        .toHaveText(/^Thought for \d+(s|m)/, { timeout: 20_000 });
     await expect(chat.sendButton, 'the label must land before the turn ends')
         .toHaveClass(/aparte-is-streaming/);
 
