@@ -6,6 +6,12 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
+import {
+    conversationStatusOf,
+    rememberConversationStatus,
+    tellConversationStatus,
+    type AparteConversationStatus,
+} from '../../conversations/conversation-status.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -40,12 +46,7 @@ export interface AparteConversationRenameDetail {
     title: string;
 }
 
-/**
- * What a conversation is doing, as its row says it: `running` while an AI answers in it,
- * `waiting` while its turn waits for the person (a server run paused on a question or an
- * approval — the one state a conversation keeps after the person has gone elsewhere).
- */
-export type AparteConversationStatus = 'running' | 'waiting';
+export type { AparteConversationStatus };
 
 /**
  * A conversation's state changed, on `window`. The conversation controller sends it as
@@ -205,8 +206,6 @@ const VIEWPORT_MARGIN = 8;
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
     private _activeId: string | null = null;
-    /** What each conversation is doing; kept apart from the items, which are the host's data. */
-    private _statuses = new Map<string, AparteConversationStatus>();
     private _open: OpenMenu | null = null;
     private _renaming: { id: string; input: HTMLInputElement; done: boolean } | null = null;
     private _warnedNoManager = false;
@@ -303,11 +302,16 @@ export class AparteConversationList extends HTMLElement {
         this._render();
     };
 
-    /** The controller's `aparte-conversation-status`, on `window`. */
+    /**
+     * `aparte-conversation-status`, on `window`: the controller's, a list's, or an app's own.
+     * Kept page-wide too (an app may dispatch the event itself), then drawn on this row.
+     */
     private _onStatus = (e: Event): void => {
         const detail = (e as CustomEvent<Partial<AparteConversationStatusDetail> | undefined>).detail;
         if (typeof detail?.id !== 'string') return;
-        this.setConversationStatus(detail.id, statusOf(detail.status));
+        rememberConversationStatus(detail.id, statusOf(detail.status));
+        const row = this.querySelector<HTMLElement>(rowSelector('data-conv-id', detail.id));
+        if (row) this._applyStatus(row, detail.id);
     };
 
     // ─── Public API ───────────────────────────────────────────────────────
@@ -320,25 +324,23 @@ export class AparteConversationList extends HTMLElement {
      * the state with the title. The look is CSS on `data-status`: a site that wants a dot
      * for `running` draws it in the slot and takes the shimmer off.
      *
-     * Patched in place, and kept across re-renders and for rows not drawn yet. The
-     * conversation controller sets it on its own through `aparte-conversation-status`.
+     * A state is about a conversation, not about this list: it is kept page-wide and every
+     * list on the page draws it, one that connects later included. Patched in place, and
+     * kept across re-renders and for rows not drawn yet. The conversation controller sets
+     * it on its own through `aparte-conversation-status`.
      */
     setConversationStatus(id: string, status: AparteConversationStatus | null): void {
-        const value = statusOf(status);
-        if (value) this._statuses.set(id, value);
-        else this._statuses.delete(id);
-        const row = this.querySelector<HTMLElement>(rowSelector('data-conv-id', id));
-        if (row) this._applyStatus(row, id);
+        tellConversationStatus(id, statusOf(status));
     }
 
-    /** What a conversation is doing, as the last `setConversationStatus` said; `null` for neither. */
+    /** What a conversation is doing, as last told; `null` for neither. */
     getConversationStatus(id: string): AparteConversationStatus | null {
-        return this._statuses.get(id) ?? null;
+        return conversationStatusOf(id);
     }
 
     /** Write a conversation's state onto its row — the same three things `_renderItem` draws. */
     private _applyStatus(row: HTMLElement, id: string): void {
-        const status = this._statuses.get(id) ?? null;
+        const status = conversationStatusOf(id);
         if (status) row.setAttribute('data-status', status);
         else row.removeAttribute('data-status');
         const answering = status === 'running';
@@ -627,7 +629,7 @@ export class AparteConversationList extends HTMLElement {
         // What the conversation is doing (setConversationStatus): data on the row, a
         // shimmer on a running title, the mark's slot, and the words a screen reader hears
         // with the title. `status` is one of two literals: `statusOf` let nothing else in.
-        const status = this._statuses.get(conv.id) ?? null;
+        const status = conversationStatusOf(conv.id);
         const statusAttr = status ? ` data-status="${escapeAttr(status)}"` : '';
         const titleClass = escapeAttr(status === 'running' ? 'aparte-conv-item__title aparte-shimmer' : 'aparte-conv-item__title');
         const heard = escapeHtml(this._statusWords(status));

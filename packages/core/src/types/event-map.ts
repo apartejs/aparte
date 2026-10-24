@@ -42,6 +42,7 @@ import type {
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteMessagePausedEventDetail,
+    AparteMessageResumedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
@@ -139,6 +140,7 @@ interface AparteEventMap {
     'aparte-message-error': CustomEvent<AparteMessageErrorEventDetail>;
     'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
     'aparte-message-paused': CustomEvent<AparteMessagePausedEventDetail>;
+    'aparte-message-resumed': CustomEvent<AparteMessageResumedEventDetail>;
 
     // ── The compaction conversation, and the one command core listens for ─────
     // `aparte-abort` is the only one here core NEVER sends: it listens for it, so an

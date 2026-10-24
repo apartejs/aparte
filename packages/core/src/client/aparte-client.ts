@@ -716,6 +716,10 @@ export class AparteClient {
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' }, chatId);
+        // A turn that starts from a saved pause starts PAUSED: it asks before any run, and
+        // whoever tracks the turn (the conversation list) must hear that it waits on the
+        // page, not that it runs.
+        if (opts?.resume) dispatchLifecycleEvent(targetElement, 'aparte-message-paused', { messageId }, chatId);
         // What this turn runs on, on the reply: a pause resumed after a reload takes the
         // same model back. A resume keeps what its reply already says.
         if (!opts?.resume && provider.id) {
@@ -735,6 +739,7 @@ export class AparteClient {
         // on a panel before any run starts, and Stop has to reach that wait.
         if (this._streamController !== streamController) this._streamController?.abort();
         this._streamController = streamController;
+        this._turnsInFlight.add(messageId);
         try {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
@@ -784,6 +789,9 @@ export class AparteClient {
                 };
                 const messages = this._resumeMessages(targetElement, messageId, baseRequest.messages);
                 this._spendPause(targetElement, messageId);
+                // The pause is answered: the turn runs again, and says so — the other half
+                // of `aparte-message-paused`, which nothing used to close.
+                dispatchLifecycleEvent(targetElement, 'aparte-message-resumed', { messageId }, chatId);
                 result = await this._streamLoop(
                     targetElement, messageId, provider,
                     { ...baseRequest, messages },
@@ -822,8 +830,16 @@ export class AparteClient {
             }
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, messageId, aparteError);
+        } finally {
+            this._turnsInFlight.delete(messageId);
         }
     }
+
+    /**
+     * Replies a turn is running into right now, a pause it waits on included: a second
+     * load of their conversation must not start them again (`resumeDeferred`).
+     */
+    private readonly _turnsInFlight = new Set<string>();
 
     /**
      * Handle aparte-retry — add a sibling branch to the assistant message and re-stream
@@ -2012,7 +2028,10 @@ export class AparteClient {
         const last = [...messages].reverse().find((m) => m.role === 'assistant');
         const open = (last?.segments ?? []).filter(isOpenDeferred);
         const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket;
-        if (!last || open.length === 0 || !ticket || this._resuming.has(last.id)) return false;
+        // Not a reply a turn is already running into: a live pause waits on its panel, and a
+        // second load of the conversation (a click on the one already open) would otherwise
+        // start the same reply again and put the same question twice.
+        if (!last || open.length === 0 || !ticket || this._resuming.has(last.id) || this._turnsInFlight.has(last.id)) return false;
 
         const config = this._config.getModelConfig();
         // The model the turn ran on, when its provider is still here; else today's default.

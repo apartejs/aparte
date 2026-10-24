@@ -15,6 +15,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../aparte-conversation-list.js';
 import type { AparteConversationListItem } from '../aparte-conversation-list.js';
 import { aparteGlobalConfig } from '../../../config/index.js';
+import { forgetConversationStatuses, tellConversationStatus } from '../../../conversations/conversation-status.js';
 
 type ListEl = HTMLElement & {
     conversations: AparteConversationListItem[];
@@ -39,6 +40,8 @@ const heard = (el: HTMLElement, id: string) => row(el, id).querySelector('.apart
 
 afterEach(() => {
     aparteGlobalConfig.resetLocale();
+    // A state is page-wide (a list that connects late reads it): each case starts clean.
+    forgetConversationStatuses();
     document.body.innerHTML = '';
 });
 
@@ -132,5 +135,15 @@ describe('a conversation row\'s state, as it is drawn', async () => {
             const at = css.search(new RegExp(`@media\\s*\\(${media}\\)\\s*\\{[^@]*\\.aparte-conv-item\\[data-status="running"\\]\\s*\\.aparte-conv-item__status`));
             expect(at, media).toBeGreaterThan(-1);
         }
+    });
+});
+
+describe('a list that connects late', () => {
+    it('draws the state told before it was on the page: a drawer, a remount', async () => {
+        // The controller's path: kept page-wide, then announced.
+        tellConversationStatus('c2', 'waiting');
+        const el = await mount();
+        expect(row(el, 'c2').getAttribute('data-status')).toBe('waiting');
+        el.setConversationStatus('c2', null);
     });
 });

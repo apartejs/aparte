@@ -15,6 +15,7 @@ import { AparteConversationManager } from '../conversation-manager.js';
 import type { AparteConversation, AparteStorageAdapter } from '../types.js';
 import type { AparteMessage } from '../../types/index.js';
 import type { AparteConversationStatusDetail } from '../../components/conversation-list/aparte-conversation-list.js';
+import { forgetConversationStatuses } from '../conversation-status.js';
 
 class MemoryAdapter implements AparteStorageAdapter {
     store = new Map<string, AparteConversation>();
@@ -53,11 +54,12 @@ describe('the list hears what a turn is doing', () => {
         manager = new AparteConversationManager(adapter);
         await manager.init();
         heard = [];
+        forgetConversationStatuses();
         window.addEventListener('aparte-conversation-status', listen);
     });
     afterEach(() => window.removeEventListener('aparte-conversation-status', listen));
 
-    const fire = (name: string) => host.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: {} }));
+    const fire = (name: string, detail: object = {}) => host.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
 
     it('running when a turn starts, nothing once it is done', async () => {
         const ctrl = new AparteConversationController(binding(host), { manager });
@@ -87,8 +89,29 @@ describe('the list hears what a turn is doing', () => {
         fire('aparte-message-start');
         fire('aparte-message-paused');
         expect(heard.at(-1)).toEqual({ id: 'a', status: 'waiting' });
-        fire('aparte-message-start');
+        fire('aparte-message-resumed');
         expect(heard.at(-1)).toEqual({ id: 'a', status: 'running' });
+    });
+
+    it('a chat that goes mid-turn (a route change) leaves no row running', async () => {
+        const ctrl = new AparteConversationController(binding(host), { manager });
+        ctrl.bind();
+        await ctrl.setConversationId('a');
+        fire('aparte-message-start');
+        ctrl.unbind();
+        expect(heard.at(-1)).toEqual({ id: 'a', status: null });
+    });
+
+    it("a replaced turn's end does not end the turn that replaced it", async () => {
+        const ctrl = new AparteConversationController(binding(host), { manager });
+        ctrl.bind();
+        await ctrl.setConversationId('a');
+        fire('aparte-message-start', { messageId: 'm1' });
+        fire('aparte-message-start', { messageId: 'm2' });
+        fire('aparte-message-aborted', { messageId: 'm1' });
+        expect(heard.at(-1)).toEqual({ id: 'a', status: 'running' });
+        fire('aparte-message-done', { messageId: 'm2' });
+        expect(heard.at(-1)).toEqual({ id: 'a', status: null });
     });
 
     it('a turn cut by a switch ends on the conversation it started in', async () => {
