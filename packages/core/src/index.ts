@@ -245,7 +245,7 @@ export type { AparteSplitResizeDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
 export type {

@@ -103,6 +103,23 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* What the conversation is doing (setConversationStatus), as `data-status` on the row. A
+   running title shimmers (display/shimmer.css, worn by the title). The mark is an empty
+   slot beside the title, out of the flow until a state draws it: a conversation waiting
+   for the person shows a dot. A site that wants a dot for `running` too draws it here on
+   `[data-status="running"]`, and takes the shimmer off the title. */
+.aparte-conv-item__status {
+  display: none;
+  flex: none;
+  width: var(--aparte-status-dot-size);
+  height: var(--aparte-status-dot-size);
+  margin-inline-start: var(--aparte-space-2);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-primary);
+}
+.aparte-conv-item[data-status="waiting"] .aparte-conv-item__status {
+  display: block;
+}
 
 /* The conversation you are in wears the mark's bar (display/mark.css) on its start
    edge — Primer's ActionList pattern, and the same bar the select's chosen option and

@@ -101,6 +101,8 @@ export const fr: AparteLocale = {
     archiveConversation: "Archiver",
     unarchiveConversation: "Désarchiver",
     conversationActions: "Actions de la conversation",
+    conversationRunning: "Réponse en cours",
+    conversationWaiting: "Attend votre réponse",
     renameConversation: "Renommer",
     conversationTitle: "Titre de la conversation",
     pinConversation: "Épingler",

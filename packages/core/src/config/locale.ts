@@ -99,6 +99,10 @@ export type AparteLocale = {
     unarchiveConversation?: string;
     /** Accessible name of the ⋯ button that opens a row's menu (default: "Conversation actions") */
     conversationActions?: string;
+    /** What a screen reader hears with a row whose conversation an AI is answering in (default: "Answering") */
+    conversationRunning?: string;
+    /** What a screen reader hears with a row whose turn waits for the person (default: "Waiting for you") */
+    conversationWaiting?: string;
     /** The "Rename" item of a row's menu (default: "Rename") */
     renameConversation?: string;
     /** Accessible name of the inline input a rename opens (default: "Conversation title") */
@@ -558,6 +562,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     archiveConversation: "Archive",
     unarchiveConversation: "Unarchive",
     conversationActions: "Conversation actions",
+    conversationRunning: "Answering",
+    conversationWaiting: "Waiting for you",
     renameConversation: "Rename",
     conversationTitle: "Conversation title",
     pinConversation: "Pin",
