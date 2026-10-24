@@ -4,6 +4,110 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.23.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): The approval question reads "Allow {tool}?" (French "Autoriser {tool} ?") and names the call as its row does — the label and what it targets — instead of the bare identifier.
+
+  The question substituted the tool's identifier whatever the app had declared, while the row could read "Delete a file a.ts". `{tool}` is now the row's own line: the declared label (else the identifier), then the summary's target. The default wording changed from "Run {tool}?" to "Allow {tool}?", which reads with a label that is an action ("Allow Write file CHANGELOG.md?") as well as with an identifier; an app that set its own `approvalAsk` keeps it. The arguments block is unchanged.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): Read an error segment's machine code from `code`: it is no longer in `details`, and the alert no longer prints it.
+
+  A failed turn carried its `AparteErrorCode` in `details`, which the alert draws, so the person read `UNKNOWN_ERROR` or `MAX_TURNS_EXCEEDED` under a sentence that already said what happened. The code is the segment's `code` now, stamped on the alert as `data-error-code` and handed to a custom error renderer (`setErrorRenderer` receives `code`). `details` stays for text an app chooses to show. The turn limit's code is a new member, `AparteErrorCode.MAX_TURNS_EXCEEDED`.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A hidden tool call — `registerToolDisplay(…, { hidden: true })`, or a renderer that draws nothing — now stays in the message and in the model's history.
+
+  A call whose renderer returned `''` at tool-start was never added to the message, and the history a later turn sends is rebuilt from the message: from the next turn on, the model no longer saw a call it had made, nor its answer. A reload drew the default row for it instead. Every call is added now; a hidden one draws an empty `hidden` placeholder, live and restored, and an approval it needs is still asked. A turn of nothing but hidden calls renders no chrome.
+
+  `isToolHidden(name)` says which wins: a hide, unless a renderer is registered for the tool more specifically — a `'*'` hide leaves a tool with its own renderer (a plugin's receipt) drawn.
+
+  If you hid a tool with `registerToolRenderer(name, { render: () => '' })`, that call is now saved and sent to the model on later turns, as every other call is. `registerToolDisplay(name, { hidden: true })` says the same thing more directly.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A settled reasoning block reads "Thought" (`thought`) instead of "Thinking"; turn on `showDuration` to read "Thought for 8s" (`thoughtFor`). A locale of your own needs these two keys translated.
+
+  It read "Thinking" while the model reasoned and "Thinking" forever after, so a finished block looked like one still running. A custom locale that translated `thinking` and not `thought` now shows the English "Thought" on settled blocks: add `thought` (and `thoughtFor` if you show durations).
+
+  The duration stays the app's to show: core measures it in the browser, from the first reasoning delta to the last, which is the model's thinking time only when the provider streams its reasoning — one that sends it in one piece would read "1s", and a reload shows it only if the stored segment kept its `meta`. `setSegmentDefaults('thinking', { showDuration: true })` turns it on for every block, read when the block is drawn so a restored one follows it too; a block's own `showDuration` wins. The duration is formatted by `Intl` in the locale's `tag` ("8s", "1m 12s"), with a one-second floor. An app's own `label` still wins, and wrapping the renderer is still how a product writes its own format — the built-in `update` now rewrites the label when the block settles, so a wrapper writes its own after delegating.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): Describe how a tool's calls are shown with `registerToolDisplay(name | RegExp | '*', { label, icon, summary, formatInput, hidden, open })`; `registerToolRenderer`, `registerToolSummary` and `registerToolInputFormatter` accept the same patterns and `'*'`.
+
+  `'*'` means every tool nothing more specific describes, and an MCP server's dynamic names (`mcp__github__…`) can be described with a RegExp. One entry per matcher; calls merge into it; the entry that applies is the exact name's, else the first pattern registered, else `'*'`'s — whole, never a mix. Registering a display tells the chats on the page, so a label reaches rows already drawn.
+
+  On the row, `label` replaces the identifier (in the chat's font), `icon` is an icon-provider key (unknown keys fall back to `tool`), and the identifier stays on the row as `data-tool-name`. Without a display the row reads as it did: core never turns an identifier into words. `registerToolSummary` and `registerToolInputFormatter` are now the `summary` and `formatInput` fields of that entry; `getToolSummary` and `getToolInputFormatter` resolve patterns too.
+
+  A display that sets or drops `hidden` or `open` redraws the messages already on screen, so a "hide tool calls" setting reaches a restored conversation; a label, an icon or a summary only relabels them, keeping what the reader opened. `icon` offers the icon names (`AparteIconName`) and takes any key registered with `registerIcons`.
+
+  A tool renderer's stylesheet is injected once per renderer, not once per tool name.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): Open tool rows by default with `setSegmentDefaults('tool_call', { collapsed: false })`, or one tool's rows with its display's `open: true`.
+
+  The row was collapsed always and read no field. It reads the segment's `collapsed` now, as reasoning does, else the tool's display; closed stays the default, and an update never forces it.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): The tool row says who refused a call and why it stopped, in the reader's language; a refused row no longer shows the model's sentence as its Output.
+
+  A note follows the state word: "You said: “…”" when the person refused and typed instead, "Refused by policy", "Not run: an earlier call was refused", and for a stop "Timed out", "Not available here", "No one could approve it" or "Turn limit reached". A plain Stop needs no note. A refused row shows no Output: its `result` is the sentence written for the model — a policy's reason included — and the person reads the note.
+
+  The segment keeps it: `refusal?: { by, instruction? }` and `abortCause?` sit beside `result`, which stays the sentence the model read. `toolRefusal` is exported from `@aparte/core`. A host `approvalResolver` that refuses with a `reason` and no `by` is read as a policy, so its row says "Refused by policy"; return `by: 'person'` if a person refused. New locale keys: `toolRejectedSaid`, `toolRefusedByPolicy`, `toolNotRunAfterRefusal`, `toolTimedOut`, `toolUnavailable`, `toolNoApprover`, `toolTurnLimit`. A segment saved before this keeps its old Output.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): `tool-rejected` now says who refused (`by`) and carries the person's `instruction`; `tool-aborted` says why (`cause`); `toolRefusal()` writes the refusal sentence.
+
+  `by` is `'person'`, `'policy'` or `'earlier-refusal'` (a call not run because another call of the same step was refused). `cause` is `'stopped'`, `'timeout'`, `'no-handler'` or `'no-resolver'`. An approval resolver may return `by`; without it a `reason` is read as a policy's, as before.
+
+  The sentence the model reads is unchanged — `reason` on the event and the `tool` message are the same string they were. `toolRefusal(decision)` returns it with `by` and `instruction`, so a runner that answers an agent the loop does not run writes the same one; with no reason of its own, its sentence follows `by` (a policy's refusal never says "rejected by the user"). A handler that rejects with an AbortError of its own — no Stop, no timeout — is aborted with no `cause`.
+  <sub>`@aparte/engine`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): French for the new tool-row notes, the reasoning label and duration, the turn-limit message, the ask-user declined line and the artifact "not created" state; the approval question reads « Autoriser {tool} ? ».
+  <sub>`@aparte/locale-fr`</sub>
+
+### Patch Changes
+
+- [62c4abb](https://github.com/apartejs/aparte/commit/62c4abb): The scroll to a new message is no longer cut short when it starts while an earlier scroll is still running.
+
+  A send that lands during a glide re-targets it — a second smooth `scrollTo`, continuous where an instant write is a cut — and the engine runs that new smooth scroll from where the view is, for as long as a first one takes. The window in which the viewport holds back instant writes still ended where the earlier glide's did, so it closed in the middle of the re-targeted run and the next pin jumped the last few pixels (measured in CI on React and WebKit: a write 4 px short of the bottom, ~330 ms into the send). A re-target now opens a window of its own, and re-arms the pin that catches a glide that missed.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): The turn-limit message follows the chat's locale (`maxTurnsReached`, with `{n}` the limit).
+
+  It was a hard-coded English sentence ("Stopped after 3 tool calls to prevent an infinite loop.") in a chat set to any language. The English default now reads "Stopped after 3 turns to avoid an endless loop.", and the message is read from the chat's own config, so a client on the global config answering a chat with its own locale writes it in the chat's language.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A tool's Input and Output are coloured as JSON only when they are JSON, scroll past 300px, sit on the code surface, and each has a copy button; the row fits a phone.
+
+  Both parts went to the highlighter as `json` whatever they held, so a prose result came back tinted as an object; a part is JSON when it parses to an object or an array, and a JSON result is pretty-printed. A part's body is capped by `--aparte-tool-part-max-height` (300px, the reasoning block's cap), scrolls, and is a focusable, named region; its text is on the code surface at the small size whether or not a highlighter coloured it, and its label now sits in `.aparte-tool-part-head` beside the copy button — the code block's, now one shared helper. On a narrow screen the state word never yields: the note and the target give way first, then the name, cut with an ellipsis, and the note carries its full text as its title.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): The waiting dots show again between a finished tool call and the model's next words, and never while a call waits for approval.
+
+  They showed only until the first segment arrived, so after a tool row read "Done" the reply sat still while the model worked on its next turn. They show while the reply streams and its last segment is a call that has finished or that the app hides, and leave as soon as the next step writes — never while a call waits for a person's approval, hidden or not.
+  <sub>`@aparte/core`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A refused AG-UI tool call's row now says who refused and what they wrote; the agent receives the same sentence as before.
+
+  The runner wrote its own copy of the refusal sentence. It takes `toolRefusal` from `@aparte/core` now, so its `tool-rejected` carries `by` and `instruction` like the loop's.
+  <sub>`@aparte/runner-ag-ui`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A refused, stopped or failed `create_artifact` shows "Not created" instead of a card with Download; one awaiting approval shows that it is waiting.
+
+  The card drew from the model's input whatever the call became, so the person was handed the result of an action they had just refused. A call that ran shows the card; a pending call keeps it (the handler answers at once); one waiting for a decision shows a quiet block; one that never ran shows its badge, its title and "Not created" (`artifactNotCreated`), with no buttons.
+  <sub>`@aparte/plugin-artifacts`</sub>
+
+- [494cd79](https://github.com/apartejs/aparte/commit/494cd79): A declined question's receipt line follows the locale (`questionDeclined`), and `receipt: false` keeps the call in the model's history.
+
+  The receipt printed `ASK_USER_DECLINED` — "The user declined to answer.", the sentence the model reads — under a question in any language; the constant keeps its value for the model. `receipt: false` registered a renderer that draws nothing, which kept the call out of the history; it declares the tool hidden through `registerToolDisplay` now.
+  <sub>`@aparte/plugin-ask-user`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/docs-mcp`.</sub>
+
 ## 0.22.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
