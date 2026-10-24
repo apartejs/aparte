@@ -11,7 +11,8 @@
  *     real stream through a real parser. Unit tests drive the owners directly; this
  *     is the only place the whole chain runs.
  *   - the RENDER: the reasoning label turns into its duration once the block settles,
- *     while the answer still streams.
+ *     while the answer still streams — because the example site turns `showDuration`
+ *     on (its models stream their reasoning); core's default reads "Thought".
  *
  * `vanilla` only, and deliberately — same reasoning as `bubble-layout`: the label is
  * core's, so four more frameworks would prove nothing new. The data half is covered
