@@ -1,0 +1,50 @@
+---
+title: Shimmer
+description: A light that sweeps across a label while something runs, the way a conversational chat shows a step in progress.
+catalog:
+  group: kit
+  order: 23
+  claims:
+    classes: [shimmer]
+  demos: [kit-shimmer]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/shimmer.classes.mdx';
+import Vars from '../../../generated/api/kit/shimmer.vars.mdx';
+
+<Variant id="kit-shimmer" />
+
+`.aparte-shimmer` goes on the span that holds the words of a step in progress: "Searching the
+web…", "Thinking". A light sweeps across the letters, which is what conversational chats show
+where an agent's row shows a spinner and a word. Take the class off when the step ends; the text
+stays the same element.
+
+The chat uses it in three places: the [reasoning](/components/reasoning/) line while it arrives,
+a [quiet tool row](/components/tool/#a-line-for-a-person) while its call runs, and a
+conversation's title in the [conversation list](/components/conversation-list/) while it answers.
+
+## Customize
+
+<Vars />
+
+The sweep runs from the muted ink to the full ink, two text colours whose order holds in both
+themes. `--aparte-duration-shimmer` is the length of one sweep.
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- The words are real text: a screen reader reads them, and the element keeps its colour for
+  everything that reads it. The sweep is drawn through the text fill.
+- It holds still under `prefers-reduced-motion`, and reads as plain text in forced colours and in a
+  browser without `background-clip: text`.
+- The motion says "in progress" to the eye only. Pair it with words that say so, or with a status
+  region, where the state matters.
+
+## Related
+
+- [Skeleton](/components/skeleton/) — a shape standing in for content that has not arrived.
+- [Spinner](/components/spinner/) — a wait with no words to sweep.

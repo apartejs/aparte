@@ -389,6 +389,8 @@
   --aparte-duration-slower: 0.3s;
   --aparte-duration-spin: 0.7s;
   --aparte-duration-pulse: 1.2s;
+  /* One sweep of the shimmer across a running label (display/shimmer.css). */
+  --aparte-duration-shimmer: 2s;
   --aparte-ease: ease;
   /* How far a panel travels as it appears. */
   --aparte-slide-distance: 8px;
@@ -920,6 +922,10 @@
      overlapped them by 14px and left the z-order to decide every press. */
   --aparte-scroll-rail-gap: calc(var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness));
   --aparte-skeleton-shine: var(--aparte-surface-3);
+  /* A running label's sweep: text against text, muted to full ink, which keeps its
+     order in both themes where two surfaces would not. */
+  --aparte-shimmer-base: var(--aparte-text-muted);
+  --aparte-shimmer-shine: var(--aparte-text);
   /* The line it stands for: as tall as the content type, and a gap that is the rest of
      the content line, so the text that replaces it lands where it was (T21). It was 12px
      on an 18px step for a 16px line on a 27px step — a third of a line of jump per line. */

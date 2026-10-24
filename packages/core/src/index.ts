@@ -27,6 +27,7 @@ import './styles/display/thumbnail.css';
 import './styles/display/spinner.css';
 import './styles/display/progress.css';
 import './styles/display/skeleton.css';
+import './styles/display/shimmer.css';
 import './styles/display/divider.css';
 import './styles/display/alert.css';
 import './styles/display/card.css';
