@@ -281,7 +281,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
             const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs);
             if (outcome.status === 'aborted') {
-                emitter({ type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause });
+                emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: syntheticId });
                 continueLoop = false;
                 continue;
             }
@@ -643,11 +643,15 @@ export function toolRefusal(decision: { reason?: string; instruction?: string; b
     // Truthiness, like `instruction` beside it: an empty `reason` is no reason, not an
     // empty `tool` message.
     const reason = decision.reason?.trim();
-    const sentence = reason
-        || (decision.instruction
-            ? `The user rejected this tool call and said: ${decision.instruction}`
-            : 'Tool execution was rejected by the user.');
     const by = decision.by ?? (reason ? 'policy' : 'person');
+    // Without a reason of its own, the sentence follows the origin: a policy's refusal
+    // never tells the model "the user rejected this".
+    const sentence = reason
+        || (by === 'policy' ? 'Tool execution was refused by the approval policy.'
+            : by === 'earlier-refusal' ? 'Not run: an earlier call of the same step was refused.'
+            : decision.instruction
+                ? `The user rejected this tool call and said: ${decision.instruction}`
+                : 'Tool execution was rejected by the user.');
     return decision.instruction ? { reason: sentence, by, instruction: decision.instruction } : { reason: sentence, by };
 }
 
@@ -841,7 +845,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // Same rule as the rejection / turn-limit / missing-handler
         // exits above, which this branch was missing: a stopped turn
         // must not go on running the tool calls that follow it.
-        ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: outcome.cause });
+        ctx.emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: call.id, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: call.id });
         return 'stop-run';
     } else if (outcome.status === 'failed') {
         // A crash is the handler's, and the run ends on it as before —
@@ -863,7 +867,8 @@ async function invokeToolHandler(
     toolTimeoutMs: number,
 ): Promise<
     | { status: 'resolved'; content: string; structuredContent?: unknown }
-    | { status: 'aborted'; cause: Extract<StreamAbortCause, 'stopped' | 'timeout'> }
+    /** `cause` is absent for a handler that aborted itself, with no Stop and no timeout. */
+    | { status: 'aborted'; cause?: Extract<StreamAbortCause, 'stopped' | 'timeout'> }
     /** The handler threw something that is not an abort: a crash, reported by the caller then re-thrown. */
     | { status: 'failed'; error: unknown }
 > {
@@ -926,7 +931,12 @@ async function invokeToolHandler(
     } catch (err: unknown) {
         // A handler that honoured the signal rejects with its own AbortError: whichever
         // fired it is the cause.
-        if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted', cause: expired && !signal.aborted ? 'timeout' : 'stopped' };
+        if ((err as { name?: string })?.name === 'AbortError') {
+            if (signal.aborted) return { status: 'aborted', cause: 'stopped' };
+            if (expired) return { status: 'aborted', cause: 'timeout' };
+            // Its own abort — nobody pressed Stop and it did not run out of time.
+            return { status: 'aborted' };
+        }
         // Not thrown from here: the call was announced with `tool-start`, and the
         // loop's invariant is that an announced call gets exactly one terminal
         // event. Throwing from inside skipped it — the row spun "Running" for good

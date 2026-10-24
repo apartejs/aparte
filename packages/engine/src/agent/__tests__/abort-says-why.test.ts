@@ -84,4 +84,12 @@ describe('tool-aborted says why', () => {
         });
         expect(aborted).toMatchObject({ cause: 'stopped' });
     });
+
+    it('a handler that throws an AbortError of its own, with no Stop and no timeout, gives no cause', async () => {
+        // Nobody stopped it and it did not run out of time: "Stopped" would say the person did.
+        const aborted = await abortOf({
+            toolLookup: () => async () => { throw Object.assign(new Error('fetch aborted'), { name: 'AbortError' }); },
+        });
+        expect(aborted).toEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
 });

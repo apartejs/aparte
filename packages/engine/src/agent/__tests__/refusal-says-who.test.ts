@@ -52,6 +52,11 @@ describe('toolRefusal — the sentence the model reads, and who it is from', () 
         expect(toolRefusal({ reason: 'Plan mode.' })).toEqual({ reason: 'Plan mode.', by: 'policy' });
     });
 
+    it('with no reason, the sentence follows the origin — never "the user" for a policy', () => {
+        expect(toolRefusal({ by: 'policy' })).toEqual({ reason: 'Tool execution was refused by the approval policy.', by: 'policy' });
+        expect(toolRefusal({ by: 'earlier-refusal' })).toEqual({ reason: 'Not run: an earlier call of the same step was refused.', by: 'earlier-refusal' });
+    });
+
     it('an explicit origin wins, and an empty reason is no reason', () => {
         expect(toolRefusal({ reason: 'Not run.', by: 'earlier-refusal' })).toEqual({ reason: 'Not run.', by: 'earlier-refusal' });
         expect(toolRefusal({ reason: '   ', by: 'person' })).toEqual({ reason: 'Tool execution was rejected by the user.', by: 'person' });
