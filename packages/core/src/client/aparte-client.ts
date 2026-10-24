@@ -66,30 +66,11 @@ interface AparteChatTargetElement extends HTMLElement {
  * naming what — the built-in channel needs the tool's name for its question, and an
  * id alone forced a lookup table filled by one event and read by another, which is the
  * shape that breaks in silence.
+ *
+ * Engine's `StreamApprovalResolver`, under core's name — one type, not a twin to keep in
+ * step: its result's `instruction`, `reason` and `by` are documented there.
  */
-export type AparteToolApprovalResolver = (
-    call: { id: string; name: string; input: Record<string, unknown> },
-    signal: AbortSignal,
-) => Promise<{
-    approved: boolean;
-    payload?: unknown;
-    /**
-     * What the user said to do instead, on a refusal.
-     *
-     * It becomes the `tool` message the model reads, which is possible at all only
-     * because a refusal hands the model a turn. Optional: a resolver that returns a
-     * bare `{ approved }` is valid.
-     */
-    instruction?: string;
-    /**
-     * The refusal, verbatim, when nobody said anything — an approval policy that
-     * refused on its own. Without it the model is told "the user rejected this",
-     * which for a mode is a lie; with it, it reads the policy's own sentence.
-     */
-    reason?: string;
-    /** Who refused, for the row; without it a `reason` is read as a policy's. */
-    by?: StreamRefusalOrigin;
-}>;
+export type AparteToolApprovalResolver = StreamApprovalResolver;
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 const COMPACTION_PREAMBLE =
