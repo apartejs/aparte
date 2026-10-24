@@ -205,6 +205,39 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
 }
 
 /**
+ * The name the row shows: the label the app declared (`registerToolDisplay`), else the
+ * identifier — the app's wire format, which core never turns into words on its own. A
+ * label that throws or says nothing costs the row its label, not its render.
+ */
+function nameOf(segment: AparteToolCallSegment): { text: string; isLabel: boolean } {
+    const identifier = segment.toolCall?.name ?? 'tool';
+    const label = contextConfig().getToolDisplay(identifier)?.label;
+    if (label !== undefined) {
+        try {
+            const text = typeof label === 'function' ? label(segment) : label;
+            if (typeof text === 'string' && text.trim()) return { text: text.trim(), isLabel: true };
+        } catch { /* the identifier, below */ }
+    }
+    return { text: identifier, isLabel: false };
+}
+
+/** The row's glyph: the display's icon key when the provider knows it, else `tool`. */
+function iconOf(segment: AparteToolCallSegment): string {
+    const cfg = contextConfig();
+    const key = cfg.getToolDisplay(segment.toolCall?.name ?? '')?.icon;
+    return (key ? cfg.getIcon(key) : undefined) || cfg.getIcon('tool');
+}
+
+/** Write the name into its container: a label function may read the status, so `update` calls it too. */
+function setName(element: Element, segment: AparteToolCallSegment): void {
+    const el = element.querySelector('.aparte-tool-name');
+    if (!el) return;
+    const { text, isLabel } = nameOf(segment);
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.toggle('aparte-tool-name--label', isLabel);
+}
+
+/**
  * The pill, as markup.
  *
  * A function and not an inline template, so its escaping exemption can sit on a
@@ -212,14 +245,16 @@ function setTarget(element: Element, segment: AparteToolCallSegment): void {
  * literal and rendered as visible text in the bubble — the exact trap this file's
  * `getStyles` block warns about, walked into one edit later.
  */
-function pillMarkup(segment: AparteToolCallSegment, name: string, status: string): string {
+function pillMarkup(segment: AparteToolCallSegment, status: string): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
+    const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment);
     const note = noteOf(segment);
+    const name = nameOf(segment);
     return `
                 <span class="aparte-tool-label">
-                    <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
-                    <span class="aparte-tool-name">${escapeHtml(name)}</span>
+                    <span class="aparte-tool-icon">${icon}</span>
+                    <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}">${escapeHtml(name.text)}</span>
                     <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
@@ -273,7 +308,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * spinner is always in the DOM and CSS shows it only while `pending`, and the
          * status slot is one element whose CONTENT is the waiting label or the glyph.
          */
-        const pill = pillMarkup(segment, name, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+        const pill = pillMarkup(segment, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
         const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
 
         /*
@@ -298,14 +333,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const outcome = outcomeOf(segment);
         if (!input && !outcome) {
             return `
-            <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">${pill}
+            <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}">${pill}
             </div>
         `;
         }
 
         const cfg = contextConfig();
         return `
-            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
+            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}">
                 <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
                 <div class="aparte-tool-detail">
                     ${input ? `
@@ -343,7 +378,8 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             return;
         }
         const icon = element.querySelector('.aparte-tool-icon');
-        if (icon) icon.innerHTML = cfg.getIcon('tool');
+        if (icon) icon.innerHTML = iconOf(segment);
+        setName(element, segment);
         setTarget(element, segment);
         setNote(element, segment);
         // The part labels are locale text too; the parts themselves stay (relabel adds none).
@@ -429,6 +465,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can
         // read, and jsdom has no layout to ask. Same treatment as the cancel button.
         element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
+        setName(element, segment);
         setTarget(element, segment);
         setNote(element, segment);
 

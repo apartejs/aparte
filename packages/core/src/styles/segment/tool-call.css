@@ -108,6 +108,9 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 }
 .aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
 .aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* A label the app declared (registerToolDisplay) is words for a person, not an
+   identifier: it reads in the chat's own face. */
+.aparte-tool-name--label { font-family: inherit; }
 /* What the call targets (`registerToolSummary`): the name's quieter continuation. One
    line, cut with an ellipsis, so a long path gives way before the state word does. */
 .aparte-tool-target {
