@@ -1,6 +1,6 @@
 ---
 title: Showing tool calls to a person, or to a developer
-description: Name your tools in words, give them icons, hide the calls a consumer chat does not need, or open every row with raw input and output for a developer — with registerToolDisplay.
+description: Name your tools in words, give them icons, keep the raw JSON from a person or put a detail of your own behind the line, hide the calls a consumer chat does not need, or open every row with raw input and output for a developer — with registerToolDisplay.
 sidebar:
   order: 2
   label: Showing tool calls
@@ -28,6 +28,7 @@ const display: AparteToolDisplay = {
   formatInput: (input) => String(input['query'] ?? ''),
   hidden: false,         // true draws nothing
   open: false,           // true opens the row
+  // details: false      // the line alone; or a function that draws what is behind it
 };
 
 aparteGlobalConfig.registerToolDisplay('web_search', display);
@@ -54,12 +55,14 @@ aparteGlobalConfig.registerToolDisplay('web_search', {
   label: 'Searching the web',
   icon: 'search',
   summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
+  details: false,   // the line alone: no raw JSON behind it
 });
 
 aparteGlobalConfig.registerToolDisplay('fetch_page', {
   label: 'Reading a page',
   icon: 'globe',
   summary: (segment) => String(segment.toolCall.input['url'] ?? ''),
+  details: false,
 });
 ```
 
@@ -73,6 +76,9 @@ What the person sees:
   `globe` are in `@aparte/core/icons`, and are drawn once you register them as above. A key
   nobody registered falls back to `tool`.
 - **A summary**, the line after the label, as before.
+- **No raw JSON** behind the two lines: `details: false` keeps the line alone, with nothing to
+  open. Each described tool says it, since an entry is used whole; a list of sources or any other
+  detail of your own is in [what's behind the line](#whats-behind-the-line).
 - **No row** for every other tool: they fall to the `'*'` entry. The two described tools are not
   hidden although they never say so, because an entry is used whole (see
   [how a display is matched](#how-a-display-is-matched)). A turn made only of hidden calls shows no header either, just
@@ -101,6 +107,59 @@ aparteGlobalConfig.registerToolDisplay('delete_file', {
 ```
 
 A label that throws, or is empty, falls back to the identifier.
+
+## What's behind the line
+
+An opened row shows **Input** and **Output**: the arguments and the result, raw. That is right
+for a developer and wrong for a person. `details` decides what is behind the line:
+
+- left out, Input and Output, as in [a developer's view](#a-developers-view);
+- `false`, nothing: the line alone, with no disclosure, so `open` and a segment's `collapsed`
+  have nothing to open;
+- a function, what it returns, in place of Input and Output, under the same line.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolCallSegment } from '@aparte/core';
+
+// A finished search shows the pages it found; nothing while it runs.
+function sources(segment: AparteToolCallSegment): HTMLElement | string {
+  if (segment.status !== 'resolved') return '';
+  const list = document.createElement('ul');
+  for (const page of JSON.parse(segment.result ?? '[]') as { title: string }[]) {
+    const item = document.createElement('li');
+    item.textContent = page.title;
+    list.append(item);
+  }
+  return list;
+}
+
+aparteGlobalConfig.registerToolDisplay('web_search', { label: 'Searched the web', details: sources });
+aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read a file', details: false });
+```
+
+<Variant id="tool-details" caption="A read with nothing behind its line, and a search whose detail is the pages it found." />
+
+The function:
+
+- is called when the row is drawn and on every update of the call, so it reads the status and the
+  result as they land. An update replaces what it drew and leaves the row as open or as closed as
+  the reader left it.
+- returns an element, or a string that core inserts as HTML. Prefer the element: with a string,
+  every value from the call, the arguments the model chose and the result the tool returned, must
+  go through `escapeHtml`, exactly as in a [tool renderer](/guides/tools/#custom-tool-renderer).
+- returns `''` when there is nothing behind the line yet. The row then has no disclosure, and gets
+  one once the function returns something.
+- costs the row its detail if it throws. The line stays, and the raw Input and Output never come
+  back in its place.
+
+What it drew is yours: a language switch relabels the line, not your detail, which is drawn again
+on the call's next update.
+
+`hidden` wins over `details`, and a tool renderer draws the whole row instead. `details` is for
+keeping core's line with a detail of your own. An entry is used whole, so
+`registerToolDisplay('*', { details: false })` keeps the raw JSON off every tool nothing more
+specific describes, and a tool with an entry of its own says its own `details`.
 
 ## A developer's view
 

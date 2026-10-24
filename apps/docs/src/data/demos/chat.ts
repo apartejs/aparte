@@ -211,6 +211,49 @@ export const CHAT_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
+        id: 'tool-details',
+        title: 'What is behind the line: nothing, or a detail of your own',
+        html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->
+<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+
+<script>
+  const { aparteGlobalConfig } = window.aparte;
+  // details: false, the line alone: no disclosure, so no raw JSON one click away.
+  aparteGlobalConfig.registerToolDisplay('read_file', {
+    label: 'Read a file',
+    icon: 'file',
+    summary: (segment) => String(segment.toolCall.input.path ?? ''),
+    details: false,
+  });
+  // A function: what it returns stands in for Input and Output, under the same line. An
+  // element, so nothing the tool returned goes through innerHTML.
+  aparteGlobalConfig.registerToolDisplay('web_search', {
+    label: 'Searched the web',
+    summary: (segment) => '“' + segment.toolCall.input.query + '”',
+    details: (segment) => {
+      const list = document.createElement('ul');
+      for (const page of JSON.parse(segment.result)) {
+        const item = document.createElement('li');
+        item.textContent = page.title + ' · ' + page.site;
+        list.append(item);
+      }
+      return list;
+    },
+    open: true,
+  });
+
+  document.querySelector('aparte-chat-bubble').setSegments([
+    { id: 's1', type: 'tool_call', status: 'resolved', toolCall: { id: 't1', name: 'read_file', input: { path: 'docs/release.md' } }, result: '## Release' },
+    { id: 's2', type: 'tool_call', status: 'resolved', toolCall: { id: 't2', name: 'web_search', input: { query: 'release checklist' } },
+      result: JSON.stringify([
+        { title: 'Shipping a library release', site: 'example.org' },
+        { title: 'Changesets, step by step', site: 'example.com' },
+        { title: 'Tagging and publishing', site: 'example.net' },
+      ]) },
+  ]);
+</script>`,
+    },
+    {
         id: 'tool-hidden',
         title: 'A chat where only the reply shows',
         html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->

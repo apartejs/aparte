@@ -6,7 +6,7 @@ catalog:
   order: 11
   claims:
     segments: [tool_call]
-  demos: [tool, tool-statuses, tool-summary, tool-display, tool-hidden, tool-open, tool-renderer]
+  demos: [tool, tool-statuses, tool-summary, tool-display, tool-details, tool-hidden, tool-open, tool-renderer]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -54,6 +54,18 @@ replaces the identifier `web_search` with words, drawn in the chat's own font, n
 `icon` is an icon-provider key (an unknown one falls back to `tool`; `search` and `globe` come from
 `@aparte/core/icons`). The identifier stays on the row as `data-tool-name`. Core never turns an
 identifier into words on its own: the label is yours to write.
+
+### What is behind the line
+
+<Variant id="tool-details" />
+
+Behind the line, a row shows Input and Output: the arguments and the result, raw. That is a
+developer's view. A display's `details` changes it. `false` keeps the line alone, with no
+disclosure, so the person is never one click from JSON. A function returns what stands in for
+Input and Output under the same line: here, the pages a search found. Return an element, and
+nothing the tool returned goes through `innerHTML`. Return `''` and the row shows no disclosure
+until there is something to show. The details are in
+[Showing tool calls](/guides/tool-display/#whats-behind-the-line).
 
 ### Hidden calls
 
