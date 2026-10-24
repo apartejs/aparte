@@ -58,6 +58,13 @@ export class ToolTable<T> {
         return this.any !== undefined ? { value: this.any, level: 'any' } : undefined;
     }
 
+    /** Every value registered, whatever its matcher. */
+    values(): T[] {
+        const out = [...this.exact.values(), ...[...this.patterns.values()].map((p) => p.value)];
+        if (this.any !== undefined) out.push(this.any);
+        return out;
+    }
+
     clear(): void {
         this.exact.clear();
         this.patterns.clear();

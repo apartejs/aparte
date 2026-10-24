@@ -202,6 +202,26 @@ describe('details: a function — the app\'s detail under the default line', () 
     });
 });
 
+describe('a rebuilt row keeps its identity', () => {
+    it('a renderer\'s root without data-segment-id gets it on an update\'s rebuild too', () => {
+        // The bubble stamps it on its own render; an update that rebuilds did not, so the
+        // next update missed the row and the whole bubble was drawn again.
+        aparteGlobalConfig.registerToolRenderer('web_search', { render: () => '<div class="mine">mine</div>' });
+        const el = draw(call({ status: 'pending' }));
+        el.setAttribute('data-segment-id', 's1');
+        renderer().update!(el, call());
+        expect(document.body.querySelector('.mine')?.getAttribute('data-segment-id')).toBe('s1');
+    });
+
+    it('a quiet row that stops being quiet loses data-quiet on an update', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { quiet: true });
+        const el = draw(call({ status: 'pending' }));
+        aparteGlobalConfig.unregisterToolDisplay('web_search');
+        renderer().update!(el, call({ status: 'pending' }));
+        expect(document.body.querySelector('[data-segment-id="s1"]')!.hasAttribute('data-quiet')).toBe(false);
+    });
+});
+
 describe('details on a language switch', () => {
     afterEach(() => aparteGlobalConfig.resetLocale());
 
@@ -235,6 +255,32 @@ describe('details on a language switch', () => {
         seen.push(...observer.takeRecords());
         observer.disconnect();
         expect(seen).toEqual([]);
+    });
+
+    it('keeps what the reader opened and what the app\'s code set: only what the function changed is written', () => {
+        // Relabel runs on EVERY config change — a model picked in the selector included —
+        // so comparing with the live DOM closed what the reader had opened.
+        aparteGlobalConfig.registerToolDisplay('web_search', {
+            details: () => '<details class="src"><summary>Trail guide</summary><p>11 km shore loop</p></details>',
+        });
+        const el = draw(call());
+        const nested = el.querySelector<HTMLDetailsElement>('.src')!;
+        nested.open = true;                       // the reader
+        nested.setAttribute('data-seen', '1');    // the app's own code
+        renderer().relabel!(el, call());
+        expect(el.querySelector('.src')).toBe(nested);
+        expect(nested.open).toBe(true);
+        expect(nested.getAttribute('data-seen')).toBe('1');
+    });
+
+    it('leaves alone a detail the function hands back as the same element', () => {
+        const mine = document.createElement('div');
+        mine.className = 'mine';
+        mine.textContent = 'kept';
+        aparteGlobalConfig.registerToolDisplay('web_search', { details: () => mine });
+        const el = draw(call());
+        renderer().relabel!(el, call());
+        expect(el.querySelector('.aparte-tool-detail .mine')).toBe(mine);
     });
 
     it('replaces it when what it draws changed shape', () => {

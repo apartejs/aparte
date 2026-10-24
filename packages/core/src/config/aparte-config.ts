@@ -1398,8 +1398,12 @@ export class AparteConfig {
         // `hidden`, `open`, `details` and `quiet` change ELEMENTS (a row becomes a
         // placeholder, a disclosure opens or goes, the line changes shape), which a relabel
         // does not do: the messages on screen are drawn again. A label, an icon or a summary
-        // only relabels, keeping what the reader opened.
-        if (ELEMENT_SHAPING.some((field) => before?.[field] !== next[field])) bumpRenderingVersion(this);
+        // only relabels, keeping what the reader opened. And a NEW entry is used whole by
+        // the tools it names, so it can take a quiet line or a hidden row away from them
+        // while saying nothing of either: it redraws when another entry shapes rows.
+        const shapes = ELEMENT_SHAPING.some((field) => before?.[field] !== next[field])
+            || (before === undefined && this._anotherShapes(next));
+        if (shapes) bumpRenderingVersion(this);
         this._notify();
     }
 
@@ -1407,8 +1411,16 @@ export class AparteConfig {
     unregisterToolDisplay(match: AparteToolMatcher): void {
         const before = this._toolDisplays.get(match);
         this._toolDisplays.delete(match);
-        if (ELEMENT_SHAPING.some((field) => before?.[field] !== undefined)) bumpRenderingVersion(this);
+        // Dropping an entry hands its tools to a less specific one, which may shape them.
+        const shapes = ELEMENT_SHAPING.some((field) => before?.[field] !== undefined)
+            || (before !== undefined && this._anotherShapes(before));
+        if (shapes) bumpRenderingVersion(this);
         this._notify();
+    }
+
+    /** Whether an entry other than `own` sets a field that shapes a row. */
+    private _anotherShapes(own: AparteToolDisplay): boolean {
+        return this._toolDisplays.values().some((entry) => entry !== own && ELEMENT_SHAPING.some((field) => entry[field] !== undefined));
     }
 
     /** How a tool named `toolName` is shown — the entry that applies to it — or undefined. */

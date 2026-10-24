@@ -148,11 +148,14 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
      * read from the CHAT's config, the one that opened the block on insert: a client on the
      * global config also answers a chat with its own, and reading the client's here snapped
      * an open block shut at the first answer token. Once per block.
+     *
+     * `fold` only at the answer: a tool call or a new step settles the block without
+     * closing one the reader opened to watch it — the answer is the moment it gives way.
      */
-    const settleThinking = (): void => {
+    const settleThinking = (fold: boolean): void => {
         if (!thinkingId || thinkingCollapsed) return;
         const chatConfig = typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config;
-        const keepOpen = chatConfig.getSegmentDefaults('thinking')?.collapsed === false;
+        const keepOpen = !fold || chatConfig.getSegmentDefaults('thinking')?.collapsed === false;
         target.updateSegment?.(thinkingId, keepOpen ? { isStreaming: false } : { collapsed: true, isStreaming: false });
         thinkingCollapsed = true;
     };
@@ -164,6 +167,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'turn-start':
+                // A step that was reasoning only (an AG-UI run that finished on it) ends here.
+                settleThinking(false);
                 parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
                 streaming = new Set();
                 thinkingId = null;
@@ -198,7 +203,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'text-delta': {
                 // Collapse the thinking block when response text starts.
-                settleThinking();
+                settleThinking(true);
                 const result = parser.parse(e.delta);
                 for (const segment of result.segments) {
                     if (!streaming.has(segment.id)) {
@@ -235,7 +240,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'tool-start': {
                 // A call ends the reasoning before it, as answer text does.
-                settleThinking();
+                settleThinking(false);
                 const toolSeg: AparteToolCallSegment = {
                     id: `tool-${e.toolCallId}`,
                     type: 'tool_call',

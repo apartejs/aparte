@@ -11,7 +11,7 @@
  * matches, else `'*'` — so `'*'` reads "every tool nothing more specific describes".
  */
 import { describe, it, expect, vi } from 'vitest';
-import { AparteConfig } from '../aparte-config.js';
+import { AparteConfig, renderingVersionOf } from '../aparte-config.js';
 import type { AparteToolCallSegment } from '../../types/index.js';
 
 const label = (config: AparteConfig, name: string) => config.getToolDisplay(name)?.label;
@@ -137,5 +137,32 @@ describe('a call with no name', () => {
         expect(() => config.getToolRenderer(undefined as never)).not.toThrow();
         expect(config.getToolRenderer(undefined as never)).toBeUndefined();
         expect(config.isToolHidden(undefined as never)).toBe(false);
+    });
+});
+
+describe('a new entry that changes what applies', () => {
+    it('redraws when it shadows an entry that shapes the row: a label for one tool under a quiet *', () => {
+        const config = new AparteConfig();
+        config.registerToolDisplay('*', { quiet: true, details: false });
+        const before = renderingVersionOf(config);
+        // web_search now resolves to this entry, whole: no longer quiet, its raw detail back.
+        config.registerToolDisplay('web_search', { label: 'Web search' });
+        expect(renderingVersionOf(config)).toBeGreaterThan(before);
+    });
+
+    it('only relabels when nothing else shapes a row', () => {
+        const config = new AparteConfig();
+        const before = renderingVersionOf(config);
+        config.registerToolDisplay('web_search', { label: 'Web search' });
+        expect(renderingVersionOf(config)).toBe(before);
+    });
+
+    it('redraws when dropping an entry uncovers one that shapes the row', () => {
+        const config = new AparteConfig();
+        config.registerToolDisplay('*', { hidden: true });
+        config.registerToolDisplay('web_search', { label: 'Web search' });
+        const before = renderingVersionOf(config);
+        config.unregisterToolDisplay('web_search');
+        expect(renderingVersionOf(config)).toBeGreaterThan(before);
     });
 });

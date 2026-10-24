@@ -134,21 +134,47 @@ function setBody(element: Element, body: HTMLElement | string): void {
     if (!detail) return;
     if (typeof body === 'string') detail.innerHTML = body;
     else detail.replaceChildren(body);
+    drawnBodies.set(detail, serialized(body));
 }
 
 /**
- * On a language switch, what the app's function draws now, written into the nodes already
- * there. The relabel contract adds and removes no node, because the viewport reads such a
- * change as content arriving: the same shape, translated, is patched text by text and
- * attribute by attribute; an unchanged one is not touched at all. Only a detail whose SHAPE
- * changed is replaced, which a language switch rarely does.
+ * What the app's function last drew into a detail, as markup: the base the next relabel
+ * compares against. Not the live DOM — that also holds what the reader opened and what the
+ * app's own code changed since, which a relabel must not undo.
+ */
+const drawnBodies = new WeakMap<Element, string>();
+
+const serialized = (body: HTMLElement | string): string => (typeof body === 'string' ? body : body.outerHTML);
+
+/**
+ * On a config change (a language switch, but also a model picked in the selector), what
+ * the app's function draws now, merged into the nodes already there.
+ *
+ * Three ways: what it drew last time, what it draws now, and what is on screen. Unchanged
+ * output touches nothing — so a model switch leaves the detail exactly as the reader and
+ * the app left it. Changed words or attributes are written where they changed, and only
+ * there: a nested disclosure the reader opened, a class the app's code set, stay. The
+ * relabel contract adds and removes no node (the viewport reads that as content arriving),
+ * so only a detail whose SHAPE changed — between the two drawings, or on screen since — is
+ * replaced, which a language switch rarely does. An element the function hands back that
+ * is already in place is the app's to manage, and left alone.
  */
 function relabelBody(detail: Element, body: HTMLElement | string): void {
+    if (typeof body !== 'string' && detail.contains(body)) {
+        drawnBodies.set(detail, body.outerHTML);
+        return;
+    }
+    const before = drawnBodies.get(detail);
+    const now = serialized(body);
+    if (before === now) return;
     const next = document.createElement('div');
     if (typeof body === 'string') next.innerHTML = body;
     else next.append(body);
-    if (sameShape(detail, next)) copyInto(detail, next);
+    const prev = document.createElement('div');
+    if (before !== undefined) prev.innerHTML = before;
+    if (before !== undefined && sameShape(prev, next) && sameShape(prev, detail)) patchChanges(detail, prev, next);
     else detail.replaceChildren(...Array.from(next.childNodes));
+    drawnBodies.set(detail, now);
 }
 
 /** Whether two trees have the same nodes, of the same kinds and tags, in the same order. */
@@ -162,21 +188,26 @@ function sameShape(a: Node, b: Node): boolean {
     return true;
 }
 
-/** Copy `b`'s text and attributes onto `a`, node for node — two trees of the same shape. */
-function copyInto(a: Node, b: Node): void {
-    for (let i = 0; i < a.childNodes.length; i++) {
-        const x = a.childNodes[i]!;
-        const y = b.childNodes[i]!;
-        if (x instanceof Element && y instanceof Element) {
-            for (const { name, value } of Array.from(y.attributes)) {
-                if (x.getAttribute(name) !== value) x.setAttribute(name, value);
+/**
+ * Write onto `live` what changed from `prev` to `next`, node for node — three trees of the
+ * same shape. A text or an attribute `prev` and `next` agree on is not written, whatever
+ * `live` holds now.
+ */
+function patchChanges(live: Node, prev: Node, next: Node): void {
+    for (let i = 0; i < live.childNodes.length; i++) {
+        const l = live.childNodes[i]!;
+        const p = prev.childNodes[i]!;
+        const n = next.childNodes[i]!;
+        if (l instanceof Element && p instanceof Element && n instanceof Element) {
+            for (const { name, value } of Array.from(n.attributes)) {
+                if (p.getAttribute(name) !== value) l.setAttribute(name, value);
             }
-            for (const { name } of Array.from(x.attributes)) {
-                if (!y.hasAttribute(name)) x.removeAttribute(name);
+            for (const { name } of Array.from(p.attributes)) {
+                if (!n.hasAttribute(name)) l.removeAttribute(name);
             }
-            copyInto(x, y);
-        } else if (x.nodeValue !== y.nodeValue) {
-            x.nodeValue = y.nodeValue;
+            patchChanges(l, p, n);
+        } else if (p.nodeValue !== n.nodeValue) {
+            l.nodeValue = n.nodeValue;
         }
     }
 }
@@ -371,6 +402,10 @@ function quietOf(segment: AparteToolCallSegment): { shimmer: boolean; spinner: b
 /** Apply `quietOf` to a row already drawn. */
 function setQuiet(element: Element, segment: AparteToolCallSegment): void {
     const quiet = quietOf(segment);
+    // The row's own mark too: a display that gains or drops `quiet` while its bubble
+    // streams is patched before the bubble's redraw, and the chevron and the target's font
+    // read this attribute.
+    element.toggleAttribute('data-quiet', isQuiet(segment));
     // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can read, and
     // jsdom has no layout to ask. Same treatment as the cancel button.
     element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', !quiet.spinner);
@@ -675,6 +710,9 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             tpl.innerHTML = typeof out === 'string' ? out.trim() : '';
             const rebuilt = (typeof out === 'string' ? tpl.content.firstElementChild : out) as HTMLElement | null;
             if (rebuilt) {
+                // The bubble stamps a renderer's root on its own render; this path must too,
+                // or the next update misses the row and the whole bubble is drawn again.
+                if (!rebuilt.hasAttribute('data-segment-id')) rebuilt.setAttribute('data-segment-id', segment.id);
                 element.replaceWith(rebuilt);
                 toolCallRenderer.setup?.(rebuilt, segment);
             }
