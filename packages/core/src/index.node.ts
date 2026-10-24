@@ -108,6 +108,8 @@ export type {
     AparteToolRenderer,
     AparteToolSummary,
     AparteToolInputFormatter,
+    AparteToolMatcher,
+    AparteToolDisplay,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,

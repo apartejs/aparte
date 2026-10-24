@@ -180,6 +180,45 @@ export type AparteToolSummary = (segment: AparteToolCallSegment) => string;
 export type AparteToolInputFormatter = (input: Record<string, unknown>) => string;
 
 /**
+ * Which tools a registration names: one exact name, a RegExp tested against the name
+ * (`name.search(re) !== -1`, so a `g` flag is harmless), or `'*'` for every tool nothing
+ * more specific describes.
+ */
+export type AparteToolMatcher = string | RegExp;
+
+/**
+ * How a tool's calls are shown — registered with `registerToolDisplay(matcher, display)`.
+ *
+ * Every field is optional; what is left out keeps core's default row. The tool's NAME is
+ * the app's wire format and core never turns it into words on its own: `label` is how an
+ * app gives a person something better to read than `web_search`.
+ */
+export interface AparteToolDisplay {
+    /**
+     * What the row and the approval question call the tool, in place of its identifier.
+     * Plain text, never HTML. A function reads the call (its status, its input); one that
+     * throws falls back to the identifier.
+     */
+    label?: string | ((segment: AparteToolCallSegment) => string);
+    /**
+     * The row's glyph: an icon-provider key (`file`, `edit`, `terminal`… — or `search`,
+     * `globe` from `@aparte/core/icons` once registered). Unknown keys fall back to `tool`.
+     */
+    icon?: string;
+    /** What the call targets, after the label — see {@link AparteToolSummary}. */
+    summary?: AparteToolSummary;
+    /** The arguments as a person reads them — see {@link AparteToolInputFormatter}. */
+    formatInput?: AparteToolInputFormatter;
+    /**
+     * Draw nothing for these calls. The call stays in the message, in storage and in the
+     * model's history; an approval it needs is still asked.
+     */
+    hidden?: boolean;
+    /** Open the row's disclosure by default (a segment's own `collapsed` wins). */
+    open?: boolean;
+}
+
+/**
  * Per-tool segment renderer.
  * Registered via aparteGlobalConfig.registerToolRenderer(toolName, renderer).
  * When the AI calls a tool, this renderer controls what appears in the bubble
