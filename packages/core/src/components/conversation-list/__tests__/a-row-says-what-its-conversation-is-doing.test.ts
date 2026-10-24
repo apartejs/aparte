@@ -103,3 +103,34 @@ describe('a conversation row and its state', () => {
         await vi.waitFor(() => expect(heard(el, 'c1')).toBe('Réponse en cours'));
     });
 });
+
+describe('a conversation row\'s state, as it is drawn', async () => {
+    const { readAparteStylesheet } = await import('../../../__tests__/read-stylesheet.js');
+    const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, ' ');
+    const blockAfter = (pattern: RegExp): string => {
+        const m = css.match(pattern);
+        expect(m, String(pattern)).not.toBeNull();
+        const at = css.indexOf('{', m!.index!);
+        return css.slice(at, css.indexOf('}', at));
+    };
+
+    it('keeps a running title readable on a lifted row: the shimmer\'s base is not the muted ink there', () => {
+        // Muted ink on the active / hovered row's ground is 4.23:1, an AA failure the row's
+        // own hover rule exists to avoid; a running conversation is almost always the active one.
+        const lifted = blockAfter(/\.aparte-conv-item--active[^{]*\.aparte-conv-item__title[^{]*\{|\.aparte-conv-item:hover[^{]*,[^{]*\.aparte-conv-item--active[^{]*\{/);
+        expect(lifted).toMatch(/--aparte-shimmer-base:/);
+    });
+
+    it('draws the waiting mark in an ink that holds 3:1, and a shape that survives forced colours', () => {
+        expect(blockAfter(/\.aparte-conv-item__status\s*\{/)).toMatch(/background:\s*var\(--aparte-primary-ink\)/);
+        const forced = css.slice(css.search(/@media\s*\(forced-colors:\s*active\)\s*\{[^@]*\.aparte-conv-item__status/));
+        expect(forced).toMatch(/\.aparte-conv-item__status[^{]*\{[^}]*border:/);
+    });
+
+    it('marks a running row with the dot where the shimmer cannot say it: forced colours, reduced motion', () => {
+        for (const media of ['forced-colors:\\s*active', 'prefers-reduced-motion:\\s*reduce']) {
+            const at = css.search(new RegExp(`@media\\s*\\(${media}\\)\\s*\\{[^@]*\\.aparte-conv-item\\[data-status="running"\\]\\s*\\.aparte-conv-item__status`));
+            expect(at, media).toBeGreaterThan(-1);
+        }
+    });
+});

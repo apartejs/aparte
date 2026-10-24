@@ -45,6 +45,18 @@ describe('the shimmer recipe', () => {
         expect(supported).toMatch(/var\(--aparte-shimmer-shine\)/);
     });
 
+    it('has something behind every letter at every point of the sweep', () => {
+        // The text fill is transparent, so a glyph shows only the background behind it. A
+        // 200%-wide gradient that does not repeat leaves half the box bare at both ends of
+        // the travel: half the label vanished at the start and end of every loop.
+        const supported = atRules(/\([^{]*background-clip:\s*text[^{]*\)/).join(' ');
+        expect(supported).not.toMatch(/background-repeat:\s*no-repeat/);
+    });
+
+    it('sweeps from the start edge in a right-to-left text too', () => {
+        expect(css).toMatch(/\.aparte-shimmer:dir\(rtl\)\s*\{[^}]*animation-direction:\s*reverse/);
+    });
+
     it('holds still under reduced motion, as plain text', () => {
         const still = atRules(/\(prefers-reduced-motion:\s*reduce\)/).filter((b) => b.includes('.aparte-shimmer')).join(' ');
         expect(still).toMatch(/animation:\s*none/);

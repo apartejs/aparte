@@ -27,13 +27,22 @@
       var(--aparte-shimmer-shine) 50%,
       var(--aparte-shimmer-base) 60%
     );
+    /* Repeating, not `no-repeat`: the fill is transparent, so a letter shows only what is
+       behind it, and a 200%-wide gradient that does not repeat leaves half the box bare at
+       both ends of its travel — half the label vanished at the start and end of every
+       loop. The travel is one tile wide, so the repeat is seamless. */
     background-size: 200% 100%;
-    background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: aparte-shimmer var(--aparte-duration-shimmer) linear infinite;
   }
+}
+
+/* The light enters at the START edge, which a gradient's physical positions do not
+   follow: in a right-to-left text the sweep runs the other way. */
+.aparte-shimmer:dir(rtl) {
+  animation-direction: reverse;
 }
 
 /* The loop stops outright, as every looping recipe here does: the reset of the

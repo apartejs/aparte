@@ -115,10 +115,38 @@
   height: var(--aparte-status-dot-size);
   margin-inline-start: var(--aparte-space-2);
   border-radius: var(--aparte-radius-full);
-  background: var(--aparte-primary);
+  /* The ink the selection bar uses: the plain primary is 2.7:1 on a lifted row, under
+     the 3:1 a mark that says something needs (SC 1.4.11). */
+  background: var(--aparte-primary-ink);
 }
 .aparte-conv-item[data-status="waiting"] .aparte-conv-item__status {
   display: block;
+}
+/* A running title on a LIFTED row — active, hovered, focused: the shimmer's base is the
+   muted ink, 4.23:1 on that ground (the AA failure the hover rule above exists to avoid),
+   and the running conversation is almost always the active one. Its base moves toward
+   the full ink there, which the sweep still reads against. */
+.aparte-conv-item:hover .aparte-conv-item__title,
+.aparte-conv-item--active .aparte-conv-item__title,
+.aparte-conv-item:has(.aparte-conv-item__select:focus-visible) .aparte-conv-item__title {
+  --aparte-shimmer-base: color-mix(in srgb, var(--aparte-text-muted) 70%, var(--aparte-text));
+}
+/* Where the shimmer cannot say "running" — it is plain text in forced colours and still
+   under reduced motion — the mark says it, for running as for waiting. And in forced
+   colours a dot made of a background alone is dropped: a border keeps its shape
+   (display/badge.css does the same). */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-conv-item[data-status="running"] .aparte-conv-item__status {
+    display: block;
+  }
+}
+@media (forced-colors: active) {
+  .aparte-conv-item__status {
+    border: var(--aparte-border-width) solid currentColor;
+  }
+  .aparte-conv-item[data-status="running"] .aparte-conv-item__status {
+    display: block;
+  }
 }
 
 /* The conversation you are in wears the mark's bar (display/mark.css) on its start
