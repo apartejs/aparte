@@ -64,6 +64,13 @@ describe('between two steps', () => {
         expect(dots(el)).toBe(false);
     });
 
+    it('none for a hidden call waiting for approval either, even in an otherwise empty reply', () => {
+        aparteGlobalConfig.registerToolDisplay('internal_log', { hidden: true });
+        const el = streamingBubble();
+        el.addSegment(call('awaiting-approval', 'internal_log'));
+        expect(dots(el)).toBe(false);
+    });
+
     it('dots while a hidden call runs — the reader sees nothing else working', () => {
         aparteGlobalConfig.registerToolDisplay('internal_log', { hidden: true });
         const el = streamingBubble();

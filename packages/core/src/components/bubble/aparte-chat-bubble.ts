@@ -984,10 +984,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // person is asked: nothing comes until they answer.
     const last = this._segments.at(-1);
     const lastEl = this._segmentsEl?.lastElementChild as HTMLElement | null | undefined;
-    const betweenSteps = last?.type === 'tool_call'
-      && (last as AparteToolCallSegment).status !== 'awaiting-approval'
-      && (isSegmentSettled(last) || lastEl?.hidden === true);
-    const waiting = this._streaming && this._role !== 'user' && (empty || betweenSteps);
+    // A call waiting for approval is a person being asked — hidden or not, an empty reply
+    // included: nothing comes until they answer.
+    const asking = last?.type === 'tool_call' && (last as AparteToolCallSegment).status === 'awaiting-approval';
+    const betweenSteps = last?.type === 'tool_call' && (isSegmentSettled(last) || lastEl?.hidden === true);
+    const waiting = this._streaming && this._role !== 'user' && !asking && (empty || betweenSteps);
 
     // The painted box is hidden when it has nothing to paint. It carries the user
     // bubble's background, padding and radius, so an empty one is a coloured
