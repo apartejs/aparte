@@ -52,11 +52,20 @@ function labelOf(segment: AparteThinkingSegment): string {
     return cfg.t('thoughtFor').replace('{duration}', () => formatDuration(ms, cfg.getLocale().tag || undefined));
 }
 
+/**
+ * Whether the block is arriving now, for the shimmer on its label: the streaming flag the
+ * viewport and the parser set as text comes in. `true` only — a block written by hand or
+ * restored from storage never streamed here, and a light sweeping across it would say it
+ * is still running when nothing is.
+ */
+const arriving = (segment: AparteThinkingSegment): boolean => segment.isStreaming === true;
+
 /** Write the label where it shows, and where the panel is named after it. */
 function setLabel(el: Element, segment: AparteThinkingSegment): void {
     const text = labelOf(segment);
     const label = el.querySelector('.aparte-thinking-label');
     if (label && label.textContent !== text) label.textContent = text;
+    label?.classList.toggle('aparte-shimmer', arriving(segment));
     el.querySelector('.aparte-thinking-content')?.setAttribute('aria-label', text);
 }
 
@@ -90,7 +99,7 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * only part that is genuinely about reasoning rather than about disclosure.
      * `.aparte-thinking-label` stays too: `relabel` below queries it.
      */
-    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(labelOf(segment))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(labelOf(segment))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label${escapeAttr(arriving(segment) ? ' aparte-shimmer' : '')}">${escapeHtml(labelOf(segment))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(labelOf(segment))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.
