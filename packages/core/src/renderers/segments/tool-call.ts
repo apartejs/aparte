@@ -347,6 +347,37 @@ function iconOf(segment: AparteToolCallSegment): string {
     return (key ? cfg.getIcon(key) : undefined) || cfg.getIcon('tool');
 }
 
+/** Whether the tool's display asks for the quiet line, a person's (`quiet`). */
+const isQuiet = (segment: AparteToolCallSegment): boolean =>
+    contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.quiet === true;
+
+/**
+ * What the row shows of its state, quiet or not — one answer for `render`, `update` and
+ * `relabel`, so the three cannot disagree. The default row: the spinner while it runs and
+ * every word. A quiet one: the label shimmers while it runs, and the word for "running" and
+ * "done" leaves the screen (the label's tense says it) but stays for a screen reader. A
+ * wait, a refusal, a failure and a stop show as on any row: those a person must know.
+ */
+function quietOf(segment: AparteToolCallSegment): { shimmer: boolean; spinner: boolean; stateHidden: boolean } {
+    const status = segment.status ?? 'pending';
+    const quiet = isQuiet(segment);
+    return {
+        shimmer: quiet && status === 'pending',
+        spinner: !quiet && status === 'pending',
+        stateHidden: quiet && (status === 'pending' || status === 'resolved'),
+    };
+}
+
+/** Apply `quietOf` to a row already drawn. */
+function setQuiet(element: Element, segment: AparteToolCallSegment): void {
+    const quiet = quietOf(segment);
+    // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can read, and
+    // jsdom has no layout to ask. Same treatment as the cancel button.
+    element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', !quiet.spinner);
+    element.querySelector('.aparte-tool-name')?.classList.toggle('aparte-shimmer', quiet.shimmer);
+    element.querySelector('.aparte-tool-state')?.classList.toggle('aparte-sr-only', quiet.stateHidden);
+}
+
 /** Write the name into its container: a label function may read the status, so `update` calls it too. */
 function setName(element: Element, segment: AparteToolCallSegment): void {
     const el = element.querySelector('.aparte-tool-name');
@@ -364,20 +395,21 @@ function setName(element: Element, segment: AparteToolCallSegment): void {
  * literal and rendered as visible text in the bubble — the exact trap this file's
  * `getStyles` block warns about, walked into one edit later.
  */
-function pillMarkup(segment: AparteToolCallSegment, status: string): string {
+function pillMarkup(segment: AparteToolCallSegment): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment);
     const note = noteOf(segment);
     const name = nameOf(segment);
+    const quiet = quietOf(segment);
     return `
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${icon}</span>
-                    <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}">${escapeHtml(name.text)}</span>
+                    <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}${quiet.shimmer ? ' aparte-shimmer' : ''}">${escapeHtml(name.text)}</span>
                     <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
                 </span>
-                <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
-                <span class="aparte-tool-state">${badge}</span>
+                <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${quiet.spinner ? '' : ' hidden'}></span>
+                <span class="aparte-tool-state${quiet.stateHidden ? ' aparte-sr-only' : ''}">${badge}</span>
                 <span class="aparte-tool-note"${note ? ` title="${escapeAttr(note)}"` : ' hidden'}>${escapeHtml(note)}</span>`;
 }
 
@@ -416,7 +448,9 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElemen
      * spinner is always in the DOM and CSS shows it only while `pending`, and the
      * status slot is one element whose CONTENT is the waiting label or the glyph.
      */
-    const pill = pillMarkup(segment, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+    const pill = pillMarkup(segment);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+    // The quiet line, for a stylesheet: the target in the chat's font, the chevron at the end.
+    const quiet = isQuiet(segment) ? ' data-quiet' : '';
     const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
 
     /*
@@ -444,7 +478,7 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElemen
     const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
     if (behind.kind === 'none' || (behind.kind === 'parts' && !input && !outcome)) {
         return `
-        <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"><div class="aparte-tool-line">${pill}</div>
+        <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}><div class="aparte-tool-line">${pill}</div>
         </div>
     `;
     }
@@ -459,7 +493,7 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElemen
         // nothing of it goes through a string.
         const tpl = document.createElement('template');
         tpl.innerHTML = `
-        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
+        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${open ? ' open' : ''}>
             <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
             <div class="aparte-tool-detail" data-details="app"></div>
         </details>`.trim();
@@ -468,7 +502,7 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElemen
         return row;
     }
     return `
-        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${open ? ' open' : ''}>
+        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${open ? ' open' : ''}>
             <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
             <div class="aparte-tool-detail">
                 ${input ? `
@@ -583,6 +617,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // returns the localized `approvalWaiting` for that status.
         const statusEl = element.querySelector('.aparte-tool-state');
         if (statusEl) statusEl.innerHTML = stateBadge(segment);
+        setQuiet(element, segment);
     },
     /**
      * Patch in place. NEVER re-render, and never touch `open`.
@@ -663,9 +698,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         element.setAttribute('data-status', status);
         const badge = element.querySelector('.aparte-tool-state');
         if (badge) badge.innerHTML = stateBadge(segment);
-        // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can
-        // read, and jsdom has no layout to ask. Same treatment as the cancel button.
-        element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
+        setQuiet(element, segment);
         setName(element, segment);
         setTarget(element, segment);
         setNote(element, segment);

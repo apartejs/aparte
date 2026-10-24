@@ -158,6 +158,16 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     font-weight: var(--aparte-font-weight-normal);
     color: var(--aparte-text-muted);
 }
+/* The quiet line (registerToolDisplay `quiet`), the one a person reads: what the call is
+   about in the chat's own font — a search's words are not code — and the chevron at the
+   end of the line, where chat apps put it, so every icon of a turn starts on the same
+   edge whether or not its row opens. */
+.aparte-segment-tool-call[data-quiet] .aparte-tool-target {
+    font-family: inherit;
+}
+.aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
+    order: 1;
+}
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
    the placement rule this repo already settled on: no left/right in a name, so

@@ -141,6 +141,9 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
     renderingVersions.set(cfg, renderingVersionOf(cfg) + 1);
 }
 
+/** The fields of a tool display that change a row's ELEMENT, so registering one redraws. */
+const ELEMENT_SHAPING = ['hidden', 'open', 'details', 'quiet'] as const satisfies readonly (keyof AparteToolDisplay)[];
+
 /**
  * A provider's drawing for `name`, own or inherited — a provider may be a class — but never
  * one `Object.prototype` lends every object (`toString`, `constructor`).
@@ -1392,11 +1395,11 @@ export class AparteConfig {
         const before = this._toolDisplays.get(match);
         const next = { ...before, ...display };
         this._toolDisplays.set(match, next);
-        // `hidden`, `open` and `details` change ELEMENTS (a row becomes a placeholder, a
-        // disclosure opens or goes), which a relabel does not do: the messages on screen
-        // are drawn again. A label, an icon or a summary only relabels, keeping what the
-        // reader opened.
-        if (before?.hidden !== next.hidden || before?.open !== next.open || before?.details !== next.details) bumpRenderingVersion(this);
+        // `hidden`, `open`, `details` and `quiet` change ELEMENTS (a row becomes a
+        // placeholder, a disclosure opens or goes, the line changes shape), which a relabel
+        // does not do: the messages on screen are drawn again. A label, an icon or a summary
+        // only relabels, keeping what the reader opened.
+        if (ELEMENT_SHAPING.some((field) => before?.[field] !== next[field])) bumpRenderingVersion(this);
         this._notify();
     }
 
@@ -1404,7 +1407,7 @@ export class AparteConfig {
     unregisterToolDisplay(match: AparteToolMatcher): void {
         const before = this._toolDisplays.get(match);
         this._toolDisplays.delete(match);
-        if (before?.hidden !== undefined || before?.open !== undefined || before?.details !== undefined) bumpRenderingVersion(this);
+        if (ELEMENT_SHAPING.some((field) => before?.[field] !== undefined)) bumpRenderingVersion(this);
         this._notify();
     }
 

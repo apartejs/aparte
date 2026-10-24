@@ -225,6 +225,17 @@ export interface AparteToolDisplay {
      * Input and Output — see {@link AparteToolDetails}.
      */
     details?: false | AparteToolDetails;
+    /**
+     * The line a person reads in a conversational chat, where the default is an agent's.
+     * While the call runs, the label shimmers (`aparte-shimmer`) instead of a spinner and
+     * "Running"; once it is done, nothing marks success — the label's tense says it, so
+     * write one that reads the status ("Searching the web…" / "Searched the web"). A wait
+     * for approval, a refusal, a failure and a stop still show their word and note. The
+     * words it does not show are still read by a screen reader. The target is set in the
+     * chat's font and the chevron moves to the end of the line; the row carries
+     * `data-quiet` for a stylesheet of your own.
+     */
+    quiet?: boolean;
 }
 
 /**

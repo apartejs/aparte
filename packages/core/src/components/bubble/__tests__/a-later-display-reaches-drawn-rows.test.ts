@@ -77,6 +77,17 @@ describe('a display registered after the rows are drawn', () => {
         expect(row(el).querySelector('.aparte-tool-part')).toBeNull();
     });
 
+    it('makes a row already on screen quiet, and loud again when unregistered', async () => {
+        const el = drawn();
+        aparteGlobalConfig.registerToolDisplay('*', { quiet: true });
+        await settle();
+        expect(row(el).hasAttribute('data-quiet')).toBe(true);
+        expect(row(el).querySelector('.aparte-tool-state')?.classList.contains('aparte-sr-only')).toBe(true);
+        aparteGlobalConfig.unregisterToolDisplay('*');
+        await settle();
+        expect(row(el).hasAttribute('data-quiet')).toBe(false);
+    });
+
     it('a label change only relabels: the element the reader opened stays', async () => {
         const el = drawn();
         const before = row(el) as HTMLDetailsElement;
