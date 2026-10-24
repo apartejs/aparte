@@ -192,6 +192,7 @@ async function run(): Promise<SiteSetup> {
     //    `&agui-framing=relaxed`: an agent that frames its runs its own way — TanStack AI, a
     //    RUN_FINISHED per model step — read through the runner's `relaxedRunFraming`.
     const agUiRelaxed = new URLSearchParams(location.search).get('agui-framing') === 'relaxed';
+    const agUiRunner = agUiUrl ? createAgUiRunner({ endpoint: agUiUrl, relaxedRunFraming: agUiRelaxed }) : undefined;
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {
@@ -296,7 +297,7 @@ async function run(): Promise<SiteSetup> {
     //    asserts. Wired here because a capability with no in-repo consumer is a
     //    contract maintained for nobody (ratified decision #7).
     const client = new AparteClient({
-        streamRunner: agUiUrl ? createAgUiRunner({ endpoint: agUiUrl, relaxedRunFraming: agUiRelaxed }) : agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent,
+        streamRunner: agUiRunner ?? (agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent),
         // The endpoint + token the settings hold, for ANY provider. The record form
         // (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint, and it
         // is honoured on both the chat and the /models path.
