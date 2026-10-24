@@ -287,6 +287,14 @@ export type AparteLocale = {
     questionDeclined?: string;
     /** `@aparte/plugin-artifacts`: a `create_artifact` call that was refused, stopped or failed (default: "Not created"). */
     artifactNotCreated?: string;
+    /**
+     * A settled reasoning block's label, with how long it took (default: "Thought for
+     * {duration}"). `{duration}` is formatted by `Intl` in the locale's `tag`: "8s",
+     * "1m 12s".
+     */
+    thoughtFor?: string;
+    /** A settled reasoning block's label when no timing came with it — history saved without it (default: "Thought"). */
+    thought?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -500,6 +508,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
     questionDeclined: "You declined to answer.",
     artifactNotCreated: "Not created",
+    thoughtFor: "Thought for {duration}",
+    thought: "Thought",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

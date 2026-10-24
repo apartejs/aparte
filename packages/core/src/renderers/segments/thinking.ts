@@ -7,6 +7,8 @@
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
+import { isSegmentSettled, segmentDuration } from '../../utils/segments.js';
+import { formatDuration } from '../../utils/format-duration.js';
 import {
     writeStreamedMarkdown,
     highlightMarkdownFences,
@@ -31,9 +33,26 @@ const THINKING_ANCHOR_SLACK = 24;
 /**
  * A block's own label, else the locale's. `'Thinking'` counts as none: streamed blocks carried
  * that English literal until 0.19.3, and a conversation saved then would keep it in every locale.
+ *
+ * The locale's label says where the block is: "Thinking" while it streams; once settled,
+ * how long it took ("Thought for 8s"), or "Thought" when no timing came with it — a block
+ * that finished must not read as one still running.
  */
 function labelOf(segment: AparteThinkingSegment): string {
-    return segment.label && segment.label !== 'Thinking' ? segment.label : contextConfig().t('thinking');
+    if (segment.label && segment.label !== 'Thinking') return segment.label;
+    const cfg = contextConfig();
+    if (!isSegmentSettled(segment)) return cfg.t('thinking');
+    const ms = segmentDuration(segment);
+    if (ms === undefined) return cfg.t('thought');
+    return cfg.t('thoughtFor').replace('{duration}', () => formatDuration(ms, cfg.getLocale().tag || undefined));
+}
+
+/** Write the label where it shows, and where the panel is named after it. */
+function setLabel(el: Element, segment: AparteThinkingSegment): void {
+    const text = labelOf(segment);
+    const label = el.querySelector('.aparte-thinking-label');
+    if (label && label.textContent !== text) label.textContent = text;
+    el.querySelector('.aparte-thinking-content')?.setAttribute('aria-label', text);
 }
 
 export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
@@ -71,13 +90,10 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.
      */
-    relabel: (el, segment) => {
-        const text = labelOf(segment);
-        const label = el.querySelector('.aparte-thinking-label');
-        if (label) label.textContent = text;
-        el.querySelector('.aparte-thinking-content')?.setAttribute('aria-label', text);
-    },
+    relabel: (el, segment) => setLabel(el, segment),
     update: (el, segment) => {
+        // The label follows the block: "Thinking" becomes its duration when it settles.
+        setLabel(el, segment);
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —
         // never override what the user set by clicking <summary>
         const contentEl = el.querySelector('.aparte-thinking-content');

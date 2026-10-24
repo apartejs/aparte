@@ -58,7 +58,9 @@ afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
 describe('relabel reaches a rendered segment', () => {
     it('the reasoning block’s default label', () => {
-        const el = mount([seg({ id: 's1', type: 'thinking', content: 'why', isStreaming: false })]);
+        // A block still thinking: settled, its label is its duration (`thoughtFor`),
+        // which thinking-duration.test.ts relabels.
+        const el = mount([seg({ id: 's1', type: 'thinking', content: 'why', isStreaming: true })]);
         const label = el.querySelector('.aparte-thinking-label')!;
 
         aparteGlobalConfig.setLocale(FR());

@@ -53,6 +53,8 @@ export const fr: AparteLocale = {
     maxTurnsReached: "Arrêté après {n} tours pour éviter une boucle sans fin.",
     questionDeclined: "Vous n'avez pas répondu.",
     artifactNotCreated: "Non créé",
+    thoughtFor: "Réflexion : {duration}",
+    thought: "Réflexion terminée",
     actionUpload: "Joindre un fichier",
     removeAttachment: "Retirer {name}",
     messageFrom: "Message de {name}",
