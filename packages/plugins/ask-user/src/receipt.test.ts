@@ -10,6 +10,7 @@
  * and eleven tests, exported and registered by nobody.
  */
 import { describe, it, expect } from 'vitest';
+import { aparteGlobalConfig } from '@aparte/core';
 import { buildReceipt, receiptRows } from './receipt.js';
 import { ASK_USER_DECLINED } from './ask-user.js';
 
@@ -121,7 +122,19 @@ describe('the record a question leaves in the transcript', () => {
         expect(el.querySelectorAll('.aparte-question-receipt')).toHaveLength(1);
         expect(el.querySelector('.aparte-question-receipt__question'), 'nothing to attribute').toBeNull();
         expect(el.querySelector('.aparte-question-receipt__sep'), 'nothing points at anything').toBeNull();
-        expect(el.querySelector('.aparte-question-receipt__answer--declined')!.textContent).toBe(ASK_USER_DECLINED);
+        // The person's line, in their language: ASK_USER_DECLINED is the sentence the MODEL reads.
+        expect(el.querySelector('.aparte-question-receipt__answer--declined')!.textContent).toBe('You declined to answer.');
+    });
+
+    it("a declined line speaks the chat's language", () => {
+        aparteGlobalConfig.extendLocale({ questionDeclined: "Vous n'avez pas répondu." });
+        try {
+            const el = buildReceipt({ input: { questions: [{ question: 'Couleur ?' }] }, result: ASK_USER_DECLINED });
+            expect(el.querySelector('.aparte-question-receipt__answer--declined')!.textContent).toBe("Vous n'avez pas répondu.");
+            expect(el.textContent).not.toContain(ASK_USER_DECLINED);
+        } finally {
+            aparteGlobalConfig.resetLocale();
+        }
     });
 
     it('survives a result that has fewer lines than questions', () => {

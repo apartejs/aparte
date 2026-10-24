@@ -12,7 +12,7 @@
  * arm's first natural line is a model-to-DOM XSS in the host page's origin.
  */
 
-import type { AparteToolCall } from '@aparte/core';
+import { contextConfig, type AparteToolCall } from '@aparte/core';
 import { ASK_USER_DECLINED } from './ask-user.js';
 
 /**
@@ -157,7 +157,9 @@ export function buildReceipt(call: ReceiptSource): HTMLElement {
 
         const a = document.createElement('span');
         a.className = 'aparte-tag__label ' + (row.declined ? 'aparte-question-receipt__answer--declined' : 'aparte-question-receipt__answer');
-        a.textContent = row.answer;
+        // A declined line is the PERSON's, in their language; `row.answer` is then the
+        // sentence the model reads (`ASK_USER_DECLINED`).
+        a.textContent = row.declined ? contextConfig().t('questionDeclined') : row.answer;
 
         card.appendChild(a);
         wrap.appendChild(card);

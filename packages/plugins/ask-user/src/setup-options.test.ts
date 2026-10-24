@@ -63,3 +63,24 @@ describe('setupAskUser', () => {
         expect(renderer!.render({} as never)).toBe('');
     });
 });
+
+describe('the receipt follows a language switch', () => {
+    it('relabels a declined line in place', async () => {
+        const { runWithConfig } = await import('@aparte/core');
+        const { ASK_USER_DECLINED } = await import('./ask-user.js');
+        const config = new AparteConfig();
+        setupAskUser({}, config);
+        const renderer = config.getToolRenderer('ask_user')!;
+        const segment = {
+            id: 's1', type: 'tool_call', messageId: 'm1', index: 0, status: 'resolved',
+            toolCall: { id: 'c1', name: 'ask_user', input: { questions: [{ question: 'Colour?' }] } },
+            result: ASK_USER_DECLINED,
+            structuredResult: { action: 'decline' },
+        } as never;
+        const el = runWithConfig(config, () => renderer.render(segment)) as HTMLElement;
+        expect(el.textContent).toBe('You declined to answer.');
+        config.extendLocale({ questionDeclined: 'Vous n’avez pas répondu.' });
+        runWithConfig(config, () => renderer.relabel!(el, segment));
+        expect(el.textContent).toBe('Vous n’avez pas répondu.');
+    });
+});

@@ -279,6 +279,12 @@ export type AparteLocale = {
      * (default: "Stopped after {n} turns to avoid an endless loop.").
      */
     maxTurnsReached?: string;
+    /**
+     * `@aparte/plugin-ask-user`: the receipt's line when the person declined to answer
+     * (default: "You declined to answer."). The model reads `ASK_USER_DECLINED`, its own
+     * sentence; this is the person's.
+     */
+    questionDeclined?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -490,6 +496,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolNoApprover: "No one could approve it",
     toolTurnLimit: "Turn limit reached",
     maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
+    questionDeclined: "You declined to answer.",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",
