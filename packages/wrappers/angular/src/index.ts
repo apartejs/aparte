@@ -9,6 +9,7 @@ export type { ProvideAparteOptions, ApartePluginLoader } from './lib/provide-apa
 
 // Components (standalone — import them directly).
 export { AparteChatComponent } from './lib/aparte-chat.component';
+export { AparteBubbleDirective } from './lib/aparte-bubble.directive';
 export { AparteUiComponent } from './lib/aparte-ui.component';
 export type { AparteUiHandle, AparteUiProps } from './lib/aparte-ui.component';
 

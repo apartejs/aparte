@@ -151,11 +151,11 @@ describe('the wrapper data-prop and render-hook proofs', () => {
         expect(DATA_PROP_PROOFS.svelte.proves(sabotaged, prop)).toBe(false);
     });
 
-    it('Angular: refuses `className`/`style` once the aliased `@Input` is removed', () => {
+    it('Angular: refuses `className`/`style` once the aliased input is removed', () => {
         const src = sources.angular;
         const sabotaged = src
-            .replace(/@Input\('containerClass'\) set containerClassInput\(val: string\) \{ this\.containerClass\.set\(val \?\? ''\); \}\n/, '')
-            .replace(/@Input\('containerStyle'\)[^\n]*\n/, '');
+            .replace(/readonly containerClass = input\([^\n]*\n/, '')
+            .replace(/readonly containerStyle = input\(null, \{[\s\S]*?\}\);\n/, '');
         expect(sabotaged, 'both aliased inputs were found and removed').not.toBe(src);
         const classNameProp = PROPS.find((p) => p.react === 'className')!;
         const styleProp = PROPS.find((p) => p.react === 'style')!;
@@ -177,9 +177,13 @@ describe('the wrapper data-prop and render-hook proofs', () => {
 
     it('Angular: refuses `renderBubble` when declared but never projected (DECLARED IS NOT DISPATCHED)', () => {
         const prop = PROPS.find((p) => p.react === 'renderBubble')!;
-        const sabotaged = sources.angular.replace('[ngTemplateOutlet]="bubbleTemplate"', '[ngTemplateOutlet]="null"');
+        const sabotaged = sources.angular.replace(
+            '[ngTemplateOutlet]="bubbleTemplate() ?? bubbleDirective()?.template ?? null"',
+            '[ngTemplateOutlet]="bubbleDirective()?.template ?? null"',
+        );
         expect(sabotaged).not.toBe(sources.angular);
-        // The @Input is still declared — only the projection was removed.
+        // The input is still declared — only its projection was removed (the content
+        // template still projects, which must not vouch for the input).
         expect(DATA_PROP_PROOFS.angular.proves(sources.angular, prop)).toBe(true);
         expect(DATA_PROP_PROOFS.angular.proves(sabotaged, prop)).toBe(false);
     });

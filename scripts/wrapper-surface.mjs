@@ -285,7 +285,7 @@ export const DATA_PROP_ALIASES = {
         // on the tag lands one level ABOVE the inner `.aparte-chat-container`
         // div that core's shell recipe keys on (`[overlay-composer]`,
         // `[data-aparte-empty]`) — it needed its own name, documented on the
-        // `@Input` itself in aparte-chat.component.ts.
+        // input itself in aparte-chat.component.ts.
         angular: 'containerClass',
     },
     style: {
@@ -299,7 +299,8 @@ export const DATA_PROP_ALIASES = {
         vue: 'bubble',
         svelte: 'bubble',
         // Angular has no per-message render-prop callback story; its
-        // idiom is a `TemplateRef` `@Input` projected with `ngTemplateOutlet`.
+        // idiom is a `TemplateRef` input projected with `ngTemplateOutlet` (the
+        // `<ng-template aparteBubble>` content form feeds the same outlet).
         angular: 'bubbleTemplate',
     },
 };
@@ -317,15 +318,20 @@ function svelteHasProp(src, name) {
 }
 
 /**
- * `@Input() name`, `@Input('name')`, or `@Input({ alias: 'name', … })` — the
- * three shapes this file's own `@Input`s use (a plain field, or a
- * `set nameInput(…)` behind an aliased name).
+ * The decorator shapes — `@Input() name`, `@Input('name')`, `@Input({ alias: 'name', … })`
+ * — and the signal ones the component uses now: a field of that name initialised with
+ * `input(…)` / `input.required(…)`, or any `input(…)` whose options carry
+ * `alias: 'name'` (the public name, when the field is named otherwise because a
+ * `linkedSignal` holds the value the template reads). The alias match stays inside one
+ * statement (`[^;]`), so an alias belonging to a neighbouring input cannot vouch for it.
  */
 function angularHasInput(src, name) {
     const s = stripComments(src);
     return new RegExp(`@Input\\(\\)\\s*${name}\\b`).test(s)
         || new RegExp(`@Input\\('${name}'\\)`).test(s)
-        || new RegExp(`@Input\\(\\{[^}]*alias:\\s*'${name}'`).test(s);
+        || new RegExp(`@Input\\(\\{[^}]*alias:\\s*'${name}'`).test(s)
+        || new RegExp(`\\b${name}\\s*=\\s*input(?:\\.required)?\\s*[<(]`).test(s)
+        || new RegExp(`\\binput(?:\\.required)?\\s*[<(][^;]*?\\balias:\\s*'${name}'`).test(s);
 }
 
 /** `<slot name="x">` (Vue and Svelte share this exact template syntax). */
@@ -396,8 +402,10 @@ export const DATA_PROP_PROOFS = {
             // unused, so also require an `ngTemplateOutlet` bound to THIS
             // input's name specifically — not just the string anywhere in the
             // file, which would still pass with the binding pointed at `null`.
+            // The binding may read the input as a field (`"bubbleTemplate"`) or as a
+            // signal (`"bubbleTemplate() ?? …"`): either way the outlet starts from it.
             if (p.kind === 'render-hook') {
-                return declared && new RegExp(`\\[ngTemplateOutlet\\]\\s*=\\s*"${name}"`).test(stripComments(src));
+                return declared && new RegExp(`\\[ngTemplateOutlet\\]\\s*=\\s*"${name}(?:\\(\\))?(?:"|\\s*\\?\\?)`).test(stripComments(src));
             }
             return declared;
         },

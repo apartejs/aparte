@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@angular/compiler';
-import { Component } from '@angular/core';
+import { Component, provideExperimentalZonelessChangeDetection, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { AparteChatComponent } from '../aparte-chat.component';
+import { AparteBubbleDirective } from '../aparte-bubble.directive';
 import { registerAllComponents, type AparteMessage } from '@aparte/core';
 import { AparteConfig, AparteConversationManager, resolveConfig, aparteGlobalConfig } from '@aparte/core';
 import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
@@ -93,6 +94,44 @@ class SlotHost { messages: AparteMessage[] = []; }
     template: `<aparte-chat [messages]="[]" centerWhenEmpty disabled></aparte-chat>`,
 })
 class BareBooleanAttrHost { }
+
+// Two-way binding, the Angular idiom for a list the chat both reads and reports.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [(messages)]="messages"></aparte-chat>`,
+})
+class TwoWayHost {
+    messages: AparteMessage[] = [{ id: '1', role: 'assistant', content: 'Hel', timestamp: 0 }];
+    readonly chat = viewChild.required(AparteChatComponent);
+}
+
+// The bubble template written as content, the Angular idiom for a per-item template.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, AparteBubbleDirective],
+    template: `
+      <aparte-chat [messages]="messages">
+        <ng-template aparteBubble let-message>
+          <div class="my-bubble" [attr.data-id]="message.id">{{ message.content }}</div>
+        </ng-template>
+      </aparte-chat>
+    `,
+})
+class BubbleDirectiveHost { messages: AparteMessage[] = []; }
+
+// Both forms at once: the input wins, as the docs promise.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, AparteBubbleDirective],
+    template: `
+      <aparte-chat [messages]="messages" [bubbleTemplate]="tpl">
+        <ng-template aparteBubble let-message><div class="from-directive">{{ message.content }}</div></ng-template>
+      </aparte-chat>
+      <ng-template #tpl let-message><div class="from-input">{{ message.content }}</div></ng-template>
+    `,
+})
+class BubbleBothHost { messages: AparteMessage[] = []; }
 
 // Mock browser APIs
 if (typeof window !== 'undefined' && typeof HTMLElement !== 'undefined' && !Object.prototype.hasOwnProperty.call(HTMLElement.prototype, 'scrollToBottom')) {
@@ -259,6 +298,56 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         expect(fixture.nativeElement.querySelector('.my-bubble')?.textContent?.trim()).toBe('Hello world');
+    });
+
+    it('an <ng-template aparteBubble> draws each message in place of the native bubble', async () => {
+        const fixture = TestBed.createComponent(BubbleDirectiveHost);
+        fixture.componentInstance.messages = mockMessages;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelectorAll('aparte-chat-bubble').length).toBe(0);
+        const custom = host.querySelectorAll('.my-bubble');
+        expect(custom.length).toBe(2);
+        expect(custom[1].getAttribute('data-id')).toBe('2');
+        expect(custom[1].textContent?.trim()).toBe('Hi there!');
+    });
+
+    it('[bubbleTemplate] wins over an <ng-template aparteBubble>', async () => {
+        const fixture = TestBed.createComponent(BubbleBothHost);
+        fixture.componentInstance.messages = mockMessages;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelectorAll('.from-input').length).toBe(2);
+        expect(host.querySelectorAll('.from-directive').length).toBe(0);
+    });
+
+    it('two-way [(messages)] carries a change the chat makes back to the parent', async () => {
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        fixture.componentInstance.chat().updateMessage('1', { content: 'Hello world' });
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(fixture.componentInstance.messages[0]?.content).toBe('Hello world');
+        expect(fixture.nativeElement.querySelector('aparte-chat-bubble')?.getAttribute('content')).toBe('Hello world');
+    });
+
+    it('a parent write to [messages] is drawn and emits nothing back', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const changed: AparteMessage[][] = [];
+        fixture.componentInstance.messagesChange.subscribe((m: AparteMessage[]) => changed.push(m));
+        fixture.componentRef.setInput('messages', mockMessages);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(fixture.nativeElement.querySelectorAll('aparte-chat-bubble').length).toBe(2);
+        expect(changed).toHaveLength(0);
     });
 
     it('projects custom composer content in place of the default shell', async () => {
@@ -890,7 +979,8 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
 
         const fixture = TestBed.createComponent(AparteChatComponent);
         const component = fixture.componentInstance;
-        component.config = cfg;
+        // A signal input: set through the component ref, the way Angular sets any input from code.
+        fixture.componentRef.setInput('config', cfg);
         fixture.detectChanges();
         await fixture.whenStable();
 
@@ -960,5 +1050,27 @@ describe('AparteChatComponent while a conversation is on its way', () => {
         (fixture.componentRef as any).setInput('loading', false);
         fixture.detectChanges();
         expect((fixture.nativeElement as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});
+
+// Angular 21 made zoneless the default for a new app. Nothing here may depend on zone.js
+// noticing a change: the chat's own writes have to schedule the render themselves.
+describe('AparteChatComponent under zoneless change detection', () => {
+    beforeEach(async () => {
+        await TestBed.configureTestingModule({
+            imports: [AparteChatComponent],
+            providers: [provideExperimentalZonelessChangeDetection()],
+        }).compileComponents();
+    });
+
+    it('draws a message the chat appends, with no zone to notice it', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        await fixture.whenStable();
+
+        fixture.componentInstance.appendMessage({ id: 'z1', role: 'user', content: 'hi', timestamp: 1 });
+        await fixture.whenStable();
+
+        expect(fixture.nativeElement.querySelectorAll('aparte-chat-bubble').length).toBe(1);
+        expect(fixture.nativeElement.querySelector('aparte-chat-bubble')?.getAttribute('message-id')).toBe('z1');
     });
 });
