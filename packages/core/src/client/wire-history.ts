@@ -10,7 +10,43 @@
  * with no `tool` message after it: a refusal sends its reason, a crash its error line,
  * and a call that never finished — stopped, still pending — a fixed sentence saying so.
  */
-import type { AparteChatMessage, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
+import type { AparteChatMessage, AparteContentPart, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
+
+/**
+ * Merge ADJACENT `user` messages into one, so the roles a model receives alternate.
+ *
+ * Strict chat templates (Gemma 2/3, Mistral, llama.cpp with `--jinja`, vLLM) reject two
+ * `user` turns in a row, and once one is in the history every following turn fails the
+ * same way. Two ordinary situations produce it: a compaction (the summary is a `user`
+ * message and the turns kept after it usually start with one), and a failed turn (its
+ * user message stays in the transcript, its error reply is not sent, and the user writes
+ * again).
+ *
+ * Only `user` is merged. A `system`, `assistant` or `tool` message carries structure
+ * (tool calls and the ids that answer them) that concatenating would destroy. Text joins
+ * with a blank line; parts concatenate with a text separator between them; a string
+ * beside parts becomes a text part, so an image keeps its place. A history that already
+ * alternates comes back as the same messages.
+ */
+export function mergeAdjacentUserMessages(messages: AparteChatMessage[]): AparteChatMessage[] {
+    const asParts = (c: AparteChatMessage['content']): AparteContentPart[] =>
+        typeof c === 'string' ? [{ type: 'text', text: c }] : c;
+    const out: AparteChatMessage[] = [];
+    for (const m of messages) {
+        const prev = out[out.length - 1];
+        if (m.role !== 'user' || prev?.role !== 'user') {
+            out.push(m);
+        } else if (typeof prev.content === 'string' && typeof m.content === 'string') {
+            out[out.length - 1] = { ...prev, content: `${prev.content}\n\n${m.content}` };
+        } else {
+            out[out.length - 1] = {
+                ...prev,
+                content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)],
+            };
+        }
+    }
+    return out;
+}
 
 /** The answer a call that never finished gives the model. */
 export const STOPPED_TOOL_TEXT = 'The tool call was stopped before it ran.';

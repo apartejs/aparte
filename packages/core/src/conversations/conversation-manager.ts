@@ -158,6 +158,14 @@ function treeContentOf(tree: ExportedMessageRepository): string {
     return stableStringify(byId.map((entry) => ({ parentId: entry.parentId, message: asContent(entry.message) })));
 }
 
+/**
+ * The message a conversation's title is read from: the first `user` message a person
+ * wrote. After a compaction the first one in the list is the summary notice, which says
+ * what the conversation was, not what it is about — a title taken from it read
+ * "Conversation summary The user requested…".
+ */
+const isTitleSource = (m: AparteMessage): boolean => m.role === 'user' && !m.compaction;
+
 export class AparteConversationManager {
     private _adapter: AparteStorageAdapter;
     private _conversations: AparteConversation[] = [];
@@ -424,7 +432,8 @@ export class AparteConversationManager {
 
         const isFirstUserMsg =
             msg.role === 'user' &&
-            conv.messages.every(m => m.role !== 'user');
+            !msg.compaction &&
+            conv.messages.every(m => m.role !== 'user' || m.compaction);
 
         // The title provider may take its time (a model loads on the first send), and
         // the reply streams meanwhile: the record is read AGAIN after the await, or the
@@ -462,7 +471,7 @@ export class AparteConversationManager {
         }
         // The title follows the first user message the CALLER sent — read before
         // retention trims the list, or a later message becomes "the first".
-        const firstUser = messages.find(m => m.role === 'user');
+        const firstUser = messages.find(isTitleSource);
         // Opt-in history retention (bounds STORAGE, never the live session).
         if (this._retention) {
             ({ messages, tree } = applyRetention(messages, tree, this._retention.maxMessages));
@@ -500,7 +509,7 @@ export class AparteConversationManager {
         // user typed (`updateTitle`) is not the manager's and stays.
         let title: string | undefined;
         if (conv.autoTitle) {
-            const before = conv.messages.find(m => m.role === 'user');
+            const before = conv.messages.find(isTitleSource);
             if (firstUser && (firstUser.content ?? '') !== (before?.content ?? '')) {
                 title = await this._title(firstUser);
             }

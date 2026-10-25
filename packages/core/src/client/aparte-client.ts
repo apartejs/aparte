@@ -5,7 +5,7 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
-import { isOpenDeferred, wireTurns } from './wire-history.js';
+import { isOpenDeferred, mergeAdjacentUserMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
@@ -935,7 +935,7 @@ export class AparteClient {
         // one here would defeat it.)
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...chatMessages], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, { temperature: 0.4 },
         );
     }
@@ -1020,7 +1020,7 @@ export class AparteClient {
 
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...chatMessages], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig,
         );
     }
@@ -1411,7 +1411,9 @@ export class AparteClient {
             ? [{ type: 'text' as const, text: userContent }, ...parts]
             : userContent;
         messages.push({ role: 'user', content: userMsg });
-        return messages;
+        // Applied once, to the final array: the history may end on a user turn (a failed
+        // one, a compaction summary) that the new message now sits right after.
+        return mergeAdjacentUserMessages(messages);
     }
 
     /**
@@ -2003,7 +2005,10 @@ export class AparteClient {
         const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
             : typeof historyOption === 'function' ? historyOption(before)
                 : [];
-        return [...this._systemMessages(), ...history, ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : [])];
+        return mergeAdjacentUserMessages([
+            ...this._systemMessages(), ...history,
+            ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : []),
+        ]);
     }
 
     /**

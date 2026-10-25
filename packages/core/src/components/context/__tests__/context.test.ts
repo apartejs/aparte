@@ -265,3 +265,80 @@ describe('<aparte-context> — Intl reads locale.tag', () => {
         expect(bar(el)!.getAttribute('aria-label')).toBe(`Context window: ${compact(700)} / ${compact(1000)}`);
     });
 });
+
+describe('<aparte-context> — a conversation switch', () => {
+    // The viewport says "emptied" (`aparte-reset-done`, on itself) and the controller says
+    // "on screen" (`aparte-conversation-loaded`, on the chat host). A load does both, in order.
+    const chatWith = (messages: unknown[]): { chat: HTMLElement; viewport: HTMLElement } => {
+        document.body.innerHTML = `<aparte-chat id="chat-a"><aparte-chat-viewport></aparte-chat-viewport><aparte-context window="1000" auto-compact></aparte-context></aparte-chat>`;
+        const chat = document.querySelector('aparte-chat') as HTMLElement;
+        (chat as unknown as { getMessages: () => unknown[] }).getMessages = () => messages;
+        return { chat, viewport: chat.querySelector('aparte-chat-viewport') as HTMLElement };
+    };
+    const reset = (from: HTMLElement): void => {
+        from.dispatchEvent(new CustomEvent('aparte-reset-done', { bubbles: true, composed: true }));
+    };
+    const loaded = (chat: HTMLElement): void => {
+        chat.dispatchEvent(new CustomEvent('aparte-conversation-loaded', { bubbles: true, composed: true, detail: { targetId: 'chat-a', conversationId: 'c2' } }));
+    };
+    const gauge = (): AparteContext => document.querySelector('aparte-context') as AparteContext;
+
+    it('a new chat clears the previous reading', () => {
+        const { viewport } = chatWith([]);
+        turn(700, 80, 'chat-a');
+        expect(gauge().used).toBe(780);
+
+        reset(viewport);
+        expect(gauge().used).toBeNull();
+        expect(gauge().hasAttribute('data-empty')).toBe(true);
+    });
+
+    it('a stored conversation shows the usage of its last reply', () => {
+        const { chat, viewport } = chatWith([
+            { id: 'u1', role: 'user', content: 'a', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'b', timestamp: 2, usage: { inputTokens: 100, outputTokens: 20 } },
+            { id: 'u2', role: 'user', content: 'c', timestamp: 3 },
+            { id: 'a2', role: 'assistant', content: 'd', timestamp: 4, usage: { inputTokens: 400, outputTokens: 50, totalTokens: 460 } },
+        ]);
+        turn(900, 50, 'chat-a');
+
+        reset(viewport);
+        loaded(chat);
+        expect(gauge().used).toBe(460);
+        expect(gauge().getAttribute('data-level')).toBe('ok');
+    });
+
+    it('a stored conversation with no usage shows nothing', () => {
+        const { chat, viewport } = chatWith([{ id: 'u1', role: 'user', content: 'a', timestamp: 1 }]);
+        turn(500, 50, 'chat-a');
+        reset(viewport);
+        loaded(chat);
+        expect(gauge().used).toBeNull();
+        expect(gauge().hasAttribute('data-empty')).toBe(true);
+    });
+
+    it('a restored reading in danger does not ask for a compaction', () => {
+        const { chat, viewport } = chatWith([
+            { id: 'a1', role: 'assistant', content: 'b', timestamp: 2, usage: { inputTokens: 950, outputTokens: 30 } },
+        ]);
+        const compacts: unknown[] = [];
+        window.addEventListener('aparte-compact', (e) => compacts.push(e));
+
+        reset(viewport);
+        loaded(chat);
+        expect(gauge().getAttribute('data-level')).toBe('danger');
+        expect(compacts).toEqual([]);
+        // Nor does a later re-draw: only the end of a turn asks.
+        window.dispatchEvent(new CustomEvent('aparte-config-change'));
+        expect(compacts).toEqual([]);
+        turn(950, 30, 'chat-a');
+        expect(compacts).toHaveLength(1);
+    });
+
+    it('ignores the switch of another chat', () => {
+        document.body.innerHTML = `<aparte-chat id="chat-b"><aparte-chat-viewport></aparte-chat-viewport></aparte-chat><aparte-context window="1000" target="chat-a"></aparte-context>`;
+        turn(500, 50, 'chat-a');
+        reset(document.querySelector('aparte-chat-viewport') as HTMLElement);
+        expect(gauge().used).toBe(550);
+    });
+});

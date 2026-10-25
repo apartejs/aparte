@@ -1,4 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
+import type { AparteMessage } from '../../types/models.js';
+import type { AparteUsage } from '../../types/chat.js';
 import type { AparteMessageDoneEventDetail, AparteCompactDoneEventDetail, AparteCompactEventDetail } from '../../types/events.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
@@ -21,6 +23,15 @@ export interface AparteContextThresholdEventDetail {
 const fraction = (raw: string | null, fallback: number): number => {
     const n = Number(raw);
     return raw !== null && Number.isFinite(n) && n > 0 && n <= 1 ? n : fallback;
+};
+
+/** Tokens one turn reports as used: the provider's total, else the prompt plus the reply. */
+const usedBy = (usage: AparteUsage): number => usage.totalTokens ?? (usage.inputTokens + usage.outputTokens);
+
+/** The id of the chat host an event came from, when it came from inside one. */
+const hostIdOf = (target: EventTarget | null): string | undefined => {
+    const node = target instanceof Element ? target.closest('aparte-chat, [data-aparte-chat]') : null;
+    return node?.id || undefined;
 };
 
 const el = (tag: string, className: string): HTMLElement => {
@@ -70,6 +81,11 @@ const ringSvg = (): SVGSVGElement => {
  * fits the window and keeps the recent turns. Core itself does not compact — the
  * gauge asks, the plugin does, and a page without the plugin gets a gauge that only
  * measures.
+ *
+ * A new chat or a conversation loaded in place of the last replaces the reading: it is
+ * cleared on `aparte-reset-done` and, for a stored conversation, restored from its last
+ * reply's `usage` on `aparte-conversation-loaded`. A restored reading never asks for a
+ * compaction, whatever its level — that stays tied to the end of a turn.
  *
  * The bar wears the `aparte-progress` recipe. `variant="ring"` draws the same reading
  * as a ring with the percentage beside it — for a toolbar, where a bar wants a width
@@ -121,8 +137,38 @@ export class AparteContext extends HTMLElement {
     private _onDone = (e: Event): void => {
         const detail = (e as CustomEvent<AparteMessageDoneEventDetail>).detail;
         if (!detail?.usage || !this._isMine(detail.targetId)) return;
-        const { usage } = detail;
-        this._used = usage.totalTokens ?? (usage.inputTokens + usage.outputTokens);
+        this._used = usedBy(detail.usage);
+        // The one render that may ask for a compaction: auto-compact is tied to the END of
+        // a turn, never to a reading that was merely restored or re-drawn.
+        this._render(true);
+    };
+
+    /**
+     * A conversation is replaced — a new chat, or one loaded in place of the last — and the
+     * previous reading is not this one's. The viewport says so with `aparte-reset-done` (no
+     * detail: the chat is found from where the event came from). A load clears first and
+     * `aparte-conversation-loaded` follows, so the reading is dropped here and restored there.
+     */
+    private _onReset = (e: Event): void => {
+        if (!this._isMine(hostIdOf(e.target))) return;
+        this._used = null;
+        this._render();
+    };
+
+    /**
+     * The messages of a stored conversation are on screen: the reading is the last reply's
+     * usage — what a turn would have reported had it just ended. A transcript with none
+     * (an empty one, a conversation saved before usage was kept) shows nothing, the same as
+     * a chat that has not spoken yet.
+     */
+    private _onLoaded = (e: Event): void => {
+        const detail = (e as CustomEvent<{ targetId?: string }>).detail;
+        if (!this._isMine(detail?.targetId)) return;
+        const host = e.target as { getMessages?: () => AparteMessage[] } | null;
+        const messages = host?.getMessages?.() ?? [];
+        const last = [...messages].reverse().find((m) => m.role === 'assistant' && m.usage);
+        this._used = last?.usage ? usedBy(last.usage) : null;
+        // Never `_render(true)`: a restored reading in danger must not start a compaction.
         this._render();
     };
 
@@ -195,6 +241,8 @@ export class AparteContext extends HTMLElement {
         window.addEventListener('aparte-message-done', this._onDone);
         window.addEventListener('aparte-compact-done', this._onCompacted);
         window.addEventListener('aparte-compact-error', this._onCompactError);
+        window.addEventListener('aparte-reset-done', this._onReset);
+        window.addEventListener('aparte-conversation-loaded', this._onLoaded);
         // The model's window is read again at every render, so a model change shows
         // on the next turn; no listener on the picker's event, which is an element's.
         window.addEventListener('aparte-config-change', this._onRerender);
@@ -205,6 +253,8 @@ export class AparteContext extends HTMLElement {
         window.removeEventListener('aparte-message-done', this._onDone);
         window.removeEventListener('aparte-compact-done', this._onCompacted);
         window.removeEventListener('aparte-compact-error', this._onCompactError);
+        window.removeEventListener('aparte-reset-done', this._onReset);
+        window.removeEventListener('aparte-conversation-loaded', this._onLoaded);
         window.removeEventListener('aparte-config-change', this._onRerender);
     }
 
@@ -241,7 +291,7 @@ export class AparteContext extends HTMLElement {
         return !targetId || !own || targetId === own;
     }
 
-    private _render(): void {
+    private _render(askToCompact = false): void {
         const capacity = this._window();
         if (capacity === null || this._used === null) {
             this.setAttribute('data-empty', '');
@@ -327,7 +377,7 @@ export class AparteContext extends HTMLElement {
         // plugin answers (done, skipped or failed), and the next turn in danger asks
         // again. Tied to the level change, a refused compaction — nothing to drop yet,
         // a stream in flight — left the level at danger and the gauge silent for good.
-        if (level === 'danger' && this.hasAttribute('auto-compact') && !this._compactRequested) {
+        if (askToCompact && level === 'danger' && this.hasAttribute('auto-compact') && !this._compactRequested) {
             this._compactRequested = true;
             window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', { detail: { targetId: this._ownTargetId() } }));
         }
