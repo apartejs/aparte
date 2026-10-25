@@ -4,6 +4,129 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.25.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [0d50cfd](https://github.com/apartejs/aparte/commit/0d50cfd): Server-rendered pages now hydrate cleanly: an aparté element waits while it, or an ancestor, carries `defer-hydration`, and draws itself when `releaseDeferredHydration(root)` removes the attribute.
+
+  Core's elements draw themselves when they connect (light DOM: their children, their attributes, a style on the chat's root). On a server-rendered page that happened as soon as `@aparte/core` loaded in the browser — defining the elements upgrades the ones the server sent — so the framework then hydrated a DOM it had not rendered: React threw error 418 and discarded the server's HTML, measured in a Next production build. A held element does nothing until it is released; its upgrade is then replayed as the browser would have run it (the observed attributes it has, then `connectedCallback`). An element removed while held is never torn down, and replays its attributes when it connects later. Removing the attribute any other way releases a microtask later — or at once, when `releaseDeferredHydration` is then called on that root, as a wrapper does after a hydration that dropped the attribute.
+
+  The wrappers render the attribute on their root and release it themselves. For server-rendered elements of your own, put `defer-hydration` around them and call `releaseDeferredHydration` once your framework has the page; an element class of yours that draws itself on connect honours it after `deferHydrationOf(MyElement)`, called before `customElements.define`. Without the attribute nothing changes. It is the Web Components Community Group's `defer-hydration`, the one Lit's server rendering follows, widened from an element to the elements under it.
+  <sub>`@aparte/core`</sub>
+
+- [02351e4](https://github.com/apartejs/aparte/commit/02351e4): `AparteChatHost.takeEcho(list)` tells a wrapper whether a list the parent hands back is the host's own report coming back, or the parent's word.
+
+  Call it before applying the list a two-way binding gives you. It answers true for a report the parent has not handed back yet — however late it lands — and takes it with every older one; for any other list it answers false and clears them, so a list the parent restores later is applied. The four first-party wrappers use it; a wrapper of your own over `AparteChatHost` gets the same rule.
+  <sub>`@aparte/core`</sub>
+
+- [908340b](https://github.com/apartejs/aparte/commit/908340b): Draw a tool call or a segment with your own component: `defineMountedToolRenderer(mount)` mounts it, updates it and unmounts it with the element, and `aparteGlobalConfig.overrideToolRenderer(match, renderer)` — a method on any `AparteConfig` — returns the function that takes it off again.
+
+  `defineMountedToolRenderer` and `defineMountedSegmentRenderer(type, mount)` turn a mount function into a complete renderer: core creates the host, calls the mount once when the host is in the page, forwards every change of the call to the returned `update` (never a remount, so a component keeps its state when the result arrives) and calls `destroy` when the host leaves for good. A card receives one `AparteToolCallView` (`toToolCallView`): `id`, `name`, `input`, `status`, `result`, `structuredResult`, `deferred`, `refusal`, `abortCause` and the segment. New types: `AparteToolCallView`, `AparteMountedView`, `AparteToolMount`, `AparteSegmentMount`.
+
+  The registries are live: registering, unregistering or overriding a tool renderer — or a segment renderer — redraws the calls (or segments) already on screen that it now draws, and only those; the renderer that drew them gets its `cleanup`. `config.overrideToolRenderer` and the standalone `overrideSegmentRenderer(renderer, config?)` stack: the newer declaration wins, taking off an older one leaves it, and taking off the last restores what was there before — core's own renderer, for a built-in segment type like `code`. The redraw happens in a microtask, gathered per config (ten components declaring cards in one render cost one pass; an override taken off in the same tick costs nothing), reaches a chat with its own config when the global registration it inherits changes, and follows a chat whose own config is attached after its first rows. A rendering-version bump — a Markdown or highlight provider arriving late — keeps the cards a mounted renderer holds mounted, and so does the end of a turn: `setSegments()` with the same segments (the host re-syncs the finished message) hands those cards the final state instead of drawing them again. A restore function does nothing after the config's `reset()`, and leaves a registration made directly since in place.
+  <sub>`@aparte/core`</sub>
+
+- [986df98](https://github.com/apartejs/aparte/commit/986df98): Unmount what you mounted in a segment or a tool call in `cleanup(element, segment)`: core now calls it, once, when the element leaves for good.
+
+  `AparteSegmentRenderer.cleanup` was declared and never called; it is called now, with the segment's latest state, and `AparteToolRenderer` gains the same hook. It runs when the element is replaced by a new `render()`, when its segment is removed, when its message is redrawn in a new frame, and when its message leaves the page — but not for `update()`, not for `relabel()`, and not for a message a framework only moved (a bubble taken out and put back before the next microtask keeps its elements). A bubble that comes back after a longer absence draws its segments again. A renderer that replaces its own element inside `update()` cleans up what it replaced; the bubble follows the new element.
+
+  A tool call is updated, relabelled and cleaned up by the renderer that drew it, recorded when the row is set up — not by whichever renderer is registered at that moment, which could hand core's own row, or another renderer's markup, to an `update()` that never drew it.
+  <sub>`@aparte/core`</sub>
+
+- [de8732e](https://github.com/apartejs/aparte/commit/de8732e): A runner of your own now receives the tools the request allows and its `toolChoice`: `input.tools` (each a `RunnerTool` — `name`, `description`, `inputSchema`) and `input.toolChoice` (`'auto'`, `'none'` or `{ name }`).
+
+  Core sends `tools` when the model declares `function_calling`, and the provider used to post the worker only the messages and the generation options, so a runner that emits `tool_use` had to hard-code its tool list — offering a small local model tools the app never enabled, and unable to honour `toolChoice: 'none'` or a forced tool. Both are absent when the request has none. The built-in runners take neither, and still warn when a turn needs a tool call they cannot carry. Closes #119.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [7d9550d](https://github.com/apartejs/aparte/commit/7d9550d): Svelte 5 apps now need Svelte 5.20 or later (peer `^4.0.0 || ^5.20.0`, on `@aparte/svelte` and on `@aparte/plugin-model-selector`'s optional Svelte peer); on Svelte 5, import from `@aparte/svelte/runes`; `createAparteChat` and `createConversationManager` are deprecated, and 0.26.0 moves today's package root to `@aparte/svelte/legacy`.
+
+  `@aparte/svelte/runes` is the chat written in Svelte 5: `<AparteChat>` with snippets (`emptyState`, `aboveComposer`, `composer`, `toolbar`, `bubble`), a bindable `messages`, callback props (`onmessageSent`, `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange`, `onconversationCreated`), a stable id from `$props.id()` and a server render that SvelteKit hydrates; `<AparteUi>`; `createConversations()` / `AparteConversations`, the saved conversations as reactive state; `createAparteClient`; and `<AparteToolUI>` / `<AparteSegmentUI>`. It needs Svelte 5.20 or later, and the peer range is now `^4.0.0 || ^5.20.0` for the whole package, the root entry included — and on `@aparte/plugin-model-selector`'s optional Svelte peer too, which follows the wrapper's: an older Svelte 5 that is installed now fails `npm install` with ERESOLVE, even for an app that only uses the root component or the plugin.
+
+  `createAparteChat` (use `bind:messages`) and `createConversationManager` (use `createConversations()`) are deprecated. In 0.26.0, `@aparte/svelte` becomes the runes component and today's — the Svelte 4 syntax component and these two helpers — moves to `@aparte/svelte/legacy`, where it keeps working on Svelte 4 and 5.
+  <sub>`@aparte/plugin-model-selector`, `@aparte/svelte`</sub>
+
+- [cf0590e](https://github.com/apartejs/aparte/commit/cf0590e): `@aparte/angular` installs on Angular 20 and 21, not only 19.
+
+  The peer range is `^19.2.0 || ^20.0.0 || ^21.0.0`. The package is still compiled on 19.2 in Angular's partial mode, which Angular guarantees a newer application can link, so one build serves the three majors. What makes the range a fact rather than a hope: the specs run on 19 (with zone.js, zoneless, and in a server render), and the repo's Angular example now runs on 21, zoneless, driven in a real browser by the end-to-end suite. Angular 19 is past its upstream support window and leaves the range at 1.0. Angular 22 joins once it is exercised the same way.
+
+  `@aparte/plugin-model-selector` follows: its optional `@angular/core` peer (for the `./angular` entry) takes the same range, since a narrower one would fail `npm install` on Angular 20 and 21 even for an app that never imports that entry.
+  <sub>`@aparte/angular`</sub>
+
+- [c367c85](https://github.com/apartejs/aparte/commit/c367c85): Bind `[conversations]` on `<aparte-conversation-list>` with no `CUSTOM_ELEMENTS_SCHEMA`: its directive now has that input.
+
+  The element directives were generated from the elements' attributes only, so a member that exists only as a JS property — the list's rows — had no input, and `[conversations]="…"` did not compile unless the component switched template checking off for every unknown tag. The generator now also emits an input for each public property an element has no attribute for; it hands the value over as the property. `<aparte-conversation-list>`'s `conversations` is the only such member today.
+  <sub>`@aparte/angular`</sub>
+
+- [d6cf93b](https://github.com/apartejs/aparte/commit/d6cf93b): Set `AparteChatComponent` inputs from code with `componentRef.setInput()`: they are signal inputs now. Templates do not change, and the per-message template can be written as content: `<ng-template aparteBubble let-message>`.
+
+  Every input keeps its public name (`[messages]`, `placeholder`, `disabled`, `centerWhenEmpty`, `[bubbleTemplate]`…), so a template binding works as before; what changes is the class member behind it, which is an Angular `InputSignal` rather than a writable property. Code that created the component and assigned `instance.config = …` sets it with `componentRef.setInput('config', …)` instead, which is how Angular sets any input from code.
+
+  `AparteBubbleDirective` is new: `<ng-template aparteBubble let-message>` written inside `<aparte-chat>` draws each message, the same as passing a `TemplateRef` to `[bubbleTemplate]`, which still wins when both are given. `[(messages)]` two-way binding is supported and tested: the chat reports its own changes through `messagesChange`, and a write from the parent emits nothing back.
+
+  The component renders on the server: the host that drives the custom elements is created after the first render in the browser only, and nothing touches `requestAnimationFrame` during a server render. It also runs under zoneless change detection (the default for a new app since Angular 21); both are covered by specs.
+  <sub>`@aparte/angular`</sub>
+
+- [15254e4](https://github.com/apartejs/aparte/commit/15254e4): Draw a tool call with your own component: `<AparteToolUI name="…">` (React, Vue, Svelte 5) or `<ng-template aparteToolUI="…">` (Angular).
+
+  The card renders from where you declare it, so it reads your app's contexts — React context through a portal, Vue `inject` through `Teleport`, Svelte `getContext` (the snippet is mounted with the declaration's contexts), Angular DI (the view is created where the template is declared, and it works zoneless). It is mounted once per call and updated in place when the call changes, so a component keeps its local state when the result arrives. It is unmounted when the call leaves the page or when the declaration unmounts, and the call goes back to core's row; a declaration made while calls are already on screen takes them over. Of two declarations for one tool the newer wins, and removing the older keeps it. A server render declares nothing and draws nothing: the cards appear in the browser.
+
+  `AparteSegmentUI` (`<ng-template aparteSegmentUI="…">` with `AparteSegmentUIDirective` in Angular) does the same for a segment type. In Svelte both are in `@aparte/svelte/runes`. Vue also exports `isAparteElement`, the test to give `compilerOptions.isCustomElement`: it accepts the `aparte-*` elements, and leaves the wrapper's own component names to Vue, so a kebab-case `<aparte-tool-ui>` gets Vue's warning instead of becoming an inert element (write it `<AparteToolUI>`).
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+### Patch Changes
+
+- [9bc30ea](https://github.com/apartejs/aparte/commit/9bc30ea): Stopping a client that never started no longer touches `window`, so it is safe on a server.
+
+  The constructor prepares the send handler without listening, and `stop()` only returned early when there was no handler — so it always removed listeners from `window`. On a server that is a ReferenceError; a SvelteKit page that started a client the documented way failed with a 500 (Svelte runs `onDestroy` at the end of a server render). A started client still removes its listeners on `stop()`, once.
+  <sub>`@aparte/core`</sub>
+
+- [6fed78c](https://github.com/apartejs/aparte/commit/6fed78c): `<aparte-approval-mode>` and `<aparte-model-selector>` now wait for a server-rendered chat to hydrate before they draw.
+
+  Placed in the toolbar of a server-rendered `<AparteChat>`, either tag drew itself as soon as its plugin was imported — before the framework had hydrated the page — so React found children it had not rendered and threw the server's HTML away (error 418). Both now honour `defer-hydration`, like core's own elements, and draw when the wrapper releases the chat. `<aparte-ask-user>` already did, through the `<aparte-elicitation>` it extends. An element of your own that draws itself on connect can do the same: call `deferHydrationOf(YourElement)` before `customElements.define`.
+  <sub>`@aparte/plugin-approval`, `@aparte/plugin-model-selector`</sub>
+
+- [cf0590e](https://github.com/apartejs/aparte/commit/cf0590e): `@aparte/angular` installs on Angular 20 and 21, not only 19.
+
+  The peer range is `^19.2.0 || ^20.0.0 || ^21.0.0`. The package is still compiled on 19.2 in Angular's partial mode, which Angular guarantees a newer application can link, so one build serves the three majors. What makes the range a fact rather than a hope: the specs run on 19 (with zone.js, zoneless, and in a server render), and the repo's Angular example now runs on 21, zoneless, driven in a real browser by the end-to-end suite. Angular 19 is past its upstream support window and leaves the range at 1.0. Angular 22 joins once it is exercised the same way.
+
+  `@aparte/plugin-model-selector` follows: its optional `@angular/core` peer (for the `./angular` entry) takes the same range, since a narrower one would fail `npm install` on Angular 20 and 21 even for an app that never imports that entry.
+  <sub>`@aparte/plugin-model-selector`</sub>
+
+- [77d7493](https://github.com/apartejs/aparte/commit/77d7493): `<aparte-ui>` no longer builds its element during a server render, so a hydrated Angular SSR page shows it once.
+
+  It built the element in `ngAfterViewInit`, which Angular also runs on a server: the element was serialized into the HTML without its props or listeners, hydration kept it, and the browser appended a configured one beside it — two model selectors, two counters. It is now built in the browser only, the way React, Vue and Svelte build theirs in an effect or `onMount`.
+  <sub>`@aparte/angular`</sub>
+
+- [aa0a6d8](https://github.com/apartejs/aparte/commit/aa0a6d8): Under `[(messages)]`, a message the chat appends right after one of its own changes is no longer dropped when the parent's field comes back through `[messages]`.
+
+  The chat reports a change (`messagesChange`), the two-way binding writes it into the parent's field, and the chat then appends without reporting — an optimistic assistant placeholder, or core's append right after a flush of buffered chunks (an edit, a retry). At the next change detection the parent's field came back through the input and reset the chat to the list it had reported, so the placeholder vanished and the streamed reply landed on the user's message, or nowhere. The chat now recognises its own reports that have not come back yet and keeps its list when one does — the rule React, Vue and Svelte apply — while a list you restore later is still yours.
+  <sub>`@aparte/angular`</sub>
+
+- [ef17513](https://github.com/apartejs/aparte/commit/ef17513): A server-rendered `<AparteChat>` now hydrates without a mismatch, in Next, Nuxt, SvelteKit and Angular SSR.
+
+  The server's HTML carries `defer-hydration` on the chat's root, so core's elements leave it alone until the framework has the page; the wrapper then releases them, before it builds the chat's host. Before, the elements drew themselves as soon as `@aparte/core` loaded and the framework found a DOM it had not rendered — React threw error 418 and discarded the server's HTML. An app with no server render holds nothing, so a slot's component can talk to the elements it renders from its own mount hook: React reads "am I hydrating?" through `useSyncExternalStore`, Svelte draws the attribute on the server only, Angular — where it is on the `<aparte-chat>` host itself — binds it only while hydrating a host the server sent with it, and Vue releases from the root's ref. On a server-rendered page, Vue's ref still releases before any `onMounted`; in React, Svelte and Angular a slot's component mounts before the chat does (its effect, `onMount` or `ngAfterViewInit` runs first), so on that first load it finds the elements live only once the chat has mounted.
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [02351e4](https://github.com/apartejs/aparte/commit/02351e4): A list you assign back to the chat — a reopened conversation, an undo — is now drawn, even when the chat reported it to you earlier.
+
+  Under a two-way binding every list the chat reports comes back through your prop, sometimes late — an earlier report after its next change — and applying that echo would roll back what the chat did since without reporting. To tell an echo from your own word, the wrappers remembered every list the chat had ever reported, so a list you kept and assigned back later was taken for an echo and ignored: the chat went on showing the other conversation, and its next report wrote that conversation's messages into the one you had reopened. Only the reports you have not handed back yet count now; any list the chat did not report clears them. React, Vue, Svelte (both entries) and Angular apply the same rule.
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [2051a75](https://github.com/apartejs/aparte/commit/2051a75): `createAparteClient()` no longer fails a server render, and a server render no longer leaves its `keyResolver` on the global config.
+
+  It stopped the client in `onDestroy`, which Svelte runs at the end of a server render too, and stopping a client that never started read `window` there and failed every SvelteKit page that followed the docs. `stop()` now touches nothing of the browser for a client that never started (`@aparte/core`), so the stop stays in `onDestroy` — the one hook a server render runs — and takes back the key source the client put on the config when it was constructed. Moved to a hook a server never runs, each request would have added one to the config the whole process shares, holding whatever that request's resolver closed over.
+  <sub>`@aparte/svelte`</sub>
+
+- [bf7de83](https://github.com/apartejs/aparte/commit/bf7de83): `AparteChat` and `AparteUi` are typed for Svelte 5 as well as Svelte 4: props, events and slots check under either.
+
+  The package is now built with Svelte 5's tooling, which emits each component's type in a form both majors read (a Svelte 4 class constructor and a Svelte 5 component function). Verified with the packed tarball installed in two fresh projects, Svelte 4.2 with `svelte-check` 3 and Svelte 5.57 with `svelte-check` 4, both with `skipLibCheck: false`: the documented usage checks clean, and an unknown prop or a wrong prop type is reported in both. Nothing changes in the components themselves.
+  <sub>`@aparte/svelte`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.24.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

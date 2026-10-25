@@ -1,5 +1,25 @@
 # @aparte/vue
 
+## 0.25.0
+
+### Minor Changes
+
+- 15254e4: Draw a tool call with your own component: `<AparteToolUI name="…">` (React, Vue, Svelte 5) or `<ng-template aparteToolUI="…">` (Angular).
+
+  The card renders from where you declare it, so it reads your app's contexts — React context through a portal, Vue `inject` through `Teleport`, Svelte `getContext` (the snippet is mounted with the declaration's contexts), Angular DI (the view is created where the template is declared, and it works zoneless). It is mounted once per call and updated in place when the call changes, so a component keeps its local state when the result arrives. It is unmounted when the call leaves the page or when the declaration unmounts, and the call goes back to core's row; a declaration made while calls are already on screen takes them over. Of two declarations for one tool the newer wins, and removing the older keeps it. A server render declares nothing and draws nothing: the cards appear in the browser.
+
+  `AparteSegmentUI` (`<ng-template aparteSegmentUI="…">` with `AparteSegmentUIDirective` in Angular) does the same for a segment type. In Svelte both are in `@aparte/svelte/runes`. Vue also exports `isAparteElement`, the test to give `compilerOptions.isCustomElement`: it accepts the `aparte-*` elements, and leaves the wrapper's own component names to Vue, so a kebab-case `<aparte-tool-ui>` gets Vue's warning instead of becoming an inert element (write it `<AparteToolUI>`).
+
+### Patch Changes
+
+- ef17513: A server-rendered `<AparteChat>` now hydrates without a mismatch, in Next, Nuxt, SvelteKit and Angular SSR.
+
+  The server's HTML carries `defer-hydration` on the chat's root, so core's elements leave it alone until the framework has the page; the wrapper then releases them, before it builds the chat's host. Before, the elements drew themselves as soon as `@aparte/core` loaded and the framework found a DOM it had not rendered — React threw error 418 and discarded the server's HTML. An app with no server render holds nothing, so a slot's component can talk to the elements it renders from its own mount hook: React reads "am I hydrating?" through `useSyncExternalStore`, Svelte draws the attribute on the server only, Angular — where it is on the `<aparte-chat>` host itself — binds it only while hydrating a host the server sent with it, and Vue releases from the root's ref. On a server-rendered page, Vue's ref still releases before any `onMounted`; in React, Svelte and Angular a slot's component mounts before the chat does (its effect, `onMount` or `ngAfterViewInit` runs first), so on that first load it finds the elements live only once the chat has mounted.
+
+- 02351e4: A list you assign back to the chat — a reopened conversation, an undo — is now drawn, even when the chat reported it to you earlier.
+
+  Under a two-way binding every list the chat reports comes back through your prop, sometimes late — an earlier report after its next change — and applying that echo would roll back what the chat did since without reporting. To tell an echo from your own word, the wrappers remembered every list the chat had ever reported, so a list you kept and assigned back later was taken for an echo and ignored: the chat went on showing the other conversation, and its next report wrote that conversation's messages into the one you had reopened. Only the reports you have not handed back yet count now; any list the chat did not report clears them. React, Vue, Svelte (both entries) and Angular apply the same rule.
+
 ## 0.24.0
 
 ## 0.23.0

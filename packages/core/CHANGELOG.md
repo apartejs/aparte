@@ -1,5 +1,38 @@
 # @aparte/core
 
+## 0.25.0
+
+### Minor Changes
+
+- 0d50cfd: Server-rendered pages now hydrate cleanly: an aparté element waits while it, or an ancestor, carries `defer-hydration`, and draws itself when `releaseDeferredHydration(root)` removes the attribute.
+
+  Core's elements draw themselves when they connect (light DOM: their children, their attributes, a style on the chat's root). On a server-rendered page that happened as soon as `@aparte/core` loaded in the browser — defining the elements upgrades the ones the server sent — so the framework then hydrated a DOM it had not rendered: React threw error 418 and discarded the server's HTML, measured in a Next production build. A held element does nothing until it is released; its upgrade is then replayed as the browser would have run it (the observed attributes it has, then `connectedCallback`). An element removed while held is never torn down, and replays its attributes when it connects later. Removing the attribute any other way releases a microtask later — or at once, when `releaseDeferredHydration` is then called on that root, as a wrapper does after a hydration that dropped the attribute.
+
+  The wrappers render the attribute on their root and release it themselves. For server-rendered elements of your own, put `defer-hydration` around them and call `releaseDeferredHydration` once your framework has the page; an element class of yours that draws itself on connect honours it after `deferHydrationOf(MyElement)`, called before `customElements.define`. Without the attribute nothing changes. It is the Web Components Community Group's `defer-hydration`, the one Lit's server rendering follows, widened from an element to the elements under it.
+
+- 02351e4: `AparteChatHost.takeEcho(list)` tells a wrapper whether a list the parent hands back is the host's own report coming back, or the parent's word.
+
+  Call it before applying the list a two-way binding gives you. It answers true for a report the parent has not handed back yet — however late it lands — and takes it with every older one; for any other list it answers false and clears them, so a list the parent restores later is applied. The four first-party wrappers use it; a wrapper of your own over `AparteChatHost` gets the same rule.
+
+- 908340b: Draw a tool call or a segment with your own component: `defineMountedToolRenderer(mount)` mounts it, updates it and unmounts it with the element, and `aparteGlobalConfig.overrideToolRenderer(match, renderer)` — a method on any `AparteConfig` — returns the function that takes it off again.
+
+  `defineMountedToolRenderer` and `defineMountedSegmentRenderer(type, mount)` turn a mount function into a complete renderer: core creates the host, calls the mount once when the host is in the page, forwards every change of the call to the returned `update` (never a remount, so a component keeps its state when the result arrives) and calls `destroy` when the host leaves for good. A card receives one `AparteToolCallView` (`toToolCallView`): `id`, `name`, `input`, `status`, `result`, `structuredResult`, `deferred`, `refusal`, `abortCause` and the segment. New types: `AparteToolCallView`, `AparteMountedView`, `AparteToolMount`, `AparteSegmentMount`.
+
+  The registries are live: registering, unregistering or overriding a tool renderer — or a segment renderer — redraws the calls (or segments) already on screen that it now draws, and only those; the renderer that drew them gets its `cleanup`. `config.overrideToolRenderer` and the standalone `overrideSegmentRenderer(renderer, config?)` stack: the newer declaration wins, taking off an older one leaves it, and taking off the last restores what was there before — core's own renderer, for a built-in segment type like `code`. The redraw happens in a microtask, gathered per config (ten components declaring cards in one render cost one pass; an override taken off in the same tick costs nothing), reaches a chat with its own config when the global registration it inherits changes, and follows a chat whose own config is attached after its first rows. A rendering-version bump — a Markdown or highlight provider arriving late — keeps the cards a mounted renderer holds mounted, and so does the end of a turn: `setSegments()` with the same segments (the host re-syncs the finished message) hands those cards the final state instead of drawing them again. A restore function does nothing after the config's `reset()`, and leaves a registration made directly since in place.
+
+- 986df98: Unmount what you mounted in a segment or a tool call in `cleanup(element, segment)`: core now calls it, once, when the element leaves for good.
+
+  `AparteSegmentRenderer.cleanup` was declared and never called; it is called now, with the segment's latest state, and `AparteToolRenderer` gains the same hook. It runs when the element is replaced by a new `render()`, when its segment is removed, when its message is redrawn in a new frame, and when its message leaves the page — but not for `update()`, not for `relabel()`, and not for a message a framework only moved (a bubble taken out and put back before the next microtask keeps its elements). A bubble that comes back after a longer absence draws its segments again. A renderer that replaces its own element inside `update()` cleans up what it replaced; the bubble follows the new element.
+
+  A tool call is updated, relabelled and cleaned up by the renderer that drew it, recorded when the row is set up — not by whichever renderer is registered at that moment, which could hand core's own row, or another renderer's markup, to an `update()` that never drew it.
+
+### Patch Changes
+
+- 9bc30ea: Stopping a client that never started no longer touches `window`, so it is safe on a server.
+
+  The constructor prepares the send handler without listening, and `stop()` only returned early when there was no handler — so it always removed listeners from `window`. On a server that is a ReferenceError; a SvelteKit page that started a client the documented way failed with a 500 (Svelte runs `onDestroy` at the end of a server render). A started client still removes its listeners on `stop()`, once.
+  - @aparte/engine@0.25.0
+
 ## 0.24.0
 
 ### Minor Changes
@@ -1903,7 +1936,7 @@
 
 - 213add8: A code block no longer closes on a streamed chunk that merely ends in three backticks — a fence has to start a line.
 
-  ` const s = "```" ` split by the tokenizer right after the quotes used to close the block mid-code, and the rest of the file streamed as prose. A reply that genuinely ends on ``` with no newline is still handled: the fence is stripped once, at the end of the stream, where it cannot mis-close anything.
+  `const s = "```"` split by the tokenizer right after the quotes used to close the block mid-code, and the rest of the file streamed as prose. A reply that genuinely ends on ``` with no newline is still handled: the fence is stripped once, at the end of the stream, where it cannot mis-close anything.
 
 - e083712: The 25 built-in glyphs and the 41 icons behind `@aparte/core/icons` are redrawn. Every name, export and size is the same — an icon provider you registered, and any `--aparte-icon-size` a container declares, are unaffected.
 
@@ -2293,7 +2326,6 @@
   The name pointed at the wrong widget, next to a `<aparte-select>` it did not control.
 
   ### Visible changes, on purpose
-
   - **The `<aparte-select>` focus ring follows the theme.** It was a second, diverged
     implementation hardcoded to Tailwind blue `rgba(59,130,246,.2)`; it now uses
     `--aparte-focus-ring` like every other focus ring, so it is brass in the default
@@ -2373,7 +2405,6 @@
   that will lie. What an element accepts as children, and where those children land, is now prose.
 
   ## Five published claims were false, and are corrected rather than softened
-
   - `<aparte-chat-viewport>`'s `framework-managed` said it "relocates none of its children". It
     re-appends core's own scroll-to-bottom button whenever that stops being last, and that path
     runs in framework-managed mode only. The guarantee is about the nodes the FRAMEWORK renders.
