@@ -78,11 +78,21 @@ test('the visible button floats at its asked offset from the bottom edge — far
     ).toBeGreaterThan(200);
 
     // ── Probe 1: far from the bottom ─────────────────────────────────────────
-    await page.evaluate(() => {
-        const s = (document.querySelector('.aparte-viewport-container')
-            ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
-        s.scrollTop = 0;
-    });
+    // Up with the wheel, the way a reader goes back. A `scrollTop = 0` assigned right after
+    // the last reply settled lands within a second of the chat's own pin, with the reply's
+    // end-of-turn layout still moving — the window where the viewport reads a jump it saw no
+    // hand behind as layout, and pins it back (react-webkit in CI: the view back on the last
+    // turn, the button hidden for 20 s). `streaming-progressive.spec.ts` learned the same.
+    await chat.viewport.hover();
+    for (let i = 0; i < 12; i++) await page.mouse.wheel(0, -400);
+    await expect.poll(
+        () => page.evaluate(() => {
+            const s = (document.querySelector('.aparte-viewport-container')
+                ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
+            return s.scrollTop;
+        }),
+        { message: 'the wheel took the transcript back to the top' },
+    ).toBeLessThan(5);
     await expect(scrollBtn, 'scrolled to the top, the button must show').not.toHaveClass(/aparte-scroll-btn--hidden/);
 
     const far = await measure(page);
