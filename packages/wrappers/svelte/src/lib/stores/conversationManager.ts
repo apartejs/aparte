@@ -17,8 +17,8 @@ import type { AparteMessage } from '../types.js';
  * equivalent of Angular's `ConversationManagerService`.
  *
  * @deprecated On Svelte 5, use `createConversations()` from `@aparte/svelte/runes`, whose lists
- * are reactive state rather than stores. In the next release this helper leaves the package root
- * for `@aparte/svelte/legacy`, beside the Svelte 4 component.
+ * are reactive state rather than stores. In 0.26.0 this helper leaves the package root for
+ * `@aparte/svelte/legacy`, beside the Svelte 4 component.
  */
 export function createConversationManager() {
     let manager: AparteConversationManager | null = null;

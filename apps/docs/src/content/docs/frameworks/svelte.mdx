@@ -25,7 +25,7 @@ npm install @aparte/provider-scenario   # a scripted model, to stream with no ke
 `@aparte/core` and `svelte` are peer dependencies: Svelte <code>{WRAPPER_PEERS.svelte}</code>. The
 package ships its `.svelte` sources, which your build compiles. On Svelte 5, import from
 `@aparte/svelte/runes` — props, snippets, `bind:messages` and callback props, written in runes
-(Svelte 5.20 or later). The package root keeps the component written in Svelte 4's syntax, which
+(Svelte <code>{WRAPPER_PEERS.svelteRunes}</code>). The package root keeps the component written in Svelte 4's syntax, which
 runs on both majors ([Svelte 4](#svelte-4)).
 
 ## Render the chat
@@ -222,7 +222,7 @@ every build.
 </AparteChat>
 ```
 
-A coming release makes the runes components the package root and moves this one to
+0.26.0 makes the runes components the package root and moves this one to
 `@aparte/svelte/legacy`; on Svelte 5, start from `@aparte/svelte/runes`.
 
 ## Next

@@ -21,10 +21,14 @@ import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
   <tbody>
     <tr><td><a href="/frameworks/react/">React</a></td><td><code>@aparte/react</code></td><td><code>{WRAPPER_PEERS.react}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>useAparteChat()</code></td><td><code>useAparteClient()</code></td></tr>
     <tr><td><a href="/frameworks/vue/">Vue</a></td><td><code>@aparte/vue</code></td><td><code>{WRAPPER_PEERS.vue}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>v-model:messages</code></td><td><code>useAparteClient()</code></td></tr>
-    <tr><td><a href="/frameworks/svelte/">Svelte</a></td><td><code>@aparte/svelte/runes</code></td><td><code>{WRAPPER_PEERS.svelte}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>bind:messages</code></td><td><code>createAparteClient()</code></td></tr>
+    <tr><td><a href="/frameworks/svelte/">Svelte</a></td><td><code>@aparte/svelte/runes</code></td><td><code>{WRAPPER_PEERS.svelteRunes}</code></td><td><code>&lt;AparteChat&gt;</code></td><td><code>bind:messages</code></td><td><code>createAparteClient()</code></td></tr>
     <tr><td><a href="/frameworks/angular/">Angular</a></td><td><code>@aparte/angular</code></td><td><code>{WRAPPER_PEERS.angular}</code></td><td><code>AparteChatComponent</code></td><td><code>[(messages)]</code></td><td><code>provideAparte()</code>, <code>AparteAiService</code></td></tr>
   </tbody>
 </table>
+
+The Svelte row is the runes entry, written in Svelte 5. On Svelte 4, the package root —
+`@aparte/svelte`, <code>{WRAPPER_PEERS.svelte}</code> — keeps today's component
+([Svelte 4](/frameworks/svelte/#svelte-4)).
 
 `@aparte/core` is web components, so it works in any framework as it is; a wrapper adds the
 framework's idiom — refs, events and lifecycle wired for you. Each one gives you:
