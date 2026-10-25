@@ -17,9 +17,14 @@ async function send(page: Page, text: string): Promise<void> {
     await page.keyboard.press('Enter');
 }
 
-/** The elements are defined and the client is running: the page is live. */
+/**
+ * The page the server rendered — checked, since a framework that cannot render falls back to a
+ * client render and every check after this would pass on no server render at all (Angular 21
+ * does, for a host it was not told about) — then live: the elements defined, the client running.
+ */
 async function openHydrated(page: Page): Promise<void> {
-    await page.goto('/');
+    const response = await page.goto('/');
+    expect(await response!.text(), 'the HTML the server sent has the chat in it').toContain('<aparte-composer');
     await page.waitForFunction(() => !!customElements.get('aparte-composer'));
     await expect(page.locator(EDITOR).first()).toBeVisible();
 }
