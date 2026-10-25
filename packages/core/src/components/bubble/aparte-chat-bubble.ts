@@ -2020,7 +2020,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /**
    * What the copy action copies: the reply, not the reasoning. A `thinking` segment is
    * the model's scratchpad, and the client already keeps it out of the history it sends
-   * back (`_segmentsToText`) for the same reason — copying it along with the answer
+   * back (`segmentsToWireText`) for the same reason — copying it along with the answer
    * pasted a paragraph of deliberation above every reply, which no assistant on the
    * market does. Segments with no `content` (a tool call) contribute nothing, so a
    * turn made only of those copies as `''` — and the action bar reads this to decide

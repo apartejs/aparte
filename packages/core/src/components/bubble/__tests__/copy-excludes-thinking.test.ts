@@ -5,7 +5,7 @@
  * The action joined the `content` of EVERY segment, so a reply that opened with a
  * reasoning block pasted the model's deliberation above the answer — while the
  * client already keeps `thinking` out of the history it sends back, for the same
- * reason (`_segmentsToText`). Two rules for "what the reply is" is how they drift;
+ * reason (`segmentsToWireText`). Two rules for "what the reply is" is how they drift;
  * this pins the bubble's to the client's.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

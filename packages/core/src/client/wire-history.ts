@@ -12,6 +12,13 @@
  */
 import type { AparteChatMessage, AparteContentPart, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
 
+/** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
+export const COMPACTION_PREAMBLE =
+    'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
+
+/** A summary as the model reads it: the preamble, then the text. */
+export const underPreamble = (text: string): string => `${COMPACTION_PREAMBLE}\n\n${text}`;
+
 /**
  * Merge ADJACENT `user` messages into one, so the roles a model receives alternate.
  *
@@ -126,4 +133,117 @@ export function wireTurns(
     }
     flush();
     return out;
+}
+
+/**
+ * A turn that has not finished yet. `status` is OPTIONAL on `AparteMessage`, so
+ * the question the history gates can ask is "is this still in flight?", never
+ * "is this completed?".
+ *
+ * The gates ask the first, because a host that SEEDS a transcript
+ * — restoring a saved conversation, hydrating a server-rendered one — has no
+ * reason to invent a status for turns that are already over. Asking "is this
+ * completed?" would leave the cutoff at 0 and slice away the whole transcript: the
+ * model would get the new question with no context, and nothing in the UI would say
+ * so, because the viewport still shows every message.
+ */
+export const isInFlight = (m: AparteMessage): boolean => m.status === 'streaming' || m.status === 'pending';
+
+/**
+ * Segments → the text a model can read back.
+ *
+ * Fences and the language tag are kept. Without them the model re-reads its own
+ * code as prose — which is how it starts explaining a snippet it believes it
+ * wrote in English.
+ *
+ * A type core does not know — a registered block grammar's (an artifact, a
+ * citation, a file), a consumer's custom segment — follows one rule: its
+ * `content` if it has one, else its `fallback`, else nothing. Dropping such a
+ * segment would make a document the model had just produced invisible on the very
+ * next turn, so it could not be asked to change the thing it had built. An artifact
+ * is a plugin's type like any other and follows this rule.
+ *
+ * `thinking` and `tool_call` stay out on purpose — the first is the model's own
+ * scratchpad, and most APIs neither want it back nor bill for it kindly; the
+ * second is not text: `wireMessages` sends a reply's calls as the assistant's
+ * `toolCalls` and the `tool` messages answering them (`wireTurns`).
+ */
+export function segmentsToWireText(segments: AparteMessage['segments']): string {
+    if (!segments?.length) return '';
+    const fence = '```';
+    const parts: string[] = [];
+    for (const segment of segments) {
+        const content = (segment as { content?: string }).content;
+        if (segment.type === 'text') {
+            if (content) parts.push(content);
+        } else if (segment.type === 'code') {
+            const lang = (segment as { language?: string }).language ?? '';
+            parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
+        } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
+            continue;
+        } else if (typeof content === 'string' && content) {
+            parts.push(content);
+        } else {
+            const fallback = (segment as { fallback?: string }).fallback;
+            if (fallback) parts.push(fallback);
+        }
+    }
+    return parts.join('\n').trim();
+}
+
+/**
+ * What the model is told it said last turn — reconstructed from what was
+ * RENDERED, not from the raw-text field.
+ *
+ * The segments are what the reader saw, so they come first. `content` is the
+ * fallback, and that is not vestigial: a non-streaming transport writes the whole
+ * reply there and creates no segments at all.
+ */
+function extractWireText(message: AparteMessage): string {
+    const rendered = segmentsToWireText(message.segments);
+    if (rendered) return rendered;
+    if (typeof message.content === 'string' && message.content) return message.content;
+    return '';
+}
+
+/**
+ * A message's text as the MODEL should read it — the one mapper both history
+ * paths use, so the compaction preamble cannot be applied on retry and edit and
+ * forgotten on the ordinary send, which is what the first review of this feature
+ * caught: the summary went out on every normal turn as something the user said.
+ */
+export function messageWireText(message: AparteMessage): string {
+    const text = extractWireText(message);
+    return message.compaction ? underPreamble(text) : text;
+}
+
+/**
+ * The one rule for what a list of messages contributes to the wire.
+ *
+ * Not the slice — the contribution: a role the wire has (`user`/`assistant`), a
+ * turn that neither failed nor is still in flight, and text that is not empty. A reply
+ * that called tools goes out as the calls and their answers, in the order it showed
+ * them (`wireTurns`); every other message keeps its one text, compaction preamble
+ * included.
+ *
+ * `messageWireText` (not `m.content`): assistant replies stream their text into
+ * `segments`, leaving `content` as '', so without flattening every reply would be
+ * empty here and the drop below would swallow the whole transcript.
+ *
+ * Pure, so the client that SENDS this history and the measure that ESTIMATES it
+ * (`estimateWireTokens`) read the same serialisation and cannot drift.
+ */
+export function wireMessages(messages: AparteMessage[]): AparteChatMessage[] {
+    return messages
+        .filter((m) => {
+            if (m.role !== 'user' && m.role !== 'assistant') return false;
+            return m.status !== 'error' && !isInFlight(m);
+        })
+        .flatMap((m): AparteChatMessage[] => {
+            if (m.role === 'assistant' && m.segments?.some((s) => s.type === 'tool_call')) {
+                return wireTurns(m, segmentsToWireText);
+            }
+            const content = messageWireText(m);
+            return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
+        });
 }

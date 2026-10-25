@@ -6,7 +6,7 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
-import { isOpenDeferred, mergeAdjacentUserMessages, wireTurns } from './wire-history.js';
+import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
@@ -74,13 +74,6 @@ interface AparteChatTargetElement extends HTMLElement {
  * step: its result's `instruction`, `reason` and `by` are documented there.
  */
 export type AparteToolApprovalResolver = StreamApprovalResolver;
-
-/** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
-const COMPACTION_PREAMBLE =
-    'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
-
-/** A summary as the model reads it: the preamble, then the text. */
-const underPreamble = (text: string): string => `${COMPACTION_PREAMBLE}\n\n${text}`;
 
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
@@ -1179,7 +1172,7 @@ export class AparteClient {
      */
     private _messagesToChatMessages(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
         const { summary, messages: kept } = historyFromCheckpoint(messages);
-        return [...this._summaryMessage(summary), ...this._wireHistory(kept)];
+        return [...this._summaryMessage(summary), ...wireMessages(kept)];
     }
 
     /**
@@ -1190,34 +1183,6 @@ export class AparteClient {
      */
     private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
         return summary === undefined ? [] : [{ role: 'user', content: underPreamble(summary) }];
-    }
-
-    /**
-     * The one rule for what a message contributes to the wire.
-     *
-     * Not the slice — the contribution: a role the wire has (`user`/`assistant`), a
-     * turn that neither failed nor is still in flight, and text that is not empty.
-     *
-     * `_wireText` (not `m.content`): assistant replies stream their text into
-     * `segments`, leaving `content` as '', so without flattening every reply would be
-     * empty here and the drop below would swallow the whole transcript.
-     */
-    private _wireHistory(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
-        return messages
-            .filter(m => {
-                if (m.role !== 'user' && m.role !== 'assistant') return false;
-                return m.status !== 'error' && !AparteClient._inFlight(m);
-            })
-            .flatMap((m): import('../types/chat.js').AparteChatMessage[] => {
-                // A reply that called tools goes out as the calls and their answers, in
-                // the order it showed them — see `wire-history.ts`. Every other message
-                // keeps its one text, compaction preamble included.
-                if (m.role === 'assistant' && m.segments?.some(s => s.type === 'tool_call')) {
-                    return wireTurns(m, (segments) => this._segmentsToText(segments));
-                }
-                const content = this._wireText(m);
-                return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
-            });
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1438,22 +1403,6 @@ export class AparteClient {
         return mergeAdjacentUserMessages(messages);
     }
 
-    /**
-     * A turn that has not finished yet. `status` is OPTIONAL on `AparteMessage`, so
-     * the question the history gates can ask is "is this still in flight?", never
-     * "is this completed?".
-     *
-     * The gates below ask the first, because a host that SEEDS a transcript
-     * — restoring a saved conversation, hydrating a server-rendered one — has no
-     * reason to invent a status for turns that are already over. Asking "is this
-     * completed?" would leave the cutoff at 0 and slice away the whole transcript: the
-     * model would get the new question with no context, and nothing in the UI would say
-     * so, because the viewport still shows every message.
-     */
-    private static _inFlight(m: AparteMessage): boolean {
-        return m.status === 'streaming' || m.status === 'pending';
-    }
-
     private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
         // The checkpoint is read on the FULL path, before the cutoff below: it may sit on
         // the very message being sent (a turn retried after an overflow), and the cutoff
@@ -1467,82 +1416,14 @@ export class AparteClient {
         let cutoff = 0;
         for (let i = 0; i < messages.length; i++) {
             const m = messages[i]!;
-            if (m.role === 'assistant' && m.status !== 'error' && !AparteClient._inFlight(m)) {
+            if (m.role === 'assistant' && m.status !== 'error' && !isInFlight(m)) {
                 cutoff = i + 1;
             }
         }
 
         // The cutoff is this path's own concern; what each message contributes to the
-        // wire is shared with retry and edit — see `_wireHistory`.
-        return [...this._summaryMessage(summary), ...this._wireHistory(messages.slice(0, cutoff))];
-    }
-
-    /**
-     * A message's text as the MODEL should read it — the one mapper both history
-     * paths use, so the compaction preamble cannot be applied on retry and edit and
-     * forgotten on the ordinary send, which is what the first review of this feature
-     * caught: the summary went out on every normal turn as something the user said.
-     */
-    private _wireText(message: AparteMessage): string {
-        const text = this._extractText(message);
-        return message.compaction ? underPreamble(text) : text;
-    }
-
-    /**
-     * What the model is told it said last turn — reconstructed from what was
-     * RENDERED, not from the raw-text field.
-     *
-     * The segments are what the reader saw, so they come first. `content` is the
-     * fallback, and that is not vestigial: a non-streaming transport writes the whole
-     * reply there and creates no segments at all.
-     */
-    private _extractText(message: AparteMessage): string {
-        const rendered = this._segmentsToText(message.segments);
-        if (rendered) return rendered;
-        if (typeof message.content === 'string' && message.content) return message.content;
-        return '';
-    }
-
-    /**
-     * Segments → the text a model can read back.
-     *
-     * Fences and the language tag are kept. Without them the model re-reads its own
-     * code as prose — which is how it starts explaining a snippet it believes it
-     * wrote in English.
-     *
-     * A type core does not know — a registered block grammar's (an artifact, a
-     * citation, a file), a consumer's custom segment — follows one rule: its
-     * `content` if it has one, else its `fallback`, else nothing. Dropping such a
-     * segment would make a document the model had just produced invisible on the very
-     * next turn, so it could not be asked to change the thing it had built. An artifact
-     * is a plugin's type like any other and follows this rule.
-     *
-     * `thinking` and `tool_call` stay out on purpose — the first is the model's own
-     * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second is not text: `_wireHistory` sends a reply's calls as the assistant's
-     * `toolCalls` and the `tool` messages answering them (`wire-history.ts`).
-     */
-    private _segmentsToText(segments: AparteMessage['segments']): string {
-        if (!segments?.length) return '';
-        const fence = '```';
-        const parts: string[] = [];
-        for (const segment of segments) {
-            const content = (segment as { content?: string }).content;
-            if (segment.type === 'text') {
-                if (content) parts.push(content);
-            } else if (segment.type === 'code') {
-                const lang = (segment as { language?: string }).language ?? '';
-                parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
-            } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
-                continue;
-            } else if (typeof content === 'string' && content) {
-                parts.push(content);
-            } else {
-                const fallback = (segment as { fallback?: string }).fallback;
-                if (fallback) parts.push(fallback);
-            }
-        }
-        return parts.join('\n').trim();
+        // wire is shared with retry and edit — see `wireMessages`.
+        return [...this._summaryMessage(summary), ...wireMessages(messages.slice(0, cutoff))];
     }
 
     /**
@@ -2013,7 +1894,7 @@ export class AparteClient {
      */
     private _resumeMessages(targetElement: AparteChatTargetElement, messageId: string, sent: AparteChatMessage[]): AparteChatMessage[] {
         const reply = targetElement.getMessages?.().find((m) => m.id === messageId);
-        return [...sent, ...(reply ? wireTurns(reply, (segments) => this._segmentsToText(segments), { openDeferred: true }) : [])];
+        return [...sent, ...(reply ? wireTurns(reply, segmentsToWireText, { openDeferred: true }) : [])];
     }
 
     /**
@@ -2033,7 +1914,7 @@ export class AparteClient {
                 : [];
         return mergeAdjacentUserMessages([
             ...this._systemMessages(), ...history,
-            ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : []),
+            ...(askedAt >= 0 ? wireMessages([before[askedAt]!]) : []),
         ]);
     }
 
