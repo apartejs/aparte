@@ -17,7 +17,10 @@ export default {
         // `role` here is the message role, and `role` is also ARIA's. An `@Input() role`
         // on the directive would shadow ARIA's in every template that uses the element.
         // `data-role` carries the same value and is bindable as `messageRole` below.
-        'aparte-chat-bubble': ['role'],
+        // `data-checkpoint` is the other one: the viewport and the host write it while a
+        // compaction is pending or has failed, and clear it after. A template binding would
+        // fight them for a value only core may write.
+        'aparte-chat-bubble': ['role', 'data-checkpoint'],
         // Reflected BY the element onto itself while it holds no element child. A
         // template binding would fight the element for a value the element owns.
         'aparte-composer-toolbar': ['data-empty'],
@@ -46,6 +49,10 @@ export default {
      */
     angularOutputOmit: {
         'aparte-composer': ['aparte-abort', 'aparte-message-aborted'],
+        // A compaction is a request for the whole page, answered on `window`: the bubble
+        // dispatches both from its Retry and Restore buttons, so a host listener on the
+        // bubble would never hear them.
+        'aparte-chat-bubble': ['aparte-compact', 'aparte-compact-done'],
     },
 
     /**
