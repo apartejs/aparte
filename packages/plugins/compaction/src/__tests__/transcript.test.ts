@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { AparteMessage } from '@aparte/core';
-import { messageText, transcriptForSummary } from '../transcript.js';
+import { DEFAULT_COMPACTION_PROMPT, messageText, transcriptForSummary } from '../transcript.js';
 
 const reply = (segments: unknown[], content = ''): AparteMessage =>
     ({ id: 'a1', role: 'assistant', content, timestamp: 1, segments } as unknown as AparteMessage);
@@ -23,6 +23,19 @@ describe('messageText', () => {
 
     it('falls back to the message content when the segments say nothing', () => {
         expect(messageText(reply([{ id: 's', type: 'thinking', content: 'hmm' }], 'The answer.'))).toBe('The answer.');
+    });
+});
+
+describe('DEFAULT_COMPACTION_PROMPT', () => {
+    it('asks for the five sections, in the language of the conversation', () => {
+        for (const section of ['goal and constraints', 'Decisions taken, and why', 'Tasks still open', 'Facts and tool results still needed', 'The next step']) {
+            expect(DEFAULT_COMPACTION_PROMPT).toContain(section);
+        }
+        expect(DEFAULT_COMPACTION_PROMPT).toContain('Write in the language of the conversation');
+    });
+
+    it('keeps the clause that stops the model from answering the transcript instead of summarising it', () => {
+        expect(DEFAULT_COMPACTION_PROMPT).toMatch(/Do not continue the conversation, do not answer a question it contains and do not call a tool/);
     });
 });
 
