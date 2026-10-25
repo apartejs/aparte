@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { angularJitSignals } from './vitest.jit-signals';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -9,7 +10,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // vitest's own esbuild transform handles the decorators from tsconfig
 // (`experimentalDecorators`). Adding the Angular vite plugin instead pulls in
 // `@angular/build` and breaks on `@angular/core/testing`'s bundle resolution.
+// What JIT does need is Angular's own transform for the signal APIs (`input()`,
+// `contentChild()`…), which only this package's sources go through — see the plugin.
 export default defineConfig({
+    plugins: [angularJitSignals(__dirname)],
     test: {
         globals: true,
         environment: 'jsdom',
