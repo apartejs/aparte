@@ -311,6 +311,30 @@ export class AparteClient {
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _releaseKeyResolver: (() => void) | null = null;
     private _isAborted = false;
+    /** Provider and model pairs whose window was already read again after a turn (see `_readWindowAfterTurn`). */
+    private readonly _windowReadFor = new Set<string>();
+
+    /**
+     * The current model's window, read again once after a turn when it had none.
+     *
+     * A local server that loads a model on its first request — LM Studio's just-in-time
+     * loading, Ollama — has no loaded window to report when the model list is fetched at
+     * start-up, so the model comes without one, and the gauge and the compaction have
+     * nothing to measure against. After a reply the model is loaded, and the provider's
+     * own probe finds it. Once per provider and model: a server that never says costs one
+     * request, not one per turn. The config announces the window when it appears.
+     */
+    private async _readWindowAfterTurn(): Promise<void> {
+        // The config the turn picked its provider and model from — the client's own.
+        const config = this._config;
+        const model = config.getCurrentModel();
+        const providerId = config.getModelConfig().defaultProvider;
+        if (!model || model.contextWindow || !providerId) return;
+        const key = `${providerId}\u0000${model.id}`;
+        if (this._windowReadFor.has(key)) return;
+        this._windowReadFor.add(key);
+        await config.refreshProviderModels(providerId);
+    }
 
     /**
      * Does this window event belong to this client?
@@ -872,6 +896,7 @@ export class AparteClient {
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage, ...(finishReason ? { finishReason } : {}) }, chatId);
+                void this._readWindowAfterTurn();
             }
         };
         // The model refused the request as too long, before saying a word: make the history

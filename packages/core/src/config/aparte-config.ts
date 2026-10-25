@@ -873,9 +873,20 @@ export class AparteConfig {
             // local providers (e.g. LM Studio) — the provider handles that.
             const auth = await this.getKey(providerId);
             const models = await provider.fetchModels(auth);
+            // A provider answers `[]` when its fetch fails (openai-compat catches and says so
+            // on the console): that is not a server with no models, and wiping the list
+            // already held would take the selected model's capabilities with it.
+            const held = this._fetchedModels.get(providerId);
+            if (models.length === 0 && held?.length) return held;
+            const windowBefore = this.getCurrentModel()?.contextWindow;
             // Cached so `getCurrentModel()` can see it: a fetched list is the only
             // list a compat endpoint has, and capabilities are read off the model.
             this._fetchedModels.set(providerId, models);
+            // A window that appears — a local server that had not loaded the model when the
+            // list was first fetched — is something the gauge and the compaction read, so it
+            // is announced. Only then: a picker that refreshes the list each time it opens
+            // must not re-render every component on the page for nothing.
+            if (this.getCurrentModel()?.contextWindow !== windowBefore) this._notify();
             return models;
         } catch (error) {
             console.warn(`[AparteConfig] Failed to refresh models for ${providerId}`, error);
