@@ -17,6 +17,8 @@
  * that does: the compaction this plugin performs. Zero deps, a char-count heuristic.
  */
 
+import { estimateTokens } from '@aparte/core';
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface CompactionConfig {
@@ -95,14 +97,13 @@ export const DEFAULT_COMPACTION_CONFIG: CompactionConfig = {
 // ─── Token estimation ──────────────────────────────────────────────────────
 
 /**
- * Token heuristic (FR ~3.5 chars/tok, EN ~4 chars/tok).
- * Accurate to ±10% — enough for budgeting, and it avoids `tokenizer.encode()`,
- * which costs ~5ms per message × N (too slow to run on every turn).
+ * Token heuristic — core's, re-exported under the name this module always had.
+ *
+ * It lives in `@aparte/core` (`estimateTokens`) because the context gauge and the count
+ * the client records on each reply read the SAME estimate: a plugin that kept a private copy
+ * would decide on figures the page does not show.
  */
-export function estimateTokens(text: string | null | undefined): number {
-    if (!text) return 0;
-    return Math.ceil(text.length / 3.8);
-}
+export { estimateTokens };
 
 /**
  * Estimate tokens for a JSON-serializable structure (e.g. tools array).

@@ -283,6 +283,8 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
 export { historyFromCheckpoint } from './context/checkpoint.js';
+export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal } from './client/stream-adapter.js';

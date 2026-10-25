@@ -310,6 +310,8 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
 export { historyFromCheckpoint } from './context/checkpoint.js';
+export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';

@@ -1,0 +1,214 @@
+// @vitest-environment jsdom
+/**
+ * One measure of the context window, for the gauge and the compaction plugin.
+ *
+ * `estimateWireTokens` reads the SAME serialisation the client sends (`wireMessages`), so
+ * what is counted is what goes out: thinking is not sent, text is, and a tool call is its
+ * envelope plus the `tool` message that answers it. `measureContext` is the real usage while
+ * nothing the model reads has changed, and a calibrated estimate of the request that would
+ * be sent once something has.
+ */
+import { describe, it, expect } from 'vitest';
+import { AparteConfig } from '../../config/index.js';
+import { estimateTokens, estimateWireTokens, measureContext } from '../measure.js';
+import type { AparteMessage } from '../../types/index.js';
+
+const text = (n: number): string => 'x'.repeat(n);
+const user = (id: string, content: string, extra: Partial<AparteMessage> = {}): AparteMessage => ({
+    id, role: 'user', content, timestamp: 1, ...extra,
+});
+const reply = (id: string, content: string, extra: Partial<AparteMessage> = {}): AparteMessage => ({
+    id, role: 'assistant', content, timestamp: 2, ...extra,
+});
+const config = (): AparteConfig => new AparteConfig();
+
+describe('estimateTokens', () => {
+    it('is the character heuristic: ceil(length / 3.8), nothing for nothing', () => {
+        expect(estimateTokens('')).toBe(0);
+        expect(estimateTokens(null)).toBe(0);
+        expect(estimateTokens(undefined)).toBe(0);
+        expect(estimateTokens(text(38))).toBe(10);
+        expect(estimateTokens(text(39))).toBe(11);
+    });
+});
+
+describe('estimateWireTokens', () => {
+    it('counts the text segments of a reply, not its empty `content`', () => {
+        const streamed = reply('a1', '', { segments: [{ id: 's', type: 'text', content: text(380) }] });
+        expect(estimateWireTokens([streamed])).toBe(100);
+    });
+
+    it('does not count thinking: it is not sent', () => {
+        const withThinking = reply('a1', '', {
+            segments: [
+                { id: 't', type: 'thinking', content: text(3800) },
+                { id: 's', type: 'text', content: text(380) },
+            ],
+        });
+        expect(estimateWireTokens([withThinking])).toBe(100);
+    });
+
+    it('counts a tool call as the envelope and its result as the tool message', () => {
+        const withCall = reply('a1', '', {
+            segments: [{
+                id: 'c', type: 'tool_call', status: 'resolved',
+                toolCall: { id: 'call_1', name: 'search', input: { q: 'lisbon' } },
+                result: text(380),
+            } as never],
+        });
+        const counted = estimateWireTokens([withCall]);
+        // The result is 100 tokens by itself; the declared call (id, name, input) is on top.
+        expect(counted).toBeGreaterThan(100);
+        expect(counted).toBeLessThan(140);
+    });
+
+    it('counts nothing for a failed turn or one still in flight, which the wire does not send', () => {
+        expect(estimateWireTokens([
+            user('u1', text(380), { status: 'error' }),
+            reply('a1', text(380), { status: 'streaming' }),
+            reply('a2', text(380), { status: 'pending' }),
+        ])).toBe(0);
+    });
+
+    it('counts a legacy compaction message under the preamble it goes out with', () => {
+        const legacy = user('c', text(380), { compaction: true });
+        expect(estimateWireTokens([legacy])).toBeGreaterThan(100);
+    });
+});
+
+describe('measureContext', () => {
+    it('is the last reply\'s real usage while nothing the model reads has changed', () => {
+        const messages = [
+            user('u1', text(400)),
+            reply('a1', text(400), { usage: { inputTokens: 900, outputTokens: 60 } }),
+        ];
+        const m = measureContext({ messages, config: config(), windowOverride: 8000 });
+        expect(m).toMatchObject({ window: 8000, used: 960, estimated: false });
+        expect(m.parts.messages).toBeGreaterThan(0);
+        expect(m.other).toBe(Math.max(0, 960 - m.parts.system - m.parts.tools - m.parts.summary - m.parts.messages));
+    });
+
+    it('prefers the provider\'s total to input + output, like the gauge always did', () => {
+        const messages = [reply('a1', 'hi', { usage: { inputTokens: 100, outputTokens: 20, totalTokens: 150 } })];
+        expect(measureContext({ messages, config: config() }).used).toBe(150);
+    });
+
+    it('is an estimate once a message came after the reply', () => {
+        const messages = [
+            user('u1', text(380)),
+            reply('a1', text(380), { usage: { inputTokens: 900, outputTokens: 60 } }),
+            user('u2', text(380)),
+        ];
+        const m = measureContext({ messages, config: config() });
+        expect(m.estimated).toBe(true);
+        // Three messages of 100 tokens, k = 1 (the reply recorded no estimate).
+        expect(m.used).toBe(300);
+        expect(m.parts.messages).toBe(300);
+    });
+
+    it('scales the estimate by how far the last reply showed the heuristic to be off', () => {
+        const messages = [
+            user('u1', text(380)),
+            reply('a1', text(380), { usage: { inputTokens: 200, outputTokens: 10 }, contextEstimate: 100 }),
+            user('u2', text(380)),
+        ];
+        const m = measureContext({ messages, config: config() });
+        // k = 200 / 100 = 2 over an estimate of 300 tokens.
+        expect(m.used).toBe(600);
+        expect(m.estimated).toBe(true);
+        // The parts are NOT calibrated: they stay the raw estimates.
+        expect(m.parts.messages).toBe(300);
+        expect(m.other).toBe(300);
+    });
+
+    it('clamps k to [0.5, 3]: one odd reply cannot throw the reading', () => {
+        const high = [reply('a1', 'x', { usage: { inputTokens: 100000, outputTokens: 0 }, contextEstimate: 10 }), user('u2', text(380))];
+        const low = [reply('a1', 'x', { usage: { inputTokens: 1, outputTokens: 0 }, contextEstimate: 1000 }), user('u2', text(380))];
+        const rawHigh = estimateWireTokens(high);
+        const rawLow = estimateWireTokens(low);
+        expect(measureContext({ messages: high, config: config() }).used).toBe(rawHigh * 3);
+        expect(measureContext({ messages: low, config: config() }).used).toBe(Math.round(rawLow * 0.5));
+    });
+
+    it('uses k = 1 when the reply carries no estimate or no input count', () => {
+        const noEstimate = [reply('a1', text(380), { usage: { inputTokens: 500, outputTokens: 0 } }), user('u2', text(380))];
+        const noInput = [reply('a1', text(380), { usage: { inputTokens: 0, outputTokens: 5 }, contextEstimate: 100 }), user('u2', text(380))];
+        expect(measureContext({ messages: noEstimate, config: config() }).used).toBe(estimateWireTokens(noEstimate));
+        expect(measureContext({ messages: noInput, config: config() }).used).toBe(estimateWireTokens(noInput));
+    });
+
+    it('counts the system prompt and the tools, and reads the window from the override', () => {
+        const c = config();
+        c.setSystemPrompt('s'.repeat(380));
+        c.registerTool(
+            { name: 'search', description: 'd'.repeat(380), inputSchema: { type: 'object' } },
+            async () => 'ok',
+        );
+        const m = measureContext({ messages: [user('u1', text(380))], config: c, windowOverride: 4000 });
+        expect(m.window).toBe(4000);
+        expect(m.parts.system).toBe(100);
+        expect(m.parts.tools).toBeGreaterThanOrEqual(100);
+        expect(m.parts.messages).toBe(100);
+        expect(m.estimated, 'no reply has reported yet').toBe(true);
+        expect(m.used).toBe(m.parts.system + m.parts.tools + m.parts.messages);
+        expect(m.other).toBe(0);
+    });
+
+    it('measures the view after a checkpoint: the summary and the messages from it, not the ones it replaces', () => {
+        const messages = [
+            user('u1', text(3800)),
+            reply('a1', text(3800), { usage: { inputTokens: 2000, outputTokens: 100 } }),
+            user('u2', text(380), { contextSummary: { summary: text(380), count: 2, createdAt: 10 } }),
+            reply('a2', text(380)),
+        ];
+        const m = measureContext({ messages, config: config() });
+        expect(m.parts.summary).toBeGreaterThan(100);
+        expect(m.parts.messages).toBe(200);
+        expect(m.used, 'far below the 2100 the old reply reported').toBeLessThan(500);
+    });
+
+    it('a checkpoint written after the last reply makes it an estimate, never the stale usage', () => {
+        // The reply is the LAST message and still the compaction made the real number stale:
+        // its checkpoint (written at 100) is newer than the reply (stamped 5).
+        const messages = [
+            user('u2', text(380), { contextSummary: { summary: 'short', count: 2, createdAt: 100 }, timestamp: 1 }),
+            reply('a1', text(380), { usage: { inputTokens: 2000, outputTokens: 100 }, timestamp: 5 }),
+        ];
+        const m = measureContext({ messages, config: config() });
+        expect(m.estimated).toBe(true);
+        expect(m.used).toBeLessThan(2000);
+    });
+
+    it('a checkpoint that was already there when the reply came leaves the real usage alone', () => {
+        const messages = [
+            user('u2', text(380), { contextSummary: { summary: 'short', count: 2, createdAt: 1 }, timestamp: 1 }),
+            reply('a2', text(380), { usage: { inputTokens: 300, outputTokens: 50 }, timestamp: 5 }),
+        ];
+        const m = measureContext({ messages, config: config() });
+        expect(m).toMatchObject({ used: 350, estimated: false });
+    });
+
+    it('viewChanged forces an estimate even though no message can say so (a Restore)', () => {
+        const messages = [user('u1', text(380)), reply('a1', text(380), { usage: { inputTokens: 900, outputTokens: 0 } })];
+        expect(measureContext({ messages, config: config() }).estimated).toBe(false);
+        expect(measureContext({ messages, config: config(), viewChanged: true }).estimated).toBe(true);
+    });
+
+    it('other is never negative when the estimates add up to more than the reported usage', () => {
+        const messages = [user('u1', text(3800)), reply('a1', text(3800), { usage: { inputTokens: 10, outputTokens: 0 } })];
+        const m = measureContext({ messages, config: config() });
+        expect(m.used).toBe(10);
+        expect(m.other).toBe(0);
+    });
+
+    it('has no window when none is declared, and takes the override when one is given', () => {
+        const m = measureContext({ messages: [user('u1', 'hi')], config: config() });
+        expect('window' in m).toBe(false);
+        expect(measureContext({ messages: [user('u1', 'hi')], config: config(), windowOverride: 123 }).window).toBe(123);
+    });
+
+    it('an empty path is an estimate of nothing, not a crash', () => {
+        const m = measureContext({ messages: [], config: config() });
+        expect(m).toMatchObject({ used: 0, estimated: true, other: 0 });
+    });
+});

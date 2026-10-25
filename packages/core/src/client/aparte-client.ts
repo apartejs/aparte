@@ -6,6 +6,7 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
+import { toolsForCurrentModel } from '../context/measure.js';
 import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
@@ -860,29 +861,12 @@ export class AparteClient {
      * using the same conversation history minus the retried reply.
      */
     /**
-     * The registered tools, unless the current model says it cannot call one.
-     *
-     * Single source for the gate, so send / retry / edit cannot drift.
-     *
-     * The question is "did this model say it cannot", not "did it say it can": the
-     * app sets a model id by hand (`setModelConfig`) or a selector sets it from a
-     * fetched list, and in both cases the model's declared capabilities are commonly
-     * unknown. `undefined` capabilities read as "can", or `tools: []` would go on
-     * the wire while `getTools()` held the tool the app had explicitly registered,
-     * and the model would answer that it had no such tool. Registering a tool is an explicit act by the app; silently dropping it
-     * because a `/models` listing is terse is the library second-guessing the
-     * developer. A model that declares its capabilities and omits function calling
-     * is still honoured — that is a statement, and it is respected.
-     *
-     * Failure modes, both ways round: over-sending means a model that cannot use
-     * tools does not call one, or its own endpoint rejects the array with an error
-     * the developer can read. Under-sending would be silent, total, and look like a
-     * lying model.
+     * The registered tools, unless the current model says it cannot call one — the gate
+     * lives in `toolsForCurrentModel` (with its reasoning), where the context measure reads
+     * the same rule, so send / retry / edit and the gauge cannot drift.
      */
     private _toolsForCurrentModel(): AparteTool[] {
-        const capabilities = this._config.getCurrentModel()?.capabilities;
-        const declinesTools = capabilities ? !capabilities.includes('function_calling') : false;
-        return declinesTools ? [] : this._config.getTools();
+        return toolsForCurrentModel(this._config);
     }
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
