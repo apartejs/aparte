@@ -15,6 +15,10 @@ import type { AparteMessage } from '../types.js';
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. Call from a component's script. Svelte
  * equivalent of Angular's `ConversationManagerService`.
+ *
+ * @deprecated On Svelte 5, use `createConversations()` from `@aparte/svelte/runes`, whose lists
+ * are reactive state rather than stores. In the next release this helper leaves the package root
+ * for `@aparte/svelte/legacy`, beside the Svelte 4 component.
  */
 export function createConversationManager() {
     let manager: AparteConversationManager | null = null;
