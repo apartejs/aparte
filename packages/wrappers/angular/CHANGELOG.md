@@ -1,5 +1,51 @@
 # @aparte/angular
 
+## 0.25.0
+
+### Minor Changes
+
+- cf0590e: `@aparte/angular` installs on Angular 20 and 21, not only 19.
+
+  The peer range is `^19.2.0 || ^20.0.0 || ^21.0.0`. The package is still compiled on 19.2 in Angular's partial mode, which Angular guarantees a newer application can link, so one build serves the three majors. What makes the range a fact rather than a hope: the specs run on 19 (with zone.js, zoneless, and in a server render), and the repo's Angular example now runs on 21, zoneless, driven in a real browser by the end-to-end suite. Angular 19 is past its upstream support window and leaves the range at 1.0. Angular 22 joins once it is exercised the same way.
+
+  `@aparte/plugin-model-selector` follows: its optional `@angular/core` peer (for the `./angular` entry) takes the same range, since a narrower one would fail `npm install` on Angular 20 and 21 even for an app that never imports that entry.
+
+- c367c85: Bind `[conversations]` on `<aparte-conversation-list>` with no `CUSTOM_ELEMENTS_SCHEMA`: its directive now has that input.
+
+  The element directives were generated from the elements' attributes only, so a member that exists only as a JS property — the list's rows — had no input, and `[conversations]="…"` did not compile unless the component switched template checking off for every unknown tag. The generator now also emits an input for each public property an element has no attribute for; it hands the value over as the property. `<aparte-conversation-list>`'s `conversations` is the only such member today.
+
+- d6cf93b: Set `AparteChatComponent` inputs from code with `componentRef.setInput()`: they are signal inputs now. Templates do not change, and the per-message template can be written as content: `<ng-template aparteBubble let-message>`.
+
+  Every input keeps its public name (`[messages]`, `placeholder`, `disabled`, `centerWhenEmpty`, `[bubbleTemplate]`…), so a template binding works as before; what changes is the class member behind it, which is an Angular `InputSignal` rather than a writable property. Code that created the component and assigned `instance.config = …` sets it with `componentRef.setInput('config', …)` instead, which is how Angular sets any input from code.
+
+  `AparteBubbleDirective` is new: `<ng-template aparteBubble let-message>` written inside `<aparte-chat>` draws each message, the same as passing a `TemplateRef` to `[bubbleTemplate]`, which still wins when both are given. `[(messages)]` two-way binding is supported and tested: the chat reports its own changes through `messagesChange`, and a write from the parent emits nothing back.
+
+  The component renders on the server: the host that drives the custom elements is created after the first render in the browser only, and nothing touches `requestAnimationFrame` during a server render. It also runs under zoneless change detection (the default for a new app since Angular 21); both are covered by specs.
+
+- 15254e4: Draw a tool call with your own component: `<AparteToolUI name="…">` (React, Vue, Svelte 5) or `<ng-template aparteToolUI="…">` (Angular).
+
+  The card renders from where you declare it, so it reads your app's contexts — React context through a portal, Vue `inject` through `Teleport`, Svelte `getContext` (the snippet is mounted with the declaration's contexts), Angular DI (the view is created where the template is declared, and it works zoneless). It is mounted once per call and updated in place when the call changes, so a component keeps its local state when the result arrives. It is unmounted when the call leaves the page or when the declaration unmounts, and the call goes back to core's row; a declaration made while calls are already on screen takes them over. Of two declarations for one tool the newer wins, and removing the older keeps it. A server render declares nothing and draws nothing: the cards appear in the browser.
+
+  `AparteSegmentUI` (`<ng-template aparteSegmentUI="…">` with `AparteSegmentUIDirective` in Angular) does the same for a segment type. In Svelte both are in `@aparte/svelte/runes`. Vue also exports `isAparteElement`, the test to give `compilerOptions.isCustomElement`: it accepts the `aparte-*` elements, and leaves the wrapper's own component names to Vue, so a kebab-case `<aparte-tool-ui>` gets Vue's warning instead of becoming an inert element (write it `<AparteToolUI>`).
+
+### Patch Changes
+
+- 77d7493: `<aparte-ui>` no longer builds its element during a server render, so a hydrated Angular SSR page shows it once.
+
+  It built the element in `ngAfterViewInit`, which Angular also runs on a server: the element was serialized into the HTML without its props or listeners, hydration kept it, and the browser appended a configured one beside it — two model selectors, two counters. It is now built in the browser only, the way React, Vue and Svelte build theirs in an effect or `onMount`.
+
+- aa0a6d8: Under `[(messages)]`, a message the chat appends right after one of its own changes is no longer dropped when the parent's field comes back through `[messages]`.
+
+  The chat reports a change (`messagesChange`), the two-way binding writes it into the parent's field, and the chat then appends without reporting — an optimistic assistant placeholder, or core's append right after a flush of buffered chunks (an edit, a retry). At the next change detection the parent's field came back through the input and reset the chat to the list it had reported, so the placeholder vanished and the streamed reply landed on the user's message, or nowhere. The chat now recognises its own reports that have not come back yet and keeps its list when one does — the rule React, Vue and Svelte apply — while a list you restore later is still yours.
+
+- ef17513: A server-rendered `<AparteChat>` now hydrates without a mismatch, in Next, Nuxt, SvelteKit and Angular SSR.
+
+  The server's HTML carries `defer-hydration` on the chat's root, so core's elements leave it alone until the framework has the page; the wrapper then releases them, before it builds the chat's host. Before, the elements drew themselves as soon as `@aparte/core` loaded and the framework found a DOM it had not rendered — React threw error 418 and discarded the server's HTML. An app with no server render holds nothing, so a slot's component can talk to the elements it renders from its own mount hook: React reads "am I hydrating?" through `useSyncExternalStore`, Svelte draws the attribute on the server only, Angular — where it is on the `<aparte-chat>` host itself — binds it only while hydrating a host the server sent with it, and Vue releases from the root's ref. On a server-rendered page, Vue's ref still releases before any `onMounted`; in React, Svelte and Angular a slot's component mounts before the chat does (its effect, `onMount` or `ngAfterViewInit` runs first), so on that first load it finds the elements live only once the chat has mounted.
+
+- 02351e4: A list you assign back to the chat — a reopened conversation, an undo — is now drawn, even when the chat reported it to you earlier.
+
+  Under a two-way binding every list the chat reports comes back through your prop, sometimes late — an earlier report after its next change — and applying that echo would roll back what the chat did since without reporting. To tell an echo from your own word, the wrappers remembered every list the chat had ever reported, so a list you kept and assigned back later was taken for an echo and ignored: the chat went on showing the other conversation, and its next report wrote that conversation's messages into the one you had reopened. Only the reports you have not handed back yet count now; any list the chat did not report clears them. React, Vue, Svelte (both entries) and Angular apply the same rule.
+
 ## 0.24.0
 
 ## 0.23.0

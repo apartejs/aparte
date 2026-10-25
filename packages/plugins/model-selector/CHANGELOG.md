@@ -1,5 +1,27 @@
 # @aparte/plugin-model-selector
 
+## 0.25.0
+
+### Minor Changes
+
+- 7d9550d: Svelte 5 apps now need Svelte 5.20 or later (peer `^4.0.0 || ^5.20.0`, on `@aparte/svelte` and on `@aparte/plugin-model-selector`'s optional Svelte peer); on Svelte 5, import from `@aparte/svelte/runes`; `createAparteChat` and `createConversationManager` are deprecated, and 0.26.0 moves today's package root to `@aparte/svelte/legacy`.
+
+  `@aparte/svelte/runes` is the chat written in Svelte 5: `<AparteChat>` with snippets (`emptyState`, `aboveComposer`, `composer`, `toolbar`, `bubble`), a bindable `messages`, callback props (`onmessageSent`, `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange`, `onconversationCreated`), a stable id from `$props.id()` and a server render that SvelteKit hydrates; `<AparteUi>`; `createConversations()` / `AparteConversations`, the saved conversations as reactive state; `createAparteClient`; and `<AparteToolUI>` / `<AparteSegmentUI>`. It needs Svelte 5.20 or later, and the peer range is now `^4.0.0 || ^5.20.0` for the whole package, the root entry included — and on `@aparte/plugin-model-selector`'s optional Svelte peer too, which follows the wrapper's: an older Svelte 5 that is installed now fails `npm install` with ERESOLVE, even for an app that only uses the root component or the plugin.
+
+  `createAparteChat` (use `bind:messages`) and `createConversationManager` (use `createConversations()`) are deprecated. In 0.26.0, `@aparte/svelte` becomes the runes component and today's — the Svelte 4 syntax component and these two helpers — moves to `@aparte/svelte/legacy`, where it keeps working on Svelte 4 and 5.
+
+### Patch Changes
+
+- cf0590e: `@aparte/angular` installs on Angular 20 and 21, not only 19.
+
+  The peer range is `^19.2.0 || ^20.0.0 || ^21.0.0`. The package is still compiled on 19.2 in Angular's partial mode, which Angular guarantees a newer application can link, so one build serves the three majors. What makes the range a fact rather than a hope: the specs run on 19 (with zone.js, zoneless, and in a server render), and the repo's Angular example now runs on 21, zoneless, driven in a real browser by the end-to-end suite. Angular 19 is past its upstream support window and leaves the range at 1.0. Angular 22 joins once it is exercised the same way.
+
+  `@aparte/plugin-model-selector` follows: its optional `@angular/core` peer (for the `./angular` entry) takes the same range, since a narrower one would fail `npm install` on Angular 20 and 21 even for an app that never imports that entry.
+
+- 6fed78c: `<aparte-approval-mode>` and `<aparte-model-selector>` now wait for a server-rendered chat to hydrate before they draw.
+
+  Placed in the toolbar of a server-rendered `<AparteChat>`, either tag drew itself as soon as its plugin was imported — before the framework had hydrated the page — so React found children it had not rendered and threw the server's HTML away (error 418). Both now honour `defer-hydration`, like core's own elements, and draw when the wrapper releases the chat. `<aparte-ask-user>` already did, through the `<aparte-elicitation>` it extends. An element of your own that draws itself on connect can do the same: call `deferHydrationOf(YourElement)` before `customElements.define`.
+
 ## 0.24.0
 
 ## 0.23.0

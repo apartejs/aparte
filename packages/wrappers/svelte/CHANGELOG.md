@@ -1,5 +1,39 @@
 # @aparte/svelte
 
+## 0.25.0
+
+### Minor Changes
+
+- 7d9550d: Svelte 5 apps now need Svelte 5.20 or later (peer `^4.0.0 || ^5.20.0`, on `@aparte/svelte` and on `@aparte/plugin-model-selector`'s optional Svelte peer); on Svelte 5, import from `@aparte/svelte/runes`; `createAparteChat` and `createConversationManager` are deprecated, and 0.26.0 moves today's package root to `@aparte/svelte/legacy`.
+
+  `@aparte/svelte/runes` is the chat written in Svelte 5: `<AparteChat>` with snippets (`emptyState`, `aboveComposer`, `composer`, `toolbar`, `bubble`), a bindable `messages`, callback props (`onmessageSent`, `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange`, `onconversationCreated`), a stable id from `$props.id()` and a server render that SvelteKit hydrates; `<AparteUi>`; `createConversations()` / `AparteConversations`, the saved conversations as reactive state; `createAparteClient`; and `<AparteToolUI>` / `<AparteSegmentUI>`. It needs Svelte 5.20 or later, and the peer range is now `^4.0.0 || ^5.20.0` for the whole package, the root entry included — and on `@aparte/plugin-model-selector`'s optional Svelte peer too, which follows the wrapper's: an older Svelte 5 that is installed now fails `npm install` with ERESOLVE, even for an app that only uses the root component or the plugin.
+
+  `createAparteChat` (use `bind:messages`) and `createConversationManager` (use `createConversations()`) are deprecated. In 0.26.0, `@aparte/svelte` becomes the runes component and today's — the Svelte 4 syntax component and these two helpers — moves to `@aparte/svelte/legacy`, where it keeps working on Svelte 4 and 5.
+
+- 15254e4: Draw a tool call with your own component: `<AparteToolUI name="…">` (React, Vue, Svelte 5) or `<ng-template aparteToolUI="…">` (Angular).
+
+  The card renders from where you declare it, so it reads your app's contexts — React context through a portal, Vue `inject` through `Teleport`, Svelte `getContext` (the snippet is mounted with the declaration's contexts), Angular DI (the view is created where the template is declared, and it works zoneless). It is mounted once per call and updated in place when the call changes, so a component keeps its local state when the result arrives. It is unmounted when the call leaves the page or when the declaration unmounts, and the call goes back to core's row; a declaration made while calls are already on screen takes them over. Of two declarations for one tool the newer wins, and removing the older keeps it. A server render declares nothing and draws nothing: the cards appear in the browser.
+
+  `AparteSegmentUI` (`<ng-template aparteSegmentUI="…">` with `AparteSegmentUIDirective` in Angular) does the same for a segment type. In Svelte both are in `@aparte/svelte/runes`. Vue also exports `isAparteElement`, the test to give `compilerOptions.isCustomElement`: it accepts the `aparte-*` elements, and leaves the wrapper's own component names to Vue, so a kebab-case `<aparte-tool-ui>` gets Vue's warning instead of becoming an inert element (write it `<AparteToolUI>`).
+
+### Patch Changes
+
+- 2051a75: `createAparteClient()` no longer fails a server render, and a server render no longer leaves its `keyResolver` on the global config.
+
+  It stopped the client in `onDestroy`, which Svelte runs at the end of a server render too, and stopping a client that never started read `window` there and failed every SvelteKit page that followed the docs. `stop()` now touches nothing of the browser for a client that never started (`@aparte/core`), so the stop stays in `onDestroy` — the one hook a server render runs — and takes back the key source the client put on the config when it was constructed. Moved to a hook a server never runs, each request would have added one to the config the whole process shares, holding whatever that request's resolver closed over.
+
+- bf7de83: `AparteChat` and `AparteUi` are typed for Svelte 5 as well as Svelte 4: props, events and slots check under either.
+
+  The package is now built with Svelte 5's tooling, which emits each component's type in a form both majors read (a Svelte 4 class constructor and a Svelte 5 component function). Verified with the packed tarball installed in two fresh projects, Svelte 4.2 with `svelte-check` 3 and Svelte 5.57 with `svelte-check` 4, both with `skipLibCheck: false`: the documented usage checks clean, and an unknown prop or a wrong prop type is reported in both. Nothing changes in the components themselves.
+
+- ef17513: A server-rendered `<AparteChat>` now hydrates without a mismatch, in Next, Nuxt, SvelteKit and Angular SSR.
+
+  The server's HTML carries `defer-hydration` on the chat's root, so core's elements leave it alone until the framework has the page; the wrapper then releases them, before it builds the chat's host. Before, the elements drew themselves as soon as `@aparte/core` loaded and the framework found a DOM it had not rendered — React threw error 418 and discarded the server's HTML. An app with no server render holds nothing, so a slot's component can talk to the elements it renders from its own mount hook: React reads "am I hydrating?" through `useSyncExternalStore`, Svelte draws the attribute on the server only, Angular — where it is on the `<aparte-chat>` host itself — binds it only while hydrating a host the server sent with it, and Vue releases from the root's ref. On a server-rendered page, Vue's ref still releases before any `onMounted`; in React, Svelte and Angular a slot's component mounts before the chat does (its effect, `onMount` or `ngAfterViewInit` runs first), so on that first load it finds the elements live only once the chat has mounted.
+
+- 02351e4: A list you assign back to the chat — a reopened conversation, an undo — is now drawn, even when the chat reported it to you earlier.
+
+  Under a two-way binding every list the chat reports comes back through your prop, sometimes late — an earlier report after its next change — and applying that echo would roll back what the chat did since without reporting. To tell an echo from your own word, the wrappers remembered every list the chat had ever reported, so a list you kept and assigned back later was taken for an echo and ignored: the chat went on showing the other conversation, and its next report wrote that conversation's messages into the one you had reopened. Only the reports you have not handed back yet count now; any list the chat did not report clears them. React, Vue, Svelte (both entries) and Angular apply the same rule.
+
 ## 0.24.0
 
 ## 0.23.0
