@@ -144,11 +144,20 @@ export function createAparteChatHandler(
             const raw = await vendor.text().catch(() => '');
             let code: unknown;
             let type: unknown;
+            let body: unknown;
             try {
-                const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
+                body = JSON.parse(raw);
+                const parsed = body as { error?: { code?: unknown; type?: unknown } };
                 code = parsed?.error?.code;
                 type = parsed?.error?.type;
             } catch { /* not JSON — nothing to salvage, and nothing to leak */ }
+            // The adapter's reading of the body travels as the code, in the vendor's place: the
+            // client acts on it (an overflowing prompt is compacted and resent) and could not
+            // read it from a vendor string it has never heard of. The adapter is third-party
+            // code, so a throw there must not turn a clean 4xx into a 500.
+            try {
+                code = adapter.classifyError?.(vendor.status, body) ?? code;
+            } catch { /* an adapter that cannot classify leaves the vendor's own code */ }
             return new Response(
                 JSON.stringify({
                     error: {

@@ -516,6 +516,22 @@ describe('runStreamAgent — limits, abort & error', () => {
         // The throw escapes before text-flush and run-done (like _streamLoop).
         expect(rec.types()).toEqual(['run-start', 'turn-start', 'text-delta']);
     });
+
+    it('throws an Error that carries the code the event names, so the caller can act on it', async () => {
+        const t = scriptedTransport([[{ type: 'error', message: 'too long', code: 'USAGE_CONTEXT_EXCEEDED' }]]);
+        const failure = await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: recorder().emitter }))
+            .then(() => undefined, (e: unknown) => e as Error & { code?: string });
+        expect(failure?.message).toBe('too long');
+        expect(failure?.code).toBe('USAGE_CONTEXT_EXCEEDED');
+    });
+
+    it('throws a plain Error, with no code at all, when the event names none', async () => {
+        const t = scriptedTransport([[{ type: 'error', message: 'boom' }]]);
+        const failure = await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: recorder().emitter }))
+            .then(() => undefined, (e: unknown) => e as Error);
+        expect(failure).toBeInstanceOf(Error);
+        expect('code' in (failure as object)).toBe(false);
+    });
 });
 
 describe('runStreamAgent — synthetic toolChoice bypass', () => {

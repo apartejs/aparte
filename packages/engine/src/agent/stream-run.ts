@@ -481,8 +481,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 }
 
                 if (event.type === 'error') {
-                    // Mirror `_streamLoop`: throw; the caller's catch handles it.
-                    throw new Error(event.message);
+                    // Mirror `_streamLoop`: throw; the caller's catch handles it. The code the
+                    // provider named rides on the error, so the caller can act on it — an
+                    // overflowing prompt is compacted and resent — without reading the prose.
+                    throw event.code === undefined
+                        ? new Error(event.message)
+                        : Object.assign(new Error(event.message), { code: event.code });
                 }
 
                 // A DISCRIMINANT GUARD, not a comment.

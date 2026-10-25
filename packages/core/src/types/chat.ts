@@ -4,6 +4,7 @@
 
 import type { AparteTool, AparteToolCall } from './tools.js';
 import type { AparteSegment } from './segments.js';
+import type { AparteErrorCode } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Content Parts — multimodal message content (Vercel AI SDK compatible)
@@ -207,7 +208,11 @@ export interface AparteStreamEventMap {
     thinking: { delta: string }
     /** Emitted when the stream ends. May carry token usage and the finish reason reported by the provider. */
     done:     { usage?: AparteUsage; finishReason?: AparteFinishReason }
-    error:    { message: string }
+    /**
+     * A failure mid-stream. `code` names it when the provider can tell (an overflowing prompt
+     * is `USAGE_CONTEXT_EXCEEDED`), so the client can act on the code instead of reading prose.
+     */
+    error:    { message: string; code?: AparteErrorCode }
     tool_use: AparteToolCall
 }
 

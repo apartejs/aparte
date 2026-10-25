@@ -82,7 +82,7 @@ export class AparteDirectTransport implements AparteTransport {
         });
 
         if (!response.ok) {
-            throw await vendorError(response);
+            throw await vendorError(response, 'HTTP', provider);
         }
 
         if (request.stream === false) {

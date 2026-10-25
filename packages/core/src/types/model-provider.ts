@@ -9,6 +9,7 @@
  */
 
 import { AparteChatRequest, AparteChatResponse, AparteStreamEvent } from './chat.js';
+import type { AparteErrorCode } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Model Definition
@@ -250,6 +251,8 @@ export interface AparteAIProviderFormat {
     parseStream(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
     /** Extract text from a non-streaming vendor JSON response. */
     parseText?(json: unknown): string;
+    /** Name a non-ok vendor response a status cannot (an overflowing prompt) — see `AparteFormatAdapter.classifyError`. */
+    classifyError?(status: number, body: unknown): AparteErrorCode | undefined;
 }
 
 /** Both ways a format adapter can present a resolved key. At least one is required. */

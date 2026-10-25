@@ -79,7 +79,7 @@ export type StreamChatEvent =
     | { type: 'text'; delta: string }
     | { type: 'thinking'; delta: string }
     | ({ type: 'tool_use' } & StreamToolCall)
-    | { type: 'error'; message: string }
+    | { type: 'error'; message: string; code?: string }
     | { type: 'done'; usage?: StreamUsage; finishReason?: StreamFinishReason };
 
 /**
