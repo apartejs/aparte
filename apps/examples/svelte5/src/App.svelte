@@ -4,11 +4,11 @@
    * examples — the sidebar with the conversation list, the header, the chat, the
    * settings dialog — over the library's own conversation chain.
    *
-   * Runes mode, on purpose: `$props`/`$state`/`$effect`, callback props
-   * (`onmessagesChange`) instead of `on:`, and `onclick` instead of `on:click` on
-   * native elements. The wrapper's `<AparteChat>` is shipped as SOURCE and still
-   * written in legacy Svelte 4 syntax — it compiles and runs unchanged here, which is
-   * the whole point of this example existing beside its Svelte 4 twin.
+   * Svelte 5 throughout: `$props`/`$state`/`$effect`, `onclick` instead of `on:click` on
+   * native elements, and the chat from `@aparte/svelte/runes` — snippets for its empty
+   * state and its toolbar, `bind:this` for the two calls this page makes. No store and no
+   * wiring: the conversation controller inside the chat does the rest. Its Svelte 4 twin
+   * keeps the Svelte-4-syntax component from the package root.
    *
    * The sidebar, the list and the header are core's elements and recipes, used as
    * they are; the chat is `<AparteChat>`, whose host runs the conversation controller
@@ -18,8 +18,8 @@
    * shared helpers.
    */
   import { onMount } from 'svelte';
-  import { AparteChat, createAparteChat } from '@aparte/svelte';
-  import type { AparteConversationList, AparteConversationListItem, AparteMessage } from '@aparte/core';
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
   import { mountModelSelector } from '../../_shared/site-setup';
   import {
     WELCOME_SUGGESTIONS,
@@ -51,10 +51,7 @@
     node.setAttribute('empty-only', '');
   }
 
-  const chat = createAparteChat();
-  const { messages } = chat;
-  let comp: AparteChat | null = $state(null);
-  $effect(() => { chat.connect(comp); });
+  let comp = $state<AparteChatImperativeApi>();
 
   let listEl: AparteConversationList | null = $state(null);
   let dialogEl: HTMLDialogElement | null = $state(null);
@@ -164,29 +161,23 @@
   </header>
 
   <main class="aparte-app-shell__main">
-    <AparteChat
-      bind:this={comp}
-      messages={$messages}
-      onmessagesChange={(m: AparteMessage[]) => chat.onMessagesChange(m)}
-      centerWhenEmpty
-      overlayComposer={overlay}
-      attachments
-      placeholder="Ask ChatClone"
-    >
-      <div slot="empty-state" class="welcome" id="welcome">
-        <div class="welcome__body">
-          <h2>Where should we begin?</h2>
-          <!-- The starters go through the composer's own submit(), so every gate it
-               has (disabled, streaming, model not selected yet) applies to a click
-               too. Each one matches a scripted scenario. -->
-          <aparte-suggestions use:starters></aparte-suggestions>
+    <AparteChat bind:this={comp} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone">
+      {#snippet emptyState()}
+        <div class="welcome" id="welcome">
+          <div class="welcome__body">
+            <h2>Where should we begin?</h2>
+            <!-- The starters go through the composer's own submit(), so every gate it
+                 has (disabled, streaming, model not selected yet) applies to a click
+                 too. Each one matches a scripted scenario. -->
+            <aparte-suggestions use:starters></aparte-suggestions>
+          </div>
         </div>
-      </div>
+      {/snippet}
       <!-- The toolbar row under the composer: the approval switch, and the model
-           selector too under `?selector=toolbar`. A real child is also what makes the
-           slot exist at all — an empty fragment does not count as provided, and the row
-           would not be rendered. -->
-      <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
+           selector too under `?selector=toolbar`. -->
+      {#snippet toolbar()}
+        <aparte-approval-mode></aparte-approval-mode>
+      {/snippet}
     </AparteChat>
   </main>
 </div>

@@ -261,10 +261,13 @@ const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO, THEMING] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, ...DEEP] :
-    // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
-    // other major — so it runs the boundary smoke and the toolbar row, not the deep
-    // behaviour suites (those are about core, which is major-agnostic).
-    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP] :
+    // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
+    // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
+    // deep suites whose path goes through what that component owns: the turn's lifecycle
+    // (the messages it mirrors), the segments it hands to core, and the approval switch
+    // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
+    // vanilla's own page.
+    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
@@ -277,7 +280,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // elements" is exactly the assumption that keeps being wrong at the framework
 // boundary, which is where every browser-only bug in this project has lived.
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
-const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte4'];
+const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte4', 'svelte5'];
 
 // Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
 // WebKit build on Windows creates a real OS window even headless, so a full run pops
