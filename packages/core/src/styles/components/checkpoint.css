@@ -73,7 +73,9 @@
 
 /* The summary the model reads, opened under the line. A panel with the muted ground the
    neutral layer already has, in the type of the line it hangs from, scrolling instead of
-   pushing the transcript down by a page when the summary is long. */
+   pushing the transcript down by a page when the summary is long. The summary is Markdown
+   and wears `aparte-segment-content` for it (prose.css): the words below only place the
+   panel, they do not restyle what is inside it. */
 .aparte-checkpoint__summary {
   box-sizing: border-box;
   margin-block: 0 var(--aparte-space-5);
@@ -90,10 +92,6 @@
 
 .aparte-checkpoint__summary[hidden] {
   display: none;
-}
-
-.aparte-checkpoint__summary p {
-  margin-block: 0 var(--aparte-space-3);
 }
 
 .aparte-checkpoint__summary > :last-child {

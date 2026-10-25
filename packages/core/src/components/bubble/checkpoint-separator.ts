@@ -115,7 +115,12 @@ export function buildCheckpointSeparator(options: CheckpointSeparatorOptions): H
     }
 
     if (kind === 'done' || kind === 'legacy') {
-        const panel = el('div', 'aparte-checkpoint__summary');
+        // The summary is Markdown the model wrote, and prose.css styles it under three
+        // scopes — the message content, a segment's content, a thinking panel's. The first
+        // is the one the bubble looks up by class and this panel sits OUTSIDE the message,
+        // so it wears the second: lists, quotes, links and code come out drawn instead of
+        // as the browser's own.
+        const panel = el('div', 'aparte-checkpoint__summary aparte-segment-content');
         panel.id = options.summaryId;
         if (!options.open) panel.hidden = true;
         root.appendChild(panel);
