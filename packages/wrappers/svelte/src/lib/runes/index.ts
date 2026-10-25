@@ -23,3 +23,5 @@ export type {
     AparteCodeSegment,
     AparteThinkingSegment,
 } from '../types.js';
+// Every element of core typed in a Svelte template — this entry alone must bring it.
+export type { AparteSvelteElements } from '../elements.js';
