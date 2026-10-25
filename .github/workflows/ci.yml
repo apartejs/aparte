@@ -492,3 +492,63 @@ jobs:
           name: playwright-report-${{ matrix.shard }}
           path: e2e/playwright-report/
           retention-days: 7
+
+  # The meta-framework fixtures (e2e/ssr/*): one page each in Next, Nuxt, SvelteKit and
+  # Angular SSR, built for production and started as they ship, then checked in Chromium —
+  # the server's HTML, a hydration with no mismatch, a streamed reply, a tool call drawn by the
+  # framework's own component. The examples' dev servers cannot prove a server render: none of
+  # them renders on a server.
+  e2e-ssr:
+    needs: scope
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+    env:
+      HOME: /root
+      NX_DB_CACHE: 'false'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Install pnpm
+        if: needs.scope.outputs.source == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - name: Use Node.js
+        if: needs.scope.outputs.source == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: needs.scope.outputs.source == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore the nx cache
+        if: needs.scope.outputs.source == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
+
+      # The fixtures consume the packages' dist, as an installed copy would.
+      - name: Build
+        if: needs.scope.outputs.source == 'true'
+        run: pnpm build
+
+      - name: Meta-framework SSR E2E
+        if: needs.scope.outputs.source == 'true'
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --config playwright.ssr.config.ts
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-ssr
+          path: e2e/playwright-report-ssr/
+          retention-days: 7
