@@ -156,9 +156,15 @@ importers:
       '@aparte/plugin-titler':
         specifier: workspace:*
         version: link:../../packages/plugins/titler
+      '@aparte/privacy':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@aparte/provider-scenario':
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
+      '@aparte/secrets':
+        specifier: ^1.1.1
+        version: 1.1.1
       '@aparte/titler':
         specifier: ^1.2.0
         version: 1.2.0
@@ -1393,6 +1399,14 @@ packages:
     peerDependenciesMeta:
       '@angular/animations':
         optional: true
+
+  '@aparte/privacy@1.1.0':
+    resolution: {integrity: sha512-8yo4XbXrhlE1qcsYYJeGIkSl6cYXLOlfyy+KboGtDeYbAOYkw6Z4DxMoeWdCQI+OvZVnsPBoNDASP0otb5yOOg==}
+    engines: {node: '>=18'}
+
+  '@aparte/secrets@1.1.1':
+    resolution: {integrity: sha512-cTexizpqvfy076vrWWomSlFaAkvP3r6xZPyQN6zA2PDRIAqXH5gzF+vFn3nlZW91/p8jehFy2iPZafyrh5Wx8w==}
+    engines: {node: '>=18'}
 
   '@aparte/titler-efigsp@1.2.0':
     resolution: {integrity: sha512-aZoAlTmtUBcFMA/f2TAs5btfkdK034WTIFFLDKkncOgZ8na+tXtqC0eaFBU6i4cKTQ86niN0JFmAmBHT/0twkw==}
@@ -11543,6 +11557,10 @@ snapshots:
       '@angular/common': 19.2.25(@angular/core@19.2.25(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2)
       '@angular/core': 19.2.25(rxjs@7.8.2)(zone.js@0.15.1)
       tslib: 2.8.1
+
+  '@aparte/privacy@1.1.0': {}
+
+  '@aparte/secrets@1.1.1': {}
 
   '@aparte/titler-efigsp@1.2.0': {}
 

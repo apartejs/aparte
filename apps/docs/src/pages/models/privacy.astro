@@ -1,0 +1,209 @@
+---
+import Landing from '../../layouts/Landing.astro';
+import { bundled } from '../../lib/bundled-model';
+import { PRIVACY_RUNTIMES } from '../../data/model-runtimes';
+import '../../styles/model-page.css';
+
+/*
+ * The product page of aparte-privacy, on the frame of /models/titler/ and under the same two
+ * rules: nothing typed that can be measured (the size is `stat`ed from the file the site
+ * installs, the version read from the package, the latency measured in the reader's tab),
+ * and the limits said on the page before the reader finds them — names are the weakest
+ * category, and only English and French are tested.
+ *
+ * The demo shows the two halves of the use: what the model found, and the masked text that
+ * would leave the page instead of the message. `#demo` is the address to give.
+ */
+const PRIVACY = bundled('@aparte/privacy');
+
+/** Five messages, the seven categories between them. What is found is the model's, live. */
+const EXAMPLES = [
+    { lang: 'en', text: "Hi, I'm Sarah Collins — call me on 07700 900123 or write to sarah.collins@outlook.com." },
+    { lang: 'fr', text: 'Envoie le devis à camille.petit@laposte.net avant le 12 novembre, merci !' },
+    { lang: 'en', text: 'Please ship it to Emma Walsh, 48 Elm Road, Leeds LS6 2AB, before Friday.' },
+    { lang: 'en', text: 'My IBAN is FR76 3000 6000 0112 3456 7890 189, the transfer is due on 3 March 2026.' },
+    { lang: 'fr', text: 'Rappelle-moi au 06 12 34 56 78 stp' },
+];
+
+const TITLE = 'aparte-privacy — find and mask personal data, no API call';
+const DESCRIPTION =
+    `Finds names, addresses, emails, phone numbers and account numbers in a message and masks `
+    + `them before it is sent: ${PRIVACY.kb} KB, no API call. Try it in your browser.`;
+/** Written from the entry in src/pages/og/[...slug].ts; change one and change the other. */
+const IMAGE_ALT =
+    'A dark card with a brass edge and the aparté mascot, headed “Personal data, masked before it '
+    + 'is sent”, over the line “aparte-privacy finds names, addresses, emails, phone numbers and '
+    + 'account numbers in a message. 201 KB, a few milliseconds, nothing leaves the page.”';
+---
+
+<Landing
+  title={TITLE}
+  description={DESCRIPTION}
+  canonical="https://apartejs.dev/models/privacy/"
+  ogImage="https://apartejs.dev/og/models/privacy.png"
+  ogImageAlt={IMAGE_ALT}
+>
+  <div class="mp">
+    <header class="mp-head">
+      <p class="eyebrow"><a href="/models/">Models</a> &mdash; <b>aparte-privacy {PRIVACY.version}</b></p>
+      <h1 class="thesis serif">Personal data, <em>masked</em> before it is sent.</h1>
+      <p class="lede">
+        aparte-privacy finds the names, addresses, emails, phone numbers, URLs, dates and account
+        numbers in a message, and puts placeholders in their place before it goes to a model.
+        <b>{PRIVACY.kb} KB</b>, a few milliseconds, and the values never leave the page: they
+        stay where they were typed and go back into the answer there.
+      </p>
+    </header>
+
+    <!-- ── the demo: the top of the page, and the address to give ── -->
+    <section class="demo" id="demo" aria-label="Try the model" data-file={`int8 · ${PRIVACY.kb} KB`}>
+      <div class="demo-card">
+        <div class="demo-in">
+          <label class="lab" for="pv-msg">A message</label>
+          <textarea id="pv-msg" rows="4" spellcheck="false" autocomplete="off"
+            placeholder="Type a message with a name, a phone number, an address…"></textarea>
+          <div class="examples" role="group" aria-label="Or try one of these">
+            {EXAMPLES.map((e) => (
+              <button type="button" class="ex" data-text={e.text}>
+                <span class="ex-lang" aria-hidden="true">{e.lang}</span>
+                <span class="ex-text">{e.text}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div class="demo-out">
+          <p class="lab">What the model found</p>
+          <p class="found" data-sd-found></p>
+          <p class="lab">What is sent instead</p>
+          <p class="masked" data-sd-masked></p>
+          <p class="meter" aria-live="polite" data-sd-state>Loading the model, {PRIVACY.kb} KB&hellip;</p>
+        </div>
+      </div>
+      <p class="demo-note">
+        Everything above is the model&#8217;s, computed in this tab as you type: what it found, and
+        the placeholders <code>mask()</code> puts in its place. The latency is measured here, not quoted.
+      </p>
+    </section>
+
+    <!-- ── the numbers ──────────────────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">What it <span class="paren">(</span>weighs<span class="paren">)</span></h2>
+      <div class="figures">
+        <div class="fig"><b>{PRIVACY.kb} KB</b><span>the file<em>int8 &#8212; English and French</em></span></div>
+        <div class="fig"><b>7</b><span>kinds of personal data<em>the same seven as OpenAI&#8217;s privacy-filter</em></span></div>
+        <div class="fig"><b data-sd-ms>&#8230; ms</b><span>per message, one core<em>measured above, in your tab</em></span></div>
+        <div class="fig"><b>0</b><span>network calls<em>after the file: the model runs in the page</em></span></div>
+        <div class="fig"><b>0</b><span>dependencies<em>in the browser, Node and workers</em></span></div>
+        <div class="fig"><b>0.92</b><span>F1, all categories<em>on our test set &#8212; OpenAI&#8217;s privacy-filter, 1.5 B parameters: 0.74</em></span></div>
+      </div>
+      <p class="sec-note">
+        The test sets, every category, both versions and the quantizations are on the
+        <a href="https://huggingface.co/apartejs/aparte-privacy" target="_blank" rel="noopener">model card &#8594;</a>
+      </p>
+    </section>
+
+    <!-- ── use it ───────────────────────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">Before the message <span class="paren">(</span>leaves<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        Mask the message, send the masked text, and put the values back into the answer &#8212;
+        all three on the client. Only the placeholders leave the device: the AI never sees a name.
+      </p>
+      <div class="code"><pre><code><span class="kw">import</span> {'{'} loadPrivacy {'}'} <span class="kw">from</span> <span class="st">'@aparte/privacy'</span>;
+
+<span class="kw">const</span> privacy = <span class="kw">await</span> <span class="fn">loadPrivacy</span>();
+<span class="kw">const</span> {'{'} text, values {'}'} = privacy.<span class="fn">mask</span>(message);   <span class="cm">// "[PRIVATE_PERSON_1]" in place of the name</span>
+<span class="kw">const</span> answer = <span class="kw">await</span> <span class="fn">askTheModel</span>(text);           <span class="cm">// the values never leave the device</span>
+privacy.<span class="fn">unmask</span>(answer, values);                   <span class="cm">// and go back into the answer, locally</span></code></pre></div>
+      <p class="sec-note">
+        <code>npm install @aparte/privacy</code> &#8212; once your app is bundled, serve the model
+        file yourself and pass it in: with Vite, <code>import modelUrl from '@aparte/privacy/model?url'</code>,
+        then <code>loadPrivacy(modelUrl)</code>. <code>detect(text)</code> returns the spans alone,
+        with their offsets, category and score. For passwords and API keys, run
+        <a href="/models/secrets/">aparte-secrets</a> on the same text.
+      </p>
+    </section>
+
+    <!-- ── where it runs: one runtime per platform, same spans ──────────── -->
+    <section class="band" id="runtimes">
+      <h2 class="serif">Where it <span class="paren">(</span>runs<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        One model, one runtime per language. Each reads the same file and finds the same spans,
+        with the same categories and the same scores.
+      </p>
+      <dl class="mp-facts runtimes">
+        {PRIVACY_RUNTIMES.map((runtime) => (
+          <>
+            <dt><a href={runtime.href} target="_blank" rel="noopener">{runtime.language}</a></dt>
+            <dd>
+              {runtime.platforms}
+              <span class="runtime-install">{runtime.installNote && `${runtime.installNote}: `}<code>{runtime.install}</code></span>
+            </dd>
+          </>
+        ))}
+      </dl>
+      <p class="sec-sub">In Swift, <code>ApartePrivacy</code> brings the runtime and the model:</p>
+      <div class="code"><pre><code><span class="kw">import</span> ApartePrivacy
+
+<span class="kw">let</span> privacy = <span class="kw">try</span> Privacy.<span class="fn">load</span>()   <span class="cm">// load once, share across threads</span>
+privacy.<span class="fn">detect</span>(<span class="st">"Appelle Jean Dupont au 06 12 34 56 78"</span>)</code></pre></div>
+      <p class="sec-note">
+        In Xcode, <i>File &#8594; Add Package Dependencies&#8230;</i> and paste the repository URL.
+        Each span also carries its <code>utf16Range</code>, the offsets the JavaScript and Kotlin
+        runtimes report.
+      </p>
+      <p class="sec-sub">In Kotlin, on Android or the JVM:</p>
+      <div class="code"><pre><code><span class="kw">import</span> dev.apartejs.privacy.Privacy
+
+<span class="kw">val</span> privacy = Privacy.<span class="fn">load</span>()   <span class="cm">// load once, share across threads</span>
+privacy.<span class="fn">detect</span>(<span class="st">"Appelle Jean Dupont au 06 12 34 56 78"</span>)</code></pre></div>
+      <p class="sec-note">
+        Add <code>dev.apartejs:privacy</code> to your Gradle dependencies; it is usable from Java
+        too. On Android, load it off the main thread.
+      </p>
+    </section>
+
+    <!-- ── what it is, and is not ───────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">What it <span class="paren">(</span>is<span class="paren">)</span>, and is not</h2>
+      <dl class="mp-facts">
+        <dt>Seven categories</dt>
+        <dd>Names, addresses, emails, phone numbers, URLs, dates and account numbers &#8212; the categories of OpenAI&#8217;s privacy-filter, so the two can be compared. Passwords and keys are <a href="/models/secrets/">aparte-secrets</a>&#8217; job.</dd>
+        <dt>Names, the weakest</dt>
+        <dd>0.77 F1 on the test set and 0.85 on short messages, against 0.9 and more for the other categories. A product name can be taken for a person&#8217;s, and public figures are masked like anyone else: the model cannot know who is famous. Keep a human check on names where it matters.</dd>
+        <dt>Your policy</dt>
+        <dd>The model reports every span it finds. <code>minScore</code> and <code>ignore</code> &#8212; exact values or regular expressions &#8212; are yours, applied after it: the names you want to keep, the threshold you can live with.</dd>
+        <dt>English and French</dt>
+        <dd>The only languages it is tested on. The scores come from our own test set &#8212; real chat messages with synthetic personal data put in &#8212; not from an independent audit: do not rest a compliance decision on the model alone.</dd>
+        <dt>Open</dt>
+        <dd>MIT, code and weights. A Python reference reader is published beside the model, and every runtime gives the same spans as it on the reference texts.</dd>
+      </dl>
+      <p class="st-links">
+        <a href="https://huggingface.co/apartejs/aparte-privacy" target="_blank" rel="noopener">The model card &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-privacy-model" target="_blank" rel="noopener">The code &#8594;</a>
+        <a href="https://www.npmjs.com/package/@aparte/privacy" target="_blank" rel="noopener">On npm &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-privacy-swift" target="_blank" rel="noopener">For Swift &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-privacy-kotlin" target="_blank" rel="noopener">For Kotlin &#8594;</a>
+      </p>
+    </section>
+  </div>
+
+  <script>
+    // The real package, the one a consumer installs. Its model file is passed in by URL, the
+    // way its README asks of a bundled app: the bundler copies it as an asset of this site, so
+    // the fetch is same-origin.
+    import { loadPrivacy } from '@aparte/privacy';
+    import modelUrl from '@aparte/privacy/model?url';
+    import { mountSpanDemo } from '../../lib/span-demo';
+
+    mountSpanDemo(document.getElementById('demo')!, loadPrivacy(modelUrl), {
+        private_person: 'name',
+        private_address: 'address',
+        private_email: 'email',
+        private_phone: 'phone',
+        private_url: 'URL',
+        private_date: 'date',
+        account_number: 'account',
+    });
+  </script>
+</Landing>

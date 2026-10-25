@@ -39,10 +39,12 @@ const pages = Object.fromEntries([
     // because astro-og-canvas bakes these two strings into the PNG as pixels — change
     // one and change the other.
     ['roadmap', { title: 'One road, no dates', description: 'What npm serves, where the current branch stands, and the conditions the beta and 1.0 each have to meet.' }],
-    // /models/ and /models/titler/ are Astro pages on the same frame. Their
-    // og:image:alt strings (in each page) are written FROM these two entries.
+    // /models/ and each model's page are Astro pages on the same frame. Their
+    // og:image:alt strings (in each page) are written FROM these entries.
     ['models', { title: 'Small models, one task each', description: 'The models aparté publishes: built for one job in a chat, light enough to run in the browser, with no API call.' }],
     ['models/titler', { title: 'A title for every conversation, as you type', description: 'aparte-titler picks 3 to 6 words out of the first message. 133 KB for 17 languages, a few milliseconds per title, nothing leaves the page.' }],
+    ['models/privacy', { title: 'Personal data, masked before it is sent', description: 'aparte-privacy finds names, addresses, emails, phone numbers and account numbers in a message. 201 KB, a few milliseconds, nothing leaves the page.' }],
+    ['models/secrets', { title: 'A password in a message, caught before it is sent', description: 'aparte-secrets reads the context around a value, so it finds the passwords and keys a pattern scanner misses. 200 KB, nothing leaves the page.' }],
     // /templates/ and each template's page are Astro pages too; a template's card is read from
     // its own meta.ts, so a template that joins the grid gets its card with nothing to add here.
     ['templates', { title: 'Templates', description: 'Whole apps built with aparté, running live. Open one, use it, copy its code.' }],
