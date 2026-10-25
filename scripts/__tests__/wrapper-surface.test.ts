@@ -23,9 +23,11 @@ import {
     CALLBACK_PROOFS,
     DATA_PROP_PROOFS,
     DATA_PROP_ALIASES,
+    IMPLEMENTATIONS,
     SOURCES,
     readWrapperCallbacks,
     readWrapperDataProps,
+    readWrapperSlots,
 } from '../wrapper-surface.mjs';
 
 const CALLBACKS = readWrapperCallbacks();
@@ -42,6 +44,7 @@ const DISPATCH_LINE: Record<string, (name: string) => RegExp> = {
     vue: (name) => new RegExp(`emit\\(\\s*'${name}'`),
     svelte: (name) => new RegExp(`dispatch\\(\\s*'${name}'`),
     angular: (name) => new RegExp(`\\bthis\\.${name}\\.emit\\(`),
+    svelteRunes: (name) => new RegExp(`\\bon${name}\\?\\.\\(`),
 };
 
 /** The source with every line that fires `name` deleted, and nothing else touched. */
@@ -109,6 +112,7 @@ describe('the wrapper data-prop and render-hook proofs', () => {
         vue: readFileSync(SOURCES.vue, 'utf8'),
         svelte: readFileSync(SOURCES.svelte, 'utf8'),
         angular: readFileSync(SOURCES.angular, 'utf8'),
+        svelteRunes: readFileSync(SOURCES.svelteRunes, 'utf8'),
     };
 
     for (const key of Object.keys(sources) as Array<keyof typeof sources>) {
@@ -151,11 +155,11 @@ describe('the wrapper data-prop and render-hook proofs', () => {
         expect(DATA_PROP_PROOFS.svelte.proves(sabotaged, prop)).toBe(false);
     });
 
-    it('Angular: refuses `className`/`style` once the aliased `@Input` is removed', () => {
+    it('Angular: refuses `className`/`style` once the aliased input is removed', () => {
         const src = sources.angular;
         const sabotaged = src
-            .replace(/@Input\('containerClass'\) set containerClassInput\(val: string\) \{ this\.containerClass\.set\(val \?\? ''\); \}\n/, '')
-            .replace(/@Input\('containerStyle'\)[^\n]*\n/, '');
+            .replace(/readonly containerClass = input\([^\n]*\n/, '')
+            .replace(/readonly containerStyle = input\(null, \{[\s\S]*?\}\);\n/, '');
         expect(sabotaged, 'both aliased inputs were found and removed').not.toBe(src);
         const classNameProp = PROPS.find((p) => p.react === 'className')!;
         const styleProp = PROPS.find((p) => p.react === 'style')!;
@@ -177,11 +181,39 @@ describe('the wrapper data-prop and render-hook proofs', () => {
 
     it('Angular: refuses `renderBubble` when declared but never projected (DECLARED IS NOT DISPATCHED)', () => {
         const prop = PROPS.find((p) => p.react === 'renderBubble')!;
-        const sabotaged = sources.angular.replace('[ngTemplateOutlet]="bubbleTemplate"', '[ngTemplateOutlet]="null"');
+        const sabotaged = sources.angular.replace(
+            '[ngTemplateOutlet]="bubbleTemplate() ?? bubbleDirective()?.template ?? null"',
+            '[ngTemplateOutlet]="bubbleDirective()?.template ?? null"',
+        );
         expect(sabotaged).not.toBe(sources.angular);
-        // The @Input is still declared — only the projection was removed.
+        // The input is still declared — only its projection was removed (the content
+        // template still projects, which must not vouch for the input).
         expect(DATA_PROP_PROOFS.angular.proves(sources.angular, prop)).toBe(true);
         expect(DATA_PROP_PROOFS.angular.proves(sabotaged, prop)).toBe(false);
+    });
+
+    // The runes component declares every prop in one `$props()` destructuring and draws a
+    // snippet with `{@render}`. Declared is not drawn: each half must be required.
+    it('Svelte runes: refuses a data prop once it leaves `$props()`, and `className` once `class:` does', () => {
+        const src = sources.svelteRunes;
+        const placeholder = PROPS.find((p) => p.react === 'placeholder')!;
+        const className = PROPS.find((p) => p.react === 'className')!;
+        const noPlaceholder = src.replace(/\n\s*placeholder = [^\n]*,/, '');
+        const noClass = src.replace("class: className = '',", "className = '',");
+        expect(noPlaceholder, 'the placeholder line was found and removed').not.toBe(src);
+        expect(noClass, 'the class rename was found and removed').not.toBe(src);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(src, placeholder)).toBe(true);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(noPlaceholder, placeholder)).toBe(false);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(src, className)).toBe(true);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(noClass, className)).toBe(false);
+    });
+
+    it('Svelte runes: refuses `renderBubble` when the `bubble` snippet is taken but never rendered', () => {
+        const prop = PROPS.find((p) => p.react === 'renderBubble')!;
+        const sabotaged = sources.svelteRunes.replace('{@render bubble(m)}', '');
+        expect(sabotaged).not.toBe(sources.svelteRunes);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(sources.svelteRunes, prop)).toBe(true);
+        expect(DATA_PROP_PROOFS.svelteRunes.proves(sabotaged, prop)).toBe(false);
     });
 
     it('every alias is commented and points at a name that is not simply the React name', () => {
@@ -191,4 +223,22 @@ describe('the wrapper data-prop and render-hook proofs', () => {
             }
         }
     });
+});
+
+/**
+ * The runes component's slots are snippet props. A snippet taken out of `$props()` and
+ * never passed to `{@render}` is the Svelte 5 form of a slot nobody declared: the caller's
+ * markup goes nowhere, with no error.
+ */
+describe('the Svelte runes slot proofs', () => {
+    const src = readFileSync(SOURCES.svelteRunes, 'utf8');
+
+    for (const slot of readWrapperSlots()) {
+        it(`proves \`${slot.react}\` today, and refuses it once nothing renders it`, () => {
+            const sabotaged = src.replace(new RegExp(`\\{@render ${slot.react}(?:\\?\\.)?\\(\\)\\}`, 'g'), '');
+            expect(sabotaged, 'the render tag was found and removed').not.toBe(src);
+            expect(IMPLEMENTATIONS.svelteRunes.proves(src, slot)).toBe(true);
+            expect(IMPLEMENTATIONS.svelteRunes.proves(sabotaged, slot)).toBe(false);
+        });
+    }
 });

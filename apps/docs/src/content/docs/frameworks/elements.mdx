@@ -8,6 +8,7 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { Tabs, TabItem } from '../../../components/content/tabs';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
 
 ## Place an element
 
@@ -38,9 +39,10 @@ useEffect(() => {
 </aparte-select>
 ```
 
-Tell Vue's compiler these tags are custom elements:
-`vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('aparte-') } } })`
-in `vite.config.ts`, or `vue.compilerOptions.isCustomElement` in `nuxt.config.ts`.
+Tell Vue's compiler these tags are custom elements with `isAparteElement` from `@aparte/vue`:
+`vue({ template: { compilerOptions: { isCustomElement: isAparteElement } } })` in
+`vite.config.ts`, or `vue.compilerOptions.isCustomElement: isAparteElement` in `nuxt.config.ts`.
+It leaves the wrapper's own components to Vue — write them in PascalCase, `<AparteToolUI>`.
 
 </TabItem>
 <TabItem label="Svelte">
@@ -285,12 +287,40 @@ with the elements and the worker fails on its first `extends HTMLElement`. While
 the provider on the page, or give the worker `@aparte/core/headless` alone; the production build
 runs it in the worker.
 
+### Hydration
+
+Core's elements draw themselves when they connect — their children, their attributes. On a
+server-rendered page that would happen as soon as `@aparte/core` loads in the browser, before the
+framework hydrates, and the framework would find a DOM it did not render. So an element waits while
+it, or an ancestor, carries `defer-hydration`, and draws itself when the attribute goes. The
+wrappers do it for you: the server's HTML carries the attribute on their root, and they release it
+once the framework has the page — a client-only render holds nothing. On a server-rendered page, a
+component of yours inside the chat (a slot, a toolbar control) mounts before the chat does in React,
+Svelte and Angular, so its own mount hook finds the elements still waiting; they are live once the
+chat has mounted. Vue releases before any `onMounted`. Server-render elements of your own and do the
+same around them:
+
+```ts
+import { releaseDeferredHydration } from '@aparte/core';
+
+// Your server HTML: <aside id="side" defer-hydration><aparte-sidebar>…</aparte-sidebar></aside>
+// Once your framework has hydrated it:
+releaseDeferredHydration(document.getElementById('side'));
+```
+
+`releaseDeferredHydration(root)` removes the attribute and upgrades every element it held, at once
+— even when the framework already took the attribute off as it hydrated; removing the attribute any
+other way releases them a microtask later. An element of yours that draws
+itself on connect can wait the same way: call `deferHydrationOf(MyElement)` before
+`customElements.define`. It is the Web Components Community Group's `defer-hydration`, the one Lit's
+server rendering follows, widened from an element to the elements under it.
+
 | Wrapper | On a server |
 | --- | --- |
-| React | `'use client'` lets a Server Component render it; its server render imports the entry without elements, and they upgrade in the browser |
-| Angular | `provideAparte` starts the client only in a browser; render the chat in a `@defer` block |
-| Vue | nothing: under Nuxt, render the chat on the client only |
-| Svelte | nothing: under SvelteKit, render the chat on the client only |
+| React | `'use client'` lets a Server Component render it; it hydrates with no mismatch — tested in a Next {T.next} App Router page |
+| Angular | renders with `@angular/ssr` and hydration, no `@defer`; `provideAparte` starts the client only in a browser — tested in an Angular {T.angularSsr} SSR app |
+| Vue | renders in a Nuxt page and hydrates with no mismatch; the client goes in a `.client` plugin — tested with Nuxt {T.nuxt} |
+| Svelte | renders with SvelteKit's server rendering on and hydrates with no mismatch — tested with SvelteKit {T.sveltekit} |
 
 ## Testing your components
 

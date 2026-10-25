@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * Generic action button primitive for `<aparte-composer>`.
@@ -180,6 +181,7 @@ export class AparteComposerAction extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposerAction);
 if (!customElements.get('aparte-composer-action')) {
     customElements.define('aparte-composer-action', AparteComposerAction);
 }

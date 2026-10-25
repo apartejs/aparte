@@ -14,6 +14,7 @@ export default defineConfig({
         // from source (its custom elements register on import) and reuse core's
         // jsdom polyfills (ResizeObserver, …).
         include: ['src/**/*.test.{ts,tsx}'],
+        exclude: ['src/**/*.server.test.{ts,tsx}'],
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         alias: {
             '@aparte/core': resolve(__dirname, '../../core/src/index.ts'),

@@ -6,6 +6,7 @@ import AparteChat from '../AparteChat.svelte';
 import CustomComposerHost from './CustomComposerHost.svelte';
 import SlotHost from './SlotHost.svelte';
 import BubbleHost from './BubbleHost.svelte';
+import SlotProbeHost from './SlotProbeHost.svelte';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage, AparteChatImperativeApi } from '@aparte/core';
 
@@ -66,6 +67,25 @@ describe('AparteChat.svelte in controlled mode', () => {
         api.$set({ messages: own });
         await tick();
         expect(api.getMessages().map((m) => m.id)).toEqual(['p1']);
+    });
+
+    it('applies a list the parent restores, even one the chat reported earlier (a reopened conversation)', async () => {
+        const emitted: AparteMessage[][] = [];
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const { component } = render(AparteChat, { messages: initial, onmessagesChange: (m: AparteMessage[]) => { emitted.push(m); } });
+        const api = component as unknown as AparteChatImperativeApi & { $set: (p: object) => void };
+        await tick();
+        api.updateMessage('u1', { content: 'v1' });
+        await tick();
+        const saved = emitted[0]!;
+        api.$set({ messages: saved });
+        await tick();
+        api.$set({ messages: [] });
+        await tick();
+        expect(api.getMessages()).toEqual([]);
+        api.$set({ messages: saved });
+        await tick();
+        expect(api.getMessages().map((m) => m.content)).toEqual(['v1']);
     });
 });
 
@@ -414,6 +434,16 @@ describe('AparteChat.svelte', () => {
     });
 });
 
+describe('AparteChat and defer-hydration', () => {
+    it("a slot's component sees live elements in its own onMount, which runs before the chat's", () => {
+        // A client-only page: the root carries defer-hydration for its first render, and the
+        // release must come before the children's onMount, not in the chat's own.
+        const seen = { drawn: null as boolean | null };
+        render(SlotProbeHost, { seen });
+        expect(seen.drawn).toBe(true);
+    });
+});
+
 describe('AparteChat while a conversation is on its way', () => {
     it('draws the wait, is not empty, and disables the composer while `loading`', async () => {
         const { container, component } = render(AparteChat, { messages: [], centerWhenEmpty: true, loading: true });
@@ -425,7 +455,7 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
         expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
 
-        component.$set({ loading: false });
+        (component as unknown as { $set: (p: Record<string, unknown>) => void }).$set({ loading: false });
         await tick();
         expect(box.getAttribute('data-aparte-empty')).toBe('');
         expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
@@ -445,7 +475,7 @@ describe('AparteChat while a conversation is on its way', () => {
 
     it('keeps a disabled the consumer set once the wait ends', async () => {
         const { container, component } = render(AparteChat, { messages: [], disabled: true, loading: true });
-        component.$set({ loading: false });
+        (component as unknown as { $set: (p: Record<string, unknown>) => void }).$set({ loading: false });
         await tick();
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });

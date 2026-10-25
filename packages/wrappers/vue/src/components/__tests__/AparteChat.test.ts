@@ -68,6 +68,22 @@ describe('AparteChat.vue in controlled mode', () => {
         expect(api.getMessages().map((m) => m.id)).toEqual(['p1']);
         wrapper.unmount();
     });
+
+    it('applies a list the parent restores, even one the chat reported earlier (a reopened conversation)', async () => {
+        const emitted: AparteMessage[][] = [];
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const wrapper = mount(AparteChat, { props: { messages: initial, onMessagesChange: (m: AparteMessage[]) => { emitted.push(m); } } });
+        const api = wrapper.vm as unknown as { updateMessage: (id: string, u: Partial<AparteMessage>) => void; getMessages: () => AparteMessage[] };
+        await new Promise((r) => setTimeout(r, 0));
+        api.updateMessage('u1', { content: 'v1' });
+        const saved = emitted[0]!;
+        await wrapper.setProps({ messages: saved });
+        await wrapper.setProps({ messages: [] });
+        expect(api.getMessages()).toEqual([]);
+        await wrapper.setProps({ messages: saved });
+        expect(api.getMessages().map((m) => m.content)).toEqual(['v1']);
+        wrapper.unmount();
+    });
 });
 
 describe('AparteChat.vue', () => {

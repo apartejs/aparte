@@ -4,6 +4,11 @@ The **Svelte AI chat component** of [aparté](https://github.com/apartejs/aparte
 `<AparteChat>` (Svelte 4 and 5) plus stores (`createAparteChat`, `createAparteClient`, `createConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
+On Svelte 5, import from **`@aparte/svelte/runes`**: the same chat written in runes — snippets,
+`bind:messages`, callback props, and `<AparteToolUI>` to draw a tool call with your own component.
+Tested in CI with Svelte 4 and 5, and in a SvelteKit 2 page rendered on the server and hydrated
+with no mismatch.
+
 **Svelte 4 and Svelte 5**, from the same source. The package ships its `.svelte` files
 under the `svelte` export condition, so **your** compiler builds them — how a Svelte
 component library is meant to be published, and the only arrangement that can serve two

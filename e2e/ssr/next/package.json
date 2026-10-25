@@ -1,0 +1,25 @@
+{
+  "name": "@aparte-workspace/ssr-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Next App Router page with AparteChat, rendered on the server — a fixture of pnpm e2e:ssr.",
+  "scripts": {
+    "ssr:build": "next build",
+    "ssr:start": "next start --port 5401"
+  },
+  "dependencies": {
+    "@aparte/core": "workspace:*",
+    "@aparte/plugin-approval": "workspace:*",
+    "@aparte/provider-scenario": "workspace:*",
+    "@aparte/react": "workspace:*",
+    "next": "^15.5.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.4.0"
+  }
+}

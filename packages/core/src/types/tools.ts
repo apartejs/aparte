@@ -316,6 +316,65 @@ export interface AparteToolRenderer {
      * text and glyphs only.
      */
     relabel?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * The element `render()` returned is gone for good: unmount what you mounted in it.
+     *
+     * Called once per element, with the element and the call's latest segment, when it
+     * leaves the page for good — replaced by a new `render()`, its segment removed, its
+     * message redrawn, its message removed, or its renderer replaced (a renderer
+     * registered or unregistered for this tool redraws the calls already on screen). Never
+     * for `update()` or `relabel()`, and never for a message a framework only MOVED: a
+     * bubble taken out and put back before the next microtask keeps its elements. Always called
+     * on the renderer that drew the element, even when another one has been registered
+     * since.
+     *
+     * A framework component mounted in `setup()` is unmounted here; without it, it keeps
+     * running (and keeps its subscriptions) after its card is gone. The same hook, under
+     * the same name, as {@link AparteSegmentRenderer.cleanup}.
+     */
+    cleanup?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
     /** Optional CSS to inject once into document.head */
     getStyles?: () => string;
 }
+
+/**
+ * One tool call as a component of yours draws it: the fields a card reads, in one object,
+ * the same in every framework. `input` is what the model passed and `result` what the tool
+ * answered — both model-chosen, so treat them as untrusted when you render them.
+ */
+export interface AparteToolCallView<I = unknown, R = unknown> {
+    /** The call's id, as the model issued it. */
+    readonly id: string;
+    /** The tool's name. */
+    readonly name: string;
+    /** The arguments the model passed. */
+    readonly input: I;
+    /** Where the call stands: running, waiting for a person, done, refused, stopped or failed. */
+    readonly status: AparteToolCallSegment['status'];
+    /** The tool's answer as text, once it has one. */
+    readonly result?: string;
+    /** The tool's answer as data, when it returned some. */
+    readonly structuredResult?: R;
+    /** Why the call was left to someone else (an approval, an external runner, a queue). */
+    readonly deferred?: AparteToolCallSegment['deferred'];
+    /** Who refused the call, and what they said. */
+    readonly refusal?: AparteToolCallSegment['refusal'];
+    /** Why the call was stopped. */
+    readonly abortCause?: AparteToolCallSegment['abortCause'];
+    /** The segment itself, for anything the fields above do not carry. */
+    readonly segment: AparteToolCallSegment;
+}
+
+/**
+ * Something mounted in an element core created — a framework component, usually — and the
+ * two things core does with it: hand it a newer state, and take it down.
+ */
+export interface AparteMountedView<V> {
+    /** A newer state of what it draws: re-render in place, keep local state. */
+    update(view: V): void;
+    /** Its element is leaving for good: unmount. */
+    destroy(): void;
+}
+
+/** Mount your component for one tool call in `host`, and say how to update and destroy it. */
+export type AparteToolMount = (host: HTMLElement, view: AparteToolCallView) => AparteMountedView<AparteToolCallView>;

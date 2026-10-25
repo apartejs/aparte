@@ -1,6 +1,7 @@
-import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import type { AparteConversationListItem } from '@aparte/core';
-import { AparteChatComponent } from '@aparte/angular';
+import { APARTE_ELEMENT_DIRECTIVES, AparteChatComponent } from '@aparte/angular';
+import { AparteApprovalModeElement } from './plugin-elements';
 import { mountModelSelector } from '../../../_shared/site-setup';
 import {
     WELCOME_SUGGESTIONS,
@@ -12,6 +13,8 @@ import {
     wireThemeToggle,
 } from '../../../_shared/site-shell';
 import { SCENARIO_MODE } from './scenario-mode';
+import { FrameworkWeatherCardComponent } from './framework-weather-card';
+import { FRAMEWORK_CARD } from '../../../_shared/framework-card';
 
 const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
@@ -36,28 +39,20 @@ function resolveOverlayComposer(): boolean {
  * controls to the shared helpers — exactly what `App.tsx` does in `useEffect`, done
  * here in `ngAfterViewInit`.
  *
- * Angular binds the list's `conversations`/`loading` PROPERTIES declaratively
- * (`[conversations]`, `[loading]`); the row menu's writes need no binding at all,
- * because `manage` on the element lets the list carry them out on the manager
- * registered with `setConversationManager()`. CUSTOM_ELEMENTS_SCHEMA (below) is what
- * lets a template compile against an element with no Angular wrapper of its own.
+ * Angular binds the list's `conversations`/`loading` declaratively (`[conversations]`,
+ * `[loading]`), through the list's typed directive; the row menu's writes need no binding
+ * at all, because `manage` on the element lets the list carry them out on the manager
+ * registered with `setConversationManager()`.
+ *
+ * No CUSTOM_ELEMENTS_SCHEMA: every element of core is claimed by its directive from
+ * `@aparte/angular` (APARTE_ELEMENT_DIRECTIVES), and the one plugin element is claimed by
+ * a few lines of our own (./plugin-elements). So the template is CHECKED — a misspelt tag
+ * or an attribute the element does not have fails the build instead of rendering nothing.
  */
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [AparteChatComponent],
-    // <aparte-sidebar>, <aparte-conversation-list>, <aparte-icon> and
-    // <aparte-suggestions> have no Angular binding — only <aparte-chat> does
-    // (AparteChatComponent, imported above, claims that tag). The OLD version of
-    // this file avoided the schema entirely: with only <aparte-model-selector> to
-    // cover, `AparteModelSelectorDirective` claimed that one tag and needed no
-    // schema at all — and the comment there was explicit about why that mattered:
-    // this schema switches template CHECKING OFF for every unknown tag in the
-    // file, not just the one it is "for", so a typo'd tag name compiles silently.
-    // The site needs four raw elements with no behaviour of their own to wrap in a
-    // directive, so the schema is unavoidable here — the lesson still applies to
-    // any tag added to this template from now on.
-    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, AparteApprovalModeElement, FrameworkWeatherCardComponent],
     template: `
         <div class="aparte-app-shell" id="chat-view">
             <aparte-sidebar>
@@ -114,6 +109,7 @@ function resolveOverlayComposer(): boolean {
             </header>
 
             <main class="aparte-app-shell__main">
+                @if (frameworkCard) { <app-framework-weather-card /> }
                 <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay">
                     <div slot="empty-state" class="welcome" id="welcome">
                         <div class="welcome__body">
@@ -127,7 +123,7 @@ function resolveOverlayComposer(): boolean {
                     <!-- The toolbar row under the composer: the approval switch, exactly like
                          vanilla's <aparte-composer-toolbar> child — the model selector lands
                          there too under ?selector=toolbar (ngAfterViewInit below). The tag is
-                         unknown to Angular; CUSTOM_ELEMENTS_SCHEMA above is what allows it. -->
+                         a plugin's; AparteApprovalModeElement claims it for this template. -->
                     <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
                 </aparte-chat>
             </main>
@@ -205,6 +201,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     protected readonly suggestionsJson = SUGGESTIONS_JSON;
     protected readonly overlay = resolveOverlayComposer();
+    protected readonly frameworkCard = FRAMEWORK_CARD;
 
     // The list's rows and its wait, fed from the manager below. Bound onto
     // <aparte-conversation-list> as PROPERTIES ([conversations], [loading]) in the

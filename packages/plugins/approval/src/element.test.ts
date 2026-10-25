@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { AparteConfig, aparteGlobalConfig, attachConfig } from '@aparte/core';
+import { AparteConfig, aparteGlobalConfig, attachConfig, releaseDeferredHydration } from '@aparte/core';
 import { setupApproval } from './approval.js';
 import { AparteApprovalMode } from './aparte-approval-mode.js';
 
@@ -29,6 +29,18 @@ describe('<aparte-approval-mode>', () => {
         expect(select(el)?.getAttribute('value')).toBe('auto-edit');
         expect(select(el)?.hasAttribute('disabled')).toBe(false);
         expect(el.mode).toBe('auto-edit');
+    });
+
+    it('waits inside a defer-hydration root, and draws once it is released', () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const root = document.createElement('div');
+        root.setAttribute('defer-hydration', '');
+        const el = document.createElement('aparte-approval-mode') as AparteApprovalMode;
+        root.appendChild(el);
+        document.body.appendChild(root);
+        expect(el.childElementCount).toBe(0);
+        releaseDeferredHydration(root);
+        expect(select(el)?.getAttribute('value')).toBe('ask');
     });
 
     it('a change on the select switches the mode and announces it', () => {

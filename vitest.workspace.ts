@@ -9,6 +9,8 @@ export default defineWorkspace([
     'packages/*/vitest.config.ts',
     'packages/providers/*/*/vitest.config.ts',
     'packages/wrappers/*/vitest.config.ts',
+    // The server-render specs: node environment, core's element-free entry, no browser setup.
+    'packages/wrappers/*/vitest.server.config.ts',
     'packages/plugins/*/vitest.config.ts',
     'packages/locales/*/vitest.config.ts',
     // Found the day the first tool package landed: a root `vitest run packages/tools/x`

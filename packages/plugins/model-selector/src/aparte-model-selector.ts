@@ -1,5 +1,6 @@
 import {
     aparteGlobalConfig,
+    deferHydrationOf,
     escapeAttr,
     resolveConfig,
     type AparteConfig,
@@ -666,6 +667,9 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
 // Register the custom element
 if (!customElements.get('aparte-model-selector')) {
+    // Before defining, like core's own elements: in a server-rendered chat the tag waits
+    // for the wrapper's release instead of drawing into the DOM the framework hydrates.
+    deferHydrationOf(AparteModelSelector);
     customElements.define('aparte-model-selector', AparteModelSelector);
 }
 

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@angular/compiler';
-import { Component } from '@angular/core';
+import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, provideExperimentalZonelessChangeDetection, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { AparteChatComponent } from '../aparte-chat.component';
+import { AparteBubbleDirective } from '../aparte-bubble.directive';
 import { registerAllComponents, type AparteMessage } from '@aparte/core';
 import { AparteConfig, AparteConversationManager, resolveConfig, aparteGlobalConfig } from '@aparte/core';
 import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
@@ -93,6 +94,66 @@ class SlotHost { messages: AparteMessage[] = []; }
     template: `<aparte-chat [messages]="[]" centerWhenEmpty disabled></aparte-chat>`,
 })
 class BareBooleanAttrHost { }
+
+// What a component projected into the empty state does on mount: talk to a core element it
+// rendered. The empty state sits in an @if, built in the chat's update pass, after its host
+// binding — and this hook runs before the chat's own ngAfterViewInit.
+@Component({
+    selector: 'app-mount-probe',
+    standalone: true,
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    template: `<aparte-composer-send #send></aparte-composer-send>`,
+})
+class MountProbe implements AfterViewInit {
+    static drawn: boolean | null = null;
+    readonly send = viewChild.required<ElementRef<HTMLElement>>('send');
+    ngAfterViewInit(): void { MountProbe.drawn = !!this.send().nativeElement.querySelector('button'); }
+}
+
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, MountProbe],
+    template: `<aparte-chat><app-mount-probe slot="empty-state" /></aparte-chat>`,
+})
+class EmptyStateProbeHost { }
+
+// Two-way binding, the Angular idiom for a list the chat both reads and reports.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [(messages)]="messages"></aparte-chat>`,
+})
+class TwoWayHost {
+    messages: AparteMessage[] = [{ id: '1', role: 'assistant', content: 'Hel', timestamp: 0 }];
+    readonly chat = viewChild.required(AparteChatComponent);
+}
+
+// The bubble template written as content, the Angular idiom for a per-item template.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, AparteBubbleDirective],
+    template: `
+      <aparte-chat [messages]="messages">
+        <ng-template aparteBubble let-message>
+          <div class="my-bubble" [attr.data-id]="message.id">{{ message.content }}</div>
+        </ng-template>
+      </aparte-chat>
+    `,
+})
+class BubbleDirectiveHost { messages: AparteMessage[] = []; }
+
+// Both forms at once: the input wins, as the docs promise.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, AparteBubbleDirective],
+    template: `
+      <aparte-chat [messages]="messages" [bubbleTemplate]="tpl">
+        <ng-template aparteBubble let-message><div class="from-directive">{{ message.content }}</div></ng-template>
+      </aparte-chat>
+      <ng-template #tpl let-message><div class="from-input">{{ message.content }}</div></ng-template>
+    `,
+})
+class BubbleBothHost { messages: AparteMessage[] = []; }
 
 // Mock browser APIs
 if (typeof window !== 'undefined' && typeof HTMLElement !== 'undefined' && !Object.prototype.hasOwnProperty.call(HTMLElement.prototype, 'scrollToBottom')) {
@@ -259,6 +320,112 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         expect(fixture.nativeElement.querySelector('.my-bubble')?.textContent?.trim()).toBe('Hello world');
+    });
+
+    it('an <ng-template aparteBubble> draws each message in place of the native bubble', async () => {
+        const fixture = TestBed.createComponent(BubbleDirectiveHost);
+        fixture.componentInstance.messages = mockMessages;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelectorAll('aparte-chat-bubble').length).toBe(0);
+        const custom = host.querySelectorAll('.my-bubble');
+        expect(custom.length).toBe(2);
+        expect(custom[1].getAttribute('data-id')).toBe('2');
+        expect(custom[1].textContent?.trim()).toBe('Hi there!');
+    });
+
+    it('[bubbleTemplate] wins over an <ng-template aparteBubble>', async () => {
+        const fixture = TestBed.createComponent(BubbleBothHost);
+        fixture.componentInstance.messages = mockMessages;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelectorAll('.from-input').length).toBe(2);
+        expect(host.querySelectorAll('.from-directive').length).toBe(0);
+    });
+
+    it('two-way [(messages)] carries a change the chat makes back to the parent', async () => {
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        fixture.componentInstance.chat().updateMessage('1', { content: 'Hello world' });
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(fixture.componentInstance.messages[0]?.content).toBe('Hello world');
+        expect(fixture.nativeElement.querySelector('aparte-chat-bubble')?.getAttribute('content')).toBe('Hello world');
+    });
+
+    it("two-way [(messages)]: the chat's own echo does not undo an append made in the same tick", async () => {
+        // A retry, or core's append after a flush of buffered chunks: the truncate emits, the
+        // append does not, and the parent's field comes back through [messages] with the
+        // truncated list only.
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.componentInstance.messages = [
+            { id: 'u1', role: 'user', content: 'Hi', timestamp: 0 },
+            { id: 'a0', role: 'assistant', content: 'Old', timestamp: 1 },
+        ];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const chat = fixture.componentInstance.chat();
+
+        chat.truncateResponsesAfter('u1');
+        chat.appendMessage({ id: 'a1', role: 'assistant', content: '', status: 'pending', timestamp: 2 });
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(chat.messages().map((m) => m.id)).toEqual(['u1', 'a1']);
+        chat.updateLastMessage('Hello', { append: true });
+        expect(chat.messages().find((m) => m.id === 'u1')?.content).toBe('Hi');
+        expect(chat.messages().find((m) => m.id === 'a1')?.content).toBe('Hello');
+    });
+
+    it('two-way [(messages)]: a list the parent restores is drawn, even one the chat reported earlier', async () => {
+        // A new conversation, then the first one reopened from where the parent kept it.
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const chat = fixture.componentInstance.chat();
+        chat.updateMessage('1', { content: 'Hello' });
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const saved = fixture.componentInstance.messages;
+        expect(saved[0]?.content).toBe('Hello');
+
+        fixture.componentInstance.messages = [];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(chat.messages()).toEqual([]);
+
+        fixture.componentInstance.messages = saved;
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(chat.messages().map((m) => m.content)).toEqual(['Hello']);
+    });
+
+    it("a client-only render holds nothing: an empty-state component sees live elements in its ngAfterViewInit", async () => {
+        MountProbe.drawn = null;
+        const fixture = TestBed.createComponent(EmptyStateProbeHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(MountProbe.drawn).toBe(true);
+        expect(fixture.nativeElement.querySelector('aparte-chat')?.hasAttribute('defer-hydration')).toBe(false);
+    });
+
+    it('a parent write to [messages] is drawn and emits nothing back', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const changed: AparteMessage[][] = [];
+        fixture.componentInstance.messagesChange.subscribe((m: AparteMessage[]) => changed.push(m));
+        fixture.componentRef.setInput('messages', mockMessages);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(fixture.nativeElement.querySelectorAll('aparte-chat-bubble').length).toBe(2);
+        expect(changed).toHaveLength(0);
     });
 
     it('projects custom composer content in place of the default shell', async () => {
@@ -890,7 +1057,8 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
 
         const fixture = TestBed.createComponent(AparteChatComponent);
         const component = fixture.componentInstance;
-        component.config = cfg;
+        // A signal input: set through the component ref, the way Angular sets any input from code.
+        fixture.componentRef.setInput('config', cfg);
         fixture.detectChanges();
         await fixture.whenStable();
 
@@ -960,5 +1128,124 @@ describe('AparteChatComponent while a conversation is on its way', () => {
         (fixture.componentRef as any).setInput('loading', false);
         fixture.detectChanges();
         expect((fixture.nativeElement as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
+    });
+});
+
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [disabled]="disabled" [overlayComposer]="overlay" [isTyping]="typing" typingText="Thinking" [submitOnEnter]="false" [elicitation]="false" />`,
+})
+class OptionsHostComponent {
+    disabled = true;
+    overlay = true;
+    typing = true;
+}
+
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [loading]="true" />`,
+})
+class LoadingHostComponent {}
+
+/** A parent that talks to the chat as soon as its own view is initialised — before any render hook. */
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat />`,
+})
+class EagerParentComponent {
+    readonly chat = viewChild.required(AparteChatComponent);
+    ngAfterViewInit(): void {
+        this.chat().appendMessage({ id: 'w1', role: 'assistant', content: 'Welcome', timestamp: 1 });
+    }
+}
+
+describe('AparteChatComponent from a parent\'s ngAfterViewInit', () => {
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('takes an imperative call made in the parent\'s ngAfterViewInit', async () => {
+        TestBed.configureTestingModule({ imports: [EagerParentComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(EagerParentComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.componentInstance.chat().getMessages().map((m) => m.id)).toEqual(['w1']);
+    });
+});
+
+describe('AparteChatComponent in a client-only render', () => {
+    afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
+
+    it('connects the viewport once, though the host binding adds defer-hydration after it connected', async () => {
+        // The template's elements connect in the creation pass; the host binding then sets
+        // defer-hydration, and [attr.loading] is written under it. Releasing must not connect
+        // the viewport a second time: it would leave a second aparte-reset listener behind.
+        const add = vi.spyOn(window, 'addEventListener');
+        TestBed.configureTestingModule({ imports: [LoadingHostComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(LoadingHostComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(add.mock.calls.filter(([type]) => type === 'aparte-reset')).toHaveLength(1);
+        const remove = vi.spyOn(window, 'removeEventListener');
+        // A root view's destroy leaves its nodes in the page: take them out, as a route change does.
+        const root = fixture.nativeElement as HTMLElement;
+        fixture.destroy();
+        root.remove();
+        // The viewport tears down a microtask later, in case a framework only moved it.
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(remove.mock.calls.filter(([type]) => type === 'aparte-reset')).toHaveLength(1);
+    });
+});
+
+describe('AparteChatComponent inputs reach the DOM', () => {
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('disabled, overlayComposer, isTyping, typingText, submitOnEnter and elicitation each land on their element', async () => {
+        TestBed.configureTestingModule({ imports: [OptionsHostComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(OptionsHostComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const el = fixture.nativeElement as HTMLElement;
+        const composer = el.querySelector('aparte-composer')!;
+        expect(composer.hasAttribute('disabled')).toBe(true);
+        expect(composer.getAttribute('submit-on-enter')).toBe('false');
+        expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(true);
+        const status = el.querySelector('aparte-chat-status')!;
+        expect(status.hasAttribute('visible')).toBe(true);
+        expect(status.getAttribute('text')).toBe('Thinking');
+        expect(el.querySelector('aparte-elicitation')).toBeNull();
+
+        fixture.componentInstance.disabled = false;
+        fixture.componentInstance.overlay = false;
+        fixture.componentInstance.typing = false;
+        fixture.changeDetectorRef.markForCheck();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(composer.hasAttribute('disabled')).toBe(false);
+        expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(false);
+    });
+});
+
+// Angular 21 made zoneless the default for a new app. Nothing here may depend on zone.js
+// noticing a change: the chat's own writes have to schedule the render themselves.
+describe('AparteChatComponent under zoneless change detection', () => {
+    beforeEach(async () => {
+        await TestBed.configureTestingModule({
+            imports: [AparteChatComponent],
+            providers: [provideExperimentalZonelessChangeDetection()],
+        }).compileComponents();
+    });
+
+    it('draws a message the chat appends, with no zone to notice it', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        await fixture.whenStable();
+
+        fixture.componentInstance.appendMessage({ id: 'z1', role: 'user', content: 'hi', timestamp: 1 });
+        await fixture.whenStable();
+
+        expect(fixture.nativeElement.querySelectorAll('aparte-chat-bubble').length).toBe(1);
+        expect(fixture.nativeElement.querySelector('aparte-chat-bubble')?.getAttribute('message-id')).toBe('z1');
     });
 });

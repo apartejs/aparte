@@ -1,5 +1,6 @@
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * A standalone status line — a light-DOM indicator the APP owns. Nothing in core turns
@@ -287,6 +288,7 @@ export class AparteChatStatus extends HTMLElement {
 }
 
 // Register the custom element
+deferHydrationOf(AparteChatStatus);
 if (!customElements.get('aparte-chat-status')) {
   customElements.define('aparte-chat-status', AparteChatStatus);
 }

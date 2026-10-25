@@ -1,3 +1,4 @@
+import { provideZonelessChangeDetection } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { setupSite } from '../../_shared/site-setup';
 import { AppComponent } from './app/app.component';
@@ -14,10 +15,17 @@ import { SCENARIO_MODE } from './app/scenario-mode';
 // imports `@aparte/core` transitively (through `@aparte/angular`, which
 // `app.component.ts` imports), registering every <aparte-*> custom element as a side
 // effect — this file needs no import of its own for that.
+//
+// Zoneless, the way a new Angular app starts since 21: no zone.js in the polyfills, so
+// nothing in the wrapper may rely on zone.js noticing a change. `preserveSymlinks` in
+// angular.json is what makes `@aparte/angular` — a workspace link to a package built
+// against Angular 19 — resolve THIS app's @angular/core instead of its own: without it
+// the bundle would carry two Angular cores, the failure a consumer installing from npm
+// never sees and a linked example would hide.
 setupSite()
     .then(({ scenarioMode }) =>
         bootstrapApplication(AppComponent, {
-            providers: [{ provide: SCENARIO_MODE, useValue: scenarioMode }],
+            providers: [provideZonelessChangeDetection(), { provide: SCENARIO_MODE, useValue: scenarioMode }],
         }),
     )
     .catch((err: unknown) => console.error(err));

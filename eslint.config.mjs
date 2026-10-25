@@ -8,10 +8,12 @@ export default tseslint.config(
   // snippet guard also made `pnpm lint` fail, on unused imports inside an excerpt.
   // Two reds for one cause, the second one meaningless.
   { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/.svelte-kit/**', '**/*.tsbuildinfo', '.doc-snippets/**',
+    // The meta-framework fixtures' builds (e2e/ssr/*).
+    'e2e/ssr/*/.next/**', 'e2e/ssr/*/.nuxt/**', 'e2e/ssr/*/.output/**', 'e2e/ssr/*/build/**', 'e2e/ssr/*/next-env.d.ts',
     // Playwright's output. A trace recorded under CI=1 ships the trace viewer's own
     // bundles into playwright-report/trace/assets, and one local e2e run then failed
     // every pre-commit on files nobody wrote. The flat config does not read .gitignore.
-    '**/playwright-report/**', '**/test-results/**', '**/blob-report/**'] },
+    '**/playwright-report/**', '**/playwright-report-ssr/**', '**/test-results/**', '**/blob-report/**'] },
 
   // A stale `eslint-disable` is silent debt: it hides a rule that would now
   // pass, or masks one that started firing elsewhere on the line. Report them

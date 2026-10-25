@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
 
   /**
@@ -124,6 +124,12 @@
   let hostId = '';
 
   let rootRef: HTMLElement;
+  // The server render carries `defer-hydration` on the root, so core's elements leave the
+  // server's DOM alone until Svelte has it; onMount releases them. The client never draws it:
+  // a client-only render holds nothing, so a slot's component — whose onMount runs before the
+  // chat's — talks to live elements. A hydration may take the server's attribute off as it
+  // claims the root; the release does not wait for that either.
+  const serverRender = typeof window === 'undefined';
   let viewportRef: HTMLElement;
   let composerRef: HTMLElement;
   let internalMessages: AparteMessage[] = [...messages];
@@ -131,14 +137,14 @@
   let host: AparteChatHost | null = null;
   let teardown: (() => void) | null = null;
 
-  // Parent push → internal list, unless it is the host's own emit coming back, current or
-  // stale: a parent that lands late hands back an EARLIER emit, and applying it rolled the
-  // list back under the host's next write.
-  const emitted = new WeakSet<AparteMessage[]>();
+  // Parent push → internal list, unless it is the host's own report coming back: a parent
+  // that lands late hands back an EARLIER one, and applying it rolled the list back under the
+  // host's next write. The host tells them apart (`takeEcho`), so a list the parent restores
+  // later (a reopened conversation) is not mistaken for one.
   let lastProp = messages;
   $: if (messages !== lastProp) {
     lastProp = messages;
-    if (!emitted.has(messages)) {
+    if (!host?.takeEcho(messages)) {
       internalMessages = [...messages];
       if (messages.length === 0) host?.clearRenderCache();
     }
@@ -192,6 +198,8 @@
   }
 
   onMount(() => {
+    // The elements a server render left waiting are upgraded first: the host talks to them.
+    releaseDeferredHydration(rootRef);
     unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     // A caller-supplied `id` wins, so `scopeToTargetId` has something to match.
     hostId = id ?? `aparte-chat-${uuid()}`;
@@ -206,7 +214,6 @@
       getMessages: () => internalMessages,
       setMessages: (m) => { internalMessages = m as AparteMessage[]; },
       onMessagesChange: (m) => {
-        emitted.add(m as AparteMessage[]);
         onmessagesChange?.(m as AparteMessage[]);
         dispatch('messagesChange', m as AparteMessage[]);
       },
@@ -301,6 +308,7 @@
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}
   data-aparte-chat
+  {...(serverRender ? { 'defer-hydration': '' } : {})}
   {...(overlayComposer ? { 'overlay-composer': '' } : {})}
   data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null}
   id={hostId}

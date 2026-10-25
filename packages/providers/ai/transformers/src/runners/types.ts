@@ -13,12 +13,16 @@
  * with a free-form `detail`, and can dispose. A research-grade provider that today
  * carries its own worker fits here without giving up anything of its own.
  *
- * `tool_use` is in what a runner can emit, not in what it is given: `RunnerGenerateInput`
- * carries no tool definitions, because the provider sends a model none. A runner that calls
- * tools has to know them itself.
+ * A runner is given the tools the request allows (`tools`, when the model declares
+ * `function_calling` and the app registered some) and the request's `toolChoice`, and can emit
+ * `tool_use` for them. The built-in runners take neither: they warn when a turn needs a tool
+ * call they cannot carry.
  */
 
-import type { AparteChatMessage, AparteStreamEvent } from '@aparte/core';
+import type { AparteChatMessage, AparteChatRequest, AparteStreamEvent, AparteTool } from '@aparte/core';
+
+/** A tool as a runner sees it: what a model needs to call it, no more. */
+export type RunnerTool = Pick<AparteTool, 'name' | 'description' | 'inputSchema'>;
 
 /** The Transformers.js module, as the worker resolved it — a runner never imports its own copy. */
 export type TransformersModule = typeof import('@huggingface/transformers');
@@ -62,6 +66,10 @@ export interface RunnerGenerateInput {
     /** The conversation, WITH its content parts — the runner decides what to keep. */
     messages: AparteChatMessage[];
     options: GenerationOptions;
+    /** The tools this turn may call — the app's registration, not a list the runner keeps. Absent when there are none. */
+    tools?: RunnerTool[];
+    /** `'auto'`, `'none'` (answer directly this turn) or a tool the model must call. Absent when the request sets none. */
+    toolChoice?: AparteChatRequest['toolChoice'];
     /** The stream, in aparté's vocabulary. `done` and `error` are the host's to close on. */
     emit(event: AparteStreamEvent): void;
     /** Fired when the page cancels; wire it to the model's stop. */

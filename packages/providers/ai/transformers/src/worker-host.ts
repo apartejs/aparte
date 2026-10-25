@@ -9,7 +9,7 @@
  *
  *   → init            { transformersUrl? }                      once, first
  *   → prepare         { id, modelId, task?, runner?, dtype?, device? }
- *   → generate        { id, modelId, messages, options, task?, runner?, dtype?, device? }
+ *   → generate        { id, modelId, messages, options, tools?, toolChoice?, task?, runner?, dtype?, device? }
  *   → cancel          { id }
  *   → command         { id, modelId, name, payload, task?, runner?, dtype?, device? }
  *   ← progress        { id, status, file?, progress?, detail? }
@@ -27,7 +27,7 @@
  */
 
 import type { AparteChatMessage, AparteStreamEvent, AparteUsage } from '@aparte/core';
-import type { BuiltInRunner, Device, Dtype, GenerationOptions, RunnerModule, RunnerProgress, TransformersModule, TransformersRunner } from './runners/types.js';
+import type { BuiltInRunner, Device, Dtype, GenerationOptions, RunnerGenerateInput, RunnerModule, RunnerProgress, RunnerTool, TransformersModule, TransformersRunner } from './runners/types.js';
 
 interface RunnerSelection {
     modelId: string;
@@ -40,7 +40,7 @@ interface RunnerSelection {
 export type InMessage =
     | { type: 'init'; transformersUrl?: string }
     | ({ type: 'prepare'; id: string } & RunnerSelection)
-    | ({ type: 'generate'; id: string; messages: AparteChatMessage[]; options: GenerationOptions } & RunnerSelection)
+    | ({ type: 'generate'; id: string; messages: AparteChatMessage[]; options: GenerationOptions; tools?: RunnerTool[]; toolChoice?: RunnerGenerateInput['toolChoice'] } & RunnerSelection)
     | { type: 'cancel'; id: string }
     | ({ type: 'command'; id: string; name: string; payload: unknown } & RunnerSelection);
 
@@ -163,6 +163,8 @@ export function createWorkerHost(deps: WorkerHostDeps): { onMessage(msg: InMessa
             await runner.generate({
                 messages: msg.messages,
                 options: msg.options,
+                ...(msg.tools ? { tools: msg.tools } : {}),
+                ...(msg.toolChoice ? { toolChoice: msg.toolChoice } : {}),
                 signal: controller.signal,
                 emit: (event) => {
                     if (closed) return;

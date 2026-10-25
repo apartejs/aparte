@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/config-context.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * AparteIcon
@@ -81,6 +82,7 @@ export class AparteIcon extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteIcon);
 if (!customElements.get('aparte-icon')) {
     customElements.define('aparte-icon', AparteIcon);
 }

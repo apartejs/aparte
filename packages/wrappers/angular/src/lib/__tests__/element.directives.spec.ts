@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import '@angular/compiler';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { registerAllComponents } from '@aparte/core';
+import { registerAllComponents, type AparteConversationListItem } from '@aparte/core';
 import {
     APARTE_ELEMENT_DIRECTIVES,
     AparteSelectDirective,
@@ -50,6 +50,7 @@ registerAllComponents();
 
         <aparte-conversation-list
             [activeId]="activeId"
+            [conversations]="conversations"
             (conversationSelect)="picked = $event.id"
         ></aparte-conversation-list>
 
@@ -70,6 +71,7 @@ class Host {
     role: string | undefined = 'assistant';
     streaming = false;
     activeId: string | undefined = 'c1';
+    conversations: AparteConversationListItem[] = [{ id: 'c1', title: 'First', updatedAt: 1 }];
     threshold = 64;
     showViewport = true;
 
@@ -129,6 +131,20 @@ describe('the element directives', () => {
 
     it('coerces a numeric input through numberAttribute', () => {
         expect(el('aparte-chat-viewport').getAttribute('scroll-threshold')).toBe('64');
+    });
+
+    it('hands a property-only member over as a PROPERTY: [conversations] on the list', () => {
+        // The list's rows are a JS property with no attribute mirror. Without an input for
+        // it, `[conversations]` did not compile unless the consumer switched template
+        // checking off with CUSTOM_ELEMENTS_SCHEMA — the very switch these directives exist
+        // to spare them.
+        const list = el('aparte-conversation-list') as HTMLElement & { conversations?: AparteConversationListItem[] };
+        expect(list.conversations).toEqual([{ id: 'c1', title: 'First', updatedAt: 1 }]);
+        expect(list.hasAttribute('conversations')).toBe(false);
+
+        host.conversations = [...host.conversations, { id: 'c2', title: 'Second', updatedAt: 2 }];
+        fixture.detectChanges();
+        expect(list.conversations?.map((c) => c.id)).toEqual(['c1', 'c2']);
     });
 
     /*

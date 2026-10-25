@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -108,12 +108,21 @@ const emit = defineEmits<{
 // generated one stays SSR-stable for the common case.
 const hostId = props.id ?? `aparte-chat-${useId()}`;
 const rootRef = ref<HTMLElement>();
+// True until mounted — in the server render and in the render that hydrates it. While true the
+// root carries `defer-hydration`, so core's elements leave the server's DOM alone until Vue has it.
+const hydrating = ref(true);
+// The root, handed over by Vue as soon as the chat's tree is in place — hydrated or rendered —
+// and BEFORE any onMounted, a slot component's included: a slot's own mount hook runs before
+// the chat's, so the elements a server render left waiting are released here, not there, and
+// whatever a slot does on mount talks to live elements. A client-only render holds nothing.
+function setRoot(el: Element | ComponentPublicInstance | null): void {
+  if (!(el instanceof HTMLElement)) return;
+  rootRef.value = el;
+  releaseDeferredHydration(el);
+}
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();
 const internalMessages = ref<AparteMessage[]>([...props.messages]);
-// Every list the host emitted: the prop comes back as one of them, possibly an EARLIER
-// one when the parent lands late, and an echo is not the parent's word (see the watch).
-const emitted = new WeakSet<AparteMessage[]>();
 const typingActive = ref(props.isTyping);
 
 let host: AparteChatHost | null = null;
@@ -141,6 +150,9 @@ const loadingText = computed(() => (localeTick.value, (props.config ?? aparteGlo
 const typingLabel = computed(() => (localeTick.value, props.typingText ?? (props.config ?? aparteGlobalConfig).t('typing')));
 
 onMounted(() => {
+  // The elements a server render left waiting were upgraded in `setRoot`; the attribute
+  // the next render would draw goes too.
+  hydrating.value = false;
   unsubscribeLocale = (props.config ? toRaw(props.config) : aparteGlobalConfig).subscribe(() => { localeTick.value++; });
   const binding: AparteChatHostBinding = {
     hostId,
@@ -149,7 +161,6 @@ onMounted(() => {
     getMessages: () => internalMessages.value,
     setMessages: (m) => { internalMessages.value = m as AparteMessage[]; },
     onMessagesChange: (m) => {
-      emitted.add(m as AparteMessage[]);
       emit('messagesChange', m as AparteMessage[]);
       emit('update:messages', m as AparteMessage[]);
     },
@@ -185,12 +196,15 @@ onBeforeUnmount(() => {
   host = null;
 });
 
-// Parent push → internal list, unless it is the host's own emit coming back, current or
-// stale — applying a stale one rolled the list back under the host's next write. Raw, as
-// a parent's `ref` hands the emitted array back wrapped in a reactive proxy.
+// Parent push → internal list, unless it is the host's own report coming back — possibly an
+// EARLIER one when the parent lands late; applying it rolled the list back under the host's
+// next write. The host tells them apart (`takeEcho`): asked first, always, so a list the parent
+// restores later (a reopened conversation) is not mistaken for one. Raw, as a parent's `ref`
+// hands the emitted array back wrapped in a reactive proxy.
 watch(() => props.messages, (m) => {
   const raw = toRaw(m);
-  if (raw === toRaw(internalMessages.value) || emitted.has(raw)) return;
+  const echo = host?.takeEcho(raw) ?? false;
+  if (echo || raw === toRaw(internalMessages.value)) return;
   internalMessages.value = [...m];
   if (m.length === 0) host?.clearRenderCache();
 });
@@ -241,10 +255,11 @@ defineExpose({
   <div
     :class="['aparte-chat-container', { 'aparte-chat-container--auto-center': centerWhenEmpty }]"
     data-aparte-chat
+    :defer-hydration="hydrating ? '' : null"
     :overlay-composer="overlayComposer ? '' : null"
     :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null"
     :id="hostId"
-    ref="rootRef"
+    :ref="setRoot"
   >
     <aparte-chat-viewport ref="viewportRef" framework-managed="" :loading="waiting ? '' : null">
       <!-- The wait, drawn here because this DOM is Vue's: the kit's skeleton recipe,

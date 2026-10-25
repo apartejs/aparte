@@ -47,6 +47,10 @@ export interface AparteChatStore {
  * $: chat.connect(comp);
  * // <AparteChat bind:this={comp} messages={$messages}
  * //   on:messagesChange={(e) => chat.onMessagesChange(e.detail)} />
+ *
+ * @deprecated On Svelte 5, use `bind:messages` on the `<AparteChat>` from `@aparte/svelte/runes`.
+ * In 0.26.0 this helper leaves the package root for `@aparte/svelte/legacy`, beside the Svelte 4
+ * component.
  */
 export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore {
     const messages = writable<AparteMessage[]>([...initial]);

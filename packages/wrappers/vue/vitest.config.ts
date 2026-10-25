@@ -23,6 +23,7 @@ export default defineConfig({
         // jsdom polyfills (ResizeObserver, …).
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         include: ['src/**/*.test.ts'],
+        exclude: ['src/**/*.server.test.ts'],
         alias: {
             '@aparte/core': resolve(__dirname, '../../core/src/index.ts'),
         },

@@ -1,0 +1,230 @@
+---
+title: Your own components in tool calls
+description: Draw a tool call — or a segment type of your own — with a component of yours, mounted once, updated as the call changes and unmounted when it leaves, with defineMountedToolRenderer and overrideToolRenderer.
+sidebar:
+  order: 3
+  label: Your components in tool calls
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
+
+A tool call is drawn as core's row until you say otherwise. When a call deserves a card of its
+own — the weather for `get_weather`, a diff for `edit_file`, a chart for `run_query` — you can
+draw it with a component of yours instead: mounted once in the element core gives it, handed every
+change of the call (the result landing, an approval decided), and unmounted when the call leaves
+the page.
+
+## In your framework
+
+Each wrapper has a component that declares the card, for as long as it is mounted, with a
+component of your framework inside. Put it anywhere under your providers: the card renders from
+where the declaration sits, so it reads what your app provides there — a theme, a router, a store.
+
+<Tabs syncKey="framework">
+<TabItem label="React">
+
+```tsx
+import { AparteChat, AparteToolUI, type AparteToolCallView } from '@aparte/react';
+
+type Weather = AparteToolCallView<{ city: string }>;
+
+function WeatherCard({ tool }: { tool: Weather }) {
+  return <p>{tool.status === 'resolved' ? `${tool.input.city}: ${tool.result}` : `Looking up ${tool.input.city}…`}</p>;
+}
+
+export function Chat() {
+  return (
+    <>
+      <AparteToolUI<{ city: string }> name="get_weather">{(tool) => <WeatherCard tool={tool} />}</AparteToolUI>
+      <AparteChat />
+    </>
+  );
+}
+```
+
+Each card is a portal into the element core gives the call.
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, AparteToolUI } from '@aparte/vue';
+import WeatherCard from './WeatherCard.vue';
+</script>
+
+<template>
+  <AparteToolUI name="get_weather" v-slot="{ tool }">
+    <WeatherCard :tool="tool" />
+  </AparteToolUI>
+  <AparteChat />
+</template>
+```
+
+The slot is teleported into each call, and `inject` reads what your app provides around the
+declaration. `isAparteElement` is the test to give Vue's `isCustomElement`, so your templates can
+use `<aparte-icon>` and the other elements without a warning (write `<AparteToolUI>` in PascalCase:
+Vue reads `<aparte-tool-ui>` as `AparteToolUi`):
+
+{/* doc-check: skip @vitejs/plugin-vue is the Vue app's own devDependency, which the docs workspace does not install */}
+```ts
+// vite.config.ts
+import vue from '@vitejs/plugin-vue';
+import { isAparteElement } from '@aparte/vue';
+
+export default { plugins: [vue({ template: { compilerOptions: { isCustomElement: isAparteElement } } })] };
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, AparteToolUI } from '@aparte/svelte/runes';
+  import WeatherCard from './WeatherCard.svelte';
+</script>
+
+<AparteToolUI name="get_weather">
+  {#snippet children(tool)}<WeatherCard {tool} />{/snippet}
+</AparteToolUI>
+<AparteChat />
+```
+
+Svelte 5, from `@aparte/svelte/runes`. The snippet is mounted with the contexts of where you
+declare it, so `getContext` finds what your app set there.
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<ng-template aparteToolUI="get_weather" let-tool>
+  <app-weather-card [tool]="tool" />
+</ng-template>
+<aparte-chat />
+```
+
+Import `AparteToolUIDirective` into your standalone component. The view is created where the
+template is declared, so the components in it inject what your app provides there, and it works
+zoneless. A config other than the global one goes in `[aparteToolUIConfig]`.
+
+</TabItem>
+</Tabs>
+
+The card is mounted once per call and updated in place when the call changes, so a component keeps
+its local state when the result arrives; it is unmounted when the call leaves the page or when the
+declaration unmounts, and the call goes back to core's row. `AparteSegmentUI` does the same for a
+segment type (`<ng-template aparteSegmentUI="chart" let-segment>` with `AparteSegmentUIDirective`
+in Angular). In a server render nothing is declared and nothing is drawn: the cards appear in the
+browser. The sections below are what the four use underneath, and what to use from any other
+library.
+
+## Mount a component for a tool
+
+```ts
+import { aparteGlobalConfig, defineMountedToolRenderer, type AparteToolCallView } from '@aparte/core';
+
+type Weather = AparteToolCallView<{ city: string }>;
+
+function draw(host: HTMLElement, view: Weather) {
+  host.textContent = view.status === 'resolved' ? `${view.input.city}: ${view.result}` : `Looking up ${view.input.city}…`;
+}
+
+const restore = aparteGlobalConfig.overrideToolRenderer('get_weather', defineMountedToolRenderer((host, view) => {
+  draw(host, view as Weather);
+  return {
+    update: (next) => draw(host, next as Weather),
+    destroy: () => host.replaceChildren(),
+  };
+}));
+```
+
+`defineMountedToolRenderer` turns a mount function — an `AparteToolMount`, `(host, view) =>` what
+you mounted — into a complete tool renderer. Core creates the
+host — an empty `div.aparte-tool-ui` in place of the row — and calls your function once, when the
+host is in the page. What you return is how core reaches what you mounted: `update` with every
+newer state of the call, never a remount, so a component keeps its local state when the result
+arrives; `destroy` when the host leaves for good. Mount a Preact, Lit or Solid component there, or
+plain DOM as above.
+
+`overrideToolRenderer` puts the renderer over whatever the tool had and returns the function that
+takes it off again — the registration a component makes for as long as it is mounted.
+`registerToolRenderer` works too, for a card that stays for the page's lifetime. The matcher is a
+name, a `RegExp` or `'*'`, as everywhere else for tools.
+
+## What a card is given
+
+`toToolCallView(segment)` builds the `AparteToolCallView` your mount and `update` receive, one
+object with the fields a card draws from:
+
+| Field | What it holds |
+| --- | --- |
+| `id`, `name` | the call's id as the model issued it, and the tool's name |
+| `input` | the arguments the model passed — typed with the view's first parameter |
+| `status` | `pending`, `awaiting-approval`, `resolved`, `rejected`, `aborted` or `failed` |
+| `result`, `structuredResult` | the tool's answer as text, and as data (the view's second parameter) |
+| `deferred`, `refusal`, `abortCause` | why the call waits, who refused it and what they said, why it stopped |
+| `segment` | the whole segment, for anything else |
+
+`input` and `result` are chosen by the model: render them as text, or escape them, like anything
+else a model wrote.
+
+## When a card is mounted, updated and unmounted
+
+A card is mounted once and updated in place for as long as it stays. It is unmounted — `destroy`,
+through the renderer's `cleanup` — exactly once, when its element leaves for good: the call removed,
+its message redrawn or removed, a conversation switch, or the renderer replaced. It is not unmounted
+when a framework only moves its message: a message taken out of the page and put back before the
+next microtask keeps its cards. A message that comes back later (a keep-alive cache, a reused
+route) mounts its cards again. A Markdown or highlight provider that arrives late redraws the text
+around the cards, not the cards, and the end of a turn — when the finished message is synced
+again — hands each card its final state without remounting it.
+
+The registry is live. A renderer registered while calls are already on screen — a restored
+conversation, a page that declares its cards after the first messages, a chat whose own config
+arrives after its first rows — takes those calls over, and taking it off gives them back to core's
+row; calls to other tools are not touched. The change reaches the screen in a microtask, gathered:
+ten components declaring cards in one render cost one pass, and an override taken off in the same
+tick costs nothing at all. Overrides stack: of two declarations for the same tool the newer wins,
+and taking off the older one leaves the newer in place. Each `restore` function is safe to call
+twice, and does nothing after a `reset()` of the config.
+
+A card's own changes count as content arriving: if the reader is at the bottom of the chat, it
+follows them; if they scrolled up to read, it stays where they are.
+
+## A segment type of your own
+
+```ts
+import { defineMountedSegmentRenderer, overrideSegmentRenderer, type AparteSegmentBase } from '@aparte/core';
+
+interface ChartSegment extends AparteSegmentBase {
+  type: 'chart';
+  points: number[];
+}
+
+const restoreChart = overrideSegmentRenderer(defineMountedSegmentRenderer<ChartSegment>('chart', (host, segment) => {
+  host.textContent = segment.points.join(' · ');
+  return {
+    update: (next) => { host.textContent = next.points.join(' · '); },
+    destroy: () => host.replaceChildren(),
+  };
+}));
+```
+
+The same mechanism for a segment `type` of your own — a type your stream emits through a
+[block grammar](/guides/customization/#custom-segment-types), say. `defineMountedSegmentRenderer`
+takes the type and an `AparteSegmentMount`, and `overrideSegmentRenderer` stacks the way
+`overrideToolRenderer` does; taking the last override off a built-in type such as `code` gives it
+back to core's renderer. Both mounts return an `AparteMountedView` — `update` and `destroy`.
+
+A renderer written by hand gets the same lifecycle: `cleanup(element, segment)` on a segment
+renderer or a tool renderer is called once, when its element leaves for good.
+
+<Cards
+    cards={[
+        { href: '/guides/tool-display/', title: 'Showing tool calls', line: 'Words, icons and details for core\'s own row.' },
+        { href: '/guides/tools/#custom-tool-renderer', title: 'Custom tool renderer', line: 'A renderer written by hand, as markup.' },
+    ]}
+/>

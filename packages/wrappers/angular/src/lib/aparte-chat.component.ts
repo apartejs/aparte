@@ -1,24 +1,30 @@
 import {
+    AfterViewInit,
     Component,
     CUSTOM_ELEMENTS_SCHEMA,
     ElementRef,
+    Injector,
     OnDestroy,
+    PLATFORM_ID,
     ViewChild,
     QueryList,
     ViewChildren,
+    afterNextRender,
+    contentChild,
+    input,
+    linkedSignal,
     output,
     signal,
     computed,
+    untracked,
     ChangeDetectionStrategy,
-    AfterViewInit,
-    Input,
     TemplateRef,
     inject,
     effect,
     booleanAttribute,
     numberAttribute,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet, isPlatformBrowser } from '@angular/common';
 import { Observable } from 'rxjs';
 import type {
     AparteMessage,
@@ -29,10 +35,11 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
+import { AparteBubbleDirective } from './aparte-bubble.directive';
 
 /**
- * AparteChatComponent — Angular 19 Wrapper
+ * AparteChatComponent — the Angular wrapper (19.2 to 21, zone or zoneless)
  *
  * Standalone component wrapping aparté Web Components with Angular Signals.
  * The streaming / branch-navigation / host-method orchestration (orphan-stream
@@ -52,7 +59,9 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@apar
     // hands off: THIS component renders the viewport + composer and drives them
     // through AparteChatHost. Without it, core injects its default composition
     // underneath ours (its own check can't see our children — they render later).
-    host: { 'framework-managed': '' },
+    // `defer-hydration` until the host is built, in the server render and while the browser
+    // hydrates it: core's elements — this host among them — leave the server's DOM alone.
+    host: { 'framework-managed': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
     template: `
     <div
       class="aparte-chat-container"
@@ -80,11 +89,12 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@apar
           <ng-content select="[slot='empty-state']"></ng-content>
         }
         @for (message of messages(); track message.id) {
-          @if (bubbleTemplate) {
-            <!-- Render your OWN element per message; driven by the reactive
-                 messages() signal so it streams live. -->
+          @if (bubbleTemplate() || bubbleDirective()) {
+            <!-- Render your OWN element per message ([bubbleTemplate], else an
+                 <ng-template aparteBubble> written as content); driven by the
+                 reactive messages() signal so it streams live. -->
             <ng-container
-              [ngTemplateOutlet]="bubbleTemplate"
+              [ngTemplateOutlet]="bubbleTemplate() ?? bubbleDirective()?.template ?? null"
               [ngTemplateOutletContext]="{ $implicit: message }"
             ></ng-container>
           } @else {
@@ -190,15 +200,47 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             // bubbles `bubbleRefs.changes` hid the divergence; under a custom
             // `[bubbleTemplate]` that query never fires and this was the only path.
             this.messages();
-            if (this._syncRafId !== null) return;
+            // A server render has no frame to wait for and no host to sync.
+            if (!this._isBrowser || this._syncRafId !== null) return;
             this._syncRafId = requestAnimationFrame(() => {
                 this._syncRafId = null;
                 this._host?.syncBubbles();
             });
         });
+
+        // A parent that empties [messages] starts a new conversation: the host lets go of
+        // its render cache then — the same rule React, Vue and Svelte apply.
+        effect(() => {
+            const next = this.messagesInput();
+            // An echo of the chat's own emptied list is not a parent starting over.
+            if (next.length === 0 && !this._emitted.has(next)) untracked(() => this._host?.clearRenderCache());
+        });
+
+        // [conversationId] drives the host; an echo of the id the host already holds
+        // (e.g. the one it just created and reported) is a no-op.
+        effect(() => {
+            const next = this.conversationIdInput() ?? null;
+            untracked(() => {
+                if (next === this._conversationId) return;
+                this._conversationId = next;
+                if (this._host) void this._host.setConversationId(next);
+            });
+        });
+
+        // The host touches the DOM and the custom elements: browser only, never in a server
+        // render, where there is no element to drive. Built in ngAfterViewInit (below), so a
+        // parent's own ngAfterViewInit, which runs after it, can already call the API; this
+        // render hook is the fallback, and does nothing once the host exists.
+        afterNextRender(() => this._createHost());
+    }
+
+    ngAfterViewInit(): void {
+        if (this._isBrowser) this._createHost();
     }
 
     private elementRef = inject(ElementRef);
+    private readonly _injector = inject(Injector);
+    private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     /**
      * Template bridge to core's shared `isAwaitingReply` (an Angular template can't
@@ -207,30 +249,40 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     readonly awaitingReply = isAwaitingReply;
 
-    // ── Input Signals ────────────────────────────────────────────────────────
+    // ── Inputs ───────────────────────────────────────────────────────────────
+    //
+    // Signal inputs under the same public names as before (`[messages]`, `disabled`,
+    // `centerWhenEmpty`…), so no template changes. Where the chat also writes a value
+    // itself (the list, the typing line), the input feeds a `linkedSignal`: a parent write
+    // resets it, the chat's own writes move it, and neither emits — `messagesChange` is
+    // emitted by the host's report only, never by a `set` (which is why this is not a
+    // `model()`: a model emits on every write, and an optimistic append must stay silent).
 
-    /** Messages to display */
-    @Input('messages') set messagesInput(val: AparteMessage[]) {
-        this.messages.set(val);
-        // When messages are cleared (new conversation), reset the host's render cache
-        // so the next conversation starts clean — same as React/Vue/Svelte do. (The
-        // viewport's own clearMessages() is @deprecated in core and only clears its
-        // repo; the host's clearAll() path already owns the real teardown.)
-        if (val.length === 0) this._host?.clearRenderCache();
-    }
-    readonly messages = signal<AparteMessage[]>([]);
+    /** Messages to display. Two-way: `[(messages)]`, with `(messagesChange)` reporting the chat's own changes. */
+    readonly messagesInput = input<AparteMessage[]>([], { alias: 'messages' });
+    /** Every list the host reported — read only by the render-cache rule below. */
+    private readonly _emitted = new WeakSet<AparteMessage[]>();
+    /**
+     * Under `[(messages)]` each report comes back through the input — possibly an EARLIER one,
+     * after the chat appended without reporting (an optimistic append, or core's append right
+     * after a flush) — and an echo is not the parent's word: it keeps the local list. The host
+     * tells them apart (`takeEcho`), the rule React, Vue and Svelte apply, so a list the parent
+     * restores later (a reopened conversation, an undo) is applied. Before the host exists
+     * nothing was reported, so the input is taken as it is.
+     */
+    readonly messages = linkedSignal<AparteMessage[], AparteMessage[]>({
+        source: this.messagesInput,
+        computation: (next, previous) => (previous && this._host?.takeEcho(next) ? previous.value : next),
+    });
 
     /** Input placeholder text */
-    @Input('placeholder') set placeholderInput(val: string) { this.placeholder.set(val); }
-    readonly placeholder = signal<string>('Type a message...');
+    readonly placeholder = input<string>('Type a message...');
 
     /** Whether the input is disabled */
-    @Input({ alias: 'disabled', transform: booleanAttribute }) set disabledInput(val: boolean) { this.disabled.set(val); }
-    readonly disabled = signal<boolean>(false);
+    readonly disabled = input(false, { transform: booleanAttribute });
 
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
-    @Input({ alias: 'submitOnEnter', transform: booleanAttribute }) set submitOnEnterInput(val: boolean) { this.submitOnEnter.set(val); }
-    readonly submitOnEnter = signal<boolean>(true);
+    readonly submitOnEnter = input(true, { transform: booleanAttribute });
 
     /**
      * Opt in to the "centered composer when empty" layout: the composer sits
@@ -239,8 +291,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * Off by default — additive (adds the `--auto-center` modifier + a
      * `data-aparte-empty` attribute the shipped `aparte.css` recipe keys off).
      */
-    @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
-    readonly centerWhenEmpty = signal<boolean>(false);
+    readonly centerWhenEmpty = input(false, { transform: booleanAttribute });
 
     /**
      * The conversation is on its way: the viewport draws two skeleton turns, the empty
@@ -248,15 +299,24 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * controller sets this itself while it fetches through your adapter's `loadFull()`;
      * the input is for a wait of your own. Off by default.
      */
-    @Input({ alias: 'loading', transform: booleanAttribute }) set loadingInput(val: boolean) { this.loading.set(val); }
-    readonly loading = signal<boolean>(false);
+    readonly loading = input(false, { transform: booleanAttribute });
     /** The controller's wait (a conversation fetched through the adapter). */
     readonly hostLoading = signal<boolean>(false);
     readonly waiting = computed(() => this.loading() || this.hostLoading());
     /** Bumped on every config change, so the two locale strings below follow a language switch under OnPush. */
     private readonly _localeTick = signal(0);
+    /**
+     * True until the host is built — on the server always, and in the browser only while Angular
+     * hydrates the server's HTML: the host element is then the one the server sent, still carrying
+     * the attribute. A client-only render holds nothing, so a component projected into the empty
+     * state (built in an @if, after the host binding) talks to live elements in its own
+     * ngAfterViewInit, which runs before this component's.
+     */
+    protected readonly hydrating = signal(
+        !this._isBrowser || (this.elementRef.nativeElement as HTMLElement).hasAttribute('defer-hydration'),
+    );
     private _unsubscribeLocale?: () => void;
-    get loadingText(): string { this._localeTick(); return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
+    get loadingText(): string { this._localeTick(); return (this.config() ?? aparteGlobalConfig).t('loadingConversation'); }
 
     /**
      * Class(es) merged onto the INNER `.aparte-chat-container`, not onto this
@@ -270,12 +330,13 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * selector on Angular alone. This input is that parity. Additive: the recipe's
      * own classes stay.
      */
-    @Input('containerClass') set containerClassInput(val: string) { this.containerClass.set(val ?? ''); }
-    readonly containerClass = signal<string>('');
+    readonly containerClass = input('', { alias: 'containerClass', transform: (val: string | null | undefined) => val ?? '' });
 
     /** Inline style for the same div — a string or a `{ prop: value }` map. */
-    @Input('containerStyle') set containerStyleInput(val: string | Record<string, string> | null) { this.containerStyle.set(val ?? null); }
-    readonly containerStyle = signal<string | Record<string, string> | null>(null);
+    readonly containerStyle = input(null, {
+        alias: 'containerStyle',
+        transform: (val: string | Record<string, string> | null | undefined) => val ?? null,
+    });
 
     /**
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
@@ -285,8 +346,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * core's recipe and the viewport's measurement both key on the attribute
      * there. Read when the viewport mounts.
      */
-    @Input({ alias: 'overlayComposer', transform: booleanAttribute }) set overlayComposerInput(val: boolean) { this.overlayComposer.set(val); }
-    readonly overlayComposer = signal<boolean>(false);
+    readonly overlayComposer = input(false, { transform: booleanAttribute });
 
     /**
      * Add the file picker + chips strip to the default composer shell. **Off by
@@ -297,8 +357,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * project a `[slot='composer']` (drop `<aparte-composer-add-attachment>` and
      * `<aparte-composer-attachments>` in it yourself).
      */
-    @Input({ alias: 'attachments', transform: booleanAttribute }) set attachmentsInput(val: boolean) { this.attachments.set(val); }
-    readonly attachments = signal<boolean>(false);
+    readonly attachments = input(false, { transform: booleanAttribute });
 
     /**
      * Render the `<aparte-elicitation>` presenter inside the host — on by default, as
@@ -307,21 +366,19 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * when you mount a presenter of your own (`setElicitationPresenter`) or place the
      * element yourself.
      */
-    @Input({ alias: 'elicitation', transform: booleanAttribute }) set elicitationInput(val: boolean) { this.elicitation.set(val); }
-    readonly elicitation = signal<boolean>(true);
+    readonly elicitation = input(true, { transform: booleanAttribute });
 
-    /** Whether the assistant is currently typing/streaming */
-    @Input({ alias: 'isTyping', transform: booleanAttribute }) set isTypingInput(val: boolean) { this.isTyping.set(val); }
-    readonly isTyping = signal<boolean>(false);
+    /** Whether the assistant is currently typing/streaming. The host turns it off on the first token. */
+    readonly isTypingInput = input(false, { alias: 'isTyping', transform: booleanAttribute });
+    readonly isTyping = linkedSignal<boolean>(() => this.isTypingInput());
 
     /** Text to show in the typing status */
-    @Input('typingText') set typingTextInput(val: string | undefined) { this.typingText.set(val); }
-    readonly typingText = signal<string | undefined>(undefined);
+    readonly typingText = input<string | undefined>(undefined);
     /** The status line's word: the input, else the locale's, like the rest of the chat. */
-    get typingLabel(): string { this._localeTick(); return this.typingText() ?? (this.config ?? aparteGlobalConfig).t('typing'); }
+    get typingLabel(): string { this._localeTick(); return this.typingText() ?? (this.config() ?? aparteGlobalConfig).t('typing'); }
 
-    /** Duration in ms to freeze spacer recalculation after a conversation swap. */
-    @Input({ alias: 'layoutTransitionMs', transform: numberAttribute }) layoutTransitionMs = 0;
+    /** Duration in ms to freeze spacer recalculation after a conversation swap. Read when the host is created. */
+    readonly layoutTransitionMs = input(0, { transform: numberAttribute });
 
     /**
      * Active conversation id. When provided, the host attaches an
@@ -329,33 +386,31 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * `AparteConversationManager` registered in `aparteGlobalConfig`. Setting a different id
      * mid-stream aborts the previous request; `null` deselects.
      */
-    @Input('conversationId') set conversationIdInput(val: string | null | undefined) {
-        const next = val ?? null;
-        if (next === this._conversationId) return;
-        this._conversationId = next;
-        if (this._host) void this._host.setConversationId(next);
-    }
+    readonly conversationIdInput = input<string | null | undefined>(undefined, { alias: 'conversationId' });
     private _conversationId: string | null = null;
 
     /**
      * Instance {@link AparteConfig} for this chat. When set, aparté components
      * inside resolve THIS config instead of `aparteGlobalConfig`, so
      * several independently-configured chats can coexist on one page. Omit for the
-     * global config. Read once in `ngAfterViewInit` when the host is created.
+     * global config. Read once, when the host is created after the first render.
      */
-    @Input() config?: AparteConfig;
+    readonly config = input<AparteConfig | undefined>(undefined);
 
     /**
      * Render your OWN element per message in place of `<aparte-chat-bubble>`.
-     * Opt-in — provide a `<ng-template let-message>` and pass its ref. Driven by
-     * the reactive `messages()` signal, so it updates live during streaming.
-     * The built-in action bar (retry/edit/branch) belongs to the native bubble;
-     * a custom bubble owns whatever it wires.
+     * Opt-in — provide a `<ng-template let-message>` and pass its ref, or write the
+     * template as content with {@link AparteBubbleDirective} (`<ng-template aparteBubble
+     * let-message>`); this input wins when both are given. Driven by the reactive
+     * `messages()` signal, so it updates live during streaming. The built-in action bar
+     * (retry/edit/branch) belongs to the native bubble; a custom bubble owns whatever it wires.
      * @example
      * <aparte-chat [bubbleTemplate]="tpl" />
      * <ng-template #tpl let-message>{{ message.content }}</ng-template>
      */
-    @Input() bubbleTemplate?: TemplateRef<{ $implicit: AparteMessage }>;
+    readonly bubbleTemplate = input<TemplateRef<{ $implicit: AparteMessage }> | undefined>(undefined);
+    /** The `<ng-template aparteBubble>` written as content, if any. */
+    readonly bubbleDirective = contentChild(AparteBubbleDirective);
 
     // ── Outputs ────────────────────────────────────────────────────────────
 
@@ -395,15 +450,21 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /** rAF id used to coalesce rapid signal updates during streaming */
     private _syncRafId: number | null = null;
 
-    /** The framework-agnostic chat-host orchestrator (created in ngAfterViewInit). */
+    /** The framework-agnostic chat-host orchestrator (created after the first render, in the browser). */
     private _host?: AparteChatHost;
     private _unbindHost?: () => void;
     /** QueryList.changes subscription — released in ngOnDestroy so SPA route
      *  churn doesn't leak a live subscription per mount. */
     private _bubbleRefsSub?: { unsubscribe(): void };
+    /** Set by ngOnDestroy: an afterNextRender that lands after a destroy must not build a host. */
+    private _destroyed = false;
 
-    ngAfterViewInit(): void {
-        this._unsubscribeLocale = (this.config ?? aparteGlobalConfig).subscribe(() => this._localeTick.update((n) => n + 1));
+    private _createHost(): void {
+        if (this._destroyed || this._host) return;
+        // The elements a server render left waiting are upgraded first: the host talks to them.
+        releaseDeferredHydration(this.elementRef.nativeElement as HTMLElement);
+        this.hydrating.set(false);
+        this._unsubscribeLocale = (this.config() ?? aparteGlobalConfig).subscribe(() => this._localeTick.update((n) => n + 1));
         const host = this.elementRef.nativeElement as HTMLElement;
 
         // Ensure a stable id so aparte-composer can reference the host via `target`,
@@ -418,26 +479,30 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             viewport: this.viewportRef?.nativeElement ?? null,
             getMessages: () => this.messages(),
             setMessages: (msgs) => this.messages.set(msgs as AparteMessage[]),
-            onMessagesChange: (msgs) => this.messagesChange.emit(msgs as AparteMessage[]),
+            onMessagesChange: (msgs) => {
+                this._emitted.add(msgs as AparteMessage[]);
+                this.messagesChange.emit(msgs as AparteMessage[]);
+            },
             onMessageAppended: (msg) => this.messageAppended.emit(msg as AparteMessage),
             onTypingChange: (typing) => { this.isTyping.set(typing); this.typingChange.emit(typing); },
             onStreamingChange: (id) => this._streamingId.set(id),
             onLoadingChange: (on) => this.hostLoading.set(on),
-            // Sibling-info / deferred work runs after Angular has re-rendered.
-            afterRender: (cb) => { setTimeout(cb, 0); },
+            // Sibling-info / deferred work runs after Angular has re-rendered — Angular's
+            // own hook for exactly that, which also holds under zoneless.
+            afterRender: (cb) => { afterNextRender(cb, { injector: this._injector }); },
             resetComposer: () => {
                 (this.inputRef?.nativeElement as unknown as { reset?: () => void })?.reset?.();
             },
         };
 
         this._host = new AparteChatHost(binding, {
-            layoutTransitionMs: this.layoutTransitionMs,
+            layoutTransitionMs: this.layoutTransitionMs(),
             conversationId: this._conversationId,
             onConversationCreated: (id) => {
                 this._conversationId = id;
                 this.conversationCreated.emit(id);
             },
-            config: this.config,
+            config: this.config(),
         });
         this._unbindHost = this._host.bind();
 
@@ -456,6 +521,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     };
 
     ngOnDestroy(): void {
+        this._destroyed = true;
         this._unsubscribeLocale?.();
         this._unsubscribeLocale = undefined;
         if (this._syncRafId !== null) {

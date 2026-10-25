@@ -26,6 +26,7 @@ __screenshots__/
 # Playwright (browser E2E)
 test-results/
 playwright-report/
+playwright-report-ssr/
 blob-report/
 .playwright/
 
@@ -60,6 +61,14 @@ Thumbs.db
 
 # svelte-package build cache
 packages/wrappers/*/.svelte-kit/
+
+# The meta-framework fixtures' builds (e2e/ssr/*): Next, Nuxt, SvelteKit, Angular SSR.
+e2e/ssr/*/.next/
+e2e/ssr/*/.nuxt/
+e2e/ssr/*/.output/
+e2e/ssr/*/.svelte-kit/
+e2e/ssr/*/build/
+e2e/ssr/*/next-env.d.ts
 
 # Content stamps for scripts/check-dist-freshness.mjs (mtime is not content): one per
 # package, written by its build, cached by nx with its dist.

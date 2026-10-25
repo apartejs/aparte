@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/config-context.js';
 import { presenceOn } from '../../utils/presence.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * AparteOptgroup
@@ -199,6 +200,7 @@ export class AparteOptgroup extends HTMLElement {
 }
 
 // Register
+deferHydrationOf(AparteOptgroup);
 if (!customElements.get('aparte-optgroup')) {
     customElements.define('aparte-optgroup', AparteOptgroup);
 }

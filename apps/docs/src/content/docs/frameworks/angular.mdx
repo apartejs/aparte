@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Angular {T.angular[0]} and {T.angular[1]}, zoneless: in the unit suite and the example a browser drives, and in an Angular {T.angularSsr} SSR app rendered on the server and hydrated.
 
 ## Install
 
@@ -29,6 +32,50 @@ npm install @aparte/provider-scenario   # a scripted model, to stream with no ke
 
 ## Render the chat
 
+{/* doc-check: skip excerpt — `App` is your root component */}
+```ts
+// main.ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { provideAparte } from '@aparte/angular';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+import { showcase } from '@aparte/provider-scenario/showcase';
+import { App } from './app';
+
+bootstrapApplication(App, {
+  providers: [
+    provideZonelessChangeDetection(),
+    provideAparte({ providers: [createScenarioProvider({ scenarios: showcase })] }),
+  ],
+});
+```
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `
+    <aparte-chat centerWhenEmpty>
+      <p slot="empty-state">Ask me anything…</p>
+    </aparte-chat>
+  `,
+})
+export class ChatComponent {}
+```
+
+That is a whole chat: `<aparte-chat>` keeps its own thread, and `provideAparte` registers the
+scripted model and starts the client at bootstrap, which streams each reply into it — no state of
+yours, no key. `AparteChatComponent` is standalone: import it where you use it, with no NgModule.
+Its inputs are signals and it needs no zone.js: it runs the same zoneless — Angular 21's default,
+`provideZonelessChangeDetection()` above, `provideExperimentalZonelessChangeDetection()` on 19 —
+and with zone.js.
+
+## Hold the messages yourself
+
 ```ts
 import { Component } from '@angular/core';
 import { AparteChatComponent, type AparteMessage } from '@aparte/angular';
@@ -37,36 +84,18 @@ import { AparteChatComponent, type AparteMessage } from '@aparte/angular';
   selector: 'app-chat',
   standalone: true,
   imports: [AparteChatComponent],
-  template: `
-    <aparte-chat centerWhenEmpty (messagesChange)="messages = $event">
-      <p slot="empty-state">Ask me anything…</p>
-    </aparte-chat>
-  `,
+  template: `<aparte-chat [(messages)]="messages" />`,
 })
 export class ChatComponent {
   messages: AparteMessage[] = [];
 }
 ```
 
-`AparteChatComponent` is standalone: import it where you use it, with no NgModule. The chat keeps
-its thread and reports it through `(messagesChange)`. The person's message is added when they send,
-so do not add it again in `(messageSent)`, which fires after, for a side effect.
+When the messages are yours to read or store, bind `[(messages)]`: the chat writes its thread back,
+and a list you assign reaches the transcript. The person's message is added when they send, so do
+not add it again in `(messageSent)`, which fires after, for a side effect.
 
 ## Stream a model
-
-{/* doc-check: skip excerpt — `App` is your root component */}
-```ts
-// main.ts
-import { bootstrapApplication } from '@angular/platform-browser';
-import { provideAparte } from '@aparte/angular';
-import { createScenarioProvider } from '@aparte/provider-scenario';
-import { showcase } from '@aparte/provider-scenario/showcase';
-import { App } from './app';
-
-bootstrapApplication(App, {
-  providers: [provideAparte({ providers: [createScenarioProvider({ scenarios: showcase })] })],
-});
-```
 
 `provideAparte` registers the providers at bootstrap and starts the client — `autoConnect`, on by
 default — so a send streams with no wiring in your components. With `autoConnect: false`, the
@@ -138,7 +167,7 @@ then starts the client.
 ## Put your own UI in it
 
 ```html
-<aparte-chat [messages]="messages" [bubbleTemplate]="bubble" (messagesChange)="messages = $event">
+<aparte-chat [(messages)]="messages" [bubbleTemplate]="bubble">
   <p slot="empty-state">Ask me anything…</p>
   <span slot="toolbar" class="hint">Shift + Enter for a new line</span>
 </aparte-chat>
@@ -157,7 +186,51 @@ then starts the client.
 
 `[bubbleTemplate]` draws each message from a template of yours, the message as its `$implicit`
 ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)). Content in no slot is
-not drawn.
+not drawn. The same template can be written inside the chat, with `AparteBubbleDirective` in the
+component's `imports`; `[bubbleTemplate]` wins when both are given:
+
+```html
+<aparte-chat [(messages)]="messages">
+  <ng-template aparteBubble let-message>
+    <div class="my-bubble">{{ message.content }}</div>
+  </ng-template>
+</aparte-chat>
+```
+
+## Your components in tool calls
+
+```ts
+import { Component, input } from '@angular/core';
+import { AparteToolUIDirective, type AparteToolCallView } from '@aparte/angular';
+
+@Component({
+  selector: 'app-weather-card',
+  standalone: true,
+  template: `<p>{{ tool().status === 'resolved' ? tool().result : 'Looking it up…' }}</p>`,
+})
+export class WeatherCardComponent {
+  readonly tool = input.required<AparteToolCallView>();
+}
+
+@Component({
+  selector: 'app-weather-cards',
+  standalone: true,
+  imports: [AparteToolUIDirective, WeatherCardComponent],
+  template: `
+    <ng-template aparteToolUI="get_weather" let-tool>
+      <app-weather-card [tool]="tool" />
+    </ng-template>
+  `,
+})
+export class WeatherCardsComponent {}
+```
+
+Declared anywhere in your app, the template draws every call to that tool, the call as `let-tool`
+(an `AparteToolCallView`). Its view is created where the template is declared, so the components in
+it inject what your app provides there; it is mounted once per call and updated in place, zoneless
+included, until the template leaves and the calls go back to core's row.
+`<ng-template aparteSegmentUI="…" let-segment>`, with `AparteSegmentUIDirective`, does the same for
+a segment type ([Your components in tool calls](/guides/tool-ui/)).
 
 ## Inputs and outputs
 
@@ -244,10 +317,15 @@ forwards core's events, so name your element's own in `[events]`:
 
 ## Server rendering and tests
 
-`provideAparte` starts the client only in a browser. Render the chat itself on the client, in a
-`@defer` block — `@defer { <aparte-chat></aparte-chat> }` — so the server draws only its
-placeholder; `@aparte/core` imports on a server through its entry without elements
-([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
+With `@angular/ssr` and `provideClientHydration()`, render `<aparte-chat>` as it is — no `@defer`:
+the server sends its HTML, and the browser hydrates it with no mismatch, zoneless included — the
+elements wait until Angular has the page ([Hydration](/frameworks/elements/#hydration)).
+`provideAparte` starts the client only in a browser. This is tested in CI: an Angular
+{T.angularSsr} SSR app built with optimisation off — so Angular checks every node it hydrates and
+throws on a mismatch, which a production build skips — served by its Express server, and checked
+in a browser. Angular 21 renders only for the hosts it is told about — `new AngularNodeAppEngine({
+allowedHosts: […] })` — and falls back to a client render for any other. `@aparte/core` imports on
+a server through its entry without elements ([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
 Jest — takes that entry too, so alias `@aparte/core` to `@aparte/core/browser` for the elements to
 upgrade ([Testing your components](/frameworks/elements/#testing-your-components)); Karma runs in
 a browser and needs nothing.

@@ -1,3 +1,4 @@
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 /**
  * AparteProgressSpinner
  *
@@ -68,6 +69,7 @@ export class AparteProgressSpinner extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteProgressSpinner);
 if (!customElements.get('aparte-progress-spinner')) {
     customElements.define('aparte-progress-spinner', AparteProgressSpinner);
 }

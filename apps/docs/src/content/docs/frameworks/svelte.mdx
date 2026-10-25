@@ -1,6 +1,6 @@
 ---
 title: Add an AI chat to a Svelte app
-description: Install @aparte/svelte, render <AparteChat>, stream a model with createAparteClient, and put your own UI in its slots — on Svelte 4 or 5, SvelteKit included.
+description: Install @aparte/svelte, render <AparteChat> from @aparte/svelte/runes and stream a model with createAparteClient, then bind its messages, fill its snippets and draw tool calls with your own components — on Svelte 5, SvelteKit included, with the Svelte 4 component beside it.
 head:
   - tag: title
     content: Svelte AI chat component — @aparte/svelte | aparté
@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Svelte {T.svelte[0]} and {T.svelte[1]}: in the two examples a browser drives, and in a SvelteKit {T.sveltekit} page rendered on the server and hydrated.
 
 ## Install
 
@@ -20,58 +23,56 @@ npm install @aparte/provider-scenario   # a scripted model, to stream with no ke
 ```
 
 `@aparte/core` and `svelte` are peer dependencies: Svelte <code>{WRAPPER_PEERS.svelte}</code>. The
-package ships its `.svelte` sources, which your build compiles, so one package serves both majors.
+package ships its `.svelte` sources, which your build compiles. On Svelte 5, import from
+`@aparte/svelte/runes` — props, snippets, `bind:messages` and callback props, written in runes
+(Svelte <code>{WRAPPER_PEERS.svelteRunes}</code>). The package root keeps the component written in Svelte 4's syntax, which
+runs on both majors ([Svelte 4](#svelte-4)).
 
 ## Render the chat
 
 ```svelte
-<script lang="ts">
-  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
-  import '@aparte/core/styles.css';
+<script lang="ts" module>
+  import { aparteGlobalConfig } from '@aparte/core';
+  import { createScenarioProvider } from '@aparte/provider-scenario';
+  import { showcase } from '@aparte/provider-scenario/showcase';
 
-  const chat = createAparteChat();
-  const { messages } = chat;
-  let comp: AparteChatImperativeApi | null = null;
-  $: chat.connect(comp);
+  aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
 </script>
 
-<AparteChat bind:this={comp} messages={$messages} centerWhenEmpty onmessagesChange={(m) => chat.onMessagesChange(m)}>
-  <p slot="empty-state">Ask me anything…</p>
+<script lang="ts">
+  import { AparteChat, createAparteClient } from '@aparte/svelte/runes';
+  import '@aparte/core/styles.css';
+
+  createAparteClient();
+</script>
+
+<AparteChat centerWhenEmpty>
+  {#snippet emptyState()}<p>Ask me anything…</p>{/snippet}
 </AparteChat>
 ```
 
-`createAparteChat` holds the messages in a store and mirrors the chat's imperative API; `connect`
-ties it to the component you bind. In a Svelte 5 component in runes mode, write the binding as
-`let comp = $state<AparteChatImperativeApi | null>(null);` and the connection as
-`$effect(() => { chat.connect(comp); });`. The person's message is added when they send, so do not add
-it yourself; `onmessageSent` fires after, for a side effect.
+That is a whole chat: `<AparteChat>` keeps its own thread, and the client `createAparteClient` starts
+streams each reply into it from the scripted model — no state of yours, no key. The module script
+runs once, however many times the component mounts.
 
-## Stream a model
-
-{/* doc-check: skip excerpt — your main.ts, which imports your App.svelte */}
-```ts
-// main.ts — registered once, before the app mounts
-import { aparteGlobalConfig } from '@aparte/core';
-import { createScenarioProvider } from '@aparte/provider-scenario';
-import { showcase } from '@aparte/provider-scenario/showcase';
-
-aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
-// …then mount your App.svelte
-```
+## Hold the messages yourself
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat, createAparteClient, type AparteChatImperativeApi } from '@aparte/svelte';
+  import { AparteChat, createAparteClient, type AparteMessage } from '@aparte/svelte/runes';
 
-  const chat = createAparteChat();
+  let messages = $state<AparteMessage[]>([]);
   createAparteClient();
-  const { messages } = chat;
-  let comp: AparteChatImperativeApi | null = null;
-  $: chat.connect(comp);
 </script>
 
-<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} />
+<AparteChat bind:messages />
 ```
+
+When the messages are yours to read or store, `bind:messages` keeps your state in step with what
+the chat does, and a write of yours — a new array, or a `push` — reaches the transcript. The person's message is added when they
+send, so do not add it yourself; `onmessageSent` fires after, for a side effect.
+
+## Stream a model
 
 `createAparteClient` starts a client when the component mounts, stops it when it is destroyed, and
 returns `{ client, abort }`; it takes the `AparteClientOptions`. For a real model, register its
@@ -82,31 +83,49 @@ transport of its own; give its client the same one, `createAparteClient({ config
 client running, turn on retry and edit with
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` ([Buttons](/guides/customization/actions/)).
 
-## Callbacks and events
+## Callbacks
 
 Each callback — `onmessageSent`, `onaction`, `onmessagesChange`, `onmessageAppended`,
-`ontypingChange`, `onconversationCreated` — is a prop that gets the payload itself, and an event as
-well: `on:messagesChange={(e) => chat.onMessagesChange(e.detail)}`, the payload under
-`event.detail`. Both fire for the same occurrence, the callback first; write the callbacks on
-Svelte 5.
+`ontypingChange`, `onconversationCreated` — is a prop that gets the payload itself:
+`onconversationCreated={(id) => goto('/chat/' + id)}`. The names are the ones Svelte's own migration
+gives a `dispatch('messageSent')`: `on`, then the event.
 
 ## Put your own UI in it
 
 ```svelte
-<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)}>
-  <p slot="empty-state">Ask me anything…</p>
-  <svelte:fragment slot="toolbar"><span class="hint">Shift + Enter for a new line</span></svelte:fragment>
-  <svelte:fragment slot="bubble" let:message><MyBubble {message} /></svelte:fragment>
+<AparteChat bind:messages>
+  {#snippet emptyState()}<p>Ask me anything…</p>{/snippet}
+  {#snippet toolbar()}<span class="hint">Shift + Enter for a new line</span>{/snippet}
+  {#snippet bubble(message)}<MyBubble {message} />{/snippet}
 </AparteChat>
 ```
 
-| Slot | What it fills |
+| Snippet | What it fills |
 | --- | --- |
-| `empty-state` | the chat before the first message |
-| `above-composer` | the space above the composer |
-| `toolbar` | the composer's bottom row, not drawn when you fill `composer`; `<svelte:fragment slot="toolbar">` for several nodes ([The composer toolbar](/guides/customization/composer-toolbar/)) |
+| `emptyState` | the chat before the first message |
+| `aboveComposer` | the space above the composer |
+| `toolbar` | the composer's bottom row, not drawn when you fill `composer` ([The composer toolbar](/guides/customization/composer-toolbar/)) |
 | `composer` | the composer, replaced by yours |
-| `bubble`, with `let:message` | each message, drawn by you ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)) |
+| `bubble(message)` | each message, drawn by you ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)) |
+
+## Your components in tool calls
+
+```svelte
+<script lang="ts">
+  import { AparteToolUI } from '@aparte/svelte/runes';
+  import WeatherCard from './WeatherCard.svelte';
+</script>
+
+<AparteToolUI name="get_weather">
+  {#snippet children(tool)}<WeatherCard {tool} />{/snippet}
+</AparteToolUI>
+```
+
+Mounted anywhere in your app, `<AparteToolUI>` draws every call to that tool with your snippet,
+mounted with the contexts of where you declare it — so `getContext` finds what your app set there —
+once per call and updated in place, until it unmounts and the calls go back to core's row.
+`<AparteSegmentUI type="…">` does the same for a segment type
+([Your components in tool calls](/guides/tool-ui/)).
 
 ## Props
 
@@ -125,26 +144,36 @@ page, each answered by its own client, give each an `id` and its client `scopeTo
 
 ## Control it from code
 
-The `chat` store mirrors the chat's imperative API — `appendMessage`, `addSegment`,
-`injectTokenStream`, `scrollToBottom`, `focusInput` and the rest — to drive the chat from a loop of
-yours ([Your own loop](/guides/bring-your-own-loop/)). `createConversationManager()` lists, creates,
-archives and pins saved conversations in stores once you call `init(adapter)` with your storage
-adapter — and the chat's `config` as second argument, if it has one — and the chat switches between
-them through `conversationId` ([Save conversations](/guides/conversation-persistence/)).
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+
+  let chat = $state<AparteChatImperativeApi>();
+</script>
+
+<AparteChat bind:this={chat} />
+<button onclick={() => chat?.focusInput()}>Ask</button>
+```
+
+Bound, the component is the chat's imperative API — `appendMessage`, `addSegment`,
+`injectTokenStream`, `scrollToBottom`, `focusInput`, `setConversationId` and the rest — to drive the
+chat from a loop of yours ([Your own loop](/guides/bring-your-own-loop/)). `createConversations()`
+lists, creates, archives and pins saved conversations as reactive state once you call
+`init(adapter)` with your storage adapter, and the chat switches between them through
+`conversationId` ([Save conversations](/guides/conversation-persistence/)).
 
 ## Any element, typed
 
 ```svelte
-<aparte-select searchable="" placeholder="Pick a model" on:aparte-select-change={(e) => (model = e.detail.value)}>
+<aparte-select searchable="" placeholder="Pick a model" onaparte-select-change={(e) => (model = e.detail.value)}>
   <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
 </aparte-select>
 ```
 
 Importing from `@aparte/svelte` declares every element of core in `SvelteHTMLElements`, so
-`svelte-check` covers its attributes and its `on:` handlers: a presence attribute takes `''` to be
-on and `null` to be off ([Elements, typed](/frameworks/elements/)). In Svelte 5's runes mode, write
-the event as an attribute, typed the same way: `onaparte-select-change={(e) => (model = e.detail.value)}`.
-A plugin's element is typed by the plugin, and one of yours by you
+`svelte-check` covers its attributes and its event attributes: a presence attribute takes `''` to be
+on and `null` to be off ([Elements, typed](/frameworks/elements/)). A plugin's element is typed by
+the plugin, and one of yours by you
 ([your own element](/frameworks/elements/#your-own-element-or-a-plugins)). `<AparteUi>` mounts any
 tag and sets its props; it forwards core's events, so name your element's own in `events`:
 
@@ -152,21 +181,49 @@ tag and sets its props; it forwards core's events, so name your element's own in
 <AparteUi bind:this={ui} name="my-token-counter" props={{ 'data-budget': '8000' }} events={['token-count']} onelementEvent={(e) => (count = e.detail)} />
 ```
 
-`onelementEvent` gets the element's own event, and `on:elementEvent` fires too, with it under
-`event.detail`. Bound, it gives `ui.getElement()` and `ui.callMethod(name, ...args)`.
+`onelementEvent` gets the element's own event. Bound, it gives `ui.getElement()` and
+`ui.callMethod(name, ...args)`.
 
 ## SvelteKit and tests
 
-The wrapper has no server guard and is not tested under a server render: under SvelteKit, render
-the chat on the client only — `export const ssr = false` in the route's `+page.ts`, or a component
-imported in `onMount`. `@aparte/core` itself imports on a server through its entry without elements
-([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
+Under SvelteKit, render the chat with server rendering on: the server sends its HTML, and the
+browser hydrates it with no mismatch — the elements wait until Svelte has the page
+([Hydration](/frameworks/elements/#hydration)). Register your provider in the page's
+`<script module>`, and call `createAparteClient()` in the component: the client starts in the
+browser only. This is tested in CI: a SvelteKit {T.sveltekit} page with `@sveltejs/adapter-node`,
+built for production, served, and checked in a browser. `@aparte/core` imports on a server through
+its entry without elements ([On the server](/frameworks/elements/#on-the-server)). Vitest runs on
+Node, so alias
 `@aparte/core` to `@aparte/core/browser` for the elements to upgrade
 ([Testing your components](/frameworks/elements/#testing-your-components)).
 
 A whole chat site in Svelte — the conversation sidebar, the header, settings, tools and the
 scripted model — is [the Svelte 5 example](https://github.com/apartejs/aparte/tree/main/apps/examples/svelte5),
 and [the Svelte 4 one](https://github.com/apartejs/aparte/tree/main/apps/examples/svelte4).
+
+## Svelte 4
+
+The package root, `@aparte/svelte`, keeps the component written in Svelte 4's syntax: slots
+(`<p slot="empty-state">`, `<svelte:fragment slot="bubble" let:message>`), each callback as a prop
+and as a component event (`on:messagesChange`, the payload under `event.detail`), and store helpers
+— `createAparteChat()` for the messages, `createConversationManager()` for saved conversations. It
+runs on Svelte 4 and on Svelte 5, and its surface is the same as the runes component's, checked on
+every build.
+
+```svelte
+<script lang="ts">
+  import { AparteChat, createAparteClient } from '@aparte/svelte';
+
+  createAparteClient();
+</script>
+
+<AparteChat centerWhenEmpty>
+  <p slot="empty-state">Ask me anything…</p>
+</AparteChat>
+```
+
+0.26.0 makes the runes components the package root and moves this one to
+`@aparte/svelte/legacy`; on Svelte 5, start from `@aparte/svelte/runes`.
 
 ## Next
 

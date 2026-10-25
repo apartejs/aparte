@@ -1,6 +1,6 @@
 ---
 title: Add an AI chat to a Vue app
-description: Install @aparte/vue, render <AparteChat>, stream a model with useAparteClient, and put your own UI in its slots — in a Vue app, Nuxt included.
+description: Install @aparte/vue, render <AparteChat> and stream a model with useAparteClient, then bind v-model:messages, fill its slots and draw tool calls with your own components — in a Vue app, Nuxt included.
 head:
   - tag: title
     content: Vue AI chat component — @aparte/vue | aparté
@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Vue {T.vue}: in the example a browser drives, and in a Nuxt {T.nuxt} page rendered on the server and hydrated.
 
 ## Install
 
@@ -24,43 +27,20 @@ npm install @aparte/provider-scenario   # a scripted model, to stream with no ke
 // vite.config.ts — the aparte-* tags are custom elements, not Vue components
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
+import { isAparteElement } from '@aparte/vue';
 
 export default defineConfig({
-  plugins: [vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('aparte-') } } })],
+  plugins: [vue({ template: { compilerOptions: { isCustomElement: isAparteElement } } })],
 });
 ```
 
-`@aparte/core` and `vue` are peer dependencies: Vue <code>{WRAPPER_PEERS.vue}</code>. The
-`isCustomElement` setting keeps Vue from resolving an `aparte-*` tag as a component of yours; under
-Nuxt it goes in `nuxt.config.ts`, as `vue.compilerOptions.isCustomElement`.
+`@aparte/core` and `vue` are peer dependencies: Vue <code>{WRAPPER_PEERS.vue}</code>.
+`isAparteElement` keeps Vue from resolving an `aparte-*` tag as a component of yours; under Nuxt it
+goes in `nuxt.config.ts`, as `vue.compilerOptions.isCustomElement`. Write the wrapper's own
+components in PascalCase — `<AparteToolUI>`: Vue reads `<aparte-tool-ui>` as `AparteToolUi`, which
+does not exist, and you get its warning rather than an inert element.
 
 ## Render the chat
-
-```vue
-<script setup lang="ts">
-import { AparteChat, useAparteChat } from '@aparte/vue';
-import '@aparte/core/styles.css';
-
-const chat = useAparteChat();
-</script>
-
-<template>
-  <AparteChat
-    :ref="chat.chatRef"
-    :messages="chat.messages.value"
-    center-when-empty
-    @messages-change="chat.onMessagesChange"
-  >
-    <template #empty-state><p>Ask me anything…</p></template>
-  </AparteChat>
-</template>
-```
-
-`useAparteChat` holds the messages and the component's ref: bind both, or bind
-`v-model:messages` to a ref of yours. The person's message is added when they send, so do not add
-it yourself; `@message-sent` fires after, for a side effect.
-
-## Stream a model
 
 {/* doc-check: skip excerpt — your main.ts, which imports your App.vue */}
 ```ts
@@ -69,6 +49,7 @@ import { createApp } from 'vue';
 import { aparteGlobalConfig } from '@aparte/core';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
+import '@aparte/core/styles.css';
 import App from './App.vue';
 
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
@@ -76,17 +57,45 @@ createApp(App).mount('#app');
 ```
 
 ```vue
+<!-- App.vue -->
 <script setup lang="ts">
-import { AparteChat, useAparteChat, useAparteClient } from '@aparte/vue';
+import { AparteChat, useAparteClient } from '@aparte/vue';
 
-const chat = useAparteChat();
 useAparteClient();
 </script>
 
 <template>
-  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+  <AparteChat center-when-empty>
+    <template #empty-state><p>Ask me anything…</p></template>
+  </AparteChat>
 </template>
 ```
+
+That is a whole chat: `<AparteChat>` keeps its own thread, and the client `useAparteClient` starts
+streams each reply into it from the scripted model — no state of yours, no key.
+
+## Hold the messages yourself
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat, useAparteClient, type AparteMessage } from '@aparte/vue';
+
+const messages = ref<AparteMessage[]>([]);
+useAparteClient();
+</script>
+
+<template>
+  <AparteChat v-model:messages="messages" />
+</template>
+```
+
+When the messages are yours to read or store, bind `v-model:messages` to a ref of yours — or use
+`useAparteChat()`, which holds them with the component's ref (`:ref="chat.chatRef"`,
+`:messages="chat.messages.value"`, `@messages-change="chat.onMessagesChange"`). The person's message
+is added when they send, so do not add it yourself; `@message-sent` fires after, for a side effect.
+
+## Stream a model
 
 `useAparteClient` starts a client when the component mounts, stops it before it unmounts, and
 returns `{ client, abort }`; it takes the `AparteClientOptions`. For a real model, register its
@@ -101,7 +110,7 @@ running, turn on retry and edit with `aparteGlobalConfig.setBubbleActions({ retr
 
 ```vue
 <template>
-  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
+  <AparteChat v-model:messages="messages">
     <template #empty-state><p>Ask me anything…</p></template>
     <template #toolbar><span class="hint">Shift + Enter for a new line</span></template>
     <template #bubble="{ message }"><MyBubble :message="message" /></template>
@@ -118,6 +127,27 @@ running, turn on retry and edit with `aparteGlobalConfig.setBubbleActions({ retr
 | `bubble`, with `{ message }` | each message, drawn by you ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)) |
 
 Content outside these slots is not drawn.
+
+## Your components in tool calls
+
+```vue
+<script setup lang="ts">
+import { AparteToolUI } from '@aparte/vue';
+import WeatherCard from './WeatherCard.vue';
+</script>
+
+<template>
+  <AparteToolUI name="get_weather" v-slot="{ tool }">
+    <WeatherCard :tool="tool" />
+  </AparteToolUI>
+</template>
+```
+
+Mounted anywhere in your app, `<AparteToolUI>` draws every call to that tool with your component,
+teleported into the call — so `inject` reads what your app provides around it — mounted once per call
+and updated in place, until it unmounts and the calls go back to core's row. `<AparteSegmentUI
+type="…" v-slot="{ segment }">` does the same for a segment type
+([Your components in tool calls](/guides/tool-ui/)).
 
 ## Props and events
 
@@ -171,9 +201,14 @@ own in `events`:
 
 ## Nuxt and tests
 
-The wrapper has no server guard: under Nuxt, render the chat on the client only, in `<ClientOnly>`
-or a `.client.vue` component. `@aparte/core` itself imports on a server through its entry without
-elements ([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
+Under Nuxt, render the chat in a page as it is: the server sends its HTML, and the browser
+hydrates it with no mismatch — the elements wait until Vue has the page
+([Hydration](/frameworks/elements/#hydration)). Start the client in a plugin that runs in the
+browser only (`plugins/aparte.client.ts`, `new AparteClient().start()` after registering your
+provider), and give `nuxt.config.ts` `vue.compilerOptions.isCustomElement: isAparteElement`. This is
+tested in CI: a Nuxt {T.nuxt} page built for production, served by its server, and checked in a
+browser. `@aparte/core` imports on a server through its entry without elements
+([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
 `@aparte/core` to `@aparte/core/browser` for the elements to upgrade
 ([Testing your components](/frameworks/elements/#testing-your-components)).
 

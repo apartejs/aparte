@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
 import { activeElementIn, eventOrigin, rootOf } from '../../utils/event-target.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** Detail of `aparte-sidebar-toggle`: the state just entered. */
 export interface AparteSidebarToggleDetail {
@@ -522,6 +523,7 @@ function nearestSidebar(control: HTMLElement): Element | null {
         ?? document.querySelector('aparte-sidebar');
 }
 
+deferHydrationOf(AparteSidebar);
 if (!customElements.get('aparte-sidebar')) {
     customElements.define('aparte-sidebar', AparteSidebar);
 }

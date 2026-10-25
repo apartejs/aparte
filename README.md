@@ -92,15 +92,16 @@ A real streaming, bring-your-own-key chat — no backend, no build magic.
 
 ## Any framework
 
-Same core, an ergonomic component per framework — and the wrapper owns the state
-and the user bubble, so there's even less to wire:
+Same core, a component per framework in its own syntax — props, slots or snippets, a bindable
+list of messages, your components inside tool calls — and the chat keeps its own thread, so
+there's even less to wire:
 
 ```bash
 npm install @aparte/react @aparte/core @aparte/provider-openai-compat @aparte/plugin-marked marked react react-dom
 ```
 
 ```tsx
-import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
+import { AparteChat, useAparteClient } from '@aparte/react';
 import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
@@ -111,18 +112,21 @@ aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROU
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 export function Chat() {
-  const chat = useAparteChat();
   useAparteClient();                   // bridges composer sends to the model
-  return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} centerWhenEmpty />;
+  return <AparteChat centerWhenEmpty />;
 }
 ```
 
-| Framework | Package | Guide |
-|---|---|---|
-| React 18 / 19 | `@aparte/react` | [React](./apps/docs/src/content/docs/frameworks/react.mdx) |
-| Vue 3 | `@aparte/vue` | [Vue](./apps/docs/src/content/docs/frameworks/vue.mdx) |
-| Svelte | `@aparte/svelte` | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.mdx) |
-| Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.mdx) |
+| Framework | Package | Tested in CI with | Rendered on a server, tested in | Guide |
+|---|---|---|---|---|
+| React 18 / 19 | `@aparte/react` | React 19 | Next 15 App Router | [React](./apps/docs/src/content/docs/frameworks/react.mdx) |
+| Vue 3.5 | `@aparte/vue` | Vue 3.5 | Nuxt 3 | [Vue](./apps/docs/src/content/docs/frameworks/vue.mdx) |
+| Svelte 4 / 5 | `@aparte/svelte` (`/runes` on Svelte 5) | Svelte 4 and 5 | SvelteKit 2 | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.mdx) |
+| Angular 19–21 | `@aparte/angular` | Angular 19 and 21, zoneless | Angular 21 SSR, hydrated | [Angular](./apps/docs/src/content/docs/frameworks/angular.mdx) |
+
+Each server-rendered page is built for production, served, and hydrated in a browser with no
+mismatch. Underneath, it is the same Web Components: the chat's markup and its CSS variables are
+aparté's.
 
 Runnable examples for every framework (plus vanilla) live in
 [`apps/examples`](./apps/examples).

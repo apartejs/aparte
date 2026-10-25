@@ -31,6 +31,7 @@ import {
     stampSegmentActivity,
     isTerminalStatus,
 } from '../../utils/segments.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * An assistant reply handed over as a markdown string, split the way the stream would
@@ -2480,6 +2481,7 @@ export class AparteChatViewport extends HTMLElement {
 }
 
 // Register the custom element
+deferHydrationOf(AparteChatViewport);
 if (!customElements.get('aparte-chat-viewport')) {
     customElements.define('aparte-chat-viewport', AparteChatViewport);
 }

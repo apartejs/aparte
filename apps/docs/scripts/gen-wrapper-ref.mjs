@@ -40,7 +40,9 @@ sidebar:
 
 The default shell of \`<AparteChat>\` leaves you these places to put your own markup. The
 same slots exist on all four wrappers — that is checked mechanically on every \`pnpm gate\`,
-not promised in prose — and each framework declares them in its own idiom.
+not promised in prose — and each framework declares them in its own idiom. Svelte has two
+components: the one at \`@aparte/svelte\`, written in Svelte 4 syntax and running on 4 and 5,
+and the one at \`@aparte/svelte/runes\`, for Svelte 5, where the slots are snippets.
 
 | Slot | ${frameworks.map((f) => f.label).join(' | ')} |
 | --- | ${frameworks.map(() => '---').join(' | ')} |
@@ -84,17 +86,18 @@ const props = [
         vue: ':loading',
         svelte: 'loading',
         angular: '[loading]',
+        svelteRunes: 'loading',
     },
 ];
 
 md += `
 ## Props
 
-| Prop | React | Vue | Svelte | Angular |
-| --- | --- | --- | --- | --- |
+| Prop | React | Vue | Svelte | Angular | Svelte runes |
+| --- | --- | --- | --- | --- | --- |
 `;
 for (const p of props) {
-    md += `| \`${esc(p.prop)}\` | \`${esc(p.react)}\` | \`${esc(p.vue)}\` | \`${esc(p.svelte)}\` | \`${esc(p.angular)}\` |\n`;
+    md += `| \`${esc(p.prop)}\` | \`${esc(p.react)}\` | \`${esc(p.vue)}\` | \`${esc(p.svelte)}\` | \`${esc(p.angular)}\` | \`${esc(p.svelteRunes)}\` |\n`;
 }
 md += `\n${props.map((p) => p.summary).join(' ')}\n`;
 
@@ -109,7 +112,8 @@ md += `
 
 The same events on all four wrappers, each in its own idiom. React, Vue and Angular hand you
 the payload directly. Svelte has a callback prop, with the payload, and a component event as well —
-\`on:messageSent\` and the rest — with it under \`event.detail\`.
+\`on:messageSent\` and the rest — with it under \`event.detail\`. The runes component has the
+callback prop only, under the same name: Svelte 5 has no component events.
 
 `;
 
@@ -121,7 +125,7 @@ the payload directly. Svelte has a callback prop, with the payload, and a compon
 const html = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 md += `\n<table tabindex="0" aria-label="The callbacks in the four frameworks">\n<thead><tr><th>Payload</th>${frameworks.map((f) => `<th>${html(f.label)}</th>`).join('')}</tr></thead>\n<tbody>\n`;
 for (const cb of callbacks) {
-    const cells = [cb.payload, cb.react, cb.vue, cb.svelte.replace(/^on:/, 'on'), cb.angular];
+    const cells = [cb.payload, cb.react, cb.vue, cb.svelte.replace(/^on:/, 'on'), cb.angular, cb.svelteRunes];
     md += `<tr>${cells.map((c) => `<td><code>${html(c)}</code></td>`).join('')}</tr>\n`;
 }
 md += `</tbody>\n</table>\n`;
@@ -135,7 +139,8 @@ md += `
 ## Two things this table does not cover
 
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
-Vue and Svelte a \`bubble\` slot that receives the message, and Angular a
+Vue and Svelte a \`bubble\` slot that receives the message, the runes component a
+\`bubble\` snippet with the message as its argument, and Angular a
 \`[bubbleTemplate]\` with the message as \`$implicit\`. It is per-message rather
 than per-region, which is why it is shaped differently — see
 [Custom bubbles](/guides/customization/bubble/).

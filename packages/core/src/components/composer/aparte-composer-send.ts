@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer, AparteComposerPanelMode } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * Submit button primitive for `<aparte-composer>`.
@@ -256,6 +257,7 @@ export class AparteComposerSend extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposerSend);
 if (!customElements.get('aparte-composer-send')) {
     customElements.define('aparte-composer-send', AparteComposerSend);
 }

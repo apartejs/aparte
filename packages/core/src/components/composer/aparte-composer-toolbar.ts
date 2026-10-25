@@ -1,3 +1,4 @@
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 /**
  * The composer's bottom row — the strip a mode picker, a model selector or a token
  * counter belongs in, rather than a bar of your own floating below the chat. Purely
@@ -101,6 +102,7 @@ export class AparteComposerToolbar extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposerToolbar);
 if (!customElements.get('aparte-composer-toolbar')) {
     customElements.define('aparte-composer-toolbar', AparteComposerToolbar);
 }

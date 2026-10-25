@@ -68,6 +68,7 @@ export type {
     AparteToolCallSegment,
     AparteSegmentType,
     AparteSegmentRenderer,
+    AparteSegmentMount,
     AparteSegmentUpdateEventDetail
 } from './segments.js';
 
@@ -132,6 +133,9 @@ export type {
     AparteToolMatcher,
     AparteToolDisplay,
     AparteToolDetails,
+    AparteToolCallView,
+    AparteMountedView,
+    AparteToolMount,
     AparteToolApprovalRequestDetail,
 } from './tools.js';
 

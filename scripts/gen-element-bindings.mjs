@@ -190,11 +190,36 @@ const outputName = (event) => camel(event.replace(/^aparte-/, ''));
 const isThreeState = (config, tag, attr) =>
     (config.threeStateBooleans?.[tag] ?? []).includes(attr);
 
+/**
+ * A public, writable instance field the element has NO attribute for — the rows of
+ * `<aparte-conversation-list>` (`conversations`), say. Attributes are typed from the
+ * manifest's `attributes`; a member like this one exists only as a property, so without
+ * an input for it Angular refused `[conversations]="…"` unless the component switched
+ * template checking off with `CUSTOM_ELEMENTS_SCHEMA` — the switch these directives exist
+ * to spare. A field that merely mirrors an attribute is left to the attribute input.
+ */
+function propertyOnlyMembers(el, config) {
+    const omit = new Set(config.angularInputOmit?.[el.tagName] ?? []);
+    const mirrored = new Set((el.attributes ?? []).flatMap((a) => [a.name, camel(a.name), a.fieldName].filter(Boolean)));
+    return (el.members ?? []).filter((m) =>
+        m.kind === 'field'
+        && !m.static
+        && !m.readonly
+        && (m.privacy === undefined || m.privacy === 'public')
+        && !m.name.startsWith('_')
+        && !mirrored.has(m.name)
+        && !omit.has(m.name));
+}
+
+/** The named types a member's type text refers to (`AparteConversationListItem[]` → one). */
+const namedTypes = (text) => (text.match(/\b[A-Z][A-Za-z0-9_]*\b/g) ?? [])
+    .filter((n) => !['Array', 'Record', 'Partial', 'Readonly', 'ReadonlyArray', 'Promise', 'Map', 'Set'].includes(n));
+
 function renderAngular(elements, config) {
     const skip = new Set(config.angularSkip ?? []);
     const kept = elements.filter((el) => !skip.has(el.tagName));
 
-    /** Every detail type actually referenced, so the import list is exact. */
+    /** Every detail or member type actually referenced, so the import list is exact. */
     const details = new Set();
     for (const el of kept) {
         const omit = new Set(config.angularOutputOmit?.[el.tagName] ?? []);
@@ -203,6 +228,7 @@ function renderAngular(elements, config) {
             const m = /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
             if (m) details.add(m[1]);
         }
+        for (const p of propertyOnlyMembers(el, config)) for (const n of namedTypes(p.type?.text ?? '')) details.add(n);
     }
 
     let out = BANNER + `
@@ -223,7 +249,8 @@ function renderAngular(elements, config) {
     // Only what is used. A package with no numeric attribute — this plugin has none —
     // otherwise imports `numberAttribute` for nothing and `noUnusedLocals` fails the
     // build. Generated code has to satisfy the same lint the rest of the source does.
-    const anyAttrs = kept.some((el) => (el.attributes ?? []).some((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name)));
+    const anyAttrs = kept.some((el) => (el.attributes ?? []).some((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name))
+        || propertyOnlyMembers(el, config).length > 0);
     const anyEvents = kept.some((el) => (el.events ?? []).some((e) => !(config.angularOutputOmit?.[el.tagName] ?? []).includes(e.name)));
     const usedTypes = new Set(kept.flatMap((el) =>
         (el.attributes ?? [])
@@ -272,18 +299,19 @@ abstract class AparteElementBase {
         const rename = config.angularInputRename?.[el.tagName] ?? {};
         const outputOmit = new Set(config.angularOutputOmit?.[el.tagName] ?? []);
         const attrs = (el.attributes ?? []).filter((a) => !inputOmit.has(a.name));
+        const props = propertyOnlyMembers(el, config);
         const events = (el.events ?? []).filter((e) => !outputOmit.has(e.name));
 
         out += '\n';
         out += doc(`\`<${el.tagName}>\`${el.description ? ` — ${summary(el.description)}` : ''}`, '');
-        if (!attrs.length && !events.length) {
+        if (!attrs.length && !props.length && !events.length) {
             out += `/**\n * No member at all: this element observes nothing and dispatches nothing, so the\n`
                 + ` * directive exists only to CLAIM THE TAG — which is what spares a consuming component\n`
                 + ` * \`CUSTOM_ELEMENTS_SCHEMA\`, a switch that turns checking off for every unknown tag in\n`
                 + ` * the file rather than just this one.\n */\n`;
         }
         out += `@Directive({ selector: '${el.tagName}', standalone: true })\n`;
-        out += `export class ${cls}${attrs.length ? ' extends AparteElementBase' : ''} {\n`;
+        out += `export class ${cls}${attrs.length || props.length ? ' extends AparteElementBase' : ''} {\n`;
 
         for (const a of attrs) {
             const prop = rename[a.name] ?? camel(a.name);
@@ -307,7 +335,14 @@ abstract class AparteElementBase {
             }
         }
 
-        if (attrs.length && events.length) out += '\n';
+        // A property-only member: `write()` hands a value no attribute can carry (an array,
+        // an object) over as the property, so the same helper serves.
+        for (const p of props) {
+            out += doc(p.description, '    ');
+            out += `    @Input() set ${p.name}(v: ${p.type?.text ?? 'unknown'} | undefined) { this.write('${p.name}', v); }\n`;
+        }
+
+        if ((attrs.length || props.length) && events.length) out += '\n';
         for (const ev of events) {
             const m = /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
             // An `@Output()` carries the event's DETAIL, so a description that offers

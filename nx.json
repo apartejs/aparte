@@ -40,6 +40,9 @@
     },
     {
       "plugin": "@nx/vite/plugin",
+      "exclude": [
+        "e2e/ssr/**"
+      ],
       "options": {
         "buildTargetName": "vite:build",
         "testTargetName": "test",

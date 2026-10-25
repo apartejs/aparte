@@ -14,6 +14,7 @@ import type {
 import { contextConfig } from '../config/index.js';
 import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
+import { notifyRenderersChanged } from '../config/aparte-config.js';
 // The built-in renderers, one file each under ./segments/ — `DEFAULT_RENDERERS` at
 // the bottom is the list, and the count (this line used to say "nine" over a list
 // of seven, then six: the artifact card left for `@aparte/plugin-artifacts`, which
@@ -110,8 +111,73 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
     renderer: AparteSegmentRenderer<T>,
     config: AparteConfig = contextConfig(),
 ): void {
-    registryFor(config).renderers.set(renderer.type, renderer as AparteSegmentRenderer);
+    const reg = registryFor(config);
+    if (reg.renderers.get(renderer.type) === renderer) return;
+    reg.renderers.set(renderer.type, renderer as AparteSegmentRenderer);
     injectRendererStyles(config);
+    // Segments of this type already on screen are drawn again by it (the renderer that
+    // drew them gets its `cleanup`); nothing else is touched.
+    notifyRenderersChanged(config);
+}
+
+/** {@link overrideSegmentRenderer}'s stacks, per config and type: what each held below every override. */
+const overrideStacks = new WeakMap<AparteConfig, Map<string, Array<{ renderer: AparteSegmentRenderer | undefined }>>>();
+
+/**
+ * Put `renderer` over whatever draws its `type`, and get back the function that takes it off
+ * again — the registration a component makes for as long as it is mounted.
+ *
+ * Overrides stack per type. The function restores what was there before THIS override;
+ * taking off one that is no longer on top changes nothing on screen, so of two components
+ * declaring the same type the newer wins and unmounting the older keeps it. When the last
+ * one goes, the type is drawn by what drew it before the first — another registration, or
+ * core's own renderer for a built-in type like `code` or `text`. Segments on screen follow
+ * each change. The returned function is safe to call twice.
+ */
+export function overrideSegmentRenderer<T extends AparteSegmentBase>(
+    renderer: AparteSegmentRenderer<T>,
+    config: AparteConfig = contextConfig(),
+): () => void {
+    const type = renderer.type;
+    const reg = registryFor(config);
+    let byType = overrideStacks.get(config);
+    if (!byType) { byType = new Map(); overrideStacks.set(config, byType); }
+    const current = reg.renderers.get(type);
+    let stack = byType.get(type);
+    if (!stack) { stack = [{ renderer: current }]; byType.set(type, stack); }
+    // A direct registration since the last override is what this one goes over — rebased in
+    // place, since the older overrides' restores hold this array.
+    else if (stack[stack.length - 1]!.renderer !== current) stack.splice(0, stack.length, { renderer: current });
+    // An object of its own, so two overrides of the same renderer are told apart.
+    const entry = { renderer: renderer as AparteSegmentRenderer | undefined };
+    stack.push(entry);
+    registerSegmentRenderer(renderer, config);
+    let restored = false;
+    return () => {
+        if (restored) return;
+        restored = true;
+        // Rebased away: a direct registration replaced this override, and this array may no
+        // longer be the type's stack.
+        const i = stack.indexOf(entry);
+        if (i <= 0) return;
+        const wasTop = i === stack.length - 1;
+        stack.splice(i, 1);
+        if (stack.length === 1 && byType.get(type) === stack) byType.delete(type);
+        // Only when this override is still what the type holds: under another override
+        // nothing on screen changes, and a direct registration made since is the app's own.
+        if (!wasTop || reg.renderers.get(type) !== renderer) return;
+        const top = stack[stack.length - 1]!.renderer;
+        if (top) { registerSegmentRenderer(top, config); return; }
+        unregisterSegmentRenderer(type, config);
+        // Nothing was registered below the overrides. An instance config now inherits what
+        // the global one has; but a built-in type can be left with no renderer at all — the
+        // built-ins are filled in lazily, once, and the sweep skipped the type an override
+        // held — so core's own goes back, and only then.
+        if (!effectiveRenderers(config).has(type) && reg.defaultsInstalled && !reg.defaultsDeclined) {
+            const builtIn = DEFAULT_RENDERERS.find((r) => r.type === type);
+            if (builtIn) registerSegmentRenderer(builtIn, config);
+        }
+    };
 }
 
 /**
@@ -150,10 +216,14 @@ export function installDefaultRenderersOnce(config: AparteConfig = contextConfig
 }
 
 /**
- * Unregister a segment renderer
+ * Unregister a segment renderer. Segments of this type on screen are drawn again by what
+ * resolves now (the global registration, for an instance config), or left unrendered.
  */
 export function unregisterSegmentRenderer(type: string, config: AparteConfig = contextConfig()): void {
-    registryFor(config).renderers.delete(type);
+    const reg = registryFor(config);
+    if (!reg.renderers.has(type)) return;
+    reg.renderers.delete(type);
+    notifyRenderersChanged(config);
 }
 
 /**

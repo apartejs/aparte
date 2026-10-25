@@ -12,6 +12,12 @@ export default defineConfig({
             // in the test env); only preprocess TypeScript, skip CSS.
             configFile: false,
             preprocess: vitePreprocess({ style: false }),
+            // The Svelte-4-syntax components and their tests drive instances through the
+            // Svelte 4 component API (`$set`, `$on`), which Svelte 5 keeps only behind this
+            // flag. The runes components under `runes/` are compiled without it: their tests
+            // must pass the way a Svelte 5 app uses them.
+            dynamicCompileOptions: ({ filename }) =>
+                filename.replace(/\\/g, '/').includes('/runes/') ? undefined : { compatibility: { componentApi: 4 } },
         }),
     ],
     // Svelte's BROWSER build, not its server one. Without this condition Vite hands
@@ -28,6 +34,8 @@ export default defineConfig({
         // jsdom polyfills (ResizeObserver, …).
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         include: ['src/**/*.test.ts'],
+        // The server renders run in their own project (vitest.server.config.ts).
+        exclude: ['src/**/*.server.test.ts', '**/node_modules/**'],
         alias: {
             '@aparte/core': resolve(__dirname, '../../core/src/index.ts'),
         },

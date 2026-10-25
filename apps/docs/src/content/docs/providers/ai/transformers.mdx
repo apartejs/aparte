@@ -38,8 +38,9 @@ tokens, or sooner where the model's context window ends, and Stop interrupts it.
 ceiling, give the model a `maxTokens` in `registerModel`, or set `maxTokens` on the request, which
 wins: `new AparteClient({ requestInterceptor: (r) => ({ ...r, maxTokens: 16000 }) })`.
 
-This provider sends a model no tools, and a conversation that already holds tool calls runs with
-those calls and their results left out of the prompt; the console says so once.
+The built-in runners send a model no tools, and a conversation that already holds tool calls runs
+with those calls and their results left out of the prompt; the console says so once. A
+[runner of your own](#a-runner-of-your-own) receives the request's tools.
 
 ## Bundler, CDN and security policy
 
@@ -193,14 +194,18 @@ absolute path: a relative one is resolved against the current page's URL. The mo
 worker, where neither your bundler nor your import map applies, so it imports nothing by package
 name: it gets the same Transformers.js as the built-in runners as `ctx.transformers`, and a model
 they cannot load keeps the worker, the queue, the progress, Stop and the cache. `messages` arrive
-with their content parts, and the runner decides what the model reads. `emit` sends `text`,
+with their content parts, and the runner decides what the model reads. `tools` are the tools the
+request allows — what the app registered, when the model declares `function_calling` — each a
+`RunnerTool` (`name`, `description`, `inputSchema`), and `toolChoice` is the request's: `'auto'`,
+`'none'` (answer directly this turn) or `{ name }`, a tool the model must call. Both are absent when
+the request has none; the built-in runners take neither. `emit` sends `text`,
 `thinking`, `tool_use`, `done` or `error`; `signal` fires on Stop; `ctx.progress` and `ctx.warn`
 reach the page; `ctx.device` is `'webgpu'` or `'wasm'`, `'auto'` already resolved.
 
 `runnerCommand(modelId, name, payload)` calls a runner's `command` from the page, after the
 replies already waiting; when that model is not the one in memory, it is loaded first, in its
 place, with no progress to show. The contract's types are exported — `TransformersRunner`,
-`RunnerContext`, `RunnerGenerateInput`, `RunnerProgress`, `CreateRunner`, `RunnerModule`,
+`RunnerContext`, `RunnerGenerateInput`, `RunnerTool`, `RunnerProgress`, `CreateRunner`, `RunnerModule`,
 `BuiltInRunner`, `TransformersModule` — and a model's options are a `TransformersModelConfig`.
 
 ## Next

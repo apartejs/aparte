@@ -11,7 +11,7 @@ import React, {
     useImperativeHandle,
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -195,6 +195,11 @@ export interface AparteChatProps {
  */
 const NO_MESSAGES: AparteMessage[] = [];
 
+/** "Am I hydrating?" as a store React reads: its server snapshot is used for the hydration render. */
+const subscribeToNothing = () => () => {};
+const isHydrating = () => true;
+const isNotHydrating = () => false;
+
 export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
         messages = NO_MESSAGES,
@@ -234,6 +239,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const generatedId = `aparte-chat-${useId().replace(/:/g, '')}`;
     const hostId = providedId ?? generatedId;
     const hostElRef = useRef<HTMLDivElement>(null);
+    // True in the server render and in the render that hydrates it, false in every client render
+    // after — and from the first one in an app with no server render. While true the root carries
+    // `defer-hydration`, so core's elements leave the server's DOM alone until React has it.
+    const hydrating = useSyncExternalStore(subscribeToNothing, isNotHydrating, isHydrating);
     const viewportRef = useRef<HTMLElement>(null);
     const composerRef = useRef<HTMLElement>(null);
 
@@ -263,32 +272,24 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const cbRef = useRef({ onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated });
     cbRef.current = { onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated };
 
-    // Every list the host emitted. In controlled mode the prop comes back as one of them
-    // — and, when the parent's render lands after the host's next write (WebKit commits
-    // React after the host's frame), as an EARLIER one. An echo is not the parent's word:
-    // applying it rolled the list back, the host built its next writes on it, and a
-    // finished reply lost its text and its tool rows.
-    const emittedRef = useRef(new WeakSet<AparteMessage[]>());
-
     const applyMessages = (m: AparteMessage[]) => {
         messagesRef.current = m;
         setRenderMessages(m);
     };
 
-    // Create the host once after mount.
+    // Create the host once after mount — after the elements a server render left waiting are
+    // upgraded, since the host talks to them.
     useEffect(() => {
         const host = hostElRef.current;
         if (!host) return;
+        releaseDeferredHydration(host);
         const binding: AparteChatHostBinding = {
             hostId,
             host,
             viewport: viewportRef.current,
             getMessages: () => messagesRef.current,
             setMessages: (m) => applyMessages(m as AparteMessage[]),
-            onMessagesChange: (m) => {
-                emittedRef.current.add(m as AparteMessage[]);
-                cbRef.current.onMessagesChange?.(m as AparteMessage[]);
-            },
+            onMessagesChange: (m) => cbRef.current.onMessagesChange?.(m as AparteMessage[]),
             onMessageAppended: (m) => cbRef.current.onMessageAppended?.(m as AparteMessage),
             onTypingChange: (t) => { setTypingActive(t); cbRef.current.onTypingChange?.(t); },
             onStreamingChange: (id) => setIsStreaming(id !== null),
@@ -309,10 +310,16 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         // changes flow through cbRef / dedicated effects, not by recreating it.
     }, [hostId]);
 
-    // Parent push: sync the prop into the authoritative list — unless it is the host's
-    // own emit coming back, current or stale (see `emittedRef`).
+    // Parent push: sync the prop into the authoritative list — unless it is the host's own
+    // report coming back. In controlled mode the prop comes back as one of them — and, when
+    // the parent's render lands after the host's next write (WebKit commits React after the
+    // host's frame), as an EARLIER one. An echo is not the parent's word: applying it rolled
+    // the list back, the host built its next writes on it, and a finished reply lost its text
+    // and its tool rows. The host tells them apart (`takeEcho`): asked first, always, so a
+    // list the parent restores later is not mistaken for one.
     useEffect(() => {
-        if (messages === messagesRef.current || emittedRef.current.has(messages)) return;
+        const echo = hostRef.current?.takeEcho(messages) ?? false;
+        if (echo || messages === messagesRef.current) return;
         applyMessages(messages);
         if (messages.length === 0) hostRef.current?.clearRenderCache();
     }, [messages]);
@@ -402,6 +409,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}${className ? ` ${className}` : ''}`}
             style={style}
             data-aparte-chat=""
+            {...(hydrating ? { 'defer-hydration': '' } : {})}
             {...(overlayComposer ? { 'overlay-composer': '' } : {})}
             data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 && !waiting ? '' : undefined}
             id={hostId}

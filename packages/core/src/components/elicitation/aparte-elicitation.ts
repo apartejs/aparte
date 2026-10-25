@@ -28,6 +28,7 @@ import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicita
 import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 import { AparteElicitationAbortError } from '../../elicitation/types.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * The slice of the composer this presenter drives.
@@ -622,5 +623,6 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get('aparte-elicitation')) {
+deferHydrationOf(AparteElicitation);
     customElements.define('aparte-elicitation', AparteElicitation);
 }

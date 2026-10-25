@@ -12,6 +12,7 @@ import {
     tellConversationStatus,
     type AparteConversationStatus,
 } from '../../conversations/conversation-status.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -1071,4 +1072,5 @@ export class AparteConversationList extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteConversationList);
 if (!customElements.get('aparte-conversation-list')) customElements.define('aparte-conversation-list', AparteConversationList);

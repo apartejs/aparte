@@ -4,6 +4,10 @@ The **Vue AI chat component** of [aparté](https://github.com/apartejs/aparte) �
 `<AparteChat>` (Vue 3.5+) plus composables (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
+Tested in CI with Vue 3.5, and in a Nuxt 3 page rendered on the server and hydrated with no
+mismatch. `<AparteToolUI name="…" v-slot="{ tool }">` draws a tool call with your own component,
+with what your app provides.
+
 ```bash
 npm install @aparte/vue @aparte/core vue
 ```

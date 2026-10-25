@@ -187,17 +187,19 @@ const ROADMAP_IMAGE_ALT =
             <h2 class="serif">Where we <span class="paren">(</span>are<span class="paren">)</span></h2>
             <div class="now-card">
               <p class="st-lede">
-                <b>0.17.0</b> is out as the beta, and <code>next</code> is aligned on <code>main</code>
-                again. What is in progress now is the soak &#8212; a beta that stays quiet &#8212; and
-                the first 0.17.x series: the four wrappers audited as a first consumer would use
-                them, and what that audit found made right.
+                The beta holds: no unannounced breaking change since <b>0.17.0</b>. The last stretch
+                was the wrappers: React,
+                Vue, Svelte and Angular each written in its framework&#8217;s own idiom, your
+                components drawn inside tool calls, and a server-rendered chat proved in Next, Nuxt,
+                SvelteKit and Angular SSR, in CI. Next comes customization: a chat that wears your
+                design system.
               </p>
 
 
               <div class="cluster">
                 <h3>Dogfooding</h3>
                 <ul>
-                  <li><a href="https://paulrichez.fr/" target="_blank" rel="noopener">paulrichez.fr</a> &#8212; Angular 19, the agent loop server-side over its own SSE events: the first public site to move onto the library, on 0.17.0. In progress, not yet live on it.</li>
+                  <li><a href="https://paulrichez.fr/" target="_blank" rel="noopener">paulrichez.fr</a> &#8212; Angular 19, the agent loop server-side over its own SSE events: the first public site to move onto the library. In progress, not yet live on it.</li>
                   <li>bonaparte &#8212; a local-AI harness on the React wrapper, private: the first consumer, and where most of the frictions the library fixed were found.</li>
                 </ul>
               </div>
@@ -325,12 +327,12 @@ const ROADMAP_IMAGE_ALT =
             <ul class="checks">
               <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span><em class="b-state">in progress &#183; since 0.17.0</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span></li>
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span><em class="b-state">done &#183; Angular SSR too: a production build of each, rendered on the server and hydrated in a browser</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span></li>
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A locale-keys guard in the gate.</span></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">A locale-keys guard in the gate.</span><em class="b-state">done</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">npm provenance, and a written semver and deprecation policy.</span></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">The 1.0 versioning decision, taken cold.</span></li>
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">The engine competitors re-evaluated (TanStack AI), and engine&#8217;s run events mapped onto the AG-UI / A2A vocabulary if interop becomes a demand.</span></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">The engine competitors re-evaluated (TanStack AI), and engine&#8217;s run events mapped onto the AG-UI / A2A vocabulary if interop becomes a demand.</span><em class="b-state">done &#183; TanStack AI and any AG-UI agent plug in through <code>@aparte/runner-ag-ui</code>, which passes the AG-UI 1.0 conformance fixtures</em></li>
             </ul>
             <p class="st-note">
               <b>What 1.0 promises:</b> strict semver &#8212; the elements and the event table stable

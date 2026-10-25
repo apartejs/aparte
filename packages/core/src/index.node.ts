@@ -42,6 +42,7 @@ export type {
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteSegmentRenderer,
+    AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
     // The same five the browser barrel gained, and they belong here for the same reason:
@@ -112,6 +113,9 @@ export type {
     AparteToolMatcher,
     AparteToolDisplay,
     AparteToolDetails,
+    AparteToolCallView,
+    AparteMountedView,
+    AparteToolMount,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
     AparteUiHandle,
@@ -177,6 +181,10 @@ export {
     installDefaultRenderersOnce,
     declineDefaultRenderers,
     getAllRenderers,
+    overrideSegmentRenderer,
+    defineMountedToolRenderer,
+    defineMountedSegmentRenderer,
+    toToolCallView,
 } from './renderers/index.js';
 
 // `populateBubbleFromMessage` is a plain helper — import it from its own module,
@@ -370,3 +378,5 @@ export function registerAllComponents(): void {
 }
 // Pure until called; the browser entry calls it at import.
 export { installDialogTriggersOnce } from './interop/dialog-triggers.js';
+// A wrapper imports the release on the server too, and calls it only once mounted in a browser.
+export { deferHydrationOf, releaseDeferredHydration } from './interop/defer-hydration.js';

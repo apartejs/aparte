@@ -11,6 +11,7 @@ import {
     wireSettingsDialog,
     wireThemeToggle,
 } from '../../_shared/site-shell';
+import { FrameworkWeatherCard } from './FrameworkWeatherCard';
 
 const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
@@ -131,6 +132,7 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                 </header>
 
                 <main className="aparte-app-shell__main">
+                    <FrameworkWeatherCard />
                     <AparteChat
                         ref={chat.ref}
                         messages={chat.messages}

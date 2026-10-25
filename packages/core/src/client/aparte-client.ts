@@ -295,6 +295,9 @@ function remoteProvider(id: string): AparteAIProvider {
  */
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
+    /** Between `start()` and `stop()`: the listeners are on `window`. The send handler alone is
+     *  not the sign — the constructor prepares it without listening. */
+    private _listening = false;
     private _boundAbortHandler: (() => void) | null = null;
     private _boundLoadedHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
@@ -498,6 +501,7 @@ export class AparteClient {
             };
         }
         window.addEventListener('aparte-conversation-loaded', this._boundLoadedHandler);
+        this._listening = true;
     }
 
     /**
@@ -521,7 +525,10 @@ export class AparteClient {
         // resolver left behind keeps answering for whatever mounts next.
         this._releaseKeyResolver?.();
         this._releaseKeyResolver = null;
-        if (!this._boundHandler) return;
+        // A client that never started has nothing on `window` to remove — and on a server there
+        // is no `window`: Svelte stops it from onDestroy, which runs at the end of a server render.
+        if (!this._listening || !this._boundHandler) return;
+        this._listening = false;
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
         if (this._boundAbortHandler) {

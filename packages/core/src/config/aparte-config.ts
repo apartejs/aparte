@@ -141,6 +141,46 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
     renderingVersions.set(cfg, renderingVersionOf(cfg) + 1);
 }
 
+/**
+ * The renderer registries' own change channel — narrower and later than `subscribe()`.
+ *
+ * A tool or segment renderer registered, unregistered or overridden changes only which
+ * segments on screen have to be drawn again, so it does not go through the config's full
+ * notification (which rebuilds every bubble's action bar, relabels every segment, re-draws
+ * every icon). And it is delivered in a microtask, coalesced per config: N components that
+ * each declare a card in one framework commit cost one pass, not N, and a renderer's
+ * `cleanup` never runs inside the registration call — inside a framework's effect cleanup.
+ * Internal to core: not exported from the package.
+ */
+const rendererListeners = new Set<(cfg: AparteConfig) => void>();
+const pendingRendererChanges = new Set<AparteConfig>();
+
+export function onRenderersChange(listener: (cfg: AparteConfig) => void): () => void {
+    rendererListeners.add(listener);
+    return () => { rendererListeners.delete(listener); };
+}
+
+export function notifyRenderersChanged(cfg: AparteConfig): void {
+    if (pendingRendererChanges.size === 0) {
+        queueMicrotask(() => {
+            const changed = [...pendingRendererChanges];
+            pendingRendererChanges.clear();
+            for (const config of changed) {
+                for (const listener of [...rendererListeners]) {
+                    try { listener(config); } catch (err) {
+                        console.error('[aparte] a renderer-change listener threw', err);
+                    }
+                }
+            }
+        });
+    }
+    pendingRendererChanges.add(cfg);
+}
+
+/** One override stack per tool matcher, keyed by its spelling (as `ToolTable` keys it). */
+const matcherKey = (match: AparteToolMatcher): string =>
+    match instanceof RegExp ? `re:${String(match)}` : `name:${match}`;
+
 /** The fields of a tool display that change a row's ELEMENT, so registering one redraws. */
 const ELEMENT_SHAPING = ['hidden', 'open', 'details', 'quiet'] as const satisfies readonly (keyof AparteToolDisplay)[];
 
@@ -288,6 +328,11 @@ export class AparteConfig {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     // By exact name, pattern or '*' — see `tool-table.ts` for the one resolution rule.
     private _toolRenderers = new ToolTable<AparteToolRenderer>();
+    /** {@link overrideToolRenderer}'s stacks: what each matcher held below every override. */
+    /** Per matcher: what it held below every override, then one entry per override — an object of its own, so two overrides of the same renderer are told apart. */
+    private _toolRendererOverrides = new Map<string, Array<{ renderer: AparteToolRenderer | undefined }>>();
+    /** Bumped by `reset()`: a restore function from before it must not undo what came after. */
+    private _overrideGeneration = 0;
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
@@ -1297,12 +1342,75 @@ export class AparteConfig {
      * // Custom pill for a web-search tool
      * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="aparte-tool-label">Searching...</div>` });
      *
+     * Calls already on screen follow: those this registration now draws are drawn again
+     * by it (the renderer that drew them before gets its `cleanup`), and nothing else on
+     * the page is touched.
+     *
      * @example
      * // One look for every tool an MCP server brings
      * aparteGlobalConfig.registerToolRenderer(/^mcp__/, { render: (seg) => myMcpCard(seg) });
      */
     registerToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): void {
+        if (this._toolRenderers.get(match) === renderer) return;
         this._toolRenderers.set(match, renderer);
+        notifyRenderersChanged(this);
+    }
+
+    /**
+     * Put `renderer` over whatever this matcher holds, and get back the function that takes
+     * it off again — the registration a component makes for as long as it is mounted.
+     *
+     * Overrides stack per matcher. The function restores what was there before THIS
+     * override, and taking off an override that is no longer on top changes nothing on
+     * screen: two components declaring the same tool, the newer wins, and unmounting the
+     * older does not take the newer's away. When the last one goes, the matcher holds what
+     * it held before the first — another registration, or nothing. Calls on screen follow
+     * each change, as with {@link registerToolRenderer}. The returned function is safe to
+     * call twice.
+     *
+     * @example
+     * const restore = aparteGlobalConfig.overrideToolRenderer('get_weather', weatherCard);
+     * // …later, when the component that declared it unmounts:
+     * restore();
+     */
+    overrideToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): () => void {
+        const key = matcherKey(match);
+        const current = this._toolRenderers.get(match);
+        let stack = this._toolRendererOverrides.get(key);
+        if (!stack) {
+            stack = [{ renderer: current }];
+            this._toolRendererOverrides.set(key, stack);
+        } else if (stack[stack.length - 1]!.renderer !== current) {
+            // A direct registration since the last override: it is what this one goes over, and
+            // what its restore gives back. Rebased in place — the older overrides' restores hold
+            // this array, and find themselves gone from it.
+            stack.splice(0, stack.length, { renderer: current });
+        }
+        const entry = { renderer: renderer as AparteToolRenderer | undefined };
+        stack.push(entry);
+        this.registerToolRenderer(match, renderer);
+        const generation = this._overrideGeneration;
+        let restored = false;
+        return () => {
+            // Twice, or after a `reset()` that already cleared everything: nothing to undo,
+            // and writing the stack back would resurrect a registration from before the reset.
+            if (restored || generation !== this._overrideGeneration) return;
+            restored = true;
+            // Rebased away: a direct registration replaced this override, so there is nothing of
+            // its own to give back — and this array may no longer be the matcher's stack.
+            const i = stack.indexOf(entry);
+            if (i <= 0) return;
+            const wasTop = i === stack.length - 1;
+            stack.splice(i, 1);
+            if (stack.length === 1 && this._toolRendererOverrides.get(key) === stack) this._toolRendererOverrides.delete(key);
+            // Only when this override is still what the matcher holds: under another override
+            // nothing on screen changes, and a direct `registerToolRenderer` made since is the
+            // app's own call, which taking this one off must not overwrite.
+            if (!wasTop || this._toolRenderers.get(match) !== renderer) return;
+            const top = stack[stack.length - 1]!.renderer;
+            if (top) this.registerToolRenderer(match, top);
+            else this.unregisterToolRenderer(match);
+        };
     }
 
     /**
@@ -1348,9 +1456,11 @@ export class AparteConfig {
         this._segmentDefaults.delete(type);
     }
 
-    /** Unregister the renderer registered under this matcher. */
+    /** Unregister the renderer registered under this matcher. Calls on screen it drew go back to core's row. */
     unregisterToolRenderer(match: AparteToolMatcher): void {
+        if (this._toolRenderers.get(match) === undefined) return;
         this._toolRenderers.delete(match);
+        notifyRenderersChanged(this);
     }
 
     /** The renderer that draws a tool named `toolName` — exact, pattern or `'*'` — or undefined. */
@@ -1784,6 +1894,9 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
+        this._toolRendererOverrides.clear();
+        this._overrideGeneration++;
+        notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};

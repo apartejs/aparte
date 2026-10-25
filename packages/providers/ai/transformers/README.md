@@ -106,9 +106,11 @@ export async function createRunner(ctx) {
 }
 ```
 
+`input.tools` are the tools the request allows (a `RunnerTool`: `name`, `description`,
+`inputSchema`) and `input.toolChoice` its `'auto'` / `'none'` / `{ name }` — absent when it has none.
 `emit` speaks aparté's stream vocabulary (`text`, `thinking`, `tool_use`, `done`, `error`),
 `signal` fires on Stop, `ctx.progress` (a `RunnerProgress`) / `ctx.warn` reach the page. The contract is
-exported: `TransformersRunner`, `RunnerContext`, `RunnerGenerateInput`, `CreateRunner`, `RunnerModule` (what
+exported: `TransformersRunner`, `RunnerContext`, `RunnerGenerateInput`, `RunnerTool`, `CreateRunner`, `RunnerModule` (what
 the module exports), `BuiltInRunner` (the two `task` names) and `TransformersModule` (the type of
 `ctx.transformers`).
 `runnerCommand(modelId, name, payload)` reaches a runner's `command()` from the page, queued

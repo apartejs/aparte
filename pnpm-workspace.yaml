@@ -18,3 +18,8 @@ packages:
 
   # Browser smoke E2E (Playwright) — drives the examples in a real browser
   - 'e2e'
+
+  # One server-rendered page per meta-framework (Next, Nuxt, SvelteKit, Angular SSR), built and
+  # started for real by `pnpm e2e:ssr`. Their scripts are `ssr:*`, never `build`, so neither
+  # `pnpm build` nor the gate builds them.
+  - 'e2e/ssr/*'

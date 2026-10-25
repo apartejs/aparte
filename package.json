@@ -20,7 +20,7 @@
     "check:export-mentions": "node scripts/check-export-mentions.mjs",
     "typecheck:matrix": "pnpm --filter @aparte/react run typecheck:react18",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit && pnpm --filter @aparte/vue --filter @aparte/svelte --filter @aparte/angular run typecheck:tests",
-    "gate:full": "pnpm gate && pnpm e2e",
+    "gate:full": "pnpm gate && pnpm e2e && pnpm e2e:ssr",
     "build": "nx run-many -t build",
     "typecheck": "nx run-many -t typecheck",
     "test": "vitest run --reporter=default --reporter=json --outputFile.json=.vitest-report.json",
@@ -36,6 +36,7 @@
     "example:vanilla-dist": "pnpm --filter @aparte-workspace/example-vanilla-dist dev",
     "examples:build": "pnpm -r --filter \"@aparte-workspace/example-*\" run build",
     "e2e": "pnpm --filter @aparte-workspace/e2e test",
+    "e2e:ssr": "pnpm --filter @aparte-workspace/e2e test:ssr",
     "e2e:install": "pnpm --filter @aparte-workspace/e2e install-browser",
     "e2e:ui": "pnpm --filter @aparte-workspace/e2e test:ui",
     "e2e:flake": "pnpm --filter @aparte-workspace/e2e exec playwright test --repeat-each=3",
@@ -99,6 +100,18 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "nx"
-    ]
+    ],
+    "packageExtensions": {
+      "@angular/core@19": {
+        "peerDependencies": {
+          "@angular/compiler": "19.x"
+        },
+        "peerDependenciesMeta": {
+          "@angular/compiler": {
+            "optional": true
+          }
+        }
+      }
+    }
   }
 }

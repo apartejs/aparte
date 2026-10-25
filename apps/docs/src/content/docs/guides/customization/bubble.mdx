@@ -99,12 +99,13 @@ frame with their content.
 <TabItem label="Svelte">
 
 ```svelte
-<AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
-  <svelte:fragment slot="bubble" let:message>
-    <MyBubble {message} />
-  </svelte:fragment>
+<AparteChat bind:messages>
+  {#snippet bubble(message)}<MyBubble {message} />{/snippet}
 </AparteChat>
 ```
+
+From `@aparte/svelte/runes`. The Svelte 4 component from `@aparte/svelte` takes a slot instead:
+`<svelte:fragment slot="bubble" let:message><MyBubble {message} /></svelte:fragment>`.
 
 </TabItem>
 <TabItem label="Angular">
