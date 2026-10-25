@@ -112,11 +112,11 @@ describe('setupCompaction — what is summarised and what stays', () => {
         expect(target.messages[0]!.content).toMatch(/^\*\*Résumé de la conversation\*\*/);
     });
 
-    it('without a known window, the default keeps the last two exchanges and summarises the rest', async () => {
+    it('without a known window, a host that opted in with keepWithoutWindow keeps the last two exchanges and summarises the rest', async () => {
         const target = makeTarget([...exchange(1, 'old'), ...exchange(2, 'recent'), ...exchange(3, 'recent')]);
         const { cfg, last } = makeConfig();
 
-        const outcome = await setup({ resolveTarget: () => target, listen: false }, cfg).compact();
+        const outcome = await setup({ keepWithoutWindow: 4, resolveTarget: () => target, listen: false }, cfg).compact();
 
         const sent = JSON.stringify(last().request.messages);
         expect(sent).toContain('old question 1');
@@ -135,8 +135,111 @@ describe('setupCompaction — what is summarised and what stays', () => {
     it('without a known window and nothing older than two exchanges, it skips', async () => {
         const target = makeTarget([...exchange(1, 'a'), ...exchange(2, 'b')]);
         const { cfg, chat } = makeConfig();
-        const outcome = await setup({ resolveTarget: () => target, listen: false }, cfg).compact();
+        const outcome = await setup({ keepWithoutWindow: 4, resolveTarget: () => target, listen: false }, cfg).compact();
         expect(outcome).toMatchObject({ skipped: true, reason: 'nothing-to-drop' });
+        expect(chat).not.toHaveBeenCalled();
+        expect(target.appended).toEqual([]);
+    });
+
+    it('without a known window, the default selector and summariser skip as no-window: no request is sent', async () => {
+        const target = makeTarget([...exchange(1, 'old'), ...exchange(2, 'recent'), ...exchange(3, 'recent')]);
+        const { cfg, chat } = makeConfig();
+        const done = once<any>('aparte-compact-done');
+
+        const outcome = await setup({ resolveTarget: () => target, listen: true }, cfg).compact();
+
+        expect(outcome).toMatchObject({ ok: true, skipped: true, reason: 'no-window' });
+        await expect(done).resolves.toMatchObject({ skipped: true, reason: 'no-window' });
+        expect(chat).not.toHaveBeenCalled();
+        expect(target.appended).toEqual([]);
+    });
+
+    it('without a known window, a selector or a summarize of the host keeps today\'s behaviour: the host sizes the request', async () => {
+        const long = [...exchange(1, 'old'), ...exchange(2, 'recent'), ...exchange(3, 'recent')];
+        const own = makeTarget(long);
+        const { cfg, chat } = makeConfig();
+        const viaSelector = await setup({ selector: (m) => ({ keep: m.slice(4), drop: m.slice(0, 4) }), resolveTarget: () => own, listen: false }, cfg).compact();
+        expect(viaSelector).toMatchObject({ skipped: false, dropped: 4 });
+        expect(chat).toHaveBeenCalledTimes(1);
+
+        const viaSummarize = makeTarget(long);
+        const summarize = vi.fn(async () => 'S');
+        const outcome = await setup({ summarize, resolveTarget: () => viaSummarize, listen: false }, new AparteConfig()).compact();
+        // The default selector without a window falls back to its 4 — the host owns the sizing.
+        expect(outcome).toMatchObject({ skipped: false, kept: 4, dropped: 2 });
+        expect(summarize).toHaveBeenCalledTimes(1);
+    });
+
+    it('with a window, maxTokens is a quarter of it — inside reservedGeneration, never under the reservation', async () => {
+        const target = makeTarget([...exchange(1, 'old'), ...exchange(2, 'old'), ...exchange(3, 'recent')].map((m) => ({ ...m, content: `${m.content} ${'x'.repeat(2000)}` })));
+        const { cfg, last } = makeConfig();
+        cfg.registerAIProvider({
+            id: 'windowed',
+            getMetadata: () => ({ id: 'windowed', name: 'W' }),
+            getModels: () => [{ id: 'w', name: 'W', contextWindow: 6000 }],
+            chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'windowed', defaultModel: 'w' });
+
+        await setup({ resolveTarget: () => target, listen: false }, cfg).compact();
+
+        // A quarter of 6000 is 1500: under the 2000 every request keeps for a reply, and above
+        // the 289 the window walk holds back for the summary (a tenth of 2899 tokens of history),
+        // which a reasoning model would spend thinking before it wrote a word.
+        expect(last().request.maxTokens).toBe(1500);
+    });
+
+    it('with a large window, maxTokens stops at reservedGeneration', async () => {
+        const target = makeTarget([...exchange(1, 'old'), ...exchange(2, 'old'), ...exchange(3, 'recent')]);
+        const { cfg, last } = makeConfig();
+        cfg.registerAIProvider({
+            id: 'large', getMetadata: () => ({ id: 'large', name: 'L' }), getModels: () => [{ id: 'l', name: 'L', contextWindow: 200000 }], chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'large', defaultModel: 'l' });
+
+        await setup({ selector: (m) => ({ keep: m.slice(4), drop: m.slice(0, 4) }), resolveTarget: () => target, listen: false }, cfg).compact();
+
+        expect(last().request.maxTokens).toBe(2000);
+    });
+
+    it('with a window, the dropped turns that do not fit the request stay verbatim, the oldest are summarised', async () => {
+        const big = (id: string, role: 'user' | 'assistant', n: number): AparteMessage => ({ id, role, content: `${id} ${'x'.repeat(n)}`, timestamp: 1, status: 'completed' });
+        // 4096-token window: 4096 − 1024 (the answer's cap, a quarter) − 500 (margin) = 2572 tokens
+        // ≈ 9800 characters of input, the instruction included: u1 and a1 fit, u2 does not.
+        const messages = [big('u1', 'user', 4000), big('a1', 'assistant', 4000), big('u2', 'user', 4000), big('a2', 'assistant', 100), big('u3', 'user', 100), big('a3', 'assistant', 100)];
+        const target = makeTarget(messages);
+        const { cfg, last } = makeConfig('short');
+        cfg.registerAIProvider({
+            id: 'small', getMetadata: () => ({ id: 'small', name: 'S' }), getModels: () => [{ id: 's', name: 'S', contextWindow: 4096 }], chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'small', defaultModel: 's' });
+
+        const outcome = await setup({ selector: (m) => ({ keep: m.slice(4), drop: m.slice(0, 4) }), resolveTarget: () => target, listen: false }, cfg).compact();
+
+        const sent = JSON.stringify(last().request.messages);
+        expect(sent).toContain('u1 ');
+        expect(sent).toContain('a1 ');
+        expect(sent).not.toContain('u2 ');
+        expect(outcome).toMatchObject({ skipped: false, dropped: 2, kept: 4 });
+        // The notice, then what moved back, then what was kept: all verbatim.
+        expect(target.messages.slice(1).map((m) => m.id)).toEqual(['u2', 'a2', 'u3', 'a3']);
+    });
+
+    it('with a window, a first dropped turn that does not fit on its own fails — nothing is sent', async () => {
+        const target = makeTarget([
+            { id: 'u1', role: 'user', content: 'x'.repeat(20000), timestamp: 1, status: 'completed' },
+            ...exchange(2, 'recent'),
+        ]);
+        const { cfg, chat } = makeConfig();
+        cfg.registerAIProvider({
+            id: 'small', getMetadata: () => ({ id: 'small', name: 'S' }), getModels: () => [{ id: 's', name: 'S', contextWindow: 4096 }], chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'small', defaultModel: 's' });
+
+        const outcome = await setup({ selector: (m) => ({ keep: m.slice(1), drop: m.slice(0, 1) }), resolveTarget: () => target, listen: false }, cfg).compact();
+
+        expect(outcome).toMatchObject({ ok: false });
+        expect((outcome as any).error).toMatch(/does not fit/);
         expect(chat).not.toHaveBeenCalled();
         expect(target.appended).toEqual([]);
     });
@@ -186,7 +289,9 @@ describe('setupCompaction — the request', () => {
         expect(assistantTurn.content).toContain('[tool list_files] {"path":"src"} → a.ts, b.ts');
         expect(assistantTurn.content).toContain('[error] disk quota exceeded');
         expect(request._meta).toEqual({ compaction: true });
-        expect(request.stream).toBe(false);
+        expect(request.stream).toBe(true);
+        // No window to take a quarter of: the room every request keeps for a reply.
+        expect(request.maxTokens).toBe(2000);
         expect(request.modelId).toBe('m');
         // The instruction rides the ask, in the user turn, where no provider can drop it:
         // one that imposes its own system prompt used to swallow it without a word (#45).
@@ -272,6 +377,48 @@ describe('setupCompaction — the request', () => {
         expect(outcome).toMatchObject({ summary: 'part one, part two' });
     });
 
+    describe('a streamed answer is drained strictly', () => {
+        const streamOf = (...events: any[]) => ({
+            chat: vi.fn(async () => new ReadableStream({
+                start(controller) {
+                    for (const event of events) controller.enqueue(event);
+                    controller.close();
+                },
+            })),
+        } as any);
+        const run = async (transport: any) => {
+            const target = makeTarget(exchange(1, 'x'));
+            const { cfg } = makeConfig();
+            cfg.setTransport(transport);
+            const outcome = await setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => target, listen: false }, cfg).compact();
+            return { outcome, target };
+        };
+
+        it('an error event fails the compaction with its message, and the partial text is not applied', async () => {
+            const { outcome, target } = await run(streamOf({ type: 'text', delta: 'half a sum' }, { type: 'error', message: 'context length exceeded' }));
+            expect(outcome).toEqual({ ok: false, error: 'context length exceeded', targetId: undefined });
+            expect(target.messages).toEqual(exchange(1, 'x'));
+        });
+
+        it('a done at the length limit fails: a cut-off summary is not applied', async () => {
+            const { outcome, target } = await run(streamOf({ type: 'text', delta: 'cut of' }, { type: 'done', finishReason: 'length' }));
+            expect(outcome).toEqual({ ok: false, error: "The summary was cut off at the model's length limit", targetId: undefined });
+            expect(target.messages).toEqual(exchange(1, 'x'));
+        });
+
+        it('a done that stopped normally is the summary', async () => {
+            const { outcome } = await run(streamOf({ type: 'text', delta: 'ok' }, { type: 'done', finishReason: 'stop' }));
+            expect(outcome).toMatchObject({ ok: true, summary: 'ok' });
+        });
+
+        it('a summary no shorter than the turns it replaces is refused, the transcript untouched', async () => {
+            const long = 'a summary as long as the whole exchange it is meant to replace, and then some';
+            const { outcome, target } = await run(streamOf({ type: 'text', delta: long }, { type: 'done', finishReason: 'stop' }));
+            expect(outcome).toEqual({ ok: false, error: 'The summary is no shorter than the turns it replaces', targetId: undefined });
+            expect(target.messages).toEqual(exchange(1, 'x'));
+        });
+    });
+
     it('a summarize option replaces the model call — no provider needed at all', async () => {
         const target = makeTarget(exchange(1, 'x'));
         const cfg = new AparteConfig();
@@ -296,7 +443,7 @@ describe('setupCompaction — declining and failing', () => {
 
         const bare = new AparteConfig();
         const error = once<any>('aparte-compact-error');
-        const outcome = await setup({ resolveTarget: () => makeTarget([...exchange(1, 'a'), ...exchange(2, 'b'), ...exchange(3, 'c')]), listen: false }, bare).compact();
+        const outcome = await setup({ keepWithoutWindow: 4, resolveTarget: () => makeTarget([...exchange(1, 'a'), ...exchange(2, 'b'), ...exchange(3, 'c')]), listen: false }, bare).compact();
         expect(outcome).toEqual({ ok: false, error: 'No provider configured', targetId: undefined });
         await expect(error).resolves.toEqual({ error: 'No provider configured', targetId: undefined });
     });

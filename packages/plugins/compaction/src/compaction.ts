@@ -32,6 +32,9 @@ import {
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
     type AparteCompactStartEventDetail,
 } from '@aparte/core';
+import {
+    computeHistoryBudget, DEFAULT_COMPACTION_CONFIG, estimateTokens, splitHistoryBudget,
+} from './budget.js';
 import { createCompactionSelector, type CompactionSelection } from './selector.js';
 import { DEFAULT_COMPACTION_PROMPT, transcriptForSummary } from './transcript.js';
 
@@ -63,7 +66,11 @@ export type CompactionKeyResolver = (
     providerId: string,
 ) => string | Record<string, string> | undefined | null | Promise<string | Record<string, string> | undefined | null>;
 
-/** Replaces the model call: given the summarisation request, return the summary text. */
+/**
+ * Replaces the model call: given the summarisation request, return the summary text.
+ * The request asks for a stream (`stream: true`) and carries `maxTokens`, a ceiling on the
+ * answer that keeps it inside the window — a summariser that talks to a model should pass both on.
+ */
 export type CompactionSummarizer = (request: AparteChatRequest, signal: AbortSignal) => Promise<string>;
 
 /** Why a compaction did nothing. */
@@ -75,7 +82,14 @@ export type CompactionSkipReason =
     /** A compaction is already running for this setup. */
     | 'running'
     /** A turn is in flight in the transcript; compacting under it would drop it. */
-    | 'streaming';
+    | 'streaming'
+    /**
+     * The current model declares no `contextWindow` and nothing of the host's sizes the
+     * request (no `selector`, no `summarize`, no `keepWithoutWindow`). Without a window the
+     * default would send everything but the last few messages in one request, which a small
+     * model refuses as over its context. Declare the window, or pass one of the three.
+     */
+    | 'no-window';
 
 export type CompactionOutcome =
     | { ok: true; skipped: true; reason: CompactionSkipReason; targetId?: string }
@@ -89,11 +103,19 @@ export interface CompactionSetupOptions {
      * Default: `createCompactionSelector` over the current model — its `contextWindow`,
      * the resolved system prompt and the registered tools set the budget, and the
      * newest turns that fit the window stay. When the current model declares no
-     * window there is no budget to walk, so the last `keepWithoutWindow` messages
-     * stay and the rest is summarised.
+     * window there is no budget to walk, and the compaction skips (`'no-window'`)
+     * unless the host sizes the request itself: a `selector`, a `summarize` or
+     * `keepWithoutWindow`.
      */
     selector?: CompactionMessageSelector;
-    /** How many of the newest messages stay when the model declares no window. Default 4 — the last two exchanges. */
+    /**
+     * How many of the newest messages stay when the model declares no window; everything
+     * older goes to the summariser in ONE request, so the number is the host's bet that it
+     * fits the model. Passing it is the opt-in: left out, a model without a window makes the
+     * default compaction skip with `'no-window'`, since nothing says the request would fit.
+     * Without a `selector` of your own, `4` (the last two exchanges) is what it takes when
+     * you opt in through `summarize` alone. Ignored when the model declares a window.
+     */
     keepWithoutWindow?: number;
     /**
      * The summariser's instruction — carried by the ask itself, not by a `system`
@@ -112,7 +134,10 @@ export interface CompactionSetupOptions {
     /**
      * Replace the model call entirely. The request carries the transcript of the
      * dropped turns, then a final `user` message holding the summariser's instruction
-     * and the ask, and `_meta: { compaction: true }`; return the summary text. For a
+     * and the ask, `stream: true`, `maxTokens` (a ceiling on the answer that keeps it
+     * inside the window) and `_meta: { compaction: true }`; return the summary text. Your own call
+     * is not trimmed to the window — the sizing is yours — but a summary that is no
+     * shorter than the turns it replaces is still refused. For a
      * host with an endpoint of its own, or a cheaper model for summaries. With one, no
      * provider needs to be configured at all.
      */
@@ -236,6 +261,18 @@ function defaultSelector(config: AparteConfig, keepWithoutWindow: number): Compa
     };
 }
 
+/** The turns that reach the summariser: the dropped ones as transcript lines, minus what is in flight or says nothing. */
+const summarisable = (drop: AparteMessage[]): AparteChatMessage[] =>
+    drop
+        .filter((m) => !inFlight(m))
+        .map((m) => ({ role: m.role, content: transcriptForSummary(m) }))
+        .filter((m) => contentToText(m.content).length > 0);
+
+/** The ask that closes the request. One place, because the input bound has to count what it sends. */
+const askFor = (prompt: string): string => `${prompt}
+
+Please summarize the conversation above.`;
+
 /**
  * The summarisation request: the instruction, the dropped turns as a transcript, the ask.
  *
@@ -247,14 +284,10 @@ function defaultSelector(config: AparteConfig, keepWithoutWindow: number): Compa
  * summariser. A turn that ended in an error is summarised too: the user read it, and it
  * is about to be deleted.
  */
-function buildRequest(drop: AparteMessage[], prompt: string, modelId: string): AparteChatRequest {
-    const history: AparteChatMessage[] = drop
-        .filter((m) => !inFlight(m))
-        .map((m) => ({ role: m.role, content: transcriptForSummary(m) }))
-        .filter((m) => contentToText(m.content).length > 0);
+function buildRequest(drop: AparteMessage[], prompt: string, modelId: string, maxTokens: number): AparteChatRequest {
     return {
         messages: [
-            ...history,
+            ...summarisable(drop),
             // The instruction rides the USER turn, not a `system` message.
             //
             // A system message is a persona, and a provider is entitled to own that: one
@@ -271,18 +304,27 @@ function buildRequest(drop: AparteMessage[], prompt: string, modelId: string): A
             // The instruction is not a persona: it is the task of this one request, and the
             // task belongs where every provider must look. Reported as #45 by a consumer who
             // only found it by reading the output closely.
-            { role: 'user', content: `${prompt}
-
-Please summarize the conversation above.` },
+            { role: 'user', content: askFor(prompt) },
         ],
         modelId,
-        stream: false,
+        // Streamed, so an `error` event and a `done` that says the model ran out of room
+        // reach the drain below; a non-streamed answer cut at the limit is just a string.
+        stream: true,
+        // A ceiling on the answer, so a server cannot let it run until the context is
+        // full (see `summaryAnswerCap`).
+        maxTokens,
         // Named as what it is, so a backend can route it to a cheaper model.
         _meta: { compaction: true },
     };
 }
 
-/** The model call through the config's transport, non-streaming, draining a stream if one comes back anyway. */
+/**
+ * The model call through the config's transport, streamed, drained strictly: an `error`
+ * event throws (the text before it is a fragment, not a summary), and so does a `done`
+ * that reports the length limit (a summary cut off mid-sentence would replace the
+ * conversation it was meant to carry). A transport that answers with a plain string
+ * is taken as the whole summary.
+ */
 async function summarizeThroughTransport(
     config: AparteConfig,
     provider: AparteAIProvider,
@@ -303,11 +345,59 @@ async function summarizeThroughTransport(
             const { done, value } = await reader.read();
             if (done) break;
             if (value.type === 'text') chunks.push(value.delta);
+            else if (value.type === 'error') throw new Error(value.message);
+            else if (value.type === 'done' && value.finishReason === 'length') {
+                throw new Error("The summary was cut off at the model's length limit");
+            }
         }
+    } catch (err: unknown) {
+        // Stop the producer: nobody reads the rest of a refused answer.
+        void reader.cancel().catch(() => undefined);
+        throw err;
     } finally {
         reader.releaseLock();
     }
     return chunks.join('');
+}
+
+/**
+ * The ceiling on the summary's answer, sent as the request's `maxTokens`.
+ *
+ * It protects the window, not the summary's length: without one, a server lets the answer
+ * run until the context is full. A quarter of the window, at most the budget's
+ * `reservedGeneration` (the room every request already keeps for a reply), and never below
+ * the room the window walk holds back for the summary (`summaryRatio` of the history
+ * budget, capped by `summaryMaxTokens`). It is deliberately looser than that reservation:
+ * on a 4 096-token model the reservation is about 118 tokens, and a reasoning model spends
+ * more than that thinking before it writes a word, so a cap that tight would cut every
+ * summary off and every compaction would be refused. With no window, `reservedGeneration`.
+ */
+function summaryAnswerCap(config: AparteConfig, contextWindow: number | undefined): number {
+    const { reservedGeneration } = DEFAULT_COMPACTION_CONFIG;
+    if (!contextWindow || contextWindow <= 0) return reservedGeneration;
+    const budget = computeHistoryBudget({
+        systemPrompt: config.resolveSystemPrompt() ?? '',
+        toolsArray: config.getTools(),
+        config: { contextWindow },
+    });
+    const reservation = splitHistoryBudget(budget.historyBudget, budget.config).summary;
+    return Math.max(1, reservation, Math.min(reservedGeneration, Math.floor(contextWindow / 4)));
+}
+
+/**
+ * How many of the dropped turns, oldest first, the summarisation request can carry: the
+ * instruction and their transcript must fit the window less the answer's room, the
+ * reserved thinking and the safety margin (the budget's own defaults). The turns past
+ * that point are not summarised now — they stay verbatim, and the next compaction takes them.
+ */
+function fitOldest(drop: AparteMessage[], prompt: string, contextWindow: number, maxTokens: number): number {
+    const room = contextWindow - maxTokens - DEFAULT_COMPACTION_CONFIG.reservedThinking - DEFAULT_COMPACTION_CONFIG.safetyMargin;
+    let used = estimateTokens(askFor(prompt));
+    for (let i = 0; i < drop.length; i++) {
+        used += summarisable([drop[i]!]).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
+        if (used > room) return i;
+    }
+    return drop.length;
 }
 
 /**
@@ -450,8 +540,28 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (messages.length === 0) return skip('empty');
             if (messages.some(inFlight)) return skip('streaming');
 
-            const { keep, drop } = select(messages);
+            const contextWindow = config.getCurrentModel()?.contextWindow;
+            // The default selector's fallback without a window sends all but the last few turns
+            // in one request, sized by nothing: a small model answers 400, context exceeded. A host
+            // that sized it itself (its selector, its summariser, a `keepWithoutWindow`) owns that.
+            const hostSizes = options.selector || options.summarize || options.keepWithoutWindow !== undefined;
+            if (!contextWindow && !hostSizes) return skip('no-window');
+
+            let { keep, drop } = select(messages);
             if (drop.length === 0) return skip('nothing-to-drop');
+
+            const prompt = options.prompt ?? DEFAULT_COMPACTION_PROMPT;
+            const maxTokens = summaryAnswerCap(config, contextWindow);
+            if (contextWindow && !options.summarize) {
+                const fits = fitOldest(drop, prompt, contextWindow, maxTokens);
+                if (fits === 0) return fail('The oldest turn to summarise does not fit the model\'s context window');
+                if (fits < drop.length) {
+                    // Not summarised now, not lost: they stay verbatim, between the notice and the
+                    // turns that were already kept, and the next compaction takes them.
+                    keep = [...drop.slice(fits), ...keep];
+                    drop = drop.slice(0, fits);
+                }
+            }
 
             const modelConfig = config.getModelConfig();
             const providerId = modelConfig.defaultProvider;
@@ -462,7 +572,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                 if (!provider) return fail(`Provider '${providerId}' not found`);
             }
 
-            const request = buildRequest(drop, options.prompt ?? DEFAULT_COMPACTION_PROMPT, modelConfig.defaultModel || '');
+            const request = buildRequest(drop, prompt, modelConfig.defaultModel || '', maxTokens);
             // The ask alone, with nothing above it: the turns being deleted say nothing a
             // summary could carry. Paying a model to summarise an empty transcript and then
             // replacing the conversation with the answer is worse than doing nothing. (One,
@@ -481,6 +591,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                 );
                 const summary = raw.trim();
                 if (!summary) throw new Error('Empty summary returned by model');
+                // A summary that is not shorter than what it replaces frees nothing, and the
+                // turns it replaces are gone for good: refuse it, the transcript stays as it is.
+                // (`slice(0, -1)`: the last message is the ask, not a turn.)
+                const replaced = request.messages.slice(0, -1).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
+                if (estimateTokens(summary) >= replaced) throw new Error('The summary is no shorter than the turns it replaces');
 
                 // Replace, in one pass over the live transcript: the summary as a notice
                 // (`compaction: true` — the viewport draws it centred without avatar or

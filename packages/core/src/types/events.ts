@@ -398,9 +398,10 @@ export interface AparteCompactDoneEventDetail {
     /**
      * Why it was skipped: `empty` (no messages), `nothing-to-drop` (the selector kept
      * everything), `running` (a compaction was already in flight), `streaming` (a turn
-     * is in flight in the transcript).
+     * is in flight in the transcript), `no-window` (the model declares no context window
+     * and nothing else sizes the summary request).
      */
-    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming';
+    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming' | 'no-window';
     /** The summary that replaced the compacted turns. */
     summary?: string;
     /** How many messages were kept verbatim after the summary. */

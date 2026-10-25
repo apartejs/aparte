@@ -24,9 +24,10 @@ const compaction = setupCompaction();   // the global config, the current model'
 
 That is the whole wiring. A compaction resolves the chat, selects what to summarise —
 by default the budget-aware selector over the current model's `contextWindow`, the system
-prompt and the tools, keeping the newest turns that still fit; the last two exchanges when
-the model declares no window — summarises it through the config's transport (the request
-carries `_meta: { compaction: true }`, so a backend can route it to a cheaper model), then
+prompt and the tools, keeping the newest turns that still fit — summarises it through the
+config's transport (the request is streamed, carries `maxTokens` — a ceiling that keeps the
+answer inside the window — and `_meta: { compaction: true }`, so a backend can route it to a
+cheaper model), then
 puts back the summary as a **notice** (`compaction: true` — centred, no avatar, no actions;
 sent to the model under a preamble saying what it is) followed by the kept turns verbatim.
 
@@ -37,17 +38,26 @@ compaction.running;                  // true meanwhile
 compaction.dispose();                // remove the listeners
 ```
 
+**What bounds the request.** The summary is refused, and the transcript left as it is, when
+the model's answer is cut off at its length limit, ends in an error, or is no shorter than the
+turns it replaces. With a known window the dropped turns are trimmed to what the request can
+carry (the oldest are summarised, the rest stay verbatim for the next compaction). With **no**
+`contextWindow` on the current model nothing says what fits, so the default skips with
+`'no-window'`; pass `keepWithoutWindow`, a `selector` or a `summarize` and the sizing is yours.
+
 **Options** — `selector` (your own `(messages) => { keep, drop }`; `createCompactionSelector`
 builds the budget-aware one over a window you choose), `prompt` (the summariser's
 instruction), `keyResolver` (the resolver you gave `AparteClient`, when the key is not on the
 config), `summarize` (replace the model call entirely: your endpoint, a cheaper model),
 `resolveTarget` (a transcript that lives in a store rather than in the DOM),
-`scopeToTargetId` (one setup per chat on a multi-chat page), `keepWithoutWindow`, `listen`.
+`scopeToTargetId` (one setup per chat on a multi-chat page), `keepWithoutWindow` (how many of
+the newest messages stay when the model has no window, and the opt-in to compact without one),
+`listen`.
 The config comes last, like every `setup*`: `setupCompaction(options, config)`.
 
 **Events**, on `window`, each naming the chat: `aparte-compact-start`, `aparte-compact-done`
 (`{ summary, kept, dropped }`, or `{ skipped: true, reason }` — `empty`, `nothing-to-drop`,
-`running`, `streaming`), `aparte-compact-error` (`{ error }`).
+`running`, `streaming`, `no-window`), `aparte-compact-error` (`{ error }`).
 
 **The budget**, exported for a host that wants the numbers: `computeHistoryBudget`,
 `splitHistoryBudget`, `estimateTokens`, `estimateTokensJson`, `DEFAULT_COMPACTION_CONFIG`;

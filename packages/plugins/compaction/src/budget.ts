@@ -38,8 +38,10 @@ export interface CompactionConfig {
      */
     summaryRatio: number;
     /**
-     * Ceiling on that reservation, in tokens. It sizes the WINDOW — it does not bound
-     * the summary your `summarize` returns, and nothing here truncates one.
+     * Ceiling on that reservation, in tokens. It sizes the WINDOW: the verbatim turns
+     * leave this much room for the summary. The summary request's own `maxTokens` is a
+     * looser ceiling that only keeps the answer inside the window (see `setupCompaction`),
+     * and a summary no shorter than the turns it replaces is refused.
      */
     summaryMaxTokens: number;
 }
@@ -65,9 +67,9 @@ export interface BudgetResult {
  * The history budget, split: the room held back for the running summary, and the
  * verbatim window that is what remains.
  *
- * `summary` is a RESERVATION, read only to shrink `window`. Nothing measures the
- * summary against it, and nothing clips one that comes back longer — a summariser that
- * overruns simply costs the turn more than the split assumed.
+ * `summary` is a RESERVATION, read to shrink `window`. The summary request carries a
+ * looser `maxTokens` of its own (it keeps the answer inside the window), and a summary
+ * that is cut off at that limit, or no shorter than the turns it replaces, is refused.
  */
 export interface SplitBudget {
     summary: number;
