@@ -179,7 +179,8 @@ its message redrawn or removed, a conversation switch, or the renderer replaced.
 when a framework only moves its message: a message taken out of the page and put back before the
 next microtask keeps its cards. A message that comes back later (a keep-alive cache, a reused
 route) mounts its cards again. A Markdown or highlight provider that arrives late redraws the text
-around the cards, not the cards.
+around the cards, not the cards, and the end of a turn — when the finished message is synced
+again — hands each card its final state without remounting it.
 
 The registry is live. A renderer registered while calls are already on screen — a restored
 conversation, a page that declares its cards after the first messages, a chat whose own config

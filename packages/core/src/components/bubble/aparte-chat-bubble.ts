@@ -785,9 +785,40 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * produces and that `appendToSegment` is written for: the first write on either
      * side replaces its own slot and the two are independent from then on.
      */
-    this._segments = [...segments];
-    this._renderSegments();
+    this._replaceSegments(segments);
     this._updateWaiting();
+  }
+
+  /** A whole new list, from `setSegments` or `updateMessage({ segments })`: copied in, then drawn. */
+  private _replaceSegments(segments: AparteSegment[]): void {
+    const next = [...segments];
+    if (this._resyncKeepingCards(next)) return;
+    this._segments = next;
+    this._renderSegments();
+  }
+
+  /**
+   * The same segments again, in the same order — the host re-syncing a message when its turn
+   * ends — while a mounted renderer holds one of them: the cards it holds are handed the new
+   * state, and only the other segments are drawn again, in place. Drawing everything again
+   * unmounted every framework card at the end of every turn and lost its state. False, and
+   * nothing touched, in every other case: those keep the full redraw.
+   */
+  private _resyncKeepingCards(next: AparteSegment[]): boolean {
+    if (!this._segmentsEl || next.length !== this._segments.length) return false;
+    if (next.some((s, i) => s.id !== this._segments[i]!.id || !this._drawn.has(s.id))) return false;
+    const kept = new Set(next.filter((s) => this._keepsItsDrawing(s, this._drawn.get(s.id)!)).map((s) => s.id));
+    if (kept.size === 0) return false;
+
+    this._segments = next;
+    this._drawnWithVersion = renderingVersionOf(this._cfg);
+    for (const segment of next) {
+      if (kept.has(segment.id)) this._applySegmentUpdate(segment.id, segment, segment);
+      else this._redrawSegment(segment);
+    }
+    this._reflectError();
+    this._syncCopyAction();
+    return true;
   }
 
   /** Add a segment */
@@ -902,9 +933,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // Copy IN, exactly as `setSegments` does and for the same reason: the
       // viewport `Object.assign`s this very array into the repo message before
       // forwarding it here, so adopting it by reference leaves one array with two
-      // writers — the doubling documented on `setSegments` above.
-      this._segments = [...updates.segments!];
-      this._renderSegments();
+      // writers — the doubling documented on `setSegments` above. The same segments in
+      // their final state (the viewport's update when a turn ends) keep their cards.
+      this._replaceSegments(updates.segments!);
     }
     if ('timestamp' in updates) {
       this._updateTimestamp(updates.timestamp!);
