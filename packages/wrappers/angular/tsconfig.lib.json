@@ -1,0 +1,37 @@
+{
+  // What `ng-packagr` compiles the published package with (`-c` in the build script).
+  //
+  // Without `-c` it uses its built-in config, which sets no `strict`: the declarations
+  // were then emitted without `strictNullChecks`, and an inferred
+  // `input<string | null | undefined>()` was published as `InputSignal<string>` (#124).
+  // With `-c` it takes this file as it is, without merging its defaults, so the options
+  // below ARE that built-in config (ng-packagr's `tsconfig.ngc.json`), unchanged, plus the
+  // strict family. The emitted JavaScript stays the same; the declarations keep their
+  // `null` and `undefined`.
+  //
+  // It does not extend `./tsconfig.json` on purpose: that one extends the repo's base,
+  // made for development (`composite`, and the `@aparte-workspace/source` condition that
+  // resolves `@aparte/core` to its sources). A published package compiles against core's
+  // published types, like any consumer.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "node",
+    "lib": ["dom", "es2018"],
+    "declaration": true,
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "skipLibCheck": true,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "strict": true
+  },
+  "angularCompilerOptions": {
+    "compilationMode": "partial",
+    "enableResourceInlining": true,
+    "strictTemplates": true,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true
+  }
+}
