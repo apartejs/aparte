@@ -121,7 +121,7 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
 }
 
 /** {@link overrideSegmentRenderer}'s stacks, per config and type: what each held below every override. */
-const overrideStacks = new WeakMap<AparteConfig, Map<string, Array<AparteSegmentRenderer | undefined>>>();
+const overrideStacks = new WeakMap<AparteConfig, Map<string, Array<{ renderer: AparteSegmentRenderer | undefined }>>>();
 
 /**
  * Put `renderer` over whatever draws its `type`, and get back the function that takes it off
@@ -144,11 +144,13 @@ export function overrideSegmentRenderer<T extends AparteSegmentBase>(
     if (!byType) { byType = new Map(); overrideStacks.set(config, byType); }
     const current = reg.renderers.get(type);
     let stack = byType.get(type);
-    if (!stack) { stack = [current]; byType.set(type, stack); }
+    if (!stack) { stack = [{ renderer: current }]; byType.set(type, stack); }
     // A direct registration since the last override is what this one goes over — rebased in
     // place, since the older overrides' restores hold this array.
-    else if (stack[stack.length - 1] !== current) stack.splice(0, stack.length, current);
-    stack.push(renderer as AparteSegmentRenderer);
+    else if (stack[stack.length - 1]!.renderer !== current) stack.splice(0, stack.length, { renderer: current });
+    // An object of its own, so two overrides of the same renderer are told apart.
+    const entry = { renderer: renderer as AparteSegmentRenderer | undefined };
+    stack.push(entry);
     registerSegmentRenderer(renderer, config);
     let restored = false;
     return () => {
@@ -156,14 +158,15 @@ export function overrideSegmentRenderer<T extends AparteSegmentBase>(
         restored = true;
         // Rebased away: a direct registration replaced this override, and this array may no
         // longer be the type's stack.
-        const i = stack.lastIndexOf(renderer as AparteSegmentRenderer);
+        const i = stack.indexOf(entry);
         if (i <= 0) return;
+        const wasTop = i === stack.length - 1;
         stack.splice(i, 1);
         if (stack.length === 1 && byType.get(type) === stack) byType.delete(type);
         // Only when this override is still what the type holds: under another override
         // nothing on screen changes, and a direct registration made since is the app's own.
-        if (reg.renderers.get(type) !== renderer) return;
-        const top = stack[stack.length - 1];
+        if (!wasTop || reg.renderers.get(type) !== renderer) return;
+        const top = stack[stack.length - 1]!.renderer;
         if (top) { registerSegmentRenderer(top, config); return; }
         unregisterSegmentRenderer(type, config);
         // Nothing was registered below the overrides. An instance config now inherits what

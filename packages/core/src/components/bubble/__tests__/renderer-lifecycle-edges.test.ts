@@ -233,6 +233,41 @@ describe('renderer lifecycle — the edges', () => {
         expect(getSegmentRenderer('probe-type')).toBe(sc);
     });
 
+    it('two overrides of the same renderer object are told apart when one is taken off', () => {
+        // One module constant declared twice — the JSDoc's `weatherCard` in two components.
+        const tool = () => ({ render: () => document.createElement('i') }) as AparteToolRenderer;
+        const [w, x, c] = [tool(), tool(), tool()];
+        // Rebased away, then the same object again: the late restore must not take the new one off.
+        const r1 = aparteGlobalConfig.overrideToolRenderer('get_weather', w);
+        aparteGlobalConfig.registerToolRenderer('get_weather', c);
+        const r2 = aparteGlobalConfig.overrideToolRenderer('get_weather', w);
+        r1();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(w);
+        r2();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(c);
+        // No rebase: the oldest goes, the newest of the same object still holds the matcher.
+        const a1 = aparteGlobalConfig.overrideToolRenderer('get_weather', w);
+        const a2 = aparteGlobalConfig.overrideToolRenderer('get_weather', x);
+        const a3 = aparteGlobalConfig.overrideToolRenderer('get_weather', w);
+        a1();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(w);
+        a3();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(x);
+        a2();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(c);
+        aparteGlobalConfig.unregisterToolRenderer('get_weather');
+
+        const seg = (): AparteSegmentRenderer => ({ type: 'probe-type', render: () => document.createElement('i') });
+        const [sw, sc] = [seg(), seg()];
+        const s1 = overrideSegmentRenderer(sw);
+        registerSegmentRenderer(sc);
+        const s2 = overrideSegmentRenderer(sw);
+        s1();
+        expect(getSegmentRenderer('probe-type')).toBe(sw);
+        s2();
+        expect(getSegmentRenderer('probe-type')).toBe(sc);
+    });
+
     it('a row updated while its bubble is released out of the page mounts nothing that outlives it', async () => {
         // Drawn by core's own row, then out of the page long enough to be released; a card is
         // declared meanwhile, and the stream resolves the call before the bubble comes back.

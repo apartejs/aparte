@@ -329,7 +329,8 @@ export class AparteConfig {
     // By exact name, pattern or '*' — see `tool-table.ts` for the one resolution rule.
     private _toolRenderers = new ToolTable<AparteToolRenderer>();
     /** {@link overrideToolRenderer}'s stacks: what each matcher held below every override. */
-    private _toolRendererOverrides = new Map<string, Array<AparteToolRenderer | undefined>>();
+    /** Per matcher: what it held below every override, then one entry per override — an object of its own, so two overrides of the same renderer are told apart. */
+    private _toolRendererOverrides = new Map<string, Array<{ renderer: AparteToolRenderer | undefined }>>();
     /** Bumped by `reset()`: a restore function from before it must not undo what came after. */
     private _overrideGeneration = 0;
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
@@ -1377,15 +1378,16 @@ export class AparteConfig {
         const current = this._toolRenderers.get(match);
         let stack = this._toolRendererOverrides.get(key);
         if (!stack) {
-            stack = [current];
+            stack = [{ renderer: current }];
             this._toolRendererOverrides.set(key, stack);
-        } else if (stack[stack.length - 1] !== current) {
+        } else if (stack[stack.length - 1]!.renderer !== current) {
             // A direct registration since the last override: it is what this one goes over, and
             // what its restore gives back. Rebased in place — the older overrides' restores hold
             // this array, and find themselves gone from it.
-            stack.splice(0, stack.length, current);
+            stack.splice(0, stack.length, { renderer: current });
         }
-        stack.push(renderer);
+        const entry = { renderer: renderer as AparteToolRenderer | undefined };
+        stack.push(entry);
         this.registerToolRenderer(match, renderer);
         const generation = this._overrideGeneration;
         let restored = false;
@@ -1396,15 +1398,16 @@ export class AparteConfig {
             restored = true;
             // Rebased away: a direct registration replaced this override, so there is nothing of
             // its own to give back — and this array may no longer be the matcher's stack.
-            const i = stack.lastIndexOf(renderer);
+            const i = stack.indexOf(entry);
             if (i <= 0) return;
+            const wasTop = i === stack.length - 1;
             stack.splice(i, 1);
             if (stack.length === 1 && this._toolRendererOverrides.get(key) === stack) this._toolRendererOverrides.delete(key);
             // Only when this override is still what the matcher holds: under another override
             // nothing on screen changes, and a direct `registerToolRenderer` made since is the
             // app's own call, which taking this one off must not overwrite.
-            if (this._toolRenderers.get(match) !== renderer) return;
-            const top = stack[stack.length - 1];
+            if (!wasTop || this._toolRenderers.get(match) !== renderer) return;
+            const top = stack[stack.length - 1]!.renderer;
             if (top) this.registerToolRenderer(match, top);
             else this.unregisterToolRenderer(match);
         };
