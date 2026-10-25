@@ -55,7 +55,11 @@ export interface AparteChatProps {
     onmessageSent?: (detail: AparteSendEventDetail) => void;
     /** A custom bubble action was clicked. */
     onaction?: (detail: AparteActionEventDetail) => void;
-    /** The active path changed. With `bind:messages` you rarely need it. */
+    /**
+     * The active path changed. With `bind:messages` you rarely need it. Without `bind:`, a parent
+     * that keeps the list writes it back here — `onmessagesChange={(m) => (msgs = m)}` — in the
+     * callback itself: a write-back after an `await` arrives later, as the parent's own word.
+     */
     onmessagesChange?: (messages: AparteMessage[]) => void;
     /** One message was appended. */
     onmessageAppended?: (message: AparteMessage) => void;

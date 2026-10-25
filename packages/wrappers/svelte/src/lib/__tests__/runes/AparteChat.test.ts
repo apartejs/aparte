@@ -5,6 +5,8 @@ import AparteChat from '../../runes/AparteChat.svelte';
 import BindHost from './BindHost.svelte';
 import SnippetsHost from './SnippetsHost.svelte';
 import SnippetProbeHost from './SnippetProbeHost.svelte';
+import ControlledHost from './ControlledHost.svelte';
+import BindCallbackHost from './BindCallbackHost.svelte';
 import type { AparteMessage } from '../../types.js';
 
 /**
@@ -66,7 +68,14 @@ describe('<AparteChat> for Svelte 5', () => {
     // The chat's own emit comes back through the prop — wrapped in a proxy by Svelte, in a bare
     // chat as under `bind:` on a $state — and must not be taken for a parent write: applying it
     // rolled back what a non-emitting call (appendMessage) had added in the same tick.
-    for (const [label, Host] of [['a bare chat', AparteChat], ['bind:messages on a $state', BindHost]] as const) {
+    // The parent's write-back makes a proxy of its own (Svelte keeps no proxy cache), so the
+    // value that comes back is neither the list nor the chat's proxy of it.
+    for (const [label, Host] of [
+        ['a bare chat', AparteChat],
+        ['bind:messages on a $state', BindHost],
+        ['messages={msgs} written back into a deep $state', ControlledHost],
+        ['bind:messages and a callback that assigns too', BindCallbackHost],
+    ] as const) {
         it(`an emit followed by an append in one tick keeps the append (${label})`, async () => {
             const { component, container } = render(Host as typeof BindHost);
             const chat = (Host === AparteChat ? component : (component as unknown as { api(): unknown }).api()) as {
@@ -103,6 +112,51 @@ describe('<AparteChat> for Svelte 5', () => {
         host.api().updateMessage('1', { content: 'Hello again' });
         flushSync();
         expect(host.current().map((m) => m.id)).toEqual(['1', '2', 'p1']);
+    });
+
+    type BindApi = {
+        push(m: AparteMessage): void; pop(): void; empty(): void; current(): AparteMessage[];
+        api(): { updateMessage(id: string, u: Partial<AparteMessage>): void; getMessages(): AparteMessage[]; truncateFrom(id: string): void };
+    };
+
+    it('a message the parent pushes and then removes goes, even when the removal brings back the ids of the last emit', async () => {
+        const { container, component } = render(BindHost, { props: { initial: [...two] } });
+        await tick();
+        const host = component as unknown as BindApi;
+        host.api().updateMessage('1', { content: 'Hello again' });
+        flushSync();
+        await tick();
+        host.push({ id: 'p1', role: 'assistant', content: 'a notice', timestamp: 3 });
+        flushSync();
+        await tick();
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(3);
+        host.pop();
+        flushSync();
+        await tick();
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
+        expect(host.api().getMessages().map((m) => m.id)).toEqual(['1', '2']);
+        // And the chat's next emit does not write it back into the parent's state.
+        host.api().updateMessage('2', { content: 'Hi again' });
+        flushSync();
+        expect(host.current().map((m) => m.id)).toEqual(['1', '2']);
+    });
+
+    it('after the chat emptied the list, a push then a clear by the parent is drawn', async () => {
+        const { container, component } = render(BindHost, { props: { initial: [...two] } });
+        await tick();
+        const host = component as unknown as BindApi;
+        host.api().truncateFrom('1');
+        flushSync();
+        await tick();
+        host.push({ id: 'p1', role: 'assistant', content: 'a notice', timestamp: 3 });
+        flushSync();
+        await tick();
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(1);
+        host.empty();
+        flushSync();
+        await tick();
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(0);
+        expect(host.api().getMessages()).toEqual([]);
     });
 
     it('emptyState, aboveComposer, toolbar and bubble snippets render where the slots did', async () => {
