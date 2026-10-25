@@ -406,6 +406,32 @@ describe('the client resumes a paused server run', () => {
         expect(await c.resumeDeferred(el)).toBe(false);
     });
 
+    it('waits for the compactor like any send, and builds what it resumes from again once it compacted', async () => {
+        const transcript: AparteMessage[] = [
+            { id: 'u0', role: 'user', content: 'an old question', timestamp: 1 },
+            { id: 'a0', role: 'assistant', content: 'an old answer', timestamp: 2, status: 'completed' },
+            ...pausedTranscript(),
+        ];
+        const { el, messages } = chat(transcript);
+        const r = runner(resumeApproved('c1'));
+        const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+        const beforeSend = vi.fn(async () => {
+            // What a compaction does: the checkpoint lands on the first kept user turn.
+            messages.find((m) => m.id === 'u1')!.contextSummary = { summary: 'The user cleans up files.', count: 2, createdAt: 10 };
+            return true;
+        });
+        cfg.setCompactor({ compact: async () => ({ ok: true, skipped: true, reason: 'nothing-to-drop' }), settled: async () => {}, beforeSend });
+
+        expect(await c.resumeDeferred(el)).toBe(true);
+
+        expect(beforeSend).toHaveBeenCalledTimes(1);
+        expect(beforeSend.mock.calls[0]![0]).toMatchObject({ exclude: ['u1', 'a1'], requestTokens: expect.any(Number) });
+        const sent = JSON.stringify(r.calls[0]!.baseRequest.messages);
+        expect(sent).toContain('The user cleans up files.');
+        expect(sent).not.toContain('an old question');
+        expect(sent, 'the message that asked still goes').toContain('delete a');
+    });
+
     it('resumes on its own when a conversation manager loads one with a paused call', async () => {
         const paused: AparteMessage[] = [
             { id: 'u1', role: 'user', content: 'delete a', timestamp: 1 },

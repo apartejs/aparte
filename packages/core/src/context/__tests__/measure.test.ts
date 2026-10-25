@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AparteConfig } from '../../config/index.js';
-import { estimateTokens, estimateWireTokens, measureContext } from '../measure.js';
+import { estimateRequestTokens, estimateTokens, estimateWireTokens, measureContext } from '../measure.js';
 import type { AparteMessage } from '../../types/index.js';
 
 const text = (n: number): string => 'x'.repeat(n);
@@ -210,5 +210,23 @@ describe('measureContext', () => {
     it('an empty path is an estimate of nothing, not a crash', () => {
         const m = measureContext({ messages: [], config: config() });
         expect(m).toMatchObject({ used: 0, estimated: true, other: 0 });
+    });
+});
+
+describe('estimateRequestTokens', () => {
+    const tool = { name: 'lookup', description: 'Find a thing', inputSchema: { type: 'object' } };
+
+    it('adds the tool definitions to the messages, and counts none for an empty list', () => {
+        const messages = [{ role: 'user' as const, content: text(38) }];
+        expect(estimateRequestTokens({ messages })).toBe(10);
+        expect(estimateRequestTokens({ messages, tools: [] })).toBe(10);
+        expect(estimateRequestTokens({ messages, tools: [tool as never] })).toBeGreaterThan(10);
+    });
+
+    it('reads the same tool definitions the measure reads, so the two are one currency', () => {
+        const cfg = config();
+        cfg.registerTool(tool as never, (async () => ({ content: '' })) as never);
+        const measured = measureContext({ messages: [], config: cfg });
+        expect(estimateRequestTokens({ messages: [], tools: cfg.getTools() })).toBe(measured.parts.tools);
     });
 });

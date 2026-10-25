@@ -46,6 +46,18 @@ export function estimateChatTokens(messages: AparteChatMessage[]): number {
 }
 
 /**
+ * The estimate of a whole request as it is about to be sent: its messages (the system
+ * prompts and a checkpoint's summary among them) and the tool definitions beside them —
+ * the same four things {@link measureContext} adds up, so a figure recorded here at send
+ * time and the measure's own reading of the same view are one currency, which is what lets
+ * the one calibrate the other.
+ */
+export function estimateRequestTokens(request: { messages: AparteChatMessage[]; tools?: AparteTool[] | undefined }): number {
+    const declared = (request.tools ?? []).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+    return estimateChatTokens(request.messages) + (declared.length ? estimateJson(declared) : 0);
+}
+
+/**
  * The estimate of what the wire sends for these messages: the same serialisation the
  * client builds its history with (`wireMessages`) — a reply's thinking is not sent, its
  * text is, and a tool call and its result count as the envelope and the `tool` message
