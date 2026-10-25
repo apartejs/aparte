@@ -59,8 +59,8 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
     // hands off: THIS component renders the viewport + composer and drives them
     // through AparteChatHost. Without it, core injects its default composition
     // underneath ours (its own check can't see our children — they render later).
-    // `defer-hydration` until the host is built: in the server render and the one that hydrates
-    // it, core's elements — this host among them — leave the server's DOM alone.
+    // `defer-hydration` until the host is built, in the server render and while the browser
+    // hydrates it: core's elements — this host among them — leave the server's DOM alone.
     host: { 'framework-managed': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
     template: `
     <div
@@ -305,8 +305,16 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly waiting = computed(() => this.loading() || this.hostLoading());
     /** Bumped on every config change, so the two locale strings below follow a language switch under OnPush. */
     private readonly _localeTick = signal(0);
-    /** True until the host is built — on the server, always. */
-    protected readonly hydrating = signal(true);
+    /**
+     * True until the host is built — on the server always, and in the browser only while Angular
+     * hydrates the server's HTML: the host element is then the one the server sent, still carrying
+     * the attribute. A client-only render holds nothing, so a component projected into the empty
+     * state (built in an @if, after the host binding) talks to live elements in its own
+     * ngAfterViewInit, which runs before this component's.
+     */
+    protected readonly hydrating = signal(
+        !this._isBrowser || (this.elementRef.nativeElement as HTMLElement).hasAttribute('defer-hydration'),
+    );
     private _unsubscribeLocale?: () => void;
     get loadingText(): string { this._localeTick(); return (this.config() ?? aparteGlobalConfig).t('loadingConversation'); }
 

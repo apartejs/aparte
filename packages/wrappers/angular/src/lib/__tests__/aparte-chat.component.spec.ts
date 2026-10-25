@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@angular/compiler';
-import { Component, provideExperimentalZonelessChangeDetection, viewChild } from '@angular/core';
+import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, provideExperimentalZonelessChangeDetection, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
@@ -94,6 +94,28 @@ class SlotHost { messages: AparteMessage[] = []; }
     template: `<aparte-chat [messages]="[]" centerWhenEmpty disabled></aparte-chat>`,
 })
 class BareBooleanAttrHost { }
+
+// What a component projected into the empty state does on mount: talk to a core element it
+// rendered. The empty state sits in an @if, built in the chat's update pass, after its host
+// binding — and this hook runs before the chat's own ngAfterViewInit.
+@Component({
+    selector: 'app-mount-probe',
+    standalone: true,
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    template: `<aparte-composer-send #send></aparte-composer-send>`,
+})
+class MountProbe implements AfterViewInit {
+    static drawn: boolean | null = null;
+    readonly send = viewChild.required<ElementRef<HTMLElement>>('send');
+    ngAfterViewInit(): void { MountProbe.drawn = !!this.send().nativeElement.querySelector('button'); }
+}
+
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent, MountProbe],
+    template: `<aparte-chat><app-mount-probe slot="empty-state" /></aparte-chat>`,
+})
+class EmptyStateProbeHost { }
 
 // Two-way binding, the Angular idiom for a list the chat both reads and reports.
 @Component({
@@ -383,6 +405,15 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         expect(chat.messages().map((m) => m.content)).toEqual(['Hello']);
+    });
+
+    it("a client-only render holds nothing: an empty-state component sees live elements in its ngAfterViewInit", async () => {
+        MountProbe.drawn = null;
+        const fixture = TestBed.createComponent(EmptyStateProbeHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(MountProbe.drawn).toBe(true);
+        expect(fixture.nativeElement.querySelector('aparte-chat')?.hasAttribute('defer-hydration')).toBe(false);
     });
 
     it('a parent write to [messages] is drawn and emits nothing back', async () => {
