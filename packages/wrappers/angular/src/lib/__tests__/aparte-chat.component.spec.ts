@@ -1071,6 +1071,31 @@ class OptionsHostComponent {
 })
 class LoadingHostComponent {}
 
+/** A parent that talks to the chat as soon as its own view is initialised — before any render hook. */
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat />`,
+})
+class EagerParentComponent {
+    readonly chat = viewChild.required(AparteChatComponent);
+    ngAfterViewInit(): void {
+        this.chat().appendMessage({ id: 'w1', role: 'assistant', content: 'Welcome', timestamp: 1 });
+    }
+}
+
+describe('AparteChatComponent from a parent\'s ngAfterViewInit', () => {
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('takes an imperative call made in the parent\'s ngAfterViewInit', async () => {
+        TestBed.configureTestingModule({ imports: [EagerParentComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(EagerParentComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.componentInstance.chat().getMessages().map((m) => m.id)).toEqual(['w1']);
+    });
+});
+
 describe('AparteChatComponent in a client-only render', () => {
     afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
 

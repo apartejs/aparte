@@ -51,9 +51,13 @@ function mountTemplate<V>(
  *
  * ```html
  * <ng-template aparteToolUI="get_weather" let-tool>
- *   <app-weather-card [city]="tool.input.city" [status]="tool.status" />
+ *   <app-weather-card [tool]="tool" />
  * </ng-template>
  * ```
+ *
+ * `let-tool` is an `AparteToolCallView`; its `input` is the model's arguments, `unknown` until
+ * the card narrows it — give the card the view (`input.required<AparteToolCallView>()`) and type
+ * its arguments there.
  *
  * Every `get_weather` call is drawn with the template, the call's view as `$implicit`, and
  * given back to core's row when the template leaves. The view is created where you declare
@@ -101,9 +105,11 @@ export class AparteToolUIDirective {
  *
  * ```html
  * <ng-template aparteSegmentUI="chart" let-segment>
- *   <app-chart [points]="segment.points" />
+ *   <app-chart [segment]="segment" />
  * </ng-template>
  * ```
+ *
+ * `let-segment` is the base segment with its own fields: the component it is handed to types it.
  */
 @Directive({
     selector: 'ng-template[aparteSegmentUI]',

@@ -1,4 +1,5 @@
 import {
+    AfterViewInit,
     Component,
     CUSTOM_ELEMENTS_SCHEMA,
     ElementRef,
@@ -38,7 +39,7 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHyd
 import { AparteBubbleDirective } from './aparte-bubble.directive';
 
 /**
- * AparteChatComponent — the Angular wrapper (19.2 to 22, zone or zoneless)
+ * AparteChatComponent — the Angular wrapper (19.2 to 21, zone or zoneless)
  *
  * Standalone component wrapping aparté Web Components with Angular Signals.
  * The streaming / branch-navigation / host-method orchestration (orphan-stream
@@ -186,7 +187,7 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
     }
   `]
 })
-export class AparteChatComponent implements OnDestroy, AparteChatImperativeApi {
+export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChatImperativeApi {
     constructor() {
         // Reactive effect to reconcile bubbles when the messages signal updates.
         // Debounced with requestAnimationFrame so rapid token bursts only trigger
@@ -224,9 +225,15 @@ export class AparteChatComponent implements OnDestroy, AparteChatImperativeApi {
             });
         });
 
-        // The host touches the DOM and the custom elements: browser only, after the first
-        // render (never during a server render, where there is no element to drive).
+        // The host touches the DOM and the custom elements: browser only, never in a server
+        // render, where there is no element to drive. Built in ngAfterViewInit (below), so a
+        // parent's own ngAfterViewInit, which runs after it, can already call the API; this
+        // render hook is the fallback, and does nothing once the host exists.
         afterNextRender(() => this._createHost());
+    }
+
+    ngAfterViewInit(): void {
+        if (this._isBrowser) this._createHost();
     }
 
     private elementRef = inject(ElementRef);
