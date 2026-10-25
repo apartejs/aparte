@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     // keeps its picker, so nothing joins the switch in the toolbar row.
     if (!scenarioMode) mountModelSelector(document.getElementById('model-slot'), document.querySelector('aparte-composer-toolbar'));
 
-    // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`) ───────
+    // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`, `?layout=launcher`) ─
     //
     // Same convention as `?chats=2` below: off by default, so the page stays the
     // single-chat reference, and reachable by a URL a reader can share.
@@ -116,6 +116,19 @@ async function main(): Promise<void> {
             const anchor = chatEl.nextSibling;
             chatEl.remove();
             parent?.insertBefore(chatEl, anchor);
+        }
+    }
+    //   ?layout=launcher — the chat in an <aparte-launcher>: a button in the corner of the
+    //                      window that opens it as a card, and as a sheet on a phone. The
+    //                      chat moves into it, before the button the launcher adds, so the
+    //                      client and every E2E helper keep driving the same element.
+    if (layoutParam === 'launcher') {
+        const chatEl = document.querySelector<HTMLElement>('aparte-chat');
+        if (chatEl) {
+            const launcher = document.createElement('aparte-launcher');
+            launcher.setAttribute('label', 'Help');
+            document.body.append(launcher);
+            launcher.prepend(chatEl);
         }
     }
     if (layoutParam === 'split' || layoutParam === 'shell') {
