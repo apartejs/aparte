@@ -92,6 +92,39 @@ describe('defer-hydration', () => {
         expect(log).toEqual(['attr label null → b', 'connected']);
     });
 
+    it('an element already live is never held by an ancestor that gains the attribute later', () => {
+        // Angular in a client-only render: the template's elements connect, then the host
+        // binding puts defer-hydration on the host, then the child bindings write attributes.
+        const parent = document.createElement('div');
+        parent.innerHTML = '<held-probe label="a"></held-probe>';
+        document.body.append(parent);
+        expect(log).toEqual(['attr label null → a', 'connected']);
+        parent.setAttribute('defer-hydration', '');
+        parent.querySelector('held-probe')!.setAttribute('label', 'b');
+        expect(log).toEqual(['attr label null → a', 'connected', 'attr label a → b']);
+        releaseDeferredHydration(parent);
+        // Not connected a second time: its observers and listeners would leak.
+        expect(log.filter((l) => l === 'connected')).toHaveLength(1);
+        parent.remove();
+        expect(log.filter((l) => l === 'disconnected')).toHaveLength(1);
+    });
+
+    it('a held element another one moves and connects during the release is not connected twice', () => {
+        class MovingProbe extends HTMLElement {
+            connectedCallback() {
+                // Like the viewport's own render: it takes its children into a wrapper of its own.
+                const wrapper = document.createElement('div');
+                while (this.firstChild) wrapper.appendChild(this.firstChild);
+                this.append(wrapper);
+            }
+        }
+        deferHydrationOf(MovingProbe);
+        customElements.define('moving-probe', MovingProbe);
+        const holder = serverRendered('<moving-probe><held-probe></held-probe></moving-probe>');
+        releaseDeferredHydration(holder);
+        expect(log.filter((l) => l === 'connected')).toHaveLength(1);
+    });
+
     it('nested holders: the inner release leaves the element held by the outer one', () => {
         const outer = serverRendered('<div defer-hydration id="inner"><held-probe></held-probe></div>');
         const inner = outer.querySelector('#inner')!;

@@ -1064,6 +1064,38 @@ class OptionsHostComponent {
     typing = true;
 }
 
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [loading]="true" />`,
+})
+class LoadingHostComponent {}
+
+describe('AparteChatComponent in a client-only render', () => {
+    afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
+
+    it('connects the viewport once, though the host binding adds defer-hydration after it connected', async () => {
+        // The template's elements connect in the creation pass; the host binding then sets
+        // defer-hydration, and [attr.loading] is written under it. Releasing must not connect
+        // the viewport a second time: it would leave a second aparte-reset listener behind.
+        const add = vi.spyOn(window, 'addEventListener');
+        TestBed.configureTestingModule({ imports: [LoadingHostComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(LoadingHostComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(add.mock.calls.filter(([type]) => type === 'aparte-reset')).toHaveLength(1);
+        const remove = vi.spyOn(window, 'removeEventListener');
+        // A root view's destroy leaves its nodes in the page: take them out, as a route change does.
+        const root = fixture.nativeElement as HTMLElement;
+        fixture.destroy();
+        root.remove();
+        // The viewport tears down a microtask later, in case a framework only moved it.
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(remove.mock.calls.filter(([type]) => type === 'aparte-reset')).toHaveLength(1);
+    });
+});
+
 describe('AparteChatComponent inputs reach the DOM', () => {
     afterEach(() => TestBed.resetTestingModule());
 

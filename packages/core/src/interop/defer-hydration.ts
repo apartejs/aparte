@@ -32,11 +32,18 @@ const waiting = new WeakMap<Element, HTMLElement[]>();
 const holderOf = new WeakMap<HTMLElement, Element>();
 /** Elements whose callbacks were skipped: their first real connection replays the attributes. */
 const pending = new WeakSet<HTMLElement>();
+/**
+ * Elements connected for real and not disconnected since. Never held: an ancestor that gains the
+ * attribute after they connected — Angular's host binding in a client-only render — must not
+ * drop their attribute changes, nor have the release connect them a second time.
+ */
+const live = new WeakSet<HTMLElement>();
 const observers = new WeakMap<Element, MutationObserver>();
 const patched = new WeakSet<object>();
 
 /** True when `el` must wait — and it is then recorded, to be connected on release. */
 function isHeld(el: HTMLElement): boolean {
+    if (live.has(el)) return false;
     if (holderOf.has(el)) return true;
     const holder = el.closest(`[${ATTR}]`);
     if (!holder) return false;
@@ -64,7 +71,8 @@ function release(holder: Element): void {
         holderOf.delete(el);
         // Connected through the patched callback: it replays the attributes first, and an
         // element moved under another holder in the meantime is held by that one instead.
-        if (el.isConnected) (el as HTMLElement & Callbacks).connectedCallback?.();
+        // One an earlier element of this release moved and so connected already is skipped.
+        if (el.isConnected && !live.has(el)) (el as HTMLElement & Callbacks).connectedCallback?.();
     }
 }
 
@@ -104,6 +112,7 @@ export function deferHydrationOf(ctor: CustomElementConstructor): void {
                 if (value !== null) changed?.call(this, name, null, value);
             }
         }
+        live.add(this);
         connected?.call(this);
     };
     if (changed) {
@@ -123,6 +132,7 @@ export function deferHydrationOf(ctor: CustomElementConstructor): void {
             return;
         }
         if (pending.has(this)) return;
+        live.delete(this);
         disconnected?.call(this);
     };
 }
