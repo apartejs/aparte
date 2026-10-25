@@ -1041,6 +1041,11 @@ export class AparteChatHost {
         host['removeSegment'] = (id: string) => this.removeSegment(id);
         host['appendToSegment'] = (id: string, c: string) => this.appendToSegment(id, c);
         host['getMessages'] = () => this.getMessages();
+        // The viewport's own surface, so a caller that resolved the root reads one message
+        // the way it would from the viewport. The client rebuilds a retried or edited
+        // history through it, and a root without it handed back the snapshot taken before
+        // a compaction wrote its checkpoint.
+        host['getMessage'] = (id: string) => this.binding.getMessages().find((m) => m.id === id);
         host['addBranch'] = (id: string) => this.addBranch(id);
         host['addSiblingOf'] = (id: string, m: AparteMessage) => this.addSiblingOf(id, m);
         host['truncateFrom'] = (id: string) => this.truncateFrom(id);

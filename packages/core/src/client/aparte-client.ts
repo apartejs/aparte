@@ -1172,7 +1172,12 @@ export class AparteClient {
      * were. Looked up by id, tree-wide, because a retry has moved the path since.
      */
     private _current(target: AparteChatTargetElement, messages: AparteMessage[]): AparteMessage[] {
-        return messages.map((m) => target.getMessage?.(m.id) ?? m);
+        // Under a wrapper the target is the framework's root, which used to offer no
+        // `getMessage`: every lookup fell back to the snapshot and the rebuilt request
+        // skipped the checkpoint. The live list is the second source, so a target that
+        // only offers `getMessages` (a host of one's own) is read as well.
+        const live = new Map((target.getMessages?.() ?? []).map((m) => [m.id, m] as const));
+        return messages.map((m) => target.getMessage?.(m.id) ?? live.get(m.id) ?? m);
     }
 
     /**
