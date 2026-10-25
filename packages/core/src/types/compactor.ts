@@ -25,6 +25,12 @@ export interface AparteCompactorRequest {
      */
     exclude?: string[];
     reason?: AparteCompactorReason;
+    /**
+     * Aborted when the turn the compaction serves is stopped — the client's Stop or a
+     * programmatic `abort()` / `stop()`. The compactor cancels its summary then, so a
+     * stopped turn neither pays for one nor writes a checkpoint into a chat left behind.
+     */
+    signal?: AbortSignal;
 }
 
 /**
@@ -81,6 +87,8 @@ export interface AparteCompactor {
         exclude: string[];
         /** The estimate, in tokens, of the request about to be sent. */
         requestTokens: number;
+        /** Aborted when the turn is stopped; the compactor cancels any summary it started for it. */
+        signal?: AbortSignal;
     }): Promise<boolean>;
     /**
      * What compacting now would do: how many messages it would summarise and the tokens that

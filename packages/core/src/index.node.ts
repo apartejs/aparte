@@ -105,6 +105,7 @@ export type {
     AparteStreamEvent,
     AparteStreamEventMap,
     AparteUsage,
+    AparteFinishReason,
     AparteTool,
     AparteToolCall,
     AparteApprovalPolicy,
