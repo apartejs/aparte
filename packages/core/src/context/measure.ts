@@ -2,7 +2,7 @@ import type { AparteConfig } from '../config/aparte-config.js';
 import { contentToText, type AparteChatMessage, type AparteUsage } from '../types/chat.js';
 import type { AparteMessage } from '../types/models.js';
 import type { AparteTool } from '../types/tools.js';
-import { underPreamble, wireMessages } from '../client/wire-history.js';
+import { segmentsToWireText, underPreamble, wireMessages } from '../client/wire-history.js';
 import { historyFromCheckpoint } from './checkpoint.js';
 
 /**
@@ -43,6 +43,16 @@ export function estimateChatTokens(messages: AparteChatMessage[]): number {
         if (message.toolCalls?.length) total += estimateJson(message.toolCalls);
     }
     return total;
+}
+
+/**
+ * Whether the heuristic could see the whole request: false when a message carries a part
+ * other than text (an image), which {@link estimateChatTokens} counts as nothing. An
+ * estimate of such a request is a floor, not a reading, and must not be set beside the
+ * provider's real count as if it were one.
+ */
+export function carriesNonTextParts(messages: AparteChatMessage[]): boolean {
+    return messages.some((m) => typeof m.content !== 'string' && m.content.some((p) => p.type !== 'text'));
 }
 
 /**
@@ -144,6 +154,35 @@ export function windowOf(config: AparteConfig, windowOverride?: number | null): 
     return declared && declared > 0 ? declared : undefined;
 }
 
+const hasSegment = (message: AparteMessage, type: string): boolean => message.segments?.some((s) => s.type === type) === true;
+
+/**
+ * How far the heuristic was off on this reply: the provider's input count over the estimate
+ * recorded when the request was sent, clamped to [0.5, 3]. 1 when either is missing, and
+ * when the reply called tools — see {@link measureContext}.
+ */
+function calibration(reply: AparteMessage): number {
+    const sent = reply.usage?.inputTokens;
+    const recorded = reply.contextEstimate;
+    if (hasSegment(reply, 'tool_call')) return 1;
+    return sent && recorded && sent > 0 && recorded > 0 ? Math.min(3, Math.max(0.5, sent / recorded)) : 1;
+}
+
+/**
+ * What the request after this reply will carry, given nothing has changed since it: the
+ * provider's total, unless the reply thought. A reply with a thinking segment is the input
+ * plus what it said AFTER its last call (the calls and their results were already in the
+ * input), read from the transcript and never above what the provider says it generated.
+ */
+function nextRequestTokens(reply: AparteMessage, k: number): number {
+    const usage = reply.usage!;
+    if (!hasSegment(reply, 'thinking')) return usageTokens(usage);
+    const segments = reply.segments ?? [];
+    const lastCall = segments.map((s) => s.type).lastIndexOf('tool_call');
+    const said = Math.round(k * estimateTokens(segmentsToWireText(segments.slice(lastCall + 1))));
+    return usage.inputTokens + (usage.outputTokens > 0 ? Math.min(said, usage.outputTokens) : said);
+}
+
 /**
  * The one measure of the context window, for the gauge and for the compaction plugin.
  *
@@ -158,6 +197,17 @@ export function windowOf(config: AparteConfig, windowOverride?: number | null): 
  * reading, and 1 when the reply has no estimate. After a compaction the reading is
  * therefore the size of the new, smaller view, never the stale one from before it, and
  * never a `k` computed against a history the reply did not see.
+ *
+ * `k` compares like with like or it is 1. The estimate is of the FIRST request a turn sent
+ * and the usage is of its LAST call, which also read the calls and their results, so a
+ * reply that called tools says nothing about the heuristic's error and counts as 1. A
+ * request the heuristic could not read whole (an image) records no estimate at all.
+ *
+ * While nothing has changed, `used` is what the NEXT request will carry: the input the
+ * provider reported, plus the reply as it goes back on the wire. A provider's output count
+ * includes the reasoning it generated, and a reply's thinking is not sent again, so for a
+ * reply that thought the answer is read from the transcript (the part after its last call,
+ * which is all the final call added to what it read) and not from the output count.
  *
  * The parts are not scaled: they stay the raw estimates, so a reader can see what the
  * measure is made of.
@@ -192,10 +242,7 @@ export function measureContext(input: AparteContextMeasureInput): AparteContextM
         && !input.viewChanged
         && replyIndex === messages.length - 1
         && !messages.some((m) => m.contextSummary !== undefined && m.contextSummary.createdAt > reply.timestamp);
-    if (reply && unchanged) return result(usageTokens(reply.usage!), false);
-
-    const sent = reply?.usage?.inputTokens;
-    const recorded = reply?.contextEstimate;
-    const k = sent && recorded && sent > 0 && recorded > 0 ? Math.min(3, Math.max(0.5, sent / recorded)) : 1;
+    const k = reply ? calibration(reply) : 1;
+    if (reply && unchanged) return result(nextRequestTokens(reply, k), false);
     return result(Math.round(k * total), true);
 }

@@ -262,6 +262,7 @@ export interface AparteMessage {
      * `AparteClient` when it sends. Read back beside the provider's real input count
      * (`usage.inputTokens`) to calibrate the context measure: the ratio of the two says
      * how far the character heuristic is off for this model and this conversation.
+     * Absent when the request carried a part the heuristic cannot count (an image).
      */
     contextEstimate?: number;
 

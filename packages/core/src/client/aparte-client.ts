@@ -6,7 +6,7 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
-import { estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
+import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
 import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
@@ -810,10 +810,15 @@ export class AparteClient {
         // What this request costs, as the measure counts a view: written on the reply before
         // each send so the measure can calibrate the heuristic against the real usage. A
         // resume sends the request it was sent with plus the reply so far.
-        const requestEstimate = (): number => estimateRequestTokens({
-            messages: opts?.resume ? this._resumeMessages(targetElement, messageId, baseRequest.messages) : baseRequest.messages,
-            tools: baseRequest.tools,
-        });
+        const requestMessages = (): AparteChatMessage[] =>
+            opts?.resume ? this._resumeMessages(targetElement, messageId, baseRequest.messages) : baseRequest.messages;
+        const requestEstimate = (): number => estimateRequestTokens({ messages: requestMessages(), tools: baseRequest.tools });
+        // Recorded on the reply only when the heuristic read the whole request. One that
+        // carries an image has a floor for an estimate, and the measure would read the gap
+        // to the provider's real count as the heuristic's error and scale everything by it.
+        // Written as `undefined` rather than left alone, because a second attempt writes
+        // over the first.
+        const recordedEstimate = (): number | undefined => carriesNonTextParts(requestMessages()) ? undefined : requestEstimate();
         // A turn stopped before it had a run to stop: a Stop during the wait for a summary.
         const endStopped = (): void => {
             this._closeOpenCalls(targetElement, messageId);
@@ -959,7 +964,7 @@ export class AparteClient {
                         }
                         if (compacted) baseRequest = await buildRequest(await opts.rebuild());
                     }
-                    this._updateMessage(targetElement, messageId, { contextEstimate: requestEstimate() });
+                    this._updateMessage(targetElement, messageId, { contextEstimate: recordedEstimate() });
                     await runOnce();
                     return;
                 } catch (error: unknown) {

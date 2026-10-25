@@ -137,6 +137,67 @@ describe('measureContext', () => {
         expect(measureContext({ messages: noInput, config: config() }).used).toBe(estimateWireTokens(noInput));
     });
 
+    it('does not calibrate against a reply that called tools: its last call read the results too', () => {
+        // The estimate was written for the FIRST request; the usage is the LAST call's input,
+        // which also holds the call and its result. A ratio of the two would count the result
+        // twice, once in the view and once through k.
+        const called = reply('a1', '', {
+            usage: { inputTokens: 5000, outputTokens: 20 }, contextEstimate: 100,
+            segments: [
+                {
+                    id: 'c', type: 'tool_call', status: 'resolved',
+                    toolCall: { id: 'call_1', name: 'search', input: { q: 'lisbon' } },
+                    result: text(3800),
+                } as never,
+                { id: 's', type: 'text', content: text(380) },
+            ],
+        });
+        const messages = [user('u1', text(380)), called, user('u2', text(380))];
+        const m = measureContext({ messages, config: config() });
+        expect(m.estimated).toBe(true);
+        expect(m.used, 'k = 1: the raw estimate of the view, not three times it').toBe(estimateWireTokens(messages));
+    });
+
+    it('still calibrates against a reply with no tool call', () => {
+        const plain = reply('a1', text(380), { usage: { inputTokens: 200, outputTokens: 10 }, contextEstimate: 100 });
+        const messages = [user('u1', text(380)), plain, user('u2', text(380))];
+        expect(measureContext({ messages, config: config() }).used).toBe(estimateWireTokens(messages) * 2);
+    });
+
+    it('counts what the next request carries right after a turn: the input and the answer, not the reasoning', () => {
+        // A local server counts every generated token in its total, the reasoning among them,
+        // and the reasoning is not sent back. 900 in, 1100 out of which 1000 are reasoning.
+        const thought = reply('a1', '', {
+            usage: { inputTokens: 900, outputTokens: 1100, totalTokens: 2000 },
+            segments: [
+                { id: 't', type: 'thinking', content: text(3800) },
+                { id: 's', type: 'text', content: text(380) },
+            ],
+        });
+        const m = measureContext({ messages: [user('u1', text(380)), thought], config: config() });
+        expect(m.estimated, 'nothing changed since the reply, so the input the provider reported is still real').toBe(false);
+        expect(m.used).toBe(900 + 100);
+    });
+
+    it('never counts more of the reply than the provider says it generated', () => {
+        const thought = reply('a1', '', {
+            usage: { inputTokens: 900, outputTokens: 40 },
+            segments: [
+                { id: 't', type: 'thinking', content: text(380) },
+                { id: 's', type: 'text', content: text(3800) },
+            ],
+        });
+        expect(measureContext({ messages: [user('u1', 'q'), thought], config: config() }).used).toBe(940);
+    });
+
+    it('leaves the total the provider reported alone for a reply that did not think', () => {
+        const plain = reply('a1', '', {
+            usage: { inputTokens: 900, outputTokens: 100, totalTokens: 1010 },
+            segments: [{ id: 's', type: 'text', content: text(380) }],
+        });
+        expect(measureContext({ messages: [user('u1', 'q'), plain], config: config() }).used).toBe(1010);
+    });
+
     it('counts the system prompt and the tools, and reads the window from the override', () => {
         const c = config();
         c.setSystemPrompt('s'.repeat(380));

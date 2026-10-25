@@ -311,6 +311,19 @@ describe('the client and the compactor', () => {
             expect(reply().contextEstimate).toBe(estimateRequestTokens(seen[0]!));
         });
 
+        it('is not recorded when the request carries an image: the heuristic cannot read it whole', async () => {
+            start();
+            viewport.dispatchEvent(new CustomEvent('aparte-send', {
+                detail: { content: 'what is this', timestamp: Date.now(), targetId: 'chat', files: [new File(['PNG'], 'a.png', { type: 'image/png' })] },
+                bubbles: true, composed: true,
+            }));
+            await settled();
+
+            const sentImage = seen[0]!.messages.some((m) => typeof m.content !== 'string' && m.content.some((p) => p.type === 'image'));
+            expect(sentImage, 'the request did carry an image').toBe(true);
+            expect(reply().contextEstimate, 'a floor is not a reading: the measure would scale everything by the gap').toBeUndefined();
+        });
+
         it('is the estimate of the request after a compaction rebuilt it, not before', async () => {
             config.setCompactor(stubCompactor({ beforeSend: vi.fn(async () => { writeCheckpoint(); return true; }) }));
             start();
