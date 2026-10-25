@@ -425,7 +425,7 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(box.querySelector('.aparte-viewport-loading-status')?.textContent).toBe('Loading the conversation');
         expect(box.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
 
-        component.$set({ loading: false });
+        (component as unknown as { $set: (p: Record<string, unknown>) => void }).$set({ loading: false });
         await tick();
         expect(box.getAttribute('data-aparte-empty')).toBe('');
         expect(box.querySelector('aparte-chat-viewport')?.hasAttribute('loading')).toBe(false);
@@ -445,7 +445,7 @@ describe('AparteChat while a conversation is on its way', () => {
 
     it('keeps a disabled the consumer set once the wait ends', async () => {
         const { container, component } = render(AparteChat, { messages: [], disabled: true, loading: true });
-        component.$set({ loading: false });
+        (component as unknown as { $set: (p: Record<string, unknown>) => void }).$set({ loading: false });
         await tick();
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });

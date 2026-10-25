@@ -29,29 +29,27 @@
   on:aparte-cancel={() => note('cancel')}
   on:aparte-send={(e) => note(e.detail.content)}
 >
-  <aparte-composer-input on:aparte-composer-submit={() => note('submit')} />
+  <aparte-composer-input on:aparte-composer-submit={() => note('submit')}></aparte-composer-input>
 </aparte-composer>
 
-<aparte-chat-viewport on:aparte-reset-done={() => note('reset')} />
+<aparte-chat-viewport on:aparte-reset-done={() => note('reset')}></aparte-chat-viewport>
 
 <aparte-select
   on:aparte-select-open={() => note('open')}
   on:aparte-select-close={() => note('close')}
-  on:aparte-select-change={(e) => note(e.detail.value)}
-/>
+  on:aparte-select-change={(e) => note(e.detail.value)}></aparte-select>
 
 <!-- And a detail-carrying one per remaining element family, so the map half stays proven. -->
 <aparte-chat-bubble
   message-id="m1"
   data-role="assistant"
   on:aparte-retry={(e) => note(e.detail.messageId)}
-  on:aparte-branch-navigate={(e) => note(String(e.detail.direction))}
-/>
+  on:aparte-branch-navigate={(e) => note(String(e.detail.direction))}></aparte-chat-bubble>
 
-<aparte-conversation-list on:aparte-conversation-select={(e) => note(e.detail.id)} />
+<aparte-conversation-list on:aparte-conversation-select={(e) => note(e.detail.id)}></aparte-conversation-list>
 
-<aparte-optgroup label="g" on:aparte-optgroup-toggle={(e) => note(String(e.detail.collapsed))} />
+<aparte-optgroup label="g" on:aparte-optgroup-toggle={(e) => note(String(e.detail.collapsed))}></aparte-optgroup>
 
-<aparte-composer-action action-id="mic" on:aparte-action-click={(e) => note(e.detail.actionId)} />
+<aparte-composer-action action-id="mic" on:aparte-action-click={(e) => note(e.detail.actionId)}></aparte-composer-action>
 
 {#if log.length}<span>{log.join(',')}</span>{/if}
