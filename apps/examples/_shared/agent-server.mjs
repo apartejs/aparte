@@ -7,7 +7,8 @@
  * instead of running the loop itself, and the approval travels across the network: the
  * run suspends, the page's panel answers, the run resumes. `e2e/tests/agent-loop.spec.ts`
  * drives it on all five sites. `POST /agui` serves a scripted AG-UI agent for `?agui=<url>`,
- * and `POST /agui/tanstack` the same lines on TanStack AI's real server.
+ * `POST /agui/tanstack` the same lines on TanStack AI's real server, and `POST /n8n/…/chat`
+ * a scripted n8n Chat Trigger for `?n8n=<url>`.
  *
  * The scripted model is written out a second time here, on purpose: this file runs in
  * Node, `site-setup.ts` is bundled TypeScript, and two copies of a dozen lines is below
@@ -198,6 +199,40 @@ async function send(res, response) {
     res.end();
 }
 
+/**
+ * `POST /n8n/<id>/chat` — a scripted n8n Chat Trigger, for `?n8n=<url>` (`@aparte/runner-n8n`).
+ * It answers as n8n 2.35.7 does, the frames the runner's fixtures recorded: newline-delimited
+ * JSON labelled `application/json`, `begin` / `item` / `end` for the AI Agent node, which keeps a
+ * memory per `sessionId`. `/n8n/whole/chat` answers once, as *When Last Node Finishes* does; a
+ * message that says "fail" ends on an `error` frame, as a model that is down does.
+ */
+const n8nSessions = new Map();
+
+/** What is wrong with the body the page sent, held to what n8n's widget sends. */
+function n8nProblem(body) {
+    if (body?.action !== 'sendMessage') return 'action must be "sendMessage"';
+    if (typeof body.sessionId !== 'string' || !body.sessionId) return 'sessionId is required';
+    if (typeof body.chatInput !== 'string') return 'chatInput must be a string';
+    return undefined;
+}
+
+function n8nFrame(type, extra = {}) {
+    return `${JSON.stringify({ type, ...extra, metadata: { nodeId: 'agent', nodeName: 'AI Agent', itemIndex: 0, runIndex: 0, timestamp: Date.now() } })}\n`;
+}
+
+function n8nReply(res, url, body) {
+    const heard = n8nSessions.get(body.sessionId) ?? [];
+    heard.push(body.chatInput);
+    n8nSessions.set(body.sessionId, heard);
+    const answer = `n8n heard **${body.chatInput}**, message ${heard.length} of this session.`;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    if (url.startsWith('/n8n/whole')) { res.end(JSON.stringify({ output: answer })); return; }
+    res.write(n8nFrame('begin'));
+    if (/fail/i.test(body.chatInput)) { res.end(n8nFrame('error', { content: 'The model is down (scripted failure).' })); return; }
+    for (const piece of answer.match(/[\s\S]{1,8}/g) ?? []) res.write(n8nFrame('item', { content: piece }));
+    res.end(n8nFrame('end'));
+}
+
 createServer(async (req, res) => {
     // The sites run on their own ports: this is a cross-origin endpoint.
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -208,6 +243,14 @@ createServer(async (req, res) => {
 
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
+    if (req.url?.startsWith('/n8n')) {
+        let body;
+        try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { body = undefined; }
+        const problem = n8nProblem(body);
+        if (problem) { res.writeHead(422, { 'Content-Type': 'text/plain' }).end(problem); return; }
+        n8nReply(res, req.url, body);
+        return;
+    }
     if (req.url?.startsWith('/agui/tanstack')) {
         const body = Buffer.concat(chunks).toString('utf8');
         const problem = agUiProblem(JSON.parse(body), []);

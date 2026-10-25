@@ -18,6 +18,7 @@
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/runner-ag-ui": "workspace:*",
+    "@aparte/runner-n8n": "workspace:*",
     "@tanstack/ai": "^0.68.0",
     "shiki": "^4.0.0",
     "@shikijs/langs": "^4.0.0",
