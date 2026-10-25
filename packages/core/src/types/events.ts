@@ -4,7 +4,7 @@
  */
 
 import type { AparteMessage } from './models.js';
-import type { AparteUsage } from './chat.js';
+import type { AparteUsage, AparteFinishReason } from './chat.js';
 import type { AparteError } from './errors.js';
 import type { AparteActionZone } from '../config/action-provider.js';
 
@@ -72,6 +72,8 @@ export interface AparteMessageDoneEventDetail {
     role: string;
     /** Token usage for the completed response, if reported by the provider. */
     usage?: AparteUsage;
+    /** Why the model stopped writing, if the provider said — `'length'` means the reply is cut off. */
+    finishReason?: AparteFinishReason;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -204,6 +204,13 @@ export interface AparteMessage {
     usage?: import('./chat.js').AparteUsage;
 
     /**
+     * Why the model stopped writing this reply, when the provider said. Kept with the
+     * message, so a reply cut off at the length limit (`'length'`) still says so after a
+     * reload.
+     */
+    finishReason?: import('./chat.js').AparteFinishReason;
+
+    /**
      * The provider, model and temperature an assistant turn ran on, written by
      * `AparteClient` when the turn starts. A turn a server paused is resumed on them after
      * a reload (`resumeDeferred`), not on whatever model is selected by then.

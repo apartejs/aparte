@@ -115,7 +115,8 @@ export type {
     AparteImagePart,
     AparteStreamEvent,
     AparteStreamEventMap,
-    AparteUsage
+    AparteUsage,
+    AparteFinishReason
 } from './chat.js';
 export { contentToText } from './chat.js';
 

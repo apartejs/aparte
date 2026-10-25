@@ -155,6 +155,7 @@ export type {
     AparteStreamEvent,
     AparteStreamEventMap,
     AparteUsage,
+    AparteFinishReason,
     // Tool types
     AparteTool,
     AparteToolCall,

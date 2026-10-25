@@ -53,6 +53,9 @@ export interface StreamUsage {
      */
 }
 
+/** Why the model stopped writing (mirrors `AparteFinishReason`). */
+export type StreamFinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+
 /** One tool call as surfaced by the provider stream (mirrors `AparteToolCall`). */
 export interface StreamToolCall {
     id: string;
@@ -77,7 +80,7 @@ export type StreamChatEvent =
     | { type: 'thinking'; delta: string }
     | ({ type: 'tool_use' } & StreamToolCall)
     | { type: 'error'; message: string }
-    | { type: 'done'; usage?: StreamUsage };
+    | { type: 'done'; usage?: StreamUsage; finishReason?: StreamFinishReason };
 
 /**
  * A tool declaration, structurally mirroring core's `AparteTool`.
@@ -362,7 +365,8 @@ export type StreamRunEvent =
     | { type: 'tool-aborted'; toolCallId: string; cause?: StreamAbortCause }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     | { type: 'run-aborted' }
-    | { type: 'run-done'; usage?: StreamUsage }
+    /** `finishReason` is the last model call's: in a tool turn, the step that wrote the reply. */
+    | { type: 'run-done'; usage?: StreamUsage; finishReason?: StreamFinishReason }
     /** Ends a run in place of `run-done` when calls are left for someone else to answer. */
     | { type: 'run-suspended'; pending: StreamDeferredCall[]; usage?: StreamUsage };
 
