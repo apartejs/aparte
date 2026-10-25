@@ -1,0 +1,15 @@
+---
+'@aparte/core': minor
+---
+
+**A page that registers a compactor now has its sends wait for it, and a request the model refuses as too long is compacted and sent once more.** Nothing happens without a compactor: with none registered (`setCompactor`), every send, retry, edit and resume behaves as before. With `@aparte/plugin-compaction` set up, the composer shows Stop while a summary is being written before a send, and an overflow that used to end as an error card now ends as an answer, with the separator above the kept turns as the only sign.
+
+What is new, all additive:
+
+- Before each request goes out, the client calls `compactor.beforeSend({ target, targetId, exclude, requestTokens })` once `aparte-message-start` is dispatched (so Stop is showing and the reply is waiting) and the request is built (files inlined). `exclude` is the user message and the reply of the turn in preparation; `requestTokens` is the estimate of the request. When it resolves `true` the client builds the request again, from the history as it now is. A Stop while it waits ends the turn as aborted, the way a Stop ends one today. A compactor that throws there is warned about and the request goes out as built.
+- When the model refuses a request with `USAGE_CONTEXT_EXCEEDED` before the reply has any text or tool call, the client calls `compactor.compact({ force: true, reason: 'overflow', exclude })` and, when it compacted, sends the turn once more into the same reply. Once per turn. If there is no compactor, the compaction skips or fails, or the reply already said something, the error stands exactly as before.
+- The reply records `contextEstimate`, the estimate of the request it was sent with, before each send, so the context measure can calibrate the character heuristic against the usage the provider reports.
+- `AparteFormatAdapter.classifyError?(status, body)` lets a provider name a failure a status cannot (an overflowing prompt is a 400). Core's `vendorError` calls it for a direct call; `createAparteChatHandler` calls it on the server and forwards the code as `error.code`, still without the vendor's prose, and the backend transport reads `error.code` when it is an `AparteErrorCode` value. A vendor's own code (`context_length_exceeded`) is not one and is ignored on the client.
+- The stream `error` event takes an optional `code` (`AparteStreamEventMap`), and `AparteError.from` keeps a valid `.code` of the error it wraps, so a code a provider streamed after a 200 reaches the client.
+
+Why. Compaction that only runs after a turn cannot help the turn that overflows, and a send that races a summary carries the history the summary is about to replace. Classification stays in the provider because what a server writes for an overflow is its wire format, not core's to know.
