@@ -285,6 +285,30 @@ with the elements and the worker fails on its first `extends HTMLElement`. While
 the provider on the page, or give the worker `@aparte/core/headless` alone; the production build
 runs it in the worker.
 
+### Hydration
+
+Core's elements draw themselves when they connect — their children, their attributes. On a
+server-rendered page that would happen as soon as `@aparte/core` loads in the browser, before the
+framework hydrates, and the framework would find a DOM it did not render. So an element waits while
+it, or an ancestor, carries `defer-hydration`, and draws itself when the attribute goes. The
+wrappers do it for you: their root carries the attribute in the server render and the hydration
+render, and they release it once the framework has the page. Server-render elements of your own
+and do the same around them:
+
+```ts
+import { releaseDeferredHydration } from '@aparte/core';
+
+// Your server HTML: <aside id="side" defer-hydration><aparte-sidebar>…</aparte-sidebar></aside>
+// Once your framework has hydrated it:
+releaseDeferredHydration(document.getElementById('side'));
+```
+
+`releaseDeferredHydration(root)` removes the attribute and upgrades every element it held, at once;
+removing the attribute any other way releases them a microtask later. An element of yours that draws
+itself on connect can wait the same way: call `deferHydrationOf(MyElement)` before
+`customElements.define`. It is the Web Components Community Group's `defer-hydration`, the one Lit's
+server rendering follows, widened from an element to the elements under it.
+
 | Wrapper | On a server |
 | --- | --- |
 | React | `'use client'` lets a Server Component render it; its server render imports the entry without elements, and they upgrade in the browser |

@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteMessageDoneEventDetail, AparteCompactDoneEventDetail, AparteCompactEventDetail } from '../../types/events.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** How full the window is, against the two thresholds. */
 export type AparteContextLevel = 'ok' | 'warn' | 'danger';
@@ -333,6 +334,7 @@ export class AparteContext extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteContext);
 if (!customElements.get('aparte-context')) {
     customElements.define('aparte-context', AparteContext);
 }

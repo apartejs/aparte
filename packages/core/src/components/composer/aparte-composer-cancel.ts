@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * Cancel/stop streaming button primitive for `<aparte-composer>`.
@@ -129,6 +130,7 @@ export class AparteComposerCancel extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposerCancel);
 if (!customElements.get('aparte-composer-cancel')) {
     customElements.define('aparte-composer-cancel', AparteComposerCancel);
 }

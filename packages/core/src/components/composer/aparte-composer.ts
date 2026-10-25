@@ -2,6 +2,7 @@ import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { presenceOn } from '../../utils/presence.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * What the composer's one button means while a panel is up — and whether it is
@@ -784,6 +785,7 @@ export class AparteComposer extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposer);
 if (!customElements.get('aparte-composer')) {
     customElements.define('aparte-composer', AparteComposer);
 }

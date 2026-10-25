@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * Contenteditable text input primitive.
@@ -439,6 +440,7 @@ export class AparteComposerInput extends HTMLElement {
     /** Escape a value before it lands in a double-quoted HTML attribute. */
 }
 
+deferHydrationOf(AparteComposerInput);
 if (!customElements.get('aparte-composer-input')) {
     customElements.define('aparte-composer-input', AparteComposerInput);
 }

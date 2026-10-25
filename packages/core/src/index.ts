@@ -502,4 +502,7 @@ export function registerAllComponents(): void {
 // that builds its page before importing core; idempotent.
 import { installDialogTriggersOnce } from './interop/dialog-triggers.js';
 export { installDialogTriggersOnce };
+// `defer-hydration`: the elements leave a server-rendered page alone until the framework has
+// hydrated it; a wrapper releases them. An element of yours can honour it too.
+export { deferHydrationOf, releaseDeferredHydration } from './interop/defer-hydration.js';
 if (typeof document !== 'undefined') installDialogTriggersOnce();

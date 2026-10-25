@@ -378,3 +378,5 @@ export function registerAllComponents(): void {
 }
 // Pure until called; the browser entry calls it at import.
 export { installDialogTriggersOnce } from './interop/dialog-triggers.js';
+// A wrapper imports the release on the server too, and calls it only once mounted in a browser.
+export { deferHydrationOf, releaseDeferredHydration } from './interop/defer-hydration.js';

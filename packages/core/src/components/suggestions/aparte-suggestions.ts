@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * One prompt starter: the text sent, or a visible label over a longer prompt.
@@ -335,6 +336,7 @@ export class AparteSuggestions extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteSuggestions);
 if (!customElements.get('aparte-suggestions')) {
     customElements.define('aparte-suggestions', AparteSuggestions);
 }

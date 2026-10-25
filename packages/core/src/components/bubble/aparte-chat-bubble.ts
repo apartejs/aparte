@@ -39,6 +39,7 @@ import { mergeSegmentUpdate, isSegmentSettled } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * Warn ONCE when a segment has no renderer — only for types core has never heard of,
@@ -2268,6 +2269,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 }
 
 // Register the custom element
+deferHydrationOf(AparteChatBubble);
 if (!customElements.get('aparte-chat-bubble')) {
   customElements.define('aparte-chat-bubble', AparteChatBubble);
 }

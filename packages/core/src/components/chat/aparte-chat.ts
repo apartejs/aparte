@@ -7,6 +7,7 @@ import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
 import { gateGlide } from './glide-gate.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * AparteChat - The Shell
@@ -378,6 +379,7 @@ export class AparteChat extends HTMLElement {
 }
 
 // Register the custom element
+deferHydrationOf(AparteChat);
 if (!customElements.get('aparte-chat')) {
   customElements.define('aparte-chat', AparteChat);
 }

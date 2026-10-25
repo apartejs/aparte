@@ -2,6 +2,7 @@
 // comment — TypeScript stops associating it, the manifest loses the `@example`, and
 // `check:examples` refuses the build. It happened here.
 import { presenceOn } from '../../utils/presence.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * AparteOption
@@ -125,6 +126,7 @@ export class AparteOption extends HTMLElement {
 }
 
 // Register
+deferHydrationOf(AparteOption);
 if (!customElements.get('aparte-option')) {
     customElements.define('aparte-option', AparteOption);
 }

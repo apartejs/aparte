@@ -1,6 +1,7 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 
 /**
@@ -195,6 +196,7 @@ export class AparteComposerAttachments extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteComposerAttachments);
 if (!customElements.get('aparte-composer-attachments')) {
     customElements.define('aparte-composer-attachments', AparteComposerAttachments);
 }

@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import { nextPosition, keyDelta } from './geometry.js';
 import { presenceOn } from '../../utils/presence.js';
 import { eventOrigin, rootOf } from '../../utils/event-target.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** Detail of `aparte-split-resize`: the position that settled, and what settled it. */
 export interface AparteSplitResizeDetail {
@@ -1006,6 +1007,7 @@ export class AparteSplit extends HTMLElement {
     }
 }
 
+deferHydrationOf(AparteSplit);
 if (!customElements.get('aparte-split')) {
     customElements.define('aparte-split', AparteSplit);
 }

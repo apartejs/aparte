@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn } from '../../utils/event-target.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** Detail of `aparte-scroll-rail-jump`: the message a tick points at. */
 export interface AparteScrollRailJumpDetail {
@@ -630,6 +631,7 @@ function sameElements(a: HTMLElement[], b: HTMLElement[]): boolean {
     return true;
 }
 
+deferHydrationOf(AparteScrollRail);
 if (!customElements.get('aparte-scroll-rail')) {
     customElements.define('aparte-scroll-rail', AparteScrollRail);
 }

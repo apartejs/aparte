@@ -3,6 +3,7 @@ import { presenceOn } from '../../utils/presence.js';
 import './aparte-optgroup.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 export interface AparteSelectChangeDetail {
     value: string;
@@ -858,6 +859,7 @@ function optionLabelText(option: Element): string {
     return text.trim();
 }
 
+deferHydrationOf(AparteSelect);
 if (!customElements.get('aparte-select')) {
     customElements.define('aparte-select', AparteSelect);
 }

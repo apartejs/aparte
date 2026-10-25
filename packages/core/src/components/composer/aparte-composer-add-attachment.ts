@@ -2,6 +2,7 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /**
  * File picker button for `<aparte-composer>`.
@@ -206,6 +207,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
 }
 
+deferHydrationOf(AparteComposerAddAttachment);
 if (!customElements.get('aparte-composer-add-attachment')) {
     customElements.define('aparte-composer-add-attachment', AparteComposerAddAttachment);
 }
