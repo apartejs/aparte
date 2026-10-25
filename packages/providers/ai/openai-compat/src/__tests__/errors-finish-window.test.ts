@@ -32,7 +32,11 @@ describe('errors streamed after a 200', () => {
             'data: {"error":{"message":"The number of tokens to keep from the initial prompt is greater than the context length. Context size has been exceeded."}}',
         )));
         expect(events).toEqual([
-            { type: 'error', message: 'The number of tokens to keep from the initial prompt is greater than the context length. Context size has been exceeded.' },
+            {
+                type: 'error',
+                message: 'The number of tokens to keep from the initial prompt is greater than the context length. Context size has been exceeded.',
+                code: 'USAGE_CONTEXT_EXCEEDED',
+            },
         ]);
     });
 

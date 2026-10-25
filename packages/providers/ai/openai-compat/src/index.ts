@@ -33,7 +33,7 @@ import type {
     AparteFinishReason,
     AparteFormatAdapter,
 } from '@aparte/core';
-import { contentToText } from '@aparte/core';
+import { AparteErrorCode, contentToText } from '@aparte/core';
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 
@@ -197,6 +197,35 @@ function errorPayloadMessage(error: unknown): string {
     if (typeof error === 'string' && error) return error;
     const message = (error as { message?: unknown } | null)?.message;
     return typeof message === 'string' && message ? message : 'The server reported an error';
+}
+
+/**
+ * What servers write when the prompt is longer than the model's window: OpenAI's
+ * "maximum context length", the generic "context length", LM Studio's "Context size has
+ * been exceeded", llama.cpp's `exceed_context_size_error` ("the request exceeds the
+ * available context size"), Anthropic-compatible gateways' "prompt is too long". Matched
+ * against the message, the type and the code of the payload, because each server puts the
+ * telltale in a different one.
+ */
+const CONTEXT_OVERFLOW = /maximum context length|context length|context size has been exceeded|exceed_context_size_error|exceeds the available context size|prompt is too long/i;
+
+/** Is this `{ "error": … }` payload a prompt that did not fit? OpenAI's own `context_length_exceeded` code says so outright. */
+function isContextOverflow(error: unknown): boolean {
+    if (typeof error === 'string') return CONTEXT_OVERFLOW.test(error);
+    const fields = error as { message?: unknown; type?: unknown; code?: unknown } | null;
+    const strings = [fields?.message, fields?.type, fields?.code].filter((v): v is string => typeof v === 'string');
+    return strings.some((v) => v === 'context_length_exceeded' || CONTEXT_OVERFLOW.test(v));
+}
+
+/**
+ * The error event for a payload the server streamed after its 200. An overflow carries
+ * its code, so the client can compact and resend instead of showing the prose.
+ */
+function errorEvent(error: unknown): AparteStreamEvent {
+    const message = errorPayloadMessage(error);
+    return isContextOverflow(error)
+        ? { type: 'error', message, code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED }
+        : { type: 'error', message };
 }
 
 // ─── Context window ──────────────────────────────────────────────────────────
@@ -482,12 +511,29 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             return parseOpenAICompatStream(body);
         },
 
+        /**
+         * A 400 (or a 413) whose body says the prompt did not fit is an overflow, not a bad
+         * request: the client compacts and sends the turn again. Other statuses keep what
+         * the status says.
+         */
+        classifyError(status: number, body: unknown): AparteErrorCode | undefined {
+            if (status !== 400 && status !== 413) return undefined;
+            return isContextOverflow((body as { error?: unknown } | null | undefined)?.error)
+                ? AparteErrorCode.USAGE_CONTEXT_EXCEEDED
+                : undefined;
+        },
+
         parseText(json: unknown): string {
             // A 200 that carries `error` and no `choices` is a failure, not an empty
             // reply: LM Studio answers a context overflow this way. The direct
             // transport propagates the throw as the turn's error.
             const payload = json as { error?: unknown; choices?: unknown } | null;
-            if (payload?.error && !payload.choices) throw new Error(errorPayloadMessage(payload.error));
+            if (payload?.error && !payload.choices) {
+                const failure = new Error(errorPayloadMessage(payload.error));
+                throw isContextOverflow(payload.error)
+                    ? Object.assign(failure, { code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED })
+                    : failure;
+            }
             return (json as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || '';
         },
     };
@@ -655,7 +701,7 @@ export function parseOpenAICompatStream(
                             // an empty reply marked completed. An `event: error` line before it
                             // is ignored like every non-`data:` line; this data line is the payload.
                             if (json.error) {
-                                controller.enqueue({ type: 'error', message: errorPayloadMessage(json.error) });
+                                controller.enqueue(errorEvent(json.error));
                                 reader?.cancel().catch(() => undefined);
                                 return;
                             }
