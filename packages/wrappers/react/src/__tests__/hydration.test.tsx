@@ -7,7 +7,7 @@
  * rendered: error 418, and the server's HTML thrown away. Measured first in a Next production
  * build (e2e/ssr/next).
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 import { createRoot, hydrateRoot, type Root } from 'react-dom/client';
@@ -52,12 +52,22 @@ describe('<AparteChat> hydrating server HTML', () => {
     it('a client-only render never holds the elements', () => {
         const container = document.createElement('div');
         document.body.append(container);
-        // createRoot, no server HTML: the client snapshot from the first render.
+        // Read from a child's effect, which runs BEFORE the chat's own (where a hold would be
+        // released): in an app with no server render the elements must already be drawn there.
+        const seen: { held: boolean; drawn: boolean }[] = [];
+        function Probe() {
+            useEffect(() => {
+                seen.push({
+                    held: !!container.querySelector('[defer-hydration]'),
+                    drawn: !!container.querySelector('aparte-composer-send button'),
+                });
+            }, []);
+            return <p>Ask</p>;
+        }
         act(() => {
             root = createRoot(container);
-            root.render(<AparteChat />);
+            root.render(<AparteChat emptyState={<Probe />} />);
         });
-        expect(container.querySelector('[defer-hydration]')).toBeNull();
-        expect(container.querySelector('aparte-composer-send button')).not.toBeNull();
+        expect(seen).toEqual([{ held: false, drawn: true }]);
     });
 });
