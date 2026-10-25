@@ -369,6 +369,19 @@ export interface AparteAbortEventDetail {
 export interface AparteCompactEventDetail {
     /** Which chat to compact. Omit on a single-chat page. */
     targetId?: string;
+    /**
+     * `true` when the request is an automatic one, made without a person asking: the
+     * gauge's deprecated `auto-compact` sets it. The plugin counts such a request against
+     * its back-off (two failures stop the automatic attempts), which a button's request
+     * never is.
+     */
+    auto?: boolean;
+    /**
+     * The context window, in tokens, the sender measured against. Honoured by the plugin
+     * as a last resort, when the current model declares none and no `contextWindow` option
+     * is set.
+     */
+    window?: number;
 }
 
 /**

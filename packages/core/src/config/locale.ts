@@ -229,6 +229,32 @@ export type AparteLocale = {
     /** Accessible name of the `<aparte-context>` gauge. Optional, like the keys above. */
     contextLabel?: string;
     /**
+     * The rows of the panel the `<aparte-context>` gauge opens, each a share of the window
+     * (defaults: "System prompt", "Tools", "Summary", "Messages", "Other", "Free", "Total").
+     * "Other" is what the estimate cannot attribute: a server loop's own prompt and tools,
+     * the chat template's tokens, the estimate's own error.
+     */
+    contextSystem?: string;
+    /** The panel's row for the tool definitions sent with the request (default: "Tools"). */
+    contextTools?: string;
+    /** The panel's row for the summary of a compacted history (default: "Summary"). */
+    contextSummary?: string;
+    /** The panel's row for the messages the model reads after the summary (default: "Messages"). */
+    contextMessages?: string;
+    /** The panel's row for what the estimate cannot attribute (default: "Other"). */
+    contextOther?: string;
+    /** The panel's row for the room left in the window (default: "Free"). */
+    contextFree?: string;
+    /** The panel's last row, the total against the window (default: "Total"). */
+    contextTotal?: string;
+    /**
+     * What the panel says when the compactor can tell what compacting would do; `{n}` is
+     * the tokens it would free (default: "Compacting now would free ~{n} tokens").
+     */
+    contextReclaim?: string;
+    /** The panel's button that compacts the conversation now (default: "Compact now"). */
+    contextCompactNow?: string;
+    /**
      * Title line of the summary message `@aparte/plugin-compaction` injects in place
      * of the summarised turns (default: "Conversation summary"). The plugin reads it
      * through `config.t()`, so the notice follows the locale like every other string
@@ -522,6 +548,15 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
     contextLabel: "Context window",
+    contextSystem: "System prompt",
+    contextTools: "Tools",
+    contextSummary: "Summary",
+    contextMessages: "Messages",
+    contextOther: "Other",
+    contextFree: "Free",
+    contextTotal: "Total",
+    contextReclaim: "Compacting now would free ~{n} tokens",
+    contextCompactNow: "Compact now",
     compactionSummaryTitle: "Conversation summary",
     checkpointCount: "{n} messages summarised for the model",
     checkpointCountOne: "1 message summarised for the model",
