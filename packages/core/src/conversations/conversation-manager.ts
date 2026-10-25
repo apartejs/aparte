@@ -1,4 +1,4 @@
-import type { AparteMessage } from '../types/index.js';
+import type { AparteContextSummary, AparteMessage } from '../types/index.js';
 import { APARTE_DERIVED_SEGMENTS } from '../types/models.js';
 import type { AparteConversation, AparteStorageAdapter } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
@@ -41,6 +41,12 @@ export interface ConversationManagerOptions {
  *
  * Keeps the subtree rooted at the new-oldest kept message (so recent history AND
  * recent branches survive) and drops everything before it. Exported for testing.
+ *
+ * A checkpoint (`contextSummary`) the cut falls after is not lost with the messages it
+ * sat among: the new first message inherits it — the same summary and date, its count
+ * raised by the messages the cut takes after the checkpoint's own position. Without it
+ * a trimmed conversation would send the model no summary of what came before and no
+ * originals either, which is how retention would quietly undo a compaction.
  */
 export function applyRetention(
     messages: AparteMessage[],
@@ -48,8 +54,21 @@ export function applyRetention(
     maxMessages: number,
 ): { messages: AparteMessage[]; tree: ExportedMessageRepository | undefined } {
     if (maxMessages <= 0 || messages.length <= maxMessages) return { messages, tree };
-    const trimmedFlat = messages.slice(messages.length - maxMessages);
-    const cutoffId = trimmedFlat[0]?.id;
+    const cutIndex = messages.length - maxMessages;
+    const trimmedFlat = messages.slice(cutIndex);
+    const first = trimmedFlat[0];
+    const cutoffId = first?.id;
+
+    // The latest checkpoint of the path, when the cut leaves it behind.
+    let inherited: AparteContextSummary | undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const own = messages[i]!.contextSummary;
+        if (!own) continue;
+        if (i < cutIndex) inherited = { ...own, count: own.count + (cutIndex - i) };
+        break;
+    }
+    if (first && inherited) trimmedFlat[0] = { ...first, contextSummary: inherited };
+
     if (!cutoffId || !tree) return { messages: trimmedFlat, tree };
 
     const treeIds = new Set(tree.messages.map((m) => m.message.id));
@@ -75,7 +94,9 @@ export function applyRetention(
         headId: tree.headId,
         messages: tree.messages
             .filter((m) => keep.has(m.message.id))
-            .map((m) => (m.message.id === cutoffId ? { message: m.message, parentId: null } : m)),
+            .map((m) => (m.message.id === cutoffId
+                ? { message: inherited ? { ...m.message, contextSummary: inherited } : m.message, parentId: null }
+                : m)),
     };
     return { messages: trimmedFlat, tree: trimmedTree };
 }

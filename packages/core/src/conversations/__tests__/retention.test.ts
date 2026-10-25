@@ -76,3 +76,60 @@ describe('AparteConversationManager retention (opt-in)', () => {
         expect(store.get(conv.id)!.messages).toHaveLength(4);
     });
 });
+
+describe('applyRetention and a checkpoint', () => {
+    const summary = { summary: 'What came before.', count: 4, createdAt: 99 };
+    const withSummary = (id: string): AparteMessage => ({ ...m(id), contextSummary: summary });
+
+    it('gives the new first message the summary when the cut falls after the checkpoint', () => {
+        // u2 carries the checkpoint at index 2; keeping 2 messages cuts u1 a1 u2 a2 (indexes 0-3).
+        const flat = [m('u1'), m('a1'), withSummary('u2'), m('a2'), m('u3'), m('a3')];
+        const r = applyRetention(flat, undefined, 2);
+        expect(r.messages.map((x) => x.id)).toEqual(['u3', 'a3']);
+        // Same summary, same date; the count grows by the 2 messages cut from the
+        // checkpoint's own position on (u2 and a2), which the summary now stands behind.
+        expect(r.messages[0]!.contextSummary).toEqual({ summary: 'What came before.', count: 6, createdAt: 99 });
+        expect(r.messages[1]!.contextSummary).toBeUndefined();
+    });
+
+    it('does the same in the tree, on the node the subtree is re-rooted at', () => {
+        const flat = [m('u1'), m('a1'), withSummary('u2'), m('a2'), m('u3')];
+        const tree: ExportedMessageRepository = {
+            headId: 'u3',
+            messages: [node('u1', null), node('a1', 'u1'), { message: withSummary('u2'), parentId: 'a1' },
+                node('a2', 'u2'), node('u3', 'a2')],
+        };
+        const r = applyRetention(flat, tree, 2);
+        const root = r.tree!.messages.find((x) => x.message.id === 'a2')!;
+        expect(root.parentId).toBeNull();
+        expect(root.message.contextSummary).toEqual({ summary: 'What came before.', count: 5, createdAt: 99 });
+        expect(r.messages[0]!.contextSummary).toEqual(root.message.contextSummary);
+    });
+
+    it('does not touch the messages it received', () => {
+        const flat = [m('u1'), withSummary('u2'), m('a2'), m('u3')];
+        applyRetention(flat, undefined, 2);
+        expect(flat[2]!.contextSummary).toBeUndefined();
+        expect(flat[1]!.contextSummary).toBe(summary);
+    });
+
+    it('adds nothing when the checkpoint is among the kept messages', () => {
+        const flat = [m('u1'), m('a1'), withSummary('u2'), m('a2')];
+        const r = applyRetention(flat, undefined, 2);
+        expect(r.messages[0]!.contextSummary).toBe(summary);
+        expect(r.messages[1]!.contextSummary).toBeUndefined();
+    });
+
+    it('adds nothing when the path has no checkpoint', () => {
+        const r = applyRetention(['a', 'b', 'c', 'd'].map(m), undefined, 2);
+        expect('contextSummary' in r.messages[0]!).toBe(false);
+    });
+
+    it('inherits only the LATEST checkpoint when several were cut', () => {
+        const older = { summary: 'older', count: 1, createdAt: 1 };
+        const newer = { summary: 'newer', count: 3, createdAt: 2 };
+        const flat = [{ ...m('u1'), contextSummary: older }, m('a1'), { ...m('u2'), contextSummary: newer }, m('a2'), m('u3')];
+        const r = applyRetention(flat, undefined, 1);
+        expect(r.messages[0]!.contextSummary).toEqual({ summary: 'newer', count: 3 + 2, createdAt: 2 });
+    });
+});
