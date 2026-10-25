@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { defineComponent, h, inject, onMounted, onUnmounted, provide, ref, toRaw, type PropType } from 'vue';
+import { defineComponent, h, inject, onMounted, onUnmounted, provide, ref, toRaw, type PropType, type Ref } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { AparteConfig, aparteGlobalConfig, getSegmentRenderer, registerAllComponents, registerDefaultRenderers, type AparteSegmentBase, type AparteToolCallSegment, type AparteToolCallView } from '@aparte/core';
 import AparteToolUI from '../AparteToolUI.vue';
@@ -176,7 +176,9 @@ describe('<AparteToolUI> / <AparteSegmentUI> (Vue) with what Vue hands them', ()
     });
 
     it('a config held in a ref is declared on as the instance, not as Vue\'s proxy of it', async () => {
-        const held = ref(new AparteConfig());
+        // What a deep ref holds is Vue's reactive proxy of the instance — the value this test is
+        // about. Its unwrapped TYPE drops the private members, so it is named for what it is.
+        const held = ref(new AparteConfig()) as unknown as Ref<AparteConfig>;
         const w = mount(AparteSegmentUI, {
             props: { type: 'chart', config: held.value },
             slots: { default: () => h('span') },
