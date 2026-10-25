@@ -74,6 +74,7 @@ export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDeta
 export type {
     AparteBubbleRole,
     AparteMessage,
+    AparteContextSummary,
     AparteContentParser,
     AparteStreamBlock,
     AparteStreamBlockMatch,
@@ -303,6 +304,7 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
+export { historyFromCheckpoint } from './context/checkpoint.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';

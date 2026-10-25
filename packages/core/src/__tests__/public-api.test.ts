@@ -89,6 +89,7 @@ describe('@aparte/core public API', () => {
             "filesToAttachments",
             "getAllRenderers",
             "getSegmentRenderer",
+            "historyFromCheckpoint",
             "installDefaultRenderersOnce",
             "installDialogTriggersOnce",
             "isAwaitingReply",

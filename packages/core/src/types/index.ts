@@ -16,6 +16,7 @@ export type {
     AparteBubbleRole,
     AparteAttachment,
     AparteMessage,
+    AparteContextSummary,
     AparteMessageBranch,
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
