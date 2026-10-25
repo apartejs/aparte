@@ -128,4 +128,40 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
   </section>
 </aparte-split>`,
     },
+
+    // ── Launcher ──────────────────────────────────────────────────────────────
+    {
+        id: 'launcher',
+        title: 'A chat in a corner of the page',
+        html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then it, Escape or ✕ to close. -->
+<div style="height: 32rem"></div>
+<aparte-launcher label="Help" breakpoint="none" style="--aparte-launcher-height: 26rem">
+  <aparte-chat center-empty placeholder="Ask about your order…"></aparte-chat>
+</aparte-launcher>
+
+<script>
+  // The chat inside is an ordinary <aparte-chat>: here a script answers it; in a page, AparteClient.
+  const chat = document.querySelector('aparte-chat');
+  let n = 0;
+  chat.addEventListener('aparte-send', (event) => {
+    chat.viewport.appendMessage({ id: 'u' + ++n, role: 'user', content: event.detail.content, timestamp: Date.now() });
+    chat.viewport.appendMessage({ id: 'a' + ++n, role: 'assistant', content: 'Your order left the warehouse this morning.', timestamp: Date.now() });
+  });
+</script>`,
+    },
+    {
+        id: 'launcher-sheet',
+        title: 'The launcher as a sheet on a phone',
+        html: `<!-- Under its breakpoint the open chat fills the window and its button moves to the top corner.
+     A breakpoint wider than this frame keeps it a sheet here. -->
+<div style="height: 30rem"></div>
+<aparte-launcher open breakpoint="200rem">
+  <aparte-chat>
+    <aparte-chat-viewport>
+      <aparte-chat-bubble message-id="u1" data-role="user" content="Can I change my delivery address?"></aparte-chat-bubble>
+      <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes, until the parcel ships. Which address should it go to?"></aparte-chat-bubble>
+    </aparte-chat-viewport>
+  </aparte-chat>
+</aparte-launcher>`,
+    },
 ];

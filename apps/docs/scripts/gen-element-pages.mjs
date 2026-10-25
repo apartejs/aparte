@@ -95,6 +95,7 @@ const GROUP = {
   'aparte-scroll-rail': 'conversation',
   'aparte-sidebar': 'shell',
   'aparte-split': 'shell',
+  'aparte-launcher': 'shell',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
   'aparte-suggestions': 'input',
