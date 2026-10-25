@@ -204,6 +204,13 @@ export class AparteChatHost {
     /** Handle of the scheduled coalesced sync, or null when none is pending. */
     private _flushHandle: number | null = null;
 
+    /**
+     * Lists reported through `onMessagesChange` that the parent has not handed back yet, oldest
+     * first — what {@link takeEcho} recognises. Bounded: a parent that never hands a list back
+     * (an uncontrolled chat) must not make it grow for the life of the page.
+     */
+    private readonly _pendingEchoes: AparteMessage[][] = [];
+
     private _conversationId: string | null = null;
     private _controller?: AparteConversationController;
     private _teardown: Array<() => void> = [];
@@ -213,6 +220,36 @@ export class AparteChatHost {
         this.binding = binding;
         this.options = options;
         this._conversationId = options.conversationId ?? null;
+    }
+
+    /** Every report goes through here, so {@link takeEcho} knows what the parent may hand back. */
+    private _report(next: AparteMessage[]): void {
+        this._pendingEchoes.push(next);
+        if (this._pendingEchoes.length > 64) this._pendingEchoes.shift();
+        this.binding.onMessagesChange?.(next);
+    }
+
+    /**
+     * Whether a list the parent hands back is this host's own report coming back — the echo of
+     * `onMessagesChange` through a two-way binding (`bind:messages`, `v-model:messages`,
+     * `[(messages)]`, a controlled React prop). A wrapper asks before applying the list it is
+     * given, because applying an echo rolls back what the host did since without reporting (an
+     * optimistic append).
+     *
+     * True for a list reported and not handed back yet, however late it lands — a parent whose
+     * render comes after the host's next write hands back an EARLIER report — and that list and
+     * every older one are taken. False for any other list, the parent's own word, which clears
+     * them: a list the parent restores later (a reopened conversation, an undo) is applied,
+     * where remembering every list ever reported swallowed it.
+     */
+    takeEcho(list: AparteMessage[]): boolean {
+        const i = this._pendingEchoes.indexOf(list);
+        if (i < 0) {
+            this._pendingEchoes.length = 0;
+            return false;
+        }
+        this._pendingEchoes.splice(0, i + 1);
+        return true;
     }
 
     // ── lifecycle ──────────────────────────────────────────────────────────
@@ -435,7 +472,7 @@ export class AparteChatHost {
         const merged = { ...next[index]!, ...updates };
         next[index] = merged;
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
         // Immediate visual feedback for a status change (e.g. streaming class).
         if (updates.status) {
             this._bubbleById(messageId)?.updateMessage?.({ status: updates.status });
@@ -461,7 +498,7 @@ export class AparteChatHost {
         const newContent = options?.append ? (last.content || '') + content : content;
         const next = [...msgs.slice(0, -1), { ...last, content: newContent }];
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     /** Add a segment to the last message (immediate bubble + state sync). */
@@ -492,7 +529,7 @@ export class AparteChatHost {
         const segments = [...(last.segments || []), stamped];
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     /** Update a segment in the last message in place. */
@@ -512,7 +549,7 @@ export class AparteChatHost {
         );
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     /** Remove a transient segment (a status row the host added itself). */
@@ -528,7 +565,7 @@ export class AparteChatHost {
         renumberSegments(segments);
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     /**
@@ -646,7 +683,7 @@ export class AparteChatHost {
 
         if (!changed) return;
         this.binding.setMessages(msgs);
-        this.binding.onMessagesChange?.(msgs);
+        this._report(msgs);
     }
 
     /** Read the current message list. */
@@ -682,7 +719,7 @@ export class AparteChatHost {
         const idx = msgs.findIndex((m) => m.id === messageId);
         const next = idx >= 0 ? msgs.slice(0, idx) : msgs;
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     /** Keep up to and including a user message, drop later responses (retry). */
@@ -692,7 +729,7 @@ export class AparteChatHost {
         const idx = msgs.findIndex((m) => m.id === userMessageId);
         const next = idx >= 0 ? msgs.slice(0, idx + 1) : msgs;
         this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        this._report(next);
     }
 
     // ── manual token streaming (agnostic core of injectTokenStream) ─────────
@@ -1000,7 +1037,7 @@ export class AparteChatHost {
                 m.id === d.messageId ? { ...m, usage: d.usage } : m,
             );
             this.binding.setMessages(next);
-            this.binding.onMessagesChange?.(next);
+            this._report(next);
             this._bubbleById(d.messageId)?.setUsage?.(d.usage);
         };
         const onEnd = (e: Event) => {
@@ -1040,7 +1077,7 @@ export class AparteChatHost {
                 return old?.usage !== undefined ? { ...m, usage: old.usage } : m;
             });
             this.binding.setMessages(merged);
-            this.binding.onMessagesChange?.(merged);
+            this._report(merged);
             if (evt.detail.siblings.some((s) => s.count > 1)) {
                 this._pendingSiblings = evt.detail.siblings;
                 this.binding.afterRender(() => this._applyPendingSiblings());

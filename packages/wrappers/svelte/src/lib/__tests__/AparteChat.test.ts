@@ -68,6 +68,25 @@ describe('AparteChat.svelte in controlled mode', () => {
         await tick();
         expect(api.getMessages().map((m) => m.id)).toEqual(['p1']);
     });
+
+    it('applies a list the parent restores, even one the chat reported earlier (a reopened conversation)', async () => {
+        const emitted: AparteMessage[][] = [];
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const { component } = render(AparteChat, { messages: initial, onmessagesChange: (m: AparteMessage[]) => { emitted.push(m); } });
+        const api = component as unknown as AparteChatImperativeApi & { $set: (p: object) => void };
+        await tick();
+        api.updateMessage('u1', { content: 'v1' });
+        await tick();
+        const saved = emitted[0]!;
+        api.$set({ messages: saved });
+        await tick();
+        api.$set({ messages: [] });
+        await tick();
+        expect(api.getMessages()).toEqual([]);
+        api.$set({ messages: saved });
+        await tick();
+        expect(api.getMessages().map((m) => m.content)).toEqual(['v1']);
+    });
 });
 
 describe('AparteChat.svelte', () => {

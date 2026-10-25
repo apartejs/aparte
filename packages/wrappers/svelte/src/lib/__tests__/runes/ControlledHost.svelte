@@ -10,6 +10,7 @@
 
   export function current(): AparteMessage[] { return msgs; }
   export function api(): AparteChatImperativeApi | undefined { return chat; }
+  export function write(next: AparteMessage[]) { msgs = next; }
 </script>
 
 <AparteChat bind:this={chat} messages={msgs} onmessagesChange={(l) => (msgs = l)} />

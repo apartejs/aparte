@@ -551,6 +551,23 @@ describe('AparteChat React Wrapper', () => {
         expect(ref.current!.getMessages().map((m) => m.id)).toEqual(['p1']);
     });
 
+    it('applies a list the parent restores, even one the chat reported earlier (a reopened conversation)', async () => {
+        const emitted: AparteMessage[][] = [];
+        const onMessagesChange = (m: AparteMessage[]) => { emitted.push(m); };
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const initial: AparteMessage[] = [{ id: 'u1', role: 'user', content: 'v0', timestamp: 1 }];
+        const chat = (messages: AparteMessage[]) => <AparteChat ref={ref} messages={messages} onMessagesChange={onMessagesChange} />;
+        const { rerender } = render(chat(initial));
+        await act(async () => { ref.current?.updateMessage('u1', { content: 'v1' }); });
+        const saved = emitted[0]!;
+        await act(async () => { rerender(chat(saved)); });
+        // A new conversation, then the first one reopened from where the parent kept it.
+        await act(async () => { rerender(chat([])); });
+        expect(ref.current!.getMessages()).toEqual([]);
+        await act(async () => { rerender(chat(saved)); });
+        expect(ref.current!.getMessages().map((m) => m.content)).toEqual(['v1']);
+    });
+
     it('keeps a reply driven through the imperative API whatever earlier emit the parent hands back (#97)', async () => {
         // The issue's sequence: a host streams a tool call then a reply through the ref,
         // some steps emit and some (the append) do not, and the parent's echoes land late.

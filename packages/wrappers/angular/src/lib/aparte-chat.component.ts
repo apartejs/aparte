@@ -260,16 +260,19 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
     /** Messages to display. Two-way: `[(messages)]`, with `(messagesChange)` reporting the chat's own changes. */
     readonly messagesInput = input<AparteMessage[]>([], { alias: 'messages' });
-    /**
-     * Every list the host reported. Under `[(messages)]` each comes back through the input —
-     * possibly an EARLIER one, after the chat appended without reporting (an optimistic
-     * append, or core's append right after a flush) — and an echo is not the parent's word:
-     * it keeps the local list, the rule React, Vue and Svelte apply.
-     */
+    /** Every list the host reported — read only by the render-cache rule below. */
     private readonly _emitted = new WeakSet<AparteMessage[]>();
+    /**
+     * Under `[(messages)]` each report comes back through the input — possibly an EARLIER one,
+     * after the chat appended without reporting (an optimistic append, or core's append right
+     * after a flush) — and an echo is not the parent's word: it keeps the local list. The host
+     * tells them apart (`takeEcho`), the rule React, Vue and Svelte apply, so a list the parent
+     * restores later (a reopened conversation, an undo) is applied. Before the host exists
+     * nothing was reported, so the input is taken as it is.
+     */
     readonly messages = linkedSignal<AparteMessage[], AparteMessage[]>({
         source: this.messagesInput,
-        computation: (next, previous) => (previous && this._emitted.has(next) ? previous.value : next),
+        computation: (next, previous) => (previous && this._host?.takeEcho(next) ? previous.value : next),
     });
 
     /** Input placeholder text */

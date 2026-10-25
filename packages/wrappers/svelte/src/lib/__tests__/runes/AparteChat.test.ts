@@ -141,6 +141,31 @@ describe('<AparteChat> for Svelte 5', () => {
         expect(host.current().map((m) => m.id)).toEqual(['1', '2']);
     });
 
+    // A parent that keeps a list it was given and assigns it back later — a reopened
+    // conversation, an undo — is not echoing anything.
+    for (const [label, Host] of [['bind:messages on a $state', BindHost], ['messages={msgs} written back into a deep $state', ControlledHost]] as const) {
+        it(`a list the parent restores is drawn, even one the chat reported earlier (${label})`, async () => {
+            const { container, component } = render(Host as typeof BindHost, { props: { initial: [...two] } });
+            await tick();
+            const host = component as unknown as { write(m: AparteMessage[]): void; current(): AparteMessage[]; api(): { updateMessage(id: string, u: Partial<AparteMessage>): void; getMessages(): AparteMessage[] } };
+            if (Host === ControlledHost) { host.write([...two]); flushSync(); await tick(); }
+            host.api().updateMessage('1', { content: 'Hello again' });
+            flushSync();
+            await tick();
+            const saved = host.current();
+            expect(saved.map((m) => m.id)).toEqual(['1', '2']);
+            host.write([]);
+            flushSync();
+            await tick();
+            expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(0);
+            host.write(saved);
+            flushSync();
+            await tick();
+            expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
+            expect(host.api().getMessages().map((m) => m.id)).toEqual(['1', '2']);
+        });
+    }
+
     it('after the chat emptied the list, a push then a clear by the parent is drawn', async () => {
         const { container, component } = render(BindHost, { props: { initial: [...two] } });
         await tick();

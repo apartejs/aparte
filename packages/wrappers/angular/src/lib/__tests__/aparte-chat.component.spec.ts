@@ -362,6 +362,29 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(chat.messages().find((m) => m.id === 'a1')?.content).toBe('Hello');
     });
 
+    it('two-way [(messages)]: a list the parent restores is drawn, even one the chat reported earlier', async () => {
+        // A new conversation, then the first one reopened from where the parent kept it.
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const chat = fixture.componentInstance.chat();
+        chat.updateMessage('1', { content: 'Hello' });
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const saved = fixture.componentInstance.messages;
+        expect(saved[0]?.content).toBe('Hello');
+
+        fixture.componentInstance.messages = [];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(chat.messages()).toEqual([]);
+
+        fixture.componentInstance.messages = saved;
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(chat.messages().map((m) => m.content)).toEqual(['Hello']);
+    });
+
     it('a parent write to [messages] is drawn and emits nothing back', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         const changed: AparteMessage[][] = [];

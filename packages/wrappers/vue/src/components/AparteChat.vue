@@ -123,9 +123,6 @@ function setRoot(el: Element | ComponentPublicInstance | null): void {
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();
 const internalMessages = ref<AparteMessage[]>([...props.messages]);
-// Every list the host emitted: the prop comes back as one of them, possibly an EARLIER
-// one when the parent lands late, and an echo is not the parent's word (see the watch).
-const emitted = new WeakSet<AparteMessage[]>();
 const typingActive = ref(props.isTyping);
 
 let host: AparteChatHost | null = null;
@@ -164,7 +161,6 @@ onMounted(() => {
     getMessages: () => internalMessages.value,
     setMessages: (m) => { internalMessages.value = m as AparteMessage[]; },
     onMessagesChange: (m) => {
-      emitted.add(m as AparteMessage[]);
       emit('messagesChange', m as AparteMessage[]);
       emit('update:messages', m as AparteMessage[]);
     },
@@ -200,12 +196,15 @@ onBeforeUnmount(() => {
   host = null;
 });
 
-// Parent push → internal list, unless it is the host's own emit coming back, current or
-// stale — applying a stale one rolled the list back under the host's next write. Raw, as
-// a parent's `ref` hands the emitted array back wrapped in a reactive proxy.
+// Parent push → internal list, unless it is the host's own report coming back — possibly an
+// EARLIER one when the parent lands late; applying it rolled the list back under the host's
+// next write. The host tells them apart (`takeEcho`): asked first, always, so a list the parent
+// restores later (a reopened conversation) is not mistaken for one. Raw, as a parent's `ref`
+// hands the emitted array back wrapped in a reactive proxy.
 watch(() => props.messages, (m) => {
   const raw = toRaw(m);
-  if (raw === toRaw(internalMessages.value) || emitted.has(raw)) return;
+  const echo = host?.takeEcho(raw) ?? false;
+  if (echo || raw === toRaw(internalMessages.value)) return;
   internalMessages.value = [...m];
   if (m.length === 0) host?.clearRenderCache();
 });

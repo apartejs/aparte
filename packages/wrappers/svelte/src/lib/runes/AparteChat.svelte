@@ -75,14 +75,22 @@
   // a bound $state array — unless it is the host's own emit coming back, current or stale:
   // applying it rolled back what a non-emitting call (appendMessage) had added since.
   //
-  // Own emits are known by the ids they carried, keyed by the value that comes back, which is a
-  // proxy of the emitted list — the chat's own in a bare chat, the parent's under `bind:` or
-  // when the parent writes it back into a deep $state (a new proxy each time: Svelte keeps no
-  // cache) — not the list itself. A parent mutation applied to that same proxy (a push, then a
-  // pop) makes the entry stale, so applying one forgets it.
-  const emittedIds = new WeakMap<object, string[]>();
+  // The reports the parent has not handed back yet, oldest first — the rule core's host applies
+  // for the other wrappers (`takeEcho`), here by value AND ids: what comes back is a proxy of the
+  // emitted list — the chat's own in a bare chat, the parent's under `bind:` or when the parent
+  // writes it back into a deep $state (a new proxy each time: Svelte keeps no cache) — and a
+  // proxy the parent mutated in place keeps its identity, not its ids. A report that comes back,
+  // however late, is taken with every older one; any other value is the parent's word and clears
+  // them, so a list the parent restores later (a reopened conversation, an undo) is applied.
+  let pendingEchoes: Array<{ values: object[]; ids: string[] }> = [];
   const sameIds = (a: readonly (string | undefined)[], b: readonly (string | undefined)[]) =>
     a.length === b.length && a.every((id, i) => id === b[i]);
+  function takeEcho(value: object, ids: readonly (string | undefined)[]): boolean {
+    const i = pendingEchoes.findIndex((p) => p.values.includes(value) && sameIds(ids, p.ids));
+    if (i < 0) { pendingEchoes = []; return false; }
+    pendingEchoes.splice(0, i + 1);
+    return true;
+  }
   let lastProp = untrack(() => messages);
   $effect.pre(() => {
     const next = messages;
@@ -90,11 +98,9 @@
     const items = [...next];
     untrack(() => {
       const ids = items.map((m) => m?.id);
-      const own = emittedIds.get(next);
-      if (own && sameIds(ids, own)) { lastProp = next; return; }
+      if (takeEcho(next, ids)) { lastProp = next; return; }
       if (next === lastProp && sameIds(ids, internalMessages.map((m) => m.id))) return;
       lastProp = next;
-      emittedIds.delete(next);
       internalMessages = items;
       if (items.length === 0) host?.clearRenderCache();
     });
@@ -160,15 +166,16 @@
       setMessages: (m) => { internalMessages = m as AparteMessage[]; },
       onMessagesChange: (m) => {
         const list = m as AparteMessage[];
-        const ids = list.map((x) => x.id);
-        emittedIds.set(list, ids);
+        const report = { values: [list as object], ids: list.map((x) => x.id) };
+        pendingEchoes.push(report);
+        if (pendingEchoes.length > 64) pendingEchoes.shift();
         messages = list;
         onmessagesChange?.(list);
         // What the effect above will read back — read AFTER the callback, so a write-back made
         // in it (`onmessagesChange={(m) => (msgs = m)}`) is the proxy recorded, not the one it
         // replaced. A write-back after an await lands later, as the parent's own word.
         const stored = untrack(() => messages);
-        emittedIds.set(stored, ids);
+        report.values.push(stored);
         lastProp = stored;
       },
       onMessageAppended: (m) => { onmessageAppended?.(m as AparteMessage); },
