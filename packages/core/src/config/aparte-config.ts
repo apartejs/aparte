@@ -141,6 +141,22 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
     renderingVersions.set(cfg, renderingVersionOf(cfg) + 1);
 }
 
+/**
+ * A config's change notification, for code that lives outside the class: the segment
+ * renderer registry is its own module, and a renderer registered there has to reach the
+ * segments already on screen the way a tool renderer does. Internal to core: not exported
+ * from the package.
+ */
+const notifiers = new WeakMap<AparteConfig, () => void>();
+
+export function notifyConfigChange(cfg: AparteConfig): void {
+    notifiers.get(cfg)?.();
+}
+
+/** One override stack per tool matcher, keyed by its spelling (as `ToolTable` keys it). */
+const matcherKey = (match: AparteToolMatcher): string =>
+    match instanceof RegExp ? `re:${String(match)}` : `name:${match}`;
+
 /** The fields of a tool display that change a row's ELEMENT, so registering one redraws. */
 const ELEMENT_SHAPING = ['hidden', 'open', 'details', 'quiet'] as const satisfies readonly (keyof AparteToolDisplay)[];
 
@@ -213,6 +229,12 @@ export class AparteConfig {
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
+
+    constructor() {
+        // The segment-renderer registry is a module of its own; this is how a renderer
+        // registered there notifies through the config it was registered on.
+        notifiers.set(this, () => this._notify());
+    }
 
     // AI Provider Management (BYORK)
     private _aiProviders: Map<string, AparteAIProvider> = new Map();
@@ -288,6 +310,8 @@ export class AparteConfig {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     // By exact name, pattern or '*' — see `tool-table.ts` for the one resolution rule.
     private _toolRenderers = new ToolTable<AparteToolRenderer>();
+    /** {@link overrideToolRenderer}'s stacks: what each matcher held below every override. */
+    private _toolRendererOverrides = new Map<string, Array<AparteToolRenderer | undefined>>();
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
@@ -1297,12 +1321,57 @@ export class AparteConfig {
      * // Custom pill for a web-search tool
      * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="aparte-tool-label">Searching...</div>` });
      *
+     * Calls already on screen follow: those this registration now draws are drawn again
+     * by it (the renderer that drew them before gets its `cleanup`), and nothing else on
+     * the page is touched.
+     *
      * @example
      * // One look for every tool an MCP server brings
      * aparteGlobalConfig.registerToolRenderer(/^mcp__/, { render: (seg) => myMcpCard(seg) });
      */
     registerToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): void {
+        if (this._toolRenderers.get(match) === renderer) return;
         this._toolRenderers.set(match, renderer);
+        this._notify();
+    }
+
+    /**
+     * Put `renderer` over whatever this matcher holds, and get back the function that takes
+     * it off again — the registration a component makes for as long as it is mounted.
+     *
+     * Overrides stack per matcher. The function restores what was there before THIS
+     * override, and taking off an override that is no longer on top changes nothing on
+     * screen: two components declaring the same tool, the newer wins, and unmounting the
+     * older does not take the newer's away. When the last one goes, the matcher holds what
+     * it held before the first — another registration, or nothing. Calls on screen follow
+     * each change, as with {@link registerToolRenderer}. The returned function is safe to
+     * call twice.
+     *
+     * @example
+     * const restore = aparteGlobalConfig.overrideToolRenderer('get_weather', weatherCard);
+     * // …later, when the component that declared it unmounts:
+     * restore();
+     */
+    overrideToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): () => void {
+        const key = matcherKey(match);
+        let stack = this._toolRendererOverrides.get(key);
+        if (!stack) {
+            stack = [this._toolRenderers.get(match)];
+            this._toolRendererOverrides.set(key, stack);
+        }
+        stack.push(renderer);
+        this.registerToolRenderer(match, renderer);
+        let restored = false;
+        return () => {
+            if (restored) return;
+            restored = true;
+            const i = stack.lastIndexOf(renderer);
+            if (i > 0) stack.splice(i, 1);
+            if (stack.length === 1) this._toolRendererOverrides.delete(key);
+            const top = stack[stack.length - 1];
+            if (top) this.registerToolRenderer(match, top);
+            else this.unregisterToolRenderer(match);
+        };
     }
 
     /**
@@ -1348,9 +1417,11 @@ export class AparteConfig {
         this._segmentDefaults.delete(type);
     }
 
-    /** Unregister the renderer registered under this matcher. */
+    /** Unregister the renderer registered under this matcher. Calls on screen it drew go back to core's row. */
     unregisterToolRenderer(match: AparteToolMatcher): void {
+        if (this._toolRenderers.get(match) === undefined) return;
         this._toolRenderers.delete(match);
+        this._notify();
     }
 
     /** The renderer that draws a tool named `toolName` — exact, pattern or `'*'` — or undefined. */
@@ -1784,6 +1855,7 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
+        this._toolRendererOverrides.clear();
         this._toolDisplays.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};

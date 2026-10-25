@@ -93,6 +93,7 @@ export type {
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteSegmentRenderer,
+    AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
@@ -168,6 +169,9 @@ export type {
     AparteToolMatcher,
     AparteToolDisplay,
     AparteToolDetails,
+    AparteToolCallView,
+    AparteMountedView,
+    AparteToolMount,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
     // and the <AparteUi> proxy handle the four used to hand-copy).
@@ -220,7 +224,12 @@ export {
     // `hasHighlightProvider` and `renderMarkdown` are public.
     installDefaultRenderersOnce,
     declineDefaultRenderers,
-    getAllRenderers
+    getAllRenderers,
+    // A component's registration, taken off when it unmounts; and the renderers that mount one.
+    overrideSegmentRenderer,
+    defineMountedToolRenderer,
+    defineMountedSegmentRenderer,
+    toToolCallView
 } from './renderers/index.js';
 
 // Export components

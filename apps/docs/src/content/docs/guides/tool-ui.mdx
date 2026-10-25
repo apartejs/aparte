@@ -1,0 +1,120 @@
+---
+title: Your own components in tool calls
+description: Draw a tool call — or a segment type of your own — with a component of yours, mounted once, updated as the call changes and unmounted when it leaves, with defineMountedToolRenderer and overrideToolRenderer.
+sidebar:
+  order: 3
+  label: Your components in tool calls
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+A tool call is drawn as core's row until you say otherwise. When a call deserves a card of its
+own — the weather for `get_weather`, a diff for `edit_file`, a chart for `run_query` — you can
+draw it with a component of yours instead: mounted once in the element core gives it, handed every
+change of the call (the result landing, an approval decided), and unmounted when the call leaves
+the page.
+
+## Mount a component for a tool
+
+```ts
+import { aparteGlobalConfig, defineMountedToolRenderer, type AparteToolCallView } from '@aparte/core';
+
+type Weather = AparteToolCallView<{ city: string }>;
+
+function draw(host: HTMLElement, view: Weather) {
+  host.textContent = view.status === 'resolved' ? `${view.input.city}: ${view.result}` : `Looking up ${view.input.city}…`;
+}
+
+const restore = aparteGlobalConfig.overrideToolRenderer('get_weather', defineMountedToolRenderer((host, view) => {
+  draw(host, view as Weather);
+  return {
+    update: (next) => draw(host, next as Weather),
+    destroy: () => host.replaceChildren(),
+  };
+}));
+```
+
+`defineMountedToolRenderer` turns a mount function — an `AparteToolMount`, `(host, view) =>` what
+you mounted — into a complete tool renderer. Core creates the
+host — an empty `div.aparte-tool-ui` in place of the row — and calls your function once, when the
+host is in the page. What you return is how core reaches what you mounted: `update` with every
+newer state of the call, never a remount, so a component keeps its local state when the result
+arrives; `destroy` when the host leaves for good. Mount a Preact, Lit or Solid component there, or
+plain DOM as above.
+
+`overrideToolRenderer` puts the renderer over whatever the tool had and returns the function that
+takes it off again — the registration a component makes for as long as it is mounted.
+`registerToolRenderer` works too, for a card that stays for the page's lifetime. The matcher is a
+name, a `RegExp` or `'*'`, as everywhere else for tools.
+
+## What a card is given
+
+`toToolCallView(segment)` builds the `AparteToolCallView` your mount and `update` receive, one
+object with the fields a card draws from:
+
+| Field | What it holds |
+| --- | --- |
+| `id`, `name` | the call's id as the model issued it, and the tool's name |
+| `input` | the arguments the model passed — typed with the view's first parameter |
+| `status` | `pending`, `awaiting-approval`, `resolved`, `rejected`, `aborted` or `failed` |
+| `result`, `structuredResult` | the tool's answer as text, and as data (the view's second parameter) |
+| `deferred`, `refusal`, `abortCause` | why the call waits, who refused it and what they said, why it stopped |
+| `segment` | the whole segment, for anything else |
+
+`input` and `result` are chosen by the model: render them as text, or escape them, like anything
+else a model wrote.
+
+## When a card is mounted, updated and unmounted
+
+A card is mounted once and updated in place for as long as it stays. It is unmounted — `destroy`,
+through the renderer's `cleanup` — exactly once, when its element leaves for good: the call removed,
+its message redrawn or removed, a conversation switch, or the renderer replaced. It is not unmounted
+when a framework only moves its message: a message taken out of the page and put back within the
+same task keeps its cards. A message that comes back later (a keep-alive cache, a reused route)
+mounts its cards again.
+
+The registry is live. A renderer registered while calls are already on screen — a restored
+conversation, a page that declares its cards after the first messages — takes those calls over, and
+taking it off gives them back to core's row; calls to other tools are not touched. Overrides stack:
+of two declarations for the same tool the newer wins, and taking off the older one leaves the newer
+in place. Each `restore` function is safe to call twice.
+
+A card's own changes count as content arriving: if the reader is at the bottom of the chat, it
+follows them; if they scrolled up to read, it stays where they are.
+
+## A segment type of your own
+
+```ts
+import { defineMountedSegmentRenderer, overrideSegmentRenderer, type AparteSegmentBase } from '@aparte/core';
+
+interface ChartSegment extends AparteSegmentBase {
+  type: 'chart';
+  points: number[];
+}
+
+const restoreChart = overrideSegmentRenderer(defineMountedSegmentRenderer<ChartSegment>('chart', (host, segment) => {
+  host.textContent = segment.points.join(' · ');
+  return {
+    update: (next) => { host.textContent = next.points.join(' · '); },
+    destroy: () => host.replaceChildren(),
+  };
+}));
+```
+
+The same mechanism for a segment `type` of your own — a type your stream emits through a
+[block grammar](/guides/customization/#custom-segment-types), say. `defineMountedSegmentRenderer`
+takes the type and an `AparteSegmentMount`, and `overrideSegmentRenderer` stacks the way
+`overrideToolRenderer` does; taking the last override off a built-in type such as `code` gives it
+back to core's renderer. Both mounts return an `AparteMountedView` — `update` and `destroy`.
+
+A renderer written by hand gets the same lifecycle: `cleanup(element, segment)` on a segment
+renderer or a tool renderer is called once, when its element leaves for good.
+
+<Cards
+    cards={[
+        { href: '/guides/tool-display/', title: 'Showing tool calls', line: 'Words, icons and details for core\'s own row.' },
+        { href: '/guides/tools/#custom-tool-renderer', title: 'Custom tool renderer', line: 'A renderer written by hand, as markup.' },
+    ]}
+/>

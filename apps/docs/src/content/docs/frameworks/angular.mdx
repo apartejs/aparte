@@ -157,7 +157,16 @@ then starts the client.
 
 `[bubbleTemplate]` draws each message from a template of yours, the message as its `$implicit`
 ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)). Content in no slot is
-not drawn.
+not drawn. The same template can be written inside the chat, with `AparteBubbleDirective` in the
+component's `imports`; `[bubbleTemplate]` wins when both are given:
+
+```html
+<aparte-chat [(messages)]="messages">
+  <ng-template aparteBubble let-message>
+    <div class="my-bubble">{{ message.content }}</div>
+  </ng-template>
+</aparte-chat>
+```
 
 ## Inputs and outputs
 

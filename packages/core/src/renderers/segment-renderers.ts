@@ -14,6 +14,7 @@ import type {
 import { contextConfig } from '../config/index.js';
 import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
+import { notifyConfigChange } from '../config/aparte-config.js';
 // The built-in renderers, one file each under ./segments/ — `DEFAULT_RENDERERS` at
 // the bottom is the list, and the count (this line used to say "nine" over a list
 // of seven, then six: the artifact card left for `@aparte/plugin-artifacts`, which
@@ -110,8 +111,56 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
     renderer: AparteSegmentRenderer<T>,
     config: AparteConfig = contextConfig(),
 ): void {
-    registryFor(config).renderers.set(renderer.type, renderer as AparteSegmentRenderer);
+    const reg = registryFor(config);
+    if (reg.renderers.get(renderer.type) === renderer) return;
+    reg.renderers.set(renderer.type, renderer as AparteSegmentRenderer);
     injectRendererStyles(config);
+    // Segments of this type already on screen are drawn again by it (the renderer that
+    // drew them gets its `cleanup`); nothing else is touched.
+    notifyConfigChange(config);
+}
+
+/** {@link overrideSegmentRenderer}'s stacks, per config and type: what each held below every override. */
+const overrideStacks = new WeakMap<AparteConfig, Map<string, Array<AparteSegmentRenderer | undefined>>>();
+
+/**
+ * Put `renderer` over whatever draws its `type`, and get back the function that takes it off
+ * again — the registration a component makes for as long as it is mounted.
+ *
+ * Overrides stack per type. The function restores what was there before THIS override;
+ * taking off one that is no longer on top changes nothing on screen, so of two components
+ * declaring the same type the newer wins and unmounting the older keeps it. When the last
+ * one goes, the type is drawn by what drew it before the first — another registration, or
+ * core's own renderer for a built-in type like `code` or `text`. Segments on screen follow
+ * each change. The returned function is safe to call twice.
+ */
+export function overrideSegmentRenderer<T extends AparteSegmentBase>(
+    renderer: AparteSegmentRenderer<T>,
+    config: AparteConfig = contextConfig(),
+): () => void {
+    const type = renderer.type;
+    const reg = registryFor(config);
+    let byType = overrideStacks.get(config);
+    if (!byType) { byType = new Map(); overrideStacks.set(config, byType); }
+    let stack = byType.get(type);
+    if (!stack) { stack = [reg.renderers.get(type)]; byType.set(type, stack); }
+    stack.push(renderer as AparteSegmentRenderer);
+    registerSegmentRenderer(renderer, config);
+    let restored = false;
+    return () => {
+        if (restored) return;
+        restored = true;
+        const i = stack.lastIndexOf(renderer as AparteSegmentRenderer);
+        if (i > 0) stack.splice(i, 1);
+        if (stack.length === 1) byType.delete(type);
+        // Below every override there may be nothing registered for a built-in type: the
+        // built-ins are filled in lazily, once, and the sweep skipped the type an override
+        // held. Restoring "nothing" would leave the type with no renderer at all.
+        const top = stack[stack.length - 1]
+            ?? (reg.defaultsDeclined ? undefined : DEFAULT_RENDERERS.find((r) => r.type === type));
+        if (top) registerSegmentRenderer(top, config);
+        else unregisterSegmentRenderer(type, config);
+    };
 }
 
 /**
@@ -150,10 +199,14 @@ export function installDefaultRenderersOnce(config: AparteConfig = contextConfig
 }
 
 /**
- * Unregister a segment renderer
+ * Unregister a segment renderer. Segments of this type on screen are drawn again by what
+ * resolves now (the global registration, for an instance config), or left unrendered.
  */
 export function unregisterSegmentRenderer(type: string, config: AparteConfig = contextConfig()): void {
-    registryFor(config).renderers.delete(type);
+    const reg = registryFor(config);
+    if (!reg.renderers.has(type)) return;
+    reg.renderers.delete(type);
+    notifyConfigChange(config);
 }
 
 /**

@@ -465,6 +465,10 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
     cleanup?(element: HTMLElement, segment: T): void;
 }
 
+/** Mount your component for one segment in `host`, and say how to update and destroy it. */
+export type AparteSegmentMount<T extends AparteSegmentBase = AparteSegmentBase> =
+    (host: HTMLElement, segment: T) => import('./tools.js').AparteMountedView<T>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Segment Event Types
 // ─────────────────────────────────────────────────────────────────────────────

@@ -336,3 +336,45 @@ export interface AparteToolRenderer {
     /** Optional CSS to inject once into document.head */
     getStyles?: () => string;
 }
+
+/**
+ * One tool call as a component of yours draws it: the fields a card reads, in one object,
+ * the same in every framework. `input` is what the model passed and `result` what the tool
+ * answered — both model-chosen, so treat them as untrusted when you render them.
+ */
+export interface AparteToolCallView<I = unknown, R = unknown> {
+    /** The call's id, as the model issued it. */
+    readonly id: string;
+    /** The tool's name. */
+    readonly name: string;
+    /** The arguments the model passed. */
+    readonly input: I;
+    /** Where the call stands: running, waiting for a person, done, refused, stopped or failed. */
+    readonly status: AparteToolCallSegment['status'];
+    /** The tool's answer as text, once it has one. */
+    readonly result?: string;
+    /** The tool's answer as data, when it returned some. */
+    readonly structuredResult?: R;
+    /** Why the call was left to someone else (an approval, an external runner, a queue). */
+    readonly deferred?: AparteToolCallSegment['deferred'];
+    /** Who refused the call, and what they said. */
+    readonly refusal?: AparteToolCallSegment['refusal'];
+    /** Why the call was stopped. */
+    readonly abortCause?: AparteToolCallSegment['abortCause'];
+    /** The segment itself, for anything the fields above do not carry. */
+    readonly segment: AparteToolCallSegment;
+}
+
+/**
+ * Something mounted in an element core created — a framework component, usually — and the
+ * two things core does with it: hand it a newer state, and take it down.
+ */
+export interface AparteMountedView<V> {
+    /** A newer state of what it draws: re-render in place, keep local state. */
+    update(view: V): void;
+    /** Its element is leaving for good: unmount. */
+    destroy(): void;
+}
+
+/** Mount your component for one tool call in `host`, and say how to update and destroy it. */
+export type AparteToolMount = (host: HTMLElement, view: AparteToolCallView) => AparteMountedView<AparteToolCallView>;
