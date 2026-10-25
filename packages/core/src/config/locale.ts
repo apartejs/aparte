@@ -42,6 +42,8 @@ export type AparteLocale = {
     thinking: string;
     /** What the status line says while a reply is being written, when it carries no `text` (default: "Typing") */
     typing: string;
+    /** The quiet note under a reply the model stopped at its length limit, when the provider said so (default: "Cut off at the model's length limit.") */
+    responseCutOff?: string;
     error: string;
     running: string; // Terminal running state
 
@@ -532,6 +534,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     generating: "Generating…",
     rebuildingPreview: "Rebuilding preview…",
     typing: "Typing",
+    responseCutOff: "Cut off at the model's length limit.",
     error: "Error",
     running: "Running...",
     run: "Run",

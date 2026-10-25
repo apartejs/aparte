@@ -11,7 +11,7 @@ import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } 
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
@@ -30,6 +30,8 @@ import { requestUserInput } from '../elicitation/index.js';
 /** What one run of the loop reports back to its turn: its usage, and whether it paused. */
 interface AparteRunResult {
     usage: AparteUsage | undefined;
+    /** Why the last model call ended — what `run-done` carried, when the provider said. */
+    finishReason?: AparteFinishReason;
     /** A server loop suspended on calls the page must answer, with its signed continuation. */
     suspended?: { pending: StreamDeferredCall[]; ticket?: string };
 }
@@ -806,6 +808,7 @@ export class AparteClient {
                 );
             }
             const usage = result.usage;
+            const finishReason = result.finishReason;
             if (this._isAborted || streamController.signal.aborted) {
                 // A stopped turn is FINISHED, and someone has to say so. The inline
                 // loop marks the message completed on its way out; the injected
@@ -819,7 +822,7 @@ export class AparteClient {
                 this._closeOpenCalls(targetElement, messageId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage }, chatId);
+                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage, ...(finishReason ? { finishReason } : {}) }, chatId);
             }
         } catch (error: unknown) {
             // A THIRD abort path, and the one the browser suite caught after the
@@ -1696,8 +1699,10 @@ export class AparteClient {
         const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
         // A server loop that paused says so on its last event; the turn picks it up.
         let suspended: AparteRunResult['suspended'];
+        let finishReason: AparteFinishReason | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            if (event.type === 'run-done') finishReason = event.finishReason;
             if (event.type === 'run-suspended') {
                 const ticket = (event as { ticket?: unknown }).ticket;
                 suspended = { pending: event.pending, ...(typeof ticket === 'string' ? { ticket } : {}) };
@@ -1778,7 +1783,11 @@ export class AparteClient {
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
-        return { usage: usage ?? undefined, ...(suspended ? { suspended } : {}) };
+        return {
+            usage: usage ?? undefined,
+            ...(finishReason ? { finishReason } : {}),
+            ...(suspended ? { suspended } : {}),
+        };
     }
 
     /**

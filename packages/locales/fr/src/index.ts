@@ -71,6 +71,7 @@ export const fr: AparteLocale = {
     generating: "Génération…",
     rebuildingPreview: "Reconstruction de l'aperçu…",
     typing: "Écrit...",
+    responseCutOff: "Coupée à la limite de longueur du modèle.",
     error: "Erreur",
     running: "Exécution...",
     run: "Exécuter",

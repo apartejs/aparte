@@ -1417,7 +1417,7 @@ export class AparteChatViewport extends HTMLElement {
                 // and therefore the history sent to the model — while the bubble
                 // kept displaying the old text.
                 const updates = payload as Record<string, unknown>;
-                const renderable = ['status', 'segments', 'content', 'attachments', 'usage'];
+                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason'];
                 if (renderable.some((key) => key in updates)) {
                     bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }

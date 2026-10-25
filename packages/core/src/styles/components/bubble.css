@@ -170,6 +170,15 @@ aparte-chat-bubble {
   font-family: var(--aparte-font-family);
 }
 
+/* A reply the model stopped at its length limit says so, quietly: it is a fact about the
+   answer, not a failure of the app, so it is muted text, not an alert. */
+.aparte-finish-note {
+  margin-top: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-font-family);
+}
+
 .aparte-action-bar {
   display: flex;
   align-items: center;

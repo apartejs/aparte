@@ -77,6 +77,26 @@ describe('runStreamAgent — text & lifecycle', () => {
         expect(usage).toEqual({ inputTokens: 9, outputTokens: 9 });
     });
 
+    it('emits run-done with the finish reason of the last call', async () => {
+        const t = scriptedTransport([[{ type: 'text', delta: 'Half an ans' }, { type: 'done', finishReason: 'length' }]]);
+        const rec = recorder();
+        await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter }));
+        expect(rec.events.at(-1)).toEqual({ type: 'run-done', finishReason: 'length' });
+    });
+
+    it('does not let a step that reports no reason inherit the one before it', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'x', input: {} }, { type: 'done', finishReason: 'tool-calls' }],
+            [{ type: 'text', delta: 'end' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => ({ content: 'r' }),
+        }));
+        expect(rec.events.at(-1)).not.toHaveProperty('finishReason');
+    });
+
     it('forwards a non-streaming string response and FLUSHES the parser', async () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({ transportCall: async () => 'plain answer', emitter: rec.emitter }));

@@ -4,6 +4,7 @@ import type {
     AparteSegment,
     AparteSiblingInfo,
     AparteUsage,
+    AparteFinishReason,
 } from '../../types/index.js';
 import { isTerminalStatus } from '../../utils/segments.js';
 
@@ -22,6 +23,7 @@ export interface SyncableBubble {
     setAttachments?: (attachments: AparteAttachment[]) => void;
     setSiblings?: (count: number, index: number) => void;
     setUsage?: (usage: AparteUsage | null | undefined) => void;
+    setFinishReason?: (reason: AparteFinishReason | null | undefined) => void;
 }
 
 /**
@@ -94,4 +96,8 @@ export function populateBubbleFromMessage(
     if (message.usage !== undefined) {
         bubble.setUsage?.(message.usage);
     }
+
+    // Also on a message with none: a branch switch reuses the bubble, and it must not
+    // keep the "cut off" note of the reply it showed before.
+    bubble.setFinishReason?.(message.finishReason);
 }

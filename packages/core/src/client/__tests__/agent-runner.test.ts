@@ -58,6 +58,15 @@ describe('createAgentStreamRunner', () => {
         expect((calls[0]!.init.headers as Record<string, string>)['x-test']).toBe('1');
     });
 
+    it('hands the emitter the run-done line whole, finishReason included', async () => {
+        const { fetch } = fakeFetch(() => new Response(ndjson(
+            { type: 'run-start' }, { type: 'run-done', finishReason: 'length' },
+        )));
+        const { opts, events } = options();
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts);
+        expect(events.at(-1)).toEqual({ type: 'run-done', finishReason: 'length' });
+    });
+
     it('carries a continuation as the resume body', async () => {
         const { fetch, calls } = fakeFetch(() => new Response(ndjson({ type: 'run-start' }, { type: 'run-done' })));
         const { opts } = options({ deferral: { token: 'T', outcomes: { c1: { kind: 'decision', approved: true } } } });

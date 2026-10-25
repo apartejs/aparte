@@ -10,6 +10,7 @@ import type {
   AparteActionEventDetail,
   AparteMessageInfoEventDetail,
   AparteUsage,
+  AparteFinishReason,
   AparteMessage,
   AparteToolCallSegment,
   AparteSegmentRenderer,
@@ -313,6 +314,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _role: AparteBubbleRole = 'assistant';
   private _attachments: AparteAttachment[] = [];
   private _usage: AparteUsage | null = null;
+  private _finishReason: AparteFinishReason | null = null;
   /** Cleanup returned by the avatar provider — called on disconnect/re-render. */
   private _avatarCleanup: (() => void) | null = null;
   /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
@@ -373,6 +375,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._updateName();
     this._updateLocalizedLabels();
     this._updateWaiting();
+    this._updateFinishNote();
     // An avatar provider is config too, and it was the one provider a live change
     // never reached: swap the set and every bubble already on screen kept the old
     // one. `_renderAvatar` tears down the previous mount before re-mounting, so
@@ -910,6 +913,18 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
+   * Say why the model stopped writing this reply (assistant only).
+   *
+   * Only `'length'` draws anything: a quiet note after the content that the reply was cut
+   * off, because otherwise a truncated answer reads as a finished one. Every other reason
+   * is the ordinary end of a turn and says nothing. The note waits for the turn to settle.
+   */
+  setFinishReason(reason: AparteFinishReason | null | undefined): void {
+    this._finishReason = reason ?? null;
+    this._updateFinishNote();
+  }
+
+  /**
    * Update the branch picker UI for tree-based navigation.
    * The viewport calls this after a branch switch or re-render.
    * Prev/Next clicks dispatch `aparte-branch-navigate` (bubbles: true) so
@@ -953,6 +968,32 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._updateAttachments();
       this._updateWaiting();
     }
+    if ('finishReason' in updates) this.setFinishReason(updates.finishReason);
+  }
+
+  /**
+   * Draw, or remove, the note under a reply cut off at the model's length limit.
+   *
+   * Created here rather than in the shell markup: a custom shell written from the contract
+   * has no such region, and the note is only ever wanted next to the content it qualifies.
+   * A shell with no content region simply shows none (the same null-guarded degradation as
+   * the other regions).
+   */
+  private _updateFinishNote(): void {
+    const show = this._finishReason === 'length' && !this._streaming && this._role !== 'user';
+    let note = this.querySelector<HTMLElement>('.aparte-finish-note');
+    if (!show) {
+      note?.remove();
+      return;
+    }
+    if (!note) {
+      const region = this.querySelector('.aparte-message-content');
+      if (!region) return;
+      note = document.createElement('div');
+      note.className = 'aparte-finish-note';
+      region.after(note);
+    }
+    note.textContent = this._cfg.getLocale().responseCutOff ?? "Cut off at the model's length limit.";
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1204,6 +1245,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // with its action bar exposed (copy/retry on an empty, still-streaming reply).
     if (this._streaming) this._updateStreaming(true);
     this._updateWaiting();
+    this._updateFinishNote();
   }
 
   /**
@@ -2245,6 +2287,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       }
     }
     this._updateWaiting();
+    this._updateFinishNote();
     /*
      * Streaming just finished — the SETTLE pass.
      *
