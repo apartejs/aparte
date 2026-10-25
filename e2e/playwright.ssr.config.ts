@@ -47,7 +47,9 @@ export default defineConfig({
         screenshot: 'only-on-failure',
     },
     webServer: selected.map((k) => ({
-        // A production build, then its server: what a deployment runs, not a dev server.
+        // A build, then its server: what a deployment runs, not a dev server. A production build,
+        // except Angular's: optimised, Angular hydrates without checking a single node, so the
+        // fixture builds with optimisation off (`hydration-checks`) and a mismatch throws.
         command: 'pnpm run ssr:build && pnpm run ssr:start',
         cwd: resolve(rootDir, 'e2e/ssr', k),
         url: `http://localhost:${PORTS[k]}`,

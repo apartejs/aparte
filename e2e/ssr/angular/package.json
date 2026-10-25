@@ -5,7 +5,7 @@
   "type": "module",
   "description": "An Angular SSR app with hydration and <aparte-chat> — a fixture of pnpm e2e:ssr.",
   "scripts": {
-    "ssr:build": "ng build",
+    "ssr:build": "ng build --configuration hydration-checks",
     "ssr:start": "node dist/server/server.mjs"
   },
   "dependencies": {

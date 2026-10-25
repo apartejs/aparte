@@ -36,7 +36,7 @@ export const TESTED_FRAMEWORKS = {
     svelte: [version(svelte4Example, 'svelte'), version(svelte5Example, 'svelte')],
     /** The wrapper's unit tests run on its oldest supported major; its example on the newest one tested. */
     angular: [version(angularWrapper, '@angular/core'), version(angularExample, '@angular/core')],
-    /** Built for production, served, and hydrated in a browser by `pnpm e2e:ssr`. */
+    /** Built, served, and hydrated in a browser by `pnpm e2e:ssr` — for production, except Angular's, built with its hydration checks on. */
     next: version(nextFixture, 'next'),
     nuxt: version(nuxtFixture, 'nuxt'),
     sveltekit: version(sveltekitFixture, '@sveltejs/kit'),

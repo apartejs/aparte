@@ -321,8 +321,9 @@ With `@angular/ssr` and `provideClientHydration()`, render `<aparte-chat>` as it
 the server sends its HTML, and the browser hydrates it with no mismatch, zoneless included — the
 elements wait until Angular has the page ([Hydration](/frameworks/elements/#hydration)).
 `provideAparte` starts the client only in a browser. This is tested in CI: an Angular
-{T.angularSsr} SSR app built for production, served by its Express server, and checked in a
-browser. Angular 21 renders only for the hosts it is told about — `new AngularNodeAppEngine({
+{T.angularSsr} SSR app built with optimisation off — so Angular checks every node it hydrates and
+throws on a mismatch, which a production build skips — served by its Express server, and checked
+in a browser. Angular 21 renders only for the hosts it is told about — `new AngularNodeAppEngine({
 allowedHosts: […] })` — and falls back to a client render for any other. `@aparte/core` imports on
 a server through its entry without elements ([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
 Jest — takes that entry too, so alias `@aparte/core` to `@aparte/core/browser` for the elements to
