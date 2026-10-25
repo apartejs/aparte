@@ -174,6 +174,18 @@ describe('the compaction events, under a framework', () => {
         teardown();
     });
 
+    it('say the second reason when a second failure comes with no start in between', async () => {
+        const { draw, separatorOf, teardown } = await setup();
+        draw();
+        const title = (): string => separatorOf('u2')!.querySelector<HTMLElement>('.aparte-checkpoint__text')!.title;
+
+        emit('aparte-compact-error', { error: 'First', messageId: 'u2', targetId: 'h1' });
+        expect(title()).toBe('First');
+        emit('aparte-compact-error', { error: 'Second', messageId: 'u2', targetId: 'h1' });
+        expect(title()).toBe('Second');
+        teardown();
+    });
+
     it('ignore a skipped done, another message, and another chat', async () => {
         const { draw, bubbleOf, teardown } = await setup();
         draw();

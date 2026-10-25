@@ -376,7 +376,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // and it used to be read as a legacy message-role channel too, which meant
     // filtering our own "article" back out at every turn. A rename lands as a
     // rename pre-1.0, so the overload is gone.
-    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint'];
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint', 'data-checkpoint-reason'];
   }
 
   constructor() {
@@ -757,6 +757,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       case 'data-checkpoint':
         this._updateCheckpoint();
         break;
+      case 'data-checkpoint-reason':
+        // The reason only shows on a failure. A second failure keeps `data-checkpoint` as it
+        // is and changes just this, so the separator would keep the first failure's words;
+        // outside `failed` the state's own change draws it, with the reason it finds.
+        if (this.getAttribute('data-checkpoint') === 'failed') this._updateCheckpoint();
+        break;
       case 'streaming':
         this._updateStreaming(newValue !== null && newValue !== 'false');
         break;
@@ -1108,8 +1114,17 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
     const current = this.querySelector<HTMLElement>(':scope > .aparte-checkpoint');
     if (!kind) {
+      // Restore's confirm button is inside the separator that goes. A focus that dies with
+      // its element drops to the page, and a keyboard or screen-reader user loses their
+      // place in the transcript; the message the checkpoint sat on is the nearest thing
+      // that is still there.
+      const holdsFocus = current && document.activeElement && current.contains(document.activeElement);
       current?.remove();
       this._checkpointDrawn = '';
+      if (holdsFocus) {
+        if (!frame.hasAttribute('tabindex')) frame.setAttribute('tabindex', '-1');
+        frame.focus({ preventScroll: true });
+      }
       return;
     }
 

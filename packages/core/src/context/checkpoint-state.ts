@@ -108,9 +108,10 @@ export class CheckpointStateWatcher {
         this._state = null;
         this._reason = '';
         this._marked = null;
-        // The reason first, the state last: the bubble redraws on the state, and reads the reason then.
-        bubble?.removeAttribute('data-checkpoint-reason');
+        // The state first, the reason after: a reason that goes while the state is still
+        // `failed` would redraw the separator once for nothing.
         bubble?.removeAttribute('data-checkpoint');
+        bubble?.removeAttribute('data-checkpoint-reason');
     }
 
     /** Write the remembered state onto the bubble, which may have been created since. */
@@ -130,10 +131,13 @@ export class CheckpointStateWatcher {
         const bubble = this._options.bubbleOf(messageId);
         if (!bubble) return;
         if (this._marked && this._marked !== bubble) {
-            this._marked.removeAttribute('data-checkpoint-reason');
             this._marked.removeAttribute('data-checkpoint');
+            this._marked.removeAttribute('data-checkpoint-reason');
         }
         this._marked = bubble;
+        // The reason before the state, so a failure draws once, with its reason; a SECOND
+        // failure, which leaves the state as it is, changes only the reason, and the bubble
+        // redraws on that (it watches the reason while the state is `failed`).
         if (reason) bubble.setAttribute('data-checkpoint-reason', reason);
         else bubble.removeAttribute('data-checkpoint-reason');
         if (bubble.getAttribute('data-checkpoint') !== state) bubble.setAttribute('data-checkpoint', state);

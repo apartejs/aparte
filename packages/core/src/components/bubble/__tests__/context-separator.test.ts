@@ -207,6 +207,30 @@ describe('Restore', () => {
         window.removeEventListener('aparte-compact-done', done);
     });
 
+    it('confirming hands the keyboard to the message, not to the page, when the separator goes', () => {
+        const bubble = mount();
+        bubble.setContextSummary(summary);
+        action(bubble, 'restore')!.click();
+        expect(document.activeElement).toBe(action(bubble, 'restore-confirm'));
+
+        action(bubble, 'restore-confirm')!.click();
+
+        expect(separator(bubble), 'the separator went').toBeNull();
+        const frame = bubble.querySelector<HTMLElement>('.aparte-message')!;
+        expect(document.activeElement, 'and the focus stayed in the transcript').toBe(frame);
+        expect(frame.getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('leaves the focus alone when the separator goes while nothing in it had it', () => {
+        const bubble = mount();
+        const other = document.createElement('button');
+        document.body.appendChild(other);
+        other.focus();
+        bubble.setContextSummary(summary);
+        bubble.setContextSummary(null);
+        expect(document.activeElement).toBe(other);
+    });
+
     it('is withdrawn by Escape', () => {
         const bubble = mount();
         bubble.setContextSummary(summary);
@@ -257,6 +281,19 @@ describe('a compaction in progress, and one that failed', () => {
         expect(asked).toHaveBeenCalledTimes(1);
         expect((asked.mock.calls[0]![0] as CustomEvent).detail).toEqual({ targetId: 'c1' });
         window.removeEventListener('aparte-compact', asked);
+    });
+
+    it('says the reason of a second failure, which changes nothing but the reason', () => {
+        const bubble = mount();
+        bubble.setAttribute('data-checkpoint-reason', 'First');
+        bubble.setAttribute('data-checkpoint', 'failed');
+        expect(separator(bubble)!.querySelector<HTMLElement>('.aparte-checkpoint__text')!.title).toBe('First');
+
+        bubble.setAttribute('data-checkpoint-reason', 'Second');
+
+        const text = separator(bubble)!.querySelector<HTMLElement>('.aparte-checkpoint__text')!;
+        expect(text.title).toBe('Second');
+        expect(text.querySelector('.aparte-sr-only')!.textContent).toContain('Second');
     });
 
     it('outranks a checkpoint the message already carries, and gives way to it afterwards', () => {
