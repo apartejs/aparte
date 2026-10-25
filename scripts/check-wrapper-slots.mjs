@@ -88,9 +88,9 @@ if (missing.length) {
         console.error(`  ${m.wrapper.padEnd(8)} does not declare \`${m.slot}\`  (expected ${m.expected})`);
     }
     console.error(
-        '\nEvery slot on React\'s AparteChatProps must exist on the other three: a missing one\n' +
+        '\nEvery slot on React\'s AparteChatProps must exist on every other component: a missing one\n' +
         'renders nothing, silently, so nobody finds out from a test. Either add it, or remove\n' +
-        'the React prop — the four surfaces are one promise.\n',
+        'the React prop — the surfaces are one promise.\n',
     );
     process.exit(1);
 }
@@ -116,6 +116,8 @@ const HOST_ID_PROOFS = {
     // Angular's host IS the component element, so a template `id` lands on it
     // natively; the guard is that the component does not overwrite one.
     angular: (src) => /if \(!host\.id\)/.test(src),
+    // Read once (`untrack`), the caller's first: `untrack(() => id) ?? \`aparte-chat-${uid}\``.
+    svelteRunes: (src) => /\bid,/.test(src) && /=> id\) \?\?/.test(src),
 };
 
 const idGaps = Object.entries(HOST_ID_PROOFS)
@@ -128,13 +130,13 @@ if (idGaps.length) {
     console.error(
         '\nWithout it, `AparteClientOptions.scopeToTargetId` cannot be used from that\n'
         + 'component: the consumer has no way to learn the id the client must match. The\n'
-        + 'four surfaces are one promise.\n',
+        + 'surfaces are one promise.\n',
     );
     process.exit(1);
 }
 
 console.log(
-    `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} callbacks on all 4 wrappers — ${names}; `
+    `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} callbacks on all ${Object.keys(SOURCES).length} components (four wrappers, two Svelte entries) — ${names}; `
     + `${dataProps.length} data props/render hooks parity-checked (plus \`id\`, separately); `
-    + 'and all 4 accept a caller-supplied host id.',
+    + `and all ${Object.keys(SOURCES).length} accept a caller-supplied host id.`,
 );

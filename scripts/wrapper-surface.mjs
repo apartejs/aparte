@@ -37,6 +37,10 @@ export const SOURCES = {
     vue: resolve(root, 'packages/wrappers/vue/src/components/AparteChat.vue'),
     svelte: resolve(root, 'packages/wrappers/svelte/src/lib/AparteChat.svelte'),
     angular: resolve(root, 'packages/wrappers/angular/src/lib/aparte-chat.component.ts'),
+    // The second Svelte component, at `@aparte/svelte/runes`. A component of its own, not
+    // the one above compiled differently — so it can lose a prop on its own, and is held to
+    // the same surface on its own.
+    svelteRunes: resolve(root, 'packages/wrappers/svelte/src/lib/runes/AparteChat.svelte'),
 };
 
 /** `aboveComposer` → `above-composer`. The whole convention, in one line. */
@@ -124,6 +128,8 @@ export function readWrapperCallbacks() {
             vue: `@${kebab(base)}`,
             svelte: `on:${base}`,
             angular: `(${base})`,
+            // The name Svelte's own migration gives `dispatch('messageSent')`: `on` + the event.
+            svelteRunes: `on${base}`,
             payload: params.trim() ? params.split(':').slice(1).join(':').trim() : 'nothing',
             summary: doc ? summarise(doc) : '',
         });
@@ -213,6 +219,13 @@ export const CALLBACK_PROOFS = {
             return new RegExp(`\\b${c.name}\\s*=\\s*output<`).test(s) && new RegExp(`\\bthis\\.${c.name}\\.emit\\(`).test(s);
         },
     },
+    svelteRunes: {
+        label: 'Svelte runes',
+        usage: (c) => c.svelteRunes,
+        // Taken out of `$props()` as `onmessageSent`, AND called: `onmessageSent?.(…)`.
+        proves: (src, c) => runesHasProp(src, c.svelteRunes)
+            && new RegExp(`\\b${c.svelteRunes}\\?\\.\\(`).test(stripComments(src)),
+    },
 };
 
 /**
@@ -281,6 +294,8 @@ export const DATA_PROP_ALIASES = {
         // `class` is a reserved word in JS, so the export is renamed at the
         // boundary: `let className = ''; export { className as class };`.
         svelte: 'class',
+        // The same public name, renamed on the way out of `$props()`: `class: className`.
+        svelteRunes: 'class',
         // Angular's host element IS `<aparte-chat>` itself, so a class written
         // on the tag lands one level ABOVE the inner `.aparte-chat-container`
         // div that core's shell recipe keys on (`[overlay-composer]`,
@@ -298,6 +313,8 @@ export const DATA_PROP_ALIASES = {
         // `bubble` scoped/default slot in their templates, not a data prop.
         vue: 'bubble',
         svelte: 'bubble',
+        // A snippet prop that receives the message: `{#snippet bubble(message)}`.
+        svelteRunes: 'bubble',
         // Angular has no per-message render-prop callback story; its
         // idiom is a `TemplateRef` input projected with `ngTemplateOutlet` (the
         // `<ng-template aparteBubble>` content form feeds the same outlet).
@@ -332,6 +349,26 @@ function angularHasInput(src, name) {
         || new RegExp(`@Input\\(\\{[^}]*alias:\\s*'${name}'`).test(s)
         || new RegExp(`\\b${name}\\s*=\\s*input(?:\\.required)?\\s*[<(]`).test(s)
         || new RegExp(`\\binput(?:\\.required)?\\s*[<(][^;]*?\\balias:\\s*'${name}'`).test(s);
+}
+
+/**
+ * The runes component takes every prop out of one `let { … }: AparteChatProps = $props()`.
+ * The block ends at the brace followed by that annotation, so a default value with braces
+ * of its own cannot end it early.
+ */
+function runesPropsBlock(src) {
+    return stripComments(src).match(/let\s*\{([\s\S]*?)\}\s*:\s*\w+\s*=\s*\$props\(\)/)?.[1] ?? null;
+}
+
+/** `name,`, `name = default` or `name: local` inside that block — the public name, either way. */
+function runesHasProp(src, name) {
+    const block = runesPropsBlock(src);
+    return !!block && new RegExp(`(?:^|[\\s,])${name}\\s*(?:[,=:]|$)`).test(block);
+}
+
+/** Taken out of `$props()` AND drawn: a snippet nobody renders is a slot that shows nothing. */
+function runesRendersSnippet(src, name) {
+    return runesHasProp(src, name) && new RegExp(`\\{@render ${name}(?:\\?\\.)?\\(`).test(stripComments(src));
 }
 
 /** `<slot name="x">` (Vue and Svelte share this exact template syntax). */
@@ -410,6 +447,17 @@ export const DATA_PROP_PROOFS = {
             return declared;
         },
     },
+    svelteRunes: {
+        label: 'Svelte runes',
+        usage: (p) => {
+            const name = resolveName(p, 'svelteRunes');
+            return p.kind === 'render-hook' ? `{#snippet ${name}(message)}` : `${name}={…}`;
+        },
+        proves: (src, p) => {
+            const name = resolveName(p, 'svelteRunes');
+            return p.kind === 'render-hook' ? runesRendersSnippet(src, name) : runesHasProp(src, name);
+        },
+    },
 };
 
 export const IMPLEMENTATIONS = {
@@ -441,5 +489,15 @@ export const IMPLEMENTATIONS = {
         proves: (src, s) => stripComments(src).includes(`select="[slot='${s.slot}']"`),
         example: (s) => `<aparte-chat>\n  <div slot="${s.slot}"><app-my-thing /></div>\n</aparte-chat>`,
         lang: 'html',
+    },
+    svelteRunes: {
+        label: 'Svelte runes',
+        usage: (s) => `{#snippet ${s.react}()}`,
+        // The snippet is the React name: one identifier, so no kebab form to translate.
+        proves: (src, s) => runesRendersSnippet(src, s.react),
+        // The import is part of the example here: it is the one thing that differs from the
+        // Svelte column, and the reason this column exists.
+        example: (s) => `<script>\n  import { AparteChat } from '@aparte/svelte/runes';\n</script>\n\n<AparteChat>\n  {#snippet ${s.react}()}<MyThing />{/snippet}\n</AparteChat>`,
+        lang: 'svelte',
     },
 };
