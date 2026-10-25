@@ -1,6 +1,6 @@
 ---
 import Landing from '../../layouts/Landing.astro';
-import { bundled } from '../../lib/bundled-model';
+import { bundled, roughKb } from '../../lib/bundled-model';
 
 /*
  * The models aparté publishes.
@@ -72,7 +72,7 @@ const IMAGE_ALT =
             account numbers &#8212; found and masked before it is sent.
           </p>
           <div class="figs">
-            <div><b>{PRIVACY.kb} KB</b><span>one file, English and French</span></div>
+            <div><b>{roughKb(PRIVACY.kb)} KB</b><span>one file, English and French</span></div>
             <div><b>7</b><span>kinds of personal data</span></div>
             <div><b>0</b><span>network calls</span></div>
           </div>
@@ -88,7 +88,7 @@ const IMAGE_ALT =
             &#8212; where a pattern scanner sees nothing it knows.
           </p>
           <div class="figs">
-            <div><b>{SECRETS.kb} KB</b><span>one file, English and French</span></div>
+            <div><b>{roughKb(SECRETS.kb)} KB</b><span>one file, English and French</span></div>
             <div><b>0.76</b><span>F1 on chat, gitleaks 0.29</span></div>
             <div><b>0</b><span>network calls</span></div>
           </div>
@@ -129,8 +129,11 @@ const IMAGE_ALT =
       .model h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 10px; }
       .model-lede { margin: 0 0 18px; color: var(--dim); font-size: 15.5px; line-height: 1.6; }
       .figs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-      .figs div { flex: 1 1 90px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 11px; }
-      .figs b { display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; letter-spacing: -.02em; color: var(--text); line-height: 1.15; }
+      /* From a zero basis, each tile is at least as wide as its unbroken figure and the rest is
+         shared: `~200 KB` (84px of type) takes what it needs, and the three keep one row at a
+         third of the 1120px frame. A tile only wraps when the figures themselves cannot fit. */
+      .figs div { flex: 1 1 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 11px; }
+      .figs b { display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; letter-spacing: -.02em; color: var(--text); line-height: 1.15; white-space: nowrap; }
       .figs span { display: block; margin-top: 3px; color: var(--dim); font-size: 12px; }
       .go { margin-top: auto; color: var(--accent-text); font-size: 14.5px; }
       .model-link:hover .go { text-decoration: underline; }

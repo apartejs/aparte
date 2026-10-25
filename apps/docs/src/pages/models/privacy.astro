@@ -1,6 +1,6 @@
 ---
 import Landing from '../../layouts/Landing.astro';
-import { bundled } from '../../lib/bundled-model';
+import { bundled, roughKb } from '../../lib/bundled-model';
 import { PRIVACY_RUNTIMES } from '../../data/model-runtimes';
 import '../../styles/model-page.css';
 
@@ -15,6 +15,7 @@ import '../../styles/model-page.css';
  * would leave the page instead of the message. `#demo` is the address to give.
  */
 const PRIVACY = bundled('@aparte/privacy');
+const KB = roughKb(PRIVACY.kb);
 
 /** Five messages, the seven categories between them. What is found is the model's, live. */
 const EXAMPLES = [
@@ -28,12 +29,12 @@ const EXAMPLES = [
 const TITLE = 'aparte-privacy — find and mask personal data, no API call';
 const DESCRIPTION =
     `Finds names, addresses, emails, phone numbers and account numbers in a message and masks `
-    + `them before it is sent: ${PRIVACY.kb} KB, no API call. Try it in your browser.`;
+    + `them before it is sent: ${KB} KB, no API call. Try it in your browser.`;
 /** Written from the entry in src/pages/og/[...slug].ts; change one and change the other. */
 const IMAGE_ALT =
     'A dark card with a brass edge and the aparté mascot, headed “Personal data, masked before it '
     + 'is sent”, over the line “aparte-privacy finds names, addresses, emails, phone numbers and '
-    + 'account numbers in a message. 201 KB, a few milliseconds, nothing leaves the page.”';
+    + 'account numbers in a message. ~200 KB, a few milliseconds, nothing leaves the page.”';
 ---
 
 <Landing
@@ -50,13 +51,13 @@ const IMAGE_ALT =
       <p class="lede">
         aparte-privacy finds the names, addresses, emails, phone numbers, URLs, dates and account
         numbers in a message, and puts placeholders in their place before it goes to a model.
-        <b>{PRIVACY.kb} KB</b>, a few milliseconds, and the values never leave the page: they
+        <b>{KB} KB</b>, a few milliseconds, and the values never leave the page: they
         stay where they were typed and go back into the answer there.
       </p>
     </header>
 
     <!-- ── the demo: the top of the page, and the address to give ── -->
-    <section class="demo" id="demo" aria-label="Try the model" data-file={`int8 · ${PRIVACY.kb} KB`}>
+    <section class="demo" id="demo" aria-label="Try the model" data-file={`int8 · ${KB} KB`}>
       <div class="demo-card">
         <div class="demo-in">
           <label class="lab" for="pv-msg">A message</label>
@@ -76,7 +77,7 @@ const IMAGE_ALT =
           <p class="found" data-sd-found></p>
           <p class="lab">What is sent instead</p>
           <p class="masked" data-sd-masked></p>
-          <p class="meter" aria-live="polite" data-sd-state>Loading the model, {PRIVACY.kb} KB&hellip;</p>
+          <p class="meter" aria-live="polite" data-sd-state>Loading the model, {KB} KB&hellip;</p>
         </div>
       </div>
       <p class="demo-note">
@@ -89,7 +90,7 @@ const IMAGE_ALT =
     <section class="band">
       <h2 class="serif">What it <span class="paren">(</span>weighs<span class="paren">)</span></h2>
       <div class="figures">
-        <div class="fig"><b>{PRIVACY.kb} KB</b><span>the file<em>int8 &#8212; English and French</em></span></div>
+        <div class="fig"><b>{KB} KB</b><span>the file<em>int8 &#8212; English and French</em></span></div>
         <div class="fig"><b>7</b><span>kinds of personal data<em>the same seven as OpenAI&#8217;s privacy-filter</em></span></div>
         <div class="fig"><b data-sd-ms>&#8230; ms</b><span>per message, one core<em>measured above, in your tab</em></span></div>
         <div class="fig"><b>0</b><span>network calls<em>after the file: the model runs in the page</em></span></div>
