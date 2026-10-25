@@ -248,6 +248,9 @@ importers:
       '@aparte/runner-ag-ui':
         specifier: workspace:*
         version: link:../../../packages/providers/agent/ag-ui
+      '@aparte/runner-n8n':
+        specifier: workspace:*
+        version: link:../../../packages/providers/agent/n8n
       '@shikijs/langs':
         specifier: ^4.0.0
         version: 4.3.1

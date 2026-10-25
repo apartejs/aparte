@@ -22,6 +22,7 @@ import type { AparteToolCallSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon, searchIcon, globeIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
+import { createN8nRunner } from '@aparte/runner-n8n';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
@@ -160,6 +161,10 @@ async function run(): Promise<SiteSetup> {
     //    RUN_FINISHED per model step — read through the runner's `relaxedRunFraming`.
     const agUiRelaxed = new URLSearchParams(location.search).get('agui-framing') === 'relaxed';
     const agUiRunner = agUiUrl ? createAgUiRunner({ endpoint: agUiUrl, relaxedRunFraming: agUiRelaxed }) : undefined;
+    //    `?n8n=<url>`: an n8n chat workflow answers the turn (the same file serves a
+    //    scripted Chat Trigger), and the page draws it through `@aparte/runner-n8n`.
+    const n8nUrl = new URLSearchParams(location.search).get('n8n');
+    const n8nRunner = n8nUrl ? createN8nRunner({ webhookUrl: n8nUrl }) : undefined;
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {
@@ -188,8 +193,9 @@ async function run(): Promise<SiteSetup> {
         // and auto-edit all put it to the user (its own flag decides), and `auto` lets it
         // through, because auto is auto.
         // Under `?agent` the weather tool is the SERVER's: a page tool of the same name
-        // would be sent as a browser tool, and the server refuses the clash.
-        if (!agentUrl && !agUiUrl) aparteGlobalConfig.registerTool(
+        // would be sent as a browser tool, and the server refuses the clash. An n8n
+        // workflow runs its own tools and is sent none.
+        if (!agentUrl && !agUiUrl && !n8nUrl) aparteGlobalConfig.registerTool(
             {
                 name: 'get_weather',
                 description: 'Current weather for a city.',
@@ -281,7 +287,7 @@ async function run(): Promise<SiteSetup> {
     //    asserts. Wired here because a capability with no in-repo consumer is a
     //    contract maintained for nobody (ratified decision #7).
     const client = new AparteClient({
-        streamRunner: agUiRunner ?? (agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent),
+        streamRunner: agUiRunner ?? n8nRunner ?? (agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent),
         // The endpoint + token the settings hold, for ANY provider. The record form
         // (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint, and it
         // is honoured on both the chat and the /models path.
