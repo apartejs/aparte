@@ -314,10 +314,12 @@
       "AparteOptionDirective",
       "AparteProgressSpinnerDirective",
       "AparteScrollRailDirective",
+      "AparteSegmentUIDirective",
       "AparteSelectDirective",
       "AparteSidebarDirective",
       "AparteSplitDirective",
       "AparteSuggestionsDirective",
+      "AparteToolUIDirective",
       "AparteUiComponent",
       "ConversationManagerService",
       "aparteGlobalConfig",
@@ -540,7 +542,10 @@
     ],
     "@aparte/vue": [
       "AparteChat",
+      "AparteSegmentUI",
+      "AparteToolUI",
       "AparteUi",
+      "isAparteElement",
       "useAparteChat",
       "useAparteClient",
       "useConversationManager"

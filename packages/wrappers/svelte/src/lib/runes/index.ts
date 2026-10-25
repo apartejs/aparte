@@ -5,6 +5,10 @@
  */
 export { default as AparteChat } from './AparteChat.svelte';
 export { default as AparteUi } from './AparteUi.svelte';
+// Your components in tool calls and segments: a snippet, mounted with your contexts.
+export { default as AparteToolUI } from './AparteToolUI.svelte';
+export { default as AparteSegmentUI } from './AparteSegmentUI.svelte';
+export type { AparteToolCallView } from '@aparte/core';
 export { AparteConversations, createConversations } from './conversations.svelte.js';
 export type { AparteUiProps, AparteUiHandle } from '../types.js';
 export type { AparteChatProps } from './types.js';

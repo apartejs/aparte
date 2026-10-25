@@ -22,6 +22,10 @@ export { useConversationManager } from './hooks/useConversationManager.js';
 export type { UseConversationManager } from './hooks/useConversationManager.js';
 export { AparteUi } from './components/AparteUi.js';
 export type { AparteUiProps } from './components/AparteUi.js';
+// Your components in tool calls and segments, through portals.
+export { AparteToolUI, AparteSegmentUI } from './components/AparteToolUI.js';
+export type { AparteToolUIProps, AparteSegmentUIProps } from './components/AparteToolUI.js';
+export type { AparteToolCallView } from '@aparte/core';
 // The proxy handle, re-exported straight from `@aparte/core` for the same reason as
 // `AparteChatImperativeApi`: one declaration, four wrappers.
 export type { AparteUiHandle } from '@aparte/core';

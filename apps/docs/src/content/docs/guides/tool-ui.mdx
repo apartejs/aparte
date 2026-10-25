@@ -9,12 +9,117 @@ guide:
 ---
 
 import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 A tool call is drawn as core's row until you say otherwise. When a call deserves a card of its
 own — the weather for `get_weather`, a diff for `edit_file`, a chart for `run_query` — you can
 draw it with a component of yours instead: mounted once in the element core gives it, handed every
 change of the call (the result landing, an approval decided), and unmounted when the call leaves
 the page.
+
+## In your framework
+
+Each wrapper has a component that declares the card, for as long as it is mounted, with a
+component of your framework inside. Put it anywhere under your providers: the card renders from
+where the declaration sits, so it reads what your app provides there — a theme, a router, a store.
+
+<Tabs syncKey="framework">
+<TabItem label="React">
+
+```tsx
+import { AparteChat, AparteToolUI, type AparteToolCallView } from '@aparte/react';
+
+type Weather = AparteToolCallView<{ city: string }>;
+
+function WeatherCard({ tool }: { tool: Weather }) {
+  return <p>{tool.status === 'resolved' ? `${tool.input.city}: ${tool.result}` : `Looking up ${tool.input.city}…`}</p>;
+}
+
+export function Chat() {
+  return (
+    <>
+      <AparteToolUI<{ city: string }> name="get_weather">{(tool) => <WeatherCard tool={tool} />}</AparteToolUI>
+      <AparteChat />
+    </>
+  );
+}
+```
+
+Each card is a portal into the element core gives the call.
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, AparteToolUI } from '@aparte/vue';
+import WeatherCard from './WeatherCard.vue';
+</script>
+
+<template>
+  <AparteToolUI name="get_weather" v-slot="{ tool }">
+    <WeatherCard :tool="tool" />
+  </AparteToolUI>
+  <AparteChat />
+</template>
+```
+
+The slot is teleported into each call, and `inject` reads what your app provides around the
+declaration. `isAparteElement` is the test to give Vue's `isCustomElement`, so your templates can
+use `<aparte-icon>` and the other elements without a warning — and `<aparte-tool-ui>`, written in
+kebab case, still resolves to the component:
+
+{/* doc-check: skip @vitejs/plugin-vue is the Vue app's own devDependency, which the docs workspace does not install */}
+```ts
+// vite.config.ts
+import vue from '@vitejs/plugin-vue';
+import { isAparteElement } from '@aparte/vue';
+
+export default { plugins: [vue({ template: { compilerOptions: { isCustomElement: isAparteElement } } })] };
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, AparteToolUI } from '@aparte/svelte/runes';
+  import WeatherCard from './WeatherCard.svelte';
+</script>
+
+<AparteToolUI name="get_weather">
+  {#snippet children(tool)}<WeatherCard {tool} />{/snippet}
+</AparteToolUI>
+<AparteChat />
+```
+
+Svelte 5, from `@aparte/svelte/runes`. The snippet is mounted with the contexts of where you
+declare it, so `getContext` finds what your app set there.
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<ng-template aparteToolUI="get_weather" let-tool>
+  <app-weather-card [tool]="tool" />
+</ng-template>
+<aparte-chat />
+```
+
+Import `AparteToolUIDirective` into your standalone component. The view is created where the
+template is declared, so the components in it inject what your app provides there, and it works
+zoneless. A config other than the global one goes in `[aparteToolUIConfig]`.
+
+</TabItem>
+</Tabs>
+
+The card is mounted once per call and updated in place when the call changes, so a component keeps
+its local state when the result arrives; it is unmounted when the call leaves the page or when the
+declaration unmounts, and the call goes back to core's row. `AparteSegmentUI` does the same for a
+segment type (`<ng-template aparteSegmentUI="chart" let-segment>` with `AparteSegmentUIDirective`
+in Angular). In a server render nothing is declared and nothing is drawn: the cards appear in the
+browser. The sections below are what the four use underneath, and what to use from any other
+library.
 
 ## Mount a component for a tool
 

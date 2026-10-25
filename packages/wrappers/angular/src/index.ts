@@ -10,6 +10,8 @@ export type { ProvideAparteOptions, ApartePluginLoader } from './lib/provide-apa
 // Components (standalone — import them directly).
 export { AparteChatComponent } from './lib/aparte-chat.component';
 export { AparteBubbleDirective } from './lib/aparte-bubble.directive';
+// Your templates in tool calls and segments.
+export { AparteToolUIDirective, AparteSegmentUIDirective } from './lib/aparte-tool-ui.directive';
 export { AparteUiComponent } from './lib/aparte-ui.component';
 export type { AparteUiHandle, AparteUiProps } from './lib/aparte-ui.component';
 
@@ -42,6 +44,8 @@ export type {
     // The imperative surface every wrapper exposes. Angular alone used to omit it,
     // while React and the other two each aliased it under a name of their own.
     AparteChatImperativeApi,
+    // What `let-tool` holds in an `aparteToolUI` template.
+    AparteToolCallView,
 } from '@aparte/core';
 
 // Re-export aparteGlobalConfig for direct access (config without `provideAparte`).

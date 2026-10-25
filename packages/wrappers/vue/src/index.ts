@@ -21,6 +21,14 @@ import AparteUi from './components/AparteUi.vue';
 export { AparteUi };
 export type { AparteUiProps, AparteUiHandle } from './types.js';
 
+// Your components in tool calls and segments, through `Teleport`.
+import AparteToolUI from './components/AparteToolUI.vue';
+import AparteSegmentUI from './components/AparteSegmentUI.vue';
+export { AparteToolUI, AparteSegmentUI };
+export type { AparteToolCallView } from '@aparte/core';
+// For `compilerOptions.isCustomElement`, so templates can use the elements without a warning.
+export { isAparteElement } from './is-aparte-element.js';
+
 export type {
     AparteMessage,
     AparteSendEventDetail,
