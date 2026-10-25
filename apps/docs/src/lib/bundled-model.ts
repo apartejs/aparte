@@ -30,6 +30,16 @@ export function bundled(pkg: string, languages: string[] = []): BundledModel {
     return { pkg, languages, version, kb: Math.round(statSync(file).size / 1000) };
 }
 
+/**
+ * A weight to the nearest ten, as `~200`: for the privacy and secrets models, whose own
+ * READMEs and model cards count in KiB (196) where the site counts kB (201) — both round to
+ * the same figure, so a reader who meets the two does not find a contradiction. Still read
+ * from the file: a model that grows moves the figure.
+ */
+export function roughKb(kb: number): string {
+    return `~${Math.round(kb / 10) * 10}`;
+}
+
 const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
 
 /** The three bundled aparte-titler models the site installs, with the languages each reads. */
