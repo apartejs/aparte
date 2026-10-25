@@ -142,7 +142,7 @@ describe('measureContext', () => {
         c.setSystemPrompt('s'.repeat(380));
         c.registerTool(
             { name: 'search', description: 'd'.repeat(380), inputSchema: { type: 'object' } },
-            async () => 'ok',
+            async () => ({ toolCallId: 'search', content: 'ok' }),
         );
         const m = measureContext({ messages: [user('u1', text(380))], config: c, windowOverride: 4000 });
         expect(m.window).toBe(4000);

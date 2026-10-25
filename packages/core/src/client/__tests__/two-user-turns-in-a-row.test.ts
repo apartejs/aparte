@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { mergeAdjacentUserMessages } from '../wire-history.js';
 import { AparteConfig } from '../../config/aparte-config.js';
-import type { AparteChatMessage } from '../../types/chat.js';
+import type { AparteChatMessage, AparteChatRequest } from '../../types/chat.js';
 import type { AparteMessage } from '../../types/index.js';
 
 /**

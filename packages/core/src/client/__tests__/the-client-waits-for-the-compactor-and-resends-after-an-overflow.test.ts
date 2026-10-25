@@ -126,7 +126,7 @@ describe('the client and the compactor', () => {
 
     describe('before a send', () => {
         it('asks once the turn is announced, with the turn being prepared left out and an estimate of the request', async () => {
-            const beforeSend = vi.fn(async () => { lifecycle.push('beforeSend'); return false; });
+            const beforeSend = vi.fn(async (_request: unknown) => { lifecycle.push('beforeSend'); return false; });
             config.setCompactor(stubCompactor({ beforeSend }));
             start();
             send();

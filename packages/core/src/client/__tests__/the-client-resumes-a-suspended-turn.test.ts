@@ -415,7 +415,7 @@ describe('the client resumes a paused server run', () => {
         const { el, messages } = chat(transcript);
         const r = runner(resumeApproved('c1'));
         const { c, cfg } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
-        const beforeSend = vi.fn(async () => {
+        const beforeSend = vi.fn(async (_request: unknown) => {
             // What a compaction does: the checkpoint lands on the first kept user turn.
             messages.find((m) => m.id === 'u1')!.contextSummary = { summary: 'The user cleans up files.', count: 2, createdAt: 10 };
             return true;

@@ -357,8 +357,9 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
  *
  * `AparteAIProvider` declares that surface optional — correct in general, since a
  * provider may own its I/O through `chat()` instead — and `AparteFormatAdapter` keeps
- * `authHeaders` / `parseText` optional because some vendors authenticate by query
- * string or never answer non-streaming. THIS factory always supplies all of them, so
+ * `authHeaders` / `parseText` / `classifyError` optional because some vendors authenticate
+ * by query string, never answer non-streaming, or say nothing a client could classify.
+ * THIS factory always supplies all of them, so
  * saying so here is the difference between a caller writing
  * `provider.buildRequest(req)` and a caller sprinkling `!` or writing a check that
  * cannot fail. Useful to annotate with when you drive the adapter yourself (your own
@@ -367,7 +368,7 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
 export type OpenAICompatProvider =
     AparteAIProvider
     & AparteFormatAdapter
-    & Required<Pick<AparteFormatAdapter, 'authHeaders' | 'parseText'>>;
+    & Required<Pick<AparteFormatAdapter, 'authHeaders' | 'parseText' | 'classifyError'>>;
 
 /**
  * Build an `AparteAIProvider` (full format-adapter surface) for one
