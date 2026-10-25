@@ -2,8 +2,8 @@
 #
 # The build context MUST be the repo root: the docs' `gen` scripts read
 # packages/*/src (CSS vars, custom-elements manifest, engine TypeDoc), and the
-# site resolves the built @aparte/* packages. So we install the whole workspace,
-# build the packages, then generate + build the site, and serve the static output.
+# site resolves the built @aparte/* packages. So we install the whole workspace and
+# build it — the site last, after the packages it imports — and serve the static output.
 #
 # Coolify setup: Build Pack = Dockerfile · Dockerfile Location = /Dockerfile.docs
 #                Port = 80 · Domain = apartejs.dev
@@ -13,8 +13,11 @@ RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
 WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm build                                   # build the @aparte/* packages the docs import
-RUN pnpm --filter @aparte-workspace/docs build   # gen (CSS vars / CEM / engine API) + astro build -> apps/docs/dist
+# `pnpm build` is `nx run-many -t build`, and the docs are one of its projects: after the
+# @aparte/* packages they import, it runs their `gen` (CSS vars / CEM / engine API) and the
+# astro build -> apps/docs/dist. A second `pnpm --filter @aparte-workspace/docs build` here
+# redid all of it, and on the server the deploy of 0.25.0 was killed during that repeat.
+RUN pnpm build
 
 FROM nginx:alpine AS serve
 # Starlight is a static MPA. The custom nginx config replaces the stock default so
