@@ -211,7 +211,9 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
         // A parent that empties [messages] starts a new conversation: the host lets go of
         // its render cache then — the same rule React, Vue and Svelte apply.
         effect(() => {
-            if (this.messagesInput().length === 0) untracked(() => this._host?.clearRenderCache());
+            const next = this.messagesInput();
+            // An echo of the chat's own emptied list is not a parent starting over.
+            if (next.length === 0 && !this._emitted.has(next)) untracked(() => this._host?.clearRenderCache());
         });
 
         // [conversationId] drives the host; an echo of the id the host already holds
@@ -258,7 +260,17 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
     /** Messages to display. Two-way: `[(messages)]`, with `(messagesChange)` reporting the chat's own changes. */
     readonly messagesInput = input<AparteMessage[]>([], { alias: 'messages' });
-    readonly messages = linkedSignal<AparteMessage[]>(() => this.messagesInput());
+    /**
+     * Every list the host reported. Under `[(messages)]` each comes back through the input —
+     * possibly an EARLIER one, after the chat appended without reporting (an optimistic
+     * append, or core's append right after a flush) — and an echo is not the parent's word:
+     * it keeps the local list, the rule React, Vue and Svelte apply.
+     */
+    private readonly _emitted = new WeakSet<AparteMessage[]>();
+    readonly messages = linkedSignal<AparteMessage[], AparteMessage[]>({
+        source: this.messagesInput,
+        computation: (next, previous) => (previous && this._emitted.has(next) ? previous.value : next),
+    });
 
     /** Input placeholder text */
     readonly placeholder = input<string>('Type a message...');
@@ -456,7 +468,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             viewport: this.viewportRef?.nativeElement ?? null,
             getMessages: () => this.messages(),
             setMessages: (msgs) => this.messages.set(msgs as AparteMessage[]),
-            onMessagesChange: (msgs) => this.messagesChange.emit(msgs as AparteMessage[]),
+            onMessagesChange: (msgs) => {
+                this._emitted.add(msgs as AparteMessage[]);
+                this.messagesChange.emit(msgs as AparteMessage[]);
+            },
             onMessageAppended: (msg) => this.messageAppended.emit(msg as AparteMessage),
             onTypingChange: (typing) => { this.isTyping.set(typing); this.typingChange.emit(typing); },
             onStreamingChange: (id) => this._streamingId.set(id),

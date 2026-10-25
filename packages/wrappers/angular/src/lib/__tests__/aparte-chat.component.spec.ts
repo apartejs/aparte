@@ -338,6 +338,30 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(fixture.nativeElement.querySelector('aparte-chat-bubble')?.getAttribute('content')).toBe('Hello world');
     });
 
+    it("two-way [(messages)]: the chat's own echo does not undo an append made in the same tick", async () => {
+        // A retry, or core's append after a flush of buffered chunks: the truncate emits, the
+        // append does not, and the parent's field comes back through [messages] with the
+        // truncated list only.
+        const fixture = TestBed.createComponent(TwoWayHost);
+        fixture.componentInstance.messages = [
+            { id: 'u1', role: 'user', content: 'Hi', timestamp: 0 },
+            { id: 'a0', role: 'assistant', content: 'Old', timestamp: 1 },
+        ];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const chat = fixture.componentInstance.chat();
+
+        chat.truncateResponsesAfter('u1');
+        chat.appendMessage({ id: 'a1', role: 'assistant', content: '', status: 'pending', timestamp: 2 });
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(chat.messages().map((m) => m.id)).toEqual(['u1', 'a1']);
+        chat.updateLastMessage('Hello', { append: true });
+        expect(chat.messages().find((m) => m.id === 'u1')?.content).toBe('Hi');
+        expect(chat.messages().find((m) => m.id === 'a1')?.content).toBe('Hello');
+    });
+
     it('a parent write to [messages] is drawn and emits nothing back', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         const changed: AparteMessage[][] = [];
