@@ -917,6 +917,7 @@ export class AparteClient {
                     force: true,
                     reason: 'overflow',
                     exclude: turnIds(),
+                    signal: streamController.signal,
                 });
                 // A Stop while the summary was being written is a stop, not a failure to show.
                 if (isStopped()) return 'stopped';
@@ -946,6 +947,7 @@ export class AparteClient {
                                 ...(chatId ? { targetId: chatId } : {}),
                                 exclude: turnIds(),
                                 requestTokens: requestEstimate(),
+                                signal: streamController.signal,
                             });
                         } catch (failure) {
                             // Not a reason to refuse the send: the request goes out as built.

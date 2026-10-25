@@ -250,6 +250,48 @@ describe('the client and the compactor', () => {
         });
     });
 
+    describe("the turn's abort", () => {
+        it('reaches the compactor on the call before a send, so a programmatic stop() cancels its summary', async () => {
+            let asked: AbortSignal | undefined;
+            let release: (compacted: boolean) => void = () => {};
+            const beforeSend = vi.fn((request: { signal?: AbortSignal }) => {
+                asked = request.signal;
+                return new Promise<boolean>((resolve) => { release = resolve; });
+            });
+            config.setCompactor(stubCompactor({ beforeSend }));
+            const client = start();
+            send();
+            await vi.waitFor(() => expect(beforeSend).toHaveBeenCalled());
+
+            expect(asked, 'the request carries a signal').toBeInstanceOf(AbortSignal);
+            expect(asked!.aborted).toBe(false);
+            client.abort();
+            expect(asked!.aborted, 'no aparte-abort event was dispatched, the signal alone says it').toBe(true);
+            release(false);
+            await vi.waitFor(() => expect(lifecycle).toContain('aparte-message-aborted'));
+        });
+
+        it('reaches the compactor on the overflow call too', async () => {
+            steps = [overflow(), OK];
+            let asked: AbortSignal | undefined;
+            let finish: (o: AparteCompactorOutcome) => void = () => {};
+            const compact = vi.fn((request: { signal?: AbortSignal }) => {
+                asked = request.signal;
+                return new Promise<AparteCompactorOutcome>((resolve) => { finish = resolve; });
+            });
+            config.setCompactor(stubCompactor({ compact: compact as never }));
+            const client = start();
+            send();
+            await vi.waitFor(() => expect(compact).toHaveBeenCalled());
+
+            expect(asked).toBeInstanceOf(AbortSignal);
+            client.abort();
+            expect(asked!.aborted).toBe(true);
+            finish({ ok: false, error: 'aborted' });
+            await vi.waitFor(() => expect(lifecycle).toContain('aparte-message-aborted'));
+        });
+    });
+
     describe('what a request was estimated at', () => {
         it('is written on the reply before it is sent, so the measure can calibrate against the usage', async () => {
             const estimateWhenSent: Array<number | undefined> = [];
@@ -291,6 +333,7 @@ describe('the client and the compactor', () => {
             expect(compact).toHaveBeenCalledTimes(1);
             expect(compact).toHaveBeenCalledWith({
                 target: viewport, targetId: 'chat', force: true, reason: 'overflow', exclude: [user!.id, assistant!.id],
+                signal: expect.any(AbortSignal),
             });
             expect(seen).toHaveLength(2);
             expect(sentText(seen[0]!)).toContain('question u1');
