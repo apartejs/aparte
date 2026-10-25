@@ -10,8 +10,10 @@ import {
     Input,
     output,
     Renderer2,
-    inject
+    inject,
+    PLATFORM_ID
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { applyElementProps, APARTE_DEFAULT_UI_EVENTS, type AparteUiHandle } from '@aparte/core';
 
 /**
@@ -121,6 +123,14 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
     /** The dynamically created Web Component element */
     private element: HTMLElement | null = null;
 
+    /**
+     * On a server the element is not built: it would be serialized into the HTML without its
+     * props or listeners, hydration would keep it, and the browser would append its own beside
+     * it — two counters, two pickers. React, Vue and Svelte build theirs in an effect or onMount,
+     * which a server never runs.
+     */
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
     /** Cleanup functions for event listeners */
     private eventCleanups: (() => void)[] = [];
 
@@ -168,7 +178,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
     }
 
     private createElement(): void {
-        if (!this.name) return;
+        if (!this.isBrowser || !this.name) return;
 
         // Create the custom element
         this.element = this.renderer.createElement(this.name);

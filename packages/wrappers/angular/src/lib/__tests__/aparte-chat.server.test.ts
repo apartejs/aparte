@@ -4,6 +4,7 @@ import { provideServerRendering, renderApplication } from '@angular/platform-ser
 import { AparteChatComponent } from '../aparte-chat.component';
 import { AparteBubbleDirective } from '../aparte-bubble.directive';
 import { AparteSegmentUIDirective, AparteToolUIDirective } from '../aparte-tool-ui.directive';
+import { AparteUiComponent } from '../aparte-ui.component';
 import { aparteGlobalConfig } from '@aparte/core';
 
 @Component({
@@ -44,8 +45,20 @@ class ChatWithMessagesPage {
 })
 class ChatWithToolUIPage {}
 
+@Component({
+    selector: 'app-root',
+    standalone: true,
+    imports: [AparteChatComponent, AparteUiComponent],
+    template: `
+      <aparte-chat>
+        <aparte-ui slot="toolbar" name="my-token-counter" [props]="{ label: 'x' }" />
+      </aparte-chat>
+    `,
+})
+class ChatWithUiPage {}
+
 // The context argument is what a server bootstrap needs since Angular 19.2's patch line (NG0401).
-const render = (root: typeof ChatPage | typeof ChatWithMessagesPage | typeof ChatWithToolUIPage) =>
+const render = (root: typeof ChatPage | typeof ChatWithMessagesPage | typeof ChatWithToolUIPage | typeof ChatWithUiPage) =>
     renderApplication(
         (context: BootstrapContext) => bootstrapApplication(root, {
             providers: [provideServerRendering(), provideExperimentalZonelessChangeDetection()],
@@ -72,6 +85,12 @@ describe('AparteChatComponent on the server', () => {
         expect(html).not.toContain('chart-card');
         // A registration on the server would be shared by every request the process serves.
         expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(before);
+    });
+
+    it("an <aparte-ui> builds no element on the server: hydration would leave it beside the browser's", async () => {
+        const html = await render(ChatWithUiPage);
+        expect(html).toContain('<aparte-ui');
+        expect(html).not.toContain('<my-token-counter');
     });
 
     it('renders messages through a bubble template on the server', async () => {
