@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 87 },
+        'packages/core/src/renderers/**': { lines: 96, statements: 96, functions: 96, branches: 87 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
@@ -233,12 +233,12 @@ export default defineConfig({
         // point under that, as every floor here.
         'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
-        'packages/wrappers/angular/src/**': { lines: 79, statements: 79, functions: 63, branches: 85 },
+        'packages/wrappers/angular/src/**': { lines: 91, statements: 91, functions: 69, branches: 85 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 61, branches: 86 },
-        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 88 },
-        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 51, branches: 85 },
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 81, branches: 94 },
+        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 90 },
+        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 59, branches: 92 },
       },
     },
   },

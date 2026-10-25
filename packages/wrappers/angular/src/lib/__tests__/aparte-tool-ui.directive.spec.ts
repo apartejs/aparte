@@ -3,6 +3,7 @@ import '@angular/compiler';
 import {
     Component,
     Injectable,
+    PLATFORM_ID,
     inject,
     input,
     provideExperimentalZonelessChangeDetection,
@@ -10,7 +11,7 @@ import {
     type OnDestroy,
 } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { aparteGlobalConfig, registerAllComponents, registerDefaultRenderers, type AparteToolCallSegment } from '@aparte/core';
+import { AparteConfig, aparteGlobalConfig, getSegmentRenderer, registerAllComponents, registerDefaultRenderers, type AparteToolCallSegment } from '@aparte/core';
 import { AparteSegmentUIDirective, AparteToolUIDirective } from '../aparte-tool-ui.directive';
 
 registerAllComponents();
@@ -170,6 +171,47 @@ describe('aparteToolUI (Angular, zoneless)', () => {
         await settle(fixture);
         expect(b.querySelector('.weather')).not.toBeNull();
         expect(b.querySelector('.lower')).toBeNull();
+    });
+});
+
+@Component({
+    standalone: true,
+    imports: [AparteToolUIDirective, AparteSegmentUIDirective],
+    template: `
+      <ng-template aparteToolUI="get_weather" [aparteToolUIConfig]="cfg" let-tool><span class="scoped-weather">{{ tool.status }}</span></ng-template>
+      <ng-template aparteSegmentUI="chart" [aparteSegmentUIConfig]="cfg"><span class="scoped-chart"></span></ng-template>
+    `,
+})
+class ScopedPageComponent {
+    readonly cfg = new AparteConfig();
+}
+
+describe('aparteToolUI / aparteSegmentUI with a config, and on a server platform', () => {
+    afterEach(() => {
+        TestBed.resetTestingModule();
+        aparteGlobalConfig.unregisterToolRenderer('get_weather');
+        document.body.replaceChildren();
+    });
+
+    it('declares on the config it is given, not on the global one', async () => {
+        const fixture = create(ScopedPageComponent);
+        await settle(fixture);
+        const cfg = fixture.componentInstance.cfg;
+        expect(cfg.getToolRenderer('get_weather')).toBeDefined();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBeUndefined();
+        expect(getSegmentRenderer('chart', cfg)).toBeDefined();
+        expect(getSegmentRenderer('chart', aparteGlobalConfig)).toBeUndefined();
+    });
+
+    it('declares nothing on a server platform', async () => {
+        TestBed.configureTestingModule({
+            imports: [ScopedPageComponent],
+            providers: [provideExperimentalZonelessChangeDetection(), { provide: PLATFORM_ID, useValue: 'server' }],
+        });
+        const fixture = TestBed.createComponent(ScopedPageComponent);
+        await settle(fixture);
+        expect(fixture.componentInstance.cfg.getToolRenderer('get_weather')).toBeUndefined();
+        expect(getSegmentRenderer('chart', fixture.componentInstance.cfg)).toBeUndefined();
     });
 });
 

@@ -1053,6 +1053,46 @@ describe('AparteChatComponent while a conversation is on its way', () => {
     });
 });
 
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [disabled]="disabled" [overlayComposer]="overlay" [isTyping]="typing" typingText="Thinking" [submitOnEnter]="false" [elicitation]="false" />`,
+})
+class OptionsHostComponent {
+    disabled = true;
+    overlay = true;
+    typing = true;
+}
+
+describe('AparteChatComponent inputs reach the DOM', () => {
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('disabled, overlayComposer, isTyping, typingText, submitOnEnter and elicitation each land on their element', async () => {
+        TestBed.configureTestingModule({ imports: [OptionsHostComponent], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(OptionsHostComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const el = fixture.nativeElement as HTMLElement;
+        const composer = el.querySelector('aparte-composer')!;
+        expect(composer.hasAttribute('disabled')).toBe(true);
+        expect(composer.getAttribute('submit-on-enter')).toBe('false');
+        expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(true);
+        const status = el.querySelector('aparte-chat-status')!;
+        expect(status.hasAttribute('visible')).toBe(true);
+        expect(status.getAttribute('text')).toBe('Thinking');
+        expect(el.querySelector('aparte-elicitation')).toBeNull();
+
+        fixture.componentInstance.disabled = false;
+        fixture.componentInstance.overlay = false;
+        fixture.componentInstance.typing = false;
+        fixture.changeDetectorRef.markForCheck();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(composer.hasAttribute('disabled')).toBe(false);
+        expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(false);
+    });
+});
+
 // Angular 21 made zoneless the default for a new app. Nothing here may depend on zone.js
 // noticing a change: the chat's own writes have to schedule the render themselves.
 describe('AparteChatComponent under zoneless change detection', () => {
