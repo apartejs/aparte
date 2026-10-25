@@ -6,7 +6,10 @@ import 'zone.js/testing';
 // The JIT compiler must be loaded BEFORE initTestEnvironment: the specs mount
 // standalone components compiled in Ivy *partial* mode, which fall back to JIT here.
 import '@angular/compiler';
-import '@analogjs/vitest-angular/setup-snapshots';
+// No `@analogjs/vitest-angular/setup-snapshots`: no spec takes a snapshot, and that package
+// declares no Angular peer, so it loaded whichever Angular pnpm hoisted — a second Angular
+// core (the examples' newer major) beside this package's own, and a JIT compiler that
+// compiled components for the wrong core.
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { TestBed } from '@angular/core/testing';
 

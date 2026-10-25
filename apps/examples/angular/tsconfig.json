@@ -29,7 +29,19 @@
     // `NodeListOf` (`[...view.querySelectorAll(...)]`), which needs it — every other
     // example's tsconfig already carries it, this one just never had a caller that
     // needed the iterable DOM types before.
-    "lib": ["ES2022", "dom", "dom.iterable"]
+    "lib": ["ES2022", "dom", "dom.iterable"],
+    // ONE Angular. `@aparte/angular` is a workspace link to a package built against
+    // Angular 19, its oldest supported major; followed through the link, its imports of
+    // `@angular/*` would resolve from ITS node_modules — a second Angular core, in the
+    // types (an InputSignal from one copy is not one from the other) and in the bundle.
+    // A consumer installing from npm never has that: the package's peers are theirs.
+    // These paths give every file, the linked package included, this app's copy — and
+    // the Angular CLI's esbuild bundler reads them too.
+    "paths": {
+      "@angular/*": ["./node_modules/@angular/*"],
+      "rxjs": ["./node_modules/rxjs"],
+      "rxjs/*": ["./node_modules/rxjs/*"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

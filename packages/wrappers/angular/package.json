@@ -43,7 +43,6 @@
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
-    "@analogjs/vitest-angular": "^2.2.2",
     "@angular/common": "^19.2.0",
     "@angular/compiler": "^19.2.0",
     "@angular/compiler-cli": "^19.2.0",

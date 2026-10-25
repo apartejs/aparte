@@ -99,6 +99,18 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "nx"
-    ]
+    ],
+    "packageExtensions": {
+      "@angular/core@19": {
+        "peerDependencies": {
+          "@angular/compiler": "19.x"
+        },
+        "peerDependenciesMeta": {
+          "@angular/compiler": {
+            "optional": true
+          }
+        }
+      }
+    }
   }
 }
