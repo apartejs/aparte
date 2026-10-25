@@ -217,7 +217,7 @@ agent that keeps its own memory of the thread is not affected by it.
 | `setupCompaction`, `CompactionSetupOptions`, `CompactionController` | the setup, its options (`auto`, `threshold`, `contextWindow`, `selector`, `prompt`, `summarize`, `keyResolver`, `resolveTarget`, `scopeToTargetId`, `listen`, `keepWithoutWindow`) and what it returns |
 | `CompactionOutcome`, `CompactionSkipReason` | what `compact()` resolves to |
 | `createCompactionSelector`, `CompactionSelectorOptions`, `CompactionSelector`, `CompactionSelection`, `CompactableMessage`, `CompactionMessageSelector` | the selector and its parts |
-| `computeHistoryBudget`, `splitHistoryBudget`, `DEFAULT_COMPACTION_CONFIG` | the budget, its breakdown and its defaults |
+| `computeHistoryBudget`, `splitHistoryBudget`, `DEFAULT_COMPACTION_CONFIG` | the budget with its breakdown (`BudgetResult`, `BudgetBreakdown`), its split into room for the summary and the verbatim window (`SplitBudget`), and the reserves and ratios a `CompactionConfig` overrides |
 | `estimateTokens`, `estimateTokensJson` | the estimate — characters ÷ 3.8 — for text and for a JSON value |
 | `transcriptForSummary`, `messageText`, `DEFAULT_COMPACTION_PROMPT` | what the default summary reads and asks, for a `summarize` of your own |
 | `CompactionSummarizer`, `CompactionKeyResolver`, `CompactionTarget` | the `summarize`, `keyResolver` and `resolveTarget` options |
