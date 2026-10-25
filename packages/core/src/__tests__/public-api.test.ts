@@ -54,6 +54,7 @@ describe('@aparte/core public API', () => {
             "AparteError",
             "AparteErrorCode",
             "AparteIcon",
+            "AparteLauncher",
             "AparteMessageRepository",
             "AparteOptgroup",
             "AparteOption",

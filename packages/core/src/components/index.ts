@@ -32,3 +32,7 @@ export type { AparteSidebarToggleDetail } from './sidebar/index.js';
 // The shell's seam
 export { AparteSplit } from './split/index.js';
 export type { AparteSplitResizeDetail } from './split/index.js';
+
+// The chat that floats in a corner
+export { AparteLauncher } from './launcher/index.js';
+export type { AparteLauncherToggleDetail } from './launcher/index.js';

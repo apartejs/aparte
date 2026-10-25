@@ -24,7 +24,7 @@
  *     aparteGlobalConfig.setIconProvider({ retry: () => historyIcon });
  */
 
-import { prevBranchIcon, nextBranchIcon, moreIcon, trashIcon } from './glyphs.js';
+import { prevBranchIcon, nextBranchIcon, moreIcon, trashIcon, messageSquareIcon } from './glyphs.js';
 
 /** Add */
 export const plusIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v15M4.5 12h15"/></svg>`;
@@ -139,7 +139,9 @@ export const checkCircleIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fil
 export const xCircleIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9.2 9.2 5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>`;
 
 /** A conversation */
-export const messageSquareIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9.5L4.5 21V6.5A2.5 2.5 0 0 1 6.5 4Z"/></svg>`;
+/* `messageSquareIcon` moved to `glyphs.ts` when `<aparte-launcher>` started drawing it;
+   it is re-exported below so `import { messageSquareIcon } from '@aparte/core/icons'` holds. */
+export { messageSquareIcon };
 
 /** Light theme */
 export const sunIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>`;

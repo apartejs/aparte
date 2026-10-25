@@ -69,6 +69,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-scroll-rail-jump',
     'aparte-sidebar-toggle',
     'aparte-split-resize',
+    'aparte-launcher-toggle',
     // the turn's lifecycle, dispatched on the HOST element by `dispatchLifecycleEvent`
     'aparte-message-start',
     'aparte-message-done',

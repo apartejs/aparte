@@ -54,6 +54,7 @@ import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
 import './styles/components/context.css';
 import './styles/components/scroll-rail.css';
+import './styles/components/launcher.css';
 import './styles/shell/sidebar.css';
 import './styles/shell/app-header.css';
 import './styles/shell/app-shell.css';
@@ -202,6 +203,7 @@ export type {
     AparteScrollRailAttributes,
     AparteSidebarAttributes,
     AparteSplitAttributes,
+    AparteLauncherAttributes,
     AparteSuggestionsAttributes,
 } from './types/index.js';
 
@@ -252,6 +254,8 @@ export { AparteSidebar } from './components/index.js';
 export type { AparteSidebarToggleDetail } from './components/index.js';
 export { AparteSplit } from './components/index.js';
 export type { AparteSplitResizeDetail } from './components/index.js';
+export { AparteLauncher } from './components/index.js';
+export type { AparteLauncherToggleDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
@@ -409,6 +413,7 @@ import {
     AparteScrollRail,
     AparteSidebar,
     AparteSplit,
+    AparteLauncher,
     AparteSuggestions,
     AparteContext,
 } from './components/index.js';
@@ -465,6 +470,7 @@ const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]
     ['aparte-scroll-rail', AparteScrollRail],
     ['aparte-sidebar', AparteSidebar],
     ['aparte-split', AparteSplit],
+    ['aparte-launcher', AparteLauncher],
     ['aparte-suggestions', AparteSuggestions],
     ['aparte-context', AparteContext],
 

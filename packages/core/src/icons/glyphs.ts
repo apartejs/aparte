@@ -109,6 +109,9 @@ export const pinIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none"
 /** Delete — a bin with its lid and two slats. */
 export const trashIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M8 7V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v2"/><path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></svg>`;
 
+/** A conversation — a speech bubble. `<aparte-launcher>`'s button draws it. */
+export const messageSquareIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9.5L4.5 21V6.5A2.5 2.5 0 0 1 6.5 4Z"/></svg>`;
+
 /** Every glyph, by name — the map `APARTE_DEFAULT_ICON_FALLBACKS` is built from. */
 /** Open a navigation drawer (☰) */
 export const menuIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>`;
@@ -148,4 +151,5 @@ export const APARTE_ICON_GLYPHS = {
     trash: trashIcon,
     menu: menuIcon,
     alertTriangle: alertTriangleIcon,
+    messageSquare: messageSquareIcon,
 } as const;

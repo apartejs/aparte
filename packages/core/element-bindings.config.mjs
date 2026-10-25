@@ -25,6 +25,7 @@ export default {
         // matches nothing), never the template's to set.
         'aparte-chat': ['data-glide'],
         'aparte-conversation-list': ['data-no-match'],
+        'aparte-launcher': ['data-sheet'],
     },
 
     /** Attribute → the Angular Input name, where camelCasing it is not enough. */
