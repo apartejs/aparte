@@ -1,6 +1,6 @@
 ---
 title: Context gauge
-description: How much of the model's context window the conversation uses, as a bar or a ring that warns before the window is full.
+description: How much of the model's context window the conversation uses, as a bar or a ring that warns before the window is full and opens on what fills it.
 catalog:
   group: chat
   order: 21
@@ -15,14 +15,26 @@ import ContextApi from '../../../generated/api/elements/aparte-context.api.mdx';
 
 <Variant id="context" />
 
-A model reads a limited number of tokens, and a long conversation reaches the limit before
-anyone notices. `<aparte-context>` shows how much is used: the size of the last request, as
-the provider reported it, out of the current model's window. The bar takes the width it is
-given; `variant="ring"` takes none, for a toolbar, with the full reading in its tooltip.
+A model reads a limited number of tokens, and a long conversation reaches the limit before anyone
+notices. `<aparte-context>` shows how much is used, out of the current model's window. The bar takes
+the width it is given; `variant="ring"` takes none, for a toolbar.
 
-It needs nothing from your code: it listens to the usage each turn reports, and takes the window
-from the model (a provider's model list fills in `contextWindow`) or from the `window`
-attribute. Before the first turn, or without a window, it shows nothing.
+It needs nothing from your code. The reading is the size of the last request as the provider reported
+it; when the conversation has changed since — a new message, a summary written, a Restore — it is an
+estimate of the next request, prefixed with `~`, calibrated on what the provider reported last. The
+window comes from the model (a provider's model list fills in `contextWindow`) or from the `window`
+attribute. Before the first turn, or without a window, it shows nothing. A conversation loaded from
+storage shows the usage its last reply recorded, and a new chat starts empty.
+
+## What fills the window
+
+Click the reading, or focus it and press Enter, to open what fills the window: the system prompt, the
+tools, the summary, the messages, what is free, and "other" — what the provider counted that the page
+did not send, such as a server's own instructions. The parts are estimates; the total is the
+provider's figure. With [`@aparte/plugin-compaction`](/guides/long-conversations/) set up, the panel
+says how much compacting now would free, with **Compact now**; while a compaction runs, and when one
+failed, the gauge says so (`data-compact="running"` or `"failed"`), and the panel offers Retry. Escape or
+a click outside closes it.
 
 ## Variants
 
@@ -30,27 +42,20 @@ attribute. Before the first turn, or without a window, it shows nothing.
 
 <Variant id="context-levels" />
 
-At 75% of the window the gauge turns `warn`, at 90% `danger` (`warn` and `danger` attributes
-move them). It reflects the level in `data-level` and fires `aparte-context-threshold` when it
-changes.
+At 75% of the window the gauge turns `warn`, at 90% `danger` (`warn` and `danger` attributes move
+them). It reflects the level in `data-level` and fires `aparte-context-threshold` when it changes. A
+request the model refused as over its window turns it `danger` until the next reply reports.
 
 ## Usage
 
 <Usage />
 
-### A conversation you restore
-
-The gauge reads the usage each turn reports, so a conversation restored from storage shows nothing
-until its next turn. Give it the last reading you kept, from the last assistant message's
-`usage`, the way the gauge reads a turn: `gauge.used = usage.totalTokens ?? usage.inputTokens +
-usage.outputTokens`, or the `used` attribute. The next turn's usage replaces it.
-
 ### When the window is full
 
-With `auto-compact`, a turn that ends in `danger` dispatches `aparte-compact` for its chat, one
-request at a time: once it is answered, the next turn still in `danger` asks again. What answers is `@aparte/plugin-compaction`: it summarises the oldest turns and keeps
-the recent ones (see [Compaction notice](/components/compaction-notice/)). Without the plugin,
-the gauge only measures.
+The gauge measures; `@aparte/plugin-compaction` decides when to summarise the older turns, past 80 % of
+the window by default (see [Long conversations](/guides/long-conversations/)). The `auto-compact`
+attribute, which made the gauge ask for a compaction at `danger`, still works but is deprecated: the
+plugin compacts on its own once it is set up.
 
 ## Customize
 
@@ -58,7 +63,8 @@ the gauge only measures.
 | --- | --- |
 | `--aparte-context-ring-size` | The ring's diameter. |
 
-The bar wears the [progress](/components/progress/) recipe, and its colours follow the level.
+The bar wears the [progress](/components/progress/) recipe, and its colours follow the level; the panel
+wears the popover recipe.
 
 ## API
 
@@ -66,11 +72,13 @@ The bar wears the [progress](/components/progress/) recipe, and its colours foll
 
 ## Accessibility
 
-- The gauge is a `meter` with its minimum, maximum and current value, named from the
-  `contextLabel` key ("Context window") followed by the reading.
+- The gauge is a `meter` with its minimum, maximum and current value, named from the `contextLabel`
+  key ("Context window") followed by the reading.
+- The reading is a button with `aria-expanded` that opens the panel; it never opens on hover alone.
 - The level is written, not only coloured: the reading says how full the window is.
 
 ## Related
 
-- [Compaction notice](/components/compaction-notice/) — what a full window turns into.
+- [Compaction separator](/components/compaction-notice/) — where the model's view starts after a
+  summary.
 - [Composer](/components/composer/) — the toolbar the ring sits in.

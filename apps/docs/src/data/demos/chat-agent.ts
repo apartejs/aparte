@@ -425,23 +425,28 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 </aparte-chat>`,
     },
 
-    // ── Compaction notice ─────────────────────────────────────────────────────
+    // ── Compaction separator ──────────────────────────────────────────────────
     {
         id: 'compaction-notice',
-        title: 'The summary that replaced the start of a long conversation',
+        title: 'Where the model’s view of a long conversation starts, once the older turns are summarised',
         plugins: ['markdown'],
-        html: `<!-- @aparte/plugin-compaction writes this message when the context fills up; any message
-     with compaction: true is drawn the same way. -->
+        html: `<!-- @aparte/plugin-compaction writes contextSummary on the first turn it keeps; the bubble
+     draws the separator from it, and the turns above stay on screen. -->
 <aparte-chat-viewport style="height: 24rem"></aparte-chat-viewport>
 
 <script>
-  // A restored conversation: the summary, then the reply that was kept as it was.
   document.querySelector('aparte-chat-viewport').setMessages([
+    { id: 'u1', role: 'user', content: 'What goes into 0.19.2?', timestamp: Date.now() },
+    { id: 'a1', role: 'assistant', content: 'Two CSS fixes — the sidebar drawer and the menu check mark — and gzip on the docs server.', timestamp: Date.now() },
     {
-      id: 'c1', role: 'user', compaction: true, timestamp: Date.now(),
-      content: '**Conversation summary**\\n\\nThe user is preparing release 0.19.2: two CSS fixes (the sidebar drawer, the menu check mark) and gzip on the docs server. The changelog is written; the tag is not pushed yet.',
+      id: 'u2', role: 'user', content: 'The changelog is written. Can I push the tag?', timestamp: Date.now(),
+      contextSummary: {
+        summary: 'The user is preparing release 0.19.2: two CSS fixes (the sidebar drawer, the menu check mark) and gzip on the docs server.',
+        count: 2,
+        createdAt: Date.now(),
+      },
     },
-    { id: 'a9', role: 'assistant', content: 'The changelog is in. What is left: wait for CI on the release commit, then push the tag alone.', timestamp: Date.now() },
+    { id: 'a2', role: 'assistant', content: 'Wait for CI on the release commit first, then push the tag alone.', timestamp: Date.now() },
   ]);
 </script>`,
     },
