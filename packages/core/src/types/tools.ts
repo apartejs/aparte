@@ -316,6 +316,23 @@ export interface AparteToolRenderer {
      * text and glyphs only.
      */
     relabel?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * The element `render()` returned is gone for good: unmount what you mounted in it.
+     *
+     * Called once per element, with the element and the call's latest segment, when it
+     * leaves the page for good — replaced by a new `render()`, its segment removed, its
+     * message redrawn, its message removed, or its renderer replaced (a renderer
+     * registered or unregistered for this tool redraws the calls already on screen). Never
+     * for `update()` or `relabel()`, and never for a message a framework only MOVED: a
+     * bubble taken out and put back within the same task keeps its elements. Always called
+     * on the renderer that drew the element, even when another one has been registered
+     * since.
+     *
+     * A framework component mounted in `setup()` is unmounted here; without it, it keeps
+     * running (and keeps its subscriptions) after its card is gone. The same hook, under
+     * the same name, as {@link AparteSegmentRenderer.cleanup}.
+     */
+    cleanup?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
     /** Optional CSS to inject once into document.head */
     getStyles?: () => string;
 }

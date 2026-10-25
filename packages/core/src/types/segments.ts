@@ -443,10 +443,26 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
     relabel?(element: HTMLElement, segment: T): void;
 
     /**
-     * Optional: Cleanup when segment is removed
-     * @param element - The DOM element being removed
+     * Optional: the element `render()` returned is gone for good — unmount what you
+     * mounted in it.
+     *
+     * Called once per element, with the element and the segment's latest state, when it
+     * leaves the page for good: replaced by a new `render()` (a segment redrawn, a message
+     * redrawn in a new frame, this renderer replaced by another registration), its segment
+     * removed, or its message removed. Never for `update()` or `relabel()`, and never for
+     * a message a framework only MOVED: a bubble taken out and put back within the same
+     * task keeps its elements. A bubble that comes back after a longer absence (a
+     * framework's keep-alive cache, a reused route) draws its segments again, so a
+     * renderer sees `render`/`setup` once more after its `cleanup`.
+     *
+     * A renderer that replaces its own element inside `update()` cleans up what it
+     * replaced itself: the bubble then follows the new element and calls this for it.
+     *
+     * This hook was declared long before anything called it; it is called now.
+     * @param element - The DOM element leaving
+     * @param segment - The segment it was last drawn or updated with
      */
-    cleanup?(element: HTMLElement): void;
+    cleanup?(element: HTMLElement, segment: T): void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

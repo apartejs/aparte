@@ -12,8 +12,22 @@ import type {
   AparteUsage,
   AparteMessage,
   AparteToolCallSegment,
+  AparteSegmentRenderer,
+  AparteToolRenderer,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
+
+/**
+ * A segment as drawn: its element, the renderer that drew it and — for a tool call — the
+ * tool renderer in effect then. Kept so `cleanup` reaches the renderer that DREW the
+ * element, and so a registry change can tell which segments to draw again.
+ */
+interface DrawnSegment {
+  el: HTMLElement;
+  renderer: AparteSegmentRenderer | undefined;
+  tool: AparteToolRenderer | null;
+  segment: AparteSegment;
+}
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { AparteConfig, renderingVersionOf } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
@@ -361,6 +375,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // one. `_renderAvatar` tears down the previous mount before re-mounting, so
     // calling it again is safe, and it no-ops when no provider is registered.
     this._renderAvatar();
+    // A renderer swapped for some segments first (they are drawn anew, so nothing to
+    // relabel there), then every segment still on its own renderer re-reads its text.
+    this._redrawSegmentsWhoseRendererChanged();
     this._relabelSegments();
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
@@ -382,6 +399,73 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
   /** The {@link renderingVersionOf} count the content was last drawn with. */
   private _drawnWithVersion = 0;
+
+  /** Every segment on screen, by id: see {@link DrawnSegment}. */
+  private _drawn = new Map<string, DrawnSegment>();
+
+  /** The segments were released because the bubble left the page for longer than a task. */
+  private _releasedWhileDetached = false;
+
+  /** The tool renderer in effect for a call: none for a hidden call or another segment. */
+  private _toolRendererFor(segment: AparteSegment): AparteToolRenderer | null {
+    if (segment.type !== 'tool_call') return null;
+    const name = (segment as AparteToolCallSegment).toolCall?.name;
+    const cfg = this._cfg;
+    if (!name || cfg.isToolHidden(name)) return null;
+    return cfg.getToolRenderer(name) ?? null;
+  }
+
+  private _track(segment: AparteSegment, el: HTMLElement, renderer: AparteSegmentRenderer | undefined): void {
+    this._drawn.set(segment.id, { el, renderer, tool: this._toolRendererFor(segment), segment });
+  }
+
+  /**
+   * The segment's element leaves for good: its renderer's `cleanup`, once. A cleanup that
+   * throws is reported and costs nothing else — the element still goes, and the others
+   * are still released.
+   */
+  private _release(id: string): void {
+    const drawn = this._drawn.get(id);
+    if (!drawn) return;
+    this._drawn.delete(id);
+    const cleanup = drawn.renderer?.cleanup;
+    if (!cleanup) return;
+    try {
+      runWithConfig(this._cfg, () => cleanup.call(drawn.renderer, drawn.el, drawn.segment));
+    } catch (err) {
+      console.error('[aparte] a segment renderer\'s cleanup threw', err);
+    }
+  }
+
+  private _releaseAll(): void {
+    for (const id of [...this._drawn.keys()]) this._release(id);
+  }
+
+  /**
+   * A renderer registered, unregistered or overridden since these segments were drawn: draw
+   * again only the segments whose renderer is no longer the one that drew them (for a tool
+   * call, the tool renderer counts), in place. The others keep their elements — and with
+   * them anything mounted in them, which a redraw of the whole message would unmount.
+   */
+  private _redrawSegmentsWhoseRendererChanged(): void {
+    if (!this._segmentsEl || this._drawn.size === 0) return;
+    const cfg = this._cfg;
+    for (const segment of this._segments) {
+      const drawn = this._drawn.get(segment.id);
+      if (!drawn) continue;
+      const renderer = resolveSegmentRenderer(segment.type, cfg);
+      if (renderer === drawn.renderer && this._toolRendererFor(segment) === drawn.tool) continue;
+      const old = drawn.el;
+      this._release(segment.id);
+      const el = renderer
+        ? segmentRenderResultToElement(runWithConfig(cfg, () => renderer.render(segment)), segment)
+        : unrenderedSegment(segment);
+      if (!el) { old.remove(); continue; }
+      old.replaceWith(el);
+      if (renderer) runWithConfig(cfg, () => renderer.setup?.(el, segment));
+      this._track(segment, el, renderer);
+    }
+  }
 
   /**
    * A Markdown or highlight provider set after this message was drawn: draw it again.
@@ -460,6 +544,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // yet, so the initial time would otherwise stay blank. No-ops when the
     // attribute is absent (set later → attributeChangedCallback handles it).
     this._updateTimestamp(this.getAttribute('timestamp'));
+    // Back after an absence long enough that its segments were cleaned up (a framework's
+    // keep-alive cache, a reused route): draw them again. `_render()` kept the frame.
+    if (this._releasedWhileDetached) {
+      this._releasedWhileDetached = false;
+      if (this._segments.length > 0) this._renderSegments();
+    }
     window.addEventListener('aparte-config-change', this._onConfigChange);
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
@@ -492,6 +582,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // The incremental Markdown parser is bound to the content element being replaced: left
     // bound, a stream would go on writing into the detached one and end blank.
     this._resetMarkdownStream();
+    // The segments go with the old frame: their renderers clean up before it is dropped.
+    this._releaseAll();
     this.replaceChildren();
     this._render();
     this._updateContent();
@@ -509,6 +601,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
     }
+    // Gone for good, or only moved? A keyed list moving a row takes it out and puts it back
+    // within the same task, and must not unmount what its segments hold: decide after it.
+    queueMicrotask(() => {
+      if (this.isConnected || this._drawn.size === 0) return;
+      this._releaseAll();
+      this._releasedWhileDetached = true;
+    });
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -665,6 +764,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (index !== -1) {
       this._segments.splice(index, 1);
     }
+    this._release(segmentId);
     const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
     this._updateWaiting();
@@ -758,9 +858,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (el) {
         this._segmentsEl.appendChild(el);
         runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
+        this._track(segment, el, renderer);
       }
     } else {
-      this._segmentsEl.appendChild(unrenderedSegment(segment));
+      const el = unrenderedSegment(segment);
+      this._segmentsEl.appendChild(el);
+      this._track(segment, el, undefined);
     }
     if (this._contentEl) this._contentEl.style.display = 'none';
     this._reflectError();
@@ -777,11 +880,24 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
     if (renderer.update) {
       runWithConfig(this._cfg, () => renderer.update!(el, segment));
+      // A renderer may replace its own element in `update` (the tool row does when its
+      // shape changes), cleaning up what it replaced: follow the element it left.
+      const drawn = this._drawn.get(segmentId);
+      if (drawn) {
+        drawn.segment = segment;
+        const now = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
+        if (now && now !== drawn.el) {
+          drawn.el = now;
+          drawn.tool = this._toolRendererFor(segment);
+        }
+      }
     } else {
       const newEl = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (newEl) {
+        this._release(segmentId);
         el.replaceWith(newEl);
         runWithConfig(this._cfg, () => renderer.setup?.(newEl, segment));
+        this._track(segment, newEl, renderer);
       }
     }
 
@@ -1218,7 +1334,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (!this._segmentsEl) return;
     this._drawnWithVersion = renderingVersionOf(this._cfg);
 
-    // Clear existing segments
+    // Clear existing segments — their renderers clean up first.
+    this._releaseAll();
     this._segmentsEl.innerHTML = '';
 
     for (const segment of this._segments) {
@@ -1228,9 +1345,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         if (el) {
           this._segmentsEl.appendChild(el);
           runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
+          this._track(segment, el, renderer);
         }
       } else {
-        this._segmentsEl.appendChild(unrenderedSegment(segment));
+        const el = unrenderedSegment(segment);
+        this._segmentsEl.appendChild(el);
+        this._track(segment, el, undefined);
       }
     }
 
