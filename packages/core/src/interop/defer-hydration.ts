@@ -79,11 +79,14 @@ function release(holder: Element): void {
 /**
  * Release `root` — remove its `defer-hydration` attribute and upgrade, synchronously, every
  * aparté element it held. A wrapper calls it once the framework has hydrated, before anything
- * talks to the elements. A root that carries no attribute is left as it is.
+ * talks to the elements. A root that holds nothing is left as it is; one whose attribute the
+ * framework already took off — a hydration that drops what the client render does not draw —
+ * is released now, not a microtask later.
  */
 export function releaseDeferredHydration(root: Element | null | undefined): void {
-    if (!root || !root.hasAttribute(ATTR)) return;
-    root.removeAttribute(ATTR);
+    if (!root) return;
+    if (root.hasAttribute(ATTR)) root.removeAttribute(ATTR);
+    else if (!waiting.has(root)) return;
     release(root);
 }
 

@@ -66,6 +66,15 @@ describe('defer-hydration', () => {
         expect(log).toEqual(['connected']);
     });
 
+    it('an explicit release does not wait for that microtask when a framework already took the attribute off', () => {
+        // A hydration that drops the attribute it did not render on the client, then the
+        // wrapper's release in its mount hook — which talks to the elements right after.
+        const holder = serverRendered('<held-probe></held-probe>');
+        holder.removeAttribute('defer-hydration');
+        releaseDeferredHydration(holder);
+        expect(log).toEqual(['connected']);
+    });
+
     it('an element carrying the attribute itself waits for its own release', () => {
         const holder = serverRendered('<held-probe defer-hydration label="x"></held-probe>', false);
         const probe = holder.querySelector('held-probe')!;

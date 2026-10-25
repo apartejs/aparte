@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
@@ -111,6 +111,15 @@ const rootRef = ref<HTMLElement>();
 // True until mounted — in the server render and in the render that hydrates it. While true the
 // root carries `defer-hydration`, so core's elements leave the server's DOM alone until Vue has it.
 const hydrating = ref(true);
+// The root, handed over by Vue as soon as the chat's tree is in place — hydrated or rendered —
+// and BEFORE any onMounted, a slot component's included: a slot's own mount hook runs before
+// the chat's, so the elements a server render left waiting are released here, not there, and
+// whatever a slot does on mount talks to live elements. A client-only render holds nothing.
+function setRoot(el: Element | ComponentPublicInstance | null): void {
+  if (!(el instanceof HTMLElement)) return;
+  rootRef.value = el;
+  releaseDeferredHydration(el);
+}
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();
 const internalMessages = ref<AparteMessage[]>([...props.messages]);
@@ -144,8 +153,8 @@ const loadingText = computed(() => (localeTick.value, (props.config ?? aparteGlo
 const typingLabel = computed(() => (localeTick.value, props.typingText ?? (props.config ?? aparteGlobalConfig).t('typing')));
 
 onMounted(() => {
-  // The elements a server render left waiting are upgraded first: the host talks to them.
-  releaseDeferredHydration(rootRef.value);
+  // The elements a server render left waiting were upgraded in `setRoot`; the attribute
+  // the next render would draw goes too.
   hydrating.value = false;
   unsubscribeLocale = (props.config ? toRaw(props.config) : aparteGlobalConfig).subscribe(() => { localeTick.value++; });
   const binding: AparteChatHostBinding = {
@@ -251,7 +260,7 @@ defineExpose({
     :overlay-composer="overlayComposer ? '' : null"
     :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null"
     :id="hostId"
-    ref="rootRef"
+    :ref="setRoot"
   >
     <aparte-chat-viewport ref="viewportRef" framework-managed="" :loading="waiting ? '' : null">
       <!-- The wait, drawn here because this DOM is Vue's: the kit's skeleton recipe,

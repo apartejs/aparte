@@ -4,6 +4,7 @@ import { flushSync, tick } from 'svelte';
 import AparteChat from '../../runes/AparteChat.svelte';
 import BindHost from './BindHost.svelte';
 import SnippetsHost from './SnippetsHost.svelte';
+import SnippetProbeHost from './SnippetProbeHost.svelte';
 import type { AparteMessage } from '../../types.js';
 
 /**
@@ -23,6 +24,16 @@ function send(container: HTMLElement, content: string) {
 }
 
 afterEach(() => cleanup());
+
+describe('<AparteChat> for Svelte 5 and defer-hydration', () => {
+    afterEach(() => cleanup());
+
+    it("a snippet's component sees live elements in its own onMount, which runs before the chat's", () => {
+        const seen = { drawn: null as boolean | null };
+        render(SnippetProbeHost, { seen });
+        expect(seen.drawn).toBe(true);
+    });
+});
 
 describe('<AparteChat> for Svelte 5', () => {
     it('renders a working chat with no props', () => {

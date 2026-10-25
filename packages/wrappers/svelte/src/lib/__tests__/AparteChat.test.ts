@@ -6,6 +6,7 @@ import AparteChat from '../AparteChat.svelte';
 import CustomComposerHost from './CustomComposerHost.svelte';
 import SlotHost from './SlotHost.svelte';
 import BubbleHost from './BubbleHost.svelte';
+import SlotProbeHost from './SlotProbeHost.svelte';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage, AparteChatImperativeApi } from '@aparte/core';
 
@@ -411,6 +412,16 @@ describe('AparteChat.svelte', () => {
         const generation = source.indexOf('hostId = id ?? `aparte-chat-${uuid()}`');
         expect(mount, 'onMount is where the id is made').toBeGreaterThan(-1);
         expect(generation, 'the generation line exists').toBeGreaterThan(mount);
+    });
+});
+
+describe('AparteChat and defer-hydration', () => {
+    it("a slot's component sees live elements in its own onMount, which runs before the chat's", () => {
+        // A client-only page: the root carries defer-hydration for its first render, and the
+        // release must come before the children's onMount, not in the chat's own.
+        const seen = { drawn: null as boolean | null };
+        render(SlotProbeHost, { seen });
+        expect(seen.drawn).toBe(true);
     });
 });
 
