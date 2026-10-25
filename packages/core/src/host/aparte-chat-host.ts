@@ -17,6 +17,7 @@ import { resolveConfig, attachConfig, detachConfig } from '../config/config-cont
 import { cssEscape } from '../utils/css-escape.js';
 import { dispatchLifecycleEvent } from '../client/lifecycle-events.js';
 import { gateGlide } from '../components/chat/glide-gate.js';
+import { CheckpointStateWatcher } from '../context/checkpoint-state.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
@@ -172,6 +173,15 @@ const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStr
  */
 const ALWAYS_PRESENT_FIELDS = new Set(['content', 'segments', 'status']);
 
+/**
+ * What an update to a message the framework has ALREADY rendered must still reach its
+ * bubble for: the fields the bubble draws from, bar `status` (which has its own immediate
+ * path in `updateMessage`). Without this a write to any message but the last stayed in the
+ * list and never on screen — `syncBubbles` re-syncs the last message on every render and
+ * every other one once.
+ */
+const RENDERED_FIELDS = ['content', 'segments', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction'] as const;
+
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
     private readonly options: AparteChatHostOptions;
@@ -180,6 +190,15 @@ export class AparteChatHost {
     private _streamingId: string | null = null;
     /** Message ids already reconciled onto a bubble (skip-rerender cache). */
     private readonly _renderedIds = new Set<string>();
+    /**
+     * Says on the bubble what a compaction is doing to the message it will sit on. The
+     * viewport answers for this in a chat with no framework; here the framework owns the
+     * list and the host is the one that knows which bubble is whose.
+     */
+    private readonly _checkpointState = new CheckpointStateWatcher({
+        ownId: () => this.binding.hostId,
+        bubbleOf: (id) => this._bubbleById(id) as unknown as HTMLElement | null,
+    });
     /** Sibling info from the last path-change, applied after the next render. */
     private _pendingSiblings?: AparteSiblingInfo[];
     /** How many render passes the sibling write has waited for — see `_applyPendingSiblings`. */
@@ -279,6 +298,7 @@ export class AparteChatHost {
 
         this._installHostMethods(host);
         this._installLifecycleListeners(host);
+        this._teardown.push(this._checkpointState.start());
         // `centerWhenEmpty` slides only once a person is in the page (see glide-gate.ts).
         this._teardown.push(gateGlide(host));
         this._installViewportListeners();
@@ -412,6 +432,8 @@ export class AparteChatHost {
         this._setStreamingId(null);
         this.binding.onTypingChange?.(false);
         this._renderedIds.clear();
+        // The message a summary was being written onto belongs to the chat being left.
+        this._checkpointState.clear();
         this.binding.resetComposer?.();
     }
 
@@ -476,6 +498,19 @@ export class AparteChatHost {
         // Immediate visual feedback for a status change (e.g. streaming class).
         if (updates.status) {
             this._bubbleById(messageId)?.updateMessage?.({ status: updates.status });
+        }
+        // A write to a message that is not the last would otherwise reach the list and
+        // never the screen: `syncBubbles` re-syncs a message once and then skips it (the
+        // last one it re-syncs on every render). So the bubble is told here — a Restore
+        // taking a checkpoint off, a compaction putting one on — and the message's id leaves
+        // the rendered set, so the next sync draws it from the list in any case (the bubble
+        // may not exist yet, or the framework may replace it).
+        if (index !== msgs.length - 1 && RENDERED_FIELDS.some((key) => key in updates)) {
+            this._renderedIds.delete(messageId);
+            const bubble = this._bubbleById(messageId);
+            if (bubble && ('contextSummary' in updates || 'compaction' in updates)) {
+                bubble.setContextSummary?.(merged.contextSummary, { legacy: merged.compaction === true });
+            }
         }
         // A finished turn closes its segments — same rule and same helper as the
         // viewport, because this is the method both agent loops call to report the
@@ -860,6 +895,8 @@ export class AparteChatHost {
             populateBubbleFromMessage(bubble, message);
             this._renderedIds.add(message.id);
         });
+        // The bubbles may be new since the compaction began (a framework renders late).
+        this._checkpointState.reapply();
     }
 
     /**

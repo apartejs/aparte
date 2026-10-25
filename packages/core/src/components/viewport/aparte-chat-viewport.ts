@@ -32,6 +32,7 @@ import {
     isTerminalStatus,
 } from '../../utils/segments.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { CheckpointStateWatcher, chatIdOf } from '../../context/checkpoint-state.js';
 
 /**
  * An assistant reply handed over as a markdown string, split the way the stream would
@@ -289,6 +290,13 @@ export class AparteChatViewport extends HTMLElement {
     private _transcriptInset = -1;
     private _boundResetHandler: (() => void) | null = null;
     /**
+     * Marks the bubble a compaction is writing its checkpoint onto (`data-checkpoint`). The
+     * vanilla viewport's job: under a wrapper the transcript is the framework's, and the
+     * host answers for it instead (`active` below).
+     */
+    private _checkpointState: CheckpointStateWatcher | null = null;
+    private _stopCheckpointState: (() => void) | null = null;
+    /**
      * When true, _reRenderActivePath() only dispatches aparte-path-changed without
      * touching the DOM. Set via setFrameworkManagedDOM(true) when a framework
      * (e.g. Angular) owns the bubble elements.
@@ -406,6 +414,12 @@ export class AparteChatViewport extends HTMLElement {
         this._boundResetHandler = () => this.clearAll();
         window.addEventListener('aparte-reset', this._boundResetHandler);
         window.addEventListener('aparte-config-change', this._onConfigChange);
+        this._checkpointState ??= new CheckpointStateWatcher({
+            ownId: () => chatIdOf(this),
+            bubbleOf: (id) => this.querySelector(`aparte-chat-bubble[message-id="${cssEscape(id)}"]`) as HTMLElement | null,
+            active: () => !this._frameworkManagedDOM,
+        });
+        this._stopCheckpointState ??= this._checkpointState.start();
     }
 
     /**
@@ -469,6 +483,8 @@ export class AparteChatViewport extends HTMLElement {
             window.removeEventListener('aparte-reset', this._boundResetHandler);
             this._boundResetHandler = null;
         }
+        this._stopCheckpointState?.();
+        this._stopCheckpointState = null;
         this._cleanup();
     }
 
@@ -1274,6 +1290,8 @@ export class AparteChatViewport extends HTMLElement {
         this._setSpacerHeight(0);
         this._isAutoScrollEnabled = true;
         this._updateScrollButton();
+        // An emptied transcript has no message a summary was being written onto.
+        this._checkpointState?.clear();
         this.dispatchEvent(new CustomEvent('aparte-reset-done', { bubbles: true, composed: true }));
     }
 
@@ -1417,7 +1435,9 @@ export class AparteChatViewport extends HTMLElement {
                 // and therefore the history sent to the model — while the bubble
                 // kept displaying the old text.
                 const updates = payload as Record<string, unknown>;
-                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason'];
+                // `contextSummary` and `compaction` draw (or take off) the separator above the
+                // message — a Restore writes them through here.
+                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction'];
                 if (renderable.some((key) => key in updates)) {
                     bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }
@@ -1483,6 +1503,8 @@ export class AparteChatViewport extends HTMLElement {
 
         this._dispatchPathChanged(activeMessages, siblingsInfo);
         this._syncBusy();
+        // The bubbles above are new: a compaction still writing its checkpoint is said again.
+        this._checkpointState?.reapply();
         this._recalculateSpacer();
 
         // No post-swap re-measure of the auto-scroll INTENT here, deliberately: a
