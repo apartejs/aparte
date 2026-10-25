@@ -238,9 +238,11 @@ export interface AparteMessage {
      * This message is the summary `@aparte/plugin-compaction` injected in place of the
      * turns it summarised (a host that summarises by other means sets the flag too). Its role is `user` — the summary is context handed to the
      * model, and a `system` message mid-conversation is refused by some providers —
-     * but it is not something the user said: the viewport renders it as a notice
-     * (`data-kind="compaction"` on the bubble: centred, no avatar, no actions) and
-     * the history sends it under a fixed preamble saying what it is.
+     * but it is not something the user said: the bubble draws a separator in its place
+     * ("Earlier messages were summarised", with the summary behind Show summary; no
+     * count and no Restore, since an older compaction replaced the turns) and the history
+     * sends it under a fixed preamble saying what it is. A compaction that keeps the
+     * messages writes {@link AparteMessage.contextSummary} instead.
      */
     compaction?: true;
 

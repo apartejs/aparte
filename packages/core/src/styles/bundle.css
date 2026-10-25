@@ -40,6 +40,7 @@
 @import './primitives/progress-spinner.css';
 @import './components/shell.css';
 @import './components/bubble.css';
+@import './components/checkpoint.css';
 @import './components/composer.css';
 @import './segment/thinking.css';
 @import './segment/code.css';

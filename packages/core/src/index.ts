@@ -43,6 +43,7 @@ import './styles/primitives/select.css';
 import './styles/primitives/progress-spinner.css';
 import './styles/components/shell.css';
 import './styles/components/bubble.css';
+import './styles/components/checkpoint.css';
 import './styles/components/composer.css';
 import './styles/segment/thinking.css';
 import './styles/segment/code.css';

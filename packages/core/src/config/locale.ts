@@ -236,6 +236,33 @@ export type AparteLocale = {
      */
     compactionSummaryTitle?: string;
     /**
+     * The separator drawn above the first message the model still reads verbatim, once
+     * the messages before it were summarised for the model; `{n}` is how many
+     * (default: "{n} messages summarised for the model"). The messages stay on screen.
+     */
+    checkpointCount?: string;
+    /** The same separator when exactly one message was summarised (default: "1 message summarised for the model"). */
+    checkpointCountOne?: string;
+    /**
+     * The separator drawn in place of a message written by an older compaction, which
+     * kept no count (default: "Earlier messages were summarised").
+     */
+    checkpointLegacy?: string;
+    /** Accessible name of the separator's group (default: "Context summary"). */
+    checkpointGroup?: string;
+    /** The button that opens the summary under the separator (default: "Show summary"). */
+    checkpointShow?: string;
+    /** The same button while the summary is open (default: "Hide summary"). */
+    checkpointHide?: string;
+    /** The button that brings the original messages back to the model (default: "Restore"). */
+    checkpointRestore?: string;
+    /** The question Restore asks before it acts (default: "Send the original messages to the model again?"). */
+    checkpointRestoreConfirm?: string;
+    /** What the separator says while the summary is being written (default: "Summarising the context…"). */
+    checkpointPending?: string;
+    /** What the separator says when the summary could not be written (default: "Couldn't summarise the context"). */
+    checkpointFailed?: string;
+    /**
      * What the pill says while the decision is being made elsewhere (default:
      * "Waiting").
      *
@@ -496,6 +523,16 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     suggestionsLabel: "Suggested prompts",
     contextLabel: "Context window",
     compactionSummaryTitle: "Conversation summary",
+    checkpointCount: "{n} messages summarised for the model",
+    checkpointCountOne: "1 message summarised for the model",
+    checkpointLegacy: "Earlier messages were summarised",
+    checkpointGroup: "Context summary",
+    checkpointShow: "Show summary",
+    checkpointHide: "Hide summary",
+    checkpointRestore: "Restore",
+    checkpointRestoreConfirm: "Send the original messages to the model again?",
+    checkpointPending: "Summarising the context…",
+    checkpointFailed: "Couldn't summarise the context",
     toolRunning: "Running",
     toolCompleted: "Done",
     toolRejected: "Rejected",

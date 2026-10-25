@@ -29,10 +29,16 @@ describe('a message role', () => {
             ));
         });
 
-        it(`leaves the ${role}'s token undeclared on the root and the anchors`, () => {
-            // Declared there, it would always be set and the content colour a consumer scopes on
-            // one message would never be read. The compaction notice declares it for itself.
-            expect(declaring(`--aparte-message-content-text-${role}`)).toEqual(['aparte-chat-bubble[data-kind="compaction"]']);
+        it(`leaves the ${role}'s token with no value on the root and the anchors`, () => {
+            // Given a value there, it would always be set and the content colour a consumer scopes on
+            // one message would never be read. It is declared, as `initial`, only so that a reader of
+            // a token with no fallback has something to find (check:derived-vars): `initial` is the
+            // guaranteed-invalid value, which `var(--aparte-message-ink, …)` treats as unset.
+            // The compaction notice used to be the one rule that declared it, by accident, with a
+            // value of its own; the separator that replaced the notice has no use for one.
+            const values = blocks.flatMap((block) =>
+                [...block.body.matchAll(new RegExp(`--aparte-message-content-text-${role}\\s*:\\s*([^;]+);`, 'g'))].map((m) => m[1]!.trim()));
+            expect(values).toEqual(['initial']);
         });
     }
 

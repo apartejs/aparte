@@ -12,6 +12,8 @@ import type {
   AparteUsage,
   AparteFinishReason,
   AparteMessage,
+  AparteContextSummary,
+  AparteCompactEventDetail,
   AparteToolCallSegment,
   AparteSegmentRenderer,
   AparteToolRenderer,
@@ -41,6 +43,8 @@ import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { restoreContext } from '../../context/restore.js';
+import { buildCheckpointSeparator, type CheckpointKind } from './checkpoint-separator.js';
 
 /**
  * Warn ONCE when a segment has no renderer — only for types core has never heard of,
@@ -150,6 +154,9 @@ function flushAvatarMarks(): void {
     batch.forEach(([avatar], i) => avatar.toggleAttribute('data-image', shown[i]));
 }
 
+/** Hands each bubble its own `id` for the separator's panel, so two bubbles' `aria-controls` never point at one element. */
+let checkpointIds = 0;
+
 /**
  * One message: plain content or a list of rich segments, in light DOM.
  *
@@ -203,6 +210,7 @@ function flushAvatarMarks(): void {
  * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
+ * @attr {string} data-checkpoint - `pending` or `failed`: what a compaction is doing to this message, which it will carry as a checkpoint. The viewport and the framework host set it from `aparte-compact-start` / `-error` and take it off again; the bubble draws the separator's "Summarising the context…" or Retry from it. Read it, do not write it.
  * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
@@ -212,6 +220,8 @@ function flushAvatarMarks(): void {
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Retry was pressed on a summary that failed: asks whatever answers compaction (`@aparte/plugin-compaction`) to try again for this chat. Dispatched on `window`.
+ * @fires {CustomEvent<AparteCompactDoneEventDetail>} aparte-compact-done - Restore was confirmed: every checkpoint was removed and the model reads the original messages again. `detail.restored` is `true`. Dispatched on `window`.
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
@@ -315,6 +325,22 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _attachments: AparteAttachment[] = [];
   private _usage: AparteUsage | null = null;
   private _finishReason: AparteFinishReason | null = null;
+  /** The checkpoint this message carries: the separator above it is drawn from it. */
+  private _contextSummary: AparteContextSummary | null = null;
+  /**
+   * This message is one an older compaction wrote (`compaction: true`), as the host told
+   * us. `null` until told: the `data-kind="compaction"` attribute the viewport and the
+   * wrappers stamp from the same flag answers meanwhile.
+   */
+  private _legacyCompaction: boolean | null = null;
+  /** The summary panel under the separator is open. Kept here, not in the DOM, because a redraw rebuilds the DOM. */
+  private _checkpointOpen = false;
+  /** Restore asked for confirmation and has not been answered. */
+  private _confirmingRestore = false;
+  /** What the separator was last drawn from, so a re-sync that changes nothing leaves it (and a focused button) alone. */
+  private _checkpointDrawn = '';
+  /** Names the separator's panel for `aria-controls`, unique on the page without needing a message id. */
+  private readonly _checkpointId = `aparte-checkpoint-${++checkpointIds}`;
   /** Cleanup returned by the avatar provider — called on disconnect/re-render. */
   private _avatarCleanup: (() => void) | null = null;
   /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
@@ -350,7 +376,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // and it used to be read as a legacy message-role channel too, which meant
     // filtering our own "article" back out at every turn. A rename lands as a
     // rename pre-1.0, so the overload is gone.
-    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name'];
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint'];
   }
 
   constructor() {
@@ -376,6 +402,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._updateLocalizedLabels();
     this._updateWaiting();
     this._updateFinishNote();
+    // The separator's words are locale and its summary is Markdown: drawn again, not patched.
+    this._checkpointDrawn = '';
+    this._updateCheckpoint();
     // An avatar provider is config too, and it was the one provider a live change
     // never reached: swap the set and every bubble already on screen kept the old
     // one. `_renderAvatar` tears down the previous mount before re-mounting, so
@@ -641,6 +670,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
     this.addEventListener('click', this._onLinkClick);
+    this.addEventListener('click', this._onCheckpointClick);
+    this.addEventListener('keydown', this._onCheckpointKeydown);
   }
 
   /**
@@ -683,6 +714,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._updateAttachments();
     this._updateTimestamp(this.getAttribute('timestamp'));
     this._updateBranchPicker();
+    // `_render` drew it, into the new frame; named here too because this list is what a
+    // frame change has to put back, and the separator sits OUTSIDE the frame (a custom
+    // shell's root is `.aparte-message`, which the separator must not live in).
+    this._updateCheckpoint();
   }
 
   disconnectedCallback(): void {
@@ -691,6 +726,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._offRenderers = null;
     this.removeEventListener('click', this._onBranchPickerClick);
     this.removeEventListener('click', this._onLinkClick);
+    this.removeEventListener('click', this._onCheckpointClick);
+    this.removeEventListener('keydown', this._onCheckpointKeydown);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -716,6 +753,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         break;
       case 'timestamp':
         this._updateTimestamp(newValue);
+        break;
+      case 'data-checkpoint':
+        this._updateCheckpoint();
         break;
       case 'streaming':
         this._updateStreaming(newValue !== null && newValue !== 'false');
@@ -925,6 +965,28 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
+   * Say that the messages before this one were summarised for the model, or that they no
+   * longer are (`null`).
+   *
+   * Draws, or removes, the separator above the message: "{n} messages summarised for the
+   * model", with Show summary and Restore. The separator sits OUTSIDE `.aparte-message`
+   * and inside this element, so it is not part of the message's frame and survives the
+   * frame being drawn again. `legacy: true` says the message is itself the summary an
+   * older compaction wrote (`compaction: true`): it is replaced by the separator, which
+   * then has no count and no Restore. Omit `legacy` to leave what the host last said (or
+   * the `data-kind="compaction"` attribute) in force.
+   */
+  setContextSummary(summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }): void {
+    this._contextSummary = summary ?? null;
+    if (options?.legacy !== undefined) this._legacyCompaction = options.legacy;
+    if (!this._contextSummary) {
+      this._confirmingRestore = false;
+      if (!this._isLegacyCompaction()) this._checkpointOpen = false;
+    }
+    this._updateCheckpoint();
+  }
+
+  /**
    * Update the branch picker UI for tree-based navigation.
    * The viewport calls this after a branch switch or re-render.
    * Prev/Next clicks dispatch `aparte-branch-navigate` (bubbles: true) so
@@ -969,6 +1031,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._updateWaiting();
     }
     if ('finishReason' in updates) this.setFinishReason(updates.finishReason);
+    if ('contextSummary' in updates || 'compaction' in updates) {
+      this.setContextSummary(
+        'contextSummary' in updates ? updates.contextSummary : this._contextSummary,
+        'compaction' in updates ? { legacy: updates.compaction === true } : undefined,
+      );
+    }
   }
 
   /**
@@ -995,6 +1063,144 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
     note.textContent = this._cfg.getLocale().responseCutOff ?? "Cut off at the model's length limit.";
   }
+
+  /** This message was written by an older compaction, as the host said or as its `data-kind` stamp says. */
+  private _isLegacyCompaction(): boolean {
+    return this._legacyCompaction ?? this.getAttribute('data-kind') === 'compaction';
+  }
+
+  /**
+   * What the separator should say, or `null` for none. A compaction in progress or
+   * failed outranks what the message already carries: it is what is happening now.
+   */
+  private _checkpointKind(): CheckpointKind | null {
+    const run = this.getAttribute('data-checkpoint');
+    if (run === 'pending' || run === 'failed') return run;
+    if (this._contextSummary) return 'done';
+    return this._isLegacyCompaction() ? 'legacy' : null;
+  }
+
+  /** The text the summary panel shows: the checkpoint's summary, or the older compaction message itself. */
+  private _checkpointSummaryText(): string {
+    return this._contextSummary ? this._contextSummary.summary : this._content;
+  }
+
+  /**
+   * Draw the separator above the message, or take it off.
+   *
+   * Written into the light DOM as the FIRST child of the bubble, outside `.aparte-message`:
+   * a custom shell roots at that class and is free to be anything, and the separator is not
+   * its to carry. Drawn from `_render` (so every frame gets it) and from every setter that
+   * changes what it says. A re-sync that changes nothing — the framework host calls this on
+   * every render of every bubble — finds the same signature and the element in place and
+   * leaves both alone, so a keyboard user's focus and a scrolled summary are not lost to a
+   * rebuild; one that does change something rebuilds it and puts the focus back on the
+   * button that had it (or on `focus`, which a click that swaps the buttons names).
+   *
+   * A message an older compaction wrote is marked `data-superseded` on its own row: it
+   * stays in the DOM and does not paint (bubble.css), the separator speaking for it.
+   */
+  private _updateCheckpoint(focus?: string): void {
+    const frame = this.querySelector<HTMLElement>('.aparte-message');
+    if (!frame) return;   // not drawn yet: `_render` calls this when it is
+    const kind = this._checkpointKind();
+    frame.toggleAttribute('data-superseded', this._isLegacyCompaction() && !this._contextSummary);
+
+    const current = this.querySelector<HTMLElement>(':scope > .aparte-checkpoint');
+    if (!kind) {
+      current?.remove();
+      this._checkpointDrawn = '';
+      return;
+    }
+
+    const reason = this.getAttribute('data-checkpoint-reason') ?? '';
+    const summary = this._checkpointSummaryText();
+    const signature = JSON.stringify([
+      kind, this._contextSummary?.count, this._contextSummary?.createdAt, reason,
+      this._checkpointOpen, this._confirmingRestore, this._checkpointOpen ? summary : '',
+    ]);
+    if (current && !focus && signature === this._checkpointDrawn) return;
+
+    const active = document.activeElement;
+    const hadFocus = current && active && current.contains(active)
+      ? (active as HTMLElement).getAttribute('data-checkpoint-action')
+      : null;
+
+    const next = buildCheckpointSeparator({
+      kind,
+      count: this._contextSummary?.count,
+      reason,
+      open: this._checkpointOpen,
+      confirming: this._confirmingRestore,
+      summaryId: this._checkpointId,
+      locale: this._cfg.getLocale(),
+    });
+    if (this._checkpointOpen && (kind === 'done' || kind === 'legacy')) {
+      const panel = next.querySelector<HTMLElement>('.aparte-checkpoint__summary');
+      // The configured renderer, as the bubble draws its own content; with none, core's
+      // default, which escapes — text.
+      if (panel) panel.innerHTML = this._cfg.renderMarkdown(summary);
+    }
+    if (current) current.replaceWith(next);
+    else this.prepend(next);
+    this._checkpointDrawn = signature;
+
+    const wanted = focus ?? hadFocus;
+    if (wanted) (next.querySelector(`[data-checkpoint-action="${cssEscape(wanted)}"]`) as HTMLElement | null)?.focus();
+  }
+
+  /**
+   * The separator's buttons. One delegated listener on the bubble, for the reason the branch
+   * picker has one: the separator is rebuilt on every change, and a listener per button would
+   * be lost with it.
+   */
+  private _onCheckpointClick = (event: Event): void => {
+    const button = (event.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-checkpoint-action]');
+    const separator = button?.closest('.aparte-checkpoint');
+    if (!button || !separator || separator.parentElement !== this) return;
+    switch (button.getAttribute('data-checkpoint-action')) {
+      case 'toggle':
+        this._checkpointOpen = !this._checkpointOpen;
+        this._updateCheckpoint('toggle');
+        break;
+      case 'restore':
+        this._confirmingRestore = true;
+        this._updateCheckpoint('restore-confirm');
+        break;
+      case 'restore-cancel':
+        this._confirmingRestore = false;
+        this._updateCheckpoint('restore');
+        break;
+      case 'restore-confirm': {
+        this._confirmingRestore = false;
+        const messageId = this.getAttribute('message-id') ?? undefined;
+        // Through the chat's own `updateMessage`, so the framework's list and the saved
+        // conversation lose the checkpoints too — see restoreContext. This bubble is told
+        // as well: a bubble with no transcript behind it (one placed by hand) has no
+        // store to be told through, and would keep a separator for a summary nobody sends.
+        restoreContext(this, { messageId, targetId: this._resolveTargetId() });
+        this.setContextSummary(null);
+        break;
+      }
+      case 'retry':
+        // The compactor seam arrives with the plugin; until then the command event is the
+        // way to ask, and it is the one the gauge and a host's own button already use.
+        window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', {
+          detail: { targetId: this._resolveTargetId() },
+        }));
+        break;
+    }
+  };
+
+  /** Escape withdraws Restore's question, the way it closes every other inline prompt here. */
+  private _onCheckpointKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || !this._confirmingRestore) return;
+    const separator = (event.target as HTMLElement | null)?.closest?.('.aparte-checkpoint');
+    if (!separator || separator.parentElement !== this) return;
+    event.stopPropagation();
+    this._confirmingRestore = false;
+    this._updateCheckpoint('restore');
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // Private Methods
@@ -1246,6 +1452,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (this._streaming) this._updateStreaming(true);
     this._updateWaiting();
     this._updateFinishNote();
+    this._updateCheckpoint();
   }
 
   /**
