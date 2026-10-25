@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { defineComponent, h, inject, onUnmounted, provide, ref, type PropType } from 'vue';
+import { defineComponent, h, inject, onMounted, onUnmounted, provide, ref, toRaw, type PropType } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
-import { aparteGlobalConfig, registerAllComponents, registerDefaultRenderers, type AparteSegmentBase, type AparteToolCallSegment, type AparteToolCallView } from '@aparte/core';
+import { AparteConfig, aparteGlobalConfig, getSegmentRenderer, registerAllComponents, registerDefaultRenderers, type AparteSegmentBase, type AparteToolCallSegment, type AparteToolCallView } from '@aparte/core';
 import AparteToolUI from '../AparteToolUI.vue';
 import AparteSegmentUI from '../AparteSegmentUI.vue';
 import { isAparteElement } from '../../is-aparte-element';
@@ -168,6 +168,51 @@ describe('<AparteSegmentUI> (Vue)', () => {
     });
 });
 
+describe('<AparteToolUI> / <AparteSegmentUI> (Vue) with what Vue hands them', () => {
+    beforeEach(() => { registerDefaultRenderers(); });
+    afterEach(() => {
+        aparteGlobalConfig.unregisterToolRenderer(/^get_weather$/);
+        document.body.replaceChildren();
+    });
+
+    it('a config held in a ref is declared on as the instance, not as Vue\'s proxy of it', async () => {
+        const held = ref(new AparteConfig());
+        const w = mount(AparteSegmentUI, {
+            props: { type: 'chart', config: held.value },
+            slots: { default: () => h('span') },
+        });
+        await settle();
+        // The chat's bubbles read the instance: a registry keyed by the proxy is one nobody reads.
+        expect(getSegmentRenderer('chart', toRaw(held.value))).toBeDefined();
+        w.unmount();
+    });
+
+    it('a RegExp built anew on every render is the same declaration: the card is not remounted', async () => {
+        let mounts = 0;
+        const Card = defineComponent({ setup() { onMounted(() => { mounts++; }); return () => h('span', { class: 'card' }); } });
+        const renders = ref(0);
+        const Page = defineComponent({
+            setup: () => () => {
+                void renders.value;
+                return h(AparteToolUI, { name: /^get_weather$/ }, { default: () => h(Card) });
+            },
+        });
+        const w = mount(Page);
+        await settle();
+        const b = bubble(call('s1', 'get_weather'));
+        await settle();
+        expect(mounts).toBe(1);
+        const card = b.querySelector('.card');
+        renders.value++;
+        await settle();
+        renders.value++;
+        await settle();
+        expect(mounts).toBe(1);
+        expect(b.querySelector('.card')).toBe(card);
+        w.unmount();
+    });
+});
+
 describe('isAparteElement', () => {
     it('accepts aparte-* tags only, and leaves the wrapper\'s own components to Vue', () => {
         expect(isAparteElement('aparte-icon')).toBe(true);
@@ -176,6 +221,7 @@ describe('isAparteElement', () => {
         expect(isAparteElement('my-card')).toBe(false);
         expect(isAparteElement('AparteToolUI')).toBe(false);
         expect(isAparteElement('aparte-tool-ui')).toBe(false);
+        expect(isAparteElement('aparte-tool-u-i')).toBe(false);
         expect(isAparteElement('aparte-segment-ui')).toBe(false);
         expect(isAparteElement('aparte-ui')).toBe(false);
     });

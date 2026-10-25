@@ -10,6 +10,7 @@
  * Underneath it is core's `overrideToolRenderer` + `defineMountedToolRenderer`. Nothing is
  * declared in a server render; the cards are drawn in the browser.
  */
+import { toRaw } from 'vue';
 import { aparteGlobalConfig, defineMountedToolRenderer } from '@aparte/core';
 import type { AparteConfig, AparteToolCallView, AparteToolMatcher } from '@aparte/core';
 import { useMountedViews } from '../composables/useMountedViews.js';
@@ -26,10 +27,15 @@ defineSlots<{
     default(props: { tool: AparteToolCallView<I, R> }): unknown;
 }>();
 
-// The matcher by its text: a `RegExp` literal in a template is a new object on every render.
+// The config unwrapped: a config held in a ref reaches here as Vue's reactive proxy, and core
+// keys its registries by the instance the chat holds.
+const config = () => (props.config ? toRaw(props.config) : aparteGlobalConfig);
+
+// Two sources, compared one by one: the matcher by its text — a `RegExp` built in a render is a
+// new object every time, the same declaration — and the config.
 const entries = useMountedViews<AparteToolCallView>(
-    () => [typeof props.name === 'string' ? props.name : String(props.name), props.config],
-    (mount) => (props.config ?? aparteGlobalConfig).overrideToolRenderer(props.name, defineMountedToolRenderer(mount)),
+    [() => (typeof props.name === 'string' ? props.name : String(props.name)), config],
+    (mount) => config().overrideToolRenderer(props.name, defineMountedToolRenderer(mount)),
 );
 </script>
 

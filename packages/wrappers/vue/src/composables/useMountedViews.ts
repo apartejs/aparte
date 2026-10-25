@@ -15,11 +15,13 @@ type Mount<V> = (host: HTMLElement, view: V) => AparteMountedView<V>;
  * teleports into.
  *
  * `register` is called in the browser only (`onMounted` never runs in a server render), again
- * whenever `source` changes, and its restore function on unmount — so a declaration lives
+ * whenever one of `sources` changes, and its restore function on unmount — so a declaration lives
  * exactly as long as the component, and a server render declares nothing.
  */
 export function useMountedViews<V>(
-    source: WatchSource<unknown>,
+    // Several sources, which Vue compares one by one: a single getter returning an array would
+    // be a new array — a change — on every run.
+    sources: WatchSource<unknown>[],
     register: (mount: Mount<V>) => () => void,
 ): ShallowRef<readonly MountedEntry<V>[]> {
     const entries = shallowRef<readonly MountedEntry<V>[]>([]);
@@ -41,7 +43,7 @@ export function useMountedViews<V>(
 
     let restore: (() => void) | null = null;
     onMounted(() => {
-        watch(source, () => { restore?.(); restore = register(mount); }, { immediate: true });
+        watch(sources, () => { restore?.(); restore = register(mount); }, { immediate: true });
     });
     onBeforeUnmount(() => { restore?.(); restore = null; });
 

@@ -35,9 +35,10 @@ export default defineConfig({
 ```
 
 `@aparte/core` and `vue` are peer dependencies: Vue <code>{WRAPPER_PEERS.vue}</code>.
-`isAparteElement` keeps Vue from resolving an `aparte-*` tag as a component of yours, and leaves the
-wrapper's own components — `<aparte-tool-ui>`, written in kebab case — to Vue; under Nuxt it goes in
-`nuxt.config.ts`, as `vue.compilerOptions.isCustomElement`.
+`isAparteElement` keeps Vue from resolving an `aparte-*` tag as a component of yours; under Nuxt it
+goes in `nuxt.config.ts`, as `vue.compilerOptions.isCustomElement`. Write the wrapper's own
+components in PascalCase — `<AparteToolUI>`: Vue reads `<aparte-tool-ui>` as `AparteToolUi`, which
+does not exist, and you get its warning rather than an inert element.
 
 ## Render the chat
 

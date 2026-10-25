@@ -66,8 +66,8 @@ import WeatherCard from './WeatherCard.vue';
 
 The slot is teleported into each call, and `inject` reads what your app provides around the
 declaration. `isAparteElement` is the test to give Vue's `isCustomElement`, so your templates can
-use `<aparte-icon>` and the other elements without a warning — and `<aparte-tool-ui>`, written in
-kebab case, still resolves to the component:
+use `<aparte-icon>` and the other elements without a warning (write `<AparteToolUI>` in PascalCase:
+Vue reads `<aparte-tool-ui>` as `AparteToolUi`):
 
 {/* doc-check: skip @vitejs/plugin-vue is the Vue app's own devDependency, which the docs workspace does not install */}
 ```ts
