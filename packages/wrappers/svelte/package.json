@@ -18,6 +18,16 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "default": "./dist/index.js"
+        },
+        "./runes": {
+            "@aparte-workspace/source": "./src/lib/runes/index.ts",
+            "svelte": {
+                "types": "./dist/runes/index.d.ts",
+                "default": "./dist/runes/index.js"
+            },
+            "types": "./dist/runes/index.d.ts",
+            "import": "./dist/runes/index.js",
+            "default": "./dist/runes/index.js"
         }
     },
     "files": [
@@ -57,7 +67,7 @@
     },
     "peerDependencies": {
         "@aparte/core": ">=0.24.0 <1.0.0",
-        "svelte": "^4.0.0 || ^5.0.0"
+        "svelte": "^4.0.0 || ^5.20.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

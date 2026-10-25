@@ -34,6 +34,8 @@ export default defineConfig({
         // jsdom polyfills (ResizeObserver, …).
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         include: ['src/**/*.test.ts'],
+        // The server renders run in their own project (vitest.server.config.ts).
+        exclude: ['src/**/*.server.test.ts', '**/node_modules/**'],
         alias: {
             '@aparte/core': resolve(__dirname, '../../core/src/index.ts'),
         },
