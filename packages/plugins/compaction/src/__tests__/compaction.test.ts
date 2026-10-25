@@ -381,7 +381,8 @@ describe('setupCompaction — the request', () => {
     it('carries a reply that ended in an error, and leaves out a turn with nothing to say', async () => {
         // What the user read is what is being deleted: a reply that errored half-way
         // still said something, so the summary carries it. Only a turn whose text is
-        // empty contributes nothing and is dropped.
+        // empty contributes nothing and is dropped; the two replies it leaves side by
+        // side are one turn, because the request must alternate.
         const messages: AparteMessage[] = [
             { id: 'u1', role: 'user', content: 'q', timestamp: 1, status: 'completed' },
             { id: 'a1', role: 'assistant', content: 'half', timestamp: 2, status: 'error' },
@@ -395,8 +396,7 @@ describe('setupCompaction — the request', () => {
         const history = last().request.messages.slice(0, -1);
         expect(history).toEqual([
             { role: 'user', content: 'q' },
-            { role: 'assistant', content: 'half' },
-            { role: 'assistant', content: 'done' },
+            { role: 'assistant', content: 'half\n\ndone' },
         ]);
     });
 

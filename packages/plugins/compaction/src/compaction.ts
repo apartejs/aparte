@@ -12,16 +12,20 @@
  * `compact()` itself never has to listen for the answer to its own call.
  *
  * What this file is careful about, each learned on the client's version of it:
- *   - one compaction at a time per setup — a second request while one runs is
- *     reported skipped, not started (two paid summaries, both written);
+ *   - one compaction at a time per CHAT — a second request for a chat whose summary is
+ *     being written is reported skipped, not started (two paid summaries, both written),
+ *     while another chat on the same setup compacts on its own;
  *   - a transcript with a turn in flight is left alone — except the turn being PREPARED
  *     (a send or retry the client is about to make), which the caller names in
  *     `exclude`: it is neither summarised nor counted as in flight;
- *   - the summarisation has its OWN abort controller, reached by `abort()` and by an
- *     `aparte-abort` addressed to the chat, so a summary the user cancelled stops there;
+ *   - the summarisation has its OWN abort controller, reached by `abort()`, by an
+ *     `aparte-abort` addressed to the chat and by the abort signal of the request that
+ *     asked for it (the client's Stop), so a summary the user cancelled stops there, and a
+ *     Restore of the same chat cancels it too;
  *   - and a summary nobody cancelled is refused too when the message it was to sit on
- *     is no longer on the chat's path: the conversation was switched (or reset)
- *     underneath, and a success the host dropped would be reported as one;
+ *     is no longer on the chat's path, or the checkpoint it updates was taken off: the
+ *     conversation was switched (or reset) or restored underneath, and a success the host
+ *     dropped would be reported as one;
  *   - the checkpoint is the model's own update of the one before it: a second compaction
  *     sends "Summary so far:" and only the messages since, not the whole history again;
  *   - a chat is addressed by id through the same rule the gauge and the client use, and
@@ -33,13 +37,15 @@ import {
     type AparteConfig, type AparteMessage, type AparteChatMessage, type AparteChatRequest, type AparteStreamEvent,
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
     type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
-    type AparteCompactorOutcome, type AparteCompactorRequest,
+    type AparteCompactorOutcome, type AparteCompactorReason, type AparteCompactorRequest,
 } from '@aparte/core';
 import {
     computeHistoryBudget, DEFAULT_COMPACTION_CONFIG, estimateTokens, splitHistoryBudget,
 } from './budget.js';
 import { cutAtUser, firstRequestBlock, splitFirstRequest } from './cut.js';
-import { createCompactionSelector, type CompactableMessage, type CompactionSelection } from './selector.js';
+import {
+    createCompactionSelector, type CompactableMessage, type CompactionLimits, type CompactionSelection, type CompactionSelector,
+} from './selector.js';
 import { DEFAULT_COMPACTION_PROMPT, messageText, transcriptForSummary } from './transcript.js';
 
 /**
@@ -90,10 +96,11 @@ export type CompactionSkipReason =
      * The selector kept everything — within budget, or nothing older than what is kept —
      * or no user message could carry the checkpoint (the first message kept must be the
      * user's). Also what an automatic request is told when the back-off, a Restore or the
-     * hysteresis says not to try now.
+     * hysteresis says not to try now, and what an automatic or overflow request is told
+     * when `auto: false` (or `listen: false`) keeps the setup manual.
      */
     | 'nothing-to-drop'
-    /** A compaction is already running for this setup. */
+    /** A compaction is already running for this chat. */
     | 'running'
     /** A turn is in flight in the transcript; compacting under it would summarise a half-written reply. */
     | 'streaming'
@@ -115,7 +122,12 @@ export interface CompactionSetupOptions {
      *
      * Default: `createCompactionSelector` over the current model — its `contextWindow`,
      * the resolved system prompt and the registered tools set the budget, and the
-     * newest turns that fit the window stay. Whatever it chooses, the cut is moved so the
+     * newest turns that fit stay. Each compaction sizes it: to land below the `threshold`
+     * (about `threshold − 0.2` of the window once the fixed costs are paid, so one
+     * compaction buys several turns), with room for the turn being prepared, and in the
+     * model's own tokens (the heuristic's undercount, as the context gauge calibrates it).
+     * A `selector` of your own is called with the messages alone and keeps what it keeps.
+     * Whatever it chooses, the cut is moved so the
      * first message kept is a user message (the checkpoint sits on it). When the current
      * model declares no window there is no budget to walk, and the compaction skips
      * (`'no-window'`) unless the host sizes the request itself: a `selector`, a
@@ -176,24 +188,46 @@ export interface CompactionSetupOptions {
      * the gauge call.
      */
     scopeToTargetId?: string;
-    /** Listen for `aparte-compact` and `aparte-abort` on `window`. Default `true`; `false` for a host that calls `compact()` itself. */
+    /**
+     * Listen for `aparte-compact` and `aparte-abort` on `window`. Default `true`; `false` for
+     * a host that calls `compact()` itself.
+     *
+     * `false` also keeps compaction manual, whatever `auto` says (see `auto`): a setup that
+     * hears nothing decides nothing. A Stop still cancels a summary: the client hands the
+     * turn's abort signal to the compactor, so it does not depend on this listener.
+     */
     listen?: boolean;
     /**
      * Compact by itself. Default `true`: once set up, the plugin summarises a chat when a
-     * turn ends with the context at `threshold` of its window, and before a send whose
-     * request would not fit — the client asks first (`beforeSend`). `false` keeps it
-     * manual: the gauge's Compact now, a separator's Retry, `compact()`, `aparte-compact`.
+     * turn ends with the context at `threshold` of its window, before a send whose request
+     * would not fit — the client asks first (`beforeSend`) — and when the model refuses a
+     * request as over its window (the client asks again, with `reason: 'overflow'`, and
+     * sends the turn once more).
      *
-     * Forced `false` with `listen: false` (a setup that hears nothing decides nothing), and
-     * it acts only when a summariser can run: a provider registered for the current model,
+     * `false` means MANUAL ONLY: only a person's request compacts (the gauge's Compact now,
+     * a separator's Retry, `compact()`, `aparte-compact`). None of the three automatic
+     * attempts is made, the overflow included — `compact()` answers an `'auto'` or
+     * `'overflow'` request with a skip, so the model's error stands exactly as it did before
+     * the plugin. Forced `false` with `listen: false` (a setup that hears nothing decides
+     * nothing).
+     *
+     * It acts only when a summariser can run: a provider registered for the current model,
      * or a `summarize` of the host's. It never acts on a Restore, a conversation switch or a
      * load, and never again after two failures in a row until something succeeds or a person
-     * asks (see the back-off in the docs); an overflow the model reports is always retried.
+     * asks (see the back-off in the docs).
      */
     auto?: boolean;
     /**
      * The share of the window, from 0 to 1, at which a turn's end triggers a compaction.
      * Default `0.8`. The gauge's own levels are independent of it.
+     *
+     * A compaction aims lower than the threshold: with the default selector it leaves the
+     * history the model reads at about `threshold − 0.2` of the window, less the fixed costs
+     * (the system prompt, the tools, the room for the reply, the summary's slot), so one
+     * compaction buys several turns and the next is not asked for after this one. That holds
+     * for a person's request and an overflow retry too; a `selector` of your own is left
+     * alone. If the context is still at the threshold afterwards (a long recent tail the
+     * selector must keep), nothing automatic runs again until a turn ends below it.
      */
     threshold?: number;
     /**
@@ -223,9 +257,9 @@ export interface CompactionController extends
      * same information goes out as `aparte-compact-done` / `aparte-compact-error`.
      */
     compact(request?: string | AparteCompactorRequest): Promise<CompactionOutcome>;
-    /** Abort the summarisation in flight, if any. The transcript is left untouched. */
+    /** Abort the summarisations in flight, if any. The transcripts are left untouched. */
     abort(): void;
-    /** `true` while a summarisation is in flight. */
+    /** `true` while a summarisation is in flight, for any chat of this setup. */
     readonly running: boolean;
     /** Remove the listeners and forget this setup; an in-flight summarisation is aborted and the compactor unregistered. */
     dispose(): void;
@@ -235,6 +269,17 @@ export interface CompactionController extends
 const DEFAULT_THRESHOLD = 0.8;
 /** Failures in a row, for one chat, after which the automatic attempts stop. */
 const MAX_FAILURES = 2;
+/**
+ * How far below the threshold a compaction aims to leave the context, as a share of the
+ * window. A compaction that landed AT the threshold would buy one turn and be asked again
+ * after it; landing a fifth of the window below buys several.
+ */
+const LANDING_MARGIN = 0.2;
+/**
+ * After an overflow, the share of what failed that the kept history and the new turn may
+ * still take. The model refused that request: one a token smaller is no answer.
+ */
+const OVERFLOW_SHRINK = 0.75;
 
 /**
  * What the policy remembers about one chat. All of it is forgotten on a conversation
@@ -330,15 +375,17 @@ const inFlight = (message: AparteMessage): boolean => message.status === 'stream
  * what the WIRE sends for a message (core's estimate) rather than its text alone, so the
  * selection and the gauge price a reply's tool calls and its hidden thinking the same way.
  */
-function defaultSelector(config: AparteConfig, keepWithoutWindow: number, windowOf: () => number | undefined): CompactionMessageSelector {
-    const budgeted = createCompactionSelector({
+function defaultSelector(
+    config: AparteConfig, keepWithoutWindow: number, windowOf: () => number | undefined,
+): (messages: AparteMessage[], limits?: CompactionLimits) => CompactionSelection<AparteMessage> {
+    const budgeted: CompactionSelector = createCompactionSelector({
         contextWindow: windowOf,
         systemPrompt: () => config.resolveSystemPrompt(),
         tools: () => config.getTools(),
         estimate: (message: CompactableMessage) => estimateWireTokens([message as AparteMessage]),
     });
-    return (messages) => {
-        if (windowOf()) return budgeted(messages);
+    return (messages, limits) => {
+        if (windowOf()) return budgeted(messages, limits);
         const cut = Math.max(0, messages.length - keepWithoutWindow);
         return { keep: messages.slice(cut), drop: messages.slice(0, cut) };
     };
@@ -350,6 +397,42 @@ const summarisable = (drop: AparteMessage[]): AparteChatMessage[] =>
         .filter((m) => !inFlight(m))
         .map((m) => ({ role: m.role, content: transcriptForSummary(m) }))
         .filter((m) => contentToText(m.content).length > 0);
+
+/**
+ * Adjacent turns of one role become one turn, joined by a blank line, the way core's wire
+ * history joins them. Turns that say nothing are dropped before this (a reply stopped before
+ * its first token), which can leave two of the user's side by side, and a chat template that
+ * insists on alternation (a local model's: Mistral, Gemma) refuses them. The summary request
+ * goes straight to the transport, so it does not pass through the merge a send does.
+ */
+const alternating = (turns: AparteChatMessage[]): AparteChatMessage[] => {
+    const merged: AparteChatMessage[] = [];
+    for (const turn of turns) {
+        const last = merged[merged.length - 1];
+        if (last && last.role === turn.role) {
+            merged[merged.length - 1] = { role: last.role, content: `${contentToText(last.content)}\n\n${contentToText(turn.content)}` };
+        } else {
+            merged.push(turn);
+        }
+    }
+    return merged;
+};
+
+/**
+ * What a summary is made of once a reasoning model's inline thinking is taken out. A model
+ * that reasons in its text (llama.cpp or vLLM without a reasoning parser) opens `<think>`,
+ * and the chat path turns that block into a thinking segment; the summary never goes through
+ * that parser, so the block would be stored as the summary, shown under "Show summary" and
+ * sent on every later turn. A block left open (the answer ran out inside it) is dropped to the
+ * end, and so is the reasoning of a template that opens the block in the prompt, whose answer
+ * carries only the closing tag.
+ */
+const withoutThinking = (text: string): string =>
+    text
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/<think>[\s\S]*$/i, '')
+        .replace(/^[\s\S]*<\/think>/i, '')
+        .trim();
 
 /**
  * The ask that closes the request. One place, because the input bound has to count what it
@@ -389,9 +472,14 @@ const withSummarySoFar = (turns: AparteChatMessage[], summary: string): AparteCh
 function buildRequest(
     turns: AparteChatMessage[], summarySoFar: string | undefined, prompt: string, modelId: string, maxTokens: number,
 ): AparteChatRequest {
+    const body = summarySoFar === undefined ? turns : withSummarySoFar(turns, summarySoFar);
+    const last = body[body.length - 1];
+    const ask = askFor(prompt, summarySoFar !== undefined);
     return {
         messages: [
-            ...(summarySoFar === undefined ? turns : withSummarySoFar(turns, summarySoFar)),
+            // The ask joins a trailing user turn rather than following it: two user turns in a
+            // row are what `alternating` took out of the transcript.
+            ...(last?.role === 'user' ? body.slice(0, -1) : body),
             // The instruction rides the USER turn, not a `system` message.
             //
             // A system message is a persona, and a provider is entitled to own that: one
@@ -408,7 +496,7 @@ function buildRequest(
             // The instruction is not a persona: it is the task of this one request, and the
             // task belongs where every provider must look. Reported as #45 by a consumer who
             // only found it by reading the output closely.
-            { role: 'user', content: askFor(prompt, summarySoFar !== undefined) },
+            { role: 'user', content: last?.role === 'user' ? `${contentToText(last.content)}\n\n${ask}` : ask },
         ],
         modelId,
         // Streamed, so an `error` event and a `done` that says the model ran out of room
@@ -492,16 +580,19 @@ function summaryAnswerCap(config: AparteConfig, contextWindow: number | undefine
  * How many of the turns to summarise, oldest first, the summarisation request can carry:
  * the instruction, the summary so far (`baseTokens`) and their transcript must fit the
  * window less the answer's room, the reserved thinking and the safety margin (the
- * budget's own defaults). The turns past that point are not summarised now — they stay
+ * budget's own defaults), all in the model's tokens: the estimates are scaled by `scale`.
+ * The turns past that point are not summarised now — they stay
  * verbatim, and the next compaction takes them.
  */
 function fitOldest(
-    drop: AparteMessage[], prompt: string, contextWindow: number, maxTokens: number, baseTokens: number,
+    drop: AparteMessage[], prompt: string, contextWindow: number, maxTokens: number, baseTokens: number, scale: number,
 ): number {
     const room = contextWindow - maxTokens - DEFAULT_COMPACTION_CONFIG.reservedThinking - DEFAULT_COMPACTION_CONFIG.safetyMargin;
-    let used = estimateTokens(askFor(prompt, baseTokens > 0)) + baseTokens;
+    // `scale` is how far the heuristic undercounts this conversation, so the request is priced
+    // in the tokens the model will count, the way the selection is.
+    let used = scale * (estimateTokens(askFor(prompt, baseTokens > 0)) + baseTokens);
     for (let i = 0; i < drop.length; i++) {
-        used += summarisable([drop[i]!]).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
+        used += scale * summarisable([drop[i]!]).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
         if (used > room) return i;
     }
     return drop.length;
@@ -516,6 +607,8 @@ interface Plan {
     holder: AparteMessage;
     /** The summary the previous checkpoint holds, and how many messages it stands for. */
     previous?: { summary: string; count: number };
+    /** The message that carries that earlier checkpoint, to see before writing that it still does. */
+    previousHolderId?: string;
     /** The first request, ready to append to the new summary, or `''`. */
     firstRequest: string;
     maxTokens: number;
@@ -561,7 +654,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const own = typeof options.contextWindow === 'function' ? options.contextWindow() : options.contextWindow;
         return own && own > 0 ? own : windowHint;
     };
-    const select = options.selector ?? defaultSelector(config, keepWithoutWindow, windowFor);
+    const selectDefault = defaultSelector(config, keepWithoutWindow, windowFor);
 
     /** The chat to compact: the host's own resolver, else the chat element the request names, else the page. */
     const resolveFor = (element: Element | null | undefined, targetId?: string): CompactionTarget | null => {
@@ -574,7 +667,8 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         return options.resolveTarget ? null : resolveDomTarget(targetId);
     };
 
-    let running: { key: string; abort: AbortController; done: Promise<void> } | null = null;
+    /** The summaries being written, by chat: two chats on one setup compact independently. */
+    const running = new Map<string, { abort: AbortController; done: Promise<void> }>();
     let disposed = false;
 
     /**
@@ -624,12 +718,13 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         });
     };
     const onAbort = (e: Event): void => {
-        if (!running) return;
         // An unnamed abort stops whatever runs. One that names a chat stops ours when it is
         // the chat we compact — or, compacting an unnamed one, when it is a chat we answer.
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
-        if (targetId && (running.key ? targetId !== running.key : !addressed(e))) return;
-        controller.abort();
+        for (const [key, entry] of running) {
+            if (targetId && (key ? targetId !== key : !addressed(e))) continue;
+            entry.abort.abort();
+        }
     };
     const listening = options.listen !== false && typeof window !== 'undefined';
 
@@ -656,6 +751,20 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const providerId = config.getModelConfig().defaultProvider;
         return Boolean(providerId && config.getAIProvider(providerId));
     };
+    /**
+     * How far the character heuristic undercounts this conversation: real tokens per estimated
+     * token, the factor the context measure calibrates the same way (the last reply's real
+     * input over the estimate recorded when it was sent, clamped, and 1 when it has none).
+     * Read off the measure itself, forced to an estimate, so the selection, the pre-send
+     * comparison and the gauge price a history with one number and cannot drift apart.
+     */
+    const scaleOf = (messages: AparteMessage[], size: number | undefined): number => {
+        const measure = measureContext({
+            messages, config, viewChanged: true, ...(size !== undefined ? { windowOverride: size } : {}),
+        });
+        const estimate = measure.parts.system + measure.parts.tools + measure.parts.summary + measure.parts.messages;
+        return estimate > 0 && measure.used > 0 ? measure.used / estimate : 1;
+    };
     /** May the plugin start a compaction of this chat on its own, now? */
     const mayAct = (policy: ChatPolicy): boolean =>
         autoOn && canSummarise() && policy.failures < MAX_FAILURES && !policy.suspended && !policy.cooling;
@@ -665,19 +774,24 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
      * threshold. `aparte-message-done` is dispatched once the reply is completed and its
      * usage recorded, so the measure reads the real figure the provider reported.
      *
-     * Lifts the hysteresis first — another turn completing is exactly what it waits for.
+     * Lifts the hysteresis when this measure is below the threshold, and only then: a turn
+     * that completes with the context still at the threshold is not a reason to try again,
+     * and the same summary was being paid for after every turn of a conversation that sat
+     * near its window.
      */
     const onTurnDone = (e: Event): void => {
-        if (!addressed(e)) return;
+        if (!addressed(e) || !autoOn) return;
         const targetId = (e as CustomEvent<{ targetId?: string } | undefined>).detail?.targetId;
         const policy = policyOf(targetId ?? '');
-        policy.cooling = false;
-        if (!mayAct(policy)) return;
         const element = e.target instanceof Element ? e.target : null;
         const target = resolveFor(element, targetId);
         const size = windowFor();
         if (!target || !size) return;
-        if (measureContext({ messages: target.getMessages(), config, windowOverride: size }).used < threshold * size) return;
+        if (measureContext({ messages: target.getMessages(), config, windowOverride: size }).used < threshold * size) {
+            policy.cooling = false;
+            return;
+        }
+        if (!mayAct(policy)) return;
         void run({ target: element, reason: 'auto', ...(targetId !== undefined ? { targetId } : {}) });
     };
     /**
@@ -686,10 +800,15 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
      */
     const onRestored = (e: Event): void => {
         if (!(e as CustomEvent<AparteCompactDoneEventDetail | undefined>).detail?.restored || !addressed(e)) return;
-        const policy = policyOf((e as CustomEvent<AparteCompactDoneEventDetail>).detail.targetId ?? '');
+        const key = (e as CustomEvent<AparteCompactDoneEventDetail>).detail.targetId ?? '';
+        const policy = policyOf(key);
         policy.suspended = true;
         policy.cooling = false;
         delete policy.lastRange;
+        // A summary still being written for this chat was built on a checkpoint the person has
+        // just taken off: finishing it would put that checkpoint back, seconds after they
+        // confirmed the Restore. The run turns the abort into a failed outcome and writes nothing.
+        running.get(key)?.abort.abort();
     };
     /** A conversation switch (or a reset): nothing remembered was about this one. */
     const onSwitch = (): void => policies.clear();
@@ -711,7 +830,9 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
      * checkpoint on, less the turn being prepared. Pure — no model call — so `compact()`
      * and a preview read the same plan.
      */
-    const plan = (element: Element | null | undefined, targetId: string | undefined, exclude: ReadonlySet<string>): Planned => {
+    const plan = (
+        element: Element | null | undefined, targetId: string | undefined, exclude: ReadonlySet<string>, reason: AparteCompactorReason,
+    ): Planned => {
         const target = resolveFor(element, targetId);
         if (!target) return { kind: 'fail', error: targetId ? `No chat with id "${targetId}" to compact` : 'No chat found to compact' };
 
@@ -737,7 +858,27 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             : undefined;
         const view = checkpointed.messages.filter((m) => !exclude.has(m.id));
 
-        const selected = select(view);
+        // How far the heuristic undercounts this conversation: the selection, the summary
+        // request and the room for the turn being prepared are all priced with it, in the
+        // tokens the model counts rather than the ones the heuristic does.
+        const scale = contextWindow ? scaleOf(path, contextWindow) : 1;
+        let selected: CompactionSelection<AparteMessage>;
+        if (options.selector) {
+            // A host's own selector is called with the messages alone: what it keeps is its call.
+            selected = options.selector(view);
+        } else {
+            // The default one is sized to where the compaction should LEAVE the context, not to
+            // the budget's near-full edge (about 88 % of a 128K window, a threshold below which
+            // nothing would ever be dropped, and one a compaction lands on only to be asked
+            // again after the next turn), and with room for the turn being prepared, which is
+            // not in `view` but will be in the request.
+            const reserve = Math.round(scale * estimateWireTokens(path.filter((m) => exclude.has(m.id))));
+            const limits: CompactionLimits = { scale, reserve, landAt: Math.max(0, threshold - LANDING_MARGIN) };
+            // An overflow says the request that was built is too big, whatever the estimate
+            // thought of it: cut well below it.
+            if (reason === 'overflow') limits.ceiling = Math.floor(OVERFLOW_SHRINK * (scale * estimateWireTokens(view) + reserve));
+            selected = selectDefault(view, limits);
+        }
         if (selected.drop.length === 0) return { kind: 'skip', reason: 'nothing-to-drop' };
         // The selector speaks of two sets; a checkpoint is one boundary. Take the run of
         // dropped messages at the front — a selector that picks a hole in the middle is not
@@ -753,7 +894,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const baseTokens = base ? estimateTokens(base.base) : 0;
         // Your own `summarize` is not trimmed to the window — the sizing is yours.
         const fit = (n: number): number =>
-            contextWindow && !options.summarize ? fitOldest(view.slice(0, n), prompt, contextWindow, maxTokens, baseTokens) : n;
+            contextWindow && !options.summarize ? fitOldest(view.slice(0, n), prompt, contextWindow, maxTokens, baseTokens, scale) : n;
 
         // The turns that do not fit the summary request are not summarised now, not lost: they
         // stay verbatim after the checkpoint, and the next compaction takes them.
@@ -778,14 +919,19 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         }
         return {
             kind: 'plan',
-            plan: { target, drop, holder, ...(previous ? { previous } : {}), firstRequest, maxTokens, prompt },
+            plan: {
+                target, drop, holder, ...(previous ? { previous } : {}),
+                ...(holderOfPrevious ? { previousHolderId: holderOfPrevious.id } : {}),
+                firstRequest, maxTokens, prompt,
+            },
         };
     };
 
     const run = async (request: AparteCompactorRequest): Promise<CompactionOutcome> => {
         const targetId = request.targetId ?? scope ?? (request.target?.id || undefined);
         const reason = request.reason ?? 'manual';
-        const policy = policyOf(targetId ?? '');
+        const key = targetId ?? '';
+        const policy = policyOf(key);
         let messageId: string | undefined;
         // The events are written out literally, one per site: the docs' events
         // reference reads the dispatch itself to say where an event goes out from.
@@ -814,26 +960,35 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         if (scope && request.targetId !== undefined && request.targetId !== scope) {
             return { ok: false, error: `This compaction setup only compacts the chat "${scope}"`, targetId: request.targetId };
         }
+        // `auto: false` means manual only: nobody asked for an automatic attempt or an overflow
+        // retry, so neither is made — reported as a skip, the one answer every caller already
+        // handles, and the client's error stands exactly as it did before there was a plugin.
+        if ((reason === 'auto' || reason === 'overflow') && !autoOn) return skip('nothing-to-drop');
         // Somebody asked, so the policy may try again: the back-off and a Restore both wait for
         // exactly this. (An overflow is neither: the model refused a request, nobody chose it.)
         if (reason === 'manual' || reason === 'retry') {
             policy.failures = 0;
             policy.suspended = false;
         }
-        if (running) return skip('running');
+        // An overflow waits for the summary already being written for its chat — the retry is
+        // measured against the history that summary leaves — where anything else is told to wait.
+        if (reason === 'overflow') for (let busy = running.get(key); busy; busy = running.get(key)) await busy.done;
+        // The turn that asked was stopped: no summary is paid for it.
+        if (request.signal?.aborted) return fail(ABORTED);
+        if (running.has(key)) return skip('running');
         // Nobody asked, and the policy has said not now. Reported as nothing to do — a skip is
         // the one answer every caller already handles — and `force` overrides it.
         if (reason === 'auto' && !request.force && (policy.failures >= MAX_FAILURES || policy.suspended || policy.cooling)) {
             return skip('nothing-to-drop');
         }
 
-        const planned = plan(request.target, targetId, new Set(request.exclude ?? []));
+        const planned = plan(request.target, targetId, new Set(request.exclude ?? []), reason);
         if (planned.kind === 'skip') return skip(planned.reason);
         if (planned.kind === 'fail') {
             if (planned.messageId) messageId = planned.messageId;
             return fail(planned.error);
         }
-        const { target, drop, holder, previous, firstRequest, maxTokens, prompt } = planned.plan;
+        const { target, drop, holder, previous, previousHolderId, firstRequest, maxTokens, prompt } = planned.plan;
         messageId = holder.id;
         // The same range twice is the loop the hysteresis exists to prevent.
         const range = `${drop[0]!.id}..${drop[drop.length - 1]!.id}`;
@@ -855,7 +1010,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         // the first request we appended to it (see above): it would copy the block into its
         // own answer, and the block would be there twice.
         const summarySoFar = previous ? splitFirstRequest(previous.summary).base : undefined;
-        const turns = summarisable(drop);
+        const turns = alternating(summarisable(drop));
         // Nothing to read: the turns being summarised say nothing a summary could carry.
         // Paying a model to summarise an empty transcript and then standing the answer in
         // for the conversation is worse than doing nothing.
@@ -863,9 +1018,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const summariseRequest = buildRequest(turns, summarySoFar, prompt, modelConfig.defaultModel || '', maxTokens);
 
         const abort = new AbortController();
-        const key = targetId ?? '';
+        // The turn's own Stop reaches the summary whether or not this setup listens on `window`.
+        const onSignal = (): void => abort.abort();
+        request.signal?.addEventListener('abort', onSignal, { once: true });
         let finished!: () => void;
-        running = { key, abort, done: new Promise<void>((resolve) => { finished = resolve; }) };
+        running.set(key, { abort, done: new Promise<void>((resolve) => { finished = resolve; }) });
         if (hasWindow) window.dispatchEvent(new CustomEvent<AparteCompactStartEventDetail>('aparte-compact-start', { detail: { targetId, messageId } }));
 
         try {
@@ -875,7 +1032,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                     : summarizeThroughTransport(config, provider!, summariseRequest, abort.signal, options.keyResolver),
                 abort.signal,
             );
-            const modelSummary = raw.trim();
+            const modelSummary = withoutThinking(raw);
             if (!modelSummary) throw new Error('Empty summary returned by model');
             // A summary that is not shorter than what it replaces frees nothing: refuse it, the
             // conversation is left as it is. What it replaces is the summary it updates and
@@ -892,6 +1049,10 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             const live = target.getMessages();
             const at = live.findIndex((m) => m.id === holder.id);
             if (at < 0) throw new Error(CHANGED);
+            // A summary that updates an earlier checkpoint is refused when that checkpoint is
+            // gone: a Restore took it off while this was being written, and the update would
+            // bring back what the person had just sent away.
+            if (previousHolderId && !live.find((m) => m.id === previousHolderId)?.contextSummary) throw new Error(CHANGED);
             const summary = `${modelSummary}${firstRequest}`;
             const count = drop.length + (previous?.count ?? 0);
             target.updateMessage!(holder.id, { contextSummary: { summary, count, createdAt: Date.now() } });
@@ -913,18 +1074,19 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             const aborted = abort.signal.aborted || (err instanceof Error && err.name === 'AbortError');
             return fail(aborted ? ABORTED : err instanceof Error ? err.message : String(err));
         } finally {
-            running = null;
+            request.signal?.removeEventListener('abort', onSignal);
+            running.delete(key);
             finished();
         }
     };
 
     const controller: CompactionController = {
         get running() {
-            return running !== null;
+            return running.size > 0;
         },
 
         abort() {
-            running?.abort.abort();
+            for (const entry of running.values()) entry.abort.abort();
         },
 
         dispose() {
@@ -961,28 +1123,41 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         },
 
         async settled(targetId) {
-            // Loops: a compaction that ends may be followed by one queued behind it.
-            while (running && (targetId === undefined || running.key === '' || running.key === targetId)) await running.done;
+            // The chat's own summary — and an unnamed chat's, which may be the same one. Loops: a
+            // compaction that ends may be followed by one queued behind it.
+            const pending = (): Promise<void>[] => [...running]
+                .filter(([key]) => targetId === undefined || key === '' || key === targetId)
+                .map(([, entry]) => entry.done);
+            for (let waiting = pending(); waiting.length > 0; waiting = pending()) await Promise.all(waiting);
         },
 
-        async beforeSend({ target, targetId, exclude, requestTokens }) {
-            // A send never races a summary: whatever is running finishes first, and the request
-            // is measured against the conversation it left behind.
+        async beforeSend({ target, targetId, exclude, requestTokens, signal }) {
+            // A send never races a summary: whatever is running for its chat finishes first, and
+            // the request is measured against the conversation it left behind.
             await controller.settled(targetId);
-            const policy = policyOf(targetId ?? scope ?? (target?.id || ''));
+            const id = targetId ?? scope ?? (target?.id || undefined);
+            const policy = policyOf(id ?? '');
             const size = windowFor();
             if (!size || !mayAct(policy)) return false;
+            // The request's estimate is the raw heuristic's; the model counts in its own tokens,
+            // and the measure has calibrated how far apart the two are for this conversation.
+            const chat = resolveFor(target, id);
+            const scale = chat ? scaleOf(chat.getMessages(), size) : 1;
             // The room the model keeps for its reply, as the budget everywhere else reads it.
-            if (requestTokens + DEFAULT_COMPACTION_CONFIG.reservedGeneration <= size) return false;
-            const outcome = await run({ target, reason: 'auto', exclude, ...(targetId !== undefined ? { targetId } : {}) });
+            if (scale * requestTokens + DEFAULT_COMPACTION_CONFIG.reservedGeneration <= size) return false;
+            const outcome = await run({
+                target, reason: 'auto', exclude, ...(id !== undefined ? { targetId: id } : {}), ...(signal ? { signal } : {}),
+            });
             // `true` only when a checkpoint was written: the caller builds the request again.
             return outcome.ok && !outcome.skipped;
         },
 
         preview(request) {
-            if (disposed || running || !canSummarise()) return null;
             if (scope && request.targetId !== undefined && request.targetId !== scope) return null;
-            const planned = plan(request.target, request.targetId ?? scope ?? (request.target?.id || undefined), new Set());
+            const id = request.targetId ?? scope ?? (request.target?.id || undefined);
+            if (disposed || running.has(id ?? '') || !canSummarise()) return null;
+            // What a person asking now would get: a manual request, no turn being prepared.
+            const planned = plan(request.target, id, new Set(), 'manual');
             if (planned.kind !== 'plan') return null;
             return { messages: planned.plan.drop.length, tokens: estimateWireTokens(planned.plan.drop) };
         },

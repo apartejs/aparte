@@ -387,14 +387,29 @@ describe('the hysteresis', () => {
         expect(chat).toHaveBeenCalledTimes(2);
     });
 
-    it('another turn completing lifts it', async () => {
+    it('a turn that completes still at the threshold does not lift it; one that completes below does', async () => {
         const target = makeTarget(heavy());
         const { cfg, chat } = makeConfig('SUMMARY', 1000);
         setup({ selector: dropFirstTwo, resolveTarget: () => target }, cfg);
+        const reply = (content: string) => (m: AparteMessage): AparteMessage => (m.id === 'a4' ? { ...m, content } : m);
 
         turnEnded();
         await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
         await settle();
+
+        // The next turns end with the context still over the threshold: one summary was paid for
+        // the conversation sitting there, not one per turn.
+        turnEnded();
+        turnEnded();
+        await settle();
+        expect(chat).toHaveBeenCalledTimes(1);
+
+        // A turn that ends below the threshold lifts it…
+        target.messages = target.messages.map(reply('fine'));
+        turnEnded();
+        await settle();
+        // …so the next one over it is acted on.
+        target.messages = target.messages.map(reply('x'.repeat(4000)));
         turnEnded();
 
         await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(2));

@@ -20,7 +20,9 @@ export type {
     CompactionTarget, CompactionMessageSelector, CompactionKeyResolver, CompactionSummarizer,
 } from './compaction.js';
 export { createCompactionSelector } from './selector.js';
-export type { CompactionSelectorOptions, CompactableMessage, CompactionSelection, CompactionSelector } from './selector.js';
+export type {
+    CompactionSelectorOptions, CompactableMessage, CompactionSelection, CompactionSelector, CompactionLimits,
+} from './selector.js';
 export {
     computeHistoryBudget, splitHistoryBudget, estimateTokens, estimateTokensJson, DEFAULT_COMPACTION_CONFIG,
 } from './budget.js';
