@@ -212,6 +212,7 @@ let checkpointIds = 0;
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
  * @attr {string} data-checkpoint - `pending` or `failed`: what a compaction is doing to this message, which it will carry as a checkpoint. The viewport and the framework host set it from `aparte-compact-start` / `-error` and take it off again; the bubble draws the separator's "Summarising the context…" or Retry from it. Read it, do not write it.
+ * @attr {string} data-checkpoint-reason - Why the compaction failed, beside `data-checkpoint="failed"`: the separator gives it as the failure's tooltip and to screen readers. Set and cleared with `data-checkpoint`; read it, do not write it.
  * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
