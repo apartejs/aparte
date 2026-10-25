@@ -1,7 +1,7 @@
 # @aparte/angular
 
 The **Angular AI chat component** of [aparté](https://github.com/apartejs/aparte) — an ergonomic
-`<aparte-chat>` standalone component (Angular 19) plus services (`AparteAiService`, `ConversationManagerService`) over the
+`<aparte-chat>` standalone component (Angular 19.2 to 21, zone or zoneless) plus services (`AparteAiService`, `ConversationManagerService`) over the
 framework-agnostic web components in `@aparte/core`.
 
 ```bash
@@ -48,13 +48,12 @@ that write attributes, one typed `@Output()` per event, and no `CUSTOM_ELEMENTS_
 component. Import what you use or `APARTE_ELEMENT_DIRECTIVES` for all of them.
 `<aparte-ui name="my-widget">` remains for an element aparté does not define.
 
-**On the Angular version.** The peer range is `^19.2.0`, and that is the only major this
-package is built and browser-tested against. It is a thin bridge over standard custom
-elements — no private Angular API, no `NgModule`, nothing the newer majors removed — so 20
-through 22 will very likely work, and you can install it with `--legacy-peer-deps` or an
-override if you want to try. But "very likely" is not something to encode in a peer range:
-the sibling Svelte wrapper claims two majors because each one is compiled and driven in a
-real browser in CI, and this one has no such example yet. Widening the range before the
-proof exists would be a promise nobody here has checked.
+**On the Angular version.** The peer range is `^19.2.0 || ^20.0.0 || ^21.0.0`, and each
+end of it is proven rather than assumed. The package is compiled on 19.2, its oldest major,
+in Angular's partial mode, which Angular guarantees a newer app can link; its specs run on
+19, under zone.js and zoneless, and in a server render. The repo's Angular example runs on
+21, zoneless, and is driven in a real browser by the end-to-end suite. 20 sits between two
+proven majors. Angular 22 is not in the range yet: it joins when it is driven the same way,
+not before — a peer range is a promise, and this one only promises what has been run.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.
