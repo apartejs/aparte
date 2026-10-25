@@ -283,6 +283,45 @@ describe('a compaction in progress, and one that failed', () => {
         window.removeEventListener('aparte-compact', asked);
     });
 
+    it('Retry goes to the compactor the chat resolves, as the person asking, and sends no command event', () => {
+        const compact = vi.fn().mockResolvedValue({ ok: true, skipped: true, reason: 'nothing-to-drop' });
+        aparteGlobalConfig.setCompactor({ compact, settled: async () => {} });
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'c1';
+        document.body.appendChild(chat);
+        const bubble = mount({}, chat);
+        const asked = vi.fn();
+        window.addEventListener('aparte-compact', asked);
+
+        bubble.setAttribute('data-checkpoint', 'failed');
+        action(bubble, 'retry')!.click();
+
+        expect(asked, 'the event is the fallback, not a second ask').not.toHaveBeenCalled();
+        expect(compact).toHaveBeenCalledTimes(1);
+        expect(compact).toHaveBeenCalledWith({ target: chat, targetId: 'c1', force: true, reason: 'retry' });
+        window.removeEventListener('aparte-compact', asked);
+    });
+
+    it("Retry reads the compactor of the chat's own config before the global one", () => {
+        const global = vi.fn().mockResolvedValue({ ok: true, skipped: true, reason: 'empty' });
+        const own = vi.fn().mockResolvedValue({ ok: true, skipped: true, reason: 'empty' });
+        aparteGlobalConfig.setCompactor({ compact: global, settled: async () => {} });
+        const config = new AparteConfig();
+        config.setCompactor({ compact: own, settled: async () => {} });
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        document.body.appendChild(chat);
+        attachConfig(chat, config);
+        const bubble = mount({}, chat);
+
+        bubble.setAttribute('data-checkpoint', 'failed');
+        action(bubble, 'retry')!.click();
+
+        expect(own).toHaveBeenCalledTimes(1);
+        expect(global).not.toHaveBeenCalled();
+    });
+
     it('says the reason of a second failure, which changes nothing but the reason', () => {
         const bubble = mount();
         bubble.setAttribute('data-checkpoint-reason', 'First');

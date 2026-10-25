@@ -25,6 +25,7 @@ export type {
 } from './models.js';
 
 export type { AparteStreamBlock, AparteStreamBlockMatch } from './stream-blocks.js';
+export type { AparteCompactor, AparteCompactorRequest, AparteCompactorOutcome, AparteCompactorReason } from './compactor.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Events - Component communication

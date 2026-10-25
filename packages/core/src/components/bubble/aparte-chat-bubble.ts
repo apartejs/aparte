@@ -36,6 +36,7 @@ import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
+import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate, isSegmentSettled } from '../../utils/segments.js';
@@ -1197,13 +1198,23 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         this.setContextSummary(null);
         break;
       }
-      case 'retry':
-        // The compactor seam arrives with the plugin; until then the command event is the
-        // way to ask, and it is the one the gauge and a host's own button already use.
-        window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', {
-          detail: { targetId: this._resolveTargetId() },
-        }));
+      case 'retry': {
+        const targetId = this._resolveTargetId();
+        const compactor = this._cfg.getCompactor();
+        if (compactor) {
+          // Through the compactor this chat resolves, so a Retry is a person's request, not the
+          // policy's: it runs even when the policy has stopped trying on its own after two
+          // failures, and it is told which chat by element, which an id cannot name inside a
+          // shadow root. The compactor says how it went through the compaction events this
+          // separator already listens to, so the result is not read here.
+          void compactor.compact({ target: chatBoundaryOf(this), ...(targetId ? { targetId } : {}), force: true, reason: 'retry' });
+        } else {
+          // Nothing registered as the compactor: the command event is the way to ask, and
+          // it is the one the gauge and a host's own button use.
+          window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', { detail: { targetId } }));
+        }
         break;
+      }
     }
   };
 
