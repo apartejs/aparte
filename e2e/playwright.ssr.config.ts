@@ -34,6 +34,9 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
+    // A check that passes only on its retry fails the job, as in the main suite: a hydration
+    // mismatch seen on the first load only is still a mismatch.
+    failOnFlakyTests: !!process.env.CI,
     workers: process.env.CI ? 2 : 4,
     reporter: process.env.CI ? [['list'], ['html', { open: 'never', outputFolder: 'playwright-report-ssr' }]] : [['list']],
     timeout: 45_000,
