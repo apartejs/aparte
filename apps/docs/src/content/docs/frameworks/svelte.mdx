@@ -69,7 +69,7 @@ runs once, however many times the component mounts.
 ```
 
 When the messages are yours to read or store, `bind:messages` keeps your state in step with what
-the chat does, and a write of yours reaches the transcript. The person's message is added when they
+the chat does, and a write of yours — a new array, or a `push` — reaches the transcript. The person's message is added when they
 send, so do not add it yourself; `onmessageSent` fires after, for a side effect.
 
 ## Stream a model

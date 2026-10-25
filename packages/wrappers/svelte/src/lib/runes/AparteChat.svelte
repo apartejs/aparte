@@ -68,17 +68,29 @@
   const loadingText = $derived.by(() => { void localeTick; return (config ?? aparteGlobalConfig).t('loadingConversation'); });
   const typingLabel = $derived.by(() => { void localeTick; return typingText ?? (config ?? aparteGlobalConfig).t('typing'); });
 
-  // A parent write to `messages` reaches the transcript — unless it is the host's own
-  // emit coming back, current or stale: applying a late one rolled the list back.
-  const emitted = new WeakSet<AparteMessage[]>();
+  // A parent write to `messages` reaches the transcript — a reassignment, or a push / splice on
+  // a bound $state array — unless it is the host's own emit coming back, current or stale:
+  // applying it rolled back what a non-emitting call (appendMessage) had added since.
+  //
+  // Own emits are known by the ids they carried, keyed by the value Svelte stored, which is a
+  // proxy of the emitted list (in a bare chat as under `bind:` on a $state), not the list itself.
+  const emittedIds = new WeakMap<object, string[]>();
+  const sameIds = (a: readonly (string | undefined)[], b: readonly (string | undefined)[]) =>
+    a.length === b.length && a.every((id, i) => id === b[i]);
   let lastProp = untrack(() => messages);
   $effect.pre(() => {
     const next = messages;
-    if (next === lastProp) return;
-    lastProp = next;
-    if (emitted.has(next)) return;
-    internalMessages = [...next];
-    if (next.length === 0) untrack(() => host?.clearRenderCache());
+    // Read every index: a push, a splice or an index write re-runs this, not only a reassignment.
+    const items = [...next];
+    untrack(() => {
+      const ids = items.map((m) => m?.id);
+      const own = emittedIds.get(next);
+      if (own && sameIds(ids, own)) { lastProp = next; return; }
+      if (next === lastProp && sameIds(ids, internalMessages.map((m) => m.id))) return;
+      lastProp = next;
+      internalMessages = items;
+      if (items.length === 0) host?.clearRenderCache();
+    });
   });
 
   // A waiting line the caller drives (the host may turn it off on the first token).
@@ -142,9 +154,13 @@
       setMessages: (m) => { internalMessages = m as AparteMessage[]; },
       onMessagesChange: (m) => {
         const list = m as AparteMessage[];
-        emitted.add(list);
-        lastProp = list;
+        const ids = list.map((x) => x.id);
+        emittedIds.set(list, ids);
         messages = list;
+        // What the effect above will read back: Svelte's proxy of `list`, or the parent's.
+        const stored = untrack(() => messages);
+        emittedIds.set(stored, ids);
+        lastProp = stored;
         onmessagesChange?.(list);
       },
       onMessageAppended: (m) => { onmessageAppended?.(m as AparteMessage); },

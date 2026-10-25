@@ -11,6 +11,7 @@
   export function current(): AparteMessage[] { return messages; }
   export function api(): AparteChatImperativeApi | undefined { return chat; }
   export function write(next: AparteMessage[]) { messages = next; }
+  export function push(m: AparteMessage) { messages.push(m); }
 </script>
 
 <AparteChat bind:messages bind:this={chat} onmessageSent={(d) => onSent?.(d.content)} />

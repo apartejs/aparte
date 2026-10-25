@@ -52,6 +52,48 @@ describe('<AparteChat> for Svelte 5', () => {
         expect(bubbles[1]!.getAttribute('message-id')).toBe('2');
     });
 
+    // The chat's own emit comes back through the prop — wrapped in a proxy by Svelte, in a bare
+    // chat as under `bind:` on a $state — and must not be taken for a parent write: applying it
+    // rolled back what a non-emitting call (appendMessage) had added in the same tick.
+    for (const [label, Host] of [['a bare chat', AparteChat], ['bind:messages on a $state', BindHost]] as const) {
+        it(`an emit followed by an append in one tick keeps the append (${label})`, async () => {
+            const { component, container } = render(Host as typeof BindHost);
+            const chat = (Host === AparteChat ? component : (component as unknown as { api(): unknown }).api()) as {
+                appendMessage(m: AparteMessage): void;
+                truncateResponsesAfter(id: string): void;
+                updateLastMessage(content: string, opts?: { append?: boolean }): void;
+                getMessages(): AparteMessage[];
+            };
+            chat.appendMessage({ id: 'u1', role: 'user', content: 'q', timestamp: 1 });
+            flushSync();
+            await tick();
+            chat.truncateResponsesAfter('u1');
+            chat.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: 2 });
+            flushSync();
+            await tick();
+            expect(chat.getMessages().map((m) => m.id)).toEqual(['u1', 'a1']);
+            expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
+            chat.updateLastMessage('Hi', { append: true });
+            flushSync();
+            expect(chat.getMessages().map((m) => m.content)).toEqual(['q', 'Hi']);
+        });
+    }
+
+    it('a push on the bound $state array is drawn, and survives the next emit', async () => {
+        const { container, component } = render(BindHost, { props: { initial: [...two] } });
+        await tick();
+        const host = component as unknown as { push(m: AparteMessage): void; current(): AparteMessage[]; api(): { updateMessage(id: string, u: Partial<AparteMessage>): void; getMessages(): AparteMessage[] } };
+        host.push({ id: 'p1', role: 'assistant', content: 'pushed', timestamp: 3 });
+        flushSync();
+        await tick();
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(3);
+        expect(host.api().getMessages().map((m) => m.id)).toEqual(['1', '2', 'p1']);
+        // The chat's next emit carries the pushed message, so the parent keeps it.
+        host.api().updateMessage('1', { content: 'Hello again' });
+        flushSync();
+        expect(host.current().map((m) => m.id)).toEqual(['1', '2', 'p1']);
+    });
+
     it('emptyState, aboveComposer, toolbar and bubble snippets render where the slots did', async () => {
         const empty = render(SnippetsHost);
         expect(empty.container.querySelector('aparte-chat-viewport .welcome')?.textContent).toBe('Ask me anything');
