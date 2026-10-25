@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"output\":\"Bonjour ! Voici une **réponse** de test.\\n\\n- un point\\n- un autre\"}"
+}

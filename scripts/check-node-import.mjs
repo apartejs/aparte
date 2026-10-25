@@ -290,6 +290,7 @@ const SATELLITES = [
     ['@aparte/provider-scenario', 'packages/providers/ai/scenario'],
     ['@aparte/provider-transformers', 'packages/providers/ai/transformers'],
     ['@aparte/runner-ag-ui', 'packages/providers/agent/ag-ui'],
+    ['@aparte/runner-n8n', 'packages/providers/agent/n8n'],
     ['@aparte/locale-fr', 'packages/locales/fr'],
     // Node-only by construction (an MCP server) — the contract here is that importing it
     // opens no network and starts no server: `createDocsMcpServer` is a factory.
