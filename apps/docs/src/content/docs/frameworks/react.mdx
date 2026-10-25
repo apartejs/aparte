@@ -1,6 +1,6 @@
 ---
 title: Add an AI chat to a React app
-description: Install @aparte/react, render <AparteChat>, stream a model with useAparteClient, and put your own UI in its slots — in a React app, Next.js included.
+description: Install @aparte/react, render <AparteChat> and stream a model with useAparteClient, then hold the messages yourself, fill its slots and draw tool calls with your own components — in a React app, Next.js included.
 head:
   - tag: title
     content: React AI chat component — @aparte/react | aparté
@@ -24,39 +24,30 @@ npm install @aparte/provider-scenario   # a scripted model, to stream with no ke
 ## Render the chat
 
 ```tsx
-import { AparteChat, useAparteChat } from '@aparte/react';
-import '@aparte/core/styles.css';
-
-export function Chat() {
-  const chat = useAparteChat();
-  return (
-    <AparteChat
-      ref={chat.ref}
-      messages={chat.messages}
-      onMessagesChange={chat.setMessages}
-      emptyState={<p>Ask me anything…</p>}
-      centerWhenEmpty
-    />
-  );
-}
-```
-
-`useAparteChat` holds the messages and the component's ref: hand both to `<AparteChat>`. The
-person's message is added when they send, so do not add it yourself; `onMessageSent` fires after,
-for a side effect. In the Next App Router, put `'use client'` at the top of the file that calls
-`useAparteChat` and registers the provider: hooks run in a client component. Next still renders it
-to HTML on the server, where `@aparte/core` resolves to its entry without elements
-([On the server](/frameworks/elements/#on-the-server)).
-
-## Stream a model
-
-```tsx
 import { aparteGlobalConfig } from '@aparte/core';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
-import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
+import { AparteChat, useAparteClient } from '@aparte/react';
+import '@aparte/core/styles.css';
 
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
+
+export function Chat() {
+  useAparteClient();
+  return <AparteChat centerWhenEmpty emptyState={<p>Ask me anything…</p>} />;
+}
+```
+
+That is a whole chat: `<AparteChat>` keeps its own thread, and the client `useAparteClient` starts
+streams each reply into it from the scripted model — no state of yours, no key. In the Next App
+Router, put `'use client'` at the top of this file: hooks run in a client component. Next still
+renders it to HTML on the server, where `@aparte/core` resolves to its entry without elements
+([On the server](/frameworks/elements/#on-the-server)).
+
+## Hold the messages yourself
+
+```tsx
+import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
 
 export function Chat() {
   const chat = useAparteChat();
@@ -64,6 +55,12 @@ export function Chat() {
   return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />;
 }
 ```
+
+When the messages are yours to read or store, `useAparteChat` holds them and the component's ref:
+hand both to `<AparteChat>`. The person's message is added when they send, so do not add it
+yourself; `onMessageSent` fires after, for a side effect.
+
+## Stream a model
 
 `useAparteClient` starts a client when the component mounts, stops it when it unmounts, and returns
 `{ client, abort }`. It takes the `AparteClientOptions` and reads them once, on the first render: a
@@ -97,6 +94,25 @@ running, turn on retry and edit with `aparteGlobalConfig.setBubbleActions({ retr
 | `renderBubble(message)` | each message, drawn by you ([Bubble](/guides/customization/bubble/#your-own-element-in-a-framework)) |
 
 The component takes these and no children.
+
+## Your components in tool calls
+
+```tsx
+import { AparteToolUI } from '@aparte/react';
+
+export function WeatherCards() {
+  return (
+    <AparteToolUI<{ city: string }> name="get_weather">
+      {(tool) => <p>{tool.input.city}: {tool.status === 'resolved' ? tool.result : 'looking it up…'}</p>}
+    </AparteToolUI>
+  );
+}
+```
+
+Mounted anywhere under your providers, `<AparteToolUI>` draws every call to that tool with your
+component, through a portal — so the card reads your contexts — mounted once per call and updated in
+place, until it unmounts and the calls go back to core's row. `<AparteSegmentUI type="…">` does the
+same for a segment type ([Your components in tool calls](/guides/tool-ui/)).
 
 ## Props and callbacks
 
