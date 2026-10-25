@@ -1394,9 +1394,12 @@ export class AparteConfig {
             // and writing the stack back would resurrect a registration from before the reset.
             if (restored || generation !== this._overrideGeneration) return;
             restored = true;
+            // Rebased away: a direct registration replaced this override, so there is nothing of
+            // its own to give back — and this array may no longer be the matcher's stack.
             const i = stack.lastIndexOf(renderer);
-            if (i > 0) stack.splice(i, 1);
-            if (stack.length === 1) this._toolRendererOverrides.delete(key);
+            if (i <= 0) return;
+            stack.splice(i, 1);
+            if (stack.length === 1 && this._toolRendererOverrides.get(key) === stack) this._toolRendererOverrides.delete(key);
             // Only when this override is still what the matcher holds: under another override
             // nothing on screen changes, and a direct `registerToolRenderer` made since is the
             // app's own call, which taking this one off must not overwrite.

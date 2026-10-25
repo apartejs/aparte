@@ -201,6 +201,56 @@ describe('renderer lifecycle — the edges', () => {
         expect(getSegmentRenderer('probe-type')).toBe(sc);
     });
 
+    it('a late restore from before a rebase touches no newer stack, and nothing taken off comes back', () => {
+        // A, then a direct C, then B (which rebases A away), B off — the stack goes — then E,
+        // A off late, F, E off, F off. What the matcher holds at the end is C: E's component
+        // unmounted, and its renderer would mount into a view that is gone.
+        const tool = () => ({ render: () => document.createElement('i') }) as AparteToolRenderer;
+        const [a, b, c, e, f] = [tool(), tool(), tool(), tool(), tool()];
+        const rA = aparteGlobalConfig.overrideToolRenderer('get_weather', a);
+        aparteGlobalConfig.registerToolRenderer('get_weather', c);
+        const rB = aparteGlobalConfig.overrideToolRenderer('get_weather', b);
+        rB();
+        const rE = aparteGlobalConfig.overrideToolRenderer('get_weather', e);
+        rA();
+        const rF = aparteGlobalConfig.overrideToolRenderer('get_weather', f);
+        rE();
+        rF();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(c);
+        aparteGlobalConfig.unregisterToolRenderer('get_weather');
+
+        const seg = (): AparteSegmentRenderer => ({ type: 'probe-type', render: () => document.createElement('i') });
+        const [sa, sb, sc, se, sf] = [seg(), seg(), seg(), seg(), seg()];
+        const rSa = overrideSegmentRenderer(sa);
+        registerSegmentRenderer(sc);
+        const rSb = overrideSegmentRenderer(sb);
+        rSb();
+        const rSe = overrideSegmentRenderer(se);
+        rSa();
+        const rSf = overrideSegmentRenderer(sf);
+        rSe();
+        rSf();
+        expect(getSegmentRenderer('probe-type')).toBe(sc);
+    });
+
+    it('a row updated while its bubble is released out of the page mounts nothing that outlives it', async () => {
+        // Drawn by core's own row, then out of the page long enough to be released; a card is
+        // declared meanwhile, and the stream resolves the call before the bubble comes back.
+        const destroy = vi.fn();
+        const mount = vi.fn(() => ({ update: () => {}, destroy }));
+        const b = bubbleIn();
+        b.addSegment(call('s1', 'get_weather'));
+        b.remove();
+        await settle();
+        aparteGlobalConfig.registerToolRenderer('get_weather', defineMountedToolRenderer(mount));
+        b.updateSegment('s1', { status: 'resolved' });
+        document.body.appendChild(b);
+        await settle();
+        const live = b.querySelectorAll('.aparte-segments > .aparte-tool-ui').length;
+        expect(live).toBe(1);
+        expect(mount.mock.calls.length - destroy.mock.calls.length).toBe(live);
+    });
+
     it('a segment drawn into a bubble already removed is cleaned up too', async () => {
         const cleanup = vi.fn();
         registerSegmentRenderer({ type: 'probe-type', render: () => '<div></div>', cleanup }, aparteGlobalConfig);

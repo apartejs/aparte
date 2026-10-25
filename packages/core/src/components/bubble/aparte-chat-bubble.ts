@@ -990,6 +990,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._renderSegments();
       return;
     }
+    // Released while out of the page: what is left in the container is inert, and the redraw
+    // on reconnect draws `_segments` as they are now. Patched here, a renderer could mount
+    // into an element nothing tracks, which nothing would ever release.
+    if (this._releasedWhileDetached) return;
     const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (!renderer) return;
 

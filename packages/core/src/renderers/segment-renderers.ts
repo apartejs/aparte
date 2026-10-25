@@ -154,9 +154,12 @@ export function overrideSegmentRenderer<T extends AparteSegmentBase>(
     return () => {
         if (restored) return;
         restored = true;
+        // Rebased away: a direct registration replaced this override, and this array may no
+        // longer be the type's stack.
         const i = stack.lastIndexOf(renderer as AparteSegmentRenderer);
-        if (i > 0) stack.splice(i, 1);
-        if (stack.length === 1) byType.delete(type);
+        if (i <= 0) return;
+        stack.splice(i, 1);
+        if (stack.length === 1 && byType.get(type) === stack) byType.delete(type);
         // Only when this override is still what the type holds: under another override
         // nothing on screen changes, and a direct registration made since is the app's own.
         if (reg.renderers.get(type) !== renderer) return;
