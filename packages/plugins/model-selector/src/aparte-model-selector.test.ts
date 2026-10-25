@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { aparteGlobalConfig, AparteConfig, attachConfig, detachConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, attachConfig, detachConfig, releaseDeferredHydration } from '@aparte/core';
 import type { AparteAIProvider, AparteModelChangeEventDetail } from '@aparte/core';
 import './aparte-model-selector.js';
 
@@ -104,6 +104,21 @@ describe('aparte-model-selector', () => {
     // disabled composer — the send button greyed, the field inert — the model picker
     // stayed fully operable: a control the user could work while everything around it
     // said "not now".
+    it('waits inside a defer-hydration root, and draws once it is released', async () => {
+        // A server-rendered toolbar: the framework hydrates the empty tag it sent, so the
+        // picker must not draw into it before the wrapper releases the chat.
+        aparteGlobalConfig.registerAIProvider(fakeProvider('theta', 'Theta One'));
+        const root = document.createElement('div');
+        root.setAttribute('defer-hydration', '');
+        const sel = document.createElement('aparte-model-selector');
+        root.appendChild(sel);
+        document.body.appendChild(root);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(sel.childElementCount).toBe(0);
+        releaseDeferredHydration(root);
+        await vi.waitFor(() => expect(sel.querySelector('aparte-option')).toBeTruthy());
+    });
+
     it('disabled on the element reaches the select, both ways', async () => {
         aparteGlobalConfig.registerAIProvider(fakeProvider('zeta', 'Zeta One'));
         aparteGlobalConfig.setModelConfig({ defaultProvider: 'zeta', defaultModel: 'zeta-model' });

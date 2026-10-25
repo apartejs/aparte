@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@aparte/core": "workspace:*",
+    "@aparte/plugin-approval": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/react": "workspace:*",
     "next": "^15.5.0",

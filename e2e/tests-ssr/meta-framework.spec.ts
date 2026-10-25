@@ -49,6 +49,16 @@ test('the page hydrates with no hydration warning or error', async ({ page }) =>
     expect(problems).toEqual([]);
 });
 
+test('a plugin element in the server-rendered toolbar waits for hydration, then draws', async ({ page }, testInfo) => {
+    // Next only: React is the framework that throws the server's HTML away when an element
+    // draws into its tree before hydration (error 418), which the check above then catches.
+    test.skip(testInfo.project.name !== 'next', 'the toolbar plugin is in the Next fixture');
+    const response = await page.goto('/');
+    const html = await response!.text();
+    expect(html, 'the server sent the tag, empty').toMatch(/<aparte-approval-mode><\/aparte-approval-mode>/);
+    await expect(page.locator('aparte-approval-mode aparte-select')).toHaveCount(1);
+});
+
 test('a send streams a reply', async ({ page }) => {
     await openHydrated(page);
     await send(page, 'Hello there');

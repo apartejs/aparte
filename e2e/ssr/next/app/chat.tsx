@@ -1,6 +1,7 @@
 'use client';
 
 import { aparteGlobalConfig } from '@aparte/core';
+import { setupApproval } from '@aparte/plugin-approval';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { AparteToolUI, useAparteClient, type AparteToolCallView } from '@aparte/react';
 
@@ -15,6 +16,9 @@ aparteGlobalConfig.registerTool(
     { name: 'get_weather', description: 'Current weather for a city.', inputSchema: { type: 'object', properties: { city: { type: 'string' } } } },
     async (call) => ({ toolCallId: call.id, content: 'Cloudy, 14 °C in Lille.' }),
 );
+// The toolbar's <aparte-approval-mode>: a plugin element that draws on connect, so it is the
+// witness that a server-rendered toolbar hydrates. `auto` lets get_weather run unasked.
+setupApproval({ classify: { read: ['get_weather'] }, mode: 'auto' });
 
 function WeatherCard({ tool }: { tool: AparteToolCallView<{ city: string }> }) {
     return (

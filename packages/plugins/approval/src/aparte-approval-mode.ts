@@ -9,7 +9,7 @@
  * cannot act is not offered.
  */
 import {
-    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr,
+    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, deferHydrationOf,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
     type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
@@ -140,5 +140,8 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get('aparte-approval-mode')) {
+    // Before defining, like core's own elements: in a server-rendered chat the tag waits
+    // for the wrapper's release instead of drawing into the DOM the framework hydrates.
+    deferHydrationOf(AparteApprovalMode);
     customElements.define('aparte-approval-mode', AparteApprovalMode);
 }
