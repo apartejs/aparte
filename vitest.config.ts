@@ -211,7 +211,9 @@ export default defineConfig({
         // where nobody stands is a floor that gets lowered.
         // Engine branches 93 -> 95 with the server-loop lot (2026-09-26): the deferral
         // suite measured 96.64%, and the ratchet asked.
-        'packages/core/src/**': { lines: 95, statements: 95, functions: 92, branches: 90 },
+        // Core functions 92 -> 94 (2026-10-25): the wrappers-native lot's renderer-lifecycle,
+        // defer-hydration and echo tests; the ratchet asked.
+        'packages/core/src/**': { lines: 95, statements: 95, functions: 94, branches: 90 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
@@ -237,7 +239,8 @@ export default defineConfig({
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
         'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 81, branches: 94 },
-        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 54, branches: 90 },
+        // Svelte functions 54 -> 56 (2026-10-25): the runes chat's echo and server-render tests.
+        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 56, branches: 90 },
         'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 59, branches: 92 },
       },
     },
