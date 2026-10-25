@@ -479,6 +479,18 @@ const isPlaceholder = (element: Element): boolean =>
 const drawnBy = new WeakMap<Element, AparteToolRenderer>();
 
 /**
+ * The registered renderer behind a row — the one that drew it, or the one that chose to draw
+ * nothing (its placeholder). What the bubble compares with the registry to know whether the
+ * row must be drawn again: a single record, kept here, rather than a second lookup. Internal
+ * to core: not exported from the package.
+ */
+const behind = new WeakMap<Element, AparteToolRenderer>();
+
+export function toolRendererThatDrew(element: Element): AparteToolRenderer | null {
+    return behind.get(element) ?? null;
+}
+
+/**
  * Who drew `element`: the renderer recorded for it, else — a row rendered and handed over
  * without `setup` (not the bubble's path, which always sets up) — the registered renderer
  * if the element is not core's own row or its placeholder, as before the record existed.
@@ -616,7 +628,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             // — it used to bring back the default row here while the live path dropped
             // the call, so a reload showed what the live chat had hidden.
             const out = customRenderer.render(segment);
-            if (out instanceof HTMLElement) drawnBy.set(out, customRenderer);
+            if (out instanceof HTMLElement) { drawnBy.set(out, customRenderer); behind.set(out, customRenderer); }
             return out || placeholderMarkup(segment);
         }
 
@@ -784,25 +796,35 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         highlightParts(element);
     },
     setup: (element, segment) => {
+        // Set up right after `render`, so the renderer in effect now is the one behind the
+        // row: remembered for its updates, its relabels and its cleanup.
+        const hidden = contextConfig().isToolHidden(segment.toolCall?.name ?? 'tool');
+        const customRenderer = hidden ? undefined : contextConfig().getToolRenderer(segment.toolCall?.name);
+        if (customRenderer) behind.set(element, customRenderer);
         if (isPlaceholder(element)) return;
         // The one control of ours is each part's copy button. The approval buttons that
         // used to be wired here dispatched `aparte-tool-decision`; the decision is
         // answered at the composer now, and the transcript holds no decision control.
         wireParts(element);
         highlightParts(element);
-        // Set up right after `render`, so the renderer in effect now is the one that drew
-        // the row: remembered for its updates, its relabels and its cleanup.
-        const hidden = contextConfig().isToolHidden(segment.toolCall?.name ?? 'tool');
-        const customRenderer = hidden ? undefined : contextConfig().getToolRenderer(segment.toolCall?.name);
         if (customRenderer) drawnBy.set(element, customRenderer);
         customRenderer?.setup?.(element, segment);
     },
-    /** The row leaves for good: the registered renderer that drew it, if any, cleans up. */
+    /**
+     * The row leaves for good: the registered renderer that drew it, if any, cleans up. A
+     * cleanup that throws is reported and goes no further: the row is replaced or removed
+     * all the same, and the stream that caused it is not interrupted.
+     */
     cleanup: (element, segment) => {
+        behind.delete(element);
         const custom = drawnBy.get(element);
         if (!custom) return;
         drawnBy.delete(element);
-        custom.cleanup?.(element, segment);
+        try {
+            custom.cleanup?.(element, segment);
+        } catch (err) {
+            console.error('[aparte] a tool renderer\'s cleanup threw', err);
+        }
     },
     // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which

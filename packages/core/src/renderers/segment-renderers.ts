@@ -14,7 +14,7 @@ import type {
 import { contextConfig } from '../config/index.js';
 import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
-import { notifyConfigChange } from '../config/aparte-config.js';
+import { notifyRenderersChanged } from '../config/aparte-config.js';
 // The built-in renderers, one file each under ./segments/ — `DEFAULT_RENDERERS` at
 // the bottom is the list, and the count (this line used to say "nine" over a list
 // of seven, then six: the artifact card left for `@aparte/plugin-artifacts`, which
@@ -117,7 +117,7 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
     injectRendererStyles(config);
     // Segments of this type already on screen are drawn again by it (the renderer that
     // drew them gets its `cleanup`); nothing else is touched.
-    notifyConfigChange(config);
+    notifyRenderersChanged(config);
 }
 
 /** {@link overrideSegmentRenderer}'s stacks, per config and type: what each held below every override. */
@@ -153,13 +153,20 @@ export function overrideSegmentRenderer<T extends AparteSegmentBase>(
         const i = stack.lastIndexOf(renderer as AparteSegmentRenderer);
         if (i > 0) stack.splice(i, 1);
         if (stack.length === 1) byType.delete(type);
-        // Below every override there may be nothing registered for a built-in type: the
+        // Only when this override is still what the type holds: under another override
+        // nothing on screen changes, and a direct registration made since is the app's own.
+        if (reg.renderers.get(type) !== renderer) return;
+        const top = stack[stack.length - 1];
+        if (top) { registerSegmentRenderer(top, config); return; }
+        unregisterSegmentRenderer(type, config);
+        // Nothing was registered below the overrides. An instance config now inherits what
+        // the global one has; but a built-in type can be left with no renderer at all — the
         // built-ins are filled in lazily, once, and the sweep skipped the type an override
-        // held. Restoring "nothing" would leave the type with no renderer at all.
-        const top = stack[stack.length - 1]
-            ?? (reg.defaultsDeclined ? undefined : DEFAULT_RENDERERS.find((r) => r.type === type));
-        if (top) registerSegmentRenderer(top, config);
-        else unregisterSegmentRenderer(type, config);
+        // held — so core's own goes back, and only then.
+        if (!effectiveRenderers(config).has(type) && reg.defaultsInstalled && !reg.defaultsDeclined) {
+            const builtIn = DEFAULT_RENDERERS.find((r) => r.type === type);
+            if (builtIn) registerSegmentRenderer(builtIn, config);
+        }
     };
 }
 
@@ -206,7 +213,7 @@ export function unregisterSegmentRenderer(type: string, config: AparteConfig = c
     const reg = registryFor(config);
     if (!reg.renderers.has(type)) return;
     reg.renderers.delete(type);
-    notifyConfigChange(config);
+    notifyRenderersChanged(config);
 }
 
 /**

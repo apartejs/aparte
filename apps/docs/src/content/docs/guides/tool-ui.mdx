@@ -71,15 +71,19 @@ else a model wrote.
 A card is mounted once and updated in place for as long as it stays. It is unmounted — `destroy`,
 through the renderer's `cleanup` — exactly once, when its element leaves for good: the call removed,
 its message redrawn or removed, a conversation switch, or the renderer replaced. It is not unmounted
-when a framework only moves its message: a message taken out of the page and put back within the
-same task keeps its cards. A message that comes back later (a keep-alive cache, a reused route)
-mounts its cards again.
+when a framework only moves its message: a message taken out of the page and put back before the
+next microtask keeps its cards. A message that comes back later (a keep-alive cache, a reused
+route) mounts its cards again. A Markdown or highlight provider that arrives late redraws the text
+around the cards, not the cards.
 
 The registry is live. A renderer registered while calls are already on screen — a restored
-conversation, a page that declares its cards after the first messages — takes those calls over, and
-taking it off gives them back to core's row; calls to other tools are not touched. Overrides stack:
-of two declarations for the same tool the newer wins, and taking off the older one leaves the newer
-in place. Each `restore` function is safe to call twice.
+conversation, a page that declares its cards after the first messages, a chat whose own config
+arrives after its first rows — takes those calls over, and taking it off gives them back to core's
+row; calls to other tools are not touched. The change reaches the screen in a microtask, gathered:
+ten components declaring cards in one render cost one pass, and an override taken off in the same
+tick costs nothing at all. Overrides stack: of two declarations for the same tool the newer wins,
+and taking off the older one leaves the newer in place. Each `restore` function is safe to call
+twice, and does nothing after a `reset()` of the config.
 
 A card's own changes count as content arriving: if the reader is at the bottom of the chat, it
 follows them; if they scrolled up to read, it stays where they are.

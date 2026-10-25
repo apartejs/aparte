@@ -450,8 +450,8 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
      * leaves the page for good: replaced by a new `render()` (a segment redrawn, a message
      * redrawn in a new frame, this renderer replaced by another registration), its segment
      * removed, or its message removed. Never for `update()` or `relabel()`, and never for
-     * a message a framework only MOVED: a bubble taken out and put back within the same
-     * task keeps its elements. A bubble that comes back after a longer absence (a
+     * a message a framework only MOVED: a bubble taken out and put back before the next
+     * microtask keeps its elements. A bubble that comes back after a longer absence (a
      * framework's keep-alive cache, a reused route) draws its segments again, so a
      * renderer sees `render`/`setup` once more after its `cleanup`.
      *

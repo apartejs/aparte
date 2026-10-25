@@ -142,15 +142,39 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
 }
 
 /**
- * A config's change notification, for code that lives outside the class: the segment
- * renderer registry is its own module, and a renderer registered there has to reach the
- * segments already on screen the way a tool renderer does. Internal to core: not exported
- * from the package.
+ * The renderer registries' own change channel — narrower and later than `subscribe()`.
+ *
+ * A tool or segment renderer registered, unregistered or overridden changes only which
+ * segments on screen have to be drawn again, so it does not go through the config's full
+ * notification (which rebuilds every bubble's action bar, relabels every segment, re-draws
+ * every icon). And it is delivered in a microtask, coalesced per config: N components that
+ * each declare a card in one framework commit cost one pass, not N, and a renderer's
+ * `cleanup` never runs inside the registration call — inside a framework's effect cleanup.
+ * Internal to core: not exported from the package.
  */
-const notifiers = new WeakMap<AparteConfig, () => void>();
+const rendererListeners = new Set<(cfg: AparteConfig) => void>();
+const pendingRendererChanges = new Set<AparteConfig>();
 
-export function notifyConfigChange(cfg: AparteConfig): void {
-    notifiers.get(cfg)?.();
+export function onRenderersChange(listener: (cfg: AparteConfig) => void): () => void {
+    rendererListeners.add(listener);
+    return () => { rendererListeners.delete(listener); };
+}
+
+export function notifyRenderersChanged(cfg: AparteConfig): void {
+    if (pendingRendererChanges.size === 0) {
+        queueMicrotask(() => {
+            const changed = [...pendingRendererChanges];
+            pendingRendererChanges.clear();
+            for (const config of changed) {
+                for (const listener of [...rendererListeners]) {
+                    try { listener(config); } catch (err) {
+                        console.error('[aparte] a renderer-change listener threw', err);
+                    }
+                }
+            }
+        });
+    }
+    pendingRendererChanges.add(cfg);
 }
 
 /** One override stack per tool matcher, keyed by its spelling (as `ToolTable` keys it). */
@@ -230,12 +254,6 @@ export class AparteConfig {
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
 
-    constructor() {
-        // The segment-renderer registry is a module of its own; this is how a renderer
-        // registered there notifies through the config it was registered on.
-        notifiers.set(this, () => this._notify());
-    }
-
     // AI Provider Management (BYORK)
     private _aiProviders: Map<string, AparteAIProvider> = new Map();
     /**
@@ -312,6 +330,8 @@ export class AparteConfig {
     private _toolRenderers = new ToolTable<AparteToolRenderer>();
     /** {@link overrideToolRenderer}'s stacks: what each matcher held below every override. */
     private _toolRendererOverrides = new Map<string, Array<AparteToolRenderer | undefined>>();
+    /** Bumped by `reset()`: a restore function from before it must not undo what came after. */
+    private _overrideGeneration = 0;
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
@@ -1332,7 +1352,7 @@ export class AparteConfig {
     registerToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): void {
         if (this._toolRenderers.get(match) === renderer) return;
         this._toolRenderers.set(match, renderer);
-        this._notify();
+        notifyRenderersChanged(this);
     }
 
     /**
@@ -1361,13 +1381,20 @@ export class AparteConfig {
         }
         stack.push(renderer);
         this.registerToolRenderer(match, renderer);
+        const generation = this._overrideGeneration;
         let restored = false;
         return () => {
-            if (restored) return;
+            // Twice, or after a `reset()` that already cleared everything: nothing to undo,
+            // and writing the stack back would resurrect a registration from before the reset.
+            if (restored || generation !== this._overrideGeneration) return;
             restored = true;
             const i = stack.lastIndexOf(renderer);
             if (i > 0) stack.splice(i, 1);
             if (stack.length === 1) this._toolRendererOverrides.delete(key);
+            // Only when this override is still what the matcher holds: under another override
+            // nothing on screen changes, and a direct `registerToolRenderer` made since is the
+            // app's own call, which taking this one off must not overwrite.
+            if (this._toolRenderers.get(match) !== renderer) return;
             const top = stack[stack.length - 1];
             if (top) this.registerToolRenderer(match, top);
             else this.unregisterToolRenderer(match);
@@ -1421,7 +1448,7 @@ export class AparteConfig {
     unregisterToolRenderer(match: AparteToolMatcher): void {
         if (this._toolRenderers.get(match) === undefined) return;
         this._toolRenderers.delete(match);
-        this._notify();
+        notifyRenderersChanged(this);
     }
 
     /** The renderer that draws a tool named `toolName` — exact, pattern or `'*'` — or undefined. */
@@ -1856,6 +1883,8 @@ export class AparteConfig {
         this._tools.clear();
         this._toolRenderers.clear();
         this._toolRendererOverrides.clear();
+        this._overrideGeneration++;
+        notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._streamBlocks.clear();
         this._modelConfig = {};

@@ -324,7 +324,7 @@ export interface AparteToolRenderer {
      * message redrawn, its message removed, or its renderer replaced (a renderer
      * registered or unregistered for this tool redraws the calls already on screen). Never
      * for `update()` or `relabel()`, and never for a message a framework only MOVED: a
-     * bubble taken out and put back within the same task keeps its elements. Always called
+     * bubble taken out and put back before the next microtask keeps its elements. Always called
      * on the renderer that drew the element, even when another one has been registered
      * since.
      *

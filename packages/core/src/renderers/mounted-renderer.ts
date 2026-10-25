@@ -20,6 +20,18 @@ import type {
     AparteToolRenderer,
 } from '../types/index.js';
 
+/**
+ * The renderers made here. What they draw does not depend on the Markdown or highlight
+ * provider, so the bubble keeps their cards mounted when one of those changes — the redraw
+ * that brings a late highlighter to the text around them would otherwise remount every
+ * card and lose its state. Internal to core: not exported from the package.
+ */
+const mountedRenderers = new WeakSet<object>();
+
+export function isMountedRenderer(renderer: object | null | undefined): boolean {
+    return !!renderer && mountedRenderers.has(renderer);
+}
+
 /** The fields of a call a card draws from, read from its segment. */
 export function toToolCallView<I = unknown, R = unknown>(segment: AparteToolCallSegment): AparteToolCallView<I, R> {
     return {
@@ -57,7 +69,7 @@ function host(className: string, segmentId: string): HTMLElement {
  */
 export function defineMountedToolRenderer(mount: AparteToolMount): AparteToolRenderer {
     const mounted = new WeakMap<HTMLElement, AparteMountedView<AparteToolCallView>>();
-    return {
+    const renderer: AparteToolRenderer = {
         render: (segment) => host('aparte-tool-ui', segment.id),
         setup: (el, segment) => {
             if (!mounted.has(el)) mounted.set(el, mount(el, toToolCallView(segment)));
@@ -72,6 +84,8 @@ export function defineMountedToolRenderer(mount: AparteToolMount): AparteToolRen
             view.destroy();
         },
     };
+    mountedRenderers.add(renderer);
+    return renderer;
 }
 
 /**
@@ -83,7 +97,7 @@ export function defineMountedSegmentRenderer<T extends AparteSegmentBase>(
     mount: AparteSegmentMount<T>,
 ): AparteSegmentRenderer<T> {
     const mounted = new WeakMap<HTMLElement, AparteMountedView<T>>();
-    return {
+    const renderer: AparteSegmentRenderer<T> = {
         type,
         render: (segment) => host('aparte-segment-ui', segment.id),
         setup: (el, segment) => {
@@ -99,4 +113,6 @@ export function defineMountedSegmentRenderer<T extends AparteSegmentBase>(
             view.destroy();
         },
     };
+    mountedRenderers.add(renderer);
+    return renderer;
 }

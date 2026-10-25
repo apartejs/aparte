@@ -22,6 +22,9 @@ const call = (id: string, name: string): AparteToolCallSegment => ({
 
 const rowOf = (b: Bubble, id: string) => b.querySelector(`.aparte-segments > [data-segment-id="${id}"]`) as HTMLElement | null;
 
+/** Registry changes are delivered in a microtask, coalesced per config. */
+const settle = () => Promise.resolve();
+
 function bubble(): Bubble {
     const b = document.createElement('aparte-chat-bubble') as Bubble;
     document.body.appendChild(b);
@@ -36,39 +39,54 @@ describe('<aparte-chat-bubble> — the cards on screen follow the registry', () 
         document.body.replaceChildren();
     });
 
-    it('a renderer registered after the card is drawn takes the card over', () => {
+    it('a renderer registered after the card is drawn takes the card over', async () => {
         const b = bubble();
         b.addSegment(call('s1', 'get_weather'));
         expect(rowOf(b, 's1')?.classList.contains('aparte-segment-tool-call')).toBe(true);
         const mount = vi.fn((host: HTMLElement) => { host.textContent = 'mine'; return { update: () => {}, destroy: () => {} }; });
         aparteGlobalConfig.registerToolRenderer('get_weather', defineMountedToolRenderer(mount));
+        await settle();
         expect(mount).toHaveBeenCalledTimes(1);
         expect(rowOf(b, 's1')?.className).toBe('aparte-tool-ui');
         expect(rowOf(b, 's1')?.textContent).toBe('mine');
     });
 
-    it('taking the renderer off brings core\'s row back on the card already on screen', () => {
+    it('taking the renderer off brings core\'s row back on the card already on screen', async () => {
         const destroy = vi.fn();
         const b = bubble();
         b.addSegment(call('s1', 'get_weather'));
         const restore = aparteGlobalConfig.overrideToolRenderer('get_weather',
             defineMountedToolRenderer(() => ({ update: () => {}, destroy })));
+        await settle();
         restore();
+        await settle();
         expect(destroy).toHaveBeenCalledTimes(1);
         expect(rowOf(b, 's1')?.classList.contains('aparte-segment-tool-call')).toBe(true);
     });
 
-    it('a registry change leaves the cards of other tools untouched', () => {
+    it('an override taken off within the same tick changes nothing on screen', async () => {
+        const mount = vi.fn(() => ({ update: () => {}, destroy: () => {} }));
+        const b = bubble();
+        b.addSegment(call('s1', 'get_weather'));
+        const row = rowOf(b, 's1');
+        aparteGlobalConfig.overrideToolRenderer('get_weather', defineMountedToolRenderer(mount))();
+        await settle();
+        expect(mount).not.toHaveBeenCalled();
+        expect(rowOf(b, 's1')).toBe(row);
+    });
+
+    it('a registry change leaves the cards of other tools untouched', async () => {
         const b = bubble();
         b.addSegment(call('s1', 'get_weather'));
         b.addSegment(call('s2', 'search'));
         const other = rowOf(b, 's2');
         aparteGlobalConfig.registerToolRenderer('get_weather', { render: () => '<div class="mine"></div>' });
+        await settle();
         expect(rowOf(b, 's2')).toBe(other);
         expect(rowOf(b, 's1')?.classList.contains('mine')).toBe(true);
     });
 
-    it('a newly registered renderer draws its card before it updates it, and the old one cleans up', () => {
+    it('a newly registered renderer draws its card before it updates it, and the old one cleans up', async () => {
         const oldCleanup = vi.fn();
         const first: AparteToolRenderer = { render: () => '<div class="first"></div>', cleanup: oldCleanup };
         const seen: string[] = [];
@@ -80,6 +98,7 @@ describe('<aparte-chat-bubble> — the cards on screen follow the registry', () 
         const b = bubble();
         b.addSegment(call('s1', 'get_weather'));
         aparteGlobalConfig.registerToolRenderer('get_weather', second);
+        await settle();
         expect(oldCleanup).toHaveBeenCalledTimes(1);
         expect(seen).toEqual([]);   // drawn by `render`, not patched into the old markup
         b.updateSegment('s1', { status: 'resolved' });
