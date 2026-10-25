@@ -4,6 +4,10 @@ The **React AI chat component** of [aparté](https://github.com/apartejs/aparte)
 `<AparteChat>` (React 18/19) plus hooks (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
+Tested in CI with React 19, and in a Next 15 App Router page rendered on the server and hydrated
+with no mismatch. `<AparteToolUI name="…">` draws a tool call with your own component, with your
+app's context.
+
 ```bash
 npm install @aparte/react @aparte/core react react-dom
 ```

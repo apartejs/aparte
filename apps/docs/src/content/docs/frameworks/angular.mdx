@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Angular {T.angular[0]} and {T.angular[1]}, zoneless: in the unit suite and the example a browser drives, and in an Angular {T.angularSsr} SSR app rendered on the server and hydrated.
 
 ## Install
 
@@ -314,10 +317,14 @@ forwards core's events, so name your element's own in `[events]`:
 
 ## Server rendering and tests
 
-`provideAparte` starts the client only in a browser. Render the chat itself on the client, in a
-`@defer` block — `@defer { <aparte-chat></aparte-chat> }` — so the server draws only its
-placeholder; `@aparte/core` imports on a server through its entry without elements
-([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
+With `@angular/ssr` and `provideClientHydration()`, render `<aparte-chat>` as it is — no `@defer`:
+the server sends its HTML, and the browser hydrates it with no mismatch, zoneless included — the
+elements wait until Angular has the page ([Hydration](/frameworks/elements/#hydration)).
+`provideAparte` starts the client only in a browser. This is tested in CI: an Angular
+{T.angularSsr} SSR app built for production, served by its Express server, and checked in a
+browser. Angular 21 renders only for the hosts it is told about — `new AngularNodeAppEngine({
+allowedHosts: […] })` — and falls back to a client render for any other. `@aparte/core` imports on
+a server through its entry without elements ([On the server](/frameworks/elements/#on-the-server)). A test runner that runs on Node — Vitest,
 Jest — takes that entry too, so alias `@aparte/core` to `@aparte/core/browser` for the elements to
 upgrade ([Testing your components](/frameworks/elements/#testing-your-components)); Karma runs in
 a browser and needs nothing.

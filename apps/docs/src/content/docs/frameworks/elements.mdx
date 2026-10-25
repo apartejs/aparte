@@ -8,6 +8,7 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { Tabs, TabItem } from '../../../components/content/tabs';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
 
 ## Place an element
 
@@ -311,10 +312,10 @@ server rendering follows, widened from an element to the elements under it.
 
 | Wrapper | On a server |
 | --- | --- |
-| React | `'use client'` lets a Server Component render it; its server render imports the entry without elements, and they upgrade in the browser |
-| Angular | `provideAparte` starts the client only in a browser; render the chat in a `@defer` block |
-| Vue | nothing: under Nuxt, render the chat on the client only |
-| Svelte | nothing: under SvelteKit, render the chat on the client only |
+| React | `'use client'` lets a Server Component render it; it hydrates with no mismatch — tested in a Next {T.next} App Router page |
+| Angular | renders with `@angular/ssr` and hydration, no `@defer`; `provideAparte` starts the client only in a browser — tested in an Angular {T.angularSsr} SSR app |
+| Vue | renders in a Nuxt page and hydrates with no mismatch; the client goes in a `.client` plugin — tested with Nuxt {T.nuxt} |
+| Svelte | renders with SvelteKit's server rendering on and hydrates with no mismatch — tested with SvelteKit {T.sveltekit} |
 
 ## Testing your components
 

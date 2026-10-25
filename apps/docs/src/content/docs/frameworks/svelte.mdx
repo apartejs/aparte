@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Svelte {T.svelte[0]} and {T.svelte[1]}: in the two examples a browser drives, and in a SvelteKit {T.sveltekit} page rendered on the server and hydrated.
 
 ## Install
 
@@ -183,10 +186,14 @@ tag and sets its props; it forwards core's events, so name your element's own in
 
 ## SvelteKit and tests
 
-The wrapper has no server guard and is not tested under a server render: under SvelteKit, render
-the chat on the client only — `export const ssr = false` in the route's `+page.ts`, or a component
-imported in `onMount`. `@aparte/core` itself imports on a server through its entry without elements
-([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
+Under SvelteKit, render the chat with server rendering on: the server sends its HTML, and the
+browser hydrates it with no mismatch — the elements wait until Svelte has the page
+([Hydration](/frameworks/elements/#hydration)). Register your provider in the page's
+`<script module>`, and call `createAparteClient()` in the component: the client starts in the
+browser only. This is tested in CI: a SvelteKit {T.sveltekit} page with `@sveltejs/adapter-node`,
+built for production, served, and checked in a browser. `@aparte/core` imports on a server through
+its entry without elements ([On the server](/frameworks/elements/#on-the-server)). Vitest runs on
+Node, so alias
 `@aparte/core` to `@aparte/core/browser` for the elements to upgrade
 ([Testing your components](/frameworks/elements/#testing-your-components)).
 

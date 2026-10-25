@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with React {T.react}: in the example a browser drives, and in a Next {T.next} App Router page rendered on the server and hydrated.
 
 ## Install
 
@@ -40,9 +43,11 @@ export function Chat() {
 
 That is a whole chat: `<AparteChat>` keeps its own thread, and the client `useAparteClient` starts
 streams each reply into it from the scripted model — no state of yours, no key. In the Next App
-Router, put `'use client'` at the top of this file: hooks run in a client component. Next still
-renders it to HTML on the server, where `@aparte/core` resolves to its entry without elements
-([On the server](/frameworks/elements/#on-the-server)).
+Router, put `'use client'` at the top of this file: hooks run in a client component — a server
+component can render `<AparteChat>` itself, the package is a client boundary. Next renders it to
+HTML on the server, and the browser hydrates it with no mismatch: the elements wait until React has
+the page ([Hydration](/frameworks/elements/#hydration)). This is tested in CI: a Next {T.next} App
+Router page built for production, served, and checked in a browser.
 
 ## Hold the messages yourself
 

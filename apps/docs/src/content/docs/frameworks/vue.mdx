@@ -11,6 +11,9 @@ sidebar:
 
 import Cards from '../../../components/content/Cards.astro';
 import { WRAPPER_PEERS } from '../../../data/wrapper-peers';
+import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
+
+Tested in CI with Vue {T.vue}: in the example a browser drives, and in a Nuxt {T.nuxt} page rendered on the server and hydrated.
 
 ## Install
 
@@ -197,9 +200,14 @@ own in `events`:
 
 ## Nuxt and tests
 
-The wrapper has no server guard: under Nuxt, render the chat on the client only, in `<ClientOnly>`
-or a `.client.vue` component. `@aparte/core` itself imports on a server through its entry without
-elements ([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
+Under Nuxt, render the chat in a page as it is: the server sends its HTML, and the browser
+hydrates it with no mismatch — the elements wait until Vue has the page
+([Hydration](/frameworks/elements/#hydration)). Start the client in a plugin that runs in the
+browser only (`plugins/aparte.client.ts`, `new AparteClient().start()` after registering your
+provider), and give `nuxt.config.ts` `vue.compilerOptions.isCustomElement: isAparteElement`. This is
+tested in CI: a Nuxt {T.nuxt} page built for production, served by its server, and checked in a
+browser. `@aparte/core` imports on a server through its entry without elements
+([On the server](/frameworks/elements/#on-the-server)). Vitest runs on Node, so alias
 `@aparte/core` to `@aparte/core/browser` for the elements to upgrade
 ([Testing your components](/frameworks/elements/#testing-your-components)).
 

@@ -4,6 +4,10 @@ The **Angular AI chat component** of [aparté](https://github.com/apartejs/apart
 `<aparte-chat>` standalone component (Angular 19.2 to 21, zone or zoneless) plus services (`AparteAiService`, `ConversationManagerService`) over the
 framework-agnostic web components in `@aparte/core`.
 
+Tested in CI with Angular 19 and 21, zoneless, and in an Angular 21 SSR app rendered on the server
+and hydrated with no mismatch — no `@defer` needed. `<ng-template aparteToolUI="…" let-tool>`
+draws a tool call with your own components, injected from where you declare it.
+
 ```bash
 npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 ```
