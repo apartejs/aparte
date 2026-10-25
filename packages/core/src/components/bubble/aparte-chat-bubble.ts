@@ -31,7 +31,7 @@ interface DrawnSegment {
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
-import { toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
+import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
@@ -418,8 +418,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /** The tool renderer in effect for a call: none for a hidden call or another segment. */
   private _toolRendererFor(segment: AparteSegment): AparteToolRenderer | null {
     if (segment.type !== 'tool_call') return null;
-    const name = (segment as AparteToolCallSegment).toolCall?.name;
     const cfg = this._cfg;
+    // Only core's row consults the tool renderers: a tool_call renderer of the app's own never
+    // does, so a tool renderer matching the call is not what draws it.
+    if (resolveSegmentRenderer('tool_call', cfg) !== toolCallRenderer) return null;
+    const name = (segment as AparteToolCallSegment).toolCall?.name;
     if (!name || cfg.isToolHidden(name)) return null;
     return cfg.getToolRenderer(name) ?? null;
   }
@@ -2260,11 +2263,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      */
     if (wasStreaming && !streaming) this._updateContent();
     // Segments have no such pass: if a Markdown or highlight provider arrived while they
-    // streamed, the finished message is drawn again with it.
-    if (wasStreaming && !streaming && this._segments.length > 0
-        && renderingVersionOf(this._cfg) !== this._drawnWithVersion) {
-      this._renderSegments();
-    }
+    // streamed, the finished message is drawn again with it — segment by segment, keeping
+    // the cards a mounted renderer holds (it checks the version itself).
+    if (wasStreaming && !streaming && this._segments.length > 0) this._redrawIfStale();
   }
 }
 

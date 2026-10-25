@@ -142,8 +142,12 @@ export function overrideSegmentRenderer<T extends AparteSegmentBase>(
     const reg = registryFor(config);
     let byType = overrideStacks.get(config);
     if (!byType) { byType = new Map(); overrideStacks.set(config, byType); }
+    const current = reg.renderers.get(type);
     let stack = byType.get(type);
-    if (!stack) { stack = [reg.renderers.get(type)]; byType.set(type, stack); }
+    if (!stack) { stack = [current]; byType.set(type, stack); }
+    // A direct registration since the last override is what this one goes over — rebased in
+    // place, since the older overrides' restores hold this array.
+    else if (stack[stack.length - 1] !== current) stack.splice(0, stack.length, current);
     stack.push(renderer as AparteSegmentRenderer);
     registerSegmentRenderer(renderer, config);
     let restored = false;

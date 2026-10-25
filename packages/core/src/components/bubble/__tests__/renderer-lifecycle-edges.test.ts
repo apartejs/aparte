@@ -134,6 +134,73 @@ describe('renderer lifecycle — the edges', () => {
         expect(rowOf(b, 's1')).toBe(card);
     });
 
+    it('a provider that arrives while the turn streams keeps mounted cards mounted at the end of the turn', async () => {
+        const destroy = vi.fn();
+        const mount = vi.fn(() => ({ update: () => {}, destroy }));
+        aparteGlobalConfig.registerToolRenderer('get_weather', defineMountedToolRenderer(mount));
+        const b = bubbleIn() as Bubble & { updateMessage(u: unknown): void };
+        b.updateMessage({ status: 'streaming' });
+        b.addSegment({ id: 't1', type: 'text', content: 'hello' });
+        b.addSegment(call('s1', 'get_weather'));
+        const card = rowOf(b, 's1');
+        const text = rowOf(b, 't1');
+        aparteGlobalConfig.setHighlightProvider(async (code) => code);
+        await settle();
+        // The live end of a turn: a status, no segments.
+        b.updateMessage({ status: 'completed' });
+        await settle();
+        expect(mount).toHaveBeenCalledTimes(1);
+        expect(destroy).not.toHaveBeenCalled();
+        expect(rowOf(b, 's1')).toBe(card);
+        // The late provider is still honoured where it applies.
+        expect(rowOf(b, 't1')).not.toBe(text);
+    });
+
+    it('a replaced tool_call renderer is not redrawn because a tool renderer matches its call', async () => {
+        const cleanup = vi.fn();
+        const custom: AparteSegmentRenderer = {
+            type: 'tool_call',
+            render: () => Object.assign(document.createElement('div'), { className: 'custom-call' }),
+            cleanup,
+        };
+        const restore = overrideSegmentRenderer(custom);
+        aparteGlobalConfig.registerToolRenderer('get_weather', { render: () => document.createElement('span') } as AparteToolRenderer);
+        const b = bubbleIn();
+        b.addSegment(call('s1', 'get_weather'));
+        const row = rowOf(b, 's1');
+        // An unrelated registry change, then a config change: nothing that draws s1 changed.
+        aparteGlobalConfig.registerToolRenderer('search', { render: () => document.createElement('span') } as AparteToolRenderer);
+        await settle();
+        aparteGlobalConfig.setBubbleActions({ copy: true });
+        await settle();
+        expect(cleanup).not.toHaveBeenCalled();
+        expect(rowOf(b, 's1')).toBe(row);
+        aparteGlobalConfig.unregisterToolRenderer('search');
+        restore();
+    });
+
+    it('a direct registration between two overrides survives both restores', () => {
+        const tool = () => ({ render: () => document.createElement('i') }) as AparteToolRenderer;
+        const [a, b, c] = [tool(), tool(), tool()];
+        const restoreA = aparteGlobalConfig.overrideToolRenderer('get_weather', a);
+        aparteGlobalConfig.registerToolRenderer('get_weather', c);
+        const restoreB = aparteGlobalConfig.overrideToolRenderer('get_weather', b);
+        restoreB();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(c);
+        restoreA();
+        expect(aparteGlobalConfig.getToolRenderer('get_weather')).toBe(c);
+
+        const seg = (): AparteSegmentRenderer => ({ type: 'probe-type', render: () => document.createElement('i') });
+        const [sa, sb, sc] = [seg(), seg(), seg()];
+        const restoreSa = overrideSegmentRenderer(sa);
+        registerSegmentRenderer(sc);
+        const restoreSb = overrideSegmentRenderer(sb);
+        restoreSb();
+        expect(getSegmentRenderer('probe-type')).toBe(sc);
+        restoreSa();
+        expect(getSegmentRenderer('probe-type')).toBe(sc);
+    });
+
     it('a segment drawn into a bubble already removed is cleaned up too', async () => {
         const cleanup = vi.fn();
         registerSegmentRenderer({ type: 'probe-type', render: () => '<div></div>', cleanup }, aparteGlobalConfig);

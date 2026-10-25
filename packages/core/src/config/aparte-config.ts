@@ -1374,10 +1374,16 @@ export class AparteConfig {
      */
     overrideToolRenderer(match: AparteToolMatcher, renderer: AparteToolRenderer): () => void {
         const key = matcherKey(match);
+        const current = this._toolRenderers.get(match);
         let stack = this._toolRendererOverrides.get(key);
         if (!stack) {
-            stack = [this._toolRenderers.get(match)];
+            stack = [current];
             this._toolRendererOverrides.set(key, stack);
+        } else if (stack[stack.length - 1] !== current) {
+            // A direct registration since the last override: it is what this one goes over, and
+            // what its restore gives back. Rebased in place — the older overrides' restores hold
+            // this array, and find themselves gone from it.
+            stack.splice(0, stack.length, current);
         }
         stack.push(renderer);
         this.registerToolRenderer(match, renderer);
