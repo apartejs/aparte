@@ -611,6 +611,136 @@ describe('AparteConversationController', () => {
             expect(adapter.store.get(conv.id)!.messages.map((m) => m.id)).toEqual(['s1']);
         });
 
+        /*
+         * The checkpoint is written onto a message and nothing is replaced: the save waits for
+         * THAT message to carry it (with the stamp a half-written one lacks), not for a summary
+         * message that no longer exists.
+         */
+        describe('that writes a checkpoint', () => {
+            const checkpoint = { summary: 'The talk so far', count: 2, createdAt: 5 };
+
+            it('is saved with the checkpoint on the message it names', async () => {
+                const conv = await manager.createNew();
+                await manager.addMessage(conv.id, userMsg('a long talk'));
+                const binding = makeBinding(host);
+                const ctrl = new AparteConversationController(binding, { manager });
+                ctrl.bind();
+                await ctrl.setConversationId(conv.id);
+                const [first] = binding.getMessages();
+
+                binding.setMessages([{ ...first!, contextSummary: checkpoint }]);
+                window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary: 'The talk so far', messageId: first!.id, count: 2, kept: 1, dropped: 2, targetId: 'test-host' } }));
+                await flush();
+                await flush();
+
+                expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary).toEqual(checkpoint);
+            });
+
+            it('waits for a framework-owned list to carry the checkpoint, then saves it', async () => {
+                const conv = await manager.createNew();
+                await manager.addMessage(conv.id, userMsg('a long talk'));
+                const binding = makeBinding(host);
+                const renders: Array<() => void> = [];
+                binding.afterRender = (cb) => { renders.push(cb); };
+                const ctrl = new AparteConversationController(binding, { manager });
+                ctrl.bind();
+                await ctrl.setConversationId(conv.id);
+                const [first] = binding.getMessages();
+
+                window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { messageId: first!.id, count: 2, targetId: 'test-host' } }));
+                await flush();
+                await flush();
+                expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary, 'not saved before the list has it').toBeUndefined();
+                expect(renders.length, 'it is waiting for a render').toBeGreaterThan(0);
+
+                binding.messages = [{ ...first!, contextSummary: checkpoint }];
+                for (const render of renders.splice(0)) render();
+                await flush();
+                await flush();
+                expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary).toEqual(checkpoint);
+            });
+
+            it('does not take a checkpoint with no stamp for a written one, and gives up after a bounded wait', async () => {
+                const conv = await manager.createNew();
+                await manager.addMessage(conv.id, userMsg('a long talk'));
+                const binding = makeBinding(host);
+                let renders = 0;
+                binding.afterRender = (cb) => { renders += 1; cb(); };
+                const ctrl = new AparteConversationController(binding, { manager });
+                ctrl.bind();
+                await ctrl.setConversationId(conv.id);
+                const [first] = binding.getMessages();
+                binding.setMessages([{ ...first!, contextSummary: { summary: 's', count: 1 } as never }]);
+
+                window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { messageId: first!.id, targetId: 'test-host' } }));
+                await flush();
+                await flush();
+                expect(renders, 'waited, then stopped waiting').toBe(6);
+                // A bounded wait ends in a save of what is there, as ever.
+                expect(adapter.store.get(conv.id)!.messages).toHaveLength(1);
+            });
+        });
+
+        it('that was a Restore is saved without the checkpoints', async () => {
+            const conv = await manager.createNew();
+            await manager.addMessage(conv.id, { ...userMsg('a long talk'), contextSummary: { summary: 'before', count: 2, createdAt: 5 } });
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+            const [first] = binding.getMessages();
+            expect(first!.contextSummary, 'loaded with it').toBeDefined();
+
+            binding.setMessages([{ ...first!, contextSummary: undefined }]);
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { restored: true, messageId: first!.id, targetId: 'test-host' } }));
+            await flush();
+            await flush();
+
+            expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary).toBeUndefined();
+        });
+
+        it('that was a Restore waits for a framework-owned list to drop the checkpoints', async () => {
+            const conv = await manager.createNew();
+            await manager.addMessage(conv.id, { ...userMsg('a long talk'), contextSummary: { summary: 'before', count: 2, createdAt: 5 } });
+            const binding = makeBinding(host);
+            const renders: Array<() => void> = [];
+            binding.afterRender = (cb) => { renders.push(cb); };
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+            const [first] = binding.getMessages();
+
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { restored: true, targetId: 'test-host' } }));
+            await flush();
+            await flush();
+            expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary, 'the list still carries it: not saved yet').toBeDefined();
+
+            binding.messages = [{ ...first!, contextSummary: undefined }];
+            for (const render of renders.splice(0)) render();
+            await flush();
+            await flush();
+            expect(adapter.store.get(conv.id)!.messages[0]!.contextSummary).toBeUndefined();
+        });
+
+        it('that was skipped is saved as it stands, with nothing to wait for', async () => {
+            const conv = await manager.createNew();
+            await manager.addMessage(conv.id, userMsg('mine'));
+            const binding = makeBinding(host);
+            const renders: Array<() => void> = [];
+            binding.afterRender = (cb) => { renders.push(cb); };
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            await ctrl.setConversationId(conv.id);
+            binding.setMessages([...binding.getMessages(), userMsg('typed since')]);
+
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true, reason: 'nothing-to-drop', targetId: 'test-host' } }));
+            await flush();
+            await flush();
+
+            expect(renders).toHaveLength(0);
+            expect(adapter.store.get(conv.id)!.messages).toHaveLength(2);
+        });
+
         it('of another chat is not this one to save', async () => {
             const conv = await manager.createNew();
             await manager.addMessage(conv.id, userMsg('mine'));
