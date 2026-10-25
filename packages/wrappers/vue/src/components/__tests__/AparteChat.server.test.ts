@@ -10,6 +10,8 @@ describe('<AparteChat> (Vue) on the server', () => {
         });
         const html = await renderToString(app);
         expect(html).toContain('data-aparte-chat');
+        // The elements wait for hydration: the browser upgrades them only once Vue has the page.
+        expect(html).toContain('defer-hydration');
         expect(html).toContain('<aparte-composer');
         expect(html).toContain('Ask me anything…');
     });

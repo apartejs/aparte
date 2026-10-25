@@ -7,6 +7,8 @@ describe('<AparteChat> for Svelte 5, on the server', () => {
     it('renders the chat shell with a stable id and no browser API', () => {
         const { body } = render(AparteChat, { props: {} });
         expect(body).toContain('data-aparte-chat');
+        // The elements wait for hydration: the browser upgrades them only once Svelte has the page.
+        expect(body).toContain('defer-hydration');
         expect(body).toMatch(/id="aparte-chat-[^"]+"/);
         expect(body).toContain('<aparte-composer');
     });

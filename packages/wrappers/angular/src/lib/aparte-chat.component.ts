@@ -34,7 +34,7 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
 import { AparteBubbleDirective } from './aparte-bubble.directive';
 
 /**
@@ -58,7 +58,9 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
     // hands off: THIS component renders the viewport + composer and drives them
     // through AparteChatHost. Without it, core injects its default composition
     // underneath ours (its own check can't see our children — they render later).
-    host: { 'framework-managed': '' },
+    // `defer-hydration` until the host is built: in the server render and the one that hydrates
+    // it, core's elements — this host among them — leave the server's DOM alone.
+    host: { 'framework-managed': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
     template: `
     <div
       class="aparte-chat-container"
@@ -281,6 +283,8 @@ export class AparteChatComponent implements OnDestroy, AparteChatImperativeApi {
     readonly waiting = computed(() => this.loading() || this.hostLoading());
     /** Bumped on every config change, so the two locale strings below follow a language switch under OnPush. */
     private readonly _localeTick = signal(0);
+    /** True until the host is built — on the server, always. */
+    protected readonly hydrating = signal(true);
     private _unsubscribeLocale?: () => void;
     get loadingText(): string { this._localeTick(); return (this.config() ?? aparteGlobalConfig).t('loadingConversation'); }
 
@@ -427,6 +431,9 @@ export class AparteChatComponent implements OnDestroy, AparteChatImperativeApi {
 
     private _createHost(): void {
         if (this._destroyed || this._host) return;
+        // The elements a server render left waiting are upgraded first: the host talks to them.
+        releaseDeferredHydration(this.elementRef.nativeElement as HTMLElement);
+        this.hydrating.set(false);
         this._unsubscribeLocale = (this.config() ?? aparteGlobalConfig).subscribe(() => this._localeTick.update((n) => n + 1));
         const host = this.elementRef.nativeElement as HTMLElement;
 

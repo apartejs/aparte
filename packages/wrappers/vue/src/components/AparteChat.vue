@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -108,6 +108,9 @@ const emit = defineEmits<{
 // generated one stays SSR-stable for the common case.
 const hostId = props.id ?? `aparte-chat-${useId()}`;
 const rootRef = ref<HTMLElement>();
+// True until mounted — in the server render and in the render that hydrates it. While true the
+// root carries `defer-hydration`, so core's elements leave the server's DOM alone until Vue has it.
+const hydrating = ref(true);
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();
 const internalMessages = ref<AparteMessage[]>([...props.messages]);
@@ -141,6 +144,9 @@ const loadingText = computed(() => (localeTick.value, (props.config ?? aparteGlo
 const typingLabel = computed(() => (localeTick.value, props.typingText ?? (props.config ?? aparteGlobalConfig).t('typing')));
 
 onMounted(() => {
+  // The elements a server render left waiting are upgraded first: the host talks to them.
+  releaseDeferredHydration(rootRef.value);
+  hydrating.value = false;
   unsubscribeLocale = (props.config ? toRaw(props.config) : aparteGlobalConfig).subscribe(() => { localeTick.value++; });
   const binding: AparteChatHostBinding = {
     hostId,
@@ -241,6 +247,7 @@ defineExpose({
   <div
     :class="['aparte-chat-container', { 'aparte-chat-container--auto-center': centerWhenEmpty }]"
     data-aparte-chat
+    :defer-hydration="hydrating ? '' : null"
     :overlay-composer="overlayComposer ? '' : null"
     :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null"
     :id="hostId"

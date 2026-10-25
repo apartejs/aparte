@@ -11,7 +11,7 @@ import React, {
     useImperativeHandle,
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -195,6 +195,11 @@ export interface AparteChatProps {
  */
 const NO_MESSAGES: AparteMessage[] = [];
 
+/** "Am I hydrating?" as a store React reads: its server snapshot is used for the hydration render. */
+const subscribeToNothing = () => () => {};
+const isHydrating = () => true;
+const isNotHydrating = () => false;
+
 export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
         messages = NO_MESSAGES,
@@ -234,6 +239,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const generatedId = `aparte-chat-${useId().replace(/:/g, '')}`;
     const hostId = providedId ?? generatedId;
     const hostElRef = useRef<HTMLDivElement>(null);
+    // True in the server render and in the render that hydrates it, false in every client render
+    // after — and from the first one in an app with no server render. While true the root carries
+    // `defer-hydration`, so core's elements leave the server's DOM alone until React has it.
+    const hydrating = useSyncExternalStore(subscribeToNothing, isNotHydrating, isHydrating);
     const viewportRef = useRef<HTMLElement>(null);
     const composerRef = useRef<HTMLElement>(null);
 
@@ -275,10 +284,12 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         setRenderMessages(m);
     };
 
-    // Create the host once after mount.
+    // Create the host once after mount — after the elements a server render left waiting are
+    // upgraded, since the host talks to them.
     useEffect(() => {
         const host = hostElRef.current;
         if (!host) return;
+        releaseDeferredHydration(host);
         const binding: AparteChatHostBinding = {
             hostId,
             host,
@@ -402,6 +413,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}${className ? ` ${className}` : ''}`}
             style={style}
             data-aparte-chat=""
+            {...(hydrating ? { 'defer-hydration': '' } : {})}
             {...(overlayComposer ? { 'overlay-composer': '' } : {})}
             data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 && !waiting ? '' : undefined}
             id={hostId}

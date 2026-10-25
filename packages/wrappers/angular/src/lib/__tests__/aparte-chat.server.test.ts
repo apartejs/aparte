@@ -58,6 +58,8 @@ describe('AparteChatComponent on the server', () => {
         const html = await render(ChatPage);
         expect(html).toContain('<aparte-chat');
         expect(html).toContain('aparte-chat-container');
+        // The elements wait for hydration — the host among them, which is core's <aparte-chat>.
+        expect(html).toMatch(/<aparte-chat[^>]*defer-hydration/);
         expect(html).toContain('<aparte-composer');
         expect(html).toContain('Ask me anything');
     });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, type AparteChatHostBinding, type AparteChatImperativeApi } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
   import type { AparteChatProps } from './types.js';
 
@@ -48,6 +48,9 @@
   const hostId = untrack(() => id) ?? `aparte-chat-${uid}`;
 
   let rootRef: HTMLElement | undefined = $state();
+  // True until mounted — in the server render and in the render that hydrates it. While true the
+  // root carries `defer-hydration`, so core's elements leave the server's DOM alone until Svelte has it.
+  let hydrating = $state(true);
   let viewportRef: HTMLElement | undefined = $state();
   let composerRef: HTMLElement | undefined = $state();
   let host: AparteChatHost | null = null;
@@ -127,6 +130,9 @@
   }
 
   onMount(() => {
+    // The elements a server render left waiting are upgraded first: the host talks to them.
+    releaseDeferredHydration(rootRef);
+    hydrating = false;
     const unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     const binding: AparteChatHostBinding = {
       hostId,
@@ -207,6 +213,7 @@
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}
   data-aparte-chat
+  {...(hydrating ? { 'defer-hydration': '' } : {})}
   {...(overlayComposer ? { 'overlay-composer': '' } : {})}
   data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 && !waiting ? '' : null}
   id={hostId}
