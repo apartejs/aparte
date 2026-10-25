@@ -188,8 +188,18 @@ export class AparteChatHost {
 
     /** Id of the assistant message currently streaming (null when idle). */
     private _streamingId: string | null = null;
-    /** Message ids already reconciled onto a bubble (skip-rerender cache). */
-    private readonly _renderedIds = new Set<string>();
+    /**
+     * The message object each bubble was last drawn from, by id (skip-rerender cache).
+     *
+     * An id alone could not say whether the list had changed under a bubble: a framework
+     * that owns the transcript (a controlled `messages` prop, a v-model, a store behind a
+     * compaction target) never goes through {@link updateMessage}, it hands over a list
+     * with a NEW object for the message it changed, and a checkpoint written that way to a
+     * message that was not the last never reached its bubble. Immutable updates always
+     * produce a new object, so the reference is the signal; the same object again means
+     * nothing changed and the bubble is left alone.
+     */
+    private readonly _renderedIds = new Map<string, AparteMessage>();
     /**
      * Says on the bubble what a compaction is doing to the message it will sit on. The
      * viewport answers for this in a chat with no framework; here the framework owns the
@@ -883,17 +893,18 @@ export class AparteChatHost {
     /**
      * Reconcile rendered bubbles with the current message list. The framework
      * calls this from its reactive message-change hook after rendering; the
-     * last message is always re-synced (streaming), others only once.
+     * last message is always re-synced (streaming), the others whenever the list
+     * holds a different object for them than the one they were drawn from.
      */
     syncBubbles(): void {
         const msgs = this.binding.getMessages();
         msgs.forEach((message, index) => {
             const isLast = index === msgs.length - 1;
-            if (this._renderedIds.has(message.id) && !isLast) return;
+            if (this._renderedIds.get(message.id) === message && !isLast) return;
             const bubble = this._bubbleById(message.id);
             if (!bubble) return;
             populateBubbleFromMessage(bubble, message);
-            this._renderedIds.add(message.id);
+            this._renderedIds.set(message.id, message);
         });
         // The bubbles may be new since the compaction began (a framework renders late).
         this._checkpointState.reapply();

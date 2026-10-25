@@ -57,7 +57,7 @@ async function setup() {
     };
     const bubbleOf = (id: string): HTMLElement => viewport.querySelector<HTMLElement>(`aparte-chat-bubble[message-id="${id}"]`)!;
     const separatorOf = (id: string): HTMLElement | null => bubbleOf(id).querySelector<HTMLElement>(':scope > .aparte-checkpoint');
-    return { host, root, viewport, teardown, draw, bubbleOf, separatorOf, list: () => messages };
+    return { host, root, viewport, teardown, draw, bubbleOf, separatorOf, list: () => messages, setList: (m: AparteMessage[]) => { messages = m; } };
 }
 
 const emit = (name: string, detail: object): void => { window.dispatchEvent(new CustomEvent(name, { detail })); };
@@ -108,6 +108,37 @@ describe('a checkpoint on a transcript the framework owns reaches its bubble', (
         host.updateMessage('u2', { contextSummary: summary });
         host.syncBubbles();
         expect(separatorOf('u2')).not.toBeNull();
+        teardown();
+    });
+
+    it('through the list the framework owns: a new object for a message that is not the last', async () => {
+        const { host, draw, list, setList, separatorOf, teardown } = await setup();
+        draw();
+        host.syncBubbles();                                  // every message is rendered once
+        expect(separatorOf('u2')).toBeNull();
+
+        // What a controlled `messages` prop, a v-model or a store-backed compaction target does:
+        // it never goes through `updateMessage`, it hands the host a list with a fresh object.
+        setList(list().map((m) => (m.id === 'u2' ? { ...m, contextSummary: summary } : m)));
+        host.syncBubbles();
+
+        expect(separatorOf('u2')!.textContent).toContain('2 messages summarised for the model');
+        expect(separatorOf('u3')).toBeNull();
+
+        // And the list taking it off again, the same way.
+        setList(list().map((m) => (m.id === 'u2' ? { ...m, contextSummary: undefined } : m)));
+        host.syncBubbles();
+        expect(separatorOf('u2')).toBeNull();
+        teardown();
+    });
+
+    it('does not draw a message again while the list still holds the same object', async () => {
+        const { host, draw, bubbleOf, teardown } = await setup();
+        draw();
+        host.syncBubbles();
+        const content = bubbleOf('u2').querySelector('.aparte-message__content')?.firstChild ?? null;
+        host.syncBubbles();
+        expect(bubbleOf('u2').querySelector('.aparte-message__content')?.firstChild ?? null).toBe(content);
         teardown();
     });
 
