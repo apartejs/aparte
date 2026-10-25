@@ -164,7 +164,14 @@ export function createAparteChatHandler(
         // Non-streaming: resolve to { text } server-side.
         if (request.stream === false) {
             const json = await vendor.json().catch(() => ({}));
-            const text = typeof adapter.parseText === 'function' ? adapter.parseText(json) : '';
+            // An adapter throws for a 200 that carries an error instead of an answer (LM
+            // Studio on a context overflow). Its prose stays here, like the vendor's above.
+            let text: string;
+            try {
+                text = typeof adapter.parseText === 'function' ? adapter.parseText(json) : '';
+            } catch {
+                return jsonError(502, 'The vendor answered with an error.');
+            }
             return new Response(JSON.stringify({ text }), {
                 headers: { 'Content-Type': 'application/json' },
             });
