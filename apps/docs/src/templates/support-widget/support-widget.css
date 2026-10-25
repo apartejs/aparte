@@ -171,38 +171,17 @@
 }
 
 /* ── The widget ─────────────────────────────────────────────────────────────────────────── */
-/* A column pinned to the corner: the panel above, the launcher below. The column spans the
-   height so the panel can shrink to a short window; only its two children take the pointer. */
+/* <aparte-launcher> floats over the window; this page is a template inside a page, under the
+   docs' bar, so it floats over Kilnhouse's site instead: the box below is its window. It
+   keeps clear of the site's header, and on a phone its sheet fills the site, not the bar.
+   The height cap is the card's only: core's sheet lifts its own, but the docs import core in
+   a cascade layer, which this unlayered rule would beat whatever its weight. */
 .sw-widget {
     position: absolute;
-    inset-block: var(--aparte-space-8) 1.25rem;
-    inset-inline-end: 1.25rem;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-end;
-    gap: var(--aparte-space-6);
-    pointer-events: none;
 }
 
-.sw-widget > * {
-    pointer-events: auto;
-}
-
-.sw-panel {
-    flex: 0 1 37.5rem;
-    min-block-size: 0;
-    inline-size: 23.75rem;
-    box-shadow: var(--aparte-popover-shadow);
-    transition: opacity 160ms ease, translate 160ms ease;
-}
-
-@starting-style {
-    .sw-panel {
-        opacity: 0;
-        translate: 0 0.5rem;
-    }
+.sw-widget:not([data-sheet]) {
+    max-block-size: calc(100% - var(--aparte-space-8) - var(--aparte-launcher-offset));
 }
 
 .sw-panel__header {
@@ -242,17 +221,6 @@
     --aparte-avatar-size: var(--aparte-avatar-size-sm);
     flex: 1;
     min-block-size: 0;
-}
-
-.sw-launcher {
-    box-shadow: var(--aparte-popover-shadow);
-}
-
-/* One button, two faces: a chat bubble and "Help" while the panel is closed, a cross and
-   "Close" while it is open. */
-.sw-launcher[aria-expanded='true'] .sw-launcher__closed,
-.sw-launcher[aria-expanded='false'] .sw-launcher__open {
-    display: none;
 }
 
 /* A face in an avatar: the assistant's mark, or the person's initials. Each fills the
@@ -346,39 +314,9 @@
     font-size: var(--aparte-font-size-xs);
 }
 
-/* ── A phone: the nav folds away and the panel becomes a full-screen sheet ──────────────── */
+/* ── A phone: the nav folds away (the launcher turns its card into a sheet on its own) ───── */
 @media (max-width: 40rem) {
     .sw-nav {
         display: none;
-    }
-}
-
-@media (max-width: 30rem) {
-    .sw-widget {
-        inset-block: auto 1rem;
-        inset-inline-end: 1rem;
-    }
-
-    .sw-widget:has(.sw-panel:not([hidden])) {
-        inset: 0;
-    }
-
-    .sw-panel {
-        --aparte-card-radius: 0;
-        flex: 1 1 auto;
-        inline-size: 100%;
-        border: 0;
-        box-shadow: none;
-    }
-
-    /* The sheet has its own close button; the launcher comes back once it is closed. */
-    .sw-panel:not([hidden]) + .sw-launcher {
-        display: none;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .sw-panel {
-        transition: none;
     }
 }
