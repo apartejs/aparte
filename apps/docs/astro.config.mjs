@@ -284,6 +284,8 @@ export default defineConfig({
             + 'An agent served over AG-UI (Agno, LangGraph, Mastra, CrewAI, Pydantic AI) or a '
             + 'TanStack AI chat route plugs in as `createAgUiRunner` from `@aparte/runner-ag-ui` '
             + '(/providers/agent/ag-ui/, /providers/agent/tanstack-ai/). '
+            + 'An n8n chat workflow (a Chat Trigger and its AI Agent) plugs in as `createN8nRunner` '
+            + 'from `@aparte/runner-n8n` (/providers/agent/n8n/). '
             + 'Driving a loop you own instead (a backend that streams over its own SSE, another '
             + 'agent framework): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '

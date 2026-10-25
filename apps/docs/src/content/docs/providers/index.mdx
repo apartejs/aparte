@@ -21,6 +21,7 @@ import Cards from '../../../components/content/Cards.astro';
 | Scripted replies, for a demo or a test | [`@aparte/provider-scenario`](/providers/ai/scenario/) |
 | An agent on its own server, over AG-UI — Agno, LangGraph, Mastra, CrewAI, Pydantic AI | [`@aparte/runner-ag-ui`](/providers/agent/ag-ui/) |
 | A TanStack AI chat route | [`@aparte/runner-ag-ui`](/providers/agent/tanstack-ai/) |
+| An n8n chat workflow — a Chat Trigger and its AI Agent | [`@aparte/runner-n8n`](/providers/agent/n8n/) |
 
 A provider is the wire format of a family of models: how a request is shaped and how its answer
 is read. The transport is where the request goes — from the browser to the model, or to
@@ -69,8 +70,8 @@ browser altogether, send the requests through [your server](/guides/backend-tran
 
 An agent that runs its own loop and its own tools does not plug in as a provider: it plugs in one
 level up, as the client's `streamRunner`. The page registers no provider and picks no model; it
-draws what the agent streams. [AG-UI](/providers/agent/ag-ui/) and
-[TanStack AI](/providers/agent/tanstack-ai/) work this way, and so does
+draws what the agent streams. [AG-UI](/providers/agent/ag-ui/),
+[TanStack AI](/providers/agent/tanstack-ai/) and [n8n](/providers/agent/n8n/) work this way, and so does
 [aparté's own loop on your server](/guides/server-loop/).
 
 ## Write your own provider

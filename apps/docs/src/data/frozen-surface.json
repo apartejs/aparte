@@ -544,6 +544,9 @@
     "@aparte/runner-ag-ui": [
       "createAgUiRunner"
     ],
+    "@aparte/runner-n8n": [
+      "createN8nRunner"
+    ],
     "@aparte/svelte": [
       "AparteChat",
       "AparteUi",

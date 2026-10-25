@@ -142,6 +142,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
 | `@aparte/runner-ag-ui` | Render an AG-UI agent (Agno, LangGraph, Mastra, CrewAI) or a TanStack AI route |
+| `@aparte/runner-n8n` | Put the chat on an n8n chat workflow (Chat Trigger + AI Agent), streamed or not |
 | `@aparte/provider-scenario` | A scripted model — replays turns you wrote, for demos, docs and your own tests |
 | `@aparte/docs-mcp` | The docs as an MCP server — `npx @aparte/docs-mcp` lets your coding agent search and read them |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
