@@ -58,6 +58,16 @@ export interface CompactionSelectorOptions {
     config?: Partial<Omit<CompactionConfig, 'contextWindow'>>;
     /** Never summarise fewer than this many of the newest messages. Default 2 — the last exchange. */
     minKeep?: number;
+    /**
+     * What one message costs, in tokens. Default: the character estimate of its text
+     * (`content`, else its segments' text and its tool calls' input and result).
+     *
+     * Pass core's `estimateWireTokens` for one message to measure what the wire actually
+     * sends — a thinking block, which the model is never shown, then costs nothing —
+     * which is what `setupCompaction`'s own default selector does. A direct caller keeps
+     * the default, so nothing it already relies on moves.
+     */
+    estimate?: (message: CompactableMessage) => number;
 }
 
 const read = <T>(value: T | (() => T)): T => (typeof value === 'function' ? (value as () => T)() : value);
@@ -102,6 +112,7 @@ const textOf = (message: CompactableMessage): string => {
  */
 export function createCompactionSelector(options: CompactionSelectorOptions): CompactionSelector {
     const minKeep = Math.max(0, options.minKeep ?? 2);
+    const costOf = options.estimate ?? ((message: CompactableMessage) => estimateTokens(textOf(message)));
     return <M extends CompactableMessage>(messages: M[]): CompactionSelection<M> => {
         const contextWindow = read(options.contextWindow);
         if (!contextWindow || contextWindow <= 0) return { keep: messages, drop: [] };
@@ -116,7 +127,7 @@ export function createCompactionSelector(options: CompactionSelectorOptions): Co
         let used = 0;
         let cut = messages.length;
         for (let i = messages.length - 1; i >= 0; i--) {
-            const cost = estimateTokens(textOf(messages[i]!));
+            const cost = costOf(messages[i]!);
             const kept = messages.length - 1 - i;
             if (used + cost > windowBudget && kept >= minKeep) break;
             used += cost;
