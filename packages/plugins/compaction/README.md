@@ -20,6 +20,16 @@ its own: after a turn that leaves the conversation past 80 % of the window (`thr
 before a send whose request would not fit (the turn waits, Stop cancels both), and when the
 model refuses a request as over its window (it compacts and sends the turn once more).
 
+A compaction aims **below** the threshold, not at it: the history the model reads afterwards
+lands at about `threshold − 0.2` of the window, less the fixed costs (system prompt, tools, the
+room for the reply, the summary's slot), so one summary buys several turns instead of being asked
+for again after the next. The selection is made in the model's own tokens (the character
+heuristic's undercount is calibrated from the last reply, as the context gauge does) and leaves
+room for the turn being prepared, so a long paste is made room for. A `selector` of your own is
+called with the messages alone and is left as it is. Each chat compacts on its own: a summary
+being written for one does not hold up another. A Restore cancels a summary still being written
+for that chat, and so does Stop.
+
 A compaction **writes a checkpoint, it deletes nothing**. The summary goes on the first turn it
 keeps — `contextSummary: { summary, count, createdAt }`, saved with the conversation — and the
 history the model receives starts there, the summary first. Every message stays on screen and
@@ -42,8 +52,10 @@ in an error, or no shorter than what it replaces is refused and the conversation
 was. With **no** window on the model (and no `contextWindow` option) nothing says what fits, so
 the default skips with `'no-window'`.
 
-**Options** — `auto` (default `true`; `false` compacts only on request, and so does `listen:
-false`), `threshold` (default `0.8`), `contextWindow` (the window when the model declares none),
+**Options** — `auto` (default `true`; `false` is **manual only**: only a person's request compacts —
+Compact now, Retry, `compact()`, `aparte-compact` — and neither the after-turn, the before-send nor
+the overflow attempt is made, so a model's overflow error stands as it did before the plugin; so
+does `listen: false`), `threshold` (default `0.8`), `contextWindow` (the window when the model declares none),
 `selector` (your own `(messages) => { keep, drop }`; `createCompactionSelector` builds the
 budget-aware one), `prompt`, `keyResolver`, `summarize` (replace the model call: your endpoint, a
 cheaper model), `resolveTarget` (a transcript in a store: `{ getMessages, updateMessage }`),
