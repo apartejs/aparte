@@ -109,6 +109,25 @@ describe('chat() hands the worker the conversation, not a flattening of it', () 
         expect(generate.runner).toBeUndefined();
     });
 
+    it('posts the tools the request allows and its toolChoice, as plain definitions', async () => {
+        registerModel({ id: 'Test/Tools', name: 'Tools', capabilities: ['streaming', 'function_calling'], runner: './runners/mine.js' });
+        const tools = [{ name: 'get_weather', description: 'Weather', inputSchema: { type: 'object' }, systemPrompt: 'Use it', needsApproval: true }];
+        void TransformersProvider.chat({ modelId: 'Test/Tools', messages: [{ role: 'user', content: 'hi' }], tools, toolChoice: { name: 'get_weather' } } as never);
+        await flush();
+        const generate = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(generate.tools).toEqual([{ name: 'get_weather', description: 'Weather', inputSchema: { type: 'object' } }]);
+        expect(generate.toolChoice).toEqual({ name: 'get_weather' });
+    });
+
+    it('posts no tools when the request carries none', async () => {
+        registerModel({ id: 'Test/NoTools', name: 'NoTools', capabilities: ['streaming'] });
+        void TransformersProvider.chat({ modelId: 'Test/NoTools', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const generate = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(generate.tools).toBeUndefined();
+        expect(generate.toolChoice).toBeUndefined();
+    });
+
     it('defaults the task to text-generation for a model registered without one', async () => {
         registerModel({ id: 'Test/Text', name: 'Text', capabilities: ['streaming'] });
         void TransformersProvider.chat({ modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never);

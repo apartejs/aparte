@@ -98,6 +98,20 @@ describe('createWorkerHost — the generate round trip', () => {
         expect(seen.inputs[0]?.messages).toEqual(messages);
     });
 
+    it('the runner receives the tools the request allows and its toolChoice — and none when there are none', async () => {
+        const { createRunner, seen } = scriptedRunner(() => {});
+        const { h, flush } = host(createRunner);
+        const tools = [{ name: 'get_weather', description: 'Weather', inputSchema: { type: 'object' } }];
+        h.onMessage(gen('g1', { tools, toolChoice: 'none' }));
+        h.onMessage(gen('g2'));
+        await flush();
+        await flush();
+        expect(seen.inputs[0]?.tools).toEqual(tools);
+        expect(seen.inputs[0]?.toolChoice).toBe('none');
+        expect(seen.inputs[1]?.tools).toBeUndefined();
+        expect(seen.inputs[1]?.toolChoice).toBeUndefined();
+    });
+
     it('forwards text and thinking events as gen-event, and closes with gen-done carrying the usage', async () => {
         const { createRunner } = scriptedRunner(({ emit }) => {
             emit({ type: 'thinking', delta: 'hm' });

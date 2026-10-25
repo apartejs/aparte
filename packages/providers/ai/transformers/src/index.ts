@@ -668,6 +668,10 @@ export const TransformersProvider: AparteAIProvider
                 // is the runner's knowledge, not this thread's.
                 messages: request.messages,
                 options,
+                // The tools this turn allows, as plain definitions (what crosses to a worker
+                // is cloned), and the request's choice among them.
+                ...(request.tools?.length ? { tools: request.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) } : {}),
+                ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
                 ..._selection(request.modelId),
             });
         };
@@ -757,6 +761,7 @@ export type {
     TransformersRunner,
     RunnerContext,
     RunnerGenerateInput,
+    RunnerTool,
     RunnerProgress,
     RunnerModule,
     CreateRunner,
