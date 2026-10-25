@@ -243,6 +243,11 @@ const APPROVAL = /approval\.spec\.ts/;
 // declaration, its context, and the unmount. Every framework app with such a declaration —
 // not svelte4, whose component API has none (it is in `@aparte/svelte/runes`).
 const FRAMEWORK_TOOL_UI = /framework-tool-ui\.spec\.ts/;
+// A compaction end to end: the plugin every example sets up, a small window, the separator
+// drawn by the bubble, the request read off the mock. A DEEP suite — the plugin and the
+// separator are the same everywhere — on the two apps where the bubble is drawn by core and
+// by a framework, which is the boundary a separator inside the bubble has to cross.
+const COMPACTION = /compaction\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -256,7 +261,7 @@ const FRAMEWORK_TOOL_UI = /framework-tool-ui\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL, COMPACTION];
 const suiteFor = (k: AppKey): RegExp[] =>
     // vanilla-dist also runs THEMING: its page has no skin at all (a bare
     // `<aparte-chat>`, core's own default composition), which is exactly where the
