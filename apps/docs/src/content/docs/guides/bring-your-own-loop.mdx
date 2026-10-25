@@ -90,24 +90,25 @@ async function onMessageSent(event: { content: string }) {
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
   import { uuid } from '@aparte/core';
   import '@aparte/core/styles.css';
 
-  const chat = createAparteChat();
-  const { messages } = chat;
-  let comp: AparteChatImperativeApi | null = null;
-  $: chat.connect(comp);
+  let chat = $state<AparteChatImperativeApi>();
 
   async function onMessageSent(event: { content: string }) {
+    if (!chat) return;
     const id = uuid();
     chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
     await chat.injectTokenStream(id, myAgentLoop(event.content));
   }
 </script>
 
-<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} onmessageSent={onMessageSent} />
+<AparteChat bind:this={chat} onmessageSent={onMessageSent} />
 ```
+
+On Svelte 4, the component from `@aparte/svelte` binds the same way:
+`let chat: AparteChatImperativeApi | null = null;` and `<AparteChat bind:this={chat} … />`.
 
 </TabItem>
 <TabItem label="Angular">

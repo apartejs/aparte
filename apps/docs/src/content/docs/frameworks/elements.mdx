@@ -39,9 +39,10 @@ useEffect(() => {
 </aparte-select>
 ```
 
-Tell Vue's compiler these tags are custom elements:
-`vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('aparte-') } } })`
-in `vite.config.ts`, or `vue.compilerOptions.isCustomElement` in `nuxt.config.ts`.
+Tell Vue's compiler these tags are custom elements with `isAparteElement` from `@aparte/vue`:
+`vue({ template: { compilerOptions: { isCustomElement: isAparteElement } } })` in
+`vite.config.ts`, or `vue.compilerOptions.isCustomElement: isAparteElement` in `nuxt.config.ts`.
+It leaves the wrapper's own components to Vue — write them in PascalCase, `<AparteToolUI>`.
 
 </TabItem>
 <TabItem label="Svelte">

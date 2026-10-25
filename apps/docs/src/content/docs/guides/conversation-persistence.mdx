@@ -98,8 +98,11 @@ the helper does not mirror (`setTitleProvider`, `ensureFull`). Read it as `cm.ma
 | --- | --- |
 | React | `useConversationManager()`, a hook |
 | Vue | `useConversationManager()`, a composable |
-| Svelte | `createConversationManager()`, stores |
+| Svelte 5 | `createConversations()` from `@aparte/svelte/runes`, reactive state |
 | Angular | `ConversationManagerService`, provided in root |
+
+On Svelte 4, `createConversationManager()` from `@aparte/svelte` gives the same as stores; it is
+deprecated, and moves to `@aparte/svelte/legacy` in the next release.
 
 ## Open a conversation
 
@@ -151,8 +154,11 @@ const [conversationId, setConversationId] = useState<string | null>(null);
 <TabItem label="Svelte">
 
 ```svelte
-<AparteChat {conversationId} on:conversationCreated={(e) => (conversationId = e.detail)} />
+<AparteChat {conversationId} onconversationCreated={(id) => (conversationId = id)} />
 ```
+
+From `@aparte/svelte/runes`. The Svelte 4 component takes the same prop, or the event:
+`on:conversationCreated={(e) => (conversationId = e.detail)}`.
 
 </TabItem>
 <TabItem label="Angular">
