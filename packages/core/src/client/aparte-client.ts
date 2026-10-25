@@ -5,6 +5,7 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
+import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { isOpenDeferred, mergeAdjacentUserMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
@@ -78,6 +79,9 @@ export type AparteToolApprovalResolver = StreamApprovalResolver;
 const COMPACTION_PREAMBLE =
     'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
 
+/** A summary as the model reads it: the preamble, then the text. */
+const underPreamble = (text: string): string => `${COMPACTION_PREAMBLE}\n\n${text}`;
+
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
 
@@ -150,6 +154,13 @@ export interface AparteClientOptions {
      *                          goes out as history without inventing a status for it.
      * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
+     *
+     * With 'viewport', a checkpoint (`AparteMessage.contextSummary`, written by
+     * `@aparte/plugin-compaction`) shortens what goes out: the summary, then the messages
+     * from the checkpoint on. A function receives the WHOLE transcript, checkpoint and
+     * everything before it — what to send is its call. To honour the checkpoint, pass
+     * the messages through `historyFromCheckpoint` and send its `summary` first.
+     * Retry and edit rebuild the history themselves and do not call this function.
      */
     history?: 'viewport' | 'none' | ((viewportMessages: AparteMessage[]) => AparteChatMessage[]);
 
@@ -1167,7 +1178,18 @@ export class AparteClient {
      * imitating.
      */
     private _messagesToChatMessages(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
-        return this._wireHistory(messages);
+        const { summary, messages: kept } = historyFromCheckpoint(messages);
+        return [...this._summaryMessage(summary), ...this._wireHistory(kept)];
+    }
+
+    /**
+     * What the model reads in place of everything before a checkpoint: the summary, as a
+     * `user` message under the same preamble a legacy compaction message gets, so it is
+     * context and not something the person said. It may sit right before a user turn;
+     * `mergeAdjacentUserMessages` joins the two where the history is assembled.
+     */
+    private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
+        return summary === undefined ? [] : [{ role: 'user', content: underPreamble(summary) }];
     }
 
     /**
@@ -1432,7 +1454,11 @@ export class AparteClient {
         return m.status === 'streaming' || m.status === 'pending';
     }
 
-    private _toHistoryMessages(messages: AparteMessage[]): AparteChatMessage[] {
+    private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
+        // The checkpoint is read on the FULL path, before the cutoff below: it may sit on
+        // the very message being sent (a turn retried after an overflow), and the cutoff
+        // would otherwise have cut it away with that message.
+        const { summary, messages } = historyFromCheckpoint(path);
         // Exclude trailing unanswered user messages: the current user message is
         // already added explicitly at the end of _buildMessages, so including it
         // from the viewport would cause a duplicate.
@@ -1448,7 +1474,7 @@ export class AparteClient {
 
         // The cutoff is this path's own concern; what each message contributes to the
         // wire is shared with retry and edit — see `_wireHistory`.
-        return this._wireHistory(messages.slice(0, cutoff));
+        return [...this._summaryMessage(summary), ...this._wireHistory(messages.slice(0, cutoff))];
     }
 
     /**
@@ -1459,7 +1485,7 @@ export class AparteClient {
      */
     private _wireText(message: AparteMessage): string {
         const text = this._extractText(message);
-        return message.compaction ? `${COMPACTION_PREAMBLE}\n\n${text}` : text;
+        return message.compaction ? underPreamble(text) : text;
     }
 
     /**
