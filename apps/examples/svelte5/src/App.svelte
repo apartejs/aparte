@@ -30,6 +30,8 @@
     wireSettingsDialog,
     wireThemeToggle,
   } from '../../_shared/site-shell';
+  import { FRAMEWORK_CARD } from '../../_shared/framework-card';
+  import FrameworkWeatherCard from './FrameworkWeatherCard.svelte';
 
   let { scenarioMode }: { scenarioMode: boolean } = $props();
 
@@ -161,6 +163,7 @@
   </header>
 
   <main class="aparte-app-shell__main">
+    {#if FRAMEWORK_CARD}<FrameworkWeatherCard />{/if}
     <AparteChat bind:this={comp} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone">
       {#snippet emptyState()}
         <div class="welcome" id="welcome">

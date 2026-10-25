@@ -13,6 +13,8 @@ import {
     wireThemeToggle,
 } from '../../../_shared/site-shell';
 import { SCENARIO_MODE } from './scenario-mode';
+import { FrameworkWeatherCardComponent } from './framework-weather-card';
+import { FRAMEWORK_CARD } from '../../../_shared/framework-card';
 
 const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
@@ -50,7 +52,7 @@ function resolveOverlayComposer(): boolean {
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, AparteApprovalModeElement],
+    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, AparteApprovalModeElement, FrameworkWeatherCardComponent],
     template: `
         <div class="aparte-app-shell" id="chat-view">
             <aparte-sidebar>
@@ -107,6 +109,7 @@ function resolveOverlayComposer(): boolean {
             </header>
 
             <main class="aparte-app-shell__main">
+                @if (frameworkCard) { <app-framework-weather-card /> }
                 <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay">
                     <div slot="empty-state" class="welcome" id="welcome">
                         <div class="welcome__body">
@@ -198,6 +201,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     protected readonly suggestionsJson = SUGGESTIONS_JSON;
     protected readonly overlay = resolveOverlayComposer();
+    protected readonly frameworkCard = FRAMEWORK_CARD;
 
     // The list's rows and its wait, fed from the manager below. Bound onto
     // <aparte-conversation-list> as PROPERTIES ([conversations], [loading]) in the

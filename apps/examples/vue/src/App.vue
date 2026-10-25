@@ -12,6 +12,8 @@ import {
     wireSettingsDialog,
     wireThemeToggle,
 } from '../../_shared/site-shell';
+import { FRAMEWORK_CARD } from '../../_shared/framework-card';
+import FrameworkWeatherCard from './FrameworkWeatherCard.vue';
 
 /**
  * The chat site, in Vue: the same page as the vanilla and React examples — the
@@ -139,6 +141,7 @@ function newChat(): void {
         </header>
 
         <main class="aparte-app-shell__main">
+            <FrameworkWeatherCard v-if="FRAMEWORK_CARD" />
             <AparteChat
                 :ref="chat.chatRef"
                 :messages="chat.messages.value"
