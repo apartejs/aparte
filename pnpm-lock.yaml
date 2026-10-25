@@ -1039,6 +1039,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../providers/ai/scenario
       jsdom:
         specifier: ^22.1.0
         version: 22.1.0
@@ -1063,6 +1066,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../providers/ai/scenario
       '@testing-library/react':
         specifier: ^16.1.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1099,6 +1105,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../providers/ai/scenario
       '@sveltejs/package':
         specifier: ^2.5.8
         version: 2.5.8(svelte@5.56.10(@typescript-eslint/types@8.63.0))(typescript@5.7.3)
@@ -1132,6 +1141,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../providers/ai/scenario
       '@vitejs/plugin-vue':
         specifier: ^5.0.0
         version: 5.2.4(vite@6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0))(vue@3.5.39(typescript@5.7.3))
