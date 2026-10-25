@@ -158,9 +158,10 @@ describe('stream mapping — fullStream → AparteStreamEvent', () => {
     });
 
     it('names it when the SDK throws instead of yielding an error part', async () => {
-        const events = await collect(fullStreamToAparteEvents((async function* () {
-            throw new Error('Context size has been exceeded.');
-        })()));
+        const throwing = {
+            [Symbol.asyncIterator]: () => ({ next: async (): Promise<never> => { throw new Error('Context size has been exceeded.'); } }),
+        };
+        const events = await collect(fullStreamToAparteEvents(throwing));
         expect(events).toEqual([{ type: 'error', message: 'Context size has been exceeded.', code: 'USAGE_CONTEXT_EXCEEDED' }]);
     });
 
