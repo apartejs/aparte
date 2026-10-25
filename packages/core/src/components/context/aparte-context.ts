@@ -8,6 +8,7 @@ import type {
 import { AparteErrorCode } from '../../types/errors.js';
 import { measureContext, usageTokens, type AparteContextMeasure } from '../../context/measure.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
+import { cssEscape } from '../../utils/css-escape.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** How full the window is, against the two thresholds. */
@@ -701,7 +702,7 @@ export class AparteContext extends HTMLElement {
         if (hadFocus !== null) {
             // The control the keyboard was on may be gone (Compact now became "running"):
             // keep the focus in the gauge rather than dropping it on the page.
-            const same = hadFocus ? panel.querySelector<HTMLElement>(`[data-context-action="${hadFocus}"]`) : null;
+            const same = hadFocus ? (panel.querySelector(`[data-context-action="${cssEscape(hadFocus)}"]`) as HTMLElement | null) : null;
             (same ?? this.querySelector<HTMLElement>('.aparte-context__toggle'))?.focus();
         }
     }
