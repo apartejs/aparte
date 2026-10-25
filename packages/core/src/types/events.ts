@@ -381,6 +381,12 @@ export interface AparteCompactEventDetail {
 export interface AparteCompactStartEventDetail {
     /** The chat being compacted, when it has an id. */
     targetId?: string;
+    /**
+     * The message the checkpoint will sit on — the first message kept verbatim. The
+     * transcript draws its "Summarising the context…" line above that message while the
+     * summary is being written.
+     */
+    messageId?: string;
 }
 
 /**
@@ -410,6 +416,19 @@ export interface AparteCompactDoneEventDetail {
     dropped?: number;
     /** The chat that was compacted, when it has an id — so a gauge on a multi-chat page resets only its own. */
     targetId?: string;
+    /**
+     * The message that now carries the checkpoint (`AparteMessage.contextSummary`), or,
+     * on a restore, the message whose separator Restore was pressed on.
+     */
+    messageId?: string;
+    /** How many messages of the path the checkpoint stands for, an earlier summary's included. */
+    count?: number;
+    /**
+     * `true` when this is not a compaction but a Restore: every checkpoint was removed
+     * from the transcript and the model reads the original messages again. `summary`,
+     * `kept` and `dropped` are absent.
+     */
+    restored?: boolean;
 }
 
 /**
@@ -425,6 +444,11 @@ export interface AparteCompactErrorEventDetail {
     error: string;
     /** The chat the compaction was for, when it has an id. */
     targetId?: string;
+    /**
+     * The message the failed checkpoint would have sat on, when it got that far — the
+     * transcript turns its "Summarising the context…" line into a failure with a Retry.
+     */
+    messageId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
