@@ -49,6 +49,7 @@ import type {
     AparteChatMessage,
     AparteStreamEvent,
     AparteUsage,
+    AparteFinishReason,
 } from '@aparte/core';
 import { contentToText } from '@aparte/core';
 import { streamText, jsonSchema, tool } from 'ai';
@@ -216,6 +217,22 @@ function toAparteUsage(u: { inputTokens?: number; outputTokens?: number; totalTo
 }
 
 /**
+ * fullStream `finish.finishReason` → AparteFinishReason. The SDK's own list is the same
+ * but for `'unknown'`, which is "the vendor said something we could not classify" — the
+ * `'other'` of ours. A value that is neither (a newer SDK) is left off rather than guessed.
+ */
+function toAparteFinishReason(reason: unknown): AparteFinishReason | undefined {
+    switch (reason) {
+        case 'stop': case 'length': case 'content-filter': case 'tool-calls': case 'error': case 'other':
+            return reason;
+        case 'unknown':
+            return 'other';
+        default:
+            return undefined;
+    }
+}
+
+/**
  * Map the AI SDK `fullStream` to aparté's event stream:
  * `text-delta`→text · `reasoning-delta`→thinking · `tool-call`→tool_use ·
  * `finish`→done{usage} · `error`→error. Everything else (step markers,
@@ -255,7 +272,14 @@ export function fullStreamToAparteEvents(
                             });
                             break;
                         case 'finish':
-                            controller.enqueue({ type: 'done', usage: toAparteUsage(part['totalUsage'] as Parameters<typeof toAparteUsage>[0]) });
+                            {
+                                const finishReason = toAparteFinishReason(part['finishReason']);
+                                controller.enqueue({
+                                    type: 'done',
+                                    usage: toAparteUsage(part['totalUsage'] as Parameters<typeof toAparteUsage>[0]),
+                                    ...(finishReason ? { finishReason } : {}),
+                                });
+                            }
                             // Terminal: stop reading `fullStream` so a stray second
                             // finish/error part (if the SDK ever emits one) can't
                             // enqueue past the done event.

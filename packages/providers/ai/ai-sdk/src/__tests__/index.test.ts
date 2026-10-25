@@ -133,6 +133,20 @@ describe('stream mapping — fullStream → AparteStreamEvent', () => {
         })()));
         expect(events).toEqual([{ type: 'error', message: 'boom' }]);
     });
+
+    it('carries the finish reason on done, and maps the SDK\'s "unknown" to "other"', async () => {
+        const reasonOf = async (finishReason: string) => {
+            const events = await collect(fullStreamToAparteEvents((async function* () {
+                yield { type: 'finish', finishReason, totalUsage: { inputTokens: 1, outputTokens: 1 } };
+            })()));
+            return (events.at(-1) as { finishReason?: string }).finishReason;
+        };
+        expect(await reasonOf('length')).toBe('length');
+        expect(await reasonOf('stop')).toBe('stop');
+        expect(await reasonOf('content-filter')).toBe('content-filter');
+        expect(await reasonOf('unknown')).toBe('other');
+        expect(await reasonOf('something-newer')).toBeUndefined();
+    });
 });
 
 // ─── abort (gate ④, unit level) ──────────────────────────────────────────────
