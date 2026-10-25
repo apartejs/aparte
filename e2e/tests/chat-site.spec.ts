@@ -250,7 +250,18 @@ for (const moves of [false, true]) {
  * once a person is in the page (`data-glide`): under Angular the attribute lands on the
  * `<aparte-chat>` host while the centring class is on its inner div, and the first send there
  * snapped the composer down instead.
+ *
+ * The slide is read on its own clock, not on the frames the machine paints. It is a CSS
+ * transition on the spacer's `flex-grow`, and WebKit on a 2-vCPU runner paints it at six to ten
+ * frames a second — and the first turn a fresh browser draws stalls its painting for 300 to
+ * 860 ms while the page's main thread sits idle, in every framework. A curve sampled with
+ * requestAnimationFrame measured the runner, and a stall longer than the slide read as a snap
+ * ([328,587,587…]). So the transition is caught where the empty flag drops, inside the send's
+ * own task and before any frame, paused, and read at 0, ½ and 1 of its own duration. A snap has
+ * no transition to catch; a jump from anything else (an instant change to the viewport, a
+ * selector that misses) moves the composer off that clock, so the reads stop stepping down.
  */
+type SlideWindow = Window & { __slide?: Animation | null };
 test('the first send glides the composer down', async ({ page }) => {
     await page.goto('/?scenario&fast');
     await page.locator('#new-chat').click();   // a person in the page
@@ -258,29 +269,32 @@ test('the first send glides the composer down', async ({ page }) => {
     const editor = page.locator('aparte-composer-input [contenteditable], aparte-composer-input textarea').first();
     await editor.fill('Write a haiku about web components.');
     await page.evaluate(() => {
-        const composer = document.querySelector('aparte-composer')!;
-        const w = window as unknown as { __tops: number[]; __start: number };
-        // The start is read now, before the send: a jump can land before the first frame.
-        w.__start = Math.round(composer.getBoundingClientRect().top);
-        w.__tops = [];
-        const tick = (): void => {
-            w.__tops.push(Math.round(composer.getBoundingClientRect().top));
-            if (w.__tops.length < 60) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
+        const w = window as unknown as SlideWindow;
+        new MutationObserver((records, observer) => {
+            const dropped = records.some((r) => (r.target as Element).matches('aparte-chat, [data-aparte-chat]')
+                && !(r.target as Element).hasAttribute(r.attributeName!));
+            if (!dropped) return;
+            observer.disconnect();
+            // `getAnimations()` flushes style first, which is what starts the transition.
+            const slide = document.getAnimations().find((a) => (a as CSSTransition).transitionProperty === 'flex-grow'
+                && (a.effect as KeyframeEffect | null)?.pseudoElement === '::after');
+            slide?.pause();
+            w.__slide = slide ?? null;
+        }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-empty', 'data-aparte-empty'] });
     });
     await page.keyboard.press('Enter');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __tops: number[] }).__tops.length)).toBe(60);
-    const { tops, start } = await page.evaluate(() => {
-        const w = window as unknown as { __tops: number[]; __start: number };
-        return { tops: w.__tops, start: w.__start };
-    });
-    const end = tops[tops.length - 1]!;
-    expect(end - start, 'the composer went from the middle to the bottom').toBeGreaterThan(80);
-    // At least one frame on the way, not a count of them: a snap lands in one frame with nothing
-    // in between, while a glide's frame count is a measure of the machine — WebKit on a 2-vCPU
-    // runner draws the whole slide in two or three frames ([328,573,587…]), and "more than two"
-    // failed it there with the glide plainly happening.
-    const between = tops.filter((t) => t > start + 10 && t < end - 10).length;
-    expect(between, `a glide passes a frame in between (${JSON.stringify(tops)})`).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => page.evaluate(() => (window as unknown as SlideWindow).__slide !== undefined)).toBe(true);
+    expect(await page.evaluate(() => !!(window as unknown as SlideWindow).__slide), 'the empty flag dropped with the spacer\'s flex-grow sliding').toBe(true);
+    // Where the composer stands at a fraction of the slide's own duration.
+    const at = (fraction: number) => page.evaluate((f) => {
+        const slide = (window as unknown as SlideWindow).__slide!;
+        slide.currentTime = Number(slide.effect!.getComputedTiming().duration) * f;
+        return Math.round(document.querySelector('aparte-composer')!.getBoundingClientRect().top);
+    }, fraction);
+    const first = await at(0);
+    const half = await at(0.5);
+    const end = await at(1);
+    expect(end - first, 'the slide carries the composer from the middle to the bottom').toBeGreaterThan(80);
+    expect(half, `halfway through the slide, the composer is on its way (${first} → ${half} → ${end})`).toBeGreaterThan(first + 10);
+    expect(half, `halfway through the slide, the composer is on its way (${first} → ${half} → ${end})`).toBeLessThan(end - 10);
 });
