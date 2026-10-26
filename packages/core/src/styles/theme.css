@@ -360,6 +360,12 @@
      box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */
   --aparte-context-ring-size: 22px;
 
+  /* The launcher — the card a floating chat opens, and how far from the window's edges it
+     floats. The template it was lifted from measured them: a phone-width card, 600px tall. */
+  --aparte-launcher-width: 23.75rem;
+  --aparte-launcher-height: 37.5rem;
+  --aparte-launcher-offset: 1.25rem;
+
   /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
   --aparte-app-header-height: 48px;
@@ -1152,6 +1158,10 @@
   /* The one inline inset of the column's four regions — header, search, body, footer.
      They used to carry three (16 / 12 / 12 / 16) and the content sat on two axes. */
   --aparte-sidebar-inset: var(--aparte-space-3);
+
+  /* Launcher — between the open card and its button, and the card's corners. */
+  --aparte-launcher-gap: var(--aparte-space-5);
+  --aparte-launcher-radius: var(--aparte-radius-xl);
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);

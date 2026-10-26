@@ -80,6 +80,8 @@ export interface AparteIconProvider {
     menu?: () => string;
     /** A warning triangle — the alert recipe's icon */
     alertTriangle?: () => string;
+    /** A conversation (speech bubble) — `<aparte-launcher>`'s button */
+    messageSquare?: () => string;
     /** Paused — the tool row's state while a person is asked to decide */
     pause?: () => string;
 }

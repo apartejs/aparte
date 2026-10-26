@@ -194,6 +194,7 @@ export type {
     AparteScrollRailAttributes,
     AparteSidebarAttributes,
     AparteSplitAttributes,
+    AparteLauncherAttributes,
     AparteSuggestionsAttributes
 } from './element-attributes.js';
 

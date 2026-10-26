@@ -1,0 +1,117 @@
+/*
+ * aparté — the launcher: a chat that floats in a corner of the page, the support widget a
+ * product site puts at the bottom of every page. `<aparte-launcher>` adds its button after
+ * your children and reflects `open` and `data-sheet`; these rules place the button and the
+ * card, and turn the open card into a full-window sheet on a narrow window.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ */
+aparte-launcher {
+  position: fixed;
+  inset-block-end: var(--aparte-launcher-offset);
+  inset-inline-end: var(--aparte-launcher-offset);
+  z-index: var(--aparte-z-dropdown);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aparte-launcher-gap);
+  box-sizing: border-box;
+  max-block-size: calc(100dvh - 2 * var(--aparte-launcher-offset));
+  /* The box is as wide as the open card: the space around the button must not take the
+     page's clicks. Only what is drawn takes the pointer. */
+  pointer-events: none;
+}
+
+aparte-launcher > * {
+  pointer-events: auto;
+}
+
+/* Closed: the chat stays mounted — its conversation and its client with it — but out of
+   sight, out of the tab order and out of the accessibility tree. Keyed on the attribute,
+   so it holds before the element upgrades too. */
+aparte-launcher:not([open]) > :not(.aparte-launcher__button) {
+  display: none;
+}
+
+/* The card. One child is the intent — an <aparte-chat>, or your own card around one — and
+   it is given a size, so a chat inside has the definite height it needs. Under `:where()`,
+   at the weight of a type selector: your own card's classes (its ground, its border, its
+   corners) win over this default, which only a plain chat needs. */
+aparte-launcher > :where(:not(.aparte-launcher__button)) {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  inline-size: min(var(--aparte-launcher-width), calc(100vw - 2 * var(--aparte-launcher-offset)));
+  block-size: var(--aparte-launcher-height);
+  min-block-size: 0;
+  max-block-size: 100%;
+  overflow: hidden;
+  background: var(--aparte-bg);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-launcher-radius);
+  box-shadow: var(--aparte-popover-shadow);
+}
+
+/* The button wears the recipe (solid, primary, large; round, or a pill with a label) and
+   floats over the page, so it carries the popover's shadow. Open, the recipe's toggled
+   state repaints it neutral: the ✕ of an open disclosure, not a second call to action.
+   `order` keeps it under the card whatever the DOM says: the element appends it after the
+   children it finds, but a child a framework renders later (React's conditional child) is
+   appended after the button. */
+.aparte-launcher__button {
+  flex: none;
+  order: 1;
+  box-shadow: var(--aparte-popover-shadow);
+}
+
+.aparte-launcher__icon {
+  display: inline-flex;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  aparte-launcher[open] > :not(.aparte-launcher__button) {
+    animation: aparte-launcher-in var(--aparte-duration-slow) var(--aparte-ease);
+  }
+}
+
+@keyframes aparte-launcher-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--aparte-slide-distance));
+  }
+}
+
+/* The sheet: under the breakpoint the open chat fills the window. The button moves to the
+   top corner to close it, over a band the card leaves for it — or goes, when the card holds
+   its own close control. The insets keep clear of a phone's notch and home bar. */
+aparte-launcher[data-sheet][open] {
+  inset: 0;
+  gap: 0;
+  align-items: stretch;
+  max-block-size: none;
+  overscroll-behavior: contain;
+}
+
+aparte-launcher[data-sheet][open] > :not(.aparte-launcher__button) {
+  flex: 1 1 auto;
+  inline-size: auto;
+  block-size: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+}
+
+aparte-launcher[data-sheet][open]:not(:has([data-aparte-launcher-close])) > :not(.aparte-launcher__button) {
+  padding-block-start: calc(var(--aparte-btn-size-lg) + 2 * var(--aparte-space-3) + env(safe-area-inset-top, 0px));
+}
+
+aparte-launcher[data-sheet][open] > .aparte-launcher__button {
+  position: absolute;
+  inset-block-start: calc(var(--aparte-space-3) + env(safe-area-inset-top, 0px));
+  inset-inline-end: var(--aparte-space-3);
+}
+
+aparte-launcher[data-sheet][open]:has([data-aparte-launcher-close]) > .aparte-launcher__button {
+  display: none;
+}

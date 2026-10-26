@@ -43,6 +43,7 @@ import type { AparteElicitation } from '../components/elicitation/aparte-elicita
 import type { AparteScrollRail } from '../components/scroll-rail/aparte-scroll-rail.js';
 import type { AparteSidebar } from '../components/sidebar/aparte-sidebar.js';
 import type { AparteSplit } from '../components/split/aparte-split.js';
+import type { AparteLauncher } from '../components/launcher/aparte-launcher.js';
 import type { AparteSuggestions } from '../components/suggestions/aparte-suggestions.js';
 import type { AparteContext } from '../components/context/aparte-context.js';
 import type { AparteSelect } from '../primitives/select/aparte-select.js';
@@ -76,6 +77,7 @@ declare global {
         'aparte-scroll-rail': AparteScrollRail;
         'aparte-sidebar': AparteSidebar;
         'aparte-split': AparteSplit;
+        'aparte-launcher': AparteLauncher;
         'aparte-suggestions': AparteSuggestions;
         'aparte-context': AparteContext;
 

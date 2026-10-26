@@ -137,6 +137,8 @@ export const fr: AparteLocale = {
     scrollRailLabel: "Plan de la conversation",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Redimensionner les panneaux",
+    launcherOpen: "Ouvrir la discussion",
+    launcherClose: "Fermer la discussion",
     transcript: "Transcription",
     tag: "fr-FR",
     direction: 'ltr'

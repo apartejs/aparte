@@ -20,6 +20,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import '../components/split/aparte-split.js';
 import '../components/sidebar/aparte-sidebar.js';
+import '../components/launcher/aparte-launcher.js';
 import '../primitives/select/aparte-select.js';
 import '../primitives/select/aparte-option.js';
 import '../primitives/select/aparte-optgroup.js';
@@ -41,6 +42,7 @@ const EMPTY = '' as unknown as boolean;
 const PRESENCE_SETTERS: Array<[tag: string, setters: string[], setup?: (el: HTMLElement) => void]> = [
     ['aparte-split', ['single', 'collapsed', 'disabled'], (el) => { el.innerHTML = '<div slot="start">a</div><div slot="end">b</div>'; }],
     ['aparte-sidebar', ['collapsed']],
+    ['aparte-launcher', ['open']],
     ['aparte-select', ['open']],
     ['aparte-option', ['disabled', 'selected']],
     ['aparte-optgroup', ['collapsed', 'loading']],
@@ -56,7 +58,7 @@ async function mount(tag: string, setup?: (el: HTMLElement) => void): Promise<HT
 
 describe('presence setters accept the attribute spelling (#62)', () => {
     it('covers every presence setter core exposes', () => {
-        expect(PRESENCE_SETTERS.flatMap(([, s]) => s).length).toBe(9);
+        expect(PRESENCE_SETTERS.flatMap(([, s]) => s).length).toBe(10);
     });
 
     for (const [tag, setters, setup] of PRESENCE_SETTERS) {

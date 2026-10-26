@@ -139,6 +139,10 @@ export type AparteLocale = {
     sidebarLabel?: string;
     /** Accessible name of the seam between a split's two panes (default: "Resize the panes") */
     splitHandleLabel?: string;
+    /** Accessible name of `<aparte-launcher>`'s button while the chat is closed, when it shows no `label` (default: "Open the chat") */
+    launcherOpen?: string;
+    /** Accessible name of `<aparte-launcher>`'s button while the chat is open (default: "Close the chat") */
+    launcherClose?: string;
     /**
      * Accessible name of the transcript itself (default: "Transcript").
      *
@@ -656,5 +660,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Resize the panes",
+    launcherOpen: "Open the chat",
+    launcherClose: "Close the chat",
     transcript: "Transcript"
 };
