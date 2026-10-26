@@ -278,7 +278,9 @@ async function run(): Promise<SiteSetup> {
     //    below to re-send and rewrite; the image tile needs the lightbox at the bottom
     //    of this file. What it does not handle (the ⓘ details popover, running a
     //    terminal command) stays out of the UI rather than showing a dead button.
-    aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+    //    Not on an n8n workflow: n8n keeps every message it was sent, so a retried or
+    //    edited turn would reach an agent that remembers the first one.
+    aparteGlobalConfig.setBubbleActions({ retry: !n8nUrl, edit: !n8nUrl });
     aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
     // 5. Drive the turn with @aparte/engine's headless loop instead of core's inline
