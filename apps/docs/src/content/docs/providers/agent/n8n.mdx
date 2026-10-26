@@ -185,7 +185,13 @@ not shown.
 
 On n8n 2.x, Chat nodes run only when the Chat Trigger's **Mode** is *Hosted Chat*: an embedded one
 stops with "Embedded chat is not supported". A runtime without a global `WebSocket` passes one as
-the runner's `WebSocket` option.
+the runner's `WebSocket` option, typed `N8nWebSocketLike`.
+
+To answer the buttons your own way, register a tool named `N8N_BUTTONS_TOOL` instead of calling
+`setupN8nButtons`: its input is an `N8nButtonsInput` (the question, the buttons' labels and styles,
+n8n's `blockUserInput`), and it answers with an `N8nButtonsResult` as `structuredContent` — the
+button's `index` and `text`, or `written: true` with the person's own words, which n8n hears as a
+message.
 
 ## What is not supported
 
