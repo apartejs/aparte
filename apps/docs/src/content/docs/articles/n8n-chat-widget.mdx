@@ -1,6 +1,6 @@
 ---
 title: "n8n's chat widget: what people run into, and a replacement that takes the same call"
-description: The problems n8n users report most with @n8n/chat — styling, a bubble full of JSON, tool steps after a reload, sessions, accessibility — what n8n 3.0 changes, and a drop-in createChat tested against a live n8n.
+description: The problems n8n users report most with @n8n/chat — styling, a bubble full of JSON, tool steps after a reload, sessions, accessibility — what n8n 3.0 changes, and a createChat that takes the same options, tested against a live n8n.
 sidebar:
   label: n8n's chat widget
   order: 2
@@ -10,20 +10,20 @@ sidebar:
 
 n8n's chat widget, [`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat), is how most n8n chat
 workflows reach a website: a `<link>`, a `createChat({ webhookUrl })`, and a bubble in the corner
-talks to the workflow's Chat Trigger. It is used a lot — 62,029 npm downloads in the month to
-October 22, 2026, and 73 million jsDelivr hits a month, most of them from the chat pages n8n hosts
-itself. And its community forum keeps returning to the same few problems. This page lists them with
-their sources, says what n8n 3.0 changes, and shows a replacement we built and tested against a live
-n8n: it takes the same call.
+talks to the workflow's Chat Trigger. It is used a lot: 62,029 npm downloads in the month to
+October 22, 2026, and 73 million jsDelivr hits a month — n8n's own hosted chat page loads it from
+jsDelivr, which likely accounts for much of that. And its community forum keeps returning to the
+same few problems. This page lists them with their sources, says what n8n 3.0 changes, and shows a
+replacement we built and tested against a live n8n: it takes the same call.
 
 ## What people run into
 
 **Styling stops at CSS variables.** The most viewed thread about the widget asks how to customise
 its window ([8,843 views](https://community.n8n.io/t/how-to-customise-the-chat-window-on-my-website/88704)).
-In another, the answer is plain: "We only have the option to change the root variables. If you want
-to change more than that you may need to fork the project"
+In another, the answer is plain: "We only have the option to change the root variables"; past them,
+the advice is to fork the project
 ([CSS Customization of /chat integration](https://community.n8n.io/t/css-customization-of-chat-integration/54351)).
-The widget ships 115 `--chat--*` variables; past them, its classes are not a documented API, and
+The widget ships 115 `--chat--*` variables; beyond them, its classes are not a documented API, and
 some of its rules carry Vue's per-build attribute hashes.
 
 **A bubble full of JSON.** When the last node's answer has no `output`, `text` or `message` field,
@@ -32,32 +32,39 @@ the widget prints the whole response into the bubble
 is right there to fix, but nothing tells the developer which field is missing.
 
 **Tool steps after a reload.** With *Load Previous Session*, the history comes back from the agent's
-memory, which stores a tool's call and its result beside the messages — and the widget draws them as
-bubbles ([after page reload, tool calls show up as AI messages](https://community.n8n.io/t/embedded-chat-after-page-reload-tool-calls-intermediate-steps-show-up-as-ai-messages-need-to-keep-steps-for-an/250572)).
+memory, which — with recent AI Agent versions — stores a tool's call and its result beside the
+messages, and the widget draws them as bot bubbles, the result as raw JSON
+([after page reload, tool calls show up as AI messages](https://community.n8n.io/t/embedded-chat-after-page-reload-tool-calls-intermediate-steps-show-up-as-ai-messages-need-to-keep-steps-for-an/250572)).
 
-**A new conversation in the old session.** With the history on, which is the default, starting a new
-conversation keeps the session stored in the browser: the source of `startNewSession` keeps it on
-purpose, and issues such as [#22050](https://github.com/n8n-io/n8n/issues/22050) report the effect.
-`createChat` returns the Vue app and nothing else, so a page has no way to open, close, send or reset
-the chat other than clicking its elements.
+**No way to start over.** With the history on, which is the default, the widget reuses the session
+stored in the browser: the source of `startNewSession` keeps it on purpose, and "how do I reset
+the conversation" is one of the forum's most read questions
+([2,104 views](https://community.n8n.io/t/how-to-reset-clear-ai-agent-chat-conversation-if-using-chat-widget-or-telegram/61494)).
+`createChat` returns the Vue app, so a page has no documented way to open, close, send or reset the
+chat other than clicking its elements.
+
+**Every page view asks n8n.** With the history on, the widget requests it when the page loads,
+whether or not the visitor ever opens the chat — on n8n Cloud, an execution per page view
+([Embedded chat costs a lot even when not used](https://community.n8n.io/t/embeded-chat-costs-a-lot-even-when-not-used/59476)).
 
 **Keyboard and screen readers.** The widget's components carry no `role`, `aria-*` or `tabindex`:
-the button in the corner is a `div` with a click handler, and its send button has no name. We
-checked the accessibility tree in Chromium: the launcher is not in it.
+the button in the corner is a `div` with a click handler, and its send button has no name. Its
+visitor's bubble, white on `#20b69e`, reads at 2.55:1, where text needs 4.5:1.
 
 **And the rest:** English only, with eight strings you can override; no dark scheme; global rules
-such as `.hljs` and `.empty`, and an `h1` title in your page; a CDN bundle of 449 KB with brotli;
-and the [Sustainable Use License](https://registry.npmjs.org/@n8n/chat/latest), which allows
-redistribution only free of charge for non-commercial purposes.
+such as `.hljs` and `.empty`, and an `h1` title in your page; about 465 KB of JavaScript in four
+files, with brotli, for the first render; and the
+[Sustainable Use License](https://cdn.jsdelivr.net/npm/@n8n/chat@1.43.3/LICENSE.md), which allows
+distribution only free of charge for non-commercial purposes.
 
 ## What n8n 3.0 changes for a chat widget
 
-n8n's [3.0 breaking changes](https://docs.n8n.io/changelog/v30-breaking-changes) concern the chat in
-one place: a Chat Trigger that answers through response nodes (the Chat node, for human-in-the-loop
-flows) talks over a WebSocket, and its frames become JSON. `@n8n/chat` understands both formats from
-version 1.31.0, so a page pinned to an older version, or a custom client, has to move. The HTTP path
-— a message posted to the trigger, the answer streamed back as newline-delimited JSON, the history
-loaded with `loadPreviousSession` — is not on the list.
+n8n's [3.0 breaking changes](https://docs.n8n.io/changelog/v30-breaking-changes) concern an
+embedded chat widget in one place: a Chat Trigger that answers through response nodes (the Chat
+node, for human-in-the-loop flows) talks over a WebSocket, and its frames become JSON. `@n8n/chat`
+understands both formats from version 1.31.0, so a page pinned to an older version, or a custom
+client, has to move. The HTTP path — a message posted to the trigger, the answer streamed back as
+newline-delimited JSON, the history loaded with `loadPreviousSession` — is not on the list.
 
 ## A replacement that takes the same call
 
@@ -72,25 +79,32 @@ two URLs:
 </script>
 ```
 
-It keeps what a page relies on: the option names and their defaults, the session in the same
-`localStorage` key (a visitor keeps their conversation across the switch — we saw both widgets load
-the same one on the same page), the history, files sent as `files`, and the `--chat--*` variables,
-which its n8n theme reads. And it answers the list above:
+It keeps what a page relies on: the option names and their defaults — but for three options it
+does not take (`messageComponents`, `enableMessageActions`, `disabled`) — the session in the same
+`localStorage` key (a visitor keeps their conversation across the switch: we saw both widgets load
+the same one on the same page), the history, files sent as `files`, and n8n's main `--chat--*`
+variables, which its n8n theme reads. And it answers the list above:
 
 - `createChat` returns a handle: `open()`, `close()`, `toggle()`, `send()`, `reset()` — which starts a
   new session — and `destroy()`.
-- Any `--aparte-*` variable restyles it, and the [template](/templates/n8n-chat/) switches from n8n's
-  look to a bakery's with n8n's own variables alone.
-- A last node with no `output` gets an error that names the fields it returned, not a bubble of JSON.
+- In a window, the history is asked for when the chat first opens: a page view alone reaches no n8n
+  execution.
+- A last node with no `output` gets an error that names the fields it returned, not a bubble of JSON;
+  a visitor reads a short sentence in their language, and the console tells the developer what to
+  change in n8n.
 - The history leaves out a tool's call and its result, as the live answer does.
-- The button in the corner is a button with a name, the window is a labelled region, and there is no
-  heading in your page.
-- English and French ship, and a dark scheme. About 95 KB of JavaScript and 21 KB of CSS with
-  brotli, minified with everything it loads. MIT.
+- The button in the corner is a button with a name, the window is a labelled region, a phone's
+  full-screen chat is a modal dialog, the visitor's bubble reads at 4.7:1, and there is no heading
+  in your page.
+- Nine languages ship — the page downloads the one it uses — and a dark scheme. About 95 KB of
+  JavaScript and 21 KB of CSS with brotli, measured as theirs, with everything it loads. MIT.
+- The palette restyles with n8n's own variables or aparté's, and the [template](/templates/n8n-chat/)
+  switches from n8n's look to a bakery's with n8n's variables alone.
 
 It does not do the response-node path yet: a workflow that answers over n8n's WebSocket gets an error
-that says to use *Streaming* or *When Last Node Finishes*. Nor `messageComponents`, the widget's
-hook for Vue components. Both are on the [page](/integrations/n8n-chat/#what-it-does-not-do-yet).
+that says to use *Streaming* or *When Last Node Finishes*. Nor `messageComponents`, the widget's hook
+for Vue components, nor highlighted code, nor CSS written for n8n's `.chat-*` classes. All are on
+the [page](/integrations/n8n-chat/#what-it-does-not-do-yet).
 
 ## How this was checked
 
@@ -98,28 +112,33 @@ hook for Vue components. Both are on the [page](/integrations/n8n-chat/#what-it-
   Trigger with an AI Agent, a Simple Memory and a Calculator, on a real model (Gemma 3n E2B, served
   by LM Studio's OpenAI-compatible endpoint). Its answers were recorded byte for byte — a streamed
   turn, a tool turn, a turn that read the memory, a text file uploaded in a form, a model refusing an
-  image, a whole answer, the history — and the runner's 64 tests replay them.
+  image, a whole answer, the history — and are replayed in the runner's tests, 70 in all.
 - **What the recordings taught.** A stream can open on a `keepalive` frame when a slow node runs
   first; a reader that decides from the first line would take the whole stream for one answer. Every
   answer is labelled `application/json`, streamed or not. And loading the history from memory fails
   with an error 500 unless the memory is connected to the Chat Trigger as well as to the agent.
 - **Side by side.** Both widgets ran on the same page against the same workflow, in Chromium.
-- **The widget itself** has 21 tests in a DOM over a scripted n8n: the options, the session, the
-  history, the handle, the hooks.
-- **Not checked:** n8n Cloud, and n8n 3.0, which is not released yet.
+- **Audited.** Three independent reviews — the code, these claims, and the widget in a browser with
+  axe — before this was written; what they found is fixed.
+- **The widget itself** has 32 tests in a DOM over a scripted n8n: the options, the session, the
+  history, the handle, the hooks, the languages.
+- **Not checked:** n8n Cloud, and n8n 3.0, which is not released yet. The eight languages beyond
+  English have not been read by native speakers.
 
-Versions: `@n8n/chat` 1.43.3, n8n 2.44.6, aparté 0.26.
+Versions: `@n8n/chat` 1.43.3, n8n 2.44.6, aparté 0.27.
 
 ## Sources
 
-- npm, [`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat): version 1.43.3, its license, and
+- npm, [`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat): version 1.43.3, its
+  [license](https://cdn.jsdelivr.net/npm/@n8n/chat@1.43.3/LICENSE.md), and
   [downloads](https://api.npmjs.org/downloads/point/last-month/@n8n/chat); jsDelivr,
   [monthly hits](https://data.jsdelivr.com/v1/stats/packages/npm/@n8n/chat?period=month).
 - n8n community: [How to customise the chat window](https://community.n8n.io/t/how-to-customise-the-chat-window-on-my-website/88704),
   [CSS Customization of /chat integration](https://community.n8n.io/t/css-customization-of-chat-integration/54351),
   [Chat embed returns JSON](https://community.n8n.io/t/chat-embed-returns-json/52574),
-  [tool calls after a reload](https://community.n8n.io/t/embedded-chat-after-page-reload-tool-calls-intermediate-steps-show-up-as-ai-messages-need-to-keep-steps-for-an/250572).
-- n8n on GitHub: [the widget's source](https://github.com/n8n-io/n8n/tree/master/packages/frontend/%40n8n/chat)
-  and [#22050](https://github.com/n8n-io/n8n/issues/22050).
+  [tool calls after a reload](https://community.n8n.io/t/embedded-chat-after-page-reload-tool-calls-intermediate-steps-show-up-as-ai-messages-need-to-keep-steps-for-an/250572),
+  [resetting the conversation](https://community.n8n.io/t/how-to-reset-clear-ai-agent-chat-conversation-if-using-chat-widget-or-telegram/61494),
+  [embedded chat costs even when not used](https://community.n8n.io/t/embeded-chat-costs-a-lot-even-when-not-used/59476).
+- n8n on GitHub: [the widget's source](https://github.com/n8n-io/n8n/tree/master/packages/frontend/%40n8n/chat).
 - n8n docs, [v3.0 breaking changes](https://docs.n8n.io/changelog/v30-breaking-changes).
 - aparté, [n8n chat widget](/integrations/n8n-chat/) and [the n8n runner](/providers/agent/n8n/).
