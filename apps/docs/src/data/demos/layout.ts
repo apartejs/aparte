@@ -136,7 +136,7 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
         html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then it, Escape or ✕ to close. -->
 <div style="height: 32rem"></div>
 <aparte-launcher label="Help" breakpoint="none" style="--aparte-launcher-height: 26rem">
-  <aparte-chat center-empty placeholder="Ask about your order…"></aparte-chat>
+  <aparte-chat placeholder="Ask about your order…"></aparte-chat>
 </aparte-launcher>
 
 <script>
