@@ -1,5 +1,6 @@
 import type { AparteChatRequest } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
+import { AparteErrorCode } from '../types/errors.js';
 import { isFormatAdapter } from './types.js';
 
 export interface AparteChatHandlerOptions {
@@ -202,7 +203,7 @@ export function createAparteChatHandler(
                         controller.close();
                         return;
                     }
-                    controller.enqueue(encoder.encode(JSON.stringify(value) + '\n'));
+                    controller.enqueue(encoder.encode(JSON.stringify(relayable(value)) + '\n'));
                 } catch (err) {
                     controller.error(err);
                 }
@@ -214,6 +215,22 @@ export function createAparteChatHandler(
 
         return new Response(ndjson, { headers: { 'Content-Type': 'application/x-ndjson' } });
     };
+}
+
+/**
+ * An event as the browser may read it. An `error` event the adapter read out of a stream
+ * the vendor had already answered 200 carries the vendor's own prose, and the rule on every
+ * other path of this handler is that the prose stays here: it can name a URL, an account or
+ * the start of a key. The code goes through when it is one of ours, so the page can still tell
+ * an overflow from any other failure and compact; everything else is a generic line, and the
+ * original is in the server's log.
+ */
+function relayable(event: unknown): unknown {
+    const e = event as { type?: unknown; code?: unknown } | null;
+    if (e?.type !== 'error') return event;
+    console.error('[aparte] the vendor streamed an error', event);
+    const code = typeof e.code === 'string' && (Object.values(AparteErrorCode) as string[]).includes(e.code) ? e.code : undefined;
+    return { type: 'error', message: 'The vendor reported an error.', ...(code ? { code } : {}) };
 }
 
 function jsonError(status: number, message: string): Response {
