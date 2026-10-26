@@ -65,8 +65,8 @@
  * which is what `scripts/__tests__/check-locale-keys.test.ts` does. Two things follow from
  * a fixture. The floors are skipped whenever either flag is given: a fixture is smaller
  * than the tree by construction, and a floor measured on the tree would only ever fire
- * there. And `--locale` also stands the French mirror down, because the mirror compares
- * `@aparte/locale-fr` against what core DECLARES: hold three fixture keys up to 91 real
+ * there. And `--locale` also stands the mirror down, because the mirror compares each
+ * language of `@aparte/locales` against what core DECLARES: hold three fixture keys up to 91 real
  * translations and it reports 90 findings around the one that matters.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -83,18 +83,29 @@ const localeFlag = flag('--locale');
 const sourcesFlag = flag('--sources');
 /** A doctored input: the floors below describe the real tree and would only misfire. */
 const DOCTORED = localeFlag !== null || sourcesFlag !== null;
-/** A doctored declared list: `@aparte/locale-fr` mirrors core's, so it has nothing to mirror. */
+/** A doctored declared list: the languages mirror core's, so they have nothing to mirror. */
 const DOCTORED_LOCALE = localeFlag !== null;
 
 const LOCALE = resolve(root, localeFlag ?? 'packages/core/src/config/locale.ts');
 /** Holds `core/src` and each plugin's `src` — the two corpora, kept apart on purpose. */
 const PACKAGES = resolve(root, sourcesFlag ?? 'packages');
-const FR = join(root, 'packages/locales/fr/src/index.ts');
+/**
+ * Every language that has to mirror core's list: one file per tag in `@aparte/locales`
+ * (`fr.ts`, `pt-BR.ts`). Read from the directory, so a language added there is held to the
+ * mirror the day it lands.
+ */
+const LOCALES_DIR = join(root, 'packages/locales/all/src');
+const MIRRORS = (existsSync(LOCALES_DIR) ? readdirSync(LOCALES_DIR) : [])
+    .filter((name) => /^[a-z]{2}(-[A-Z]{2})?\.ts$/.test(name))
+    .sort()
+    .map((name) => ({ label: `@aparte/locales/${name.slice(0, -3)}`, file: join(LOCALES_DIR, name) }));
+/** Below this, the directory read broke: the nine languages of `@aparte/locales`. */
+const MIRROR_FLOOR = 9;
 
 /**
  * Below these, the matcher broke rather than the tree being clean. Measured in the order
  * the two constants come, because the line drifted once already: 82 reads, 91 keys, and
- * 91 of them translated in `@aparte/locale-fr`.
+ * 91 of them translated in French, the first locale.
  */
 const READ_FLOOR = 60;
 const KEY_FLOOR = 75;
@@ -102,7 +113,7 @@ const KEY_FLOOR = 75;
 /**
  * Declared in `AparteLocale`, rendered by a plugin and by no core file — and allowed to
  * be. The locale is one flat bag every package shares, so a locale author translates a
- * single object and `@aparte/locale-fr` needs no companion per plugin; that is the whole
+ * single object and `@aparte/locales` needs no companion per plugin; that is the whole
  * reason these live in core's list. Each line names the package that renders it, because
  * the day core starts rendering one, this list is what has to give way (assertion 4
  * says so, in both directions).
@@ -156,7 +167,7 @@ function keysIn(text, from, to) {
 const localeSrc = readFileSync(LOCALE, 'utf8');
 const declared = keysIn(localeSrc, 'export type AparteLocale = {', 'export type AparteLocaleExtensions');
 const defaults = keysIn(localeSrc, 'APARTE_DEFAULT_LOCALE: AparteLocale = {');
-const french = keysIn(readFileSync(FR, 'utf8'), 'export const fr');
+const mirrors = MIRRORS.map((m) => ({ ...m, keys: keysIn(readFileSync(m.file, 'utf8'), 'export const ') }));
 
 if (!DOCTORED && declared.size < KEY_FLOOR) {
     problems.push(
@@ -216,24 +227,29 @@ for (const key of defaults) {
 // Skipped under `--locale`: the mirror asks whether fr translates what CORE declares, and
 // a fixture's list is not what core declares.
 if (!DOCTORED_LOCALE) {
-    if (french.size < KEY_FLOOR) {
-        problems.push(`read only ${french.size} keys from @aparte/locale-fr (floor ${KEY_FLOOR}).`);
+    if (mirrors.length < MIRROR_FLOOR) {
+        problems.push(`found only ${mirrors.length} locale bundles to mirror (floor ${MIRROR_FLOOR}).`);
     }
-    for (const key of declared) {
-        if (NO_DEFAULT.has(key)) continue;
-        if (!french.has(key)) {
-            problems.push(
-                `@aparte/locale-fr does not translate ${key}. Every key is optional, so this compiles — `
-                + 'and t() falls through to the English default, in the middle of a French page.',
-            );
+    for (const { label, keys } of mirrors) {
+        if (keys.size < KEY_FLOOR) {
+            problems.push(`read only ${keys.size} keys from ${label} (floor ${KEY_FLOOR}).`);
         }
-    }
-    for (const key of french) {
-        if (!declared.has(key) && !NO_DEFAULT.has(key)) {
-            problems.push(
-                `@aparte/locale-fr translates ${key}, which core declares nowhere. Either the key was `
-                + 'removed from AparteLocale and the mirror was not, or it is a typo nothing will read.',
-            );
+        for (const key of declared) {
+            if (NO_DEFAULT.has(key)) continue;
+            if (!keys.has(key)) {
+                problems.push(
+                    `${label} does not translate ${key}. Every key is optional, so this compiles — `
+                    + 'and t() falls through to the English default, in the middle of a translated page.',
+                );
+            }
+        }
+        for (const key of keys) {
+            if (!declared.has(key) && !NO_DEFAULT.has(key)) {
+                problems.push(
+                    `${label} translates ${key}, which core declares nowhere. Either the key was `
+                    + 'removed from AparteLocale and the mirror was not, or it is a typo nothing will read.',
+                );
+            }
         }
     }
 }
@@ -292,7 +308,7 @@ if (problems.length) {
     console.error('');
     process.exit(1);
 }
-// The mirror is named only when it ran: a count of the real French bundle beside a
+// The mirror is named only when it ran: a count of the real languages beside a
 // fixture's key count would read as agreement between two lists never compared.
-const mirror = DOCTORED_LOCALE ? '' : `, ${french.size} translated in @aparte/locale-fr`;
+const mirror = DOCTORED_LOCALE ? '' : `, all translated in ${mirrors.length} locale bundles`;
 console.log(`[check-locale-keys] OK — ${declared.size} keys, ${reads} t('…') reads${mirror}.`);

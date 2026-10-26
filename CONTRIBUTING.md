@@ -27,8 +27,9 @@ covers how work lands.
 
 Four areas where a first pull request is safe for you and for the core:
 
-- **A locale** — a new language on the model of `packages/locales/fr` (one object, every
-  key typed; the test tells you which key you missed).
+- **A locale** — a new language in `packages/locales/all/src`, one file per tag on the model
+  of `fr.ts` (one object, every key typed), plus its entry in `package.json` and `vite.config.ts`;
+  the package's tests and `check:locale-keys` tell you which key you missed.
 - **An OpenAI-compatible preset** — a vendor's id, base URL and branding in
   `packages/providers/ai/openai-compat/src/presets.ts`.
 - **A docs page for a segment or a recipe** — the pages under `apps/docs/src/content/docs/`

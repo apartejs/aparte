@@ -446,8 +446,16 @@
       "toolRefusal",
       "unansweredTail"
     ],
-    "@aparte/locale-fr": [
-      "fr"
+    "@aparte/locales": [
+      "de",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "ptBR",
+      "ru",
+      "zhCN"
     ],
     "@aparte/n8n-chat": [
       "createChat"

@@ -55,7 +55,7 @@ export interface ProvideAparteOptions {
     /** Model selection configuration. */
     modelConfig?: AparteModelConfig;
 
-    /** A locale OBJECT (e.g. `fr` from `@aparte/locale-fr`) — not a package-name string. */
+    /** A locale OBJECT (e.g. `fr` from `@aparte/locales/fr`) — not a package-name string. */
     locale?: AparteLocale;
 
     /** Theme mode; `'auto'` follows the system preference. */

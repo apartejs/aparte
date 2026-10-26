@@ -13,7 +13,7 @@ import type { AparteLauncher, AparteLocale, AparteMessage, AparteStreamRunner } 
 import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
 import { createN8nRunner, loadN8nHistory } from '@aparte/runner-n8n';
 import { N8N_ICONS } from './icons.js';
-import { BUILT_IN_INITIAL_MESSAGES, localeFor, stringsFor } from './strings.js';
+import { initialMessagesFor, loadLocale, stringsFor } from './strings.js';
 import type { ChatStrings } from './strings.js';
 
 /** `createChat`'s options: `@n8n/chat`'s, under its names and with its defaults. */
@@ -61,8 +61,11 @@ export interface ChatOptions {
     /** @default 'sessionId', the Chat Trigger's */
     chatSessionKey?: string;
     /**
-     * The language: the chrome's words come from `i18n[defaultLanguage]` over the built-in
-     * ones, the chat's own from aparté's locale. English and French ship.
+     * The language, as a tag (`'de'`, `'pt-BR'`, `'fr-CA'`): the chrome's words come from
+     * `i18n[defaultLanguage]` over the built-in ones, the chat's own from aparté's locale,
+     * loaded for that language alone. Nine ship, all left to right: English, French, Spanish,
+     * Portuguese (Brazil), German, Italian, Russian, Japanese, Korean and Chinese
+     * (Simplified); another tag reads in English, or in the `locale` you give.
      * @default 'en'
      */
     defaultLanguage?: string;
@@ -204,7 +207,7 @@ export function createChat(options: ChatOptions): Chat {
     const language = options.defaultLanguage ?? 'en';
     const strings = stringsFor(language, options.i18n);
     const loadPrevious = options.loadPreviousSession ?? true;
-    const initial = options.initialMessages ?? BUILT_IN_INITIAL_MESSAGES[language.split('-')[0] ?? ''] ?? BUILT_IN_INITIAL_MESSAGES['en'] ?? [];
+    const initial = options.initialMessages ?? initialMessagesFor(language);
     const instance = ++instances;
     const titleId = `aparte-n8n-title-${instance}`;
 
@@ -213,7 +216,14 @@ export function createChat(options: ChatOptions): Chat {
 
     // ── The config: this widget's own, so nothing on the page's other chats changes ───────
     const config = new AparteConfig();
-    config.setLocale(options.locale ?? localeFor(language));
+    // The chat's own words: the page's locale, else the language's, loaded now — a page that
+    // speaks German downloads German alone. Until it lands, core's English; then the chat
+    // switches, as it does on any locale change.
+    if (options.locale) config.setLocale(options.locale);
+    let destroyed = false;
+    void loadLocale(language)?.then((locale) => {
+        if (!destroyed && !options.locale) config.setLocale(locale);
+    }, (error: unknown) => console.warn("[aparte] n8n: the chat's language could not be loaded; it stays in English.", error));
     // n8n's look in the icons too: a filled bubble on the button, a chevron once open.
     config.registerIcons(N8N_ICONS);
     // A help chat is read, not quoted, and its tools are the workflow's business: no copy
@@ -458,6 +468,7 @@ export function createChat(options: ChatOptions): Chat {
 
     const launcher = () => (mode === 'window' ? (root as AparteLauncher) : undefined);
     const destroy = () => {
+        destroyed = true;
         historyRequest?.abort();
         queued.length = 0;
         window.removeEventListener('aparte-message-aborted', onStopped);

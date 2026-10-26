@@ -152,9 +152,20 @@ describe('createChat: the widget, as n8n draws it', () => {
     it('speaks a language aparté does not ship, from the locale it is given', async () => {
         n8n();
         const { APARTE_DEFAULT_LOCALE } = await import('@aparte/core');
-        const chat = mount({ loadPreviousSession: false, defaultLanguage: 'de', locale: { ...APARTE_DEFAULT_LOCALE, tag: 'de', launcherOpen: 'Chat öffnen' }, i18n: { de: { title: 'Hallo!' } } });
-        expect(chat.element.querySelector('.aparte-launcher__button')?.getAttribute('aria-label')).toBe('Chat öffnen');
+        const chat = mount({ loadPreviousSession: false, defaultLanguage: 'nl', locale: { ...APARTE_DEFAULT_LOCALE, tag: 'nl', launcherOpen: 'Chat openen' }, i18n: { nl: { title: 'Hallo!' } } });
+        expect(chat.element.querySelector('.aparte-launcher__button')?.getAttribute('aria-label')).toBe('Chat openen');
         expect(chat.element.querySelector('.aparte-n8n__title')?.textContent).toBe('Hallo!');
+        // Its other words fall back to English.
+        expect(chat.element.querySelector('aparte-composer')?.getAttribute('placeholder')).toBe('Type your question..');
+    });
+
+    it('loads the language it ships for the tag alone — German for de-AT — and switches the chat to it', async () => {
+        n8n();
+        const chat = mount({ loadPreviousSession: false, defaultLanguage: 'de-AT' });
+        expect(chat.element.querySelector('.aparte-n8n__title')?.textContent).toBe('Hallo! 👋');
+        expect(contents(chat)[1]).toEqual(['assistant', 'Ich heiße Nathan. Wie kann ich dir heute helfen?']);
+        await vi.waitFor(() => expect(chat.element.querySelector('.aparte-launcher__button')?.getAttribute('aria-label')).toBe('Chat öffnen'));
+        expect(chat.element.getAttribute('lang')).toBe('de-AT');
     });
 
     it('leaves the subtitle out when it is empty, shows a footer when there is one, and shows the given first messages', () => {
