@@ -98,11 +98,15 @@ test('the scroll surface spans the shell, content clears the floating composer, 
         .toBeLessThanOrEqual(settled.composerTop + 1);
 
     // ── 3. The scroll button floats above the composer, not behind it ─────────
-    await page.evaluate(() => {
-        const s = (document.querySelector('.aparte-viewport-container')
-            ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
-        s.scrollTop = 0;
-    });
+    // Up as a reader goes up: a wheel over the transcript. A page's own `scrollTop = 0`
+    // that lands within a second of the viewport's own scroll, after a mutation that
+    // shrank the transcript, is read as the engine clamping, and an armed follow pins it
+    // back to the bottom — the known limit `_handleScroll` documents. A slow CI runner
+    // landed in that window once (PR #126): the view back at the bottom, the button
+    // hidden for the whole timeout. A wheel is the reader's hand, which nothing overrides.
+    const surface = (await page.locator('.aparte-viewport-container, aparte-chat-viewport').first().boundingBox())!;
+    await page.mouse.move(surface.x + surface.width / 2, surface.y + surface.height / 3);
+    await page.mouse.wheel(0, -4000);
     const scrollBtn = page.locator('.aparte-scroll-btn').first();
     await expect(scrollBtn, 'scrolled up, the button shows').not.toHaveClass(/aparte-scroll-btn--hidden/);
     const btnGap = await page.evaluate(() => {
