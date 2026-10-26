@@ -457,9 +457,6 @@
       "ru",
       "zhCN"
     ],
-    "@aparte/n8n-chat": [
-      "createChat"
-    ],
     "@aparte/plugin-approval": [
       "APPROVAL_MODES",
       "AparteApprovalMode",

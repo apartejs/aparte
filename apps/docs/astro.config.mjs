@@ -160,7 +160,6 @@ export default defineConfig({
           ],
         },
         // A product's widget, rebuilt from the pieces: what its users install instead.
-        { label: 'Integrations', items: [{ autogenerate: { directory: 'integrations' } }] },
         { label: 'Help', items: guides.help },
         // The catalogue, by what a reader sees: Chat, Layout, Kit, one page per thing, read
         // from each page's own `catalog` block (scripts/lib/catalogue.mjs). Every element,
@@ -287,8 +286,7 @@ export default defineConfig({
             + 'TanStack AI chat route plugs in as `createAgUiRunner` from `@aparte/runner-ag-ui` '
             + '(/providers/agent/ag-ui/, /providers/agent/tanstack-ai/). '
             + 'An n8n chat workflow (a Chat Trigger and its AI Agent) plugs in as `createN8nRunner` '
-            + 'from `@aparte/runner-n8n` (/providers/agent/n8n/); to replace n8n\'s own chat widget '
-            + '(`@n8n/chat`), `@aparte/n8n-chat` takes the same `createChat` options (/integrations/n8n-chat/). '
+            + 'from `@aparte/runner-n8n` (/providers/agent/n8n/), inside any aparté chat or `<aparte-launcher>`. '
             + 'Driving a loop you own instead (a backend that streams over its own SSE, another '
             + 'agent framework): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '

@@ -231,7 +231,7 @@ function workspacePaths() {
     // Every provider group (ai/, agent/…), walked rather than listed: a group missing from
     // a hand-kept list left its packages unresolvable here.
     const providerGroups = readdirSync('packages/providers').map((g) => `packages/providers/${g}`).filter((d) => statSync(d).isDirectory());
-    for (const dir of ['packages/locales', 'packages/plugins', ...providerGroups, 'packages/wrappers', 'packages/tools', 'packages/integrations']) {
+    for (const dir of ['packages/locales', 'packages/plugins', ...providerGroups, 'packages/wrappers', 'packages/tools']) {
         for (const name of readdirSync(dir)) {
             if (statSync(join(dir, name)).isDirectory()) roots.push(join(dir, name).split(sep).join('/'));
         }

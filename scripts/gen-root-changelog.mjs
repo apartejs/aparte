@@ -55,7 +55,6 @@ const ORDER = [
     'packages/plugins',
     'packages/wrappers',
     'packages/locales',
-    'packages/integrations',
     'packages/tools',
 ];
 

@@ -34,7 +34,7 @@ import { join, relative, sep } from 'node:path';
 
 // Every package that writes markup — the text guard already walks all of `packages`;
 // wrappers and locales were outside this one for no stated reason.
-const ROOTS = ['packages/core/src', 'packages/plugins', 'packages/providers', 'packages/wrappers', 'packages/locales', 'packages/integrations'];
+const ROOTS = ['packages/core/src', 'packages/plugins', 'packages/providers', 'packages/wrappers', 'packages/locales'];
 
 /**
  * Function names that produce a value safe to drop into a QUOTED attribute.

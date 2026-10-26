@@ -33,8 +33,14 @@ Markdown plugins work as they do with aparté's own loop. What depends on the hi
 keeps — retry, edit, branches, compaction — does not reach n8n's memory; see
 [what is not supported](#what-is-not-supported).
 
-To replace n8n's own widget on a website — the button in the corner, from the same `createChat`
-call — use [`@aparte/n8n-chat`](/integrations/n8n-chat/), which is built on this runner.
+On a website, the button in the corner that n8n's widget draws is
+[`<aparte-launcher>`](/components/launcher/) around the chat, in aparté's look or your own theme:
+
+```html
+<aparte-launcher label="Help">
+  <aparte-chat></aparte-chat>
+</aparte-launcher>
+```
 
 ## Set up the workflow in n8n
 

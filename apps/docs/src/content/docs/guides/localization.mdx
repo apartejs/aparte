@@ -60,9 +60,8 @@ const language = navigator.language.slice(0, 2) as keyof typeof byLanguage;
 if (byLanguage[language]) aparteGlobalConfig.setLocale(byLanguage[language]);
 ```
 
-To download the visitor's language alone, load it when it is needed — what
-[`@aparte/n8n-chat`](/integrations/n8n-chat/) does. Write each import out in full: a bundler splits an
-import it can read, and a path built from a variable is not one.
+To download the visitor's language alone, load it when it is needed. Write each import out in
+full: a bundler splits an import it can read, and a path built from a variable is not one.
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';

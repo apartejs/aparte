@@ -71,7 +71,6 @@ const BARRELS = [
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
     { pkg: '@aparte/runner-ag-ui', types: 'packages/providers/agent/ag-ui/dist/index.d.ts', readme: 'packages/providers/agent/ag-ui/README.md' },
     { pkg: '@aparte/runner-n8n', types: 'packages/providers/agent/n8n/dist/index.d.ts', readme: 'packages/providers/agent/n8n/README.md' },
-    { pkg: '@aparte/n8n-chat', types: 'packages/integrations/n8n-chat/dist/index.d.ts', readme: 'packages/integrations/n8n-chat/README.md' },
     // Published like the rest (`private` is unset), so its surface is measured here too
     // even though the package is a Node CLI rather than part of the browser library.
     { pkg: '@aparte/docs-mcp', types: 'packages/tools/docs-mcp/dist/index.d.ts', readme: 'packages/tools/docs-mcp/README.md' },
@@ -159,8 +158,6 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/runner-ag-ui', 0],
     // runner-n8n: the runner and its options, both on the n8n page.
     ['@aparte/runner-n8n', 0],
-    // n8n-chat: createChat and its three types, all on the n8n chat widget page.
-    ['@aparte/n8n-chat', 0],
     ['@aparte/docs-mcp', 7],
     // locales: the nine languages, each named in the README's table.
     ['@aparte/locales', 0],
