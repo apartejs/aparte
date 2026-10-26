@@ -21,4 +21,7 @@ export default defineWorkspace([
     // hand-kept list of directories could drop a whole published package from the
     // release notes with no symptom at all.
     'scripts/vitest.config.ts',
+    // The one example with a server of its own: the Agents SDK → AG-UI bridge that the
+    // Agent Builder article teaches. Its page is covered by e2e; its server is covered here.
+    'apps/examples/agents-sdk/vitest.config.ts',
 ]);
