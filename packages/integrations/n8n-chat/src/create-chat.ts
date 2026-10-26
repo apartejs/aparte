@@ -232,13 +232,15 @@ export function createChat(options: ChatOptions): Chat {
     }
     const shell = el('div', 'aparte-composer-shell');
     const row = el('div', 'aparte-composer-row');
+    row.append(el('aparte-composer-input'));
     if (options.allowFileUploads) {
         shell.append(el('aparte-composer-attachments'));
         const add = el('aparte-composer-add-attachment');
         if (options.allowedFilesMimeTypes) add.setAttribute('accept', options.allowedFilesMimeTypes);
+        // After the input, beside send: where n8n's widget puts its paperclip.
         row.append(add);
     }
-    row.append(el('aparte-composer-input'), el('aparte-composer-send'));
+    row.append(el('aparte-composer-send'));
     shell.append(row);
     composer.append(shell);
     chat.append(el('aparte-chat-viewport'), composer);
