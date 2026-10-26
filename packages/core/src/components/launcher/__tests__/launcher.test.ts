@@ -291,6 +291,12 @@ describe('<aparte-launcher>: the config of the chat inside', () => {
         });
     });
 
+    it('hands the focus past a composer the card hides, to the first control it shows', () => {
+        const el = mount('', '<div id="card"><button type="button" id="start">New conversation</button><div id="chat" hidden><div id="composer" role="textbox" tabindex="0"></div></div></div>');
+        buttonOf(el).click();
+        expect(document.activeElement?.id).toBe('start');
+    });
+
     it("draws the launcher's own icons when the config holds them, and leaves the chat's close icon alone", () => {
         const el = mount();
         const config = new AparteConfig();
@@ -492,9 +498,9 @@ describe('<aparte-launcher>: the focus and the keys', () => {
 });
 
 describe('<aparte-launcher>: the sheet', () => {
-    it('becomes a sheet under 30rem of window, and says so', () => {
+    it('becomes a sheet under 30rem of window, wide or high, and says so', () => {
         const el = mount();
-        expect(queries).toEqual(['(max-width: 30rem)']);
+        expect(queries).toEqual(['(max-width: 30rem), (max-height: 30rem)']);
         expect(el.sheet).toBe(false);
         narrow(true);
         expect(el.sheet).toBe(true);

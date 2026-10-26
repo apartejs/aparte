@@ -11,11 +11,13 @@ export interface AparteLauncherToggleDetail {
 }
 
 /**
- * The window width under which the open chat becomes a full-window sheet, unless `breakpoint`
- * says another. Only here: `launcher.css` has no media query and keys on the `data-sheet`
- * this element reflects, so there is one copy of the number and nothing to keep in step.
+ * The window under which the open chat becomes a full-window sheet, unless `breakpoint`
+ * says another width: narrow, or short — a phone held sideways, a laptop zoomed to 200 %,
+ * where a card leaves the transcript a sliver between its header and its composer. Only
+ * here: `launcher.css` has no media query and keys on the `data-sheet` this element
+ * reflects, so there is one copy of the numbers and nothing to keep in step.
  */
-const SHEET_QUERY = '(max-width: 30rem)';
+const SHEET_QUERY = '(max-width: 30rem), (max-height: 30rem)';
 
 /** What can hold the focus inside the chat, when it opens and while the sheet keeps Tab in. */
 const FOCUSABLE = [
@@ -39,7 +41,7 @@ const FOCUSABLE = [
  * but out of the tab order and the accessibility tree. Nothing is stored: listen to
  * `aparte-launcher-toggle` to remember the state.
  *
- * **On a phone.** Under `breakpoint` (30rem of window unless you set it) the open chat
+ * **On a phone.** Under `breakpoint` (30rem of window, wide or high, unless you set a width) the open chat
  * fills the window as a sheet, Tab stays inside it, and the button moves to the top corner
  * to close it — or hides, when your card holds its own `data-aparte-launcher-close`
  * control. The element reflects `data-sheet` while the window is that narrow.
@@ -63,7 +65,7 @@ const FOCUSABLE = [
  *
  * @attr {boolean} open - The chat is open. Reflected; set it to start open.
  * @attr {string} label - Text shown beside the bubble on the closed button, which then reads as a pill. Without it the button is round and named by the locale.
- * @attr {string} breakpoint - The window width under which the open chat fills the window: a length (default `30rem`), or `none` for a card at any width.
+ * @attr {string} breakpoint - The window width under which the open chat fills the window: a length, or `none` for a card at any size. Unset, a window under 30rem wide or 30rem high.
  * @attr {boolean} data-sheet - Reflected BY the element while the window is narrower than `breakpoint` (30rem unless you set it). Read-only.
  *
  * @fires {CustomEvent<AparteLauncherToggleDetail>} aparte-launcher-toggle - The chat opened or closed, by the button, by Escape, by a close control or by `open` being set — or, while it is open, turned into a sheet or back as the window crossed the breakpoint. Bubbles.
@@ -327,7 +329,10 @@ export class AparteLauncher extends HTMLElement {
      * person just pressed.
      */
     private _focusChat(): void {
-        const composer = this.querySelector<HTMLElement>('[role="textbox"]:not([aria-disabled="true"])');
+        // A composer the card hides (a welcome screen in front of the chat) takes no focus:
+        // the first visible control does.
+        const composer = Array.from(this.querySelectorAll<HTMLElement>('[role="textbox"]:not([aria-disabled="true"])'))
+            .find((el) => !el.closest('[hidden]') && el.checkVisibility?.() !== false);
         const target = composer ?? this._focusables().find((el) => el !== this._button);
         target?.focus();
     }
