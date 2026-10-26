@@ -10,7 +10,11 @@ export interface AparteLauncherToggleDetail {
     sheet: boolean;
 }
 
-/** The window width under which the open chat becomes a full-window sheet. Mirrored in `launcher.css`. */
+/**
+ * The window width under which the open chat becomes a full-window sheet, unless `breakpoint`
+ * says another. Only here: `launcher.css` has no media query and keys on the `data-sheet`
+ * this element reflects, so there is one copy of the number and nothing to keep in step.
+ */
 const SHEET_QUERY = '(max-width: 30rem)';
 
 /** What can hold the focus inside the chat, when it opens and while the sheet keeps Tab in. */
