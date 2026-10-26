@@ -9,7 +9,7 @@ Replace `@aparte/locale-fr` with `@aparte/locales`: import `fr` from `@aparte/lo
 + import { fr } from '@aparte/locales/fr';
 ```
 
-`@aparte/locale-fr` is deprecated and removed from the repository: its last published version stays on npm and gets no further release, and its `fr` export now lives in `@aparte/locales`, with the same strings.
+`@aparte/locale-fr` is deprecated: for one release it re-exports the same `fr` from `@aparte/locales`, so an upgrade breaks nothing, and 0.28.0 removes it.
 
 Each language is its own entry (`@aparte/locales/es`, `@aparte/locales/pt-BR`, `@aparte/locales/zh-CN`…), so a page loads only the one it imports; all nine are also named exports of the package root (`fr`, `es`, `ptBR`, `de`, `it`, `ru`, `ja`, `ko`, `zhCN`). Every one translates all 130 strings core draws, keeps English's placeholders in the same keys, sets a `tag` that `Intl` formats dates and numbers in, and is written left to right.
 

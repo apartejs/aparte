@@ -293,6 +293,8 @@ const SATELLITES = [
     ['@aparte/runner-n8n', 'packages/providers/agent/n8n'],
     ['@aparte/n8n-chat', 'packages/integrations/n8n-chat'],
     ['@aparte/locales', 'packages/locales/all'],
+    // Deprecated, re-exports @aparte/locales' French until 0.28.0.
+    ['@aparte/locale-fr', 'packages/locales/fr'],
     // Node-only by construction (an MCP server) — the contract here is that importing it
     // opens no network and starts no server: `createDocsMcpServer` is a factory.
     ['@aparte/docs-mcp', 'packages/tools/docs-mcp'],

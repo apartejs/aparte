@@ -1,5 +1,6 @@
 // No `vite-plugin-dts`: `tsc -b --emitDeclarationOnly` in the build script writes the
-// declarations, one per language beside its module (see packages/locales/fr for why).
+// declarations, one per language beside its module. The plugin rolled them up into one file
+// that tsc then overwrote: two writers on one directory, for output thrown away.
 import { defineConfig } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

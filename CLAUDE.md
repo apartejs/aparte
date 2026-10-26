@@ -43,7 +43,8 @@ apartejs/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent (the loop, nothing else)
 │   ├── integrations/         @aparte/n8n-chat — n8n's widget rebuilt: createChat() over runner-n8n + n8n theme
-│   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
+│   ├── locales/              @aparte/locales — nine languages, one entry each (EN = core's built-in);
+│   │                         locale-fr re-exports its French until 0.28.0 (deprecated)
 │   ├── providers/            ai/: @aparte/provider-{openai-compat, ai-sdk, transformers, scenario}
 │   │                         agent/: @aparte/runner-ag-ui (AG-UI agents, TanStack AI), runner-n8n (Chat Trigger)
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
@@ -154,7 +155,7 @@ put down on purpose, so a future session does not re-derive the answer from scra
    halves in #9). The positional names went with it: no chat library exposes left/right, CSS
    itself moved to logical properties, and a name that a right-to-left locale contradicts is a
    name that will lie. Placement is now the DOM order plus `margin-inline-start: auto`.
-5. **Docs EN-first** (FR is a post-launch port). Both `locale-en`/`locale-fr` packages
+5. **Docs EN-first** (FR is a post-launch port). The locale packages (`@aparte/locales`)
    stay — that's data, not docs.
 6. **ONE agent loop — revised 2026-08-28 (D1).** This line used to keep `_streamLoop`
    inline in core beside engine's `runStreamAgent`, on the premise "parity proven by the
