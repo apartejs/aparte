@@ -10,4 +10,4 @@ What is new, all additive:
 - A chat reads the compactor of its own config first (`resolveConfig(chat).getCompactor()`), then the global one. `setCompactor` notifies like every other registration, so a mounted gauge hears that Compact now became possible.
 - The separator's **Retry** asks the compactor when one is registered, with `force: true` and `reason: 'retry'`, so it runs even when automatic compaction has stopped after failures. With none registered it dispatches `aparte-compact` as before.
 
-Why. Core cannot import the compaction plugin, and an event answers nothing: the caller needs to know the summary is written before it goes on, and a button needs to know it is still working. `@aparte/plugin-compaction` registers itself here in a later change; core never compacts on its own.
+Why. Core cannot import the compaction plugin, and an event answers nothing: the caller needs to know the summary is written before it goes on, and a button needs to know it is still working. `@aparte/plugin-compaction` registers itself here when it is set up; core never compacts on its own.

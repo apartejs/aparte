@@ -96,10 +96,17 @@ setupCompaction({
 - **After an overflow**: when the model refuses a request as over its window, it compacts and sends the
   turn once more.
 
+A compaction aims **below** the threshold, not at it: the history the model reads afterwards lands at
+about `threshold − 0.2` of the window, less the system prompt, the tools and the room for the reply,
+so one summary buys several turns. It measures in the model's own tokens, calibrated on what the last
+reply reported, and leaves room for the message being sent. Each chat on the page compacts on its own.
+
 Two failures in a row stop the automatic attempts for that conversation until a compaction succeeds,
 someone asks for one, or the conversation changes; a Restore pauses them the same way, since the
-person chose to send everything. A page that only compacts on request passes `auto: false`; so does
-`listen: false`.
+person chose to send everything, and cancels a summary still being written. `auto: false` is manual
+only: a compaction happens when someone asks for it (Compact now, Retry, `compact()`, `aparte-compact`),
+never after a turn, before a send or after an overflow, so a model's overflow error stands as it does
+without the plugin. `listen: false` does the same.
 
 ## Compact from a button
 
