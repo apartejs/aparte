@@ -449,6 +449,9 @@
     "@aparte/locale-fr": [
       "fr"
     ],
+    "@aparte/n8n-chat": [
+      "createChat"
+    ],
     "@aparte/plugin-approval": [
       "APPROVAL_MODES",
       "AparteApprovalMode",
@@ -557,7 +560,9 @@
       "createAgUiRunner"
     ],
     "@aparte/runner-n8n": [
-      "createN8nRunner"
+      "createN8nRunner",
+      "loadN8nHistory",
+      "n8nHistoryToMessages"
     ],
     "@aparte/svelte": [
       "AparteChat",
