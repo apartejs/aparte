@@ -195,3 +195,28 @@ describe('the turn being prepared', () => {
         expect(chat).not.toHaveBeenCalled();
     });
 });
+
+describe('before a send, after a compaction that left the context above the threshold', () => {
+    it('a request that does not fit is still compacted: cooling holds back only the after-turn trigger', async () => {
+        // ~99 % of the window, and a host selector that drops only the oldest exchange, so the
+        // first compaction leaves the context above the threshold and the policy cools down.
+        const target = makeTarget(sized(20, 12_000));
+        const { cfg, chat } = makeConfig('SUMMARY', W);
+        const c = setup({ resolveTarget: () => target, selector: (m) => ({ keep: m.slice(2), drop: m.slice(0, 2) }) }, cfg);
+
+        turnEnded();
+        await vi.waitFor(() => expect(checkpointOf(target.messages)).toBeDefined());
+        expect(used(target.messages, cfg, W) / W).toBeGreaterThan(0.8);
+
+        // Another turn ends, still above the threshold: the after-turn trigger holds back.
+        target.messages = [...target.messages, ...sized(1, 12_000, 21)];
+        turnEnded();
+        await new Promise((r) => setTimeout(r, 15));
+        expect(chat).toHaveBeenCalledTimes(1);
+
+        // A send whose request does not fit is not held back by it — on a server that truncates
+        // instead of refusing, waiting for a turn to end below the threshold would be forever.
+        expect(await c.beforeSend!({ target: null, targetId: 'c', exclude: [], requestTokens: W })).toBe(true);
+        expect(chat).toHaveBeenCalledTimes(2);
+    });
+});

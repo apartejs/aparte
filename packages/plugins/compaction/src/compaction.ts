@@ -227,7 +227,8 @@ export interface CompactionSetupOptions {
      * compaction buys several turns and the next is not asked for after this one. That holds
      * for a person's request and an overflow retry too; a `selector` of your own is left
      * alone. If the context is still at the threshold afterwards (a long recent tail the
-     * selector must keep), nothing automatic runs again until a turn ends below it.
+     * selector must keep), the after-turn trigger waits until a turn ends below it; a request
+     * that would not fit is still compacted before it is sent, and an overflow still retried.
      */
     threshold?: number;
     /**
@@ -765,9 +766,15 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const estimate = measure.parts.system + measure.parts.tools + measure.parts.summary + measure.parts.messages;
         return estimate > 0 && measure.used > 0 ? measure.used / estimate : 1;
     };
-    /** May the plugin start a compaction of this chat on its own, now? */
-    const mayAct = (policy: ChatPolicy): boolean =>
-        autoOn && canSummarise() && policy.failures < MAX_FAILURES && !policy.suspended && !policy.cooling;
+    /**
+     * May the plugin start a compaction of this chat on its own, now? `cooling` holds back only
+     * the after-turn trigger — a context that a compaction could not bring under the threshold
+     * would otherwise pay for a summary every turn. Before a send it does not apply: a request
+     * that does not fit the window is reason enough, and waiting for a turn to end below the
+     * threshold would mean waiting forever on a server that truncates instead of refusing.
+     */
+    const mayAct = (policy: ChatPolicy, beforeSend = false): boolean =>
+        autoOn && canSummarise() && policy.failures < MAX_FAILURES && !policy.suspended && (beforeSend || !policy.cooling);
 
     /**
      * A turn ended: measure what the model would read next, and compact when it is at the
@@ -927,7 +934,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         };
     };
 
-    const run = async (request: AparteCompactorRequest): Promise<CompactionOutcome> => {
+    const run = async (request: AparteCompactorRequest & { beforeSend?: true }): Promise<CompactionOutcome> => {
         const targetId = request.targetId ?? scope ?? (request.target?.id || undefined);
         const reason = request.reason ?? 'manual';
         const key = targetId ?? '';
@@ -944,7 +951,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             console.warn(`[aparte/plugin-compaction] compaction failed: ${error}`);
             if (hasWindow) {
                 window.dispatchEvent(new CustomEvent<AparteCompactErrorEventDetail>('aparte-compact-error', {
-                    detail: { error, targetId, ...(messageId ? { messageId } : {}) },
+                    detail: { error, targetId, ...(messageId ? { messageId } : {}), ...(error === ABORTED ? { aborted: true as const } : {}) },
                 }));
             }
             return { ok: false, error, targetId, ...(messageId ? { messageId } : {}) };
@@ -978,7 +985,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         if (running.has(key)) return skip('running');
         // Nobody asked, and the policy has said not now. Reported as nothing to do — a skip is
         // the one answer every caller already handles — and `force` overrides it.
-        if (reason === 'auto' && !request.force && (policy.failures >= MAX_FAILURES || policy.suspended || policy.cooling)) {
+        if (reason === 'auto' && !request.force && (policy.failures >= MAX_FAILURES || policy.suspended || (policy.cooling && !request.beforeSend))) {
             return skip('nothing-to-drop');
         }
 
@@ -1138,7 +1145,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             const id = targetId ?? scope ?? (target?.id || undefined);
             const policy = policyOf(id ?? '');
             const size = windowFor();
-            if (!size || !mayAct(policy)) return false;
+            if (!size || !mayAct(policy, true)) return false;
             // The request's estimate is the raw heuristic's; the model counts in its own tokens,
             // and the measure has calibrated how far apart the two are for this conversation.
             const chat = resolveFor(target, id);
@@ -1146,7 +1153,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             // The room the model keeps for its reply, as the budget everywhere else reads it.
             if (scale * requestTokens + DEFAULT_COMPACTION_CONFIG.reservedGeneration <= size) return false;
             const outcome = await run({
-                target, reason: 'auto', exclude, ...(id !== undefined ? { targetId: id } : {}), ...(signal ? { signal } : {}),
+                target, reason: 'auto', beforeSend: true, exclude, ...(id !== undefined ? { targetId: id } : {}), ...(signal ? { signal } : {}),
             });
             // `true` only when a checkpoint was written: the caller builds the request again.
             return outcome.ok && !outcome.skipped;
