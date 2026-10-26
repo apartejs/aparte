@@ -88,6 +88,40 @@ launcher?.addEventListener('aparte-launcher-toggle', (event) => {
 if (sessionStorage.getItem('help-open') === 'true') launcher?.show();
 ```
 
+## Server rendering
+
+The launcher draws its button when it connects. On a server-rendered page that is as soon as
+`@aparte/core` loads — before your framework hydrates — and hydration then removes the button
+it did not render. The chat inside already holds itself back until its framework has the page,
+but that does not hold the launcher around it. Hold the launcher too: an element of yours that
+carries `defer-hydration` in the server's HTML, and the release once the framework has
+hydrated.
+
+```html
+<div id="help" defer-hydration>
+  <aparte-launcher label="Help">
+    <aparte-chat></aparte-chat>
+  </aparte-launcher>
+</div>
+```
+
+```ts
+import { releaseDeferredHydration } from '@aparte/core';
+
+// From your framework's mounted hook (useEffect, onMounted, onMount, ngAfterViewInit),
+// once the page has hydrated:
+releaseDeferredHydration(document.getElementById('help'));
+```
+
+Render `defer-hydration` on that element in the server render and in the hydration render
+alike, so the framework finds the markup it sent. Until the release the launcher draws nothing;
+once it is released it draws its button, and the chat inside wakes with it.
+[Hydration](/frameworks/elements/#hydration) says how the release works.
+
+If something removes the button anyway — a page that skips the release — the launcher puts it
+back, so the chat stays reachable; the framework still reports the mismatch, which holding the
+launcher avoids.
+
 ## Customize
 
 | Variable | What it sets |
