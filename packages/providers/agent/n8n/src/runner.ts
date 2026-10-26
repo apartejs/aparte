@@ -9,7 +9,7 @@
 import { AparteError, AparteErrorCode, uuid } from '@aparte/core';
 import type { AparteChatMessage, AparteStreamRunner, AparteStreamRunOptions } from '@aparte/core';
 import { readN8nReply } from './wire.js';
-import { httpError } from './http.js';
+import { httpError, unreachable } from './http.js';
 
 export interface N8nRunnerOptions {
     /**
@@ -149,7 +149,10 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 ...(metadata ? { metadata } : {}),
             };
             let body: string | FormData;
-            const requestHeaders: Record<string, string> = { Accept: 'text/plain', ...headers };
+            // The page's headers, without a Content-Type in any case: a form's boundary is
+            // the browser's to write, and JSON gets exactly one, ours.
+            const requestHeaders: Record<string, string> = { Accept: 'text/plain' };
+            for (const [name, value] of Object.entries(headers)) if (name.toLowerCase() !== 'content-type') requestHeaders[name] = value;
             if (files.length > 0) {
                 const form = new FormData();
                 for (const [key, value] of Object.entries(fields)) form.append(key, typeof value === 'string' ? value : JSON.stringify(value));
@@ -166,7 +169,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 body,
                 signal: opts.signal,
                 ...(options.credentials ? { credentials: options.credentials } : {}),
-            });
+            }).catch((error: unknown) => { throw unreachable(error, options.webhookUrl); });
             if (!response.ok) throw await httpError(response, 'answer');
 
             emit({ type: 'run-start' });
@@ -250,8 +253,14 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         break;
                 }
             }
-            // A stream that was cut before its `end`: what it sent is still the answer.
+            // A stream that was cut before its `end`: what it sent is still the answer — all
+            // of it, the streams still waiting included, ended or not.
             drain();
+            for (const [stream, queued] of waiting) {
+                waiting.delete(stream);
+                open(stream);
+                for (const text of queued.text) draw(text);
+            }
             if (!drawn) throw new AparteError(whole ? EMPTY_WHOLE : EMPTY_STREAM, AparteErrorCode.PROVIDER_ERROR);
             flush();
             emit({ type: 'run-done' });

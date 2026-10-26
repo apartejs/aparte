@@ -7,7 +7,7 @@
  */
 import { AparteError, AparteErrorCode } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
-import { httpError } from './http.js';
+import { httpError, unreachable } from './http.js';
 
 export interface N8nHistoryOptions {
     /** The Chat Trigger's production URL, the one the runner sends to. */
@@ -81,9 +81,11 @@ export function n8nHistoryToMessages(stored: unknown[], { now = Date.now() } = {
 export async function loadN8nHistory(options: N8nHistoryOptions): Promise<AparteMessage[]> {
     const doFetch = options.fetch ?? fetch;
     const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
+    const sent: Record<string, string> = { 'Content-Type': 'application/json' };
+    for (const [name, value] of Object.entries(headers)) if (name.toLowerCase() !== 'content-type') sent[name] = value;
     const response = await doFetch(options.webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: sent,
         body: JSON.stringify({
             action: 'loadPreviousSession',
             [options.chatSessionKey ?? 'sessionId']: options.sessionId,
@@ -91,7 +93,7 @@ export async function loadN8nHistory(options: N8nHistoryOptions): Promise<Aparte
         }),
         ...(options.signal ? { signal: options.signal } : {}),
         ...(options.credentials ? { credentials: options.credentials } : {}),
-    });
+    }).catch((error: unknown) => { throw unreachable(error, options.webhookUrl); });
     if (!response.ok) throw await httpError(response, 'history');
     let body: unknown;
     try {

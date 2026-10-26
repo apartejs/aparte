@@ -53,3 +53,19 @@ export async function httpError(response: Response, kind: N8nRequestKind): Promi
     if (typeof body.message === 'string' && typeof body.hint === 'string') message = `${body.message} ${body.hint}`;
     return make(message.slice(0, 400) || `The n8n workflow answered HTTP ${status}.`);
 }
+
+/**
+ * The request never reached an answer: n8n is down, the URL is wrong, or the browser
+ * refused the answer because the Chat Trigger does not allow this page's origin — which
+ * the browser reports exactly like a network failure, so all three are named.
+ */
+export function unreachable(error: unknown, url: string): unknown {
+    if (!(error instanceof TypeError)) return error;
+    const origin = typeof location === 'undefined' ? "this page's origin" : location.origin;
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return new AparteError(
+        `Could not reach n8n at ${url}. Check that it is the Chat Trigger's production URL, that the workflow is published, `
+        + `and that ${origin} is in the trigger's Allowed Origins (CORS).`,
+        offline ? AparteErrorCode.NET_OFFLINE : AparteErrorCode.NET_ERROR,
+    );
+}

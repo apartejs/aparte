@@ -35,17 +35,19 @@ export type N8nReplyPart =
     /** The stream stopped in the middle of a frame. */
     | { kind: 'cut' };
 
-const FRAME_TYPES = new Set(['begin', 'item', 'end', 'error', 'keepalive']);
-
 /**
- * A frame: one of the known types, or a newer type that carries n8n's `metadata` with a
- * `nodeId`. A whole answer can be any JSON, so a bare `type` is not enough.
+ * Whether the first line opens a stream. A whole answer can be any JSON — a Respond to
+ * Webhook node may send `{ type: 'error', message }` or `{ type: 'item', output }` — so a
+ * frame has to show it is one: n8n stamps every node frame with `metadata.nodeId`, its
+ * `error` frame carries the text in `content`, and `keepalive` is n8n's alone.
  */
 function opensStream(value: unknown): boolean {
     if (!isFrame(value)) return false;
-    if (FRAME_TYPES.has(value.type)) return true;
     const metadata = value.metadata;
-    return typeof metadata === 'object' && metadata !== null && typeof metadata['nodeId'] === 'string';
+    const fromNode = typeof metadata === 'object' && metadata !== null && typeof metadata['nodeId'] === 'string';
+    if (value.type === 'keepalive') return true;
+    if (value.type === 'error') return fromNode || typeof value.content === 'string';
+    return fromNode;
 }
 
 /**
@@ -103,7 +105,9 @@ export function replyText(value: unknown): string | undefined {
     if (typeof text === 'object' && text !== null && (text as { type?: unknown }).type === 'text' && typeof (text as { text?: unknown }).text === 'string') {
         return (text as { text: string }).text;
     }
-    return typeof text === 'number' || typeof text === 'boolean' ? String(text) : undefined;
+    if (typeof text === 'number' || typeof text === 'boolean') return String(text);
+    // An agent with an output parser answers with a structure: shown as such, readable.
+    return ['```json', JSON.stringify(text, null, 2), '```'].join('\n');
 }
 
 /**

@@ -404,8 +404,6 @@ describe('createN8nRunner: answers that do not stream', () => {
         await expect(r.done).rejects.toThrow(/answered with the fields "status", "id" but no "output", "text" or "message" field/);
         const list = run(fakeFetch(respond('[{"rows":3}]')).fetch);
         await expect(list.done).rejects.toThrow(/the fields "rows"/);
-        const nested = run(fakeFetch(respond('{"output":{"rows":3}}')).fetch);
-        await expect(nested.done).rejects.toThrow(/the fields "output"/);
         expect(await whole('42')).toBe('42');
         expect(await whole('{"output":12}')).toBe('12');
     });
@@ -467,9 +465,17 @@ describe('createN8nRunner: HTTP failures', () => {
         expect(missing.code).toBe(AparteErrorCode.PROVIDER_ERROR);
     });
 
-    it('lets a network failure through as it is', async () => {
+    it('says what to check when n8n cannot be reached, which is also how a refused origin looks', async () => {
         const fetch = (async () => { throw new TypeError('Failed to fetch'); }) as unknown as typeof globalThis.fetch;
-        await expect(run(fetch).done).rejects.toThrow('Failed to fetch');
+        const error = await run(fetch).done.catch((e: unknown) => e) as AparteError;
+        expect(error).toBeInstanceOf(AparteError);
+        expect(error.code).toBe(AparteErrorCode.NET_ERROR);
+        expect(error.message).toMatch(/^Could not reach n8n at https:\/\/n8n\.example\.com\/webhook\/abc\/chat\..*production URL.*published.*Allowed Origins \(CORS\)/);
+    });
+
+    it('lets any other failure of the fetch through as it is', async () => {
+        const fetch = (async () => { throw new RangeError('a bug of ours'); }) as unknown as typeof globalThis.fetch;
+        await expect(run(fetch).done).rejects.toThrow('a bug of ours');
     });
 });
 
@@ -655,5 +661,51 @@ describe('createN8nRunner: a stream cut mid-frame', () => {
         await r.done;
         expect(r.text()).toBe('Kept.');
         expect(warnings).toEqual(["n8n's stream stopped in the middle of a frame; the text before it is kept."]);
+    });
+});
+
+describe('createN8nRunner: what the code audit found', () => {
+    it("drops the page's Content-Type, in any case, so a form keeps its boundary and JSON has one", async () => {
+        const { fetch, calls } = fakeFetch(replay(fixture('last-node')), replay(fixture('last-node')));
+        const runner = { headers: { 'content-type': 'application/json', 'X-Token': 't' } };
+        await run(fetch, { runner, messages: [{ role: 'user', content: [{ type: 'text', text: 'see' }, { type: 'image', image: 'data:image/png;base64,AAAA' }] }] }).done;
+        await run(fetch, { runner }).done;
+        expect(calls[0]!.init.body).toBeInstanceOf(FormData);
+        expect(calls[0]!.init.headers).toEqual({ Accept: 'text/plain', 'X-Token': 't' });
+        expect(calls[1]!.init.headers).toEqual({ Accept: 'text/plain', 'X-Token': 't', 'Content-Type': 'application/json' });
+    });
+
+    it('shows a structured output — an agent with an output parser — as JSON, readable', async () => {
+        const r = run(fakeFetch(respond('{"output":{"answer":"Paris","confidence":0.9}}')).fetch);
+        await r.done;
+        expect(r.text()).toBe('```json\n{\n  "answer": "Paris",\n  "confidence": 0.9\n}\n```');
+    });
+
+    it('reads a whole answer that looks like a frame but carries none of its marks as an answer', async () => {
+        const item = run(fakeFetch(respond('{"type":"item","output":"We have bread."}')).fetch);
+        await item.done;
+        expect(item.text()).toBe('We have bread.');
+        const error = run(fakeFetch(respond('{"type":"error","message":"Out of stock."}')).fetch);
+        await error.done;
+        expect(error.text()).toBe('Out of stock.');
+    });
+
+    it('still reads an error frame with no metadata, by its text, and a bare keepalive', async () => {
+        const failed = run(fakeFetch(respond(frames({ type: 'error', content: 'Workflow execution failed' }))).fetch);
+        await expect(failed.done).rejects.toThrow('Workflow execution failed');
+        const alive = run(fakeFetch(respond(frames({ type: 'keepalive' }, { type: 'item', content: 'ok', ...meta('a') }))).fetch);
+        await alive.done;
+        expect(alive.text()).toBe('ok');
+    });
+
+    it('draws every stream still waiting when the body ends, the ended ones and the cut ones', async () => {
+        const r = run(fakeFetch(respond(frames(
+            { type: 'begin', ...meta('a') }, { type: 'item', content: 'A1', ...meta('a') },
+            { type: 'begin', ...meta('b') }, { type: 'item', content: 'B1', ...meta('b') },
+            { type: 'begin', ...meta('c') }, { type: 'item', content: 'C1', ...meta('c') }, { type: 'end', ...meta('c') },
+            // The body ends here: A and B were cut, C had finished behind them.
+        ))).fetch);
+        await r.done;
+        expect(r.text()).toBe('A1B1C1');
     });
 });
