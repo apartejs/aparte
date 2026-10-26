@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.27.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [061b2d5](https://github.com/apartejs/aparte/commit/061b2d5): The copy button is off by default: a message carries no button until you turn one on. To keep it, call `aparteGlobalConfig.setBubbleActions({ copy: true })`.
+
+  `APARTE_DEFAULT_BUBBLE_ACTIONS.copy` is now `false`, so every action is off until an app asks for it. Copy is the one core honours on its own, and it still works the same once on, hidden while a turn has no text to copy. A help widget or a support chat is read rather than quoted, and a button under every answer was noise there; a chat product that wants it adds it in one line. An explicit per-role list (`setBubbleActions({ assistant: ['copy', 'retry'] })`) is unchanged: naming `copy` there turns it on.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.27.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
