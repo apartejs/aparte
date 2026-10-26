@@ -1,0 +1,217 @@
+/*
+ * The n8n chat widget template's look. The page behind is Le Fournil's website, drawn with
+ * the kit's recipes and the site's tokens; the widget is n8n's, from @aparte/n8n-chat's theme.
+ */
+.n8n-demo {
+    --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: var(--aparte-bg);
+    color: var(--aparte-text);
+    font-family: var(--aparte-font-family);
+}
+
+/* The widget floats in the template's frame, not in the window: the page's bar stays clear. */
+.n8n-demo aparte-launcher {
+    position: absolute;
+}
+
+/* "The bakery's" look: n8n's own variables, set by the page as a site restyles n8n's widget. */
+.n8n-demo.nd-brand {
+    --chat--color--primary: #b4532a;
+    --chat--color--primary-shade-50: #9e4724;
+    --chat--color--secondary: #7a4a24;
+    --chat--color-secondary-shade-50: #673d1d;
+    --chat--color-light: #fbf4ea;
+    --chat--color-dark: #3a2716;
+    --chat--header--background: #3a2716;
+    --chat--header--color: #fbf4ea;
+    --chat--border-radius: 14px;
+    --chat--font-family: Georgia, 'Times New Roman', serif;
+}
+
+/* ── The website ────────────────────────────────────────────────────────────────────────── */
+.nd-site {
+    height: 100%;
+    overflow-y: auto;
+}
+
+.nd-site__header,
+.nd-hero,
+.nd-grid {
+    box-sizing: border-box;
+    max-inline-size: 68rem;
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+}
+
+.nd-site__header {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-6);
+    padding-block: var(--aparte-space-7);
+}
+
+.nd-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    color: var(--aparte-text);
+    font-size: var(--aparte-font-size-lg);
+    font-weight: var(--aparte-font-weight-semibold);
+    text-decoration: none;
+}
+
+.nd-logo__mark {
+    font-size: 1.4rem;
+}
+
+.nd-nav {
+    display: flex;
+    gap: var(--aparte-space-2);
+    margin-inline-start: auto;
+}
+
+.nd-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--aparte-space-6);
+    padding-block: clamp(2rem, 6vw, 4.5rem) clamp(1.5rem, 4vw, 3rem);
+    /* Clear of the panel, which floats on the inline-start side on a wide frame. */
+    padding-inline-start: max(clamp(1rem, 4vw, 2.5rem), 23rem);
+}
+
+.nd-hero__title {
+    max-inline-size: 14ch;
+    margin: 0;
+    font-size: clamp(2.1rem, 4.5vw, 3.25rem);
+    font-weight: var(--aparte-font-weight-semibold);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+}
+
+.nd-hero__lede {
+    max-inline-size: 30rem;
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-lg);
+    line-height: var(--aparte-line-height-relaxed);
+}
+
+.nd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--aparte-space-6);
+    padding-block-end: 3rem;
+    padding-inline-start: max(clamp(1rem, 4vw, 2.5rem), 23rem);
+}
+
+.nd-card__title {
+    margin: 0 0 var(--aparte-space-2);
+    font-size: var(--aparte-font-size-md);
+}
+
+.nd-card__text {
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+/* ── The panel ──────────────────────────────────────────────────────────────────────────── */
+.nd-panel {
+    position: absolute;
+    inset-block-start: 5.5rem;
+    inset-inline-start: clamp(1rem, 3vw, 2rem);
+    inline-size: min(20rem, calc(100% - 2rem));
+    max-block-size: calc(100% - 7rem);
+    overflow-y: auto;
+    box-shadow: var(--aparte-popover-shadow);
+}
+
+.nd-panel__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--aparte-space-5);
+}
+
+.nd-panel__eyebrow {
+    margin: 0;
+    color: var(--aparte-primary-ink);
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-font-size-xs);
+}
+
+.nd-panel__title {
+    margin: 0;
+    font-size: var(--aparte-font-size-lg);
+    line-height: 1.2;
+}
+
+.nd-panel__text,
+.nd-connect__hint {
+    margin: 0;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-line-height-normal);
+}
+
+.nd-control {
+    display: flex;
+    flex-direction: column;
+    gap: var(--aparte-space-2);
+}
+
+.nd-control__label {
+    font-size: var(--aparte-font-size-xs);
+    font-weight: var(--aparte-font-weight-semibold);
+    color: var(--aparte-text-muted);
+}
+
+.nd-segmented {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--aparte-space-2);
+}
+
+.nd-connect {
+    display: flex;
+    flex-direction: column;
+    gap: var(--aparte-space-2);
+}
+
+.nd-connect__row {
+    display: flex;
+    gap: var(--aparte-space-2);
+}
+
+.nd-connect__row .aparte-field {
+    flex: 1;
+    min-inline-size: 0;
+}
+
+.nd-panel__link {
+    align-self: flex-start;
+}
+
+/* Played in another page's frame: the site and the widget, the panel is the template page's. */
+.n8n-demo[data-mode='play'] .nd-panel {
+    display: none;
+}
+
+.n8n-demo[data-mode='play'] :is(.nd-hero, .nd-grid) {
+    padding-inline-start: clamp(1rem, 4vw, 2.5rem);
+}
+
+/* A narrow frame: the site and the widget, without the panel over them. */
+@media (max-width: 52rem) {
+    .nd-panel {
+        display: none;
+    }
+
+    .nd-hero,
+    .nd-grid {
+        padding-inline-start: clamp(1rem, 4vw, 2.5rem);
+    }
+}
