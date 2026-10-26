@@ -53,14 +53,16 @@ export type AparteLocale = {
     errorUnreachable?: string;
     /** NET_TIMEOUT (default: "The answer took too long. Try again in a moment."). */
     errorTimeout?: string;
-    /** CONFIG_INVALID_KEY, a 401 or a 403 (default: "The model provider refused the request. Check the API key and its access."). */
+    /** CONFIG_INVALID_KEY, a 401 or a 403 — a key, or an app's own endpoint refusing the session (default: "The assistant isn’t allowed to answer right now."). */
     errorRefused?: string;
     /** USAGE_RATE_LIMIT, a 429 (default: "Too many requests right now. Try again in a moment."). */
     errorRateLimited?: string;
     /** USAGE_CONTEXT_EXCEEDED, once the conversation no longer fits the model (default: "This conversation is too long for the model. Start a new one."). */
     errorTooLong?: string;
-    /** A provider's failure, a bad request, a policy refusal, an unknown error (default: "The assistant couldn’t answer. Try again in a moment."). */
+    /** PROVIDER_ERROR and PROVIDER_UNAVAILABLE, a failing or busy provider (default: "The assistant couldn’t answer. Try again in a moment."). */
     errorFailed?: string;
+    /** A request refused as malformed, a policy refusal, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
+    errorNoAnswer?: string;
     running: string; // Terminal running state
 
     // --- Terminal ---
@@ -633,10 +635,11 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     error: "Error",
     errorUnreachable: "The assistant can’t be reached right now. Try again in a moment.",
     errorTimeout: "The answer took too long. Try again in a moment.",
-    errorRefused: "The model provider refused the request. Check the API key and its access.",
+    errorRefused: "The assistant isn’t allowed to answer right now.",
     errorRateLimited: "Too many requests right now. Try again in a moment.",
     errorTooLong: "This conversation is too long for the model. Start a new one.",
     errorFailed: "The assistant couldn’t answer. Try again in a moment.",
+    errorNoAnswer: "The assistant couldn’t answer this request.",
     running: "Running...",
     run: "Run",
     file: "File",

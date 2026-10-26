@@ -17,10 +17,13 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
     render: (segment) => {
         // A registered error renderer (aparteGlobalConfig.setErrorRenderer) owns the error
         // UI — the one place to customize it, string or live HTMLElement.
-        const custom = contextConfig().getErrorRenderer?.();
+        const cfg = contextConfig();
+        const sentence = errorSentence(segment.code, (key) => cfg.t(key));
+        const custom = cfg.getErrorRenderer?.();
         if (custom) {
             const out = custom({
                 message: segment.content,
+                ...(sentence !== undefined ? { sentence } : {}),
                 ...(segment.details !== undefined ? { details: segment.details } : {}),
                 ...(segment.code !== undefined ? { code: segment.code } : {}),
             });
@@ -33,8 +36,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
         }
         // A sentence for the person, chosen by the code; the message stays on the segment
         // (and went to the console when the turn failed) for the developer.
-        const cfg = contextConfig();
-        const message = errorSentence(segment.code, (key) => cfg.t(key)) ?? segment.content;
+        const message = sentence ?? segment.content;
         return `
         <div class="aparte-segment aparte-alert aparte-alert--danger aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}"${segment.code ? ` data-error-code="${escapeAttr(segment.code)}"` : ''}>
             <span class="aparte-alert__icon">${cfg.getIcon('error') || '⚠'}</span>
@@ -55,6 +57,8 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
      */
     relabel: (element, segment) => {
         const cfg = contextConfig();
+        // A custom renderer drew this card, words included: it is not core's to rewrite.
+        if (cfg.getErrorRenderer?.()) return;
         const wrap = element.querySelector('.aparte-alert__icon');
         if (wrap) wrap.innerHTML = cfg.getIcon('error') || '⚠';
         const title = element.querySelector('.aparte-alert__title');

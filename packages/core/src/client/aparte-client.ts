@@ -21,6 +21,7 @@ import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
 import { toolNameOf, toolTargetOf } from '../utils/tool-line.js';
 import { requestUserInput } from '../elicitation/index.js';
+import { errorSentence } from '../utils/error-sentence.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -1806,8 +1807,12 @@ export class AparteClient {
         // A server loop that paused says so on its last event; the turn picks it up.
         let suspended: AparteRunResult['suspended'];
         let finishReason: AparteFinishReason | undefined;
+        // The one-line text of the last handler that crashed: the run ends on that same
+        // error, and it is the tool's, not the model's or the network's (below).
+        let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            if (event.type === 'tool-failed') toolCrash = event.error;
             if (event.type === 'run-done') finishReason = event.finishReason;
             if (event.type === 'run-suspended') {
                 const ticket = (event as { ticket?: unknown }).ticket;
@@ -1868,6 +1873,19 @@ export class AparteClient {
         // `deny` refuses with the policy's own reason, never "the user rejected this".
         const approvalResolver = this._approvalResolverFor(targetElement);
 
+        /*
+         * A handler's crash ends the run on the handler's own error. Classified like a
+         * transport's, a weather tool's `TypeError: Failed to fetch` read "the assistant
+         * can't be reached" and an SDK's `{ status: 401 }` blamed the model provider's
+         * key — while the assistant had answered, and the row above said the tool failed.
+         * It is labelled for what it is: a failure the reader cannot fix by retrying the
+         * connection, its message kept for the console.
+         */
+        const asToolCrash = (error: unknown): unknown => {
+            if (toolCrash === undefined || error instanceof AparteError) return error;
+            const text = error instanceof Error ? (error.message || error.name) : typeof error === 'string' ? error : String(error);
+            return text === toolCrash ? new AparteError(text, AparteErrorCode.UNKNOWN_ERROR, undefined, error) : error;
+        };
         const usage = await streamRunner({
             messageId,
             ...(provider.id ? { providerId: provider.id } : {}),
@@ -1889,7 +1907,7 @@ export class AparteClient {
             // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
-        });
+        }).catch((error: unknown) => { throw asToolCrash(error); });
         return {
             usage: usage ?? undefined,
             ...(finishReason ? { finishReason } : {}),
@@ -2221,7 +2239,11 @@ export class AparteClient {
         };
         // The person reads a sentence the renderer picks by the code; what a developer
         // needs to fix is this message, so it goes to the console, once, when it happens.
-        console.warn(`[aparte] The reply ended on an error (${error.code}): ${error.message}`);
+        // An error that keeps its own words (the turn limit, a setup error) is on screen
+        // already, and a setup error has its own warning.
+        if (errorSentence(error.code, (key) => this._config.t(key)) !== undefined) {
+            console.warn(`[aparte] A turn failed (${error.code}): ${error.message}`);
+        }
 
         if (target.updateMessage) {
             /*

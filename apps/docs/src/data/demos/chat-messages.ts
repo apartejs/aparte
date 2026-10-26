@@ -350,7 +350,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
   // What arrived stays; the error follows it.
   document.querySelector('aparte-chat-bubble').setSegments([
     { id: 's1', type: 'text', content: 'Here is the summary of the first two sections. The release fixes' },
-    { id: 's2', type: 'error', code: 'NET_ERROR', content: 'net::ERR_CONNECTION_RESET' },
+    { id: 's2', type: 'error', code: 'PROVIDER_ERROR', content: 'HTTP 502: upstream connect error' },
   ]);
 </script>`,
     },

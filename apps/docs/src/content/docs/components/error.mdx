@@ -1,6 +1,6 @@
 ---
 title: Error
-description: A turn that failed, shown inside that turn — what went wrong in words, the technical detail beneath — with whatever had already arrived kept above it.
+description: A turn that failed, shown inside that turn — one plain sentence in the reader's language, chosen by the error's code, the technical message on the console — with whatever had already arrived kept above it.
 catalog:
   group: chat
   order: 13
@@ -32,16 +32,23 @@ the client puts it on the console when the turn fails.
 | --- | --- | --- |
 | `NET_OFFLINE`, `NET_ERROR` | `errorUnreachable` | The assistant can’t be reached right now. Try again in a moment. |
 | `NET_TIMEOUT` | `errorTimeout` | The answer took too long. Try again in a moment. |
-| `CONFIG_INVALID_KEY` (a 401 or a 403) | `errorRefused` | The model provider refused the request. Check the API key and its access. |
+| `CONFIG_INVALID_KEY` (a 401 or a 403: a key, or your own endpoint refusing the session) | `errorRefused` | The assistant isn’t allowed to answer right now. |
 | `USAGE_RATE_LIMIT` (a 429) | `errorRateLimited` | Too many requests right now. Try again in a moment. |
 | `USAGE_CONTEXT_EXCEEDED` | `errorTooLong` | This conversation is too long for the model. Start a new one. |
-| `USAGE_BAD_REQUEST`, `PROVIDER_ERROR`, `PROVIDER_UNAVAILABLE`, `PROVIDER_POLICY`, `UNKNOWN_ERROR` | `errorFailed` | The assistant couldn’t answer. Try again in a moment. |
+| `PROVIDER_ERROR` (a 5xx), `PROVIDER_UNAVAILABLE` (a 503) | `errorFailed` | The assistant couldn’t answer. Try again in a moment. |
+| `USAGE_BAD_REQUEST` (a 400), `PROVIDER_POLICY`, `CONFIG_INVALID_MODEL`, `UNKNOWN_ERROR` — and a tool whose handler crashed | `errorNoAnswer` | The assistant couldn’t answer this request. |
+
+"Try again" is said only where a moment can help. A wrong model id or URL is a request that failed,
+and reads as one; its reason is on the console. A tool whose handler throws reads as
+`errorNoAnswer` whatever it threw — its own failed fetch is not the assistant being unreachable —
+and its row says the tool failed.
 
 An error keeps its own words when they were written for the reader or for the developer setting
-the chat up: the turn limit (`MAX_TURNS_EXCEEDED`, already in the reader's language), the setup
-errors (`CONFIG_NO_PROVIDER`, `CONFIG_MISSING_KEY`, `CONFIG_INVALID_MODEL`), and an error segment
-your app or a plugin adds with a code of its own or none. Every language of
-[`@aparte/locales`](/guides/localization/) translates the six sentences, and `extendLocale`
+the chat up: the turn limit (`MAX_TURNS_EXCEEDED`, already in the reader's language), the two
+setup errors core raises before any request (`CONFIG_NO_PROVIDER`, no provider selected;
+`CONFIG_MISSING_KEY`, a provider that is not registered), and an error segment your app or a
+plugin adds with a code of its own or none. Every language of
+[`@aparte/locales`](/guides/localization/) translates the seven sentences, and `extendLocale`
 changes them.
 
 ## Variants
@@ -54,17 +61,17 @@ The card is added after what had already streamed; the partial reply stays.
 
 ## Customize
 
-`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the error's own `message` (not the sentence), the
+`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the `sentence` the default card shows (absent for an error that keeps its own words), the error's own `message`, the
 `details` an app chose to show and the `code` and returns an element or an HTML string, for a product that adds a "Try again" button
 or a link to its status page:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
-aparteGlobalConfig.setErrorRenderer(({ message }) => {
+aparteGlobalConfig.setErrorRenderer(({ sentence, message }) => {
   const card = document.createElement('div');
   card.className = 'aparte-alert aparte-alert--danger';
-  card.textContent = `${message} — see status.example.com`;
+  card.textContent = `${sentence ?? message} — see status.example.com`;
   return card;
 });
 ```
@@ -74,17 +81,18 @@ The `code` is the machine-readable name of the failure (`MAX_TURNS_EXCEEDED`, `P
 ```ts
 import { aparteGlobalConfig, AparteErrorCode } from '@aparte/core';
 
-aparteGlobalConfig.setErrorRenderer(({ message, code }) => {
+aparteGlobalConfig.setErrorRenderer(({ sentence, message, code }) => {
   const card = document.createElement('div');
   card.className = 'aparte-alert aparte-alert--danger';
   card.textContent = code === AparteErrorCode.MAX_TURNS_EXCEEDED
     ? 'The assistant went round in circles. Try asking differently.'
-    : message;
+    : sentence ?? message;
   return card;
 });
 ```
 
-The built-in card wears the kit's [Alert](/components/alert/) recipe, so its colours are the alert's.
+The card you return is yours: a language switch rewrites core's card, not this one. The built-in
+card wears the kit's [Alert](/components/alert/) recipe, so its colours are the alert's.
 
 ## Fields
 
@@ -92,8 +100,10 @@ The built-in card wears the kit's [Alert](/components/alert/) recipe, so its col
 
 ## Accessibility
 
-- The card's heading comes from the `error` locale key and is translated with the rest of the
-  chat; the message is shown as it arrived, since it is the model's or the server's text.
+- The card's heading comes from the `error` locale key, and its sentence from the key its code
+  reads as, both translated with the rest of the chat and rewritten on a language switch. An
+  error that keeps its own words (the turn limit, a setup error, your app's) shows them as
+  written.
 - The failure is written, not only coloured: a reader who cannot see red still reads "Error".
 
 ## Related

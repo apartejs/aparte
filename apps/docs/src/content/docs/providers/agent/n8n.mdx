@@ -121,18 +121,21 @@ n8n keeps what the agent remembers.
 
 ## What n8n's answer becomes
 
-| n8n sends | The chat shows |
+| n8n sends | The chat shows, and the console says |
 | --- | --- |
 | the streamed frames of a node (`begin`, `item`, `end`) | the reply's text, as it arrives |
 | the frames of a second node that streams | a block of its own, below the first — never interleaved |
 | a whole answer (`{ output }`, `text` or `message`) | the reply's text, at once |
-| a whole answer with none of those fields | an error that names the fields it got and how to end the workflow — never the JSON |
-| an `error` frame | the reply's error, with the workflow's message, below what was drawn |
+| a whole answer with none of those fields | the [error card's](/components/error/#what-the-card-says) sentence; the console names the fields it got and how to end the workflow — never the JSON |
+| an `error` frame | the error card's sentence, below what was drawn; the console has the workflow's message |
 | `keepalive` frames, every 30 seconds while a slow node runs | nothing: the stream goes on |
-| nothing, from a trigger that streams | an error that says to turn on streaming in the agent |
-| an HTTP error, such as an inactive workflow's 404 | the reply's error, with n8n's message and hint |
-| a 428 from a workflow that waits for credentials | an error that names the credentials to connect |
-| a proxy's page instead of the answer (a 502, a 504) | a timeout error: the workflow may still be running — never the page's markup |
+| nothing, from a trigger that streams | the error card's sentence; the console says to turn on streaming in the agent |
+| an HTTP error, such as an inactive workflow's 404 | the error card's sentence; the console has n8n's message and hint |
+| a 428 from a workflow that waits for credentials | the error card's sentence; the console names the credentials to connect |
+| a proxy's page instead of the answer (a 502, a 504) | the timeout sentence; the console says the workflow may still be running — never the page's markup |
+
+The runner's message stays on the error segment's `content`, and reaches
+[`setErrorRenderer`](/components/error/#customize) as `message` for an app that wants it on screen.
 
 The answer is read line by line as it streams, whatever pieces the network cuts it into. A frame
 type the runner does not know is skipped, and `onWarning` is told, `console.warn` by default; so

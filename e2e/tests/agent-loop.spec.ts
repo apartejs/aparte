@@ -237,11 +237,15 @@ test.describe('an n8n chat workflow', () => {
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 
-    test("shows the workflow's own error when it fails mid-stream", async ({ page }) => {
+    test("shows a plain sentence when the workflow fails mid-stream, and logs the workflow's own error", async ({ page }) => {
         const errors = collectPageErrors(page);
+        const warnings: string[] = [];
+        page.on('console', (m) => { if (m.type() === 'warning') warnings.push(m.text()); });
         const chat = await openN8nSite(page);
         await chat.send('please fail');
-        await expect(chat.lastReply).toContainText('The model is down (scripted failure).');
+        await expect(chat.lastReply.locator('.aparte-segment-error[data-error-code="PROVIDER_ERROR"]')).toBeVisible();
+        await expect(chat.lastReply).not.toContainText('The model is down (scripted failure).');
+        await expect.poll(() => warnings.some((w) => w.includes('The model is down (scripted failure).'))).toBe(true);
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 });
