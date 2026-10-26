@@ -44,6 +44,12 @@ const FOCUSABLE = [
  * as a pill; it is named by the locale's `launcherOpen`/`launcherClose` when it shows no
  * text. Opening hands the focus to the composer; closing gives it back to the button.
  *
+ * **Server rendering.** The button is drawn when the element connects, which on a
+ * server-rendered page is before the framework hydrates, and hydration removes what it did
+ * not render. Put `defer-hydration` on the launcher in the server's HTML and call
+ * `releaseDeferredHydration` once your framework has hydrated, so the element draws itself
+ * then; if something takes the button out anyway, the element puts it back.
+ *
  * @element aparte-launcher
  *
  * @attr {boolean} open - The chat is open. Reflected; set it to start open.
@@ -72,6 +78,14 @@ export class AparteLauncher extends HTMLElement {
     }
 
     private _button: HTMLButtonElement | null = null;
+    /**
+     * Watches the element's own children. The button is the one child that is not the host's,
+     * so it is the one a framework reconciling the others knows nothing about: Vue's
+     * hydration removes "more child nodes than client vdom", Svelte 4's removes what its
+     * claim did not take. Without this it stays removed — a closed launcher then shows
+     * nothing, and nothing can open the chat.
+     */
+    private _childWatch: MutationObserver | null = null;
     private _media: MediaQueryList | null = null;
     private _lastOpen: boolean | null = null;
 
@@ -107,6 +121,10 @@ export class AparteLauncher extends HTMLElement {
             this._button.addEventListener('click', this._onButtonClick);
         }
         this.appendChild(this._button);
+        if (typeof MutationObserver === 'function') {
+            this._childWatch ??= new MutationObserver(() => this._keepButton());
+            this._childWatch.observe(this, { childList: true });
+        }
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
         window.addEventListener('aparte-config-change', this._onConfigChange);
@@ -120,6 +138,7 @@ export class AparteLauncher extends HTMLElement {
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
+        this._childWatch?.disconnect();
         this._media?.removeEventListener('change', this._onMediaChange);
         this._media = null;
         this._ready = false;
@@ -175,6 +194,16 @@ export class AparteLauncher extends HTMLElement {
     private _onConfigChange = (): void => this._renderButton();
 
     /**
+     * The button is a child of the element, whatever was done to the children since: put
+     * back at the end when something took it out. A button that is still a child stays
+     * where it is, since the host may have placed it. Called on every render, and from the
+     * observer for the removal that comes with no render at all.
+     */
+    private _keepButton(): void {
+        if (this._button && this._button.parentNode !== this) this.appendChild(this._button);
+    }
+
+    /**
      * The button, for the state it is in: the bubble (and the label, as a pill) while
      * closed, a close glyph while open. Its name comes from the locale when it shows no
      * text, and from that text when it does — a visible label the name did not contain
@@ -183,6 +212,7 @@ export class AparteLauncher extends HTMLElement {
     private _renderButton(): void {
         const button = this._button;
         if (!button) return;
+        this._keepButton();
         const config = resolveConfig(this);
         const locale = config.getLocale();
         const open = this.open;

@@ -10,6 +10,7 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-launcher.js';
 import type { AparteLauncher, AparteLauncherToggleDetail } from '../aparte-launcher.js';
 import { aparteGlobalConfig, APARTE_DEFAULT_LOCALE } from '../../../config/index.js';
+import { releaseDeferredHydration } from '../../../interop/defer-hydration.js';
 import { messageSquareIcon, closeIcon } from '../../../icons/glyphs.js';
 import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 
@@ -107,6 +108,71 @@ describe('<aparte-launcher>: what it adds', () => {
     it('names what the button controls', () => {
         const el = mount();
         expect(buttonOf(el).getAttribute('aria-controls')).toBe(el.id);
+    });
+});
+
+describe('<aparte-launcher>: a framework that takes its button out', () => {
+    /** MutationObserver callbacks are microtasks; a macrotask is after all of them. */
+    const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('puts its button back when the children are reconciled without it, and the button still opens', async () => {
+        // Hydration compares the DOM to what it rendered and removes the trailing nodes it
+        // did not (Vue's "more child nodes than client vdom", Svelte 4's detach of the rest).
+        // The button is the element's own, not the framework's, so that is what goes.
+        const el = mount();
+        const button = buttonOf(el);
+        button.remove();
+        await settle();
+        expect(buttonOf(el)).toBe(button);
+        expect(el.lastElementChild).toBe(button);
+        button.click();
+        expect(el.open).toBe(true);
+    });
+
+    it('puts it back at once on a render, and keeps the children where they are', () => {
+        const el = mount();
+        const button = buttonOf(el);
+        button.remove();
+        const chat = el.querySelector('#chat');
+        el.setAttribute('label', 'Help');
+        expect(buttonOf(el)).toBe(button);
+        expect(button.querySelector('.aparte-launcher__label')?.textContent).toBe('Help');
+        expect(Array.from(el.children).map((c) => c.id || 'button')).toEqual(['chat', 'button']);
+        expect(el.querySelector('#chat')).toBe(chat);
+    });
+
+    it('leaves a button that is where it should be, whatever else is added around it', async () => {
+        const el = mount();
+        const button = buttonOf(el);
+        el.insertBefore(document.createElement('section'), button);
+        el.append(document.createElement('aside'));
+        await settle();
+        expect(Array.from(el.children).map((c) => c.tagName)).toEqual(['DIV', 'SECTION', 'BUTTON', 'ASIDE']);
+        expect(buttonOf(el)).toBe(button);
+    });
+
+    it('stops watching while it is off the page, and puts the button back when it returns', async () => {
+        const el = mount();
+        const button = buttonOf(el);
+        el.remove();
+        button.remove();
+        await settle();
+        expect(el.contains(button)).toBe(false);
+        document.body.append(el);
+        expect(buttonOf(el)).toBe(button);
+    });
+
+    it('draws nothing under defer-hydration, and its button once the framework has released it', () => {
+        // The documented server-rendering pattern: the attribute on the launcher, released after
+        // hydration. Until then the element is the markup the server sent, so the framework
+        // finds the DOM it rendered.
+        document.body.innerHTML = '<div id="root" defer-hydration><aparte-launcher label="Help"><div id="chat"></div></aparte-launcher></div>';
+        const el = document.querySelector('aparte-launcher') as AparteLauncher;
+        expect(buttonOf(el)).toBeNull();
+        expect(el.classList.contains('aparte-launcher')).toBe(false);
+        releaseDeferredHydration(document.getElementById('root'));
+        expect(buttonOf(el)).not.toBeNull();
+        expect(buttonOf(el).querySelector('.aparte-launcher__label')?.textContent).toBe('Help');
     });
 });
 
