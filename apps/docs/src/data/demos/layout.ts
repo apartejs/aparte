@@ -133,17 +133,46 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
     {
         id: 'launcher',
         title: 'A chat in a corner of the page',
-        html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then it, Escape or ✕ to close. -->
+        html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then it, Escape or ✕ to close.
+     A support card: who answers at the top, a greeting, and three questions to start from. -->
+<style>
+  .support { display: flex; flex-direction: column }
+  .support header { display: grid; padding: var(--aparte-space-3) var(--aparte-space-4); border-block-end: var(--aparte-border-width) solid var(--aparte-border) }
+  .support header small { color: var(--aparte-text-muted) }
+  .support aparte-chat { flex: 1; min-height: 0 }
+</style>
 <div style="height: 32rem"></div>
 <aparte-launcher label="Help" breakpoint="none" style="--aparte-launcher-height: 26rem">
-  <aparte-chat placeholder="Ask about your order…"></aparte-chat>
+  <section class="support">
+    <header><strong>Kilnhouse support</strong><small>Usually answers in a minute</small></header>
+    <aparte-chat id="help">
+      <aparte-chat-viewport>
+        <aparte-chat-bubble message-id="hello" data-role="assistant" name="Assistant"
+          content="Hi! I can track an order, change a delivery address or start a return."></aparte-chat-bubble>
+      </aparte-chat-viewport>
+      <aparte-composer placeholder="Ask about your order…">
+        <aparte-suggestions suggestions='["Where is my order?", "Change my address", "Start a return"]'></aparte-suggestions>
+        <div class="aparte-composer-shell">
+          <div class="aparte-composer-row">
+            <aparte-composer-input></aparte-composer-input>
+            <aparte-composer-send></aparte-composer-send>
+          </div>
+        </div>
+      </aparte-composer>
+    </aparte-chat>
+  </section>
 </aparte-launcher>
 
 <script>
+  // A help chat is read, not quoted: no copy button under the answers.
+  window.aparte.aparteGlobalConfig.setBubbleActions({ copy: false });
+
   // The chat inside is an ordinary <aparte-chat>: here a script answers it; in a page, AparteClient.
-  const chat = document.querySelector('aparte-chat');
+  const chat = document.getElementById('help');
   let n = 0;
   chat.addEventListener('aparte-send', (event) => {
+    // The greeting is already a message, so the starters go with the first question.
+    chat.querySelector('aparte-suggestions').hidden = true;
     chat.viewport.appendMessage({ id: 'u' + ++n, role: 'user', content: event.detail.content, timestamp: Date.now() });
     chat.viewport.appendMessage({ id: 'a' + ++n, role: 'assistant', content: 'Your order left the warehouse this morning.', timestamp: Date.now() });
   });
