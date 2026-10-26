@@ -1530,6 +1530,10 @@ export class AparteConfig {
      * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
      *
      * @example
+     * // An agent's chat: the spinner, "Running" and "Done" on every row (the default is quiet).
+     * aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
+     *
+     * @example
      * // The line, and no raw JSON behind it: nothing, or a detail of the app's own.
      * aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Reading a file', details: false });
      * aparteGlobalConfig.registerToolDisplay('web_search', {

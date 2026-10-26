@@ -99,12 +99,35 @@ describe('a quiet row', () => {
         expect(spinner(el).hidden).toBe(true);
     });
 
-    it('the default row is untouched: spinner, the word, no shimmer', () => {
+    it('is the default: a row with no display of its own is quiet', () => {
+        const el = draw(call({ status: 'pending' }));
+        expect(el.hasAttribute('data-quiet')).toBe(true);
+        expect(spinner(el).hidden).toBe(true);
+        expect(shown(state(el))).toBe(false);
+        expect(name(el).classList.contains('aparte-shimmer')).toBe(true);
+    });
+
+    it('a display that sets only a label keeps the quiet default', () => {
+        aparteGlobalConfig.registerToolDisplay('web_search', { label: 'Searching the web…' });
+        const el = draw(call({ status: 'pending' }));
+        expect(el.hasAttribute('data-quiet')).toBe(true);
+    });
+
+    it("quiet: false is an agent's row: spinner, the word, no shimmer", () => {
+        aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
         const el = draw(call({ status: 'pending' }));
         expect(el.hasAttribute('data-quiet')).toBe(false);
         expect(spinner(el).hidden).toBe(false);
         expect(shown(state(el))).toBe(true);
         expect(name(el).classList.contains('aparte-shimmer')).toBe(false);
+    });
+
+    it("a tool's own entry is used whole: it says quiet: false itself, or it is quiet", () => {
+        aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
+        aparteGlobalConfig.registerToolDisplay('web_search', { label: 'Web search' });
+        expect(draw(call({ status: 'pending' })).hasAttribute('data-quiet')).toBe(true);
+        aparteGlobalConfig.registerToolDisplay('web_search', { quiet: false });
+        expect(draw(call({ status: 'pending' })).hasAttribute('data-quiet')).toBe(false);
     });
 });
 

@@ -122,9 +122,13 @@ export const CHAT_DEMOS: DemoEntry[] = [
     {
         id: 'tool-statuses',
         title: 'Every status a tool call can be in',
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->
+<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
 
 <script>
+  const { aparteGlobalConfig } = window.aparte;
+  // An agent's row, which names every state; the default, quiet row names only the last four.
+  aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
   const call = (id, name, input) => ({ id, name, input });
   document.querySelector('aparte-chat-bubble').setSegments([
     // Running: the model asked, the handler has not answered yet.
@@ -261,13 +265,12 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
 <script>
   const { aparteGlobalConfig } = window.aparte;
-  // quiet: a shimmer instead of a spinner and "Running", and nothing once it is done — the
-  // label's tense says it. A refusal, a failure or a stop still says so, after a plain name.
+  // Quiet, the default: a shimmer instead of a spinner and "Running", and nothing once it is
+  // done — the label's tense says it. A refusal, a failure or a stop still says so.
   aparteGlobalConfig.registerToolDisplay('web_search', {
     label: (segment) => segment.status === 'pending' ? 'Searching the web…' : segment.status === 'resolved' ? 'Searched the web' : 'Search the web',
     summary: (segment) => '“' + segment.toolCall.input.query + '”',
     details: false,
-    quiet: true,
   });
 
   document.querySelector('aparte-chat-bubble').setSegments([

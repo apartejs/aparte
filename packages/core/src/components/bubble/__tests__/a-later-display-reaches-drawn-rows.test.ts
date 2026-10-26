@@ -77,15 +77,16 @@ describe('a display registered after the rows are drawn', () => {
         expect(row(el).querySelector('.aparte-tool-part')).toBeNull();
     });
 
-    it('makes a row already on screen quiet, and loud again when unregistered', async () => {
+    it("turns a row already on screen into an agent's, and quiet again when unregistered", async () => {
         const el = drawn();
-        aparteGlobalConfig.registerToolDisplay('*', { quiet: true });
-        await settle();
         expect(row(el).hasAttribute('data-quiet')).toBe(true);
-        expect(row(el).querySelector('.aparte-tool-state')?.classList.contains('aparte-sr-only')).toBe(true);
-        aparteGlobalConfig.unregisterToolDisplay('*');
+        aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
         await settle();
         expect(row(el).hasAttribute('data-quiet')).toBe(false);
+        expect(row(el).querySelector('.aparte-tool-state')?.classList.contains('aparte-sr-only')).toBe(false);
+        aparteGlobalConfig.unregisterToolDisplay('*');
+        await settle();
+        expect(row(el).hasAttribute('data-quiet')).toBe(true);
     });
 
     it('a label change only relabels: the element the reader opened stays', async () => {

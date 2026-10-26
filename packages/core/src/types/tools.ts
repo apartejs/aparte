@@ -226,7 +226,7 @@ export interface AparteToolDisplay {
      */
     details?: false | AparteToolDetails;
     /**
-     * The line a person reads in a conversational chat, where the default is an agent's.
+     * The line a person reads in a conversational chat — on unless a display says `false`.
      * While the call runs, the label shimmers (`aparte-shimmer`) instead of a spinner and
      * "Running"; once it is done, nothing marks success — the label's tense says it, so
      * write one that reads the status ("Searching the web…" / "Searched the web" / a plain
@@ -236,6 +236,11 @@ export interface AparteToolDisplay {
      * words it does not show are still read by a screen reader. The target is set in the
      * chat's font and the chevron moves to the end of the line; the row carries
      * `data-quiet` for a stylesheet of your own.
+     *
+     * `false` is an agent's row: a spinner and "Running", then "Done". Like every field it
+     * comes from the one entry that applies, so `registerToolDisplay('*', { quiet: false })`
+     * reaches the tools with no entry of their own; a tool that has one says `quiet: false`
+     * there too.
      */
     quiet?: boolean;
 }

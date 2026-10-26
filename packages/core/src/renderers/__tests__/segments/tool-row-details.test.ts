@@ -227,9 +227,8 @@ describe('a rebuilt row keeps its identity', () => {
     });
 
     it('a quiet row that stops being quiet loses data-quiet on an update', () => {
-        aparteGlobalConfig.registerToolDisplay('web_search', { quiet: true });
         const el = draw(call({ status: 'pending' }));
-        aparteGlobalConfig.unregisterToolDisplay('web_search');
+        aparteGlobalConfig.registerToolDisplay('web_search', { quiet: false });
         renderer().update!(el, call({ status: 'pending' }));
         expect(document.body.querySelector('[data-segment-id="s1"]')!.hasAttribute('data-quiet')).toBe(false);
     });

@@ -226,10 +226,9 @@ export function createChat(options: ChatOptions): Chat {
     }, (error: unknown) => console.warn("[aparte] n8n: the chat's language could not be loaded; it stays in English.", error));
     // n8n's look in the icons too: a filled bubble on the button, a chevron once open.
     config.registerIcons(N8N_ICONS);
-    // A help chat is read, not quoted, and its tools are the workflow's business: no copy
-    // button under the answers, and a quiet line for a tool call should one be drawn.
+    // A help chat is read, not quoted: no copy button under the answers. A tool call, should
+    // one be drawn, is core's quiet line already.
     config.setBubbleActions({ copy: false });
-    config.registerToolDisplay('*', { quiet: true });
     // A visitor reads a sentence in their language; what to change in n8n goes to the console,
     // once, for the page's developer.
     const told = new Set<string>();
