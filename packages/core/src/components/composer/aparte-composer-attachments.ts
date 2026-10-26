@@ -32,8 +32,9 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * @cssprop [--aparte-attachments-max-height=140px] - Height cap on the strip; past it the
  *   tiles scroll instead of pushing the composer up.
  * @cssprop [--aparte-attachment-image-size=72px] - Tile edge. The stylesheet sets 56px on
- *   this element (the `:root` default is 72px, and the sent-message strip re-sets 40px on
- *   itself), so a theme-level value reaches neither strip — target
+ *   this element, and 72px on a coarse pointer (room for the extension between the ✕ and
+ *   the always-shown name; the `:root` default is 72px, and the sent-message strip re-sets
+ *   40px on itself), so a theme-level value reaches neither strip — target
  *   `aparte-composer-attachments` to resize these tiles.
  * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Tile corner radius.
  * @cssprop [--aparte-attachment-chip-bg=var(--aparte-surface-2)] - Tile background, seen
@@ -42,7 +43,10 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename colour on the hover overlay.
  * @cssprop [--aparte-thumb-name-scrim=linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0))] - Background behind the filename; a bottom-up black
  *   gradient by default, so the name stays legible over any picture.
- * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of that overlay.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of that overlay. On a coarse
+ *   pointer, where the name is always shown, the stylesheet re-sets it to `6px 4px 3px` on
+ *   `.aparte-thumb` itself, which wins over a value inherited from your theme: target
+ *   `.aparte-thumb` to change it there.
  * @cssprop [--aparte-thumb-remove-size=18px] - Diameter of the ✗ button.
  * @cssprop [--aparte-thumb-remove-inset=3px] - Its inset from the tile's top and right
  *   edges (physical `right`, so it does not flip in a right-to-left locale).

@@ -259,11 +259,11 @@ let checkpointIds = 0;
  * @cssprop [--aparte-content-line-height=var(--aparte-line-height-loose)] - Body line height.
  *
  * @cssprop [--aparte-attachments-max-height=140px] - Cap on the sent-attachment strip; past it the strip scrolls instead of growing.
- * @cssprop [--aparte-attachment-image-size=72px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
+ * @cssprop [--aparte-attachment-image-size=72px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation, and to 56px on a coarse pointer, where the file name is always shown.
  * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Attachment tile radius (shared with the composer's preview tiles).
  * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename overlaid on a tile.
  * @cssprop --aparte-thumb-name-scrim - Gradient behind that filename, so it stays legible over any image.
- * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay. On a coarse pointer, where the name is always shown, the stylesheet re-sets it to `6px 4px 3px` on `.aparte-thumb` itself, which wins over a value inherited from your theme: target `.aparte-thumb` to change it there.
  *
  * @cssprop [--aparte-action-bar-gap=var(--aparte-space-2)] - Gap between action buttons (and between the footer's two regions).
  * @cssprop [--aparte-action-bar-btn-size=var(--aparte-btn-size-sm)] - Square size of an action button (the recipe's small step); also the footer's reserved height.

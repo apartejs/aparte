@@ -625,6 +625,14 @@ describe('createN8nRunner: what a proxy or n8n refuses', () => {
         expect(error.code).toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
     });
 
+    it("keeps what a web page's status says: busy, unavailable, refused", async () => {
+        const page = (status: number) => respond('<!doctype html><title>x</title>', { status, contentType: 'text/html' });
+        expect((await fail(page(429))).code).toBe(AparteErrorCode.USAGE_RATE_LIMIT);
+        expect((await fail(page(503))).code).toBe(AparteErrorCode.PROVIDER_UNAVAILABLE);
+        expect((await fail(page(403))).code).toBe(AparteErrorCode.CONFIG_INVALID_KEY);
+        expect((await fail(page(405))).code).toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
+    });
+
     it('names the credentials a workflow waits for, and says when n8n could not check them', async () => {
         const gate = await fail(respond(JSON.stringify({ status: 'credential_connections_required', readyToExecute: false, credentials: [{ credentialId: '1', credentialName: 'OpenAI account' }, { credentialName: 'Slack' }] }), { status: 428 }));
         expect(gate.message).toBe('The n8n workflow cannot run until its credentials are connected (OpenAI account, Slack). Connect them in n8n, then try again.');

@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { AparteError } from '@aparte/core';
+import { AparteError, AparteErrorCode } from '@aparte/core';
 import { loadN8nHistory, n8nHistoryToMessages } from '../index.js';
 
 interface Recorded { status: number; contentType: string; body: string }
@@ -73,6 +73,9 @@ describe('loadN8nHistory', () => {
     it('fails clearly on an answer that is not JSON', async () => {
         const fetch = fakeFetch(new Response('<p>hello</p>', { status: 200 })).fetch;
         await expect(loadN8nHistory({ webhookUrl: URL_, sessionId: 's', fetch })).rejects.toThrow(/not JSON/);
+        // A wrong URL: set up so it cannot answer, as the runner says it.
+        await expect(loadN8nHistory({ webhookUrl: URL_, sessionId: 's', fetch: fakeFetch(new Response('<p>hello</p>', { status: 200 })).fetch }))
+            .rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_MISCONFIGURED });
     });
 
     it('reads no messages from a body without a data list', async () => {

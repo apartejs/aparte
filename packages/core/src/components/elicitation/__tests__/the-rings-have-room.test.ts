@@ -18,7 +18,7 @@ describe('the approval panel leaves the focus ring room', () => {
         expect(rule).toContain(`gap: var(--aparte-approval-gap, ${REACH} + var(--aparte-space-1)))`);
     });
 
-    it("pads its sides by at least the ring's reach, at any space unit", () => {
-        expect(sheet).toContain(`--aparte-elic-padding: var(--aparte-space-3) max(var(--aparte-space-2), ${REACH}));`);
+    it("pads every side by at least the ring's reach, at any space unit", () => {
+        expect(sheet).toContain(`--aparte-elic-padding: max(var(--aparte-space-3), ${REACH})) max(var(--aparte-space-2), ${REACH}));`);
     });
 });

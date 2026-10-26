@@ -61,7 +61,7 @@ export type AparteLocale = {
     errorTooLong?: string;
     /** PROVIDER_ERROR and PROVIDER_UNAVAILABLE, a failing or busy provider (default: "The assistant couldn’t answer. Try again in a moment."). */
     errorFailed?: string;
-    /** A request refused as malformed, a policy refusal, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
+    /** A request refused as malformed, a policy refusal, a provider set up so it cannot answer, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
     errorNoAnswer?: string;
     running: string; // Terminal running state
 

@@ -90,8 +90,12 @@ describe('the pending attachment ✕ — the sheet', () => {
         const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
         expect(coarse.match(/\.aparte-attachments\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-attachment-image-size:\s*56px/);
         expect(coarse.match(/\.aparte-thumb\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-thumb-name-padding:\s*6px 4px 3px/);
-        // And a file's extension label sits above the band, not under it.
-        expect(coarse.match(/\.aparte-thumb--file\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/align-items:\s*flex-start/);
+        // A sent file's extension sits above the band; only the sent strip's, since a pending
+        // tile's top corner is its ✕.
+        expect(coarse.match(/\.aparte-attachments \.aparte-thumb--file\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/align-items:\s*flex-start/);
+        expect(coarse).not.toMatch(/\n\s*\.aparte-thumb--file\s*\{/);
+        // A pending tile grows enough for its extension to clear both the ✕ and the band.
+        expect(coarse.match(/\n\s*aparte-composer-attachments\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-attachment-image-size:\s*72px/);
     });
 
     it('and gives it a finger-sized box there', () => {

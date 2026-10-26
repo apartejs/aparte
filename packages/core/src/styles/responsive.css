@@ -156,18 +156,25 @@
   }
 
   /* Shown outright, the name must not bury the tile. Its band was ~30px — three quarters of
-     a 40px sent tile, three letters wide, over the extension label. The sent strip's tiles
-     grow to the composer's 56px (a finger's target too) and the band tightens to ~21px. */
-  .aparte-attachments {
-    --aparte-attachment-image-size: 56px;
-  }
+     a 40px sent tile, three letters wide, over the extension label. The band tightens to
+     ~21px, re-set on the tile like the other knobs of this block: a theme targets
+     `.aparte-thumb` to change it here. */
   .aparte-thumb {
     --aparte-thumb-name-padding: 6px 4px 3px;
   }
-  /* The extension label sits in the upper half, above the band, rather than under it. */
-  .aparte-thumb--file {
+  /* A sent tile grows to 56px (a finger's target too), and a file's extension sits in its
+     upper half, above the band rather than under it. */
+  .aparte-attachments {
+    --aparte-attachment-image-size: 56px;
+  }
+  .aparte-attachments .aparte-thumb--file {
     align-items: flex-start;
     padding-block-start: var(--aparte-space-3);
+  }
+  /* A pending tile also carries its ✕, top right: at 72px its centred extension clears both
+     the ✕ and the band. At 56px it sat under one or the other. */
+  aparte-composer-attachments {
+    --aparte-attachment-image-size: 72px;
   }
 
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */

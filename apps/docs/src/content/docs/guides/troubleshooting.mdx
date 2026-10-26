@@ -150,7 +150,10 @@ A network failure is `NET_ERROR`, or `NET_OFFLINE` when the browser says it is o
 is `NET_TIMEOUT`; no provider selected is `CONFIG_NO_PROVIDER`, and one not registered
 `CONFIG_MISSING_KEY`. Anything else is `UNKNOWN_ERROR` — except under a runner that calls the
 model elsewhere (`createAgentStreamRunner`, an AG-UI runner), where a failed or cut run, and a
-status the table does not name, is `PROVIDER_ERROR`. `AparteError.from(error)` turns any error
+status the table does not name, is `PROVIDER_ERROR`. `@aparte/runner-n8n` raises
+`PROVIDER_MISCONFIGURED` for a workflow set up so it cannot answer: not published, waiting for
+credentials, streaming nothing, answering without a text field or through response nodes.
+`AparteError.from(error)` turns any error
 into one by the same rules, and `AparteError.codeForStatus(status)` is the table above, for a
 provider of yours. To change how the error looks, use `aparteGlobalConfig.setErrorRenderer`.
 

@@ -33,7 +33,9 @@ export async function httpError(response: Response, kind: N8nRequestKind): Promi
     if (text.startsWith('<') || (response.headers.get('content-type') ?? '').includes('text/html')) {
         return PROXY_STATUS.has(status)
             ? make(`A proxy in front of n8n gave up waiting (HTTP ${status}). The workflow may still be running — its execution list shows the result.`, AparteErrorCode.NET_TIMEOUT)
-            : make(`n8n answered HTTP ${status} with a web page instead of a chat answer. Check that the URL is the Chat Trigger's production URL, the one that ends in /chat.`, misconfigured);
+            // A status that says something keeps it (a 429, a 503, a refused key); an unmapped
+            // one, a 404 above all, is a wrong URL: set up so it cannot answer.
+            : make(`n8n answered HTTP ${status} with a web page instead of a chat answer. Check that the URL is the Chat Trigger's production URL, the one that ends in /chat.`, AparteError.codeForStatus(status) ?? misconfigured);
     }
 
     let body: { message?: unknown; hint?: unknown; status?: unknown; credentials?: unknown } = {};

@@ -99,7 +99,7 @@ export async function loadN8nHistory(options: N8nHistoryOptions): Promise<Aparte
     try {
         body = await response.json();
     } catch {
-        throw new AparteError('n8n answered the history request with something that is not JSON. Check that the URL is the Chat Trigger\'s production URL.', AparteErrorCode.PROVIDER_ERROR);
+        throw new AparteError('n8n answered the history request with something that is not JSON. Check that the URL is the Chat Trigger\'s production URL.', AparteErrorCode.PROVIDER_MISCONFIGURED);
     }
     const data = typeof body === 'object' && body !== null ? (body as { data?: unknown }).data : undefined;
     return n8nHistoryToMessages(Array.isArray(data) ? data : []);
