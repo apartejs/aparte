@@ -7,8 +7,6 @@ sidebar:
 ---
 
 import Cards from '../../../../components/content/Cards.astro';
-import Code from '../../../../components/content/Code.astro';
-import { CORE_VERSION } from '../../../../data/core-version';
 
 ## Connect the workflow
 
@@ -59,27 +57,6 @@ Attach a memory to the agent — *Simple Memory*, or any other — and n8n keeps
 session, keyed by the `sessionId` the page sends. To read a session back after a reload, set **Load
 Previous Session** to **From Memory** and connect the memory to the Chat Trigger as well as to the
 agent: with the memory on the agent only, n8n answers that request with an error 500.
-
-## From one script tag
-
-<Code lang="html" code={`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/dist/index.css">
-<aparte-chat style="height: 32rem"></aparte-chat>
-<script type="module">
-  import { AparteClient }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/+esm';
-  import { setupMarkedProvider }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/plugin-marked@${CORE_VERSION}/+esm';
-  import { createN8nRunner }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/runner-n8n@${CORE_VERSION}/+esm';
-
-  setupMarkedProvider(); // an agent answers in Markdown
-  new AparteClient({
-    streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
-  }).start();
-</script>`} />
-
-The same page as n8n's widget embed, with no build step: jsDelivr serves each package as one
-module. Give every `@aparte/*` URL the same version, so the page loads a single copy of core.
 
 ## Sessions and memory
 
