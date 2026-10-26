@@ -147,6 +147,15 @@
         "name"
       ]
     },
+    "aparte-launcher": {
+      "package": "@aparte/core",
+      "attributes": [
+        "breakpoint",
+        "data-sheet",
+        "label",
+        "open"
+      ]
+    },
     "aparte-model-selector": {
       "package": "@aparte/plugin-model-selector",
       "attributes": [
@@ -260,6 +269,7 @@
       "aparte-conversation-unpin",
       "aparte-edit",
       "aparte-feedback",
+      "aparte-launcher-toggle",
       "aparte-link-click",
       "aparte-message-aborted",
       "aparte-message-done",
@@ -313,6 +323,7 @@
       "AparteConversationListDirective",
       "AparteElicitationDirective",
       "AparteIconDirective",
+      "AparteLauncherDirective",
       "AparteOptgroupDirective",
       "AparteOptionDirective",
       "AparteProgressSpinnerDirective",
@@ -363,6 +374,7 @@
       "AparteError",
       "AparteErrorCode",
       "AparteIcon",
+      "AparteLauncher",
       "AparteMessageRepository",
       "AparteOptgroup",
       "AparteOption",
@@ -636,6 +648,8 @@
     "file",
     "generating",
     "inputPlaceholder",
+    "launcherClose",
+    "launcherOpen",
     "loading",
     "loadingConversation",
     "loadingConversations",
@@ -926,6 +940,11 @@
     "--aparte-kbd-min-width",
     "--aparte-kbd-padding",
     "--aparte-kbd-radius",
+    "--aparte-launcher-gap",
+    "--aparte-launcher-height",
+    "--aparte-launcher-offset",
+    "--aparte-launcher-radius",
+    "--aparte-launcher-width",
     "--aparte-line-height-loose",
     "--aparte-line-height-none",
     "--aparte-line-height-normal",
