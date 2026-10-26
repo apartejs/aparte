@@ -106,12 +106,14 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
  * Controls which action buttons are rendered in message bubbles.
  * Pass to `aparteGlobalConfig.setBubbleActions()` to customise or disable actions.
  *
- * **Only `copy` is on by default.** Core can copy text on its own; every other
- * button needs someone outside core to honor it — `AparteClient` (retry, edit) or
- * your own listener (feedback, info). A button nobody answers is a lie told to the
- * user, so aparté ships them off and you turn on what you handle:
+ * **Every button is off by default.** Copy is the one core honors alone — turn it on
+ * with `{ copy: true }`. Every other button needs someone outside core to honor it —
+ * `AparteClient` (retry, edit) or your own listener (feedback, info). A button nobody
+ * answers is a lie told to the user, so aparté ships them off and you turn on what you
+ * handle:
  *
  * ```ts
+ * aparteGlobalConfig.setBubbleActions({ copy: true });                // core copies on its own
  * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });   // you run AparteClient
  * ```
  *
@@ -123,7 +125,7 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
  *   is not consulted). Lets a theme match a specific product 1:1.
  */
 export interface AparteBubbleActionsConfig {
-    /** Copy message text to clipboard — the one action core honors alone. Default: true */
+    /** Copy message text to clipboard — the one action core honors alone. Default: false */
     copy?: boolean;
     /** Retry / regenerate the response (assistant bubbles). Needs a host to re-send. Default: false */
     retry?: boolean;

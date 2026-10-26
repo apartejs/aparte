@@ -57,19 +57,20 @@ export type AparteKeyProvider = (providerId: string) =>
     | Promise<string | Record<string, string> | undefined | null>;
 
 /**
- * The bubble-action defaults — `copy` on, everything else off.
+ * The bubble-action defaults — all off: a message carries no button until the app asks for one.
  *
- * The rule: an affordance core cannot honor end-to-end does not appear by
- * default. Core can copy text by itself; retry and edit only do something when a
- * host (`AparteClient`) re-sends and rewrites, and feedback/info only when the app
- * listens for `aparte-feedback` / `aparte-message-info`. Rendering them
- * unconditionally showed dead buttons in every display-only integration — ours
- * included, which is how we found it.
+ * Retry and edit only do something when a host (`AparteClient`) re-sends and rewrites,
+ * and feedback/info only when the app listens for `aparte-feedback` /
+ * `aparte-message-info`; rendering them unconditionally showed dead buttons in every
+ * display-only integration — ours included, which is how we found it. Copy is the one
+ * core could honor alone, and it is off too: a help widget or a support chat is read,
+ * not quoted, and a chat product that wants it turns it on in one line
+ * (`setBubbleActions({ copy: true })`).
  *
  * Exported so a consumer can read the defaults instead of hard-coding them.
  */
 export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
-    copy: true,
+    copy: false,
     retry: false,
     edit: false,
     feedback: false,
@@ -385,13 +386,13 @@ export class AparteConfig {
 
     /**
      * Configure which action buttons appear in message bubbles.
-     * Unset keys keep their defaults — see {@link APARTE_DEFAULT_BUBBLE_ACTIONS}: `copy`
-     * only, because every other button needs a host to honor it.
+     * Unset keys keep their defaults — see {@link APARTE_DEFAULT_BUBBLE_ACTIONS}: none, so
+     * a message carries no button until you turn one on.
      *
      * @example
+     * aparteGlobalConfig.setBubbleActions({ copy: true })              // core copies on its own
      * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
-     * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
-     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hides copy; calls merge, so anything turned on above stays on
+     * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback; calls merge, so copy stays on
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
      * aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */

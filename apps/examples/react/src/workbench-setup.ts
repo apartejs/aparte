@@ -66,8 +66,8 @@ function makePane(title: string, providerLabel: string, provider: AparteAIProvid
     // The artifact is a plugin: tool, `<artifact>` grammar and the Code/Preview card.
     setupArtifacts({}, config);
 
-    // Retry/edit are honoured by the client below, so they may be shown.
-    config.setBubbleActions({ retry: true, edit: true });
+    // Retry/edit are honoured by the client below, so they may be shown; copy core does alone.
+    config.setBubbleActions({ copy: true, retry: true, edit: true });
 
     // One client per config.
     //

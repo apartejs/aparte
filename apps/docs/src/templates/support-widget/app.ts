@@ -22,8 +22,6 @@ setupMarkedProvider();
 setupStreamingMarkdownProvider();
 // The transcript names the assistant's messages after it.
 aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en', roleNameAssistant: ASSISTANT_NAME });
-// A help chat is read, not quoted: no copy button under every reply.
-aparteGlobalConfig.setBubbleActions({ copy: false });
 // A plan is one of three: no free-text "Other…" under the choices.
 aparteGlobalConfig.setElicitationOptions({ allowOther: false });
 setupAskUser();

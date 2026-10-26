@@ -20,6 +20,7 @@ let writeText: ReturnType<typeof vi.fn>;
 beforeEach(() => {
     writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    aparteGlobalConfig.setBubbleActions({ copy: true });
 });
 
 afterEach(() => {

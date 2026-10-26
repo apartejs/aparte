@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 /**
  * Multi-instance isolation — the test that never existed.
@@ -36,10 +36,14 @@ function cfgWithCopyIcon(marker: string): AparteConfig {
     // built-in fallbacks (it used to hand back the raw provider, so every other
     // icon crashed and callers had to spread a full set in first).
     cfg.setIconProvider({ copy: () => `<svg data-marker="${marker}"></svg>` });
+    // Copy is off by default; these tests read its button, so it is turned on.
+    cfg.setBubbleActions({ copy: true });
     return cfg;
 }
 
 describe('multi-instance config isolation', () => {
+    // The global config draws the copy button too, for the bubbles outside any boundary.
+    beforeEach(() => aparteGlobalConfig.setBubbleActions({ copy: true }));
     afterEach(() => {
         document.body.innerHTML = '';
         aparteGlobalConfig.reset();
@@ -67,6 +71,7 @@ describe('multi-instance config isolation', () => {
         const cfgA = new AparteConfig();
         const cfgB = new AparteConfig();
         cfgA.setBubbleActions({ copy: false, retry: false, edit: false, feedback: false });
+        cfgB.setBubbleActions({ copy: true });
         attachConfig(hostA, cfgA);
         attachConfig(hostB, cfgB);
 

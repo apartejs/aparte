@@ -2072,8 +2072,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         // Explicit ordered set replaces the flag defaults for user bubbles.
         for (const a of config.user) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Flag-driven set. Only `copy` is on by default — see
-        // APARTE_DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
+        // Flag-driven set, all off by default — see APARTE_DEFAULT_BUBBLE_ACTIONS:
+        // edit needs a host to keep the new text.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
@@ -2082,8 +2082,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         // Explicit ordered set replaces the flag defaults (incl. the info button).
         for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Flag-driven set. Only `copy` is on by default — retry, feedback and
-        // info all need a host or a listener to mean anything. (Copy is rendered here
+        // Flag-driven set, all off by default — retry, feedback and info all need a
+        // host or a listener to mean anything. (Copy, once on, is rendered here
         // and HIDDEN by `_syncCopyAction` while there is no text to copy — a tool-only
         // turn used to offer a button that copied the empty string and said "Copied".)
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));

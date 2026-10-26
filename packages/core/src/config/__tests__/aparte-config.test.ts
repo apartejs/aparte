@@ -206,9 +206,9 @@ describe('aparteGlobalConfig', () => {
         // edit, feedback and info all need a host (AparteClient, or an app
         // listening for the event) to mean anything, so they ship off. Flipping
         // one back on is a deliberate decision — this test is what makes it one.
-        it('defaults to copy only — every host-dependent action ships off', () => {
+        it('defaults to no button — copy included, every action ships off', () => {
             const actions = aparteGlobalConfig.getBubbleActions();
-            expect(actions.copy).toBe(true);
+            expect(actions.copy).toBe(false);
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
             expect(actions.feedback).toBe(false);
@@ -219,7 +219,7 @@ describe('aparteGlobalConfig', () => {
             aparteGlobalConfig.setBubbleActions({ feedback: true });
             const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.feedback).toBe(true);
-            expect(actions.copy).toBe(true);    // unchanged
+            expect(actions.copy).toBe(false);   // unchanged
             expect(actions.retry).toBe(false);  // unchanged
             expect(actions.edit).toBe(false);   // unchanged
         });
@@ -229,7 +229,7 @@ describe('aparteGlobalConfig', () => {
             const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.retry).toBe(true);
             expect(actions.edit).toBe(true);
-            expect(actions.copy).toBe(true);
+            expect(actions.copy).toBe(false);
         });
 
         it('can disable individual actions', () => {
@@ -238,7 +238,7 @@ describe('aparteGlobalConfig', () => {
             const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
-            expect(actions.copy).toBe(true);
+            expect(actions.copy).toBe(false);
         });
 
         it('can disable all actions at once', () => {
@@ -386,13 +386,13 @@ describe('aparteGlobalConfig', () => {
 
         it('restores locale, bubble actions and sanitizer defaults', () => {
             const c = new AparteConfig();
-            c.setBubbleActions({ copy: false, retry: true, edit: true, feedback: true, info: true });
+            c.setBubbleActions({ copy: true, retry: true, edit: true, feedback: true, info: true });
             c.setHtmlSanitizer(null);
             c.reset();
             const actions = c.getBubbleActions();
-            // Back to the shipped set: copy only. reset() used to forget `info`
+            // Back to the shipped set: no button. reset() used to forget `info`
             // entirely — APARTE_DEFAULT_BUBBLE_ACTIONS is now the one source for both.
-            expect(actions.copy).toBe(true);
+            expect(actions.copy).toBe(false);
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
             expect(actions.feedback).toBe(false);

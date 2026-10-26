@@ -11,11 +11,12 @@ import Variant from '../../../components/catalog/Variant.astro';
 
 <Variant id="message-actions" />
 
-Every message can carry a row of actions. Copy is on by default, because the library can do it
-alone. The others only ask: retry and edit need something that re-sends and rewrites the
-conversation, feedback and details need a listener. So they stay off until your app says it
-handles them, with `aparteGlobalConfig.setBubbleActions()`, and a button never sits there
-answering to nobody.
+Every message can carry a row of actions, and none is on by default: turn on the ones your chat
+wants with `aparteGlobalConfig.setBubbleActions()`. Copy the library does alone, so
+`setBubbleActions({ copy: true })` is all it takes. The others only ask: retry and edit need
+something that re-sends and rewrites the conversation, feedback and details need a listener. So
+they stay off until your app says it handles them, and a button never sits there answering to
+nobody.
 
 `AparteClient` handles retry and edit for you, so with the client running,
 `setBubbleActions({ retry: true, edit: true })` is all it takes.
@@ -42,7 +43,7 @@ The details button appears only on a message that carries `usage`, and it only e
 import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteFeedbackEventDetail } from '@aparte/core';
 
-aparteGlobalConfig.setBubbleActions({ retry: true, edit: true, feedback: true });
+aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true, feedback: true });
 
 document.addEventListener('aparte-feedback', (e) => {
   const { messageId, value } = (e as CustomEvent<AparteFeedbackEventDetail>).detail;
@@ -52,7 +53,7 @@ document.addEventListener('aparte-feedback', (e) => {
 
 | Action | Default | Needs |
 | --- | --- | --- |
-| `copy` | on | nothing |
+| `copy` | off | nothing |
 | `retry` | off | a host that re-sends (`AparteClient`) |
 | `edit` | off | a host that keeps the new text (`AparteClient`) |
 | `feedback` | off | a listener for `aparte-feedback` |

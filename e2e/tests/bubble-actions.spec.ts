@@ -5,9 +5,9 @@
  * browser coverage: the unit tests assert the events fire, nothing proved the
  * click-to-outcome path works once a real client and a real transport are wired.
  *
- * What is under test is the OPT-IN, not a default: core ships `copy` alone, and
- * these examples call `setBubbleActions({ retry: true, edit: true })` because
- * they run an AparteClient that can honor both. `feedback` and the details (ⓘ)
+ * What is under test is the OPT-IN, not a default: core ships no button, and
+ * these examples call `setBubbleActions({ copy: true, retry: true, edit: true })`:
+ * copy core does alone, retry and edit their AparteClient honors. `feedback` and the details (ⓘ)
  * button are never declared, so they must stay absent — even though the mocked
  * reply carries a `usage`, which is what would otherwise summon the ⓘ.
  */

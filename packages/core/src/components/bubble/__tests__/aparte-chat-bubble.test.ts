@@ -718,8 +718,15 @@ describe('AparteChatBubble', () => {
             expect(footer(bubble).hidden).toBe(true);
         });
 
-        it('keeps both visible for the default set (copy)', () => {
+        it('hides both for the default set, which has no button', () => {
             bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e2', content: 'hi' });
+            expect(bar(bubble).hidden).toBe(true);
+            expect(footer(bubble).hidden).toBe(true);
+        });
+
+        it('keeps both visible once copy is turned on', () => {
+            aparteGlobalConfig.setBubbleActions({ copy: true });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e2b', content: 'hi' });
             expect(bar(bubble).hidden).toBe(false);
             expect(footer(bubble).hidden).toBe(false);
         });
@@ -752,7 +759,7 @@ describe('AparteChatBubble', () => {
         // The stylesheet floats an older message's footer out of the flow, except while
         // the branch picker shows: the flag it reads is written beside the picker's state.
         it('setTranscriptBusy disables retry, edit and the branch arrows, and restores them', () => {
-            aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+            aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true });
             bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e7', content: 'hi' });
             bubble.setSiblings(2, 1);
             const retry = bubble.querySelector('[data-action="retry"]') as HTMLButtonElement;
@@ -904,7 +911,7 @@ describe('AparteChatBubble', () => {
         it('is off by default, usage or not — nobody in core opens the popover', () => {
             bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'i0', content: 'hi' });
             withUsage(bubble);
-            expect(actionsOf(bubble)).toEqual(['copy']);
+            expect(actionsOf(bubble)).toEqual([]);
         });
 
         it('is requestable in an explicit per-role set', () => {
@@ -1001,6 +1008,7 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         it('uses a custom shell and the native machinery still populates its region hooks', () => {
+            aparteGlobalConfig.setBubbleActions({ copy: true });
             aparteGlobalConfig.setBubbleShellRenderer(({ role, name }) =>
                 `<div class="aparte-message custom-shell" data-role="${role}">`
                 + `<div class="aparte-avatar"></div>`
