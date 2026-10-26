@@ -123,7 +123,10 @@ A tool row's notes are keys too: `toolRejectedSaid`, `toolRefusedByPolicy`,
 `toolNotRunAfterRefusal`, `toolTimedOut`, `toolUnavailable`, `toolNoApprover` and `toolTurnLimit`.
 So are the reasoning block's `thought` ("Thought") and `thoughtFor` (shown with `showDuration`), and two read by plugins:
 `questionDeclined` (`@aparte/plugin-ask-user`) and `artifactNotCreated`
-(`@aparte/plugin-artifacts`). Every language of `@aparte/locales` translates them all.
+(`@aparte/plugin-artifacts`). So are the sentences a failed turn reads as, one per family of error
+codes: `errorUnreachable`, `errorTimeout`, `errorRefused`, `errorRateLimited`, `errorTooLong` and
+`errorFailed` (see [the error card](/components/error/#what-the-card-says)). Every language of
+`@aparte/locales` translates them all.
 
 `tag` and `direction` are not words:
 

@@ -5,6 +5,7 @@
  * `../segment-renderers.ts`.
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
+import { errorSentence } from '../../utils/error-sentence.js';
 import { contextConfig } from '../../config/index.js';
 import type {
     AparteSegmentRenderer,
@@ -30,28 +31,37 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
             }
             return out;
         }
+        // A sentence for the person, chosen by the code; the message stays on the segment
+        // (and went to the console when the turn failed) for the developer.
+        const cfg = contextConfig();
+        const message = errorSentence(segment.code, (key) => cfg.t(key)) ?? segment.content;
         return `
         <div class="aparte-segment aparte-alert aparte-alert--danger aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}"${segment.code ? ` data-error-code="${escapeAttr(segment.code)}"` : ''}>
-            <span class="aparte-alert__icon">${contextConfig().getIcon('error') || '⚠'}</span>
+            <span class="aparte-alert__icon">${cfg.getIcon('error') || '⚠'}</span>
             <div class="aparte-alert__body">
-                <div class="aparte-alert__title">${escapeHtml(contextConfig().t('error'))}</div>
-                <div class="aparte-alert__message">${escapeHtml(segment.content)}</div>
+                <div class="aparte-alert__title">${escapeHtml(cfg.t('error'))}</div>
+                <div class="aparte-alert__message">${escapeHtml(message)}</div>
                 ${segment.details ? `<pre class="aparte-segment-error__details">${escapeHtml(segment.details)}</pre>` : ''}
             </div>
         </div>
     `;
     },
     /**
-     * The icon and the heading (`locale.error`).
+     * The icon, the heading (`locale.error`) and a sentence chosen by the code.
      *
-     * Not the message: that is the model's or the transport's text, in whatever
-     * language it arrived in. Relabelling it would be inventing content.
+     * Not a message the error keeps as its own: that is the app's, a setup error's or the
+     * turn limit's text, in the language it was written in. Relabelling it would be
+     * inventing content.
      */
-    relabel: (element) => {
+    relabel: (element, segment) => {
+        const cfg = contextConfig();
         const wrap = element.querySelector('.aparte-alert__icon');
-        if (wrap) wrap.innerHTML = contextConfig().getIcon('error') || '⚠';
+        if (wrap) wrap.innerHTML = cfg.getIcon('error') || '⚠';
         const title = element.querySelector('.aparte-alert__title');
-        if (title) title.textContent = contextConfig().t('error');
+        if (title) title.textContent = cfg.t('error');
+        const sentence = errorSentence(segment.code, (key) => cfg.t(key));
+        const message = element.querySelector('.aparte-alert__message');
+        if (message && sentence !== undefined) message.textContent = sentence;
     },
 
     getStyles: () => ``

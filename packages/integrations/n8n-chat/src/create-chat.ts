@@ -229,26 +229,8 @@ export function createChat(options: ChatOptions): Chat {
     // A help chat is read, not quoted: no copy button under the answers. A tool call, should
     // one be drawn, is core's quiet line already.
     config.setBubbleActions({ copy: false });
-    // A visitor reads a sentence in their language; what to change in n8n goes to the console,
-    // once, for the page's developer.
-    const told = new Set<string>();
-    config.setErrorRenderer(({ message, code }) => {
-        if (!told.has(message)) {
-            told.add(message);
-            console.warn(`[aparte] n8n: ${message}`);
-        }
-        const text = code === 'NET_ERROR' || code === 'NET_OFFLINE' ? strings.errorUnreachable
-            : code === 'NET_TIMEOUT' ? strings.errorTimeout
-                : strings.errorFailed;
-        const alert = el('div', 'aparte-segment aparte-alert aparte-alert--danger aparte-segment-error');
-        if (code) alert.setAttribute('data-error-code', code);
-        const icon = el('span', 'aparte-alert__icon');
-        icon.innerHTML = config.getIcon('error');
-        const body = el('div', 'aparte-alert__body');
-        body.append(el('div', 'aparte-alert__message', text));
-        alert.append(icon, body);
-        return alert;
-    });
+    // An error is core's: a sentence in the visitor's language, chosen by its code, and the
+    // message (what to change in n8n) on the console for the page's developer.
     setupMarkedStreamingProvider(undefined, config);
 
     // ── The markup ─────────────────────────────────────────────────────────────────────

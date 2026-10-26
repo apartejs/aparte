@@ -45,6 +45,22 @@ export type AparteLocale = {
     /** The quiet note under a reply the model stopped at its length limit, when the provider said so (default: "Cut off at the model's length limit.") */
     responseCutOff?: string;
     error: string;
+    /**
+     * What a person reads in place of an error's own message, chosen by its code; the
+     * message itself goes to the console. NET_OFFLINE and NET_ERROR (default: "The
+     * assistant can’t be reached right now. Try again in a moment.").
+     */
+    errorUnreachable?: string;
+    /** NET_TIMEOUT (default: "The answer took too long. Try again in a moment."). */
+    errorTimeout?: string;
+    /** CONFIG_INVALID_KEY, a 401 or a 403 (default: "The model provider refused the request. Check the API key and its access."). */
+    errorRefused?: string;
+    /** USAGE_RATE_LIMIT, a 429 (default: "Too many requests right now. Try again in a moment."). */
+    errorRateLimited?: string;
+    /** USAGE_CONTEXT_EXCEEDED, once the conversation no longer fits the model (default: "This conversation is too long for the model. Start a new one."). */
+    errorTooLong?: string;
+    /** A provider's failure, a bad request, a policy refusal, an unknown error (default: "The assistant couldn’t answer. Try again in a moment."). */
+    errorFailed?: string;
     running: string; // Terminal running state
 
     // --- Terminal ---
@@ -615,6 +631,12 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     typing: "Typing",
     responseCutOff: "Cut off at the model's length limit.",
     error: "Error",
+    errorUnreachable: "The assistant can’t be reached right now. Try again in a moment.",
+    errorTimeout: "The answer took too long. Try again in a moment.",
+    errorRefused: "The model provider refused the request. Check the API key and its access.",
+    errorRateLimited: "Too many requests right now. Try again in a moment.",
+    errorTooLong: "This conversation is too long for the model. Start a new one.",
+    errorFailed: "The assistant couldn’t answer. Try again in a moment.",
     running: "Running...",
     run: "Run",
     file: "File",

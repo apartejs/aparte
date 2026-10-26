@@ -2219,6 +2219,9 @@ export class AparteClient {
             content: error.message,
             code: error.code,
         };
+        // The person reads a sentence the renderer picks by the code; what a developer
+        // needs to fix is this message, so it goes to the console, once, when it happens.
+        console.warn(`[aparte] The reply ended on an error (${error.code}): ${error.message}`);
 
         if (target.updateMessage) {
             /*

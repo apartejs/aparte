@@ -18,8 +18,31 @@ When a turn fails (the provider rejects the request, the network drops, a limit 
 failure is an `error` segment in the reply that failed, not a toast somewhere else on the page.
 The reader sees which question went unanswered.
 
-With `AparteClient`, you write nothing: a failed turn gets this card, its message from the error, and the full error still reaches
-your code on the `aparte-message-error` event.
+With `AparteClient`, you write nothing: a failed turn gets this card, and the full error still
+reaches your code on the `aparte-message-error` event.
+
+## What the card says
+
+The reader gets one plain sentence in their language, chosen by the error's code, never the raw
+message of the transport or the provider: that one is written for a developer, in English, and
+often quotes a status or a JSON body. The message stays on the segment, so storage keeps it, and
+the client puts it on the console when the turn fails.
+
+| Code | Locale key | English |
+| --- | --- | --- |
+| `NET_OFFLINE`, `NET_ERROR` | `errorUnreachable` | The assistant can’t be reached right now. Try again in a moment. |
+| `NET_TIMEOUT` | `errorTimeout` | The answer took too long. Try again in a moment. |
+| `CONFIG_INVALID_KEY` (a 401 or a 403) | `errorRefused` | The model provider refused the request. Check the API key and its access. |
+| `USAGE_RATE_LIMIT` (a 429) | `errorRateLimited` | Too many requests right now. Try again in a moment. |
+| `USAGE_CONTEXT_EXCEEDED` | `errorTooLong` | This conversation is too long for the model. Start a new one. |
+| `USAGE_BAD_REQUEST`, `PROVIDER_ERROR`, `PROVIDER_UNAVAILABLE`, `PROVIDER_POLICY`, `UNKNOWN_ERROR` | `errorFailed` | The assistant couldn’t answer. Try again in a moment. |
+
+An error keeps its own words when they were written for the reader or for the developer setting
+the chat up: the turn limit (`MAX_TURNS_EXCEEDED`, already in the reader's language), the setup
+errors (`CONFIG_NO_PROVIDER`, `CONFIG_MISSING_KEY`, `CONFIG_INVALID_MODEL`), and an error segment
+your app or a plugin adds with a code of its own or none. Every language of
+[`@aparte/locales`](/guides/localization/) translates the six sentences, and `extendLocale`
+changes them.
 
 ## Variants
 
@@ -31,7 +54,7 @@ The card is added after what had already streamed; the partial reply stays.
 
 ## Customize
 
-`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the `message`, the
+`aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the error's own `message` (not the sentence), the
 `details` an app chose to show and the `code` and returns an element or an HTML string, for a product that adds a "Try again" button
 or a link to its status page:
 
