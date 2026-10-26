@@ -113,4 +113,39 @@ describe('a config-scoped client answers only its own chats', () => {
         }));
         await vi.waitFor(() => expect(calls).toEqual(['providerGlobal']));
     });
+
+    it("a client on the GLOBAL config leaves alone a chat another started client claims — a widget beside the page's chat", async () => {
+        aparteGlobalConfig.registerAIProvider(recordingProvider('pageModel', calls));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'pageModel', defaultModel: 'pageModel-model' });
+        const page = new AparteClient({ autoRegister: false });
+        page.start();
+
+        const host = document.createElement('div');
+        host.id = 'widget';
+        host.innerHTML = '<aparte-chat-viewport></aparte-chat-viewport>';
+        document.body.appendChild(host);
+        const config = new AparteConfig();
+        config.registerAIProvider(recordingProvider('widgetModel', calls));
+        config.setModelConfig({ defaultProvider: 'widgetModel', defaultModel: 'widgetModel-model' });
+        attachConfig(host, config);
+        const widget = new AparteClient({ config, autoRegister: false, scopeToTargetId: 'widget' });
+        widget.start();
+
+        const send = () => host.dispatchEvent(new CustomEvent('aparte-send', {
+            detail: { content: 'a visitor question', timestamp: Date.now(), targetId: 'widget' }, bubbles: true, composed: true,
+        }));
+        send();
+        await vi.waitFor(() => expect(calls.length).toBeGreaterThan(0));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(calls, "the page's model never reads the widget's visitor").toEqual(['widgetModel']);
+
+        // Once the widget's client stops, nothing claims the chat: the page's client is its only answer.
+        widget.stop();
+        calls.length = 0;
+        send();
+        // (An earlier test's global client, never stopped, may answer beside ours.)
+        await vi.waitFor(() => expect(calls).toContain('pageModel'));
+        expect(calls).not.toContain('widgetModel');
+        page.stop();
+    });
 });

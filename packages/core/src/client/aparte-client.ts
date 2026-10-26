@@ -258,6 +258,13 @@ export interface AparteClientOptions {
  */
 const warnedUninlinedFiles = new Set<string>();
 
+/**
+ * The instance configs a started client answers for, with how many clients do. A client on
+ * the global config yields a chat whose boundary holds one of these: that chat is the other
+ * client's, even though a client on the global config otherwise answers everything.
+ */
+const claimedConfigs = new Map<AparteConfig, number>();
+
 /** What a chat looks like from outside: the shell, the viewport, or a host that says so. */
 const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
 
@@ -367,9 +374,17 @@ export class AparteClient {
          * not expose it.
          *
          * A client on the GLOBAL config is deliberately not narrowed: it answers
-         * everything, which is every single-chat app.
+         * everything, which is every single-chat app — except a chat whose boundary
+         * holds a config another started client answers for (`claimedConfigs`). A widget
+         * mounted with its own config beside a page's chat would otherwise get two
+         * answers, and the page's model would read the visitor's message.
          */
-        if (this._config === aparteGlobalConfig) return true;
+        if (this._config === aparteGlobalConfig) {
+            if (claimedConfigs.size === 0) return true;
+            const claimed = this._resolveTarget(detail?.targetId, e);
+            const owner = claimed ? resolveConfig(claimed) : aparteGlobalConfig;
+            return owner === aparteGlobalConfig || !claimedConfigs.has(owner);
+        }
         const target = this._resolveTarget(detail?.targetId, e);
         if (!target) return true;
         const owner = resolveConfig(target);
@@ -390,6 +405,8 @@ export class AparteClient {
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
     private readonly _config: AparteConfig;
+    /** Whether this client, started on an instance config, counts in `claimedConfigs`. */
+    private _claims = false;
 
     /**
      * A `keyResolver` becomes a key source on the client's config at once, before `start()`,
@@ -491,6 +508,10 @@ export class AparteClient {
         // A client that was stopped and started again signs requests with its own
         // key again: `stop()` takes the resolver off the config.
         this._registerKeyResolver();
+        if (this._config !== aparteGlobalConfig && !this._claims) {
+            this._claims = true;
+            claimedConfigs.set(this._config, (claimedConfigs.get(this._config) ?? 0) + 1);
+        }
         if (!this._boundHandler) {
             this._setupListeners();
         }
@@ -551,6 +572,12 @@ export class AparteClient {
         // Before the early return: a client that was never `start()`ed can still
         // have a stream, because `_handleSend` can be invoked directly.
         this.abort();
+        if (this._claims) {
+            this._claims = false;
+            const left = (claimedConfigs.get(this._config) ?? 1) - 1;
+            if (left > 0) claimedConfigs.set(this._config, left);
+            else claimedConfigs.delete(this._config);
+        }
         // Before the early return as well: the key source is put on the config in
         // the CONSTRUCTOR, so a client that never started still holds one, and a
         // resolver left behind keeps answering for whatever mounts next.
