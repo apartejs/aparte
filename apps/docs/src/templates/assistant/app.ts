@@ -95,8 +95,9 @@ async function main(): Promise<void> {
         details: sourcesOf,
     });
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-    // Retry and edit are honoured by the client below, so the bubbles may offer them.
-    aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+    // Retry and edit are honoured by the client below, so the bubbles may offer them; copy
+    // core does alone, and an assistant's answers are worth copying.
+    aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true });
     new AparteClient().start();
 
     const chat = document.querySelector<HTMLElement>('.assistant aparte-chat');

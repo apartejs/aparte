@@ -180,9 +180,11 @@ put down on purpose, so a future session does not re-derive the answer from scra
    shipping a raw-completion provider (`provider-llamacpp`), which gives it a consumer, a test
    surface (byte-stable prefix across turns) and a home — not a duplication count.
 8. **A visible affordance core cannot honour end-to-end is not enabled by default.** Three
-   tiers decide it: (a) honoured by core alone → **on** (`copy`, the `‹1/2›` picker, the
+   tiers decide it: (a) honoured by core alone → **on** (the `‹1/2›` picker, the
    waiting indicator, the stop button; the model selector too once an app places it — it is a
-   plugin, not part of the default composition); (b) honoured only by an optional
+   plugin, not part of the default composition). `copy` is the exception the other way: core
+   honours it alone, yet it is **off** since 0.27.1 — a help widget or a support chat is read,
+   not quoted, and a chat product turns it on in one line; (b) honoured only by an optional
    host — `AparteClient` or an app listening for the event → **off**, with one lever to turn
    it on (`setBubbleActions` for the action bar, `setHostHandlers` for everything else);
    (c) rendered only inside content the app produced (segments) → follows (b): a model

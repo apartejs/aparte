@@ -153,7 +153,7 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
   // Copy works on its own. Retry and edit need something that re-sends and rewrites
   // (AparteClient does both), and feedback needs a listener: declare what your app handles.
   const { aparteGlobalConfig } = window.aparte;
-  aparteGlobalConfig.setBubbleActions({ retry: true, edit: true, feedback: true });
+  aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true, feedback: true });
   document.addEventListener('aparte-feedback', (e) => console.log('feedback', e.detail));
 </script>`,
     },

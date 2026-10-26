@@ -36,7 +36,7 @@ const openEditor = (el: HTMLElement): HTMLElement => {
 };
 
 describe('leaving the inline editor returns the focus to the action bar', () => {
-    beforeEach(() => aparteGlobalConfig.setBubbleActions({ edit: true }));
+    beforeEach(() => aparteGlobalConfig.setBubbleActions({ copy: true, edit: true }));
     afterEach(() => {
         aparteGlobalConfig.reset();
         document.body.innerHTML = '';

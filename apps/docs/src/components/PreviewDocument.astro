@@ -320,7 +320,7 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
              */
             /*
              * The body's box is not always the bottom of what is on screen: an open
-             * `<aparte-select>` drops its list in an absolutely positioned layer that adds
+             * `<aparte-select>` drops its list in a `fixed` layer that adds
              * nothing to the body's height, so the frame stayed the height of the closed
              * control and the reader saw the list cut off at the frame's edge. The height
              * reported is the body's box or the lowest edge of anything painted inside it,
@@ -353,9 +353,21 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
                 }
                 return bottom;
             };
+            /*
+             * …and nothing inside a launcher. `<aparte-launcher>` hangs from the bottom of THIS
+             * frame's window, so its box is placed and sized by the frame's height, and measuring
+             * it feeds that height back into itself: the sheet fills the window, its opening slide
+             * puts it a few pixels lower, and the frame grew by those pixels on every open and fell
+             * back to the body on every close (the maintainer's report: the frame "changes size
+             * when it opens, and when it closes"). A launcher demo gives itself the room in its own
+             * markup, as both do. Named rather than detected: the select list is `fixed` too, but
+             * placed under its trigger, and `getComputedStyle` reports a positioned box's `bottom`
+             * in pixels either way, so the two cannot be told apart by their style.
+             */
             const height = () => {
                 let bottom = document.body.getBoundingClientRect().height;
                 for (const el of document.body.querySelectorAll('*')) {
+                    if (el.closest('aparte-launcher')) continue;
                     const r = el.getBoundingClientRect();
                     // The clamp runs only on a candidate that would raise the answer, so
                     // it costs a handful of walks per pass and never lowers the floor.

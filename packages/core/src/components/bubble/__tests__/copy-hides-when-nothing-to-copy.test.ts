@@ -7,13 +7,16 @@
  * "Copied". The header already refuses to paint a name and a time for an empty turn —
  * the same guard, applied to the one action whose meaning depends on there being text.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import '../aparte-chat-bubble.js';
+import { aparteGlobalConfig } from '../../../config/aparte-config.js';
 import type { AparteSegment } from '../../../types/index.js';
 
 type BubbleEl = HTMLElement & { setSegments(segments: AparteSegment[]): void };
 
-afterEach(() => { document.body.innerHTML = ''; });
+// Copy is off by default; this file is about when its button shows once it is on.
+beforeEach(() => aparteGlobalConfig.setBubbleActions({ copy: true }));
+afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
 function mount(segments: AparteSegment[]): BubbleEl {
     const bubble = document.createElement('aparte-chat-bubble') as BubbleEl;

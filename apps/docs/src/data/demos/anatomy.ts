@@ -38,7 +38,7 @@ export const ANATOMY_DEMOS: DemoEntry[] = [
 <script>
   const { aparteGlobalConfig } = window.aparte;
   aparteGlobalConfig.setAvatarProvider({ render(role, host) { host.textContent = role === 'user' ? 'P' : 'A'; } });
-  aparteGlobalConfig.setBubbleActions({ retry: true, feedback: true });
+  aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, feedback: true });
   // The second of two versions, so the picker is drawn.
   document.querySelector('aparte-chat-bubble').setSiblings(2, 1);
 </script>`,
