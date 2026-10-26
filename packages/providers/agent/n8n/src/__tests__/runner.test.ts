@@ -587,11 +587,16 @@ describe('createN8nRunner: sessions', () => {
 });
 
 describe('createN8nRunner: files the client hands over', () => {
+    // A picked file as the runner reads it: a Blob with a name. Node has a global `File` only
+    // from 20, and the node-floor job runs this package's tests on 18, which it supports.
+    const picked = (parts: BlobPart[], name: string, type: string): File =>
+        Object.assign(new Blob(parts, { type }), { name }) as unknown as File;
+
     it('uploads every file picked, whatever its type, under their own names, instead of the inlined images', async () => {
         const { fetch, calls } = fakeFetch(replay(fixture('v2.44-stream-text-file')));
         const events: Event[] = [];
-        const pdf = new File([new Uint8Array([37, 80, 68, 70])], 'menu.pdf', { type: 'application/pdf' });
-        const txt = new File(['- 2 baguettes'], 'order.txt', { type: 'text/plain' });
+        const pdf = picked([new Uint8Array([37, 80, 68, 70])], 'menu.pdf', 'application/pdf');
+        const txt = picked(['- 2 baguettes'], 'order.txt', 'text/plain');
         const runner = createN8nRunner({ webhookUrl: 'https://n8n.example.com/webhook/abc/chat', fetch, sessionId: 's' });
         await runner({
             messageId: 'm', providerId: 'n8n', signal: new AbortController().signal, emitter: (e: Event) => events.push(e),
