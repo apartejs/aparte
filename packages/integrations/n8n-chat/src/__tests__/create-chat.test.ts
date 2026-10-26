@@ -71,7 +71,8 @@ describe('createChat: the widget, as n8n draws it', () => {
         expect(chat.element.querySelector('.aparte-n8n__title')?.textContent).toBe('Hi there! 👋');
         expect(chat.element.querySelector('.aparte-n8n__subtitle')?.textContent).toBe("Start a chat. We're here to help you 24/7.");
         expect(chat.element.querySelector('aparte-composer')?.getAttribute('placeholder')).toBe('Type your question..');
-        expect(chat.element.querySelector('.aparte-n8n__close')?.getAttribute('aria-label')).toBe('Close chat');
+        // n8n's widget draws no close button unless asked: the button in the corner closes it.
+        expect(chat.element.querySelector('.aparte-n8n__close')).toBeNull();
         expect(chat.element.querySelector('.aparte-n8n__window')?.getAttribute('aria-labelledby')).toBe(chat.element.querySelector('.aparte-n8n__title')?.id);
         expect(contents(chat)).toEqual([['assistant', 'Hi there! 👋'], ['assistant', 'My name is Nathan. How can I assist you today?']]);
         // n8n's widget writes an h1 into the page; this one writes no heading at all.
@@ -123,8 +124,10 @@ describe('createChat: the widget, as n8n draws it', () => {
         expect(button().querySelector('svg path')?.getAttribute('d')).toMatch(/^M5\.5 3\.5h13/);
         chat.open();
         expect(button().querySelector('svg path')?.getAttribute('d')).toBe('m6 9.5 6 6 6-6');
-        // The page's own config draws its own icons.
-        expect(document.body.querySelector('.aparte-n8n__close aparte-icon')?.getAttribute('name')).toBe('close');
+        // The header's close button keeps the chat's own close icon.
+        const withClose = mount({ loadPreviousSession: false, showWindowCloseButton: true, target: '#b' });
+        expect(withClose.element.querySelector('.aparte-n8n__close')?.getAttribute('aria-label')).toBe('Close chat');
+        expect(withClose.element.querySelector('.aparte-n8n__close aparte-icon')?.getAttribute('name')).toBe('close');
     });
 
     it('speaks a language aparté does not ship, from the locale it is given', async () => {
@@ -181,7 +184,8 @@ describe('createChat: the conversation', () => {
         chat.send('What do you sell?');
         await vi.waitFor(() => expect(after).toHaveBeenCalled());
         expect(before).toHaveBeenCalledWith('What do you sell?');
-        expect(after).toHaveBeenCalledWith('What do you sell?', 'We sell sourdough and croissants.');
+        // Shaped like both of n8n's answers: a whole one's `output`, a streamed one's `message`.
+        expect(after).toHaveBeenCalledWith('What do you sell?', { output: 'We sell sourdough and croissants.', message: 'We sell sourdough and croissants.', hasReceivedChunks: true });
         expect(sent[0]!.body).toEqual({ action: 'sendMessage', sessionId: chat.sessionId, chatInput: 'What do you sell?', metadata: { page: '/shop' } });
         await vi.waitFor(() => expect(contents(chat).at(-1)).toEqual(['assistant', 'We sell sourdough and croissants.']));
         expect(contents(chat).at(-2)).toEqual(['user', 'What do you sell?']);
@@ -315,7 +319,7 @@ describe('createChat: the session, as n8n keeps it', () => {
         const after = vi.fn();
         const chat = mount({ fetch: own as unknown as typeof fetch, afterMessageSent: after });
         chat.send('hi');
-        await vi.waitFor(() => expect(after).toHaveBeenCalledWith('hi', 'Through your fetch.'));
+        await vi.waitFor(() => expect(after).toHaveBeenCalledWith('hi', expect.objectContaining({ output: 'Through your fetch.' })));
         expect(own.mock.calls.map((c) => JSON.parse(String(c[1].body))['action'])).toEqual(['loadPreviousSession', 'sendMessage']);
         expect(global).not.toHaveBeenCalled();
     });
@@ -325,5 +329,96 @@ describe('createChat: the session, as n8n keeps it', () => {
         const chat = mount({ loadPreviousSession: false });
         chat.unmount();
         expect(document.querySelector('.aparte-n8n')).toBeNull();
+    });
+});
+
+describe('createChat: on a page with other chats, and while an answer is on its way', () => {
+    /** A fetch whose answers wait until the test lets them go, so a turn can be caught in flight. */
+    function heldN8n() {
+        const sent: Record<string, unknown>[] = [];
+        const releases: (() => void)[] = [];
+        const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+            const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+            if (body['action'] === 'loadPreviousSession') return new Response('{"data":[]}', { status: 200 });
+            sent.push(body);
+            await new Promise<void>((resolve, reject) => {
+                releases.push(resolve);
+                init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+            });
+            return new Response(stream(`Answer to ${String(body['chatInput'])}.`), { status: 200 });
+        });
+        vi.stubGlobal('fetch', fetch);
+        // Lets every answer waiting go: an aborted one ignores it.
+        return { sent, release: () => { for (const go of releases.splice(0)) go(); }, fetch };
+    }
+
+    it("never answers the page's own chat, which belongs to the page", async () => {
+        const { fetch } = n8n();
+        mount({ loadPreviousSession: false });
+        const page = document.createElement('aparte-chat');
+        page.id = 'page-chat';
+        document.body.append(page);
+        page.dispatchEvent(new CustomEvent('aparte-send', { detail: { content: 'a question for the page', timestamp: Date.now(), targetId: 'page-chat' }, bubbles: true, composed: true }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('waits for the answer on its way before sending, and leaves what the person is typing alone', async () => {
+        const held = heldN8n();
+        const chat = mount({ loadPreviousSession: false });
+        const composer = chat.element.querySelector('aparte-composer') as HTMLElement & { setValue(v: string): void; getValue?: () => string; value?: string };
+        chat.send('first');
+        await vi.waitFor(() => expect(held.sent).toHaveLength(1));
+        composer.setValue('my draft');
+        chat.send('second');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(held.sent).toHaveLength(1);
+        held.release();
+        await vi.waitFor(() => expect(held.sent.map((b) => b['chatInput'])).toEqual(['first', 'second']));
+        held.release();
+        await vi.waitFor(() => expect(contents(chat).at(-1)).toEqual(['assistant', 'Answer to second.']));
+        expect(chat.element.querySelector('aparte-composer-input')?.textContent ?? '').toContain('my draft');
+    });
+
+    it('stops the answer on its way on reset, and the next message starts the new session', async () => {
+        const held = heldN8n();
+        const after = vi.fn();
+        const chat = mount({ loadPreviousSession: false, afterMessageSent: after });
+        chat.send('first');
+        await vi.waitFor(() => expect(held.sent).toHaveLength(1));
+        const before = chat.sessionId;
+        chat.reset();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        chat.send('again');
+        await vi.waitFor(() => expect(held.sent).toHaveLength(2));
+        expect(held.sent[1]!['sessionId']).toBe(chat.sessionId);
+        expect(chat.sessionId).not.toBe(before);
+        held.release();
+        await vi.waitFor(() => expect(after).toHaveBeenCalledTimes(1));
+        expect(after).toHaveBeenCalledWith('again', expect.anything());
+    });
+
+    it('sends nothing for a message whose beforeMessageSent was still running when the conversation was reset', async () => {
+        const held = heldN8n();
+        let letGo = () => {};
+        const chat = mount({ loadPreviousSession: false, beforeMessageSent: () => new Promise<void>((resolve) => { letGo = resolve; }) });
+        chat.send('old');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        chat.reset();
+        letGo();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(held.sent).toHaveLength(0);
+    });
+
+    it('keeps a finished answer finished when afterMessageSent throws, and says so on the console', async () => {
+        n8n({ reply: 'All good.' });
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const chat = mount({ loadPreviousSession: false, afterMessageSent: () => { throw new Error('analytics down'); } });
+        chat.send('hello');
+        await vi.waitFor(() => expect(warn).toHaveBeenCalledWith('[aparte] n8n: afterMessageSent threw:', expect.any(Error)));
+        const last = messagesOf(chat).at(-1)!;
+        expect(textOf(last)).toBe('All good.');
+        expect(last.status).not.toBe('error');
+        warn.mockRestore();
     });
 });

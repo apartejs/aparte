@@ -7,5 +7,5 @@
  * `theme.css` is the theme alone, for a chat you compose yourself.
  */
 export { createChat } from './create-chat.js';
-export type { Chat, ChatOptions } from './create-chat.js';
+export type { Chat, ChatOptions, ChatResponse } from './create-chat.js';
 export type { ChatStrings } from './strings.js';

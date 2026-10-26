@@ -39,9 +39,9 @@ export interface ChatOptions {
      */
     mode?: 'window' | 'fullscreen';
     /**
-     * The ✕ in the header, in window mode. It closes the chat; on a phone, where the open
-     * chat covers the page, it is the way back.
-     * @default true
+     * A ✕ in the header, in window mode. Without it the button in the corner closes the
+     * chat, and on a phone, where the open chat covers the page, it moves to the top corner.
+     * @default false, as n8n's widget
      */
     showWindowCloseButton?: boolean;
     /** Show a screen with a "New Conversation" button before the chat. @default false */
@@ -91,8 +91,13 @@ export interface ChatOptions {
     enableStreaming?: boolean;
     /** Called with the message before it is sent, and awaited. */
     beforeMessageSent?: (message: string) => void | Promise<void>;
-    /** Called with the message and the answer's text once the answer is complete. */
-    afterMessageSent?: (message: string, response?: string) => void | Promise<void>;
+    /**
+     * Called with the message and the answer once the answer is complete, after the turn —
+     * a hook that throws or takes its time changes nothing on screen. The answer reads like
+     * either of n8n's: `output` (a whole answer), `message` and `hasReceivedChunks` (a
+     * streamed one).
+     */
+    afterMessageSent?: (message: string, response?: ChatResponse) => void | Promise<void>;
     /** Accepted for compatibility: n8n's widget never read it. Theme with CSS variables. */
     theme?: unknown;
     /**
@@ -109,6 +114,16 @@ export interface ChatOptions {
     fetch?: typeof fetch;
 }
 
+/** The answer `afterMessageSent` receives, shaped like both of `@n8n/chat`'s. */
+export interface ChatResponse {
+    /** The answer's text, as a whole answer's `output`. */
+    output: string;
+    /** The answer's text, as a streamed answer's `message`. */
+    message: string;
+    /** Whether any text arrived. */
+    hasReceivedChunks: boolean;
+}
+
 /** What `createChat` returns: the widget, and what a page can do with it. */
 export interface Chat {
     /** The widget's root element: `<aparte-launcher>` in window mode, a `div` in fullscreen. */
@@ -121,9 +136,15 @@ export interface Chat {
     close(): void;
     /** Open it when closed, close it when open (window mode). */
     toggle(): void;
-    /** Send a message as the person. */
+    /**
+     * Send a message as the person. While an answer is on its way, it waits for it; what
+     * the person is typing is left as it is.
+     */
     send(text: string): void;
-    /** Start a new conversation: a new session, the first messages again. */
+    /**
+     * Start a new conversation: the answer on its way stops, the first messages come back,
+     * and a new session starts — unless you gave `sessionId`, which is yours to change.
+     */
     reset(): void;
     /** Remove the widget and stop its client. */
     destroy(): void;
@@ -135,7 +156,7 @@ const STORAGE_KEY = 'n8n-chat/sessionId';
 
 type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void };
 type ChatElement = HTMLElement & { viewport: Viewport | null };
-type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
+type Composer = HTMLElement & { setValue(value: string): void; submit(): void; cancel(): void; readonly streaming: boolean };
 
 function read(key: string): string | undefined {
     try { return localStorage.getItem(key) ?? undefined; } catch { return undefined; }
@@ -195,6 +216,10 @@ export function createChat(options: ChatOptions): Chat {
     config.setLocale(options.locale ?? localeFor(language));
     // n8n's look in the icons too: a filled bubble on the button, a chevron once open.
     config.registerIcons(N8N_ICONS);
+    // A help chat is read, not quoted, and its tools are the workflow's business: no copy
+    // button under the answers, and a quiet line for a tool call should one be drawn.
+    config.setBubbleActions({ copy: false });
+    config.registerToolDisplay('*', { quiet: true });
     setupMarkedStreamingProvider(undefined, config);
 
     // ── The markup ─────────────────────────────────────────────────────────────────────
@@ -208,7 +233,7 @@ export function createChat(options: ChatOptions): Chat {
     heading.append(title);
     if (strings.subtitle) heading.append(el('p', 'aparte-n8n__subtitle', strings.subtitle));
     header.append(heading);
-    if (mode === 'window' && options.showWindowCloseButton !== false) {
+    if (mode === 'window' && options.showWindowCloseButton) {
         const close = el('button', 'aparte-btn aparte-btn--icon aparte-btn--ghost aparte-n8n__close');
         close.type = 'button';
         close.setAttribute('aria-label', strings.closeButtonTooltip);
@@ -288,8 +313,10 @@ export function createChat(options: ChatOptions): Chat {
     if (options.messageHistory?.length && suggestions) suggestions.hidden = true;
 
     let loaded = 0;
+    let historyRequest: AbortController | undefined;
     const loadHistory = () => {
         const ticket = ++loaded;
+        historyRequest = new AbortController();
         void loadN8nHistory({
             webhookUrl: options.webhookUrl,
             sessionId,
@@ -297,28 +324,59 @@ export function createChat(options: ChatOptions): Chat {
             ...(options.chatSessionKey ? { chatSessionKey: options.chatSessionKey } : {}),
             headers: () => ({ ...(options.webhookConfig?.headers ?? {}) }),
             ...(options.fetch ? { fetch: options.fetch } : {}),
+            signal: historyRequest.signal,
         }).then((history) => {
             // A reset or a first message since: that conversation is the one on screen.
             if (ticket !== loaded || history.length === 0) return;
             if (suggestions) suggestions.hidden = true;
             show([...firstMessages(), ...history]);
         }, (error: unknown) => {
+            if (historyRequest?.signal.aborted) return;
             console.warn(`[aparte] n8n: ${error instanceof Error ? error.message : String(error)}`);
         });
     };
     if (loadPrevious) loadHistory();
 
-    // The person's message, for the hooks; and the suggestions go once they have asked.
+    // The person's message and its session, taken when it is sent: a reset while its turn
+    // waits on `beforeMessageSent` must not post it into the new conversation.
     let lastSent = '';
+    let sentIn = sessionId;
+    // Whether a reply is on its way, from the chat's own lifecycle events, so `send()` can
+    // wait for it rather than press Stop.
+    let busy = false;
+    const queued: string[] = [];
     chat.addEventListener('aparte-send', (event) => {
         loaded++;
         lastSent = String((event as CustomEvent<{ content?: unknown }>).detail?.content ?? '');
+        sentIn = sessionId;
         if (suggestions) suggestions.hidden = true;
     });
+    const dispatchSend = (text: string) => {
+        if (welcome && !welcome.hidden) { welcome.hidden = true; chat.hidden = false; }
+        // As the composer sends, without touching what the person is typing.
+        chat.dispatchEvent(new CustomEvent('aparte-send', {
+            detail: { content: text, timestamp: Date.now(), targetId: chat.id },
+            bubbles: true,
+            composed: true,
+        }));
+    };
+    const settle = () => {
+        busy = false;
+        const next = queued.shift();
+        if (next !== undefined) queueMicrotask(() => dispatchSend(next));
+    };
+    chat.addEventListener('aparte-message-start', () => { busy = true; });
+    for (const type of ['aparte-message-done', 'aparte-message-error', 'aparte-message-aborted']) chat.addEventListener(type, settle);
+    // Stop says it on the window, named for this chat.
+    const onStopped = (event: Event) => {
+        if ((event as CustomEvent<{ targetId?: string }>).detail?.targetId === chat.id) settle();
+    };
+    window.addEventListener('aparte-message-aborted', onStopped);
 
+    let runSession = sessionId;
     const runner = createN8nRunner({
         webhookUrl: options.webhookUrl,
-        sessionId: () => sessionId,
+        sessionId: () => runSession,
         headers: () => ({ ...(options.webhookConfig?.headers ?? {}) }),
         ...(options.fetch ? { fetch: options.fetch } : {}),
         ...(options.metadata ? { metadata: options.metadata } : {}),
@@ -327,7 +385,11 @@ export function createChat(options: ChatOptions): Chat {
     });
     const streamRunner: AparteStreamRunner = async (opts) => {
         const message = lastSent;
+        const session = sentIn;
         await options.beforeMessageSent?.(message);
+        // Stopped or reset while the hook ran: nothing is sent.
+        if (opts.signal.aborted) return undefined;
+        runSession = session;
         let reply = '';
         let done = false;
         const result = await runner({
@@ -338,16 +400,31 @@ export function createChat(options: ChatOptions): Chat {
                 opts.emitter(event);
             },
         });
-        if (done) await options.afterMessageSent?.(message, reply);
+        // After the turn, not inside it: a slow or failing hook neither holds the Stop
+        // button nor turns a finished answer into an error. The second argument reads like
+        // either of n8n's: `output` (a whole answer), `message` and `hasReceivedChunks` (a
+        // streamed one).
+        if (done && options.afterMessageSent) {
+            const hook = options.afterMessageSent;
+            queueMicrotask(() => {
+                Promise.resolve()
+                    .then(() => hook(message, { output: reply, message: reply, hasReceivedChunks: reply.length > 0 }))
+                    .catch((error: unknown) => console.warn('[aparte] n8n: afterMessageSent threw:', error));
+            });
+        }
         return result;
     };
 
-    // n8n receives the files as files: none is inlined into the message as well.
-    const client = new AparteClient({ config, streamRunner, rawFileInject: 'none' });
+    // n8n receives the files as files: none is inlined into the message as well. Scoped to
+    // this chat, so a page's own aparté chat is never answered by this widget's workflow.
+    const client = new AparteClient({ config, streamRunner, rawFileInject: 'none', scopeToTargetId: chat.id });
     client.start();
 
     const launcher = () => (mode === 'window' ? (root as AparteLauncher) : undefined);
     const destroy = () => {
+        historyRequest?.abort();
+        queued.length = 0;
+        window.removeEventListener('aparte-message-aborted', onStopped);
         client.stop();
         root.remove();
     };
@@ -359,11 +436,17 @@ export function createChat(options: ChatOptions): Chat {
         close: () => launcher()?.close(),
         toggle: () => launcher()?.toggle(),
         send: (text: string) => {
-            if (welcome && !welcome.hidden) { welcome.hidden = true; chat.hidden = false; }
-            composer.setValue(text);
-            composer.submit();
+            if (busy) queued.push(text);
+            else dispatchSend(text);
         },
         reset: () => {
+            // The conversation on screen goes, and so does what was on its way to it — through
+            // the composer's own Stop when it shows one, so its button is Send again.
+            queued.length = 0;
+            if (composer.streaming) composer.cancel();
+            client.abort();
+            busy = false;
+            historyRequest?.abort();
             loaded++;
             sessionId = options.sessionId ?? uuid();
             if (loadPrevious && !options.sessionId) write(STORAGE_KEY, sessionId);
