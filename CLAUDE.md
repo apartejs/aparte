@@ -43,8 +43,7 @@ apartejs/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent (the loop, nothing else)
 │   ├── integrations/         @aparte/n8n-chat — n8n's widget rebuilt: createChat() over runner-n8n + n8n theme
-│   ├── locales/              @aparte/locales — nine languages, one entry each (EN = core's built-in);
-│   │                         locale-fr re-exports its French until 0.28.0 (deprecated)
+│   ├── locales/              @aparte/locales — nine languages, one entry each (EN = core's built-in)
 │   ├── providers/            ai/: @aparte/provider-{openai-compat, ai-sdk, transformers, scenario}
 │   │                         agent/: @aparte/runner-ag-ui (AG-UI agents, TanStack AI), runner-n8n (Chat Trigger)
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,

@@ -32,8 +32,8 @@ before or after they render. A chat with a [configuration of its own](/guides/cu
 has its own locale: call `setLocale(fr)` on that configuration too.
 
 `@aparte/locales` carries nine languages, each its own entry, so a page built with a bundler loads
-only the one it imports (`@aparte/locale-fr`, where French used to ship, re-exports the same `fr`
-until 0.28.0 removes it).
+only the one it imports. French used to ship alone as `@aparte/locale-fr`, which 0.27.0 removes:
+the same `fr` is now `@aparte/locales/fr`.
 
 | Language | Import | `tag` |
 | --- | --- | --- |
