@@ -33,6 +33,7 @@ const MODELS = [
     { label: 'Vercel AI SDK', href: '/providers/ai/ai-sdk/', via: [0, 1] },
     { label: 'AG-UI agents', href: '/providers/agent/ag-ui/', via: [1] },
     { label: 'TanStack AI', href: '/providers/agent/tanstack-ai/', via: [1] },
+    { label: 'n8n workflows', href: '/providers/agent/n8n/', via: [1] },
 ];
 
 /** One drawn connection: a faint line and the flow that runs along it, on the same path. */
@@ -47,9 +48,9 @@ const coreMid = CORE.y + CORE.h / 2;
 const BOX = (i: number) => ({ x: 640, y: i === 0 ? 112 : 252, w: 200, h: 76 });
 const boxMid = (i: number) => BOX(i).y + BOX(i).h / 2;
 const MODEL_X = 930;
-/** The models column holds one more row than the frameworks, a little tighter. */
+/** The models column holds two more rows than the frameworks, tighter, inside the 420 height. */
 const MODEL_PILL_H = 42;
-const modelRow = (i: number) => 42 + i * 62;
+const modelRow = (i: number) => 42 + i * 54;
 const modelMid = (i: number) => modelRow(i) + MODEL_PILL_H / 2;
 const wide: Path[] = [
     ...FRAMEWORKS.map((_, i) => `M190,${rowMid(i)} C260,${rowMid(i)} 260,${coreMid} ${CORE.x},${coreMid}`),
@@ -85,7 +86,8 @@ const tallHeight = TALL_GROUP_Y + Math.max(tallGroupHeight(0), tallGroupHeight(1
             React, Vue, Svelte, Angular or vanilla JS render the same aparté elements. From the browser, a
             request goes straight to a model running in the page, an OpenAI-compatible API or a Vercel AI SDK
             model, with your key or a local server. Through your server, it reaches an OpenAI-compatible API or
-            an AI SDK model with the key kept there, or an agent that runs its own loop: AG-UI agents and TanStack AI.
+            an AI SDK model with the key kept there, or an agent that runs its own loop: AG-UI agents, TanStack AI
+            and n8n workflows.
         </desc>
 
         <text class="fits__heading" x="100" y="26">Your framework</text>
