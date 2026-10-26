@@ -14,8 +14,12 @@ import { installLlmMock, MOCK_MODEL_ID, MOCK_REPLY_MARK } from '../helpers/mock-
 import { ChatPage } from '../helpers/chat.js';
 import { collectPageErrors } from '../helpers/actions.js';
 
-/** About 2 400 characters: three of them overflow the window, one fits. */
-const long = (tag: string): string => `${tag}: ${'context '.repeat(300)}`.trim();
+/**
+ * About 3 600 characters each. The mock reports a token count far below what it is sent, so the
+ * measure's calibration sits at its floor (half the heuristic): the third turn has to overflow the
+ * window even then, and the second must not.
+ */
+const long = (tag: string): string => `${tag}: ${'context '.repeat(450)}`.trim();
 const SUMMARY_ASK = 'Please summarize the conversation above.';
 
 type Body = { messages?: Array<{ role: string; content: unknown }> };
