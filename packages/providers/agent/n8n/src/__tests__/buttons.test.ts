@@ -38,6 +38,13 @@ describe('setupN8nButtons', () => {
         expect(result).toEqual({ toolCallId: 'n8n-buttons-1', content: 'Tomorrow instead', structuredContent: { index: -1, text: 'Tomorrow instead', written: true } });
     });
 
+    it('takes the button when the person chose one and wrote too', async () => {
+        aparteGlobalConfig.setElicitationPresenter(async () => ({ action: 'accept', content: { option: '0', instruction: 'and quickly' } }));
+        setupN8nButtons();
+        const result = await aparteGlobalConfig.getToolHandler(N8N_BUTTONS_TOOL)!(call, new AbortController().signal);
+        expect(result.structuredContent).toEqual({ index: 0, text: 'Book it' });
+    });
+
     it('fails the call when the person declines without a button', async () => {
         aparteGlobalConfig.setElicitationPresenter(async () => ({ action: 'decline' }));
         setupN8nButtons();
@@ -51,6 +58,7 @@ describe('setupN8nButtons', () => {
         const label = display.label as (s: AparteToolCallSegment) => string;
         expect(label(segment('Book it'))).toBe('Book it');
         expect(label(segment())).toBe('Shall I book a table for tonight?');
+        expect(label({ id: 's', type: 'tool_call', status: 'pending' } as unknown as AparteToolCallSegment)).toBe('');
         expect(display).toMatchObject({ quiet: true, details: false });
     });
 });

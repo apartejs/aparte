@@ -10,7 +10,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AparteErrorCode } from '@aparte/core';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createN8nRunner, N8N_BUTTONS_TOOL } from '../index.js';
-import type { N8nWebSocketLike } from '../index.js';
+import { readSocketFrame } from '../socket.js';
+import type { N8nRunnerOptions, N8nWebSocketLike } from '../index.js';
 
 type Event = { type: string; [key: string]: unknown };
 
@@ -45,17 +46,18 @@ const BUTTONS = JSON.stringify({
     ],
 });
 
-function setup({ answers = [] as Response[] } = {}) {
+function setup({ answers = [] as (Response | Error)[], runner: extra = {} as Partial<N8nRunnerOptions> } = {}) {
     const calls: { url: string; init?: RequestInit }[] = [];
     const fetch = (async (url: string, init?: RequestInit) => {
         calls.push({ url, ...(init ? { init } : {}) });
         const next = answers.shift();
         if (!next) throw new Error('no scripted response left');
+        if (next instanceof Error) throw next;
         return next;
     }) as unknown as typeof globalThis.fetch;
     const warnings: string[] = [];
-    const runner = createN8nRunner({ webhookUrl: URL_, fetch, WebSocket: Socket, sessionId: 'conv-1', onWarning: (m) => warnings.push(m) });
-    const turn = (content: string, deferral?: AparteStreamRunOptions['deferral'], signal = new AbortController().signal) => {
+    const runner = createN8nRunner({ webhookUrl: URL_, fetch, WebSocket: Socket, sessionId: 'conv-1', onWarning: (m) => warnings.push(m), ...extra });
+    const turn = (content: string, deferral?: AparteStreamRunOptions['deferral'], signal = new AbortController().signal, files?: File[]) => {
         const events: Event[] = [];
         const done = runner({
             messageId: 'm', providerId: 'n8n', signal,
@@ -63,6 +65,7 @@ function setup({ answers = [] as Response[] } = {}) {
             emitter: (e: Event) => events.push(e),
             transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
             ...(deferral ? { deferral } : {}),
+            ...(files ? { files } : {}),
         } as unknown as AparteStreamRunOptions);
         return { done, events, text: () => events.filter((e) => e.type === 'text-delta').map((e) => e.delta).join('|') };
     };
@@ -214,6 +217,111 @@ describe('createN8nRunner: response nodes over the chat socket', () => {
         expect(resumed.events.map((e) => e.type)).toEqual(['run-start', 'turn-start', 'tool-aborted', 'run-done']);
     });
 
+    it("sends a file with a written reply as n8n's widget does, a data URL", async () => {
+        const { turn } = setup({ answers: [started()] });
+        const first = turn('hi');
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(1));
+        const socket = FakeSocket.all[0]!;
+        socket.open();
+        socket.receive('What name should it be under?');
+        await first.done;
+        const note = Object.assign(new Blob(['hi'], { type: 'text/plain' }), { name: 'note.txt' }) as unknown as File;
+        const reply = turn('Paul', undefined, undefined, [note]);
+        await vi.waitFor(() => expect(socket.sent.length).toBeGreaterThan(0));
+        const sent = JSON.parse(socket.sent.at(-1)!) as { files: { name: string; type: string; data: string }[] };
+        expect(sent.files).toEqual([{ name: 'note.txt', type: 'text/plain', data: 'data:text/plain;base64,aGk=' }]);
+        socket.receive('Thanks.');
+        socket.close();
+        await reply.done;
+    });
+
+    it('starts a new execution when the socket closed between two turns, and closes nothing twice', async () => {
+        const { turn, calls } = setup({ answers: [started(), started()] });
+        const first = turn('hi');
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(1));
+        FakeSocket.all[0]!.open();
+        FakeSocket.all[0]!.receive('What name should it be under?');
+        await first.done;
+        // n8n ends the execution while nobody listens: the next message posts again.
+        FakeSocket.all[0]!.close();
+        const second = turn('again');
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(2));
+        expect(calls).toHaveLength(2);
+        FakeSocket.all[1]!.open();
+        FakeSocket.all[1]!.receive('Hello again.');
+        FakeSocket.all[1]!.close();
+        await second.done;
+    });
+
+    it('reads a deferral token it did not write as a new message', async () => {
+        const { turn, calls } = setup({ answers: [new Response('{"output":"Hi."}', { status: 200 })] });
+        await turn('hi', { token: 'not a ticket', outcomes: {} }).done;
+        await turn('hi', { token: '{"v":2}', outcomes: {} }).done.catch(() => undefined);
+        expect(calls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    /** A turn paused on BUTTONS, and its ticket and call id. */
+    async function paused(turn: ReturnType<typeof setup>['turn']) {
+        const before = FakeSocket.all.length;
+        const first = turn('hi');
+        await vi.waitFor(() => expect(FakeSocket.all.length).toBe(before + 1));
+        const socket = FakeSocket.all.at(-1)!;
+        socket.open();
+        socket.receive(BUTTONS);
+        await first.done;
+        const suspended = first.events.at(-1)!;
+        return { socket, ticket: String(suspended['ticket']), toolCallId: String((suspended['pending'] as { toolCallId: string }[])[0]!.toolCallId) };
+    }
+    const book = (toolCallId: string, written = false) => ({
+        [toolCallId]: written
+            ? { kind: 'result' as const, content: 'Later', structuredContent: { index: -1, text: 'Later', written: true } }
+            : { kind: 'result' as const, content: 'Book it', structuredContent: { index: 0, text: 'Book it' } },
+    });
+
+    it('resumes on a socket of its own when the page was reloaded between the buttons and the answer', async () => {
+        const before = setup({ answers: [started()] });
+        const { ticket, toolCallId } = await paused(before.turn);
+        // A new runner: the page reloaded, its sockets are gone, the ticket is all it has.
+        const after = setup({ answers: [new Response('', { status: 200 })], runner: { credentials: 'include' } });
+        const resumed = after.turn('hi', { token: ticket, outcomes: book(toolCallId) });
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(2));
+        expect(FakeSocket.all[1]!.url).toBe(FakeSocket.all[0]!.url);
+        await vi.waitFor(() => expect(after.calls).toHaveLength(1));
+        expect(after.calls[0]!.init?.credentials).toBe('include');
+        FakeSocket.all[1]!.open();
+        FakeSocket.all[1]!.receive('Booked.');
+        FakeSocket.all[1]!.close();
+        await resumed.done;
+
+        const again = setup({ answers: [] });
+        const written = again.turn('hi', { token: ticket, outcomes: book(toolCallId, true) });
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(3));
+        FakeSocket.all[2]!.open();
+        await vi.waitFor(() => expect(FakeSocket.all[2]!.sent).toHaveLength(1));
+        FakeSocket.all[2]!.close();
+        await written.done;
+    });
+
+    it("fails the resumed turn when the button's link cannot be reached, or n8n refuses it", async () => {
+        const down = setup({ answers: [started(), new TypeError('Failed to fetch')] });
+        const one = await paused(down.turn);
+        await expect(down.turn('hi', { token: one.ticket, outcomes: book(one.toolCallId) }).done).rejects.toMatchObject({ code: AparteErrorCode.NET_ERROR });
+
+        const refused = setup({ answers: [started(), new Response('{"message":"Signature mismatch"}', { status: 403 })] });
+        const two = await paused(refused.turn);
+        await expect(refused.turn('hi', { token: two.ticket, outcomes: book(two.toolCallId) }).done).rejects.toThrow(/Signature mismatch/);
+    });
+
+    it('fails with a sentence of its own on an error frame without words, after what was drawn', async () => {
+        const { turn } = setup({ answers: [started()] });
+        const t = turn('hi');
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(1));
+        FakeSocket.all[0]!.open();
+        FakeSocket.all[0]!.receive('Working on it.', 'n8n|continue', '{"type":"error"}');
+        await expect(t.done).rejects.toThrow('The n8n workflow failed.');
+        expect(t.events.some((e) => e.type === 'text-flush')).toBe(true);
+    });
+
     it('stops listening when the turn is stopped, and keeps the execution for the next message', async () => {
         const { turn } = setup({ answers: [started()] });
         const stop = new AbortController();
@@ -225,3 +333,41 @@ describe('createN8nRunner: response nodes over the chat socket', () => {
         expect(FakeSocket.all[0]!.closed).toBe(false);
     });
 });
+
+describe('readSocketFrame: what does not look like n8n reads as text', () => {
+    it('reads a bare value or an unknown record as the message it is', () => {
+        expect(readSocketFrame('42')).toEqual({ kind: 'text', text: '42' });
+        expect(readSocketFrame('{"foo":1}')).toEqual({ kind: 'text', text: '{"foo":1}' });
+        expect(readSocketFrame('{"type":"message"}')).toEqual({ kind: 'text', text: '' });
+    });
+
+    it('keeps the buttons it can read, styled primary by default, and an error without words', () => {
+        expect(readSocketFrame(JSON.stringify({ type: 'with-buttons', buttons: [{ text: 'Go', link: '/x' }, { text: 'Bad' }, 'nope'] })))
+            .toEqual({ kind: 'buttons', text: '', blockUserInput: false, buttons: [{ text: 'Go', link: '/x', type: 'primary' }] });
+        expect(readSocketFrame(JSON.stringify({ type: 'with-buttons', text: 'Pick', buttons: 'none' })))
+            .toEqual({ kind: 'buttons', text: 'Pick', blockUserInput: false, buttons: [] });
+        expect(readSocketFrame('{"type":"error"}')).toEqual({ kind: 'error', message: '' });
+    });
+});
+
+describe('N8nChatSocket', () => {
+    it('answers closed once closed, nothing once stopped, and sends only once open', async () => {
+        const { N8nChatSocket } = await import('../socket.js');
+        const socket = new N8nChatSocket('wss://x/chat', Socket);
+        const raw = FakeSocket.all.at(-1)!;
+        const stopped = new AbortController();
+        stopped.abort();
+        expect(await socket.next(stopped.signal)).toBeUndefined();
+        const sending = socket.send({ hello: 1 });
+        expect(raw.sent).toEqual([]);
+        raw.open();
+        await sending;
+        expect(raw.sent).toEqual(['{"hello":1}']);
+        // An error is followed by the close that says it is over: nothing of its own.
+        raw.onerror?.({});
+        socket.close();
+        expect(await socket.next(new AbortController().signal)).toEqual({ kind: 'closed' });
+        expect(await socket.next(new AbortController().signal)).toEqual({ kind: 'closed' });
+    });
+});
+
