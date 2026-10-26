@@ -1004,6 +1004,36 @@ describe('AparteChatBubble', () => {
         });
     });
 
+    // ─── A file tile opens too, when the app claims files and a tab can open the URL ───
+    describe('file tile preview (setHostHandlers)', () => {
+        afterEach(() => aparteGlobalConfig.reset());
+
+        const fileBubble = (id: string, url: string) => {
+            const el = createBubble({ 'data-role': 'user', 'message-id': id });
+            el.updateMessage({ attachments: [{ id: 'f1', name: 'menu.pdf', type: 'application/pdf', url }] });
+            return el;
+        };
+
+        it('asks to open a file whose URL a tab can open, with its type, once filePreview is declared', () => {
+            aparteGlobalConfig.setHostHandlers({ filePreview: true });
+            bubble = fileBubble('f1', 'blob:menu');
+            const tile = bubble.querySelector('.aparte-thumb--file') as HTMLElement;
+            expect(tile.getAttribute('role')).toBe('button');
+            let detail: unknown;
+            document.body.addEventListener('aparte-attachment-preview', (e: Event) => { detail = (e as CustomEvent).detail; }, { once: true });
+            tile.click();
+            expect(detail).toEqual({ url: 'blob:menu', name: 'menu.pdf', type: 'application/pdf' });
+        });
+
+        it('leaves a file inert without filePreview, or when its URL is a data: URL a tab refuses', () => {
+            bubble = fileBubble('f2', 'blob:menu');
+            expect(bubble.querySelector('.aparte-thumb--file')!.getAttribute('role')).toBeNull();
+            aparteGlobalConfig.setHostHandlers({ filePreview: true });
+            bubble = fileBubble('f3', 'data:application/pdf;base64,AAAA');
+            expect(bubble.querySelector('.aparte-thumb--file')!.getAttribute('role')).toBeNull();
+        });
+    });
+
     describe('bubble shell renderer', () => {
         afterEach(() => aparteGlobalConfig.reset());
 

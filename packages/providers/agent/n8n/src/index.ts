@@ -9,3 +9,6 @@ export { createN8nRunner } from './runner.js';
 export type { N8nRunnerOptions } from './runner.js';
 export { loadN8nHistory, n8nHistoryToMessages } from './history.js';
 export type { N8nHistoryOptions } from './history.js';
+export { setupN8nButtons, N8N_BUTTONS_TOOL } from './buttons.js';
+export type { N8nButtonsInput, N8nButtonsResult } from './buttons.js';
+export type { N8nWebSocketLike } from './socket.js';

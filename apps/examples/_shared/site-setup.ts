@@ -22,7 +22,7 @@ import type { AparteToolCallSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon, searchIcon, globeIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
-import { createN8nRunner } from '@aparte/runner-n8n';
+import { createN8nRunner, setupN8nButtons } from '@aparte/runner-n8n';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
@@ -165,6 +165,8 @@ async function run(): Promise<SiteSetup> {
     //    scripted Chat Trigger), and the page draws it through `@aparte/runner-n8n`.
     const n8nUrl = new URLSearchParams(location.search).get('n8n');
     const n8nRunner = n8nUrl ? createN8nRunner({ webhookUrl: n8nUrl }) : undefined;
+    //    A Chat node's buttons (a workflow with response nodes) are asked at the composer.
+    if (n8nUrl) setupN8nButtons();
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {

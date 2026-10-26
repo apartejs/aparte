@@ -151,6 +151,7 @@ new AparteClient({
 | `chatSessionKey` | the body field that carries the session, `sessionId` by default, for a workflow that reads another |
 | `chatInputKey` | the body field that carries the message, `chatInput` by default, for a workflow that reads another |
 | `onWarning` | told what the runner skipped; `console.warn` by default |
+| `WebSocket` | what a workflow with response nodes is read with; the global `WebSocket` by default |
 
 These are the `N8nRunnerOptions`. `loadN8nHistory` takes `N8nHistoryOptions` — the same
 `webhookUrl`, `sessionId`, `metadata`, `headers`, `fetch`, `credentials` and `chatSessionKey`, plus a
@@ -159,12 +160,43 @@ fetch yourself. A Webhook node can stand in for the Chat Trigger: give its URL,
 read `chatInput` and `sessionId` from its body (or name your fields with `chatInputKey` and
 `chatSessionKey`), and answer with a streaming *Respond to Webhook* or with the agent's output.
 
+## Response nodes and buttons
+
+A Chat Trigger whose Response Mode is *Using Response Nodes* answers through **Chat** nodes placed
+in the workflow, over n8n's chat WebSocket. The runner reads it: each message a Chat node sends is
+drawn as a block of its own, and a Chat node that waits for a written reply is answered by the next
+message the person sends. A Chat node that waits for an approval sends **buttons**; register what
+answers them once, on the config the chat renders with:
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner, setupN8nButtons } from '@aparte/runner-n8n';
+
+setupN8nButtons();
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+}).start();
+```
+
+The turn pauses on the buttons, which are asked at the composer with the labels the Chat node gave
+them; the one chosen goes back to n8n, and the workflow's next messages follow in the same turn. The
+transcript keeps the answer as a quiet line. A button whose link leads off the n8n that sent it is
+not shown.
+
+On n8n 2.x, Chat nodes run only when the Chat Trigger's **Mode** is *Hosted Chat*: an embedded one
+stops with "Embedded chat is not supported". A runtime without a global `WebSocket` passes one as
+the runner's `WebSocket` option, typed `N8nWebSocketLike`.
+
+To answer the buttons your own way, register a tool named `N8N_BUTTONS_TOOL` instead of calling
+`setupN8nButtons`: its input is an `N8nButtonsInput` (the question, the buttons' labels and styles,
+n8n's `blockUserInput`), and it answers with an `N8nButtonsResult` as `structuredContent` — the
+button's `index` and `text`, or `written: true` with the person's own words, which n8n hears as a
+message.
+
 ## What is not supported
 
 - The agent's tool calls are not drawn: n8n's stream carries the text of the answer only, so a
   tool runs in n8n without a row in the chat. The answer that follows is drawn as usual.
-- A Chat Trigger whose Response Mode is *Using Response Nodes* answers over n8n's chat WebSocket,
-  which the runner does not read; the reply says so and names the two modes that work.
 - Retry, edit and branch navigation cannot rewind n8n's memory: n8n keeps every message it was sent,
   so a retried or edited turn reaches an agent that remembers the first one. Leave them off with
   this runner (`setBubbleActions({ retry: false, edit: false })`, their default).

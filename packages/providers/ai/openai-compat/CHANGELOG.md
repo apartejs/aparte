@@ -1,5 +1,7 @@
 # @aparte/provider-openai-compat
 
+## 0.27.2
+
 ## 0.27.1
 
 ## 0.27.0

@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.27.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [8b81036](https://github.com/apartejs/aparte/commit/8b81036): A file in a sent message can open: declare `setHostHandlers({ filePreview: true })` and its tile sends `aparte-attachment-preview`, which now carries the file's `type`.
+
+  Images keep their own declaration, `attachmentPreview`, so a lightbox written for images is never handed a PDF. A file tile becomes a button only when its URL is one a tab can open — the composer's object URL, or a remote URL; a `data:` URL stays a plain tile. The event's `type` is the MIME type (`''` when unknown) on every preview, the image ones included.
+  <sub>`@aparte/core`</sub>
+
+- [14c782d](https://github.com/apartejs/aparte/commit/14c782d): A workflow that answers through response nodes now works: the runner reads n8n's chat WebSocket, and a Chat node's buttons are answered in the page after `setupN8nButtons()`.
+
+  On a Chat Trigger set to "Using Response Nodes", n8n answers the first message with an execution to listen to; the runner opens n8n's chat socket for it, draws each message the workflow's Chat nodes send, and keeps the socket while the execution waits — a written reply to a Chat node that asks for one goes on it. A Chat node that waits for an approval sends buttons: the turn pauses on them as a call the page answers, `setupN8nButtons()` asks them at the composer with their own labels, and the chosen button resumes the execution. Only buttons whose links lead back to the same n8n are shown. n8n 2.x runs response nodes only on a Chat Trigger in "Hosted Chat" mode. A runtime without a global `WebSocket` passes one as the runner's `WebSocket` option.
+  <sub>`@aparte/runner-n8n`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.27.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

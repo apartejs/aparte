@@ -87,6 +87,7 @@ export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
  */
 export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
+    filePreview: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -422,6 +423,7 @@ export class AparteConfig {
     getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
             attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
+            filePreview: this._hostHandlers.filePreview ?? APARTE_DEFAULT_HOST_HANDLERS.filePreview,
         };
     }
 

@@ -7,9 +7,15 @@
  * `AparteClient`'s adapter draws, the same ones a loop run in the page emits.
  */
 import { AparteError, AparteErrorCode, uuid } from '@aparte/core';
-import type { AparteChatMessage, AparteStreamRunner, AparteStreamRunOptions } from '@aparte/core';
+import type { AparteChatMessage, AparteStreamRunEvent, AparteStreamRunner, AparteStreamRunOptions } from '@aparte/core';
 import { readN8nReply } from './wire.js';
 import { httpError, unreachable } from './http.js';
+import { N8nChatSocket, chatSocketUrl } from './socket.js';
+import type { N8nWebSocketLike } from './socket.js';
+import { N8N_BUTTONS_TOOL } from './buttons.js';
+import type { N8nButtonsInput, N8nButtonsResult } from './buttons.js';
+
+type Suspended = Extract<AparteStreamRunEvent, { type: 'run-suspended' }>;
 
 export interface N8nRunnerOptions {
     /**
@@ -51,6 +57,50 @@ export interface N8nRunnerOptions {
      * @default `console.warn`
      */
     onWarning?: (message: string) => void;
+    /**
+     * What a workflow that answers through response nodes is read with: n8n's chat
+     * WebSocket. Given for a runtime without a global one, or a test.
+     * @default the global `WebSocket`
+     */
+    WebSocket?: N8nWebSocketLike;
+}
+
+/** What a paused turn hands the page, and gets back with the button chosen. */
+interface Ticket {
+    v: 1;
+    sessionId: string;
+    executionId: string;
+    token?: string;
+    toolCallId: string;
+    /** The buttons' links, in the order the page was given the buttons. */
+    links: string[];
+}
+
+function readTicket(token: string | undefined): Ticket | undefined {
+    if (!token) return undefined;
+    try {
+        const ticket = JSON.parse(token) as Partial<Ticket>;
+        return ticket.v === 1 && typeof ticket.sessionId === 'string' && typeof ticket.executionId === 'string'
+            && typeof ticket.toolCallId === 'string' && Array.isArray(ticket.links) ? ticket as Ticket : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * How long a message is given to be followed by `continue`. n8n sends it in the same tick
+ * as the message when the execution goes on (recorded on 2.44.7: both at +3172 ms); a
+ * message with nothing behind it is one the execution waits after, for the person.
+ */
+const CONTINUE_GRACE_MS = 250;
+
+/** A file as n8n's widget sends it on the socket: a data URL. */
+async function dataUrl(file: { blob: Blob; name: string }): Promise<{ name: string; type: string; data: string }> {
+    const bytes = new Uint8Array(await file.blob.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+    const type = file.blob.type || 'application/octet-stream';
+    return { name: file.name, type, data: `data:${type};base64,${btoa(binary)}` };
 }
 
 /** The workflow streamed nothing: the widget's own diagnosis, said to the developer. */
@@ -64,8 +114,11 @@ const EMPTY_WHOLE = 'The n8n workflow finished without an answer: its last node 
 const PROXY_TIMEOUT = 'A proxy timed out waiting for n8n\'s answer. The workflow may still be running — '
     + 'its execution list shows the result.';
 
-const DEFERRED = 'This n8n workflow answers through response nodes, over n8n\'s chat WebSocket, which this runner '
-    + 'does not read. Set the Chat Trigger\'s Response Mode to "Streaming" or "When Last Node Finishes".';
+const DEFERRED = 'This n8n workflow answers through response nodes, over n8n\'s chat WebSocket, and n8n did not say '
+    + 'which execution to listen to. Check the Chat Trigger\'s Response Mode.';
+
+const NO_WEBSOCKET = 'This n8n workflow answers through response nodes, over n8n\'s chat WebSocket, and this runtime has '
+    + 'no WebSocket. Pass one as the runner\'s `WebSocket` option.';
 
 const unreadable = (fields: string[]) => `The n8n workflow answered with the fields ${fields.map((f) => `"${f}"`).join(', ')} `
     + 'but no "output", "text" or "message" field, which is where a chat reads the answer. End the workflow on an AI Agent, '
@@ -123,11 +176,140 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
     const sessionKey = options.chatSessionKey ?? 'sessionId';
     const inputKey = options.chatInputKey ?? 'chatInput';
     let ownSession = `aparte-${uuid()}`;
+    // One socket per session while its execution runs: the turns after it — a written
+    // reply to a Chat node that waits for one, a button's answer — go on it.
+    const sockets = new Map<string, { socket: N8nChatSocket; executionId: string; token?: string }>();
+
+    const openSocket = (sessionId: string, executionId: string, token?: string) => {
+        const Socket = options.WebSocket ?? (globalThis as { WebSocket?: N8nWebSocketLike }).WebSocket;
+        if (!Socket) throw new AparteError(NO_WEBSOCKET, AparteErrorCode.PROVIDER_MISCONFIGURED);
+        sockets.get(sessionId)?.socket.close();
+        const entry = { socket: new N8nChatSocket(chatSocketUrl(options.webhookUrl, sessionId, executionId, token), Socket), executionId, ...(token ? { token } : {}) };
+        sockets.set(sessionId, entry);
+        return entry;
+    };
+
+    /**
+     * Read the execution's socket for this turn: each message a block of its own, until the
+     * execution stops to wait — for a written reply, or on buttons, which pause the turn for
+     * the page — or ends.
+     */
+    const listen = async (opts: AparteStreamRunOptions, sessionId: string): Promise<void> => {
+        const emit = opts.emitter;
+        const entry = sockets.get(sessionId)!;
+        const { socket } = entry;
+        let drawn = false;
+        const finish = () => {
+            if (drawn) emit({ type: 'text-flush' });
+            emit({ type: 'run-done' });
+        };
+        for (;;) {
+            const frame = await socket.next(opts.signal);
+            if (frame === undefined) return;
+            if (frame === 'timeout' || frame.kind === 'continue') continue;
+            switch (frame.kind) {
+                case 'text': {
+                    if (drawn) emit({ type: 'text-flush' });
+                    if (frame.text) {
+                        emit({ type: 'text-delta', delta: frame.text });
+                        drawn = true;
+                    }
+                    const after = await socket.next(opts.signal, CONTINUE_GRACE_MS);
+                    if (after === undefined) return;
+                    if (after === 'timeout') return finish();
+                    if (after.kind !== 'continue') socket.unshift(after);
+                    break;
+                }
+                case 'buttons': {
+                    if (drawn) emit({ type: 'text-flush' });
+                    if (frame.text) {
+                        emit({ type: 'text-delta', delta: frame.text });
+                        emit({ type: 'text-flush' });
+                    }
+                    // As n8n's widget: only a button that leads back to this n8n is shown —
+                    // a link elsewhere would have the page fetch whatever a workflow wrote.
+                    const origin = new URL(options.webhookUrl).origin;
+                    const buttons = frame.buttons.filter((b) => {
+                        try { return new URL(b.link, options.webhookUrl).origin === origin; } catch { return false; }
+                    });
+                    if (buttons.length === 0) {
+                        warn('An n8n Chat node sent buttons whose links lead off this n8n instance; they were not shown.');
+                        emit({ type: 'run-done' });
+                        return;
+                    }
+                    const toolCallId = `n8n-buttons-${uuid()}`;
+                    const input: N8nButtonsInput = {
+                        text: frame.text,
+                        buttons: buttons.map((b) => ({ text: b.text, type: b.type })),
+                        blockUserInput: frame.blockUserInput,
+                    };
+                    const ticket: Ticket = {
+                        v: 1, sessionId, executionId: entry.executionId, ...(entry.token ? { token: entry.token } : {}),
+                        toolCallId, links: buttons.map((b) => b.link),
+                    };
+                    emit({ type: 'tool-start', toolCallId, name: N8N_BUTTONS_TOOL, input });
+                    emit({
+                        type: 'run-suspended',
+                        pending: [{ toolCallId, name: N8N_BUTTONS_TOOL, input, reason: 'external' }],
+                        ticket: JSON.stringify(ticket),
+                    } as Suspended);
+                    return;
+                }
+                case 'error':
+                    if (drawn) emit({ type: 'text-flush' });
+                    throw new AparteError(frame.message || 'The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
+                case 'closed':
+                    // The execution ended: the next message starts a new one.
+                    sockets.delete(sessionId);
+                    return finish();
+            }
+        }
+    };
+
+    /** The page answered a Chat node's buttons: n8n hears it through the button's link. */
+    const resume = async (opts: AparteStreamRunOptions, ticket: Ticket, doFetch: typeof fetch): Promise<void> => {
+        const emit = opts.emitter;
+        emit({ type: 'run-start' });
+        emit({ type: 'turn-start' });
+        const outcome = opts.deferral?.outcomes?.[ticket.toolCallId];
+        const chosen = outcome?.kind === 'result' ? (outcome.structuredContent as N8nButtonsResult | undefined) : undefined;
+        const link = chosen ? ticket.links[chosen.index] : undefined;
+        // Words of the person's own instead of a button: n8n hears them as a chat message,
+        // which the waiting Chat node resumes on as not approved.
+        if (outcome?.kind === 'result' && chosen?.written) {
+            emit({ type: 'tool-resolved', toolCallId: ticket.toolCallId, result: outcome.content, structuredResult: chosen });
+            const entry = sockets.get(ticket.sessionId) ?? openSocket(ticket.sessionId, ticket.executionId, ticket.token);
+            await entry.socket.send({ sessionId: ticket.sessionId, action: 'sendMessage', chatInput: chosen.text, files: [] });
+            await listen(opts, ticket.sessionId);
+            return;
+        }
+        if (!outcome || outcome.kind !== 'result' || !link) {
+            // No button: the execution keeps waiting in n8n, and a written message answers it.
+            emit({ type: 'tool-aborted', toolCallId: ticket.toolCallId });
+            emit({ type: 'run-done' });
+            return;
+        }
+        emit({ type: 'tool-resolved', toolCallId: ticket.toolCallId, result: outcome.content, structuredResult: chosen });
+        // The socket the buttons came on, or a new one on the same execution if it closed.
+        const entry = sockets.get(ticket.sessionId);
+        if (!entry || entry.socket.closed) openSocket(ticket.sessionId, ticket.executionId, ticket.token);
+        const response = await doFetch(link, {
+            signal: opts.signal,
+            ...(options.credentials ? { credentials: options.credentials } : {}),
+        }).catch((error: unknown) => { throw unreachable(error, link); });
+        if (!response.ok) throw await httpError(response, 'answer');
+        await listen(opts, ticket.sessionId);
+    };
 
     return async (opts) => {
         const emit = opts.emitter;
         const doFetch = options.fetch ?? fetch;
         try {
+            const ticket = readTicket(opts.deferral?.token);
+            if (ticket) {
+                await resume(opts, ticket, doFetch);
+                return undefined;
+            }
             const messages = (opts.baseRequest as { messages: AparteChatMessage[] }).messages;
             const last = lastUserIndex(messages);
             const message = last >= 0 ? messages[last] : undefined;
@@ -140,6 +322,21 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             const sessionId = (typeof options.sessionId === 'function' ? options.sessionId(opts) : options.sessionId) ?? ownSession;
             const metadata = typeof options.metadata === 'function' ? options.metadata(opts) : options.metadata;
             const files = filesOf(opts, message);
+
+            // An execution that waits for the person's written reply hears it on its socket.
+            const execution = sockets.get(sessionId);
+            if (execution && !execution.socket.closed) {
+                emit({ type: 'run-start' });
+                emit({ type: 'turn-start' });
+                await execution.socket.send({
+                    sessionId,
+                    action: 'sendMessage',
+                    chatInput: textOf(message?.content),
+                    files: await Promise.all(files.map(dataUrl)),
+                });
+                await listen(opts, sessionId);
+                return undefined;
+            }
 
             // As n8n's widget sends it: JSON, or a form when the message carries files.
             const fields: Record<string, string | Record<string, unknown>> = {
@@ -181,6 +378,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             let drawn = false;
             let whole = false;
             let textOpen = false;
+            let deferred = false;
             let active: string | undefined;
             const waiting = new Map<string, { text: string[]; ended: boolean }>();
             const unknown = new Set<string>();
@@ -240,7 +438,11 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                     case 'unreadable':
                         throw new AparteError(unreadable(part.fields), AparteErrorCode.PROVIDER_MISCONFIGURED);
                     case 'deferred':
-                        throw new AparteError(DEFERRED, AparteErrorCode.PROVIDER_MISCONFIGURED);
+                        // Response nodes: the answer comes on n8n's chat socket.
+                        if (!part.executionId) throw new AparteError(DEFERRED, AparteErrorCode.PROVIDER_MISCONFIGURED);
+                        openSocket(sessionId, part.executionId, part.resumeToken);
+                        deferred = true;
+                        break;
                     case 'html':
                         flush();
                         throw new AparteError(PROXY_TIMEOUT, AparteErrorCode.NET_TIMEOUT);
@@ -252,6 +454,10 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         unknown.add(part.type);
                         break;
                 }
+            }
+            if (deferred) {
+                await listen(opts, sessionId);
+                return undefined;
             }
             // A stream that was cut before its `end`: what it sent is still the answer — all
             // of it, the streams still waiting included, ended or not.

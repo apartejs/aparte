@@ -565,9 +565,11 @@
       "createAgUiRunner"
     ],
     "@aparte/runner-n8n": [
+      "N8N_BUTTONS_TOOL",
       "createN8nRunner",
       "loadN8nHistory",
-      "n8nHistoryToMessages"
+      "n8nHistoryToMessages",
+      "setupN8nButtons"
     ],
     "@aparte/svelte": [
       "AparteChat",

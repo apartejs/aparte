@@ -221,7 +221,7 @@ let checkpointIds = 0;
  * @fires {CustomEvent<AparteFeedbackEventDetail>} aparte-feedback - Thumbs up or down.
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
- * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size — or a file, with `filePreview`, asking the app to open it.
  * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Retry was pressed on a summary that failed: asks whatever answers compaction (`@aparte/plugin-compaction`) to try again for this chat. Dispatched on `window`.
  * @fires {CustomEvent<AparteCompactDoneEventDetail>} aparte-compact-done - Restore was confirmed: every checkpoint was removed and the model reads the original messages again. `detail.restored` is `true`. Dispatched on `window`.
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
@@ -1848,29 +1848,35 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         // `aparte-thumbnail` is the RECIPE (the box, the size, the ground); `aparte-thumb`
         // only maps the strip's measurements onto it. The bubble emitted the mapping
         // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
-        return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">`
+        return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}" data-type="${escapeHtml(a.type)}">`
           + `<img class="aparte-thumbnail__image" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
-      return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">`
+      // A file whose URL a browser can open in a tab (its own object URL, or a remote one)
+      // carries it, so the tile can ask for it as an image tile does.
+      const openable = this._isOpenableUrl(a.url) ? ` data-url="${escapeHtml(a.url)}"` : '';
+      return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}" data-type="${escapeHtml(a.type)}"${openable}>`
         + `<span class="aparte-thumbnail__label">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
-    // Image tiles ask for a full-size preview — but the lightbox is the app's, so
-    // the tile only becomes a button once the app declared it opens one. Otherwise
-    // it stays a plain picture: no role, no tab stop, no pointer (see the CSS,
-    // which keys the cursor off role="button").
-    if (!this._cfg.getHostHandlers().attachmentPreview) return;
-    this._attachmentsEl.querySelectorAll('.aparte-thumb--image').forEach(tile => {
+    // Image tiles ask for a full-size preview, and a file tile that carries a URL asks to be
+    // opened — but the lightbox, or the tab, is the app's, so a tile only becomes a button
+    // once the app declared it opens that kind. Two declarations, so a lightbox written for
+    // images is never handed a PDF. Otherwise it stays a plain tile: no role, no tab stop,
+    // no pointer (see the CSS, which keys the cursor off role="button").
+    const { attachmentPreview, filePreview } = this._cfg.getHostHandlers();
+    const kinds = [attachmentPreview ? '.aparte-thumb--image' : '', filePreview ? '.aparte-thumb--file[data-url]' : ''].filter(Boolean);
+    if (kinds.length === 0) return;
+    this._attachmentsEl.querySelectorAll<HTMLElement>(kinds.join(', ')).forEach(tile => {
       tile.setAttribute('role', 'button');
       tile.setAttribute('tabindex', '0');
       const open = (): void => {
-        const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
-        if (!img) return;
+        const url = tile.querySelector<HTMLImageElement>('.aparte-thumbnail__image')?.src ?? tile.dataset['url'];
+        if (!url) return;
         this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
-          detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
+          detail: { url, name: tile.getAttribute('title') ?? '', type: tile.dataset['type'] ?? '' },
         }));
       };
       tile.addEventListener('click', open);
@@ -1901,6 +1907,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _isShowableUrl(url: string | undefined): boolean {
     if (!url) return false;
     return isSafeUrl(url, 'img') || /^blob:/i.test(url.trim());
+  }
+
+  /** A URL a browser opens in a tab: its own object URL, or a remote one. Never a data: URL, which a tab refuses. */
+  private _isOpenableUrl(url: string | undefined): boolean {
+    return !!url && /^(https?:|blob:)/i.test(url.trim());
   }
 
   private _fileExt(filename: string): string {

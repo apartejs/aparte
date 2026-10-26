@@ -28,8 +28,11 @@ export type N8nReplyPart =
     | { kind: 'reply'; text: string }
     /** A whole answer that is JSON with none of the fields a chat reads; its field names. */
     | { kind: 'unreadable'; fields: string[] }
-    /** The workflow answers later, through response nodes over n8n's chat WebSocket. */
-    | { kind: 'deferred' }
+    /**
+     * The workflow answers later, through response nodes over n8n's chat WebSocket: the
+     * execution to listen to, and the token n8n gives with it.
+     */
+    | { kind: 'deferred'; executionId?: string; resumeToken?: string }
     /** An HTML page instead of the answer: a proxy gave up waiting. */
     | { kind: 'html' }
     /** The stream stopped in the middle of a frame. */
@@ -126,7 +129,14 @@ function wholePart(raw: string): N8nReplyPart | undefined {
     // Parsed first: a JSON answer is an answer, whatever markup its text holds.
     const value = parse(text);
     if (value === undefined) return isHtml(text) ? { kind: 'html' } : { kind: 'reply', text: raw };
-    if (typeof value === 'object' && value !== null && (value as { executionStarted?: unknown }).executionStarted === true) return { kind: 'deferred' };
+    if (typeof value === 'object' && value !== null && (value as { executionStarted?: unknown }).executionStarted === true) {
+        const { executionId, resumeToken } = value as { executionId?: unknown; resumeToken?: unknown };
+        return {
+            kind: 'deferred',
+            ...(typeof executionId === 'string' || typeof executionId === 'number' ? { executionId: String(executionId) } : {}),
+            ...(typeof resumeToken === 'string' ? { resumeToken } : {}),
+        };
+    }
     const reply = replyText(value);
     return reply === undefined ? { kind: 'unreadable', fields: fieldsOf(value) } : { kind: 'reply', text: reply };
 }

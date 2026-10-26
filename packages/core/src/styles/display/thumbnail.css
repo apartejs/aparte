@@ -114,11 +114,13 @@
    composer's tile wraps the remove button, so the control there is the IMAGE — a
    button inside a button is what the role on the tile used to make. */
 .aparte-thumb--image[role='button'],
+.aparte-thumb--file[role='button'],
 .aparte-thumbnail__image[role='button'] {
   cursor: pointer;
 }
 
-.aparte-thumb--image[role='button']:focus-visible {
+.aparte-thumb--image[role='button']:focus-visible,
+.aparte-thumb--file[role='button']:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }

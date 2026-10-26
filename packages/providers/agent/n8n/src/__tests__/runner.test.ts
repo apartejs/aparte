@@ -429,10 +429,17 @@ describe('createN8nRunner: answers that do not stream', () => {
         await expect(run(fakeFetch(respond('   \n')).fetch).done).rejects.toThrow(/streamed nothing/);
     });
 
-    it('says the workflow answers through response nodes, which it does not read', async () => {
-        const r = run(fakeFetch(respond('{"executionStarted":true,"executionId":"12"}')).fetch);
-        await expect(r.done).rejects.toThrow(/answers through response nodes/);
+    it('says which execution is missing when n8n starts one without naming it', async () => {
+        const r = run(fakeFetch(respond('{"executionStarted":true}')).fetch);
+        await expect(r.done).rejects.toThrow(/did not say which execution/);
         await expect(r.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_MISCONFIGURED });
+    });
+
+    it('says a runtime without a WebSocket cannot read a workflow that answers through response nodes', async () => {
+        vi.stubGlobal('WebSocket', undefined);
+        const r = run(fakeFetch(respond('{"executionStarted":true,"executionId":"12"}')).fetch);
+        await expect(r.done).rejects.toThrow(/no WebSocket/);
+        vi.unstubAllGlobals();
     });
 
     it('fails as an empty answer when there is no body at all', async () => {
