@@ -126,7 +126,8 @@
 /* Inset, unlike the tile's. The image fills the tile edge to edge and the tile is the
    frame (`overflow: hidden` above), so an outline drawn outward is cropped away — the
    focus ring would simply not exist. Pulled in by its own width, it lands just inside
-   the border and stays whole. */
+   the border and stays whole — and the name band, which focus reveals, moves aside so as
+   not to paint over it (see the name rules below). */
 .aparte-thumbnail__image[role='button']:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: calc(-1 * var(--aparte-focus-outline-width));
@@ -161,4 +162,11 @@
 .aparte-thumb:hover .aparte-thumb__name,
 .aparte-thumb:focus-within .aparte-thumb__name {
   opacity: 1;
+}
+/* The band is positioned, so it paints over the picture's inset ring: while the picture has
+   keyboard focus, it is pulled in by the ring's width and the ring stays whole. */
+.aparte-thumbnail__image[role='button']:focus-visible ~ .aparte-thumb__name {
+  left: var(--aparte-focus-outline-width);
+  right: var(--aparte-focus-outline-width);
+  bottom: var(--aparte-focus-outline-width);
 }

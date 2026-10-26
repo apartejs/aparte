@@ -8,7 +8,8 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * Renders a square thumbnail tile for each file attached to the root composer.
  *
  * Image files show the actual picture; other files show an extension badge.
- * The filename and a remove (✗) button surface on hover. Clicking an image asks
+ * The filename and a remove (✗) button surface on hover and on keyboard focus, and stay
+ * shown on a touch screen. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
  * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments. It reads the nearest

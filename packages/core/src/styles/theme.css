@@ -171,13 +171,14 @@
      It does not flip with the theme, and in a themed system that anomaly was the tell
      I wrote a paragraph justifying instead of reading. */
   --aparte-on-intent: #14100a;
-  /* Outline width for keyboard focus + drag-over indicators. 2px with a 2px gap: the
-     thickness WCAG 2.2 asks of a focus indicator (2.4.13), found at a glance on any ground.
-     It was 1px flush from 2026-09-05 to 0.27.0, a taste call against "a frame gallery";
-     the colour, the neutral below, is what answered that and it stays. Narrow it back with
-     `--aparte-focus-outline-width: 1px; --aparte-focus-outline-offset: 0px`. */
+  /* The width of the keyboard focus ring and of the drag-over outline. 2px, with the gap
+     below: the thickness WCAG 2.2 asks of a focus indicator (2.4.13), found at a glance on
+     any ground. Its colour is `--aparte-border-focus`, a step on the neutral. For a quieter
+     ring: `--aparte-focus-outline-width: 1px; --aparte-focus-outline-offset: 0px`. */
   --aparte-focus-outline-width: 2px;
-  /* A literal, so it lives here with the width rather than in the derived layer. */
+  /* The gap between a control and its focus ring (`outline-offset`); 0px draws the ring
+     flush with the box. A literal, so it lives here with the width rather than in the
+     derived layer. */
   --aparte-focus-outline-offset: 2px;
   /* Scrollbars rendered by the library. */
   --aparte-scrollbar-width: 6px;

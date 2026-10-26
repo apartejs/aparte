@@ -94,6 +94,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 .aparte-thumb:focus-within .aparte-thumb__remove {
   opacity: 1;
 }
+/* Inset, like the image beside it: the ✕ sits a few pixels inside a tile that clips
+   (`overflow: hidden`), so the ring outside its circle was cut along the top and the end.
+   Pulled in by its own width, it stays whole; the 12px glyph still fits inside. */
+.aparte-thumb__remove:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+}
 .aparte-thumb__remove:hover {
   background: var(--aparte-thumb-remove-bg-hover);
 }
