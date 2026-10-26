@@ -727,6 +727,8 @@ export class AparteClient {
              * be resent, so it neither waits for a compactor nor retries an overflow.
              */
             rebuild?: () => Promise<AparteChatMessage[]>;
+            /** The files picked for this message, for a runner that uploads them itself. */
+            files?: readonly File[];
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
@@ -830,7 +832,7 @@ export class AparteClient {
         const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
-                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files);
             // A server loop paused on calls only the page can answer: ask here — the
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
@@ -1520,10 +1522,10 @@ export class AparteClient {
         // Read once: the files are not read again when a compaction asks for the request to
         // be built again.
         let fileParts: AparteContentPart[] | undefined;
+        const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
         try {
             authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
-            const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
             fileParts = contentParts.length > 0 ? contentParts : undefined;
@@ -1537,7 +1539,10 @@ export class AparteClient {
             targetElement, messageId, provider,
             messages, modelId || config.defaultModel || '',
             authConfig,
-            { rebuild: async () => this._buildMessages(content, targetElement, fileParts) },
+            {
+                rebuild: async () => this._buildMessages(content, targetElement, fileParts),
+                ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
+            },
         );
     }
 
@@ -1689,6 +1694,7 @@ export class AparteClient {
         streamController: AbortController = new AbortController(),
         // A paused server run's answers, when this call resumes it (see `_streamTurn`).
         deferral?: StreamDeferral,
+        files?: readonly File[],
     ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1728,7 +1734,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files);
     }
 
     /**
@@ -1749,6 +1755,7 @@ export class AparteClient {
         authConfig: string | Record<string, string> | undefined,
         streamController: AbortController,
         deferral?: StreamDeferral,
+        files?: readonly File[],
     ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
@@ -1838,6 +1845,7 @@ export class AparteClient {
             messageId,
             ...(provider.id ? { providerId: provider.id } : {}),
             ...(deferral ? { deferral } : {}),
+            ...(files && files.length > 0 ? { files } : {}),
             baseRequest,
             transportCall,
             toolLookup,
