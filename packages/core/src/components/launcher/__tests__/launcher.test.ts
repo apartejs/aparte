@@ -291,6 +291,23 @@ describe('<aparte-launcher>: the config of the chat inside', () => {
         });
     });
 
+    it("draws the launcher's own icons when the config holds them, and leaves the chat's close icon alone", () => {
+        const el = mount();
+        const config = new AparteConfig();
+        config.registerIcons({
+            launcherOpen: () => '<svg class="aparte-icon" id="own-open"></svg>',
+            launcherClose: () => '<svg class="aparte-icon" id="own-close"></svg>',
+        });
+        attachConfig(el.querySelector('#chat') as HTMLElement, config);
+        return settle().then(() => {
+            expect(buttonOf(el).querySelector('#own-open')).not.toBeNull();
+            el.show();
+            expect(buttonOf(el).querySelector('#own-close')).not.toBeNull();
+            // Every other close button keeps core's drawing.
+            expect(config.getIcon('close')).toBe(closeIcon);
+        });
+    });
+
     it('reads it when the chat carries it already at connect, and follows a live change of it', () => {
         const el = document.createElement('aparte-launcher') as AparteLauncher;
         el.innerHTML = '<div id="chat"></div>';

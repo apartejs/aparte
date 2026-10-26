@@ -46,7 +46,9 @@ const FOCUSABLE = [
  *
  * **The button** shows a speech bubble, or the bubble and your `label` (`label="Help"`)
  * as a pill; it is named by the locale's `launcherOpen`/`launcherClose` when it shows no
- * text. Opening with the button hands the focus to the composer, or to the first control of
+ * text. Its two icons are the `launcherOpen` and `launcherClose` icons when the config holds
+ * them (`registerIcons`), else `messageSquare` and `close` — so a theme redraws this button
+ * without redrawing every close button in the chat. Opening with the button hands the focus to the composer, or to the first control of
  * your card; `show()` and `open` set from a script move no focus, so a page that restores the
  * state on load does not steal it. Closing gives the focus back to the button when it was
  * inside.
@@ -266,7 +268,11 @@ export class AparteLauncher extends HTMLElement {
         const icon = document.createElement('span');
         icon.className = 'aparte-launcher__icon';
         icon.setAttribute('aria-hidden', 'true');
-        icon.innerHTML = config.getIcon(open ? 'close' : 'messageSquare');
+        // The launcher's own names first, so a theme can redraw this button alone: `close` and
+        // `messageSquare` are every other close button's and the chat's too.
+        icon.innerHTML = open
+            ? config.getIcon('launcherClose') ?? config.getIcon('close')
+            : config.getIcon('launcherOpen') ?? config.getIcon('messageSquare');
         const parts: Node[] = [icon];
         if (label) {
             const text = document.createElement('span');
