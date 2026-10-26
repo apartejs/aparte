@@ -144,14 +144,14 @@ Three things change from the scripted chat:
 For a model on your own machine — Ollama, LM Studio, llama.cpp — see
 [Local models](/guides/local-models/).
 
-## Turn on retry and edit
+## Turn on copy, retry and edit
 
 ```ts
-aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true });
 ```
 
-A message shows a copy button by default. Retry and edit need a client to send the conversation
-again, so they are yours to turn on; [Conversations and branches](/guides/conversations-branching/)
+A message shows no button by default. Copy the chat does alone; retry and edit need a client to
+send the conversation again. All three are yours to turn on; [Conversations and branches](/guides/conversations-branching/)
 shows the versions of a reply that retry keeps.
 
 ## From a CDN
