@@ -86,6 +86,14 @@ describe('the pending attachment ✕ — the sheet', () => {
         expect(rule, 'the name is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
     });
 
+    it('keeps the name from burying a small tile there: bigger sent tiles, a tighter band', () => {
+        const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
+        expect(coarse.match(/\.aparte-attachments\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-attachment-image-size:\s*56px/);
+        expect(coarse.match(/\.aparte-thumb\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-thumb-name-padding:\s*6px 4px 3px/);
+        // And a file's extension label sits above the band, not under it.
+        expect(coarse.match(/\.aparte-thumb--file\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/align-items:\s*flex-start/);
+    });
+
     it('and gives it a finger-sized box there', () => {
         // 18px is under the WCAG 2.2 SC 2.5.8 floor of 24, and this is the only way to
         // drop a file. 24 is not a new number: it is the box `aparte-btn--sm` already

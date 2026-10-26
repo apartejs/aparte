@@ -155,6 +155,21 @@
     opacity: 1;
   }
 
+  /* Shown outright, the name must not bury the tile. Its band was ~30px — three quarters of
+     a 40px sent tile, three letters wide, over the extension label. The sent strip's tiles
+     grow to the composer's 56px (a finger's target too) and the band tightens to ~21px. */
+  .aparte-attachments {
+    --aparte-attachment-image-size: 56px;
+  }
+  .aparte-thumb {
+    --aparte-thumb-name-padding: 6px 4px 3px;
+  }
+  /* The extension label sits in the upper half, above the band, rather than under it. */
+  .aparte-thumb--file {
+    align-items: flex-start;
+    padding-block-start: var(--aparte-space-3);
+  }
+
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */
   .aparte-conv-item__more {
     opacity: 1;
