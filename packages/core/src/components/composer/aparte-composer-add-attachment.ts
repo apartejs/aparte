@@ -3,6 +3,7 @@ import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { acceptsFile } from './accepts-file.js';
 
 /**
  * File picker button for `<aparte-composer>`.
@@ -39,7 +40,9 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *
  * @element aparte-composer-add-attachment
  *
- * @attr {string} accept - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
+ * @attr {string} accept - MIME types / extensions the composer admits (e.g. "image/*,.pdf"):
+ *   the file input's filter, and checked again on a pick, a drop and a pasted image, so a
+ *   file outside it is not attached however it arrives.
  * @attr {boolean} multiple - Allow multiple file selection (default: true)
  * @attr {boolean} disabled - Greys out the picker. Drops are gated by the composer root's
  *   `disabled`, not by this one.
@@ -169,10 +172,16 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
         document.body.appendChild(input);
         input.addEventListener('change', () => {
-            if (input.files?.length) this._getRoot()?.addAttachments(input.files);
+            if (input.files?.length) this._admit(input.files);
             document.body.removeChild(input);
         }, { once: true });
         input.click();
+    }
+
+    /** Attach the files `accept` admits: the dialog's "All files" and a drop both bypass the browser's filter. */
+    private _admit(files: FileList | File[]): void {
+        const admitted = Array.from(files).filter((file) => acceptsFile(this.getAttribute('accept'), file));
+        if (admitted.length) this._getRoot()?.addAttachments(admitted);
     }
 
     private _setupDragDrop(): void {
@@ -191,7 +200,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
             root.classList.remove('aparte-is-dragover');
             if (root.disabled) return; // don't attach while disabled (the add button is blocked too)
             const files = e.dataTransfer?.files;
-            if (files?.length) this._getRoot()?.addAttachments(files);
+            if (files?.length) this._admit(files);
         };
 
         root.addEventListener('dragover', onDragOver);
