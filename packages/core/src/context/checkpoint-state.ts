@@ -11,6 +11,13 @@ export interface CheckpointWatcherOptions {
     /** The bubble drawn for a message id, or `null` while it is not on the page (a framework renders late). */
     bubbleOf(messageId: string): HTMLElement | null;
     /**
+     * Whether this chat's transcript holds the message. Answered from the transcript, not the
+     * DOM: a framework paints a bubble late, and a message that is on the list belongs to this
+     * chat whether or not it is drawn yet. An event about a message this returns false for is
+     * another chat's, whatever id it carries.
+     */
+    owns(messageId: string): boolean;
+    /**
      * Whether this watcher is the one answering for the chat. The vanilla viewport and the
      * framework host both exist under a wrapper, and only one of them may write the bubbles:
      * the viewport steps aside once a framework manages the DOM.
@@ -53,7 +60,8 @@ export function chatIdOf(el: Element): string | undefined {
  * - a conversation switch (`clear()`), because the bubble is not that chat's any more.
  * A `-done` or `-error` for another message, or for another chat on the page, changes
  * nothing: two chats compact at the same time, and one of them finishing must not wipe the
- * line of the other. A chat with no id is addressed by events with no id, as everywhere.
+ * line of the other. A chat with no id is addressed by events with no id, as everywhere, and
+ * an event is acted on only when its message is in this chat's transcript (`owns`).
  *
  * The state is remembered here as well as written to the bubble, because under a framework
  * the bubble can be created after the event (`reapply()` writes it again on every sync).
@@ -69,16 +77,21 @@ export class CheckpointStateWatcher {
 
     /** Listen on `window` for the three events; returns the function that stops. */
     start(): () => void {
+        // An event naming no chat is for every chat, and a chat with no id is for those only,
+        // as everywhere else in the library. The id cannot tell two chats apart, though, once
+        // one of them is unnamed: an untargeted event reaches both. The message does — it is
+        // in one transcript and not in the other — so what the watcher acts on is an event
+        // about a message of its own, checked before anything is cleared.
         const mine = (targetId?: string): boolean => {
             if (this._options.active && !this._options.active()) return false;
-            const own = this._options.ownId();
-            return !targetId || !own || targetId === own;
+            return !targetId || targetId === this._options.ownId();
         };
+        const mineMessage = (messageId?: string): messageId is string => !!messageId && this._options.owns(messageId);
         const onStart = (e: Event): void => {
             const detail = (e as CustomEvent<AparteCompactStartEventDetail | undefined>).detail;
-            if (!mine(detail?.targetId)) return;
+            if (!mine(detail?.targetId) || !mineMessage(detail?.messageId)) return;
             this.clear();
-            if (detail?.messageId) this._set(detail.messageId, 'pending', '');
+            this._set(detail.messageId, 'pending', '');
         };
         const onDone = (e: Event): void => {
             const detail = (e as CustomEvent<AparteCompactDoneEventDetail | undefined>).detail;
@@ -87,7 +100,7 @@ export class CheckpointStateWatcher {
         };
         const onError = (e: Event): void => {
             const detail = (e as CustomEvent<AparteCompactErrorEventDetail | undefined>).detail;
-            if (!mine(detail?.targetId) || !detail?.messageId) return;
+            if (!mine(detail?.targetId) || !mineMessage(detail?.messageId)) return;
             if (detail.messageId !== this._messageId) this.clear();
             this._set(detail.messageId, 'failed', detail.error ?? '');
         };

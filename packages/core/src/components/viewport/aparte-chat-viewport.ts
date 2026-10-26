@@ -417,6 +417,7 @@ export class AparteChatViewport extends HTMLElement {
         this._checkpointState ??= new CheckpointStateWatcher({
             ownId: () => chatIdOf(this),
             bubbleOf: (id) => this.querySelector(`aparte-chat-bubble[message-id="${cssEscape(id)}"]`) as HTMLElement | null,
+            owns: (id) => !!this.getMessage(id),
             active: () => !this._frameworkManagedDOM,
         });
         this._stopCheckpointState ??= this._checkpointState.start();

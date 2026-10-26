@@ -208,6 +208,7 @@ export class AparteChatHost {
     private readonly _checkpointState = new CheckpointStateWatcher({
         ownId: () => this.binding.hostId,
         bubbleOf: (id) => this._bubbleById(id) as unknown as HTMLElement | null,
+        owns: (id) => this.binding.getMessages().some((m) => m.id === id),
     });
     /** Sibling info from the last path-change, applied after the next render. */
     private _pendingSiblings?: AparteSiblingInfo[];
