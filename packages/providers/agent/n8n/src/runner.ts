@@ -214,7 +214,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 return queued;
             };
 
-            if (!response.body) throw new AparteError(EMPTY_STREAM, AparteErrorCode.PROVIDER_ERROR);
+            if (!response.body) throw new AparteError(EMPTY_STREAM, AparteErrorCode.PROVIDER_MISCONFIGURED);
             for await (const part of readN8nReply(response.body)) {
                 switch (part.kind) {
                     case 'begin':
@@ -238,9 +238,9 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         draw(part.text);
                         break;
                     case 'unreadable':
-                        throw new AparteError(unreadable(part.fields), AparteErrorCode.PROVIDER_ERROR);
+                        throw new AparteError(unreadable(part.fields), AparteErrorCode.PROVIDER_MISCONFIGURED);
                     case 'deferred':
-                        throw new AparteError(DEFERRED, AparteErrorCode.PROVIDER_ERROR);
+                        throw new AparteError(DEFERRED, AparteErrorCode.PROVIDER_MISCONFIGURED);
                     case 'html':
                         flush();
                         throw new AparteError(PROXY_TIMEOUT, AparteErrorCode.NET_TIMEOUT);
@@ -261,7 +261,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 open(stream);
                 for (const text of queued.text) draw(text);
             }
-            if (!drawn) throw new AparteError(whole ? EMPTY_WHOLE : EMPTY_STREAM, AparteErrorCode.PROVIDER_ERROR);
+            if (!drawn) throw new AparteError(whole ? EMPTY_WHOLE : EMPTY_STREAM, AparteErrorCode.PROVIDER_MISCONFIGURED);
             flush();
             emit({ type: 'run-done' });
             return undefined;

@@ -234,7 +234,7 @@ describe('createN8nRunner: what it draws (recorded from n8n 2.35.7)', () => {
         const r = run(fakeFetch(replay(fixture('stream-disabled-in-agent'))).fetch);
         const error = await r.done.catch((e: unknown) => e);
         expect(error).toBeInstanceOf(AparteError);
-        expect((error as AparteError).code).toBe(AparteErrorCode.PROVIDER_ERROR);
+        expect((error as AparteError).code).toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
         expect((error as AparteError).message).toMatch(/turn on streaming in the AI Agent's options/);
     });
 
@@ -432,11 +432,13 @@ describe('createN8nRunner: answers that do not stream', () => {
     it('says the workflow answers through response nodes, which it does not read', async () => {
         const r = run(fakeFetch(respond('{"executionStarted":true,"executionId":"12"}')).fetch);
         await expect(r.done).rejects.toThrow(/answers through response nodes/);
+        await expect(r.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_MISCONFIGURED });
     });
 
     it('fails as an empty answer when there is no body at all', async () => {
         const r = run(fakeFetch(respond('', { status: 204 })).fetch);
         await expect(r.done).rejects.toThrow(/streamed nothing/);
+        await expect(r.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_MISCONFIGURED });
     });
 });
 
@@ -461,8 +463,9 @@ describe('createN8nRunner: HTTP failures', () => {
         expect(auth.code).toBe(AparteErrorCode.CONFIG_INVALID_KEY);
         const busy = await run(fakeFetch(respond('', { status: 429 })).fetch).done.catch((e: unknown) => e) as AparteError;
         expect(busy.code).toBe(AparteErrorCode.USAGE_RATE_LIMIT);
+        // A workflow that is not published: set up so it cannot answer, not failing.
         const missing = await run(fakeFetch(respond('', { status: 404 })).fetch).done.catch((e: unknown) => e) as AparteError;
-        expect(missing.code).toBe(AparteErrorCode.PROVIDER_ERROR);
+        expect(missing.code).toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
     });
 
     it('says what to check when n8n cannot be reached, which is also how a refused origin looks', async () => {
@@ -619,11 +622,13 @@ describe('createN8nRunner: what a proxy or n8n refuses', () => {
     it('says a web page came back instead of an answer, for any other status', async () => {
         const error = await fail(respond('<!doctype html><title>Not found</title>', { status: 404, contentType: 'text/html' }));
         expect(error.message).toMatch(/web page instead of a chat answer.*ends in \/chat/);
+        expect(error.code).toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
     });
 
     it('names the credentials a workflow waits for, and says when n8n could not check them', async () => {
         const gate = await fail(respond(JSON.stringify({ status: 'credential_connections_required', readyToExecute: false, credentials: [{ credentialId: '1', credentialName: 'OpenAI account' }, { credentialName: 'Slack' }] }), { status: 428 }));
         expect(gate.message).toBe('The n8n workflow cannot run until its credentials are connected (OpenAI account, Slack). Connect them in n8n, then try again.');
+        expect(gate.code, 'set up so it cannot answer: no retry mends it').toBe(AparteErrorCode.PROVIDER_MISCONFIGURED);
         const check = await fail(respond('{"status":"credential_readiness_check_failed"}', { status: 503 }));
         expect(check.message).toMatch(/could not check the workflow's credentials/);
         expect(check.code).toBe(AparteErrorCode.PROVIDER_UNAVAILABLE);

@@ -16,8 +16,8 @@ import type { AparteLocale } from '../config/locale.js';
  *
  * "Try again in a moment" is said only where a moment can help: a dropped connection, a
  * timeout, a busy or failing provider. A request the provider refused as malformed, a
- * policy refusal, a tool that crashed or an error nobody classified gets a sentence that
- * promises nothing.
+ * policy refusal, a provider set up so it cannot answer, a tool that crashed or an error
+ * nobody classified gets a sentence that promises nothing.
  */
 export function errorSentence(code: string | undefined, t: (key: keyof AparteLocale) => string): string | undefined {
     switch (code) {
@@ -37,6 +37,7 @@ export function errorSentence(code: string | undefined, t: (key: keyof AparteLoc
             return t('errorFailed');
         case AparteErrorCode.USAGE_BAD_REQUEST:
         case AparteErrorCode.PROVIDER_POLICY:
+        case AparteErrorCode.PROVIDER_MISCONFIGURED:
         case AparteErrorCode.CONFIG_INVALID_MODEL:
         case AparteErrorCode.UNKNOWN_ERROR:
             return t('errorNoAnswer');

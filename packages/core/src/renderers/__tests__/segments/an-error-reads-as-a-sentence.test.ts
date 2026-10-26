@@ -46,6 +46,7 @@ describe('the sentence an error code reads as', () => {
         // A retry would not help: nothing says "try again".
         ['USAGE_BAD_REQUEST', 'The assistant couldn’t answer this request.'],
         ['PROVIDER_POLICY', 'The assistant couldn’t answer this request.'],
+        ['PROVIDER_MISCONFIGURED', 'The assistant couldn’t answer this request.'],
         ['CONFIG_INVALID_MODEL', 'The assistant couldn’t answer this request.'],
         ['UNKNOWN_ERROR', 'The assistant couldn’t answer this request.'],
     ])('%s reads "%s", never the message', (code, sentence) => {

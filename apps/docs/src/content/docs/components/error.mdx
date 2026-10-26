@@ -36,7 +36,7 @@ the client puts it on the console when the turn fails.
 | `USAGE_RATE_LIMIT` (a 429) | `errorRateLimited` | Too many requests right now. Try again in a moment. |
 | `USAGE_CONTEXT_EXCEEDED` | `errorTooLong` | This conversation is too long for the model. Start a new one. |
 | `PROVIDER_ERROR` (a 5xx), `PROVIDER_UNAVAILABLE` (a 503) | `errorFailed` | The assistant couldn’t answer. Try again in a moment. |
-| `USAGE_BAD_REQUEST` (a 400), `PROVIDER_POLICY`, `CONFIG_INVALID_MODEL`, `UNKNOWN_ERROR` — and a tool whose handler crashed | `errorNoAnswer` | The assistant couldn’t answer this request. |
+| `USAGE_BAD_REQUEST` (a 400), `PROVIDER_POLICY`, `PROVIDER_MISCONFIGURED` (reached, but set up so it cannot answer: an n8n workflow unpublished or waiting for credentials), `CONFIG_INVALID_MODEL`, `UNKNOWN_ERROR` — and a tool whose handler crashed | `errorNoAnswer` | The assistant couldn’t answer this request. |
 
 "Try again" is said only where a moment can help. A wrong model id or URL is a request that failed,
 and reads as one; its reason is on the console. A tool whose handler throws reads as
