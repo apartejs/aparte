@@ -230,7 +230,7 @@ export default defineConfig({
         // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.
         'packages/providers/agent/n8n/src/**': { lines: 99, statements: 99, functions: 99, branches: 97 },
         // n8n-chat (2026-10-26): measured 100 / 100 / 86 — real elements in jsdom over a scripted n8n.
-        'packages/integrations/n8n-chat/src/**': { lines: 99, statements: 99, functions: 99, branches: 85 },
+        'packages/integrations/n8n-chat/src/**': { lines: 99, statements: 99, functions: 99, branches: 87 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 92, branches: 86 },
         'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 91 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
