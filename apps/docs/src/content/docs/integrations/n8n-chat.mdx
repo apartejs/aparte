@@ -1,0 +1,204 @@
+---
+title: n8n chat widget
+description: Replace @n8n/chat with the same createChat call — n8n's look or your brand's, English or French, history without the tool steps, keyboard and screen-reader access, a handle to drive it, MIT.
+sidebar:
+  order: 1
+  label: n8n chat widget
+---
+
+import Code from '../../../components/content/Code.astro';
+import ProductFrame from '../../../components/home/ProductFrame.astro';
+import meta from '../../../templates/n8n-chat/meta';
+import { CORE_VERSION } from '../../../data/core-version';
+
+`@aparte/n8n-chat` replaces n8n's chat widget on your site with the same call. `createChat` takes
+[`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat)'s options and mounts the same thing on your
+Chat Trigger — a button in the corner that opens the chat, or a chat that fills its target — and
+it keeps what your page relies on: the option names, the session, the history, the files and the
+`--chat--*` variables you styled it with.
+
+<ProductFrame meta={meta} />
+
+## Replace `@n8n/chat` in two lines
+
+Your page today:
+
+```html
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+<script type="module">
+  import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+  createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+</script>
+```
+
+The same page with aparté — the two URLs change, the call does not:
+
+<Code lang="html" code={`<link href="https://cdn.jsdelivr.net/npm/@aparte/n8n-chat@${CORE_VERSION}/dist/style.css" rel="stylesheet" />
+<script type="module">
+  import { createChat } from 'https://cdn.jsdelivr.net/npm/@aparte/n8n-chat@${CORE_VERSION}/+esm';
+  createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+</script>`} />
+
+With a bundler:
+
+```bash
+npm install @aparte/n8n-chat @aparte/core
+```
+
+```ts
+import { createChat } from '@aparte/n8n-chat';
+import '@aparte/n8n-chat/style.css';
+
+createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+```
+
+A visitor in the middle of a conversation keeps it across the switch: the session is read from the
+same place in the browser (`localStorage`, key `n8n-chat/sessionId`), and the history is loaded
+from n8n the same way.
+
+## What changes for the people on your site
+
+| | `@n8n/chat` 1.43.3 | `@aparte/n8n-chat` |
+| --- | --- | --- |
+| Your page can open, close, send, reset | No: `createChat` returns the Vue app | `open()`, `close()`, `toggle()`, `send()`, `reset()`, `destroy()` |
+| A new conversation | Keeps the same session when history is on | `reset()` starts a new session |
+| A turn that called a tool, after a reload | The call and its result as bubbles of raw JSON | Left out, as in the live answer |
+| A last node with no `output` field | Its JSON printed in the bubble | An error that names the fields it got |
+| Languages | English strings you can override | English and French shipped, every string translatable |
+| Keyboard and screen reader | No roles, no labels; the launcher is a `div` | A real button, named; the window is a labelled region |
+| Dark scheme | No | `colorScheme: 'dark'` or `'auto'` |
+| Styles leaking into your page | `.hljs`, `.empty`, an `h1` title | Every class prefixed `aparte-`, no heading |
+| React, Vue, Svelte, Angular | No | The same chat as components, with the n8n theme |
+| Weight on the wire (brotli) | 449 KB JS + 7 KB CSS | about 95 KB JS + 21 KB CSS |
+| License | Sustainable Use License | MIT |
+
+The `@n8n/chat` column is what its version 1.43.3 does (npm's `latest`, October 2026), read from its
+published package; its size is jsDelivr's. Ours is the same widget built from this repository,
+minified, with every dependency it loads.
+
+## The options
+
+Every option of `@n8n/chat`'s `createChat` is accepted under its name.
+
+| Option | Default | |
+| --- | --- | --- |
+| `webhookUrl` | — | The Chat Trigger's production URL, the one that ends in `/chat`. |
+| `webhookConfig` | `{}` | `headers` are sent with every request and read each time, so a token you refresh is sent. Every request is a POST. |
+| `target` | `'#n8n-chat'` | An element or a selector; a selector that matches nothing gets a `div` at the end of the body. |
+| `mode` | `'window'` | `'window'`: a button in the corner. `'fullscreen'`: the chat fills the target, which needs a height. |
+| `showWindowCloseButton` | `true` | The ✕ in the header. On a phone, where the open chat covers the page, it is the way back. |
+| `showWelcomeScreen` | `false` | A screen with a "New Conversation" button before the chat. |
+| `loadPreviousSession` | `true` | Keep the session in the browser and show its history on load. |
+| `sessionId` | — | Use this session (your app's conversation id) instead of the stored one. |
+| `chatInputKey`, `chatSessionKey` | `'chatInput'`, `'sessionId'` | The body fields, for a workflow that reads others. |
+| `defaultLanguage` | `'en'` | `'en'` or `'fr'`; with `i18n` for the chrome's words in any language. |
+| `initialMessages` | n8n's two | The assistant's first messages, neither sent nor kept. |
+| `messageHistory` | — | A conversation to show when n8n has none for the session. |
+| `metadata` | — | Sent with every message, read from the trigger's output. |
+| `i18n` | — | `title`, `subtitle`, `footer`, `getStarted`, `inputPlaceholder`, `closeButtonTooltip`, by language. |
+| `allowFileUploads`, `allowedFilesMimeTypes` | `false`, any | The paperclip, and what the picker offers. |
+| `beforeMessageSent`, `afterMessageSent` | — | Called with the message, and with the message and the answer's text. |
+| `enableStreaming` | — | Accepted and not needed: a streamed answer and a whole one are both read. |
+| `theme` | — | Accepted: `@n8n/chat` never read it either. Style with CSS variables. |
+
+These are the `ChatOptions`; the chrome's words are `ChatStrings`, and `createChat` returns a
+`Chat`. And three of aparté's own: `suggestions` (questions offered above the input until the first message),
+`colorScheme` (`'light'`, `'dark'`, `'auto'`) and `fetch` (every request to n8n goes through it — a
+proxy, a test).
+
+## Drive it from your page
+
+```ts
+import { createChat } from '@aparte/n8n-chat';
+
+const chat = createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+
+document.querySelector('#help')?.addEventListener('click', () => chat.open());
+document.querySelector('#ask-shipping')?.addEventListener('click', () => {
+  chat.open();
+  chat.send('Do you ship abroad?');
+});
+document.querySelector('#logout')?.addEventListener('click', () => chat.reset());
+```
+
+`chat.element` is the widget's root, where the chat's events bubble (`aparte-send`,
+`aparte-message-done`, `aparte-launcher-toggle`).
+
+## Your colors
+
+The n8n theme reads n8n's own variables, with n8n's defaults: a page that restyled `@n8n/chat`
+keeps its look.
+
+```css
+:root {
+  --chat--color--primary: #b4532a;   /* the button in the corner */
+  --chat--color--secondary: #7a4a24; /* the person's bubbles, the send button */
+  --chat--header--background: #3a2716;
+  --chat--border-radius: 14px;
+  --chat--font-family: Georgia, serif;
+}
+```
+
+Everything else is aparté's [theming](/guides/theming/): any `--aparte-*` variable set on
+`.aparte-n8n` wins over the theme. The [template](/templates/n8n-chat/) switches between n8n's look
+and a bakery's with these variables alone.
+
+## Set up the Chat Trigger
+
+1. In the **Chat Trigger**, turn **Make Chat Publicly Available** on, set **Mode** to
+   **Embedded Chat**, and add your site to **Allowed Origins (CORS)**.
+2. Set **Response Mode** to **Streaming**, and turn **Enable Streaming** on in the AI Agent's options
+   too. With **When Last Node Finishes** instead, the answer arrives whole: that works as well.
+3. For the history after a reload, set **Load Previous Session** to **From Memory**, and connect the
+   memory node to the Chat Trigger **as well as** to the agent. With the memory on the agent only,
+   n8n answers the history request with an error 500.
+4. **Activate** the workflow. Its production URL — not the test URL — is your `webhookUrl`.
+
+Or start from [this workflow](/n8n/aparte-chat-workflow.json), set up that way: import it in n8n
+(**Import from File**), choose your OpenAI credential in the model node, set your site in Allowed
+Origins, and activate it.
+
+## When something is wrong, it says what
+
+| What happened | What the chat says |
+| --- | --- |
+| The workflow is not active | n8n's own message: the webhook is not registered, activate the workflow |
+| The trigger streams, the agent does not | Turn on streaming in the AI Agent's options |
+| The last node returns no `output`, `text` or `message` | The fields it returned, and how to end the workflow |
+| The workflow waits for credentials | Which ones to connect |
+| A proxy gave up (502, 504) | That the workflow may still be running — never the proxy's page |
+| The history request fails with the memory not on the trigger | Connect the memory to the Chat Trigger (on the console) |
+| The workflow answers through response nodes | Use Streaming or When Last Node Finishes |
+
+## What it does not do yet
+
+- **Response nodes** (the Chat node, "Respond to Chat"): n8n then answers over its chat WebSocket,
+  which human-in-the-loop flows and approval buttons use. The chat says so instead of hanging.
+- **`messageComponents`**: custom Vue components for messages. aparté has its own seams for that
+  ([segments](/guides/customization/segments/)), not Vue's.
+- **`enableMessageActions`**: n8n's "repost" and "reuse" on the person's messages. Answers have a copy
+  button instead.
+
+## With React, Vue, Svelte or Angular
+
+`createChat` is the one-line widget. In an app, compose the same chat with your framework's
+components: the n8n runner as the client's `streamRunner`, the theme from
+`@aparte/n8n-chat/theme.css`, and a `.aparte-n8n` class around it.
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner, loadN8nHistory } from '@aparte/runner-n8n';
+import '@aparte/n8n-chat/theme.css';
+
+const webhookUrl = 'https://your-n8n.example.com/webhook/<id>/chat';
+const sessionId = 'conversation-42';
+
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl, sessionId }),
+  rawFileInject: 'none', // files go to n8n as files
+}).start();
+
+const history = await loadN8nHistory({ webhookUrl, sessionId });
+```
+
+The runner, its sessions and its errors are on [the n8n runner's page](/providers/agent/n8n/).

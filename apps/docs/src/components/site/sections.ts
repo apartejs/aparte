@@ -16,7 +16,7 @@ export interface Section {
 }
 
 export const SECTIONS: Section[] = [
-    { id: 'docs', label: 'Docs', href: '/guides/introduction/', prefixes: ['/guides/', '/frameworks/', '/providers/', '/examples/'] },
+    { id: 'docs', label: 'Docs', href: '/guides/introduction/', prefixes: ['/guides/', '/frameworks/', '/providers/', '/integrations/', '/examples/'] },
     { id: 'components', label: 'Components', href: '/components/', prefixes: ['/components/', '/segments/', '/kit/', '/plugins/'] },
     // No sidebar: the grid and the templates' own pages are not docs pages.
     { id: 'templates', label: 'Templates', href: '/templates/', prefixes: ['/templates/'] },
