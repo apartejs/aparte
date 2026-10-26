@@ -105,7 +105,7 @@ export default defineConfig({
         // exercises the whole surface rather than a sample.
         // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
         // its least-covered; measured 84.09% after. The ratchet asked for it.
-        functions: 87,
+        functions: 89,
         // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
@@ -219,7 +219,7 @@ export default defineConfig({
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
-        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 95, branches: 89 },
+        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
@@ -227,8 +227,8 @@ export default defineConfig({
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
         'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
-        'packages/providers/ai/ai-sdk/src/**': { lines: 95, statements: 95, functions: 90, branches: 83 },
-        'packages/providers/ai/openai-compat/src/**': { lines: 94, statements: 94, functions: 93, branches: 87 },
+        'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 92, branches: 86 },
+        'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 91 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
         // Measured 78.04 by the full run after the worker moved to a stable path (its new
         // construction path is exercised by the published-shape test, not by a run): a
