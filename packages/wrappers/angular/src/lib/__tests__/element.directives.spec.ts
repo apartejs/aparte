@@ -298,6 +298,25 @@ describe('the element directives', () => {
             (conversationUnpin)="seen['conversationUnpin'] = true"></aparte-conversation-list>
 
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
+
+        <aparte-context [window]="1000" [warn]="0.7" [danger]="0.95" target="t" variant="ring" [used]="10"
+            (contextThreshold)="seen['contextThreshold'] = true" (compact)="seen['compact'] = true"></aparte-context>
+
+        <aparte-launcher [open]="true" label="Help" breakpoint="40rem"
+            (launcherToggle)="seen['launcherToggle'] = true"></aparte-launcher>
+
+        <aparte-scroll-rail target="t" every="message"
+            (scrollRailJump)="seen['scrollRailJump'] = true"></aparte-scroll-rail>
+
+        <aparte-sidebar [collapsed]="true" breakpoint="40rem"
+            (sidebarToggle)="seen['sidebarToggle'] = true"></aparte-sidebar>
+
+        <aparte-split [position]="40" orientation="vertical" primary="end" breakpoint="none"
+            pane="end" [disabled]="true" label="Seam" [single]="true"
+            (splitResize)="seen['splitResize'] = true"></aparte-split>
+
+        <aparte-suggestions suggestions='["Hi"]' target="t" [emptyOnly]="true" mode="fill"
+            (suggestion)="seen['suggestion'] = true"></aparte-suggestions>
     `,
 })
 class EverythingHost {
@@ -355,6 +374,31 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-optgroup', 'loading', ''],
         ['aparte-conversation-list', 'active-id', 'c1'],
         ['aparte-progress-spinner', 'value', '42'],
+        ['aparte-context', 'window', '1000'],
+        ['aparte-context', 'warn', '0.7'],
+        ['aparte-context', 'danger', '0.95'],
+        ['aparte-context', 'target', 't'],
+        ['aparte-context', 'variant', 'ring'],
+        ['aparte-context', 'used', '10'],
+        ['aparte-launcher', 'open', ''],
+        ['aparte-launcher', 'label', 'Help'],
+        ['aparte-launcher', 'breakpoint', '40rem'],
+        ['aparte-scroll-rail', 'target', 't'],
+        ['aparte-scroll-rail', 'every', 'message'],
+        ['aparte-sidebar', 'collapsed', ''],
+        ['aparte-sidebar', 'breakpoint', '40rem'],
+        ['aparte-split', 'position', '40'],
+        ['aparte-split', 'orientation', 'vertical'],
+        ['aparte-split', 'primary', 'end'],
+        ['aparte-split', 'breakpoint', 'none'],
+        ['aparte-split', 'pane', 'end'],
+        ['aparte-split', 'disabled', ''],
+        ['aparte-split', 'label', 'Seam'],
+        ['aparte-split', 'single', ''],
+        ['aparte-suggestions', 'suggestions', '["Hi"]'],
+        ['aparte-suggestions', 'target', 't'],
+        ['aparte-suggestions', 'empty-only', ''],
+        ['aparte-suggestions', 'mode', 'fill'],
     ];
 
     it.each(ATTRS)('%s writes [%s]', (tag, attr, expected) => {
@@ -390,6 +434,13 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-conversation-rename', 'conversationRename'],
         ['aparte-conversation-list', 'aparte-conversation-pin', 'conversationPin'],
         ['aparte-conversation-list', 'aparte-conversation-unpin', 'conversationUnpin'],
+        ['aparte-context', 'aparte-context-threshold', 'contextThreshold'],
+        ['aparte-context', 'aparte-compact', 'compact'],
+        ['aparte-launcher', 'aparte-launcher-toggle', 'launcherToggle'],
+        ['aparte-scroll-rail', 'aparte-scroll-rail-jump', 'scrollRailJump'],
+        ['aparte-sidebar', 'aparte-sidebar-toggle', 'sidebarToggle'],
+        ['aparte-split', 'aparte-split-resize', 'splitResize'],
+        ['aparte-suggestions', 'aparte-suggestion', 'suggestion'],
     ];
 
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {
