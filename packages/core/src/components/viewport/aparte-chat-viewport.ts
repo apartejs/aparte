@@ -415,7 +415,10 @@ export class AparteChatViewport extends HTMLElement {
         window.addEventListener('aparte-reset', this._boundResetHandler);
         window.addEventListener('aparte-config-change', this._onConfigChange);
         this._checkpointState ??= new CheckpointStateWatcher({
-            ownId: () => chatIdOf(this),
+            // A bare `<aparte-chat-viewport id="…">` with no named host around it is its own
+            // chat: the client names its events with that id (`_targetIdOf` falls back to the
+            // element's own), so the watcher answers to it too, or every event is someone else's.
+            ownId: () => chatIdOf(this) ?? (this.id || undefined),
             bubbleOf: (id) => this.querySelector(`aparte-chat-bubble[message-id="${cssEscape(id)}"]`) as HTMLElement | null,
             owns: (id) => !!this.getMessage(id),
             active: () => !this._frameworkManagedDOM,

@@ -100,6 +100,29 @@ describe('what the compaction events do to the bubble', () => {
         expect(separatorOf(viewport, 'u2')!.getAttribute('data-state'), 'the checkpoint itself is left').toBe('done');
     });
 
+    it('answers to its own id when it is a bare viewport with no named chat around it', () => {
+        // The client names such a chat's events with the viewport's own id.
+        const viewport = document.createElement('aparte-chat-viewport') as Viewport;
+        viewport.id = 'solo';
+        document.body.appendChild(viewport);
+        transcript(viewport);
+
+        emit('aparte-compact-start', { targetId: 'solo', messageId: 'u2' });
+        expect(bubbleOf(viewport, 'u2').getAttribute('data-checkpoint')).toBe('pending');
+        emit('aparte-compact-start', { targetId: 'another', messageId: 'u2' });
+        expect(bubbleOf(viewport, 'u2').getAttribute('data-checkpoint'), "another chat's start changes nothing").toBe('pending');
+    });
+
+    it('clears the pending line on a cancelled compaction, and offers no Retry', () => {
+        const { viewport } = mount();
+        transcript(viewport);
+
+        emit('aparte-compact-start', { messageId: 'u2' });
+        emit('aparte-compact-error', { messageId: 'u2', error: 'Compaction aborted', aborted: true });
+        expect(bubbleOf(viewport, 'u2').hasAttribute('data-checkpoint')).toBe(false);
+        expect(separatorOf(viewport, 'u2')).toBeNull();
+    });
+
     it('marks it failed, with the reason, on an error that names the message', () => {
         const { viewport } = mount();
         transcript(viewport);
