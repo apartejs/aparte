@@ -9,6 +9,9 @@ packages:
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 
+  # What puts the pieces together for one product's users: n8n's chat widget, drawn by aparté
+  - 'packages/integrations/*'
+
   # Tools around the library, not in it: the docs as an MCP server
   - 'packages/tools/*'
 

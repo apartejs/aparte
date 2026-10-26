@@ -1,0 +1,258 @@
+/*
+ * The n8n theme: aparté's chat in the look of n8n's chat widget, on anything inside
+ * `.aparte-n8n` — the widget `createChat()` mounts, or a chat you compose yourself.
+ *
+ * Every value is read from the `--chat--*` variable n8n's widget reads, with its default
+ * as the fallback. A page that restyled n8n's widget with those variables keeps its colors,
+ * its sizes and its font when it switches. The `--aparte-*` variables still win over all
+ * of it: set them on `.aparte-n8n` like on any aparté chat.
+ *
+ * The palette is declared whole on `.aparte-n8n`, light by default like n8n's widget: a
+ * visitor whose system is dark does not get a chat half in the page's colors. Dark is
+ * `colorScheme: 'dark'` (or `data-aparte-theme="dark"`), or the visitor's own with
+ * `colorScheme: 'auto'`.
+ */
+
+.aparte-n8n,
+.aparte-n8n :is(aparte-chat, [data-aparte-host]) {
+  color-scheme: light;
+  --aparte-font-family: var(--chat--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif);
+  --aparte-code-font-family: var(--chat--font-family--monospace, ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace);
+
+  --aparte-bg: var(--chat--body--background, var(--chat--color-light, #f2f4f8));
+  --aparte-surface-1: var(--chat--color-white, #fff);
+  --aparte-surface-2: var(--chat--color-light-shade-50, #e6e9f1);
+  --aparte-text: var(--chat--color-dark, #101330);
+  --aparte-text-muted: #5b5f7a;
+  --aparte-neutral: #5b5f7a;
+  --aparte-border: var(--chat--color-light-shade-50, #e6e9f1);
+  --aparte-primary: var(--chat--color--secondary, #20b69e);
+  --aparte-primary-hover: var(--chat--color-secondary-shade-50, #1ca08a);
+  --aparte-on-primary: var(--chat--color-white, #fff);
+  --aparte-accent: var(--chat--color--primary, #e74266);
+
+  --aparte-message-content-bg-user: var(--chat--message--user--background, var(--chat--color--secondary, #20b69e));
+  --aparte-message-content-text-user: var(--chat--message--user--color, var(--chat--color-white, #fff));
+  --aparte-message-content-bg-assistant: var(--chat--message--bot--background, var(--chat--color-white, #fff));
+  --aparte-message-content-text-assistant: var(--chat--message--bot--color, var(--chat--color-dark, #101330));
+  --aparte-radius-bubble: var(--chat--message--border-radius, var(--chat--border-radius, 0.25rem));
+  --aparte-message-content-radius: var(--chat--message--border-radius, var(--chat--border-radius, 0.25rem));
+  --aparte-code-bg: var(--chat--message--pre--background, rgba(0, 0, 0, 0.05));
+  --aparte-prose-code-bg: var(--chat--message--pre--background, rgba(0, 0, 0, 0.05));
+  --aparte-input-bg: var(--chat--input--background, var(--chat--color-white, #fff));
+
+  --aparte-launcher-width: var(--chat--window--width, 400px);
+  --aparte-launcher-height: var(--chat--window--height, 600px);
+  --aparte-launcher-offset: var(--chat--window--bottom, var(--chat--spacing, 1rem));
+  --aparte-launcher-gap: var(--chat--window--margin-bottom, var(--chat--spacing, 1rem));
+  --aparte-launcher-radius: var(--chat--window--border-radius, var(--chat--border-radius, 0.25rem));
+
+  /* The header and the footer, drawn by this theme. */
+  --aparte-n8n-header-bg: var(--chat--header--background, var(--chat--color-dark, #101330));
+  --aparte-n8n-header-color: var(--chat--header--color, var(--chat--color-light, #f2f4f8));
+  --aparte-n8n-footer-bg: var(--chat--footer--background, var(--chat--color-light, #f2f4f8));
+  --aparte-n8n-footer-color: var(--chat--footer--color, var(--chat--color-dark, #101330));
+  --aparte-n8n-toggle-bg: var(--chat--toggle--background, var(--chat--color--primary, #e74266));
+  --aparte-n8n-toggle-hover-bg: var(--chat--toggle--hover--background, var(--chat--color--primary-shade-50, #db4061));
+  --aparte-n8n-toggle-color: var(--chat--toggle--color, var(--chat--color-white, #fff));
+
+  --aparte-message-content-padding: var(--chat--message--padding, var(--chat--spacing, 1rem));
+  --aparte-message-content-padding-assistant: var(--chat--message--padding, var(--chat--spacing, 1rem));
+}
+
+.aparte-n8n {
+  font-family: var(--aparte-font-family);
+  color: var(--aparte-text);
+}
+
+/* Dark: n8n's own navy, which its widget never had. */
+.aparte-n8n[data-aparte-theme='dark'],
+.aparte-n8n[data-aparte-theme='dark'] :is(aparte-chat, [data-aparte-host]) {
+  color-scheme: dark;
+  --aparte-bg: #0b0d24;
+  --aparte-surface-1: #151937;
+  --aparte-surface-2: #1d2246;
+  --aparte-text: #eef0f6;
+  --aparte-text-muted: #a3a7c2;
+  --aparte-neutral: #a3a7c2;
+  --aparte-border: #262b52;
+  --aparte-message-content-bg-assistant: #171b3d;
+  --aparte-message-content-text-assistant: #eef0f6;
+  --aparte-code-bg: rgba(255, 255, 255, 0.06);
+  --aparte-prose-code-bg: rgba(255, 255, 255, 0.06);
+  --aparte-input-bg: #151937;
+  --aparte-n8n-header-bg: #060716;
+  --aparte-n8n-footer-bg: #0b0d24;
+  --aparte-n8n-footer-color: #eef0f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .aparte-n8n:not([data-aparte-theme]),
+  .aparte-n8n:not([data-aparte-theme]) :is(aparte-chat, [data-aparte-host]) {
+    color-scheme: dark;
+    --aparte-bg: #0b0d24;
+    --aparte-surface-1: #151937;
+    --aparte-surface-2: #1d2246;
+    --aparte-text: #eef0f6;
+    --aparte-text-muted: #a3a7c2;
+    --aparte-neutral: #a3a7c2;
+    --aparte-border: #262b52;
+    --aparte-message-content-bg-assistant: #171b3d;
+    --aparte-message-content-text-assistant: #eef0f6;
+    --aparte-code-bg: rgba(255, 255, 255, 0.06);
+    --aparte-prose-code-bg: rgba(255, 255, 255, 0.06);
+    --aparte-input-bg: #151937;
+    --aparte-n8n-header-bg: #060716;
+    --aparte-n8n-footer-bg: #0b0d24;
+    --aparte-n8n-footer-color: #eef0f6;
+  }
+}
+
+/* ── The window ─────────────────────────────────────────────────────────────────────── */
+
+.aparte-n8n__window {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  background: var(--aparte-bg);
+  border: var(--chat--window--border, 1px solid var(--aparte-border));
+  border-radius: var(--aparte-launcher-radius);
+  overflow: hidden;
+}
+
+.aparte-n8n--fullscreen,
+.aparte-n8n--fullscreen > .aparte-n8n__window {
+  block-size: 100%;
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.aparte-n8n--fullscreen > .aparte-n8n__window {
+  border: 0;
+  border-radius: 0;
+}
+
+.aparte-n8n__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aparte-space-2, 0.5rem);
+  padding: var(--chat--header--padding, var(--chat--spacing, 1rem));
+  background: var(--aparte-n8n-header-bg);
+  color: var(--aparte-n8n-header-color);
+  border-block-start: var(--chat--header--border-top, none);
+  border-block-end: var(--chat--header--border-bottom, none);
+  flex: none;
+}
+
+.aparte-n8n__heading {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.aparte-n8n__title {
+  margin: 0;
+  font-size: var(--chat--heading--font-size, 2em);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.aparte-n8n__subtitle {
+  margin: 0.5rem 0 0;
+  font-size: var(--chat--subtitle--font-size, inherit);
+  line-height: var(--chat--subtitle--line-height, 1.8);
+  opacity: 0.9;
+}
+
+.aparte-n8n__close {
+  --aparte-btn-intent: var(--aparte-n8n-header-color);
+  --aparte-btn-intent-ink: var(--aparte-n8n-header-color);
+  flex: none;
+}
+
+.aparte-n8n__close:hover {
+  --aparte-btn-intent-ink: var(--chat--close--button--color-hover, var(--chat--color--primary, #e74266));
+}
+
+.aparte-n8n__chat {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.aparte-n8n__welcome {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: var(--chat--spacing, 1rem);
+}
+
+.aparte-n8n__footer {
+  margin: 0;
+  flex: none;
+  padding: var(--chat--footer--padding, 0.5rem 1rem);
+  background: var(--aparte-n8n-footer-bg);
+  color: var(--aparte-n8n-footer-color);
+  border-block-start: var(--chat--footer--border-top, 1px solid var(--chat--color-light-shade-100, #c2c5cc));
+  font-size: var(--aparte-font-size-sm, 0.875rem);
+}
+
+/* ── The messages ───────────────────────────────────────────────────────────────────── */
+
+/* n8n's rhythm: bubbles a line apart, not turns a paragraph apart. On the message, where
+   the narrow-container measures are declared (responsive.css), so this wins over them. */
+.aparte-n8n .aparte-message {
+  --aparte-message-padding-block: var(--aparte-space-2);
+  --aparte-message-gap: var(--aparte-space-4);
+}
+
+/* n8n's bubbles: as wide as their text, the corner on the speaker's side squared. */
+.aparte-n8n .aparte-message .aparte-message-content {
+  font-size: var(--chat--message--font-size, 1rem);
+  line-height: var(--chat--message-line-height, 1.5);
+}
+
+.aparte-n8n .aparte-message[data-role='assistant'] .aparte-message-content {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: var(--aparte-message-content-radius);
+  border-end-start-radius: 0;
+  border: var(--chat--message--bot--border, none);
+}
+
+.aparte-n8n .aparte-message[data-role='user'] .aparte-message-content {
+  border-end-end-radius: 0;
+  border: var(--chat--message--user--border, none);
+}
+
+/* The person's messages on the far side, as in n8n's widget (and any messenger): their
+   files, their words and their actions together. `end`, so a right-to-left page mirrors it. */
+.aparte-n8n .aparte-message[data-role='user'] .aparte-body {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+}
+
+/* n8n names no one and shows no time. Hidden from the eye only: a screen reader still
+   hears who is speaking, which n8n's widget never said. */
+.aparte-n8n .aparte-message > .aparte-body > .aparte-header {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── The button in the corner ───────────────────────────────────────────────────────── */
+
+.aparte-n8n .aparte-launcher__button {
+  --aparte-btn-size-lg: var(--chat--toggle--size, 64px);
+  --aparte-primary: var(--aparte-n8n-toggle-bg);
+  --aparte-primary-hover: var(--aparte-n8n-toggle-hover-bg);
+  --aparte-on-primary: var(--aparte-n8n-toggle-color);
+  /* Open, it stays n8n's color, as n8n's does, rather than the recipe's neutral. */
+  --aparte-btn-bg-toggled: var(--aparte-n8n-toggle-bg);
+  --aparte-btn-color-toggled: var(--aparte-n8n-toggle-color);
+  inline-size: var(--chat--toggle--width, var(--chat--toggle--size, 64px));
+  block-size: var(--chat--toggle--height, var(--chat--toggle--size, 64px));
+  border-radius: var(--chat--toggle--border-radius, 50%);
+}

@@ -1,0 +1,73 @@
+{
+    "name": "@aparte/n8n-chat",
+    "version": "0.26.0",
+    "homepage": "https://apartejs.dev/integrations/n8n-chat/",
+    "description": "n8n's chat widget, drawn by aparté: createChat() takes @n8n/chat's options — a button in the corner or a full-page chat on your Chat Trigger, in n8n's look, with French, history without the tool steps, and a handle to drive it.",
+    "type": "module",
+    "sideEffects": [
+        "*.css"
+    ],
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./style.css": "./dist/style.css",
+        "./theme.css": "./dist/theme.css"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && node scripts/build-css.mjs && node ../../../scripts/stamp-dist.mjs",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:coverage": "vitest run --coverage"
+    },
+    "dependencies": {
+        "@aparte/locale-fr": "workspace:*",
+        "@aparte/plugin-marked": "workspace:*",
+        "@aparte/runner-n8n": "workspace:*",
+        "marked": "^18.0.0"
+    },
+    "peerDependencies": {
+        "@aparte/core": ">=0.26.0 <1.0.0"
+    },
+    "devDependencies": {
+        "@aparte/core": "workspace:*",
+        "@types/node": "^22.0.0",
+        "typescript": "~5.7.0",
+        "vite": "^6.0.0"
+    },
+    "keywords": [
+        "ai",
+        "n8n",
+        "n8n-chat",
+        "chat-widget",
+        "chatbot",
+        "chat-trigger",
+        "web-components",
+        "widget"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apartejs/aparte.git",
+        "directory": "packages/integrations/n8n-chat"
+    },
+    "bugs": {
+        "url": "https://github.com/apartejs/aparte/issues"
+    }
+}
