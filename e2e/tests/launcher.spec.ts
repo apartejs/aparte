@@ -116,6 +116,41 @@ test.describe('the launcher, at desktop width', () => {
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 
+    test('stays closed against a card that sets its own display, inline or by a rule', async ({ page }) => {
+        // `style={{ display: 'flex' }}` (the docs' own "Your own card") and an `#id` rule both
+        // outweigh the selector that hides a closed chat. It has to hold anyway — and what a
+        // reader sees is not the whole of it: the card must also leave the tab order and the
+        // accessibility tree, which is what a `display` that wins would have kept.
+        const errors = collectPageErrors(page);
+        await page.goto('/');
+        await page.evaluate(() => {
+            const style = document.createElement('style');
+            style.textContent = '#ruled { display: flex }';
+            document.head.append(style);
+            const launcher = document.createElement('aparte-launcher');
+            launcher.id = 'stubborn';
+            launcher.setAttribute('breakpoint', 'none');
+            launcher.innerHTML = '<section id="inline" style="display: flex"><button type="button">Inline control</button></section>'
+                + '<section id="ruled"><button type="button">Ruled control</button></section>';
+            document.body.append(launcher);
+        });
+        const launcher = page.locator('#stubborn');
+        await expect(launcher.locator('.aparte-launcher__button')).toBeVisible();
+        await expect(launcher.locator('#inline')).toBeHidden();
+        await expect(launcher.locator('#ruled')).toBeHidden();
+        await expect(page.getByRole('button', { name: /(Inline|Ruled) control/ })).toHaveCount(0);
+
+        // Shift+Tab from the launcher's own button would land on the card's control, were it a tab stop.
+        await launcher.locator('.aparte-launcher__button').focus();
+        await page.keyboard.press('Shift+Tab');
+        expect(await page.evaluate(() => !!document.activeElement?.closest('aparte-launcher'))).toBe(false);
+
+        await launcher.locator('.aparte-launcher__button').click();
+        await expect(launcher.locator('#inline')).toBeVisible();
+        await expect(launcher.locator('#ruled')).toBeVisible();
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
     test('has no serious accessibility violation, closed or open', async ({ page }) => {
         await open(page);
         expect(await gatedViolations(page)).toEqual([]);

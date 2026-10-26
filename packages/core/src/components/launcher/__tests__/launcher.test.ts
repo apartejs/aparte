@@ -319,8 +319,12 @@ describe('<aparte-launcher>: the sheet', () => {
 describe('launcher.css', () => {
     const css = readAparteStylesheet();
 
-    it('hides the closed chat by the attribute, and floats the launcher at the inline end', () => {
-        expect(css).toMatch(/aparte-launcher:not\(\[open\]\) > :not\(\.aparte-launcher__button\) \{\s*display: none;/);
+    it('hides the closed chat by the attribute, important so a card\'s own display cannot show it, and floats the launcher at the inline end', () => {
+        // jsdom applies no stylesheet and does not weigh `!important` against an inline style,
+        // so the cascade itself is proved in a browser (e2e/tests/launcher.spec.ts: a card with
+        // an inline and an `#id` display stays closed); what this pins is that the rule is
+        // still the important one.
+        expect(css).toMatch(/aparte-launcher:not\(\[open\]\) > :not\(\.aparte-launcher__button\) \{\s*display: none !important;/);
         expect(css).toMatch(/aparte-launcher \{[^}]*position: fixed;[^}]*inset-inline-end: var\(--aparte-launcher-offset\);/);
     });
 

@@ -29,9 +29,17 @@ aparte-launcher > * {
 
 /* Closed: the chat stays mounted — its conversation and its client with it — but out of
    sight, out of the tab order and out of the accessibility tree. Keyed on the attribute,
-   so it holds before the element upgrades too. */
+   so it holds before the element upgrades too.
+
+   `!important`, the way `[hidden]` is made to hold in base.css, because what it hides is
+   YOUR card, and a card sets its own `display`: inline (`style="display: flex"`, which is
+   what a React `style` prop writes and what the docs' own card does), by an `#id` rule, or
+   in an unlayered sheet while core sits in a cascade layer. Any of them outranks this
+   selector's weight, and a card that shows through is not only seen — it keeps its tab
+   stops and its place in the accessibility tree. A layered `!important` outranks an
+   unlayered one, so the layer a stylesheet is imported into does not matter. */
 aparte-launcher:not([open]) > :not(.aparte-launcher__button) {
-  display: none;
+  display: none !important;
 }
 
 /* The card. One child is the intent — an <aparte-chat>, or your own card around one — and
