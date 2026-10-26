@@ -131,6 +131,26 @@ const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
 const only = process.env.E2E_ONLY?.split(',').map((s) => s.trim()).filter(Boolean) as AppKey[] | undefined;
 const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.includes(k));
 
+/**
+ * The Agent Builder article's demo: an OpenAI Agents SDK agent served over AG-UI by
+ * `apps/examples/agents-sdk`, page and agent in one Vite process, on the SDK's scripted
+ * model — no key. Not one of the framework apps, so it runs only `agents-sdk.spec.ts`, in
+ * Chromium; `E2E_ONLY=agents-sdk` picks it alone. The words come 120 ms apart so Stop
+ * lands mid-reply.
+ */
+const AGENTS_SDK_PORT = 5308;
+const runAgentsSdk = !only || (only as string[]).includes('agents-sdk');
+const AGENTS_SDK_SERVER = {
+    command: `node node_modules/vite/bin/vite.js --port ${AGENTS_SDK_PORT} --strictPort`,
+    url: `http://localhost:${AGENTS_SDK_PORT}`,
+    cwd: resolve(rootDir, 'apps/examples/agents-sdk'),
+    env: { DEMO_DELAY_MS: '120' },
+    reuseExistingServer: reuseServers,
+    timeout: 120_000,
+    stdout: 'pipe' as const,
+    stderr: 'pipe' as const,
+};
+
 const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /vanilla-dist\.spec\.ts/;
@@ -356,7 +376,7 @@ export default defineConfig({
 
     // Boot only the selected apps' servers.
     // The sites, and the agent server the `?agent` spec talks to (one for all of them).
-    webServer: [...selected.map((k) => APPS[k].server), AGENT_SERVER],
+    webServer: [...selected.map((k) => APPS[k].server), AGENT_SERVER, ...(runAgentsSdk ? [AGENTS_SDK_SERVER] : [])],
 
     // One project per app; the five framework apps share the smoke suite,
     // vanilla-dist runs its human-in-the-loop suite.
@@ -389,5 +409,10 @@ export default defineConfig({
             testMatch: firefoxSuiteFor(k),
             expect: { timeout: 20_000 },
         })),
+        ...(runAgentsSdk ? [{
+            name: 'agents-sdk',
+            use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${AGENTS_SDK_PORT}` },
+            testMatch: /agents-sdk\.spec\.ts/,
+        }] : []),
     ],
 });

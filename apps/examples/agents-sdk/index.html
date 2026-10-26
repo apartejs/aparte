@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agents SDK × aparté</title>
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body { display: flex; flex-direction: column; background: var(--aparte-bg); color: var(--aparte-text); }
+        .demo-note { margin: 0; padding: 0.5rem 1rem; color: var(--aparte-text-muted); font: 0.875rem/1.4 system-ui, sans-serif; }
+        aparte-chat { flex: 1; min-height: 0; }
+    </style>
+</head>
+<body>
+    <p class="demo-note">An OpenAI Agents SDK agent, served over AG-UI from <code>/agent</code>, drawn by aparté.</p>
+    <aparte-chat placeholder="Where is order 1042?"></aparte-chat>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

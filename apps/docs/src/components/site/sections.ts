@@ -2,8 +2,9 @@
  * The site's sections: the links in the header, and which pages belong to each.
  *
  * A page belongs to the section whose prefix its URL starts with, and its sidebar shows
- * that section's groups only. A page in no section — the home, Why, Compare, the roadmap,
- * the models — has no sidebar at all. A section is listed here once its pages exist, so
+ * that section's groups only. A page in no section — the home, Why, Compare — has no
+ * sidebar at all, and neither do the sections that list none (templates, models, articles,
+ * the roadmap). A section is listed here once its pages exist, so
  * the header never offers a link to a section that is not there yet.
  */
 export interface Section {
@@ -22,6 +23,8 @@ export const SECTIONS: Section[] = [
     { id: 'templates', label: 'Templates', href: '/templates/', prefixes: ['/templates/'] },
     // No sidebar either: the models aparté ships, each on a page of its own.
     { id: 'models', label: 'Models', href: '/models/', prefixes: ['/models/'] },
+    // No sidebar: dated pieces, listed on their own index page.
+    { id: 'articles', label: 'Articles', href: '/articles/', prefixes: ['/articles/'] },
     // No sidebar: where the library is going, one page.
     { id: 'roadmap', label: 'Roadmap', href: '/roadmap/', prefixes: ['/roadmap/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
