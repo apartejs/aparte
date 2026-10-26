@@ -190,6 +190,19 @@ describe('measureContext', () => {
         expect(measureContext({ messages: [user('u1', 'q'), thought], config: config() }).used).toBe(940);
     });
 
+    it('keeps the total for a reply that thought when the provider reports no input count', () => {
+        // ai-sdk, openai-compat and AG-UI read a missing prompt count as 0: input + the visible
+        // answer would then be the answer alone, and an after-turn trigger would miss a full window.
+        const thought = reply('a1', '', {
+            usage: { inputTokens: 0, outputTokens: 1100, totalTokens: 3000 },
+            segments: [
+                { id: 't', type: 'thinking', content: text(3800) },
+                { id: 's', type: 'text', content: text(380) },
+            ],
+        });
+        expect(measureContext({ messages: [user('u1', 'q'), thought], config: config() }).used).toBe(3000);
+    });
+
     it('leaves the total the provider reported alone for a reply that did not think', () => {
         const plain = reply('a1', '', {
             usage: { inputTokens: 900, outputTokens: 100, totalTokens: 1010 },

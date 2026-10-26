@@ -173,10 +173,13 @@ function calibration(reply: AparteMessage): number {
  * provider's total, unless the reply thought. A reply with a thinking segment is the input
  * plus what it said AFTER its last call (the calls and their results were already in the
  * input), read from the transcript and never above what the provider says it generated.
+ * A provider that reports no input count (`inputTokens: 0`) gives nothing to add the answer
+ * to, so its total stands, reasoning and all: over-reading is safer than reading the
+ * visible answer alone and missing a full window.
  */
 function nextRequestTokens(reply: AparteMessage, k: number): number {
     const usage = reply.usage!;
-    if (!hasSegment(reply, 'thinking')) return usageTokens(usage);
+    if (!hasSegment(reply, 'thinking') || !(usage.inputTokens > 0)) return usageTokens(usage);
     const segments = reply.segments ?? [];
     const lastCall = segments.map((s) => s.type).lastIndexOf('tool_call');
     const said = Math.round(k * estimateTokens(segmentsToWireText(segments.slice(lastCall + 1))));
