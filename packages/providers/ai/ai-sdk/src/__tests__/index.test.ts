@@ -133,6 +133,58 @@ describe('stream mapping — fullStream → AparteStreamEvent', () => {
         })()));
         expect(events).toEqual([{ type: 'error', message: 'boom' }]);
     });
+
+    it('names an overflowing prompt, whatever the vendor calls it, so the client can compact and resend', async () => {
+        const sentences = [
+            "This model's maximum context length is 8192 tokens.",
+            'Context size has been exceeded.',
+            'the request exceeds the available context size',
+            'prompt is too long: 210000 tokens > 200000 maximum',
+        ];
+        for (const sentence of sentences) {
+            const events = await collect(fullStreamToAparteEvents((async function* () {
+                yield { type: 'error', error: new Error(sentence) };
+            })()));
+            expect(events, sentence).toEqual([{ type: 'error', message: sentence, code: 'USAGE_CONTEXT_EXCEEDED' }]);
+        }
+    });
+
+    it('reads the overflow from the response body an API error carries, when its message is generic', async () => {
+        const apiError = Object.assign(new Error('Bad Request'), { responseBody: '{"error":{"code":"context_length_exceeded"}}' });
+        const events = await collect(fullStreamToAparteEvents((async function* () {
+            yield { type: 'error', error: apiError };
+        })()));
+        expect(events).toEqual([{ type: 'error', message: 'Bad Request', code: 'USAGE_CONTEXT_EXCEEDED' }]);
+    });
+
+    it('names it when the SDK throws instead of yielding an error part', async () => {
+        const throwing = {
+            [Symbol.asyncIterator]: () => ({ next: async (): Promise<never> => { throw new Error('Context size has been exceeded.'); } }),
+        };
+        const events = await collect(fullStreamToAparteEvents(throwing));
+        expect(events).toEqual([{ type: 'error', message: 'Context size has been exceeded.', code: 'USAGE_CONTEXT_EXCEEDED' }]);
+    });
+
+    it('leaves any other error without a code', async () => {
+        const events = await collect(fullStreamToAparteEvents((async function* () {
+            yield { type: 'error', error: new Error('rate limited') };
+        })()));
+        expect('code' in events[0]!).toBe(false);
+    });
+
+    it('carries the finish reason on done, and maps the SDK\'s "unknown" to "other"', async () => {
+        const reasonOf = async (finishReason: string) => {
+            const events = await collect(fullStreamToAparteEvents((async function* () {
+                yield { type: 'finish', finishReason, totalUsage: { inputTokens: 1, outputTokens: 1 } };
+            })()));
+            return (events.at(-1) as { finishReason?: string }).finishReason;
+        };
+        expect(await reasonOf('length')).toBe('length');
+        expect(await reasonOf('stop')).toBe('stop');
+        expect(await reasonOf('content-filter')).toBe('content-filter');
+        expect(await reasonOf('unknown')).toBe('other');
+        expect(await reasonOf('something-newer')).toBeUndefined();
+    });
 });
 
 // ─── abort (gate ④, unit level) ──────────────────────────────────────────────

@@ -1,5 +1,30 @@
 # @aparte/provider-openai-compat
 
+## 0.26.0
+
+### Minor Changes
+
+- f0b38dd: The provider now tells an overflowing prompt from a bad request: a 400 or 413 whose body says the prompt did not fit is `USAGE_CONTEXT_EXCEEDED`, and so is an error the server streams after its 200. Nothing for you to change; with `@aparte/plugin-compaction`, core compacts and sends the turn again instead of showing the error.
+
+  What is new, all additive:
+
+  - `provider.classifyError(status, body)` (the `AparteFormatAdapter` method core's direct transport and `createAparteChatHandler` call): `USAGE_CONTEXT_EXCEEDED` for a 400 or 413 whose `error` says `context_length_exceeded`, or whose message, type or code matches "maximum context length", "context length", "context size has been exceeded", "exceed_context_size_error", "exceeds the available context size" or "prompt is too long" (any case). Every other status and body is left to the status.
+  - The mid-stream `error` event the provider emits for the same payloads carries `code: 'USAGE_CONTEXT_EXCEEDED'`; so does the error `parseText` throws for a 200 body that is an overflow (LM Studio). Any other error carries no code, as before.
+
+  Needs `@aparte/core` with the same release to be acted on; older cores ignore the code and show the error as they did.
+
+- 45ed986: Errors a server sends mid-stream now surface as errors, a reply's finish reason is reported, and the context window of LM Studio, Ollama, llama.cpp and vLLM models is read.
+
+  Three changes, none of which asks you to touch your code:
+
+  - **Stream errors.** A server that answers `200` and then streams `data: {"error": {...}}` (LM Studio on a context overflow, OpenAI and vLLM mid-stream) used to end the turn on an empty `done`: an empty reply marked completed. The line is now an `error` event carrying the server's message, and the stream ends there without a `done`. The non-streaming path throws the same message for a `200` body that has `error` and no `choices`, where it returned `''`.
+  - **Finish reason.** The last non-null `finish_reason` travels on every `done` as `finishReason`: `stop`, `length`, `tool-calls` (`tool_calls` and `function_call`), `content-filter`, or `other` for anything else. A server that never says leaves it off.
+  - **Context window.** `fetchModels` read only `context_length`, so a local model had no `contextWindow`: the gauge never showed and compaction never triggered while the server truncated silently. It now reads `context_length`, `max_model_len`, `context_window` or `max_context_length` from the `/models` entry, and the new `server` option (`'lmstudio' | 'ollama' | 'llamacpp' | 'vllm'`) makes one extra request at the endpoint's origin for the window the server actually serves: LM Studio's `/api/v1/models` (a loaded model's `context_length`), Ollama's `/api/ps`, llama.cpp's `/props`. A failing probe leaves the models without a window, with one warning. A `contextWindow` you declare on a model in `models` wins over anything read.
+
+  The `LMSTUDIO` and `OLLAMA` presets now set `server`, and two presets are new: `LLAMACPP` (`http://localhost:8080/v1`) and `VLLM` (`http://localhost:8000/v1`).
+
+  An unloaded LM Studio model, and an Ollama model not currently loaded, get no window rather than the trained maximum: that number is not what the server will run with, and a gauge drawn against it is worse than none.
+
 ## 0.25.0
 
 ## 0.24.0

@@ -1,5 +1,17 @@
 # @aparte/provider-ai-sdk
 
+## 0.26.0
+
+### Minor Changes
+
+- 1f62ccc: The `done` event now carries `finishReason`, mapped from the AI SDK's finish reason, so a reply the model stopped at its length limit shows as cut off.
+
+  `'stop'`, `'length'`, `'content-filter'`, `'tool-calls'`, `'error'` and `'other'` pass through; the SDK's `'unknown'` becomes `'other'`. A value the SDK adds later is left off rather than guessed.
+
+- f0b38dd: An overflowing prompt reported by the AI SDK now carries `code: 'USAGE_CONTEXT_EXCEEDED'` on the `error` event, so core can compact and send the turn again. Nothing for you to change; any other error is the event it was.
+
+  The bridge matches the vendor's own sentence in the API error's message, or in its `responseBody` when the message is generic ("maximum context length", "context size has been exceeded", `exceed_context_size_error`, "exceeds the available context size", "prompt is too long", `context_length_exceeded`; any case), the same readings `@aparte/provider-openai-compat` makes on a wire body.
+
 ## 0.25.0
 
 ## 0.24.0

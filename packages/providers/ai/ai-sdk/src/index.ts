@@ -49,8 +49,9 @@ import type {
     AparteChatMessage,
     AparteStreamEvent,
     AparteUsage,
+    AparteFinishReason,
 } from '@aparte/core';
-import { contentToText } from '@aparte/core';
+import { AparteErrorCode, contentToText } from '@aparte/core';
 import { streamText, jsonSchema, tool } from 'ai';
 import type { LanguageModel, ModelMessage, ToolSet, ToolChoice } from 'ai';
 
@@ -216,6 +217,42 @@ function toAparteUsage(u: { inputTokens?: number; outputTokens?: number; totalTo
 }
 
 /**
+ * fullStream `finish.finishReason` → AparteFinishReason. The SDK's own list is the same
+ * but for `'unknown'`, which is "the vendor said something we could not classify" — the
+ * `'other'` of ours. A value that is neither (a newer SDK) is left off rather than guessed.
+ */
+function toAparteFinishReason(reason: unknown): AparteFinishReason | undefined {
+    switch (reason) {
+        case 'stop': case 'length': case 'content-filter': case 'tool-calls': case 'error': case 'other':
+            return reason;
+        case 'unknown':
+            return 'other';
+        default:
+            return undefined;
+    }
+}
+
+/**
+ * What servers write when the prompt is longer than the model's window (OpenAI's "maximum
+ * context length", LM Studio's "Context size has been exceeded", llama.cpp's
+ * `exceed_context_size_error`, Anthropic's "prompt is too long"). The SDK hands a failed
+ * call over as an `APICallError` whose message — and, for some vendors, response body — is
+ * the vendor's own sentence, so the match is the same one `@aparte/provider-openai-compat`
+ * makes on a wire body.
+ */
+const CONTEXT_OVERFLOW = /maximum context length|context length|context size has been exceeded|exceed_context_size_error|exceeds the available context size|prompt is too long|context_length_exceeded/i;
+
+/**
+ * The error event for a failure the SDK reported. An overflow carries its code, so the
+ * client can compact and resend instead of showing the vendor's sentence.
+ */
+function errorEvent(message: string, err: unknown): AparteStreamEvent {
+    const body = (err as { responseBody?: unknown } | null | undefined)?.responseBody;
+    const overflow = CONTEXT_OVERFLOW.test(message) || (typeof body === 'string' && CONTEXT_OVERFLOW.test(body));
+    return overflow ? { type: 'error', message, code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED } : { type: 'error', message };
+}
+
+/**
  * Map the AI SDK `fullStream` to aparté's event stream:
  * `text-delta`→text · `reasoning-delta`→thinking · `tool-call`→tool_use ·
  * `finish`→done{usage} · `error`→error. Everything else (step markers,
@@ -255,14 +292,21 @@ export function fullStreamToAparteEvents(
                             });
                             break;
                         case 'finish':
-                            controller.enqueue({ type: 'done', usage: toAparteUsage(part['totalUsage'] as Parameters<typeof toAparteUsage>[0]) });
+                            {
+                                const finishReason = toAparteFinishReason(part['finishReason']);
+                                controller.enqueue({
+                                    type: 'done',
+                                    usage: toAparteUsage(part['totalUsage'] as Parameters<typeof toAparteUsage>[0]),
+                                    ...(finishReason ? { finishReason } : {}),
+                                });
+                            }
                             // Terminal: stop reading `fullStream` so a stray second
                             // finish/error part (if the SDK ever emits one) can't
                             // enqueue past the done event.
                             return;
                         case 'error': {
                             const err = part['error'];
-                            controller.enqueue({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+                            controller.enqueue(errorEvent(err instanceof Error ? err.message : String(err), err));
                             return;
                         }
                         // 'abort', step markers, tool-input-* deltas, sources… → dropped.
@@ -272,7 +316,7 @@ export function fullStreamToAparteEvents(
                 // AbortError surfaces here when ctx.signal fires mid-stream: the
                 // consumer (agent loop) cancelled on purpose — end quietly.
                 if ((err as { name?: string })?.name !== 'AbortError') {
-                    controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
+                    controller.enqueue(errorEvent((err as Error | undefined)?.message ?? 'Stream error', err));
                 }
             } finally {
                 /*

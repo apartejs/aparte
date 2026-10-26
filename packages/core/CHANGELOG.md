@@ -1,5 +1,136 @@
 # @aparte/core
 
+## 0.26.0
+
+### Minor Changes
+
+- f0b38dd: **A page that registers a compactor now has its sends wait for it, and a request the model refuses as too long is compacted and sent once more.** Nothing happens without a compactor: with none registered (`setCompactor`), every send, retry, edit and resume behaves as before. With `@aparte/plugin-compaction` set up, the composer shows Stop while a summary is being written before a send, and an overflow that used to end as an error card now ends as an answer, with the separator above the kept turns as the only sign.
+
+  What is new, all additive:
+
+  - Before each request goes out, the client calls `compactor.beforeSend({ target, targetId, exclude, requestTokens })` once `aparte-message-start` is dispatched (so Stop is showing and the reply is waiting) and the request is built (files inlined). `exclude` is the user message and the reply of the turn in preparation; `requestTokens` is the estimate of the request. When it resolves `true` the client builds the request again, from the history as it now is. A Stop while it waits ends the turn as aborted, the way a Stop ends one today. A compactor that throws there is warned about and the request goes out as built.
+  - When the model refuses a request with `USAGE_CONTEXT_EXCEEDED` before the reply has any text or tool call, the client calls `compactor.compact({ force: true, reason: 'overflow', exclude })` and, when it compacted, sends the turn once more into the same reply. Once per turn. If there is no compactor, the compaction skips or fails, or the reply already said something, the error stands exactly as before.
+  - The reply records `contextEstimate`, the estimate of the request it was sent with, before each send, so the context measure can calibrate the character heuristic against the usage the provider reports. A request that carries an image records none, since the heuristic cannot read it whole.
+  - Both calls carry `signal`, the turn's abort signal, so a programmatic `abort()` or `stop()` reaches a compactor that does not listen on `window`.
+  - A retry or an edit under a framework wrapper rebuilds its request from the live transcript, so it carries a checkpoint written while it waited; the wrapper's root now offers `getMessage`, as the viewport does.
+  - `AparteFormatAdapter.classifyError?(status, body)` lets a provider name a failure a status cannot (an overflowing prompt is a 400). Core's `vendorError` calls it for a direct call; `createAparteChatHandler` calls it on the server and forwards the code as `error.code`, still without the vendor's prose, and the backend transport reads `error.code` when it is an `AparteErrorCode` value. A vendor's own code (`context_length_exceeded`) is not one and is ignored on the client.
+  - The server loop keeps the overflow code too: `createAgentHandler` sends the code an error carries in its `run-error` line (`AGENT_RUN_FAILED` only when it carries none), and `createAgentStreamRunner` throws a code that is an `AparteErrorCode` value as the error's own code, so a server-side overflow is compacted and sent again like a direct one. A code that is not one of ours stays `PROVIDER_ERROR`, with the raw value in `data.code`.
+  - `createAparteChatHandler` no longer relays the prose of an `error` event the vendor streamed after its 200. The browser gets `The vendor reported an error.` and the code when it is an `AparteErrorCode` value; the original goes to the server's log.
+  - The stream `error` event takes an optional `code` (`AparteStreamEventMap`), and `AparteError.from` keeps a valid `.code` of the error it wraps, so a code a provider streamed after a 200 reaches the client.
+
+  Why. Compaction that only runs after a turn cannot help the turn that overflows, and a send that races a summary carries the history the summary is about to replace. Classification stays in the provider because what a server writes for an overflow is its wire format, not core's to know.
+
+- 37b82d9: Register what compacts the context with `aparteGlobalConfig.setCompactor(compactor | null)`, and read it back with `getCompactor()`. The separator's Retry and the gauge's Compact now use it. Nothing for you to change.
+
+  What is new, all additive:
+
+  - `AparteCompactor`, `AparteCompactorRequest`, `AparteCompactorOutcome` and `AparteCompactorReason` (types). A compactor has `compact(request)` (never rejects: the outcome says `ok`), `settled(targetId?)`, and optionally `beforeSend(request)` and `preview(request)`. A request names the chat by its element (`target`) and, when it has one, its `targetId`, because a chat inside a shadow root is not found by id; `force`, `exclude` and `reason` (`manual`, `retry`, `overflow`, `auto`) say how it is asked.
+  - A chat reads the compactor of its own config first (`resolveConfig(chat).getCompactor()`), then the global one. `setCompactor` notifies like every other registration, so a mounted gauge hears that Compact now became possible.
+  - The separator's **Retry** asks the compactor when one is registered, with `force: true` and `reason: 'retry'`, so it runs even when automatic compaction has stopped after failures. With none registered it dispatches `aparte-compact` as before.
+
+  Why. Core cannot import the compaction plugin, and an event answers nothing: the caller needs to know the summary is written before it goes on, and a button needs to know it is still working. `@aparte/plugin-compaction` registers itself here when it is set up; core never compacts on its own.
+
+- 39c3d7f: A message can now carry a checkpoint, `contextSummary`: from it on, the model reads the summary in place of every message before it, and nothing before it is deleted. The client sends the checkpointed history on send, retry, edit and resume. Nothing changes for a conversation with no checkpoint.
+
+  What is new, all additive:
+
+  - `AparteMessage.contextSummary?: AparteContextSummary` (`{ summary, count, createdAt }`, exported as a type). It sits on the first kept message, which is a `user` message, so the history still alternates its roles.
+  - `AparteMessage.contextEstimate?: number`, the estimate in tokens of the request that produced a reply. The client writes it on each reply when it sends (none when the request carries an image the estimate cannot count), and the context measure reads it back to calibrate itself.
+  - `historyFromCheckpoint(path)` returns `{ summary?, messages }`: the messages from the LAST checkpoint on the path, and its summary. A legacy `compaction: true` message before that checkpoint is dropped with the rest. With no checkpoint the path comes back unchanged. It is exported from both entries, so a server or a `history` function can use it.
+  - `applyRetention` keeps a checkpoint the trim cuts past: the new first message inherits the latest checkpoint's `contextSummary` (same summary and date, `count` raised by the messages cut after it), in the flat list and in the branch tree. Before, a retained conversation lost both the originals and their summary.
+
+  What a host that builds its own history should know. A `history` function still receives the full transcript, checkpoint and everything before it; to honour a checkpoint, run the messages through `historyFromCheckpoint` and send its `summary` first (the client sends it as a `user` message under the same preamble a `compaction: true` message gets). The default `'viewport'` history does this itself.
+
+  Why. Compaction used to replace the summarised turns with a summary message, so the turns, their attachments and their branches left the screen and the store. A checkpoint turns compaction into a view over a kept history: only what goes to the model is shortened. `@aparte/plugin-compaction` writes the checkpoints, and the bubble draws a separator above the message that carries one.
+
+  How the tree behaves, so a host is not surprised. A checkpoint is a node shared by every path through it. Editing the checkpoint message edits that node in place and keeps the field. Editing a message above it clears everything after the edited message, the checkpoint included, so the full history is sent again. A retry of a reply above the checkpoint forks before it and sends no summary: it would describe messages the model is also reading.
+
+- 37b82d9: **`auto-compact` on `<aparte-context>` is deprecated.** It still works, and your page keeps compacting as before, but it will be removed in a future major version: `@aparte/plugin-compaction` now decides when to compact (after a turn, and before a send that would overflow), so the gauge no longer needs to ask. Remove the attribute once your page runs the plugin's new release.
+
+  The gauge is now a button that opens a panel with what fills the window, and it no longer goes blank after a compaction.
+
+  What you may have to change:
+
+  - **After a compaction or a Restore, the gauge shows an estimate with a `~` prefix (`~12K / 128K`) instead of going blank until the next turn.** A reading you used to wait for is now there at once; an estimate is never drawn as if it were the provider's number. `aparte-context-threshold` fires on the estimate as it does on a reported number.
+  - **The gauge's markup changed.** The reading (`.aparte-context__text`) is inside a `<button class="aparte-context__toggle">`, and a hidden panel (`.aparte-context__panel`) follows it. The meter keeps its `role="meter"` and its label. CSS that targeted the gauge's direct children needs a look.
+  - A turn the model refused as over its window (`aparte-message-error` whose error code is `USAGE_CONTEXT_EXCEEDED`, for this gauge's chat) turns it `danger` whatever the number says, until the next reply reports.
+
+  What is new, all additive:
+
+  - A disclosure: the button has `aria-expanded` and `aria-controls`; click, Enter and Space open it, Escape and a click outside close it, and nothing opens on hover. The panel lists the system prompt, the tools, the summary of a compacted history, the messages, "other", what is free, and the total against the window. The parts are estimates and say so; they are scaled down for display so they never add up to more than the total.
+  - With a compactor registered (`setCompactor`) whose `preview()` returns something, the panel says "Compacting now would free ~N tokens" and offers **Compact now** (`compact({ force: true, reason: 'manual' })`). While it runs the element has `data-compact="running"`, after a failure `data-compact="failed"` and Retry in the panel. Both come from the `aparte-compact-start`, `-done` and `-error` events of the gauge's own chat. The gauge reads the config, and so the compactor, the system prompt, the tools and the window, from the chat it watches (`target`, else the chat above it), not from where it stands, so a gauge in a header reads a chat that carries its own config.
+  - `aparte-compact` detail gains `auto` (set by the deprecated `auto-compact`, so the plugin can tell it from a button) and `window` (the window the gauge measured against). The `AparteContext.measure` getter returns the reading drawn.
+  - Nine optional locale keys: `contextSystem`, `contextTools`, `contextSummary`, `contextMessages`, `contextOther`, `contextFree`, `contextTotal`, `contextReclaim` (`{n}`) and `contextCompactNow`. Retry reuses `retry`. A locale without them falls back to the built-in English.
+
+  Why. The gauge drew the one number the last turn reported, so a compaction left it blank or wrong, and it said nothing about what the number was made of. Reading `measureContext` over the chat's own transcript fixes the first; the panel answers the second, and puts the one action that helps (Compact now) next to the number that asks for it.
+
+- 37b82d9: Use `measureContext({ messages, config, windowOverride })` to read how full the model's window is: the same measure the context gauge draws and the compaction plugin decides on. Nothing for you to change.
+
+  What is new, all additive:
+
+  - `measureContext` returns `{ window?, used, estimated, parts: { system, tools, summary, messages }, other }`. `used` is what the next request will carry while nothing the model reads has changed since the last reply: the provider's reported usage, except for a reply that thought, where it is the reported input plus the answer as it goes back on the wire (a provider counts its reasoning tokens as output, and the reasoning is not sent again). After a message, a compaction or a Restore it is an estimate (`estimated: true`) of the request that would be sent now: the system prompts, the tool definitions, the checkpoint's summary and the messages after it, scaled by how far the heuristic was off on the last reply (its input tokens over `contextEstimate`, kept between 0.5 and 3; 1 when the reply recorded none, and 1 when it called tools, because the estimate is of the first request and the usage of the last call, which also read the tool results). `parts` are the raw, unscaled estimates; `other` is what they cannot attribute (a server loop's own prompt and tools, template tokens, the heuristic's error), never below zero.
+  - `estimateTokens(text)` and `estimateWireTokens(messages)`. The second counts what the wire sends for those messages with the serialisation the client builds its history with: thinking is not counted, text and tool calls with their results are, a failed turn or one still in flight sends nothing.
+  - `AparteContextMeasure` and `AparteContextMeasureInput` (types).
+
+  Why. The plugin kept its own copy of the character heuristic and the gauge kept the number the last turn happened to report, so after a compaction the gauge was blank or stale and the plugin decided on figures the page never showed. They now read one function over one serialisation. The serialisation itself moved out of `AparteClient` into pure functions (`wireMessages` and friends in `client/wire-history.ts`); the requests it builds are the same as before.
+
+- 5aa437f: A message that carries a checkpoint (`contextSummary`) now shows a separator above it: "12 messages summarised for the model · Show summary · Restore". The messages above it stay on screen and in storage. Restore takes the checkpoints off and the model reads the original messages again.
+
+  What you may have to change:
+
+  - **A message written by an older compaction (`compaction: true`) is no longer drawn as a muted bubble.** The bubble draws the separator in its place ("Earlier messages were summarised", with Show summary, and no count or Restore), and its own row does not paint. If your CSS targeted `aparte-chat-bubble[data-kind="compaction"]` for the old dashed notice, those rules no longer match anything visible; the `data-kind` attribute is still written.
+  - **A custom bubble renders its own separator.** The separator belongs to `<aparte-chat-bubble>`; a `renderBubble` (React), `bubble` slot (Vue, Svelte) or `bubbleTemplate` (Angular) that draws its own markup must read `message.contextSummary` itself.
+
+  What is new, all additive:
+
+  - `<aparte-chat-bubble>.setContextSummary(summary | null, { legacy? })`, and `SyncableBubble.setContextSummary`, which `populateBubbleFromMessage` calls for every message (with none, too, so a reused bubble loses its separator). The separator sits outside `.aparte-message`, inside the bubble, so a frame redraw or a custom shell keeps it.
+  - States, driven by the compaction events: while a summary is written the separator says "Summarising the context…" (the shimmer recipe); if it fails it says "Couldn't summarise the context" with Retry, which asks the chat's registered compactor (`force`, reason `'retry'`) and falls back to dispatching `aparte-compact` when none is registered. The viewport (and, under a wrapper, the framework host) reads `aparte-compact-start`, `-done` and `-error`, acts only on those that name its own chat and a message of its own transcript (an untargeted event, which every chat receives, is checked against the message), and sets `data-checkpoint="pending"` or `"failed"` on the bubble whose id is `detail.messageId`. A `-done` for that message clears it; a skipped `-done`, another message's id and another chat's events are ignored; the next `-start` and a conversation switch clear it. The new `data-checkpoint` attribute is read-only for you.
+  - Restore asks "Send the original messages to the model again?" first. It then removes `contextSummary` from every message of the active path (through the chat's own `updateMessage`, so a framework's list and your storage see it) and dispatches `aparte-compact-done` with `restored: true`.
+  - Event details gain optional fields: `aparte-compact-start` `{ messageId }`, `aparte-compact-done` `{ messageId, count, restored }`, `aparte-compact-error` `{ messageId }`. `@aparte/plugin-compaction` dispatches them.
+  - The conversation is saved when a compaction finishes, once the message named by `messageId` carries its checkpoint, and again after a Restore. A host that still writes a `compaction: true` message keeps the old behaviour.
+  - Ten optional locale keys: `checkpointCount` (`{n}`), `checkpointCountOne`, `checkpointLegacy`, `checkpointGroup`, `checkpointShow`, `checkpointHide`, `checkpointRestore`, `checkpointRestoreConfirm`, `checkpointPending`, `checkpointFailed`. Retry and Cancel reuse the existing `retry` and `cancel`. A locale without them falls back to the built-in English.
+  - A new sheet, `styles/components/checkpoint.css` (`aparte-checkpoint…` classes), wearing the divider, ghost button and shimmer recipes.
+
+  Why. The compaction plugin used to replace the summarised turns with a summary message, so the turns left the screen. With a checkpoint over a kept history the reader sees everything they wrote and one line saying what the model no longer reads; Restore is the way back.
+
+  Detail for the curious. `--aparte-message-content-text-user` and `-assistant` were declared only by the old notice's rule; they are now declared as `initial` on the root, which reads as unset exactly as before. The viewport's `renderable` list gained `contextSummary` and `compaction`; the framework host's `updateMessage` now reaches the bubble of a message that is not the last for `content`, `segments`, `attachments`, `usage`, `finishReason`, `contextSummary` and `compaction`, where it used to stay in the list until the next full sync.
+
+  Also in the separator. Confirming Restore removes the separator while its button holds the keyboard; the focus moves to the message the checkpoint sat on rather than falling to the page. A second failure with a different reason redraws the separator with the new reason. The summary panel wears the prose rules (`aparte-segment-content`), so lists, quotes, links and code in a Markdown summary are drawn like the rest of the transcript.
+
+  **Deprecated:** the `compactionSummaryTitle` locale key. Nothing reads it any more — the separator speaks through the `checkpoint*` keys — and it stays until a later minor so a locale that sets it keeps compiling.
+
+- eb3c0b1: A reply cut off at the model's length limit now says so, and the `done` stream event, the stored message and `aparte-message-done` carry a new optional `finishReason`.
+
+  Nothing to change in your code: a provider that reports no reason behaves as before. To see the note, a provider has to send `finishReason: 'length'` on its `done` event (`@aparte/provider-openai-compat` and `@aparte/provider-ai-sdk` do; so does a scripted turn of `@aparte/provider-scenario`).
+
+  - `AparteFinishReason` is `'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other'`. It rides on `AparteStreamEventMap.done`, on `AparteMessage.finishReason` (persisted, so a reload still shows the note) and on `AparteMessageDoneEventDetail.finishReason`. It is the reason of the LAST model call of the turn: a tool turn that ends on a text answer reports that answer's reason, never the earlier `'tool-calls'`.
+  - The bubble draws a small muted line after the content of a completed assistant reply whose reason is `'length'`, and nothing for any other reason or while the reply streams. The text is the new locale key `responseCutOff`, in `.aparte-finish-note` (no `role="alert"`: it is a fact about the answer, not an error). `bubble.setFinishReason()` and `populateBubbleFromMessage` feed it, so wrapper-managed bubbles get it with the call they already make.
+  - The server-loop path needed no change: `createAgentStreamRunner` replays each `run-done` line whole and `createAgentHandler` writes it whole; a test pins that.
+
+### Patch Changes
+
+- 7a8eac4: Fix three problems after a compaction or a new chat: the model no longer receives two `user` messages in a row, the conversation title is no longer taken from the summary, and the context gauge no longer keeps the previous conversation's reading.
+
+  Nothing to change in your code.
+
+  - **Two user turns in a row.** After a compaction the summary is a `user` message and the kept turns usually start with one; after a failed turn its user message stays while its error reply is not sent. Either gave the model adjacent `user` messages, which strict chat templates (Gemma, Mistral, llama.cpp with `--jinja`, vLLM) reject, and every following turn failed. Send, retry, edit and the resume of a paused turn now merge adjacent `user` messages into one on the final array (texts joined by a blank line, image parts kept). System, assistant and tool messages are never merged.
+  - **The title.** `AparteConversationManager` took the title from the first `user` message, which after a compaction is the summary notice ("Conversation summary The user requested…"). The three places that look for it skip a `compaction: true` message.
+  - **The gauge.** `<aparte-context>` listened to turns and compactions only, so after "New chat" the empty conversation still showed the last reading. It now clears on `aparte-reset-done` and, for a stored conversation, restores the last reply's `usage` on `aparte-conversation-loaded`. A restored reading never dispatches `aparte-compact`: auto-compact is now asked only at the end of a turn, so a gauge already in `danger` no longer asks again on a window or config change.
+
+- b140b2b: Under a wrapper, a message the parent replaces with a new object is drawn again, whether or not it is the last one. A list you hand in (a controlled `messages` prop, a `v-model`, `bind:messages`, an Angular input) that changes an earlier message, for example a store-backed compaction target writing a checkpoint onto the first kept message, now reaches that message's bubble.
+
+  Nothing to change in your code. An update that keeps the same message object is still skipped, so a list you rebuild with the same objects costs nothing more than before; a list that copies every message on every render makes every bubble redraw on every render.
+
+  Why. `AparteChatHost.syncBubbles` drew every message once and then only the last one on each render, so a change written through the parent's list to an earlier message stayed in the list and never reached the screen. It was invisible with the host's own `updateMessage`, which pokes the bubble itself, and it left the separator of a compaction missing on every framework-rendered transcript whose list was the app's. The host now remembers the object each bubble was drawn from and compares it by reference, which an immutable update always changes. The same one change serves React, Vue, Svelte and Angular, since they share the host.
+
+- 8280572: A model listed without a context window gets it after its first reply: the client reads the provider's model list again, once per model, so an LM Studio or Ollama model loaded on demand gets a gauge and compaction.
+
+  A local server that loads a model on its first request has no loaded window to report when the list is fetched at start-up, so the model came without one and the gauge and the compaction had nothing to measure against for the whole conversation. After a reply the model is loaded and the provider's probe finds the window. `refreshProviderModels()` now announces a change (`aparte-config-change`) when the current model's window changes, and only then; and an empty answer — what a provider returns when its fetch fails — keeps the list already held instead of wiping the selected model's capabilities.
+
+- Updated dependencies [eb3c0b1]
+- Updated dependencies [f0b38dd]
+  - @aparte/engine@0.26.0
+
 ## 0.25.0
 
 ### Minor Changes

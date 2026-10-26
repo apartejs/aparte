@@ -71,6 +71,7 @@ const LMSTUDIO: OpenAICompatProviderOptions = {
     description: 'Run LLMs locally with the LM Studio app',
     hasFreeModels: true,
     isLocal: true,
+    server: 'lmstudio',
     helpUrl: 'https://lmstudio.ai/',
 };
 
@@ -87,8 +88,37 @@ const OLLAMA: OpenAICompatProviderOptions = {
     description: 'Run LLMs locally — free and fully private',
     hasFreeModels: true,
     isLocal: true,
+    server: 'ollama',
     helpUrl: 'https://ollama.com/',
 };
 
+// llama.cpp's `llama-server` and vLLM both serve `/v1/chat/completions` on their own
+// port. The icons are generic line art (a chip, a stack of layers), not either project's mark.
+const LLAMACPP: OpenAICompatProviderOptions = {
+    id: 'llamacpp',
+    baseURL: 'http://localhost:8080/v1',
+    name: 'llama.cpp',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h2M7 12h6M7 15h4"/></svg>`,
+    color: '#64748b',
+    description: 'Run GGUF models locally with llama-server',
+    hasFreeModels: true,
+    isLocal: true,
+    server: 'llamacpp',
+    helpUrl: 'https://github.com/ggml-org/llama.cpp',
+};
+
+const VLLM: OpenAICompatProviderOptions = {
+    id: 'vllm',
+    baseURL: 'http://localhost:8000/v1',
+    name: 'vLLM',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>`,
+    color: '#6b7280',
+    description: 'Serve open models from your own GPU with vLLM',
+    hasFreeModels: true,
+    isLocal: true,
+    server: 'vllm',
+    helpUrl: 'https://docs.vllm.ai/',
+};
+
 /** Vendor presets for {@link createOpenAICompatProvider}. Pure data. */
-export const presets = { OPENAI, MISTRAL, ZAI, OPENROUTER, LMSTUDIO, OLLAMA } as const;
+export const presets = { OPENAI, MISTRAL, ZAI, OPENROUTER, LMSTUDIO, OLLAMA, LLAMACPP, VLLM } as const;

@@ -31,7 +31,7 @@ export interface AparteSegmentBase {
      * does not serialise the type itself — `custom`, and any type core does not know (a
      * registered block grammar's, a plugin's). A `text` or a `code` segment contributes
      * its `content` and nothing else; `thinking` and `tool_call` are left out of the history
-     * on purpose (`_segmentsToText` in `AparteClient` states why), and so is `error`.
+     * on purpose (`segmentsToWireText` states why), and so is `error`.
      */
     fallback?: string;
 

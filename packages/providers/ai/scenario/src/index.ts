@@ -31,6 +31,7 @@ import type {
     AparteChatResponse,
     AparteStreamEvent,
     AparteUsage,
+    AparteFinishReason,
 } from '@aparte/core';
 
 // ─── What a turn is made of ──────────────────────────────────────────────────
@@ -48,7 +49,9 @@ export type ScenarioStep =
     /** Pause, in milliseconds — a slow model, a long tool. */
     | { wait: number }
     /** Override the usage reported at the end (merged over the estimate). */
-    | { usage: Partial<AparteUsage> };
+    | { usage: Partial<AparteUsage> }
+    /** How the turn ends, on its `done` event — `'length'` shows the "cut off" note under the reply. A turn that says nothing reports nothing, as a provider that does not know why it stopped does. */
+    | { finishReason: AparteFinishReason };
 
 /** What the model does for ONE call. A bare string is one text step. */
 export type ScenarioTurn = string | ScenarioStep[];
@@ -195,6 +198,7 @@ export function playTurn(
         async start(controller) {
             let outputChars = 0;
             let usage: Partial<AparteUsage> = {};
+            let finishReason: AparteFinishReason | undefined;
             // Not `startedAt`: that name is a segment stamp core writes in one place, and
             // `check:segment-stamp` reads any write to it as a third stamping site.
             const turnBegan = Date.now();
@@ -221,6 +225,8 @@ export function playTurn(
                         return;
                     } else if ('usage' in step) {
                         usage = { ...usage, ...step.usage };
+                    } else if ('finishReason' in step) {
+                        finishReason = step.finishReason;
                     }
                 }
                 if (!signal?.aborted) {
@@ -231,6 +237,7 @@ export function playTurn(
                     controller.enqueue({
                         type: 'done',
                         usage: { totalTokens: (merged.inputTokens ?? 0) + (merged.outputTokens ?? 0), ...merged },
+                        ...(finishReason ? { finishReason } : {}),
                     });
                 }
                 controller.close();

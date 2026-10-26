@@ -30,9 +30,10 @@ import type {
     AparteContentPart,
     AparteStreamEvent,
     AparteUsage,
+    AparteFinishReason,
     AparteFormatAdapter,
 } from '@aparte/core';
-import { contentToText } from '@aparte/core';
+import { AparteErrorCode, contentToText } from '@aparte/core';
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,19 @@ export interface OpenAICompatProviderOptions {
      * `/models` fetch runs even without a key.
      */
     isLocal?: boolean;
+    /**
+     * Which local server this endpoint is, so `fetchModels` can read the context window
+     * the server actually serves through that server's own API: LM Studio's
+     * `/api/v1/models`, Ollama's `/api/ps`, llama.cpp's `/props`. Data, not code — the
+     * request shape is the same for everyone and only the probe differs. With it,
+     * `fetchModels` makes one extra request at the endpoint's origin (the `/v1` path
+     * stripped) and prefers the EFFECTIVE window (what the server loaded, which is where
+     * it truncates) over the trained maximum. A probe that fails leaves the models
+     * without a window; it never fails the model list. `'vllm'` needs no extra request,
+     * its `/v1/models` already carries `max_model_len`, and is accepted so a preset can
+     * say what it is.
+     */
+    server?: 'lmstudio' | 'ollama' | 'llamacpp' | 'vllm';
     /** Static model list (consumer data). Defaults to `[]` — use `fetchModels`. */
     models?: AparteAIModel[];
     /**
@@ -166,6 +180,163 @@ function bearer(key: string): string {
     return key.startsWith('Bearer ') ? key : `Bearer ${key}`;
 }
 
+/** Map the server's `finish_reason` onto aparté's closed union. */
+function toFinishReason(raw: string): AparteFinishReason {
+    switch (raw) {
+        case 'stop': return 'stop';
+        case 'length': return 'length';
+        case 'tool_calls':
+        case 'function_call': return 'tool-calls';
+        case 'content_filter': return 'content-filter';
+        default: return 'other';
+    }
+}
+
+/** The message of a `{ "error": … }` payload: `error.message`, or the error itself when it is a string. */
+function errorPayloadMessage(error: unknown): string {
+    if (typeof error === 'string' && error) return error;
+    const message = (error as { message?: unknown } | null)?.message;
+    return typeof message === 'string' && message ? message : 'The server reported an error';
+}
+
+/**
+ * What servers write when the prompt is longer than the model's window: OpenAI's
+ * "maximum context length", the generic "context length", LM Studio's "Context size has
+ * been exceeded", llama.cpp's `exceed_context_size_error` ("the request exceeds the
+ * available context size"), Anthropic-compatible gateways' "prompt is too long". Matched
+ * against the message, the type and the code of the payload, because each server puts the
+ * telltale in a different one.
+ */
+const CONTEXT_OVERFLOW = /maximum context length|context length|context size has been exceeded|exceed_context_size_error|exceeds the available context size|prompt is too long/i;
+
+/** Is this `{ "error": … }` payload a prompt that did not fit? OpenAI's own `context_length_exceeded` code says so outright. */
+function isContextOverflow(error: unknown): boolean {
+    if (typeof error === 'string') return CONTEXT_OVERFLOW.test(error);
+    const fields = error as { message?: unknown; type?: unknown; code?: unknown } | null;
+    const strings = [fields?.message, fields?.type, fields?.code].filter((v): v is string => typeof v === 'string');
+    return strings.some((v) => v === 'context_length_exceeded' || CONTEXT_OVERFLOW.test(v));
+}
+
+/**
+ * The error event for a payload the server streamed after its 200. An overflow carries
+ * its code, so the client can compact and resend instead of showing the prose.
+ */
+function errorEvent(error: unknown): AparteStreamEvent {
+    const message = errorPayloadMessage(error);
+    return isContextOverflow(error)
+        ? { type: 'error', message, code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED }
+        : { type: 'error', message };
+}
+
+// ─── Context window ──────────────────────────────────────────────────────────
+
+/**
+ * The fields a `GET /models` entry may carry its window in, by vendor: OpenRouter and
+ * Together (`context_length`), vLLM (`max_model_len`), Groq (`context_window`), Mistral
+ * and LM Studio (`max_context_length`). Read in this order; the first positive integer wins.
+ */
+const WINDOW_FIELDS = ['context_length', 'max_model_len', 'context_window', 'max_context_length'] as const;
+
+function positiveInt(v: unknown): number | undefined {
+    return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined;
+}
+
+function genericWindow(entry: Record<string, unknown>): number | undefined {
+    for (const field of WINDOW_FIELDS) {
+        const n = positiveInt(entry[field]);
+        if (n !== undefined) return n;
+    }
+    return undefined;
+}
+
+type WindowOf = (modelId: string) => number | undefined;
+
+type Json = Record<string, unknown>;
+
+/** A server's JSON is whatever it sent: narrow to an object, or to nothing. */
+function asJson(v: unknown): Json {
+    return v !== null && typeof v === 'object' ? v as Json : {};
+}
+
+function asJsonList(v: unknown): Json[] {
+    return Array.isArray(v) ? v.map(asJson) : [];
+}
+
+async function getJSON(url: string, headers: Record<string, string>): Promise<Json> {
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return asJson(await response.json());
+}
+
+/**
+ * Ask a local server for the window it serves, through its own API. Returns a lookup by
+ * model id. Throws on a failed probe; the caller turns that into "no window".
+ *
+ * What each one reads, and what it deliberately does NOT:
+ * - LM Studio: a LOADED model's `loaded_instances[].config.context_length`. An unloaded
+ *   model has only `max_context_length`, the trained maximum, which is not what a JIT
+ *   load will run with — reading it would draw a gauge against a ceiling the server
+ *   never enforces, so an unloaded model is left without a window.
+ * - Ollama: `/api/ps`, a loaded runner's `context_length`. Ollama also truncates the
+ *   prompt silently, and `/api/show` only has `num_ctx` when a Modelfile bakes one in,
+ *   so the trained maximum there is never used either.
+ * - llama.cpp: `default_generation_settings.n_ctx` of `/props`, the per-slot window,
+ *   one value for the one model the process serves.
+ */
+async function probeWindows(
+    server: NonNullable<OpenAICompatProviderOptions['server']>,
+    origin: string,
+    headers: Record<string, string>,
+): Promise<WindowOf | undefined> {
+    if (server === 'lmstudio') {
+        const byId = new Map<string, number>();
+        let data: Json | undefined;
+        try {
+            data = await getJSON(`${origin}/api/v1/models`, headers);
+        } catch {
+            // Before the v1 REST API (and still beside it), `/api/v0/models` lists each
+            // model with the window it was loaded at: `loaded_context_length` on a
+            // `state: "loaded"` entry, read live on LM Studio 0.4.26.
+            const legacy = await getJSON(`${origin}/api/v0/models`, headers);
+            for (const m of asJsonList(legacy['data'])) {
+                const n = positiveInt(m['loaded_context_length']);
+                if (typeof m['id'] === 'string' && n !== undefined) byId.set(m['id'], n);
+            }
+            return id => byId.get(id);
+        }
+        for (const m of asJsonList(data['models'])) {
+            const instances = asJsonList(m['loaded_instances']);
+            // A model loaded under an identifier of its own (`lms load … --identifier`) is
+            // listed by `/v1/models` under that identifier, which is the instance's id —
+            // so each instance answers for its own id, and the model's key for its first.
+            for (const instance of instances) {
+                const n = positiveInt(asJson(instance['config'])['context_length']);
+                if (typeof instance['id'] === 'string' && n !== undefined) byId.set(instance['id'], n);
+            }
+            const first = positiveInt(asJson(instances[0]?.['config'])['context_length']);
+            if (typeof m['key'] === 'string' && first !== undefined && !byId.has(m['key'])) byId.set(m['key'], first);
+        }
+        return id => byId.get(id);
+    }
+    if (server === 'ollama') {
+        const data = await getJSON(`${origin}/api/ps`, headers);
+        const byName = new Map<string, number>();
+        for (const m of asJsonList(data['models'])) {
+            const n = positiveInt(m['context_length']);
+            if (n === undefined) continue;
+            for (const name of [m['name'], m['model']]) if (typeof name === 'string') byName.set(name, n);
+        }
+        // `/v1/models` lists `llama3.2:latest`; a bare `llama3.2` is the same model.
+        return id => byName.get(id) ?? byName.get(id.endsWith(':latest') ? id.slice(0, -7) : `${id}:latest`);
+    }
+    if (server === 'llamacpp') {
+        const data = await getJSON(`${origin}/props`, headers);
+        const n = positiveInt(asJson(data['default_generation_settings'])['n_ctx']);
+        return n === undefined ? undefined : () => n;
+    }
+    return undefined;
+}
+
 const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProviderConfigSchema => ({
     fields: opts.isLocal
         ? [
@@ -186,8 +357,9 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
  *
  * `AparteAIProvider` declares that surface optional — correct in general, since a
  * provider may own its I/O through `chat()` instead — and `AparteFormatAdapter` keeps
- * `authHeaders` / `parseText` optional because some vendors authenticate by query
- * string or never answer non-streaming. THIS factory always supplies all of them, so
+ * `authHeaders` / `parseText` / `classifyError` optional because some vendors authenticate
+ * by query string, never answer non-streaming, or say nothing a client could classify.
+ * THIS factory always supplies all of them, so
  * saying so here is the difference between a caller writing
  * `provider.buildRequest(req)` and a caller sprinkling `!` or writing a check that
  * cannot fail. Useful to annotate with when you drive the adapter yourself (your own
@@ -196,7 +368,7 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
 export type OpenAICompatProvider =
     AparteAIProvider
     & AparteFormatAdapter
-    & Required<Pick<AparteFormatAdapter, 'authHeaders' | 'parseText'>>;
+    & Required<Pick<AparteFormatAdapter, 'authHeaders' | 'parseText' | 'classifyError'>>;
 
 /**
  * Build an `AparteAIProvider` (full format-adapter surface) for one
@@ -251,11 +423,27 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
                 if (apiKey) headers['Authorization'] = bearer(apiKey);
                 const response = await fetch(`${endpoint}/models`, { headers });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json() as { data?: Array<{ id: string; name?: string; context_length?: number }> };
-                return (data.data ?? []).map(m => ({
+                const data = await response.json() as { data?: Array<Record<string, unknown> & { id: string; name?: string }> };
+
+                // The server's own view of the window, when this endpoint says which
+                // server it is. Quiet on failure: the list is still good without it.
+                let probed: WindowOf | undefined;
+                if (opts.server) {
+                    try {
+                        probed = await probeWindows(opts.server, new URL(endpoint).origin, headers);
+                    } catch (error) {
+                        console.warn(`[${displayName}] Could not read the context window from the ${opts.server} server:`, error);
+                    }
+                }
+                // A window the consumer declared on a static model beats anything read.
+                const declared = new Map((opts.models ?? []).flatMap(m => (m.contextWindow ? [[m.id, m.contextWindow] as const] : [])));
+
+                return (data.data ?? []).map(m => {
+                    const contextWindow = declared.get(m.id) ?? probed?.(m.id) ?? genericWindow(m);
+                    return {
                     id: m.id,
                     name: m.name || m.id,
-                    contextWindow: m.context_length,
+                    ...(contextWindow !== undefined ? { contextWindow } : {}),
                     // `function_calling` is declared because it is a property of the
                     // WIRE FORMAT, which is what this provider is: `/chat/completions`
                     // takes a `tools` array, and every server behind a compat endpoint
@@ -272,7 +460,8 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
                     // `tools` array outright surfaces as an error from its own endpoint,
                     // which is the right place for that argument to happen.
                     capabilities: ['streaming', 'function_calling'],
-                }));
+                    };
+                });
             } catch (error) {
                 console.error(`[${displayName}] Failed to fetch models:`, error);
                 return [];
@@ -323,7 +512,29 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             return parseOpenAICompatStream(body);
         },
 
+        /**
+         * A 400 (or a 413) whose body says the prompt did not fit is an overflow, not a bad
+         * request: the client compacts and sends the turn again. Other statuses keep what
+         * the status says.
+         */
+        classifyError(status: number, body: unknown): AparteErrorCode | undefined {
+            if (status !== 400 && status !== 413) return undefined;
+            return isContextOverflow((body as { error?: unknown } | null | undefined)?.error)
+                ? AparteErrorCode.USAGE_CONTEXT_EXCEEDED
+                : undefined;
+        },
+
         parseText(json: unknown): string {
+            // A 200 that carries `error` and no `choices` is a failure, not an empty
+            // reply: LM Studio answers a context overflow this way. The direct
+            // transport propagates the throw as the turn's error.
+            const payload = json as { error?: unknown; choices?: unknown } | null;
+            if (payload?.error && !payload.choices) {
+                const failure = new Error(errorPayloadMessage(payload.error));
+                throw isContextOverflow(payload.error)
+                    ? Object.assign(failure, { code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED })
+                    : failure;
+            }
             return (json as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || '';
         },
     };
@@ -340,6 +551,8 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
  * - `delta.content`            → text event
  * - `delta.reasoning_content`  → thinking event (Qwen3, DeepSeek R1, …)
  * - `delta.tool_calls`         → accumulate → tool_use on finish_reason='tool_calls'
+ * - `finish_reason`           → `finishReason` on the `done`
+ * - `{ error }` data line      → error event, and the stream ends there (no `done`)
  * - usage-only chunk + [DONE]  → done{usage}
  */
 export function parseOpenAICompatStream(
@@ -365,6 +578,8 @@ export function parseOpenAICompatStream(
     /** Ids minted for a vendor that sends none. Per stream, i.e. per turn. */
     let mintedCallIds = 0;
     let capturedUsage: AparteUsage | undefined;
+    /** The last non-null `finish_reason` seen, mapped; every `done` carries it. */
+    let finishReason: AparteFinishReason | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     /*
@@ -465,7 +680,7 @@ export function parseOpenAICompatStream(
                             // A turn that streamed tool-call deltas and ended on `stop`,
                             // `length` or a bare [DONE]: the calls are still the model's.
                             flushToolCalls(controller, false);
-                            controller.enqueue({ type: 'done', usage: capturedUsage });
+                            controller.enqueue({ type: 'done', usage: capturedUsage, ...(finishReason ? { finishReason } : {}) });
                             return;
                         }
                         try {
@@ -481,8 +696,22 @@ export function parseOpenAICompatStream(
                                 };
                             }
 
+                            // An error the server streamed AFTER a 200 (LM Studio on a context
+                            // overflow, OpenAI and vLLM mid-stream). Without this the line was
+                            // skipped as "no choices" and the turn ended on an empty `done`:
+                            // an empty reply marked completed. An `event: error` line before it
+                            // is ignored like every non-`data:` line; this data line is the payload.
+                            if (json.error) {
+                                controller.enqueue(errorEvent(json.error));
+                                reader?.cancel().catch(() => undefined);
+                                return;
+                            }
+
                             const choice = json.choices?.[0];
                             if (!choice) continue;
+                            if (typeof choice.finish_reason === 'string' && choice.finish_reason) {
+                                finishReason = toFinishReason(choice.finish_reason);
+                            }
 
                             const delta = choice.delta;
                             if (delta) {
@@ -542,7 +771,7 @@ export function parseOpenAICompatStream(
                 }
                 // The socket closed without [DONE]: same rule, the calls are flushed first.
                 flushToolCalls(controller, false);
-                controller.enqueue({ type: 'done', usage: capturedUsage });
+                controller.enqueue({ type: 'done', usage: capturedUsage, ...(finishReason ? { finishReason } : {}) });
             } catch (err: unknown) {
                 // AbortError surfaces here when the caller's signal fires mid-stream:
                 // the consumer (agent loop) cancelled on purpose — end quietly, the

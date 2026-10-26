@@ -69,6 +69,20 @@ describe('createCompactionSelector', () => {
         expect(select(messages).keep.map((m) => m.id)).toEqual(['m2', 'm3']);
     });
 
+    it('measures with the estimate it is given, so a caller can count what the wire sends', () => {
+        // Same six 200-character messages as above, but the estimate calls a message free
+        // when it is a reply (a thinking-only turn, say): the window now holds the three
+        // replies and two user messages, where the default cost keeps two.
+        const select = createCompactionSelector({
+            contextWindow: 100,
+            config: BARE,
+            estimate: (m) => (((m as Message).role === 'assistant') ? 0 : 50),
+        });
+        const { keep, drop } = select(Array.from({ length: 6 }, (_, i) => message(i)));
+        expect(keep.map((m) => m.id)).toEqual(['m1', 'm2', 'm3', 'm4', 'm5']);
+        expect(drop.map((m) => m.id)).toEqual(['m0']);
+    });
+
     it('costs a message by its segments when it carries no content', () => {
         const select = createCompactionSelector({ contextWindow: 100, config: BARE });
         const rich: Message = { id: 'r', role: 'assistant', timestamp: 9, segments: [{ id: 's', type: 'text', content: 'z'.repeat(800) }] };

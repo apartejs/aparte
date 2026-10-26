@@ -1,0 +1,99 @@
+/*
+ * aparté — The separator at a context checkpoint.
+ *
+ * Drawn by the bubble above the first message the model still reads verbatim, after the
+ * messages before it were summarised for the model: a hairline across the transcript with
+ * one quiet line of words in it, "12 messages summarised for the model · Show summary ·
+ * Restore". The messages above it stay on screen — only what the model reads was
+ * shortened — so this is a note in the margin of the history, not a gap in it.
+ *
+ * It wears recipes and adds only what is its own. The hairlines are `aparte-divider`'s
+ * (a border, so forced-colours keeps them), the actions are `aparte-btn` ghost buttons at
+ * their small step, the waiting words are `aparte-shimmer`. What is left here is the part
+ * no recipe draws: the label may wrap on a narrow chat where a divider's label never
+ * does, and the summary panel that opens under the line.
+ *
+ * Imported after bubble.css in src/index.ts and styles/bundle.css, and in that order in
+ * both: check:derived-vars compares them import for import.
+ */
+.aparte-checkpoint {
+  box-sizing: border-box;
+  max-inline-size: var(--aparte-message-max-width);
+  margin-inline: auto;
+  padding-inline: var(--aparte-message-padding-inline);
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-font-family);
+  font-size: var(--aparte-font-size-sm);
+}
+
+/* The label is the one cell of the divider that has to give way when the chat is narrow:
+   the recipe's own label is `nowrap`, which is right for "or" and wrong for a sentence and
+   two buttons. The row of buttons wraps under the sentence rather than past the edge. */
+.aparte-checkpoint__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aparte-space-1) var(--aparte-space-3);
+  min-inline-size: 0;
+  text-align: center;
+}
+
+.aparte-checkpoint__text {
+  overflow-wrap: anywhere;
+}
+
+/* A failed summary reads as a failure without shouting: the error ink on the sentence, and
+   the reason on the element's title for a pointer and in the accessible name for a reader
+   (the markup carries it as visually hidden text), so the line itself stays one line. */
+.aparte-checkpoint[data-state="failed"] .aparte-checkpoint__text {
+  color: var(--aparte-error-ink);
+}
+
+/* The actions sit in the line of text: no extra height from the button's own minimum, and
+   the muted ink the line has until the pointer is on one. */
+.aparte-checkpoint__action {
+  --aparte-btn-intent-ink: var(--aparte-text-muted);
+  min-block-size: 0;
+}
+
+.aparte-checkpoint__action:hover:not(:disabled),
+.aparte-checkpoint__action:focus-visible {
+  --aparte-btn-intent-ink: var(--aparte-text);
+}
+
+/* What Restore asks, in the place of the two actions it replaces. */
+.aparte-checkpoint__confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aparte-space-1) var(--aparte-space-3);
+}
+
+/* The summary the model reads, opened under the line. A panel with the muted ground the
+   neutral layer already has, in the type of the line it hangs from, scrolling instead of
+   pushing the transcript down by a page when the summary is long. The summary is Markdown
+   and wears `aparte-segment-content` for it (prose.css): the words below only place the
+   panel, they do not restyle what is inside it. */
+.aparte-checkpoint__summary {
+  box-sizing: border-box;
+  margin-block: 0 var(--aparte-space-5);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  max-block-size: 40vh;
+  overflow-y: auto;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-surface-1);
+  color: var(--aparte-text-muted);
+  line-height: var(--aparte-line-height-loose);
+  text-align: start;
+}
+
+.aparte-checkpoint__summary[hidden] {
+  display: none;
+}
+
+.aparte-checkpoint__summary > :last-child {
+  margin-block-end: 0;
+}

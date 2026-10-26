@@ -1,6 +1,6 @@
 ---
 title: Keep a long conversation inside the model's window
-description: Show how much of the context window a conversation uses, and summarise the older turns when it fills up — automatically, from a button, or your own way.
+description: Show how much of the context window a conversation uses, and summarise the older turns for the model when it fills up — the person keeps every message, and can restore them.
 sidebar:
   order: 4
   label: Long conversations
@@ -35,45 +35,95 @@ const compaction = setupCompaction();
         <aparte-composer-send></aparte-composer-send>
       </div>
       <aparte-composer-toolbar>
-        <aparte-context auto-compact></aparte-context>
+        <aparte-context variant="ring"></aparte-context>
       </aparte-composer-toolbar>
     </div>
   </aparte-composer>
 </aparte-chat>
 ```
 
-[`<aparte-context>`](/components/context-gauge/) measures how much of the model's window the
-conversation uses, from the usage each reply reports: it shows nothing until a reply reports its
-usage — a provider that reports none leaves it empty — and goes blank again after a compaction,
-until the next reply. It turns `warn` at 75 % of the window and `danger` at 90 %, which its `warn`
-and `danger` attributes change. With `auto-compact`, a turn that ends in `danger` asks for a
-compaction; once that request is answered, the next turn still in `danger` asks again.
-`setupCompaction()` answers: it summarises the turns that no longer fit and keeps the recent ones
-as they are. Without the plugin, the gauge only measures. The gauge goes in the composer's
-toolbar, which [the composer toolbar](/guides/customization/composer-toolbar/) places in plain HTML
-and in each framework.
+That is the whole wiring. Once set up, the plugin decides on its own: when a turn ends with the
+conversation past 80 % of the model's window, or when the next request would not fit, it asks the
+model for a summary of the older turns and the model reads that summary in their place. **Nothing is
+deleted**: every message stays on screen and in storage, and a separator marks where the model's
+view now starts.
 
-The window is the current model's `contextWindow`. A `window` attribute sizes the gauge alone: when
-the model declares no window, give the compaction the same number through its
-[selector](#choose-what-stays), or it keeps the last four messages and summarises the rest.
+[`<aparte-context>`](/components/context-gauge/) shows how much of the window the conversation uses
+and, when you open it, what fills it. The gauge goes in the composer's toolbar, which
+[the composer toolbar](/guides/customization/composer-toolbar/) places in plain HTML and in each
+framework. The plugin needs no gauge, and the gauge needs no plugin: without the plugin it only
+measures.
+
+## The model's window
+
+Everything here is measured against the current model's `contextWindow`. A provider's model list fills
+it in: OpenRouter, Groq, Mistral and vLLM return it, and the local-server presets of
+[`@aparte/provider-openai-compat`](/providers/ai/openai-compat/) read the window LM Studio, Ollama and
+llama.cpp actually run the model with ([Local models](/guides/local-models/#show-how-full-the-context-is)).
+When the model declares none, give it one, on the model you list or to the plugin:
+
+```ts
+setupCompaction({ contextWindow: 8192 });
+```
+
+With no window anywhere, the plugin does not compact on its own (`compact()` reports
+`{ skipped: true, reason: 'no-window' }`): it cannot know when the conversation is too long, nor
+whether the summary request itself would fit.
+
+## What the person sees
+
+<Variant id="compaction-notice" caption="The separator above the turns the model still reads word for word." />
+
+While the summary is written, a line above the first turn that stays reads "Summarising the
+context…". Once it is done, that line is a separator — "12 messages summarised for the model" — with
+**Show summary**, which unfolds what the model now reads in place of the older turns, and **Restore**,
+which asks for a confirmation and then sends the original messages to the model again. If the summary
+fails, the separator says so and offers **Retry**; nothing is lost, since nothing was removed. The
+[compaction separator](/components/compaction-notice/) page shows each state.
+
+## When it compacts, and how to change it
+
+```ts
+setupCompaction({
+  threshold: 0.7,   // compact past 70 % of the window instead of 80 %
+});
+```
+
+- **After a turn**: when the conversation, as the model will read it, is past `threshold` of the
+  window.
+- **Before a send**: when the request about to go out would not fit, it compacts first and the turn
+  waits for it; the reply shows its usual waiting state, and Stop cancels both.
+- **After an overflow**: when the model refuses a request as over its window, it compacts and sends the
+  turn once more.
+
+A compaction aims **below** the threshold, not at it: the history the model reads afterwards lands at
+about `threshold − 0.2` of the window, less the system prompt, the tools and the room for the reply,
+so one summary buys several turns. It measures in the model's own tokens, calibrated on what the last
+reply reported, and leaves room for the message being sent. Each chat on the page compacts on its own.
+
+Two failures in a row stop the automatic attempts for that conversation until a compaction succeeds,
+someone asks for one, or the conversation changes; a Restore pauses them the same way, since the
+person chose to send everything, and cancels a summary still being written. `auto: false` is manual
+only: a compaction happens when someone asks for it (Compact now, Retry, `compact()`, `aparte-compact`),
+never after a turn, before a send or after an overflow, so a model's overflow error stands as it does
+without the plugin. `listen: false` does the same.
 
 ## Compact from a button
 
 ```ts
 document.querySelector('#compact')?.addEventListener('click', async () => {
-  const outcome = await compaction.compact();   // never throws
+  const outcome = await compaction.compact('main-chat');   // never throws
   if (!outcome.ok) console.warn(outcome.error);
 });
 ```
 
 `compact()` compacts the chat whose id it is given, or the first on the page, and resolves to what
-happened: `{ ok: true, skipped: false, summary, kept, dropped }` when it did; `{ ok: true,
-skipped: true, reason }` when there was nothing to do — `'empty'`, `'nothing-to-drop'`, or
-`'running'` and `'streaming'` when a compaction or a reply is under way; and `{ ok: false, error }`
-when it could not — no chat or provider found, a summary that failed or was cancelled, a
-conversation that changed meanwhile. A button can also send what the gauge sends:
+happened: `{ ok: true, skipped: false, summary, kept, dropped, messageId, count }` when it did;
+`{ ok: true, skipped: true, reason }` when there was nothing to do — `'empty'`, `'nothing-to-drop'`,
+`'no-window'`, or `'running'` and `'streaming'` when a compaction or a reply is under way; and
+`{ ok: false, error }` when it could not. The gauge's panel has the same button, **Compact now**,
+whenever the plugin is set up and there is something to summarise. A button can also send the event:
 `window.dispatchEvent(new CustomEvent('aparte-compact', { detail: { targetId: 'main-chat' } }))`.
-A host that only calls `compact()` itself passes `listen: false`, and the setup listens to no event.
 
 ## Show progress, and cancel
 
@@ -85,13 +135,12 @@ window.addEventListener('aparte-compact-done', () => spinner.hide());
 window.addEventListener('aparte-compact-error', (event) => spinner.fail(event.detail.error));
 ```
 
-A compaction is a model call, so it takes a moment. The events go out on `window`, each with the
-chat's `targetId`; `aparte-compact-done` carries `{ summary, kept, dropped }`, or `{ skipped:
-true, reason }`. `compaction.running` is `true` meanwhile, and `compaction.abort()`, or an
-`aparte-abort` sent for the chat, cancels it and leaves the conversation as it was; the cancel
-arrives as `aparte-compact-error` with `error: 'Compaction aborted'`, and with `listen: false`
-only `abort()` cancels. A summary that comes back after the conversation was switched is not
-applied. `compaction.dispose()` removes the setup.
+The events go out on `window`, each with the chat's `targetId` and the `messageId` of the message the
+checkpoint sits on; `aparte-compact-done` carries `{ summary, kept, dropped, count }`, `{ skipped:
+true, reason }`, or `{ restored: true }` after a Restore. `compaction.running` is `true` meanwhile, and
+`compaction.abort()`, or an `aparte-abort` sent for the chat, cancels it and leaves the conversation as
+it was. A summary that comes back after the conversation was switched is not applied.
+`compaction.dispose()` removes the setup.
 
 ## Choose what stays
 
@@ -109,91 +158,89 @@ setupCompaction({
 });
 ```
 
-By default the newest turns that fit the current model's window stay word for word, after room for
-the system prompt, the tools, the reply, a buffer of a tenth of the window and a safety margin, and
-the older ones are summarised. A compaction at the default 90 % therefore frees a few turns; a
-larger `autocompactBufferPct` in the selector's `config`, or a lower `danger`, frees more. The
-selector above does the same against a window you choose, with `minKeep` as a floor; any function
-from the messages to `{ keep, drop }` can be a selector. When the model declares no window, the last
-four messages stay, which `keepWithoutWindow` changes.
+By default the newest turns that fit the window stay word for word, after room for the system prompt,
+the tools, the reply, a buffer of a tenth of the window, a safety margin and the summary, and the older
+ones are summarised. The first turn that stays is always a message of the person's, so the model never
+reads a reply without its question. A selector is any function from the messages to `{ keep, drop }`;
+the one above does the same against a window you choose, with `minKeep` as a floor.
 
-There is one setup per configuration: a second `setupCompaction` call replaces the first. Pass the
-selector, the prompt and every other option in one call.
+There is one setup per configuration: a second `setupCompaction` call replaces the first.
 
-## Summarise your way
+## The summary
 
 ```ts
-import { setupCompaction } from '@aparte/plugin-compaction';
-
 setupCompaction({
   prompt: 'Summarise in French, for a support agent picking up the ticket. Do not answer the conversation, do not continue it, and do not call a tool.',
   keyResolver: (providerId) => localStorage.getItem(`key:${providerId}`),
 });
 ```
 
-The summary is asked of the current model, through the same transport as the chat, and the
-request carries `_meta: { compaction: true }`, so a server of yours can send it to a cheaper model.
-It holds the summarised turns as text, their tool calls and errors included. `prompt` replaces the
-instruction: keep its last sentence, or a conversation that ends in a question can come back
-answered instead of summarised. `keyResolver` is asked for the provider's key first, and the
-configuration's key is used when it returns nothing, as with `AparteClient`.
-`summarize: (request, signal) => Promise<string>` replaces the call altogether — your own endpoint,
-any model — and needs no provider at all.
+The summary is asked of the current model, through the same transport as the chat; the request is
+streamed, carries a `maxTokens` that keeps the answer inside the window and `_meta: { compaction: true }`,
+so a server of yours can send it to a cheaper model. The default instruction asks for fixed sections —
+the person's goal and constraints, the decisions and why, the open tasks, the facts and tool results
+still needed, the next step — in the language of the conversation. A second compaction updates the
+summary it already has rather than summarising a summary, and the person's first request is kept
+word for word. A summary that is cut off, that fails, or that is no shorter than what it replaces is
+refused, and the conversation stays as it was. `prompt` replaces the instruction (keep its last
+sentence); `summarize: (request, signal) => Promise<string>` replaces the call altogether and needs no
+provider.
+
+## What the model reads
+
+The history the model receives starts at the latest checkpoint: the summary first, introduced as a
+summary of what came before, then the turns from the checkpoint on. The checkpoint is a field on the
+message where that history resumes, `contextSummary: { summary, count, createdAt }`, saved with the
+conversation like the rest of the message. Edit a message above it and the conversation is cut there,
+checkpoint included, so the model reads everything again until the next compaction; edit the
+checkpoint's own message and the summary still stands for what came before it.
+
+A `history` function of your own (an `AparteClient` option) receives every message:
+`historyFromCheckpoint(messages)` from `@aparte/core` returns `{ summary, messages }`, the same cut the
+client makes. A bubble you draw yourself (`renderBubble` in React, the `bubble` slot in Vue and Svelte,
+`bubbleTemplate` in Angular) draws the separator from the message's `contextSummary` too.
+
+Conversations compacted before this version hold a summary message with `compaction: true` instead:
+they are still read and sent the same way, and drawn as a separator without Restore, since their
+original messages are gone.
 
 ## Several chats, or a transcript in a store
 
-One setup answers every chat on the page: the gauge's request names its chat, and that one is
-compacted. A gauge names its chat when it sits in a chat that has an `id`, or carries a `target`
-naming one; with neither, the first chat on the page is the one compacted. A request that arrives
-while another compaction runs is skipped with `reason: 'running'`, and the gauge asks again on its
-next turn in `danger`.
+One setup answers every chat on the page, and each request names its chat. A chat with a
+configuration of its own takes a setup on that configuration, scoped to the chat's id —
+`setupCompaction({ scopeToTargetId: 'support' }, support)` — so it answers that chat alone. When your
+transcript lives in a store rather than in the page, `resolveTarget: (targetId) => ({ getMessages,
+updateMessage })` hands the plugin your own message list; it writes the checkpoint through
+`updateMessage`.
 
-A chat with a configuration of its own takes a setup on that configuration, scoped to the chat's id —
-`setupCompaction({ scopeToTargetId: 'support' }, support)` — so it answers that chat alone and
-`compact()` with no id compacts it. Unscoped, a chat is answered by the setup on its own
-configuration, and only when that one has none by another, so a global setup and a chat's own
-never both summarise it. When your transcript lives in a store rather than in the page,
-`resolveTarget: (targetId) => ({ getMessages, clearAll, appendMessage })` hands the plugin your own
-message list.
-
-## What the person and the model see
-
-<Variant id="compaction-notice" caption="The summary in the conversation, where the older turns were." />
-
-The summarised turns are replaced by one notice, headed by the locale's `compactionSummaryTitle` —
-"Conversation summary" in English — with the turns that stayed after it, and whatever arrived while
-the summary was being written. Only the versions on screen stay: the other versions of every
-answer, and their pickers, are dropped. The notice is a message with `compaction: true`, drawn apart
-from the others, without avatar or buttons. `AparteClient` sends it to the model as a summary of
-what came before; a summary you make by other means gets the same treatment from the same flag.
+When the model runs its own loop on a server (an [AG-UI agent](/providers/agent/ag-ui/), a
+[server loop](/guides/server-loop/)), the page still sends the history from the checkpoint, but an
+agent that keeps its own memory of the thread is not affected by it.
 
 ## Reference
 
-The default selector estimates tokens as characters ÷ 3.8 (`estimateTokens`). Its budget is the
-window, less the system prompt, the tools, the reserves for thinking and for the reply, a buffer, a
-safety margin and a slot for the summary.
-
 | Export | What it is |
 | --- | --- |
-| `computeHistoryBudget`, `splitHistoryBudget` | the budget with its breakdown (`BudgetResult`, `BudgetBreakdown`), and its split into room for the summary and the verbatim window (`SplitBudget`) |
-| `estimateTokens`, `estimateTokensJson` | the estimate, for text and for a JSON value |
-| `DEFAULT_COMPACTION_CONFIG` | the reserves and ratios a `CompactionConfig` overrides |
-| `transcriptForSummary`, `messageText`, `DEFAULT_COMPACTION_PROMPT` | the transcript and the instruction the default summary uses, for a `summarize` of your own |
-| `CompactionSetupOptions`, `CompactionController` | what `setupCompaction` takes and returns |
+| `setupCompaction`, `CompactionSetupOptions`, `CompactionController` | the setup, its options (`auto`, `threshold`, `contextWindow`, `selector`, `prompt`, `summarize`, `keyResolver`, `resolveTarget`, `scopeToTargetId`, `listen`, `keepWithoutWindow`) and what it returns |
 | `CompactionOutcome`, `CompactionSkipReason` | what `compact()` resolves to |
-| `CompactionMessageSelector`, `CompactionSelectorOptions`, `CompactionSelector`, `CompactionSelection`, `CompactableMessage` | the selector and its parts |
+| `createCompactionSelector`, `CompactionSelectorOptions`, `CompactionSelector`, `CompactionSelection`, `CompactableMessage`, `CompactionMessageSelector` | the selector and its parts; `CompactionLimits` is what the plugin passes its default selector per compaction (the calibration `scale`, the room to leave for the message being sent, the target) |
+| `computeHistoryBudget`, `splitHistoryBudget`, `DEFAULT_COMPACTION_CONFIG` | the budget with its breakdown (`BudgetResult`, `BudgetBreakdown`), its split into room for the summary and the verbatim window (`SplitBudget`), and the reserves and ratios a `CompactionConfig` overrides |
+| `estimateTokens`, `estimateTokensJson` | the estimate — characters ÷ 3.8 — for text and for a JSON value |
+| `transcriptForSummary`, `messageText`, `DEFAULT_COMPACTION_PROMPT` | what the default summary reads and asks, for a `summarize` of your own |
 | `CompactionSummarizer`, `CompactionKeyResolver`, `CompactionTarget` | the `summarize`, `keyResolver` and `resolveTarget` options |
 
-The events are typed in core's event map — `AparteCompactEventDetail`,
-`AparteCompactStartEventDetail`, `AparteCompactDoneEventDetail` and `AparteCompactErrorEventDetail`
-— and listed in the [events reference](/reference/events/).
+From `@aparte/core`: `historyFromCheckpoint` and `AparteContextSummary` (the checkpoint);
+`measureContext`, `estimateWireTokens`, `estimateTokens` and `AparteContextMeasure` (the measure the
+gauge and the plugin share); `AparteCompactor` and its request and outcome types, registered with
+`config.setCompactor()` (the seam the plugin fills). The events are typed in core's event map and
+listed in the [events reference](/reference/events/).
 
 ## Next
 
 <Cards
     cards={[
-        { href: '/components/context-gauge/', title: 'Context gauge', line: 'The gauge, its levels, the ring and the bar.' },
-        { href: '/components/compaction-notice/', title: 'Compaction notice', line: 'The summary in the conversation.' },
+        { href: '/components/context-gauge/', title: 'Context gauge', line: 'The gauge, its levels, and what fills the window.' },
+        { href: '/components/compaction-notice/', title: 'Compaction separator', line: 'Where the model’s view starts, and Restore.' },
         { href: '/guides/conversation-persistence/', title: 'Save conversations', line: 'Keep conversations across reloads.' },
     ]}
 />

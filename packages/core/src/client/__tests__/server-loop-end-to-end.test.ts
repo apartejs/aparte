@@ -11,6 +11,8 @@ import { describe, it, expect } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfig } from '../../config/index.js';
+import { AparteErrorCode } from '../../types/errors.js';
+import type { AparteCompactorOutcome } from '../../types/compactor.js';
 import { createAgentStreamRunner } from '../agent-runner.js';
 import type { AparteStreamRunner } from '../stream-adapter.js';
 import { createAparteAgentHandler } from '../../transport/agent-handler.js';
@@ -72,8 +74,9 @@ function chat(initial: AparteMessage[] = []) {
     return { el, messages };
 }
 
-function client(el: HTMLElement, fetch: typeof globalThis.fetch, approvalResolver: unknown, pageProvider = true) {
+function client(el: HTMLElement, fetch: typeof globalThis.fetch, approvalResolver: unknown, pageProvider = true, configure?: (cfg: AparteConfig) => void) {
     const cfg = new AparteConfig();
+    configure?.(cfg);
     if (pageProvider) cfg.registerAIProvider({ id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '' } as never);
     if (pageProvider) cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     return new AparteClient({
@@ -212,5 +215,56 @@ describe('the server loop, end to end', () => {
         expect(await page(second.el).resumeDeferred(second.el)).toBe(false);
         expect(opened).toHaveLength(1);
         expect(requests).toBe(1);
+    });
+});
+
+describe('a server loop that overflows the model window', () => {
+    // The provider streams the refusal after a 200, the way LM Studio and llama.cpp do: the
+    // engine on the SERVER throws it as a plain Error carrying the code, the handler sends it
+    // as `run-error`, and the runner on the page throws it. Each of the three used to turn
+    // the code into something else, so the client never saw an overflow.
+    const overflowing = [{ type: 'error', message: 'Context size has been exceeded.', code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED }];
+    const COMPACTED: AparteCompactorOutcome = { ok: true, skipped: false, summary: 's', kept: 2, dropped: 2 };
+
+    const withCompactor = (cfg: AparteConfig, compact: () => Promise<AparteCompactorOutcome>) =>
+        cfg.setCompactor({ compact, settled: async () => {}, beforeSend: async () => false });
+    const errorOf = (m: AparteMessage | undefined) => m?.segments?.find((s) => s.type === 'error') as { code?: string } | undefined;
+
+    it('is compacted and sent once more, into the same reply', async () => {
+        const provider = scriptedProvider(overflowing, [{ type: 'text', delta: 'Fits now.' }, { type: 'done' }]);
+        const { fetch } = server(provider);
+        const { el, messages } = chat();
+        let compactions = 0;
+        await send(client(el, fetch, undefined, true, (cfg) => withCompactor(cfg, async () => { compactions++; return COMPACTED; })), 'a long question');
+
+        expect(compactions).toBe(1);
+        const reply = messages.at(-1);
+        expect(texts(reply).join(' ')).toContain('Fits now.');
+        expect(reply?.status).toBe('completed');
+        expect(errorOf(reply)).toBeUndefined();
+    });
+
+    it('stands as an error carrying the overflow code when a second try overflows too', async () => {
+        const { fetch } = server(scriptedProvider(overflowing, overflowing));
+        const { el, messages } = chat();
+        let compactions = 0;
+        const c = client(el, fetch, undefined, true, (cfg) => withCompactor(cfg, async () => { compactions++; return COMPACTED; }));
+        const raised: string[] = [];
+        window.addEventListener('aparte-message-error', (e) => raised.push((e as CustomEvent).detail?.error?.code), { once: true });
+        await send(c, 'a long question');
+
+        expect(compactions, 'once per turn').toBe(1);
+        expect(messages.at(-1)?.status).toBe('error');
+        expect(raised).toEqual([AparteErrorCode.USAGE_CONTEXT_EXCEEDED]);
+    });
+
+    it('keeps the wire value AGENT_RUN_FAILED for a failure that carries no code', async () => {
+        const provider = { id: 'mock', name: 'Mock', async chat() { throw new Error('boom'); } } as unknown as AparteAIProvider;
+        const { fetch } = server(provider);
+        const { el, messages } = chat();
+        let compactions = 0;
+        await send(client(el, fetch, undefined, true, (cfg) => withCompactor(cfg, async () => { compactions++; return COMPACTED; })), 'hi');
+        expect(compactions).toBe(0);
+        expect(messages.at(-1)?.status).toBe('error');
     });
 });

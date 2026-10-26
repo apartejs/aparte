@@ -1,5 +1,21 @@
 # @aparte/locale-fr
 
+## 0.26.0
+
+### Minor Changes
+
+- 37b82d9: Adds the French text for the nine keys of the context gauge's new panel, such as "Prompt système", "Libre" and "Compacter maintenant". Nothing to change in your code.
+
+  The keys are `contextSystem`, `contextTools`, `contextSummary`, `contextMessages`, `contextOther`, `contextFree`, `contextTotal`, `contextReclaim` and `contextCompactNow`. The panel is what the gauge opens: what fills the model's window, and a button to compact the conversation now.
+
+- 5aa437f: Adds the French text for the ten keys of core's new context separator, such as "12 messages résumés pour le modèle", "Afficher le résumé" and "Restaurer". Nothing to change in your code.
+
+  The keys are `checkpointCount`, `checkpointCountOne`, `checkpointLegacy`, `checkpointGroup`, `checkpointShow`, `checkpointHide`, `checkpointRestore`, `checkpointRestoreConfirm`, `checkpointPending` and `checkpointFailed`. The separator is the line a chat draws above the first message the model still reads verbatim, once the messages before it were summarised.
+
+- eb3c0b1: Adds the French text for core's new `responseCutOff` key: "Coupée à la limite de longueur du modèle."
+
+  It is the note under a reply the model stopped at its length limit.
+
 ## 0.25.0
 
 ## 0.24.0

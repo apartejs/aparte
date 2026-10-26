@@ -5,13 +5,15 @@ import type { StreamApprovalResolver, StreamDeferral, StreamDeferredCall, Stream
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
-import { isOpenDeferred, wireTurns } from './wire-history.js';
+import { historyFromCheckpoint } from '../context/checkpoint.js';
+import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
+import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
@@ -30,6 +32,8 @@ import { requestUserInput } from '../elicitation/index.js';
 /** What one run of the loop reports back to its turn: its usage, and whether it paused. */
 interface AparteRunResult {
     usage: AparteUsage | undefined;
+    /** Why the last model call ended — what `run-done` carried, when the provider said. */
+    finishReason?: AparteFinishReason;
     /** A server loop suspended on calls the page must answer, with its signed continuation. */
     suspended?: { pending: StreamDeferredCall[]; ticket?: string };
 }
@@ -71,10 +75,6 @@ interface AparteChatTargetElement extends HTMLElement {
  * step: its result's `instruction`, `reason` and `by` are documented there.
  */
 export type AparteToolApprovalResolver = StreamApprovalResolver;
-
-/** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
-const COMPACTION_PREAMBLE =
-    'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
 
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
@@ -148,6 +148,13 @@ export interface AparteClientOptions {
      *                          goes out as history without inventing a status for it.
      * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
+     *
+     * With 'viewport', a checkpoint (`AparteMessage.contextSummary`, written by
+     * `@aparte/plugin-compaction`) shortens what goes out: the summary, then the messages
+     * from the checkpoint on. A function receives the WHOLE transcript, checkpoint and
+     * everything before it — what to send is its call. To honour the checkpoint, pass
+     * the messages through `historyFromCheckpoint` and send its `summary` first.
+     * Retry and edit rebuild the history themselves and do not call this function.
      */
     history?: 'viewport' | 'none' | ((viewportMessages: AparteMessage[]) => AparteChatMessage[]);
 
@@ -304,6 +311,30 @@ export class AparteClient {
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _releaseKeyResolver: (() => void) | null = null;
     private _isAborted = false;
+    /** Provider and model pairs whose window was already read again after a turn (see `_readWindowAfterTurn`). */
+    private readonly _windowReadFor = new Set<string>();
+
+    /**
+     * The current model's window, read again once after a turn when it had none.
+     *
+     * A local server that loads a model on its first request — LM Studio's just-in-time
+     * loading, Ollama — has no loaded window to report when the model list is fetched at
+     * start-up, so the model comes without one, and the gauge and the compaction have
+     * nothing to measure against. After a reply the model is loaded, and the provider's
+     * own probe finds it. Once per provider and model: a server that never says costs one
+     * request, not one per turn. The config announces the window when it appears.
+     */
+    private async _readWindowAfterTurn(): Promise<void> {
+        // The config the turn picked its provider and model from — the client's own.
+        const config = this._config;
+        const model = config.getCurrentModel();
+        const providerId = config.getModelConfig().defaultProvider;
+        if (!model || model.contextWindow || !providerId) return;
+        const key = `${providerId}\u0000${model.id}`;
+        if (this._windowReadFor.has(key)) return;
+        this._windowReadFor.add(key);
+        await config.refreshProviderModels(providerId);
+    }
 
     /**
      * Does this window event belong to this client?
@@ -688,26 +719,41 @@ export class AparteClient {
             temperature?: number;
             /** Resume a turn a server loop paused (a reload): skip the first run. */
             resume?: NonNullable<AparteRunResult['suspended']>;
+            /**
+             * Builds the messages of this request again, exactly as the caller built them the
+             * first time (a send inlines its files as parts again). Called once the history
+             * has become smaller — after a compactor wrote a checkpoint, before the request
+             * goes out or after the model refused it as too long. Without it the turn cannot
+             * be resent, so it neither waits for a compactor nor retries an overflow.
+             */
+            rebuild?: () => Promise<AparteChatMessage[]>;
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
         // a viewport and does not carry it. See `_targetIdOf`.
         const chatId = this._targetIdOf(targetElement);
         const registeredTools = this._toolsForCurrentModel();
-        let baseRequest: AparteChatRequest = {
-            messages,
-            modelId,
-            stream: true,
-            tools: registeredTools.length ? registeredTools : undefined,
-            ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
+        // One function for the request, because a compaction builds it twice: the messages
+        // change, and everything else the turn does to a request (the interceptor, the
+        // `toolChoice` rule) must be done again to them.
+        const buildRequest = async (requestMessages: AparteChatMessage[]): Promise<AparteChatRequest> => {
+            let built: AparteChatRequest = {
+                messages: requestMessages,
+                modelId,
+                stream: true,
+                tools: registeredTools.length ? registeredTools : undefined,
+                ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
+            };
+            if (this.options.requestInterceptor) {
+                built = await this.options.requestInterceptor(built);
+            }
+            // toolChoice: 'none' — strip tools so the model never sees them.
+            if (built.toolChoice === 'none') {
+                built = { ...built, tools: undefined };
+            }
+            return built;
         };
-        if (this.options.requestInterceptor) {
-            baseRequest = await this.options.requestInterceptor(baseRequest);
-        }
-        // toolChoice: 'none' — strip tools so the model never sees them.
-        if (baseRequest.toolChoice === 'none') {
-            baseRequest = { ...baseRequest, tools: undefined };
-        }
+        let baseRequest = await buildRequest(messages);
 
         // Stopped while we were resolving auth or reading attachments: the stream
         // controller did not exist yet, so `abort()` had nothing to cancel — the
@@ -747,7 +793,41 @@ export class AparteClient {
         if (this._streamController !== streamController) this._streamController?.abort();
         this._streamController = streamController;
         this._turnsInFlight.add(messageId);
-        try {
+        // The compactor this chat answers to: the one on ITS config first (a chat inside an
+        // instance boundary), then the client's. Needs `rebuild` to be of any use — what it
+        // does is make the history smaller, and only the caller knows how to send it again.
+        const compactor = opts?.rebuild
+            ? (resolveConfig(targetElement).getCompactor() ?? this._config.getCompactor())
+            : null;
+        // The turn being prepared, which a compaction must leave alone: its user message
+        // and this reply. Read when asked, from the path, because a retry has moved it.
+        const turnIds = (): string[] => {
+            const path = targetElement.getMessages?.() ?? [];
+            const at = path.findIndex((m) => m.id === messageId);
+            const asked = at > 0 ? path[at - 1] : undefined;
+            return asked?.role === 'user' ? [asked.id, messageId] : [messageId];
+        };
+        // What this request costs, as the measure counts a view: written on the reply before
+        // each send so the measure can calibrate the heuristic against the real usage. A
+        // resume sends the request it was sent with plus the reply so far.
+        const requestMessages = (): AparteChatMessage[] =>
+            opts?.resume ? this._resumeMessages(targetElement, messageId, baseRequest.messages) : baseRequest.messages;
+        const requestEstimate = (): number => estimateRequestTokens({ messages: requestMessages(), tools: baseRequest.tools });
+        // Recorded on the reply only when the heuristic read the whole request. One that
+        // carries an image has a floor for an estimate, and the measure would read the gap
+        // to the provider's real count as the heuristic's error and scale everything by it.
+        // Written as `undefined` rather than left alone, because a second attempt writes
+        // over the first.
+        const recordedEstimate = (): number | undefined => carriesNonTextParts(requestMessages()) ? undefined : requestEstimate();
+        // A turn stopped before it had a run to stop: a Stop during the wait for a summary.
+        const endStopped = (): void => {
+            this._closeOpenCalls(targetElement, messageId);
+            dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
+            this._updateMessage(targetElement, messageId, { status: 'completed' });
+        };
+        const isStopped = (): boolean => this._isAborted || streamController.signal.aborted;
+        // The run itself, declared apart so an overflow can run it a second time.
+        const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
                 : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
@@ -806,6 +886,7 @@ export class AparteClient {
                 );
             }
             const usage = result.usage;
+            const finishReason = result.finishReason;
             if (this._isAborted || streamController.signal.aborted) {
                 // A stopped turn is FINISHED, and someone has to say so. The inline
                 // loop marks the message completed on its way out; the injected
@@ -819,24 +900,99 @@ export class AparteClient {
                 this._closeOpenCalls(targetElement, messageId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage }, chatId);
+                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage, ...(finishReason ? { finishReason } : {}) }, chatId);
+                void this._readWindowAfterTurn();
             }
-        } catch (error: unknown) {
-            // A THIRD abort path, and the one the browser suite caught after the
-            // other two were closed: when the user stops before any event has
-            // arrived, the fetch rejection escapes `transportCall` as an exception.
-            // It never reaches the event stream, so neither the guard around
-            // `reader.read()` nor the one on the `error` event can see it — and
-            // `_handleLifecycleError` would REPLACE the message with an error
-            // segment, turning a deliberate stop into a rendered failure.
-            this._closeOpenCalls(targetElement, messageId);
-            if (this._isAborted || streamController.signal.aborted) {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
-                this._updateMessage(targetElement, messageId, { status: 'completed' });
-                return;
+        };
+        // The model refused the request as too long, before saying a word: make the history
+        // smaller and send the turn once more, into the same reply. Not after the reply has
+        // text or a call — the turn would answer twice — and not without a compactor that
+        // actually compacted: the error then stands, exactly as it did before there was one.
+        // No note is written; the separator that appears above the kept turns says it.
+        const resendAfterOverflow = async (error: AparteError): Promise<'resend' | 'stopped' | 'stands'> => {
+            if (error.code !== AparteErrorCode.USAGE_CONTEXT_EXCEEDED || !compactor || !opts?.rebuild) return 'stands';
+            const segments = targetElement.getMessage?.(messageId)?.segments
+                ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments
+                ?? [];
+            if (segments.some((s) => s.type === 'text' || s.type === 'tool_call')) return 'stands';
+            try {
+                const outcome = await compactor.compact({
+                    target: targetElement,
+                    ...(chatId ? { targetId: chatId } : {}),
+                    force: true,
+                    reason: 'overflow',
+                    exclude: turnIds(),
+                    signal: streamController.signal,
+                });
+                // A Stop while the summary was being written is a stop, not a failure to show.
+                if (isStopped()) return 'stopped';
+                if (!outcome.ok || outcome.skipped) return 'stands';
+                baseRequest = await buildRequest(await opts.rebuild());
+            } catch {
+                // The compactor never rejects; a `rebuild` or an interceptor that throws is
+                // no reason to hide the error the person actually had.
+                return 'stands';
             }
-            const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
-            this._handleLifecycleError(targetElement, messageId, aparteError);
+            // Back to the waiting state the reply started in: nothing has been said yet.
+            this._updateMessage(targetElement, messageId, { status: 'pending' });
+            return 'resend';
+        };
+        try {
+            for (let attempt = 0; ; attempt++) {
+                try {
+                    if (attempt === 0 && compactor?.beforeSend && opts?.rebuild) {
+                        // The turn is announced (Stop is showing, the reply is waiting) and the
+                        // request is built — files inlined — so the estimate is of what would go.
+                        // A summary being written is awaited HERE rather than raced: a request
+                        // sent beside it would carry the history it is about to replace.
+                        let compacted = false;
+                        try {
+                            compacted = await compactor.beforeSend({
+                                target: targetElement,
+                                ...(chatId ? { targetId: chatId } : {}),
+                                exclude: turnIds(),
+                                requestTokens: requestEstimate(),
+                                signal: streamController.signal,
+                            });
+                        } catch (failure) {
+                            // Not a reason to refuse the send: the request goes out as built.
+                            console.warn('[AparteClient] The compactor threw before a send; sending the request as built.', failure);
+                        }
+                        if (isStopped()) {
+                            endStopped();
+                            return;
+                        }
+                        if (compacted) baseRequest = await buildRequest(await opts.rebuild());
+                    }
+                    this._updateMessage(targetElement, messageId, { contextEstimate: recordedEstimate() });
+                    await runOnce();
+                    return;
+                } catch (error: unknown) {
+                    // A THIRD abort path, and the one the browser suite caught after the
+                    // other two were closed: when the user stops before any event has
+                    // arrived, the fetch rejection escapes `transportCall` as an exception.
+                    // It never reaches the event stream, so neither the guard around
+                    // `reader.read()` nor the one on the `error` event can see it — and
+                    // `_handleLifecycleError` would REPLACE the message with an error
+                    // segment, turning a deliberate stop into a rendered failure.
+                    this._closeOpenCalls(targetElement, messageId);
+                    if (isStopped()) {
+                        dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
+                        this._updateMessage(targetElement, messageId, { status: 'completed' });
+                        return;
+                    }
+                    const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
+                    // Once per turn: a second overflow means the summary was not enough.
+                    const next = attempt === 0 ? await resendAfterOverflow(aparteError) : 'stands';
+                    if (next === 'resend') continue;
+                    if (next === 'stopped') {
+                        endStopped();
+                        return;
+                    }
+                    this._handleLifecycleError(targetElement, messageId, aparteError);
+                    return;
+                }
+            }
         } finally {
             this._turnsInFlight.delete(messageId);
         }
@@ -853,29 +1009,12 @@ export class AparteClient {
      * using the same conversation history minus the retried reply.
      */
     /**
-     * The registered tools, unless the current model says it cannot call one.
-     *
-     * Single source for the gate, so send / retry / edit cannot drift.
-     *
-     * The question is "did this model say it cannot", not "did it say it can": the
-     * app sets a model id by hand (`setModelConfig`) or a selector sets it from a
-     * fetched list, and in both cases the model's declared capabilities are commonly
-     * unknown. `undefined` capabilities read as "can", or `tools: []` would go on
-     * the wire while `getTools()` held the tool the app had explicitly registered,
-     * and the model would answer that it had no such tool. Registering a tool is an explicit act by the app; silently dropping it
-     * because a `/models` listing is terse is the library second-guessing the
-     * developer. A model that declares its capabilities and omits function calling
-     * is still honoured — that is a statement, and it is respected.
-     *
-     * Failure modes, both ways round: over-sending means a model that cannot use
-     * tools does not call one, or its own endpoint rejects the array with an error
-     * the developer can read. Under-sending would be silent, total, and look like a
-     * lying model.
+     * The registered tools, unless the current model says it cannot call one — the gate
+     * lives in `toolsForCurrentModel` (with its reasoning), where the context measure reads
+     * the same rule, so send / retry / edit and the gauge cannot drift.
      */
     private _toolsForCurrentModel(): AparteTool[] {
-        const capabilities = this._config.getCurrentModel()?.capabilities;
-        const declinesTools = capabilities ? !capabilities.includes('function_calling') : false;
-        return declinesTools ? [] : this._config.getTools();
+        return toolsForCurrentModel(this._config);
     }
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
@@ -932,8 +1071,14 @@ export class AparteClient {
         // one here would defeat it.)
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...chatMessages], config.defaultModel || '',
-            authConfig, { temperature: 0.4 },
+            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            authConfig, {
+                temperature: 0.4,
+                rebuild: async () => [
+                    ...this._systemMessages(),
+                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                ],
+            },
         );
     }
 
@@ -1017,9 +1162,29 @@ export class AparteClient {
 
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...chatMessages], config.defaultModel || '',
-            authConfig,
+            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            authConfig, {
+                rebuild: async () => [
+                    ...this._systemMessages(),
+                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                ],
+            },
         );
+    }
+
+    /**
+     * These messages as the transcript holds them NOW. A retry or an edit slices the path
+     * before it streams; a compaction that runs during the turn writes its checkpoint onto
+     * one of those messages in the transcript, and the slice still holds the objects as they
+     * were. Looked up by id, tree-wide, because a retry has moved the path since.
+     */
+    private _current(target: AparteChatTargetElement, messages: AparteMessage[]): AparteMessage[] {
+        // Under a wrapper the target is the framework's root, which used to offer no
+        // `getMessage`: every lookup fell back to the snapshot and the rebuilt request
+        // skipped the checkpoint. The live list is the second source, so a target that
+        // only offers `getMessages` (a host of one's own) is read as well.
+        const live = new Map((target.getMessages?.() ?? []).map((m) => [m.id, m] as const));
+        return messages.map((m) => target.getMessage?.(m.id) ?? live.get(m.id) ?? m);
     }
 
     /**
@@ -1164,35 +1329,18 @@ export class AparteClient {
      * imitating.
      */
     private _messagesToChatMessages(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
-        return this._wireHistory(messages);
+        const { summary, messages: kept } = historyFromCheckpoint(messages);
+        return [...this._summaryMessage(summary), ...wireMessages(kept)];
     }
 
     /**
-     * The one rule for what a message contributes to the wire.
-     *
-     * Not the slice — the contribution: a role the wire has (`user`/`assistant`), a
-     * turn that neither failed nor is still in flight, and text that is not empty.
-     *
-     * `_wireText` (not `m.content`): assistant replies stream their text into
-     * `segments`, leaving `content` as '', so without flattening every reply would be
-     * empty here and the drop below would swallow the whole transcript.
+     * What the model reads in place of everything before a checkpoint: the summary, as a
+     * `user` message under the same preamble a legacy compaction message gets, so it is
+     * context and not something the person said. It may sit right before a user turn;
+     * `mergeAdjacentUserMessages` joins the two where the history is assembled.
      */
-    private _wireHistory(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
-        return messages
-            .filter(m => {
-                if (m.role !== 'user' && m.role !== 'assistant') return false;
-                return m.status !== 'error' && !AparteClient._inFlight(m);
-            })
-            .flatMap((m): import('../types/chat.js').AparteChatMessage[] => {
-                // A reply that called tools goes out as the calls and their answers, in
-                // the order it showed them — see `wire-history.ts`. Every other message
-                // keeps its one text, compaction preamble included.
-                if (m.role === 'assistant' && m.segments?.some(s => s.type === 'tool_call')) {
-                    return wireTurns(m, (segments) => this._segmentsToText(segments));
-                }
-                const content = this._wireText(m);
-                return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
-            });
+    private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
+        return summary === undefined ? [] : [{ role: 'user', content: underPreamble(summary) }];
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1369,13 +1517,17 @@ export class AparteClient {
         // like a stream failure inside _streamTurn.
         let authConfig: string | Record<string, string> | undefined;
         let messages: AparteChatMessage[];
+        // Read once: the files are not read again when a compaction asks for the request to
+        // be built again.
+        let fileParts: AparteContentPart[] | undefined;
         try {
             authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
             const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
-            messages = this._buildMessages(content, targetElement, contentParts.length > 0 ? contentParts : undefined);
+            fileParts = contentParts.length > 0 ? contentParts : undefined;
+            messages = this._buildMessages(content, targetElement, fileParts);
         } catch (error: unknown) {
             this._handleLifecycleError(targetElement, messageId, AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR));
             return;
@@ -1385,6 +1537,7 @@ export class AparteClient {
             targetElement, messageId, provider,
             messages, modelId || config.defaultModel || '',
             authConfig,
+            { rebuild: async () => this._buildMessages(content, targetElement, fileParts) },
         );
     }
 
@@ -1408,26 +1561,16 @@ export class AparteClient {
             ? [{ type: 'text' as const, text: userContent }, ...parts]
             : userContent;
         messages.push({ role: 'user', content: userMsg });
-        return messages;
+        // Applied once, to the final array: the history may end on a user turn (a failed
+        // one, a compaction summary) that the new message now sits right after.
+        return mergeAdjacentUserMessages(messages);
     }
 
-    /**
-     * A turn that has not finished yet. `status` is OPTIONAL on `AparteMessage`, so
-     * the question the history gates can ask is "is this still in flight?", never
-     * "is this completed?".
-     *
-     * The gates below ask the first, because a host that SEEDS a transcript
-     * — restoring a saved conversation, hydrating a server-rendered one — has no
-     * reason to invent a status for turns that are already over. Asking "is this
-     * completed?" would leave the cutoff at 0 and slice away the whole transcript: the
-     * model would get the new question with no context, and nothing in the UI would say
-     * so, because the viewport still shows every message.
-     */
-    private static _inFlight(m: AparteMessage): boolean {
-        return m.status === 'streaming' || m.status === 'pending';
-    }
-
-    private _toHistoryMessages(messages: AparteMessage[]): AparteChatMessage[] {
+    private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
+        // The checkpoint is read on the FULL path, before the cutoff below: it may sit on
+        // the very message being sent (a turn retried after an overflow), and the cutoff
+        // would otherwise have cut it away with that message.
+        const { summary, messages } = historyFromCheckpoint(path);
         // Exclude trailing unanswered user messages: the current user message is
         // already added explicitly at the end of _buildMessages, so including it
         // from the viewport would cause a duplicate.
@@ -1436,82 +1579,14 @@ export class AparteClient {
         let cutoff = 0;
         for (let i = 0; i < messages.length; i++) {
             const m = messages[i]!;
-            if (m.role === 'assistant' && m.status !== 'error' && !AparteClient._inFlight(m)) {
+            if (m.role === 'assistant' && m.status !== 'error' && !isInFlight(m)) {
                 cutoff = i + 1;
             }
         }
 
         // The cutoff is this path's own concern; what each message contributes to the
-        // wire is shared with retry and edit — see `_wireHistory`.
-        return this._wireHistory(messages.slice(0, cutoff));
-    }
-
-    /**
-     * A message's text as the MODEL should read it — the one mapper both history
-     * paths use, so the compaction preamble cannot be applied on retry and edit and
-     * forgotten on the ordinary send, which is what the first review of this feature
-     * caught: the summary went out on every normal turn as something the user said.
-     */
-    private _wireText(message: AparteMessage): string {
-        const text = this._extractText(message);
-        return message.compaction ? `${COMPACTION_PREAMBLE}\n\n${text}` : text;
-    }
-
-    /**
-     * What the model is told it said last turn — reconstructed from what was
-     * RENDERED, not from the raw-text field.
-     *
-     * The segments are what the reader saw, so they come first. `content` is the
-     * fallback, and that is not vestigial: a non-streaming transport writes the whole
-     * reply there and creates no segments at all.
-     */
-    private _extractText(message: AparteMessage): string {
-        const rendered = this._segmentsToText(message.segments);
-        if (rendered) return rendered;
-        if (typeof message.content === 'string' && message.content) return message.content;
-        return '';
-    }
-
-    /**
-     * Segments → the text a model can read back.
-     *
-     * Fences and the language tag are kept. Without them the model re-reads its own
-     * code as prose — which is how it starts explaining a snippet it believes it
-     * wrote in English.
-     *
-     * A type core does not know — a registered block grammar's (an artifact, a
-     * citation, a file), a consumer's custom segment — follows one rule: its
-     * `content` if it has one, else its `fallback`, else nothing. Dropping such a
-     * segment would make a document the model had just produced invisible on the very
-     * next turn, so it could not be asked to change the thing it had built. An artifact
-     * is a plugin's type like any other and follows this rule.
-     *
-     * `thinking` and `tool_call` stay out on purpose — the first is the model's own
-     * scratchpad, and most APIs neither want it back nor bill for it kindly; the
-     * second is not text: `_wireHistory` sends a reply's calls as the assistant's
-     * `toolCalls` and the `tool` messages answering them (`wire-history.ts`).
-     */
-    private _segmentsToText(segments: AparteMessage['segments']): string {
-        if (!segments?.length) return '';
-        const fence = '```';
-        const parts: string[] = [];
-        for (const segment of segments) {
-            const content = (segment as { content?: string }).content;
-            if (segment.type === 'text') {
-                if (content) parts.push(content);
-            } else if (segment.type === 'code') {
-                const lang = (segment as { language?: string }).language ?? '';
-                parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
-            } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
-                continue;
-            } else if (typeof content === 'string' && content) {
-                parts.push(content);
-            } else {
-                const fallback = (segment as { fallback?: string }).fallback;
-                if (fallback) parts.push(fallback);
-            }
-        }
-        return parts.join('\n').trim();
+        // wire is shared with retry and edit — see `wireMessages`.
+        return [...this._summaryMessage(summary), ...wireMessages(messages.slice(0, cutoff))];
     }
 
     /**
@@ -1696,8 +1771,10 @@ export class AparteClient {
         const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
         // A server loop that paused says so on its last event; the turn picks it up.
         let suspended: AparteRunResult['suspended'];
+        let finishReason: AparteFinishReason | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            if (event.type === 'run-done') finishReason = event.finishReason;
             if (event.type === 'run-suspended') {
                 const ticket = (event as { ticket?: unknown }).ticket;
                 suspended = { pending: event.pending, ...(typeof ticket === 'string' ? { ticket } : {}) };
@@ -1778,7 +1855,11 @@ export class AparteClient {
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
-        return { usage: usage ?? undefined, ...(suspended ? { suspended } : {}) };
+        return {
+            usage: usage ?? undefined,
+            ...(finishReason ? { finishReason } : {}),
+            ...(suspended ? { suspended } : {}),
+        };
     }
 
     /**
@@ -1976,7 +2057,7 @@ export class AparteClient {
      */
     private _resumeMessages(targetElement: AparteChatTargetElement, messageId: string, sent: AparteChatMessage[]): AparteChatMessage[] {
         const reply = targetElement.getMessages?.().find((m) => m.id === messageId);
-        return [...sent, ...(reply ? wireTurns(reply, (segments) => this._segmentsToText(segments), { openDeferred: true }) : [])];
+        return [...sent, ...(reply ? wireTurns(reply, segmentsToWireText, { openDeferred: true }) : [])];
     }
 
     /**
@@ -1994,7 +2075,10 @@ export class AparteClient {
         const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
             : typeof historyOption === 'function' ? historyOption(before)
                 : [];
-        return [...this._systemMessages(), ...history, ...(askedAt >= 0 ? this._wireHistory([before[askedAt]!]) : [])];
+        return mergeAdjacentUserMessages([
+            ...this._systemMessages(), ...history,
+            ...(askedAt >= 0 ? wireMessages([before[askedAt]!]) : []),
+        ]);
     }
 
     /**
@@ -2060,6 +2144,11 @@ export class AparteClient {
             const base = this._resumeBase(messages, messages.indexOf(last));
             await this._streamTurn(targetElement, last.id, provider, base, recorded?.modelId ?? config.defaultModel ?? '', authConfig, {
                 resume: { pending, ticket },
+                rebuild: async () => {
+                    const now = targetElement.getMessages?.() ?? [];
+                    const at = now.findIndex((m) => m.id === last.id);
+                    return at >= 0 ? this._resumeBase(now, at) : base;
+                },
                 ...(recorded?.temperature !== undefined ? { temperature: recorded.temperature } : {}),
             });
         } finally {

@@ -176,6 +176,39 @@ describe('createAparteChatHandler', () => {
         expect(JSON.parse(await res.text())).toEqual({ error: { message: 'Vendor request failed (HTTP 504).' } });
     });
 
+    it('relays the code of an error the vendor streamed after its 200, and not its prose, which can carry key material', async () => {
+        const error = { type: 'error', message: 'Incorrect API key provided: sk-live-abc123', code: 'USAGE_CONTEXT_EXCEEDED' } as AparteStreamEvent;
+        const handler = createAparteChatHandler({
+            authorize: () => true,
+            providers: { mock: adapter([{ type: 'text', delta: 'par' } as AparteStreamEvent, error]) },
+            resolveKey: () => 'sk-secret',
+            fetchImpl: vendorStreamOk(),
+        });
+        const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        const text = await res.text();
+        const lines = text.trim().split('\n').map((l) => JSON.parse(l));
+
+        expect(lines[0]).toEqual({ type: 'text', delta: 'par' });
+        expect(lines[1]).toMatchObject({ type: 'error', code: 'USAGE_CONTEXT_EXCEEDED' });
+        expect(text, 'the vendor prose never reaches the browser').not.toContain('sk-live-abc123');
+        expect(JSON.stringify(logged.mock.calls), 'it stays in the server log').toContain('sk-live-abc123');
+    });
+
+    it('sends an error event with no code of ours as a generic one with no code', async () => {
+        const error = { type: 'error', message: 'upstream said sk-live-abc123', code: 'context_length_exceeded' } as unknown as AparteStreamEvent;
+        const handler = createAparteChatHandler({
+            authorize: () => true, providers: { mock: adapter([error]) }, resolveKey: () => 'k', fetchImpl: vendorStreamOk(),
+        });
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        const line = JSON.parse((await res.text()).trim());
+        expect(line.type).toBe('error');
+        expect(line.message).not.toContain('sk-live');
+        expect(line.code, "a vendor's own string is not a code the client knows").toBeUndefined();
+    });
+
     it('rejects with 401 when authorize returns false — before touching the vendor', async () => {
         const vendor = vendorStreamOk();
         const handler = createAparteChatHandler({

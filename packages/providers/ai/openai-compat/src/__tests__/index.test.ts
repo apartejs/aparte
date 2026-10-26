@@ -352,7 +352,7 @@ describe('parseOpenAICompatStream', () => {
         )));
         expect(events).toEqual([
             { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } },
-            { type: 'done', usage: undefined },
+            { type: 'done', usage: undefined, finishReason: 'tool-calls' },
         ]);
     });
 
@@ -364,7 +364,7 @@ describe('parseOpenAICompatStream', () => {
         )));
         expect(events).toEqual([
             { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } },
-            { type: 'done', usage: undefined },
+            { type: 'done', usage: undefined, finishReason: 'stop' },
         ]);
     });
 
@@ -420,6 +420,7 @@ describe('parseOpenAICompatStream', () => {
         expect(dones).toHaveLength(1);
         expect(dones[0]).toEqual({
             type: 'done',
+            finishReason: 'tool-calls',
             usage: { inputTokens: 120, outputTokens: 7, totalTokens: 127, cacheReadTokens: 100 },
         });
     });

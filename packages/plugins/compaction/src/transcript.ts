@@ -14,6 +14,14 @@ import type { AparteMessage } from '@aparte/core';
  * The summariser's instruction. English, because it is addressed to the model and not
  * to the user; a host that wants another language or emphasis passes `prompt`.
  *
+ * It fixes the SECTIONS of a summary rather than leaving them to the model's taste: a
+ * summary is read by a model that has nothing else, and one that is free to choose its
+ * shape drops the section it finds least interesting, which is usually the open tasks.
+ * It asks for the conversation's own language because a summary in another one is
+ * answered in it. The same summary is also handed back to be UPDATED at the next
+ * compaction (the request then opens with "Summary so far:"), so the sections are what
+ * keeps a summary of a summary from drifting into prose.
+ *
  * The last sentence is the one that is easy to leave out and expensive to omit. The
  * instruction rides the final user turn, which is also where a reply to the
  * conversation would go, so a model reading a transcript that ends in a question has
@@ -23,11 +31,15 @@ import type { AparteMessage } from '@aparte/core';
  */
 export const DEFAULT_COMPACTION_PROMPT =
     'You are compacting a conversation between a user and an assistant so that it can continue ' +
-    'with less context. Write a summary the assistant can pick the work up from: what the user ' +
-    'wants and why, the decisions taken and their reasons, the tasks still open, the facts and ' +
-    'tool results that still matter (file names, values, errors, outcomes), and anything the ' +
-    'assistant would otherwise have to ask again. Lines marked [tool …] are tool calls with their ' +
-    'result. Write in the third person, factually, as compact as completeness allows. No preamble. ' +
+    'with less context. Write a summary the assistant can pick the work up from, in these ' +
+    'sections, each one short and factual: ' +
+    "1. The user's goal and constraints. " +
+    '2. Decisions taken, and why. ' +
+    '3. Tasks still open. ' +
+    '4. Facts and tool results still needed: names, values, errors, outcomes. ' +
+    '5. The next step. ' +
+    'Lines marked [tool …] are tool calls with their result. Write in the language of the ' +
+    'conversation, in the third person, as compact as completeness allows. No preamble. ' +
     'Do not continue the conversation, do not answer a question it contains and do not call a ' +
     'tool: reply with the summary and nothing else.';
 

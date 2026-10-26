@@ -170,6 +170,15 @@ aparte-chat-bubble {
   font-family: var(--aparte-font-family);
 }
 
+/* A reply the model stopped at its length limit says so, quietly: it is a fact about the
+   answer, not a failure of the app, so it is muted text, not an alert. */
+.aparte-finish-note {
+  margin-top: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-font-family);
+}
+
 .aparte-action-bar {
   display: flex;
   align-items: center;
@@ -380,35 +389,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   display: none;
 }
 
-/* ─── The compaction notice ────────────────────────────────────────────────────
-   A message with `compaction: true` — the summary `compact()` injected in place of
-   the turns it replaced — is a notice, not a reply: centred, muted, without avatar,
-   name, time or actions. Its role on the wire is `user` (context handed to the
-   model), and the bubble would otherwise draw it as something the user said. */
-aparte-chat-bubble[data-kind="compaction"] .aparte-avatar,
-aparte-chat-bubble[data-kind="compaction"] .aparte-header,
-aparte-chat-bubble[data-kind="compaction"] .aparte-footer,
-aparte-chat-bubble[data-kind="compaction"] .aparte-action-bar,
-aparte-chat-bubble[data-kind="compaction"] .aparte-branch-picker {
+/* ─── A message a separator took the place of ─────────────────────────────────
+   A message with `compaction: true` — the summary an older `compact()` injected in place
+   of the turns it replaced — is not a reply and not something the user said. The bubble
+   draws a separator for it (checkpoint.css) and marks its own row `data-superseded`, so the
+   row stays in the DOM, where the action bar and streaming address it by id, and does not
+   paint: the summary is behind the separator's "Show summary". It used to be drawn as a
+   muted, dashed notice here; the separator says the same thing with a way to read it and
+   without a second place that decides how a summary looks. */
+.aparte-message[data-superseded] {
   display: none;
-}
-
-aparte-chat-bubble[data-kind="compaction"] .aparte-message {
-  justify-content: center;
-}
-
-/* Its ground, ink and size go through the tokens the message reads. Written as properties on
-   the box, at (0,2,1), they lost to the role's rule (0,3,0) and the text's own size: the notice
-   was drawn as the user's bubble, in body type. */
-aparte-chat-bubble[data-kind="compaction"] {
-  --aparte-message-content-bg-user: var(--aparte-surface-2);
-  --aparte-message-content-bg-assistant: var(--aparte-surface-2);
-  --aparte-message-content-text-user: var(--aparte-text-muted);
-  --aparte-message-content-text-assistant: var(--aparte-text-muted);
-  --aparte-content-font-size: var(--aparte-font-size-sm);
-}
-
-aparte-chat-bubble[data-kind="compaction"] .aparte-message-content {
-  max-width: 100%;
-  border: var(--aparte-border-width) dashed var(--aparte-border);
 }

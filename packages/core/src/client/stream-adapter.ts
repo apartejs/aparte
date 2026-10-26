@@ -340,7 +340,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'run-done':
-                target.updateMessage?.(messageId, { status: 'completed' });
+                // Persisted with the message, so a reload shows a cut-off reply as cut off.
+                target.updateMessage?.(messageId, {
+                    status: 'completed',
+                    ...(e.finishReason ? { finishReason: e.finishReason } : {}),
+                });
                 if (e.usage) {
                     try { target.setUsage?.(messageId, e.usage); } catch { /* target may not implement setUsage */ }
                 }

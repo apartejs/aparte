@@ -1,5 +1,6 @@
 import type { AparteChatRequest } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
+import { AparteErrorCode } from '../types/errors.js';
 import { isFormatAdapter } from './types.js';
 
 export interface AparteChatHandlerOptions {
@@ -144,11 +145,20 @@ export function createAparteChatHandler(
             const raw = await vendor.text().catch(() => '');
             let code: unknown;
             let type: unknown;
+            let body: unknown;
             try {
-                const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
+                body = JSON.parse(raw);
+                const parsed = body as { error?: { code?: unknown; type?: unknown } };
                 code = parsed?.error?.code;
                 type = parsed?.error?.type;
             } catch { /* not JSON — nothing to salvage, and nothing to leak */ }
+            // The adapter's reading of the body travels as the code, in the vendor's place: the
+            // client acts on it (an overflowing prompt is compacted and resent) and could not
+            // read it from a vendor string it has never heard of. The adapter is third-party
+            // code, so a throw there must not turn a clean 4xx into a 500.
+            try {
+                code = adapter.classifyError?.(vendor.status, body) ?? code;
+            } catch { /* an adapter that cannot classify leaves the vendor's own code */ }
             return new Response(
                 JSON.stringify({
                     error: {
@@ -164,7 +174,14 @@ export function createAparteChatHandler(
         // Non-streaming: resolve to { text } server-side.
         if (request.stream === false) {
             const json = await vendor.json().catch(() => ({}));
-            const text = typeof adapter.parseText === 'function' ? adapter.parseText(json) : '';
+            // An adapter throws for a 200 that carries an error instead of an answer (LM
+            // Studio on a context overflow). Its prose stays here, like the vendor's above.
+            let text: string;
+            try {
+                text = typeof adapter.parseText === 'function' ? adapter.parseText(json) : '';
+            } catch {
+                return jsonError(502, 'The vendor answered with an error.');
+            }
             return new Response(JSON.stringify({ text }), {
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -186,7 +203,7 @@ export function createAparteChatHandler(
                         controller.close();
                         return;
                     }
-                    controller.enqueue(encoder.encode(JSON.stringify(value) + '\n'));
+                    controller.enqueue(encoder.encode(JSON.stringify(relayable(value)) + '\n'));
                 } catch (err) {
                     controller.error(err);
                 }
@@ -198,6 +215,22 @@ export function createAparteChatHandler(
 
         return new Response(ndjson, { headers: { 'Content-Type': 'application/x-ndjson' } });
     };
+}
+
+/**
+ * An event as the browser may read it. An `error` event the adapter read out of a stream
+ * the vendor had already answered 200 carries the vendor's own prose, and the rule on every
+ * other path of this handler is that the prose stays here: it can name a URL, an account or
+ * the start of a key. The code goes through when it is one of ours, so the page can still tell
+ * an overflow from any other failure and compact; everything else is a generic line, and the
+ * original is in the server's log.
+ */
+function relayable(event: unknown): unknown {
+    const e = event as { type?: unknown; code?: unknown } | null;
+    if (e?.type !== 'error') return event;
+    console.error('[aparte] the vendor streamed an error', event);
+    const code = typeof e.code === 'string' && (Object.values(AparteErrorCode) as string[]).includes(e.code) ? e.code : undefined;
+    return { type: 'error', message: 'The vendor reported an error.', ...(code ? { code } : {}) };
 }
 
 function jsonError(status: number, message: string): Response {

@@ -42,6 +42,8 @@ export type AparteLocale = {
     thinking: string;
     /** What the status line says while a reply is being written, when it carries no `text` (default: "Typing") */
     typing: string;
+    /** The quiet note under a reply the model stopped at its length limit, when the provider said so (default: "Cut off at the model's length limit.") */
+    responseCutOff?: string;
     error: string;
     running: string; // Terminal running state
 
@@ -227,12 +229,68 @@ export type AparteLocale = {
     /** Accessible name of the `<aparte-context>` gauge. Optional, like the keys above. */
     contextLabel?: string;
     /**
-     * Title line of the summary message `@aparte/plugin-compaction` injects in place
-     * of the summarised turns (default: "Conversation summary"). The plugin reads it
-     * through `config.t()`, so the notice follows the locale like every other string
-     * the user reads.
+     * The rows of the panel the `<aparte-context>` gauge opens, each a share of the window
+     * (defaults: "System prompt", "Tools", "Summary", "Messages", "Other", "Free", "Total").
+     * "Other" is what the estimate cannot attribute: a server loop's own prompt and tools,
+     * the chat template's tokens, the estimate's own error.
+     */
+    contextSystem?: string;
+    /** The panel's row for the tool definitions sent with the request (default: "Tools"). */
+    contextTools?: string;
+    /** The panel's row for the summary of a compacted history (default: "Summary"). */
+    contextSummary?: string;
+    /** The panel's row for the messages the model reads after the summary (default: "Messages"). */
+    contextMessages?: string;
+    /** The panel's row for what the estimate cannot attribute (default: "Other"). */
+    contextOther?: string;
+    /** The panel's row for the room left in the window (default: "Free"). */
+    contextFree?: string;
+    /** The panel's last row, the total against the window (default: "Total"). */
+    contextTotal?: string;
+    /**
+     * What the panel says when the compactor can tell what compacting would do; `{n}` is
+     * the tokens it would free (default: "Compacting now would free ~{n} tokens").
+     */
+    contextReclaim?: string;
+    /** The panel's button that compacts the conversation now (default: "Compact now"). */
+    contextCompactNow?: string;
+    /**
+     * Title line of the summary message `@aparte/plugin-compaction` used to inject in
+     * place of the summarised turns (default: "Conversation summary").
+     *
+     * @deprecated Since 0.26 a compaction deletes nothing: it writes `contextSummary` on
+     * the first turn it keeps, and the separator above it says what happened through the
+     * `checkpoint*` keys. Nothing reads this key any more; it stays until a later minor
+     * so a locale that sets it keeps compiling.
      */
     compactionSummaryTitle?: string;
+    /**
+     * The separator drawn above the first message the model still reads verbatim, once
+     * the messages before it were summarised for the model; `{n}` is how many
+     * (default: "{n} messages summarised for the model"). The messages stay on screen.
+     */
+    checkpointCount?: string;
+    /** The same separator when exactly one message was summarised (default: "1 message summarised for the model"). */
+    checkpointCountOne?: string;
+    /**
+     * The separator drawn in place of a message written by an older compaction, which
+     * kept no count (default: "Earlier messages were summarised").
+     */
+    checkpointLegacy?: string;
+    /** Accessible name of the separator's group (default: "Context summary"). */
+    checkpointGroup?: string;
+    /** The button that opens the summary under the separator (default: "Show summary"). */
+    checkpointShow?: string;
+    /** The same button while the summary is open (default: "Hide summary"). */
+    checkpointHide?: string;
+    /** The button that brings the original messages back to the model (default: "Restore"). */
+    checkpointRestore?: string;
+    /** The question Restore asks before it acts (default: "Send the original messages to the model again?"). */
+    checkpointRestoreConfirm?: string;
+    /** What the separator says while the summary is being written (default: "Summarising the context…"). */
+    checkpointPending?: string;
+    /** What the separator says when the summary could not be written (default: "Couldn't summarise the context"). */
+    checkpointFailed?: string;
     /**
      * What the pill says while the decision is being made elsewhere (default:
      * "Waiting").
@@ -493,7 +551,26 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
     contextLabel: "Context window",
+    contextSystem: "System prompt",
+    contextTools: "Tools",
+    contextSummary: "Summary",
+    contextMessages: "Messages",
+    contextOther: "Other",
+    contextFree: "Free",
+    contextTotal: "Total",
+    contextReclaim: "Compacting now would free ~{n} tokens",
+    contextCompactNow: "Compact now",
     compactionSummaryTitle: "Conversation summary",
+    checkpointCount: "{n} messages summarised for the model",
+    checkpointCountOne: "1 message summarised for the model",
+    checkpointLegacy: "Earlier messages were summarised",
+    checkpointGroup: "Context summary",
+    checkpointShow: "Show summary",
+    checkpointHide: "Hide summary",
+    checkpointRestore: "Restore",
+    checkpointRestoreConfirm: "Send the original messages to the model again?",
+    checkpointPending: "Summarising the context…",
+    checkpointFailed: "Couldn't summarise the context",
     toolRunning: "Running",
     toolCompleted: "Done",
     toolRejected: "Rejected",
@@ -532,6 +609,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     generating: "Generating…",
     rebuildingPreview: "Rebuilding preview…",
     typing: "Typing",
+    responseCutOff: "Cut off at the model's length limit.",
     error: "Error",
     running: "Running...",
     run: "Run",

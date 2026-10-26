@@ -4,7 +4,7 @@
  */
 
 import type { AparteMessage } from './models.js';
-import type { AparteUsage } from './chat.js';
+import type { AparteUsage, AparteFinishReason } from './chat.js';
 import type { AparteError } from './errors.js';
 import type { AparteActionZone } from '../config/action-provider.js';
 
@@ -72,6 +72,8 @@ export interface AparteMessageDoneEventDetail {
     role: string;
     /** Token usage for the completed response, if reported by the provider. */
     usage?: AparteUsage;
+    /** Why the model stopped writing, if the provider said — `'length'` means the reply is cut off. */
+    finishReason?: AparteFinishReason;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -367,6 +369,19 @@ export interface AparteAbortEventDetail {
 export interface AparteCompactEventDetail {
     /** Which chat to compact. Omit on a single-chat page. */
     targetId?: string;
+    /**
+     * `true` when the request is an automatic one, made without a person asking: the
+     * gauge's deprecated `auto-compact` sets it. The plugin counts such a request against
+     * its back-off (two failures stop the automatic attempts), which a button's request
+     * never is.
+     */
+    auto?: boolean;
+    /**
+     * The context window, in tokens, the sender measured against. Honoured by the plugin
+     * as a last resort, when the current model declares none and no `contextWindow` option
+     * is set.
+     */
+    window?: number;
 }
 
 /**
@@ -379,6 +394,12 @@ export interface AparteCompactEventDetail {
 export interface AparteCompactStartEventDetail {
     /** The chat being compacted, when it has an id. */
     targetId?: string;
+    /**
+     * The message the checkpoint will sit on — the first message kept verbatim. The
+     * transcript draws its "Summarising the context…" line above that message while the
+     * summary is being written.
+     */
+    messageId?: string;
 }
 
 /**
@@ -396,9 +417,10 @@ export interface AparteCompactDoneEventDetail {
     /**
      * Why it was skipped: `empty` (no messages), `nothing-to-drop` (the selector kept
      * everything), `running` (a compaction was already in flight), `streaming` (a turn
-     * is in flight in the transcript).
+     * is in flight in the transcript), `no-window` (the model declares no context window
+     * and nothing else sizes the summary request).
      */
-    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming';
+    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming' | 'no-window';
     /** The summary that replaced the compacted turns. */
     summary?: string;
     /** How many messages were kept verbatim after the summary. */
@@ -407,6 +429,19 @@ export interface AparteCompactDoneEventDetail {
     dropped?: number;
     /** The chat that was compacted, when it has an id — so a gauge on a multi-chat page resets only its own. */
     targetId?: string;
+    /**
+     * The message that now carries the checkpoint (`AparteMessage.contextSummary`), or,
+     * on a restore, the message whose separator Restore was pressed on.
+     */
+    messageId?: string;
+    /** How many messages of the path the checkpoint stands for, an earlier summary's included. */
+    count?: number;
+    /**
+     * `true` when this is not a compaction but a Restore: every checkpoint was removed
+     * from the transcript and the model reads the original messages again. `summary`,
+     * `kept` and `dropped` are absent.
+     */
+    restored?: boolean;
 }
 
 /**
@@ -422,6 +457,18 @@ export interface AparteCompactErrorEventDetail {
     error: string;
     /** The chat the compaction was for, when it has an id. */
     targetId?: string;
+    /**
+     * The message the failed checkpoint would have sat on, when it got that far — the
+     * transcript turns its "Summarising the context…" line into a failure with a Retry.
+     */
+    messageId?: string;
+    /**
+     * The compaction was cancelled — a Stop, an `abort()`, a Restore — rather than failed.
+     * Nothing went wrong and nothing is offered: the transcript and the gauge clear their
+     * "Summarising the context…" instead of showing a failure with a Retry, which would
+     * bring back a summary the person just turned away.
+     */
+    aborted?: true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

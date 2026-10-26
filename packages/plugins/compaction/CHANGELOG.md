@@ -1,5 +1,55 @@
 # @aparte/plugin-compaction
 
+## 0.26.0
+
+### Minor Changes
+
+- d68ace6: The summary request is now bounded: streamed, capped by `maxTokens`, refused without a known window, trimmed to fit, and a summary that is cut off, failed or no shorter than what it replaces is refused.
+
+  What you may have to change:
+
+  - **A model with no `contextWindow` no longer compacts by default.** `setupCompaction()` reports `{ skipped: true, reason: 'no-window' }` (new `CompactionSkipReason`) instead of sending everything but the last four messages in one request. Declare the window on the model, or size the request yourself: passing `keepWithoutWindow` (the opt-in; it keeps today's behaviour), your own `selector` or your own `summarize` is enough.
+  - **A `summarize` of yours now receives `stream: true` and `maxTokens`** on the request, where it used to receive `stream: false` and no limit. If it forwards the request to a model as is, it now gets a stream back; if it expects a string, set `stream: false` on the request you forward.
+
+  What changed, and why. A live test against a local model with a 4096-token window showed the summary request was bounded by nothing:
+
+  - The request is streamed and drained strictly. An `error` event fails the compaction with its message instead of applying the text received before it, and a `done` whose `finishReason` is `'length'` fails with "The summary was cut off at the model's length limit". A plain string answer is still the whole summary.
+  - `request.maxTokens` keeps the answer inside the window: a quarter of the window, at most `reservedGeneration` (2000, the room every request keeps for a reply) and never under the room the window walk holds back for the summary; `reservedGeneration` when there is no window. It is deliberately looser than that reservation (about 118 tokens on a 4096-token model), which a reasoning model spends thinking before it writes a word.
+  - With a known window and the default summariser, the instruction plus the transcript of the dropped turns must fit the window less `maxTokens`, the reserved thinking and the safety margin. When they do not, the oldest turns that fit are summarised and the rest stay verbatim for the next compaction. If not even the oldest turn fits, the compaction fails with an error instead of sending it.
+  - A summary whose estimate is not smaller than the turns it replaces fails with "The summary is no shorter than the turns it replaces", and the transcript is left untouched. This one applies to a host's `summarize` too.
+
+- 62c70d4: **Compaction no longer deletes messages, and it is automatic once set up.** A compaction now writes a checkpoint (`contextSummary`) on the first message it keeps, and the history the client sends resumes from it; the messages above stay on the screen and in storage. `setupCompaction()` also compacts by itself: after a turn that ends at 80 % of the window, before a send whose request would not fit, and when the model refuses a request as over its window (the turn is sent once more). Pass `auto: false` to keep it manual only (the gauge's Compact now, a separator's Retry, `compact()`, `aparte-compact`): none of the three automatic attempts is made, the overflow retry included.
+
+  What you may have to change:
+
+  - **A page that only wanted the manual compaction passes `auto: false`.** `auto` defaults to `true`, and is forced to `false` with `listen: false`. `auto: false` means manual only: `compact()` answers an `'auto'` or `'overflow'` request with a skip (`'nothing-to-drop'`), so the model's overflow error stands as it did before the plugin. It acts only when a summariser can run (a provider registered for the current model, or your `summarize`), and only when a window is known: the model's, or the new `contextWindow` option.
+  - **A `CompactionTarget` of your own needs `updateMessage(id, updates)`.** It is the one write a compaction makes. Without it the compaction fails with an error that says so, before the model is paid; there is no fallback that rewrites the transcript. `clearAll` and `appendMessage` are no longer called (they stay optional on the type). `<aparte-chat-viewport>` already has `updateMessage`.
+  - **`DEFAULT_COMPACTION_PROMPT` has a new value** (the name is unchanged). It asks for fixed sections (the goal and constraints, the decisions and why, the open tasks, the facts and tool results still needed, the next step) in the language of the conversation, and keeps the clause that stops the model from answering the transcript. If you pass your own `prompt`, nothing changes for you.
+  - **`summary` in the outcome and in `aparte-compact-done` is what is stored**: the model's summary, then, on the first compaction of a conversation, the first user message verbatim (clipped at 1 500 characters) under a fixed English line. The conversation's first request survives every compaction.
+  - **A `selector` you pass receives the model's view** (the messages from the latest checkpoint on, less the turn being prepared), and the cut is moved so the first message kept is a user message: it may keep more than your selector asked for, or skip with `'nothing-to-drop'` when no user message can carry the checkpoint.
+  - The "notice" message is gone from new compactions: no `compaction: true` message is written, and the `compactionSummaryTitle` locale key is no longer read (old stored conversations keep the title inside their summary message, and are drawn as a separator).
+
+  What is new:
+
+  - Options `auto`, `threshold` (default `0.8`) and `contextWindow` (a number, or a function, for a server that does not declare its window). `threshold` is also what a compaction aims below: with the default selector it leaves the history the model reads at about `threshold − 0.2` of the window, less the fixed costs (system prompt, tools, the reply's room, the summary's slot), so one compaction buys several turns. That holds for a person's request and an overflow retry too, and a `selector` of your own is left alone. The `window` a context gauge sends with its `aparte-compact` request is read as a last resort for one more release.
+  - The controller is registered as the config's compactor (`config.setCompactor`) and unregistered by `dispose()`, so the gauge's Compact now, a separator's Retry, the client's pre-flight and its overflow retry all call it. `compact()` takes the compactor request (`{ target, targetId, force, exclude, reason }`) as well as a chat id or nothing, resolves the chat from the element it is given (a chat in a shadow root is found), and a scoped setup refuses a chat outside its scope. New `settled()`, `beforeSend()` and `preview()`.
+  - A second compaction updates the first: the request carries "Summary so far:" and only the messages since, and asks for an updated summary. The no-gain refusal compares against what is replaced: the earlier summary plus the newly summarised messages.
+  - Two failures in a row for a chat stop the automatic attempts until something succeeds, a person asks (`reason: 'manual'` or `'retry'`, or a request without `auto`), or the conversation is switched; with automatic compaction on, an overflow is still compacted and resent. After a compaction that still leaves the context at the threshold, the after-turn trigger waits until a turn ends below it (a request that would not fit is still compacted before it goes out), and never the same range twice. A Restore suspends the automatic attempts for that chat until a person asks again.
+  - `createCompactionSelector` takes an optional `estimate(message)`. The selector `setupCompaction` builds uses core's `estimateWireTokens`, so it prices what the wire sends (a reply's hidden thinking costs nothing). The selector it returns takes an optional second argument, `CompactionLimits` (`scale`, `reserve`, `landAt`, `ceiling`), which the default selector is called with on each compaction: the heuristic's undercount as the context measure calibrates it (the selection, the summary request's size and the pre-send comparison all use it), room for the turn being prepared, the share of the window to land at, and, after an overflow, a ceiling below what failed.
+  - Chats compact independently: a summary being written for one chat no longer skips another's pre-send compaction or overflow retry. `settled()`, `beforeSend()` and an overflow wait for their own chat's summary only; `running` and `abort()` cover every chat of the setup.
+  - A Restore cancels a summary still being written for that chat, and a summary is refused when the checkpoint it updates was taken off meanwhile, so a Restore is not undone seconds later.
+  - The compactor request's `signal` (and `beforeSend`'s) cancels the chat's summary: a Stop, or a programmatic `stop()`, no longer pays for a summary whose turn is gone, whether or not the setup listens on `window`. It is not counted as a failure.
+  - The summary request alternates roles: adjacent turns of one role are merged and the ask joins a trailing user turn, so a strict chat template (Mistral, Gemma on llama.cpp or LM Studio) no longer refuses it. An inline `<think>…</think>` block (or one left open, or a closing tag alone) is stripped from the summary before it is stored.
+  - `CompactionOutcome` is core's `AparteCompactorOutcome`; `CompactionController` extends core's `AparteCompactor`. Both gain `messageId` and `count`. The `aparte-compact-start`, `-done` and `-error` events carry the `messageId` the checkpoint sits on.
+
+  The checkpoint is the plugin's half of core's `contextSummary`, `historyFromCheckpoint` and `setCompactor`; the separator that draws it, and the history that resumes from it, are core's.
+
+### Patch Changes
+
+- 37b82d9: `estimateTokens` now comes from `@aparte/core`. The plugin re-exports it under the same name, so nothing changes for you.
+
+  The gauge and the plugin used to keep their own copy of the character heuristic; core's `measureContext` reads one, and the plugin's budget now reads that one too. The function and its result are the same: `ceil(characters / 3.8)`.
+
 ## 0.25.0
 
 ## 0.24.0

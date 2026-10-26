@@ -4,6 +4,8 @@ import type {
     AparteSegment,
     AparteSiblingInfo,
     AparteUsage,
+    AparteFinishReason,
+    AparteContextSummary,
 } from '../../types/index.js';
 import { isTerminalStatus } from '../../utils/segments.js';
 
@@ -22,6 +24,8 @@ export interface SyncableBubble {
     setAttachments?: (attachments: AparteAttachment[]) => void;
     setSiblings?: (count: number, index: number) => void;
     setUsage?: (usage: AparteUsage | null | undefined) => void;
+    setFinishReason?: (reason: AparteFinishReason | null | undefined) => void;
+    setContextSummary?: (summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }) => void;
 }
 
 /**
@@ -94,4 +98,14 @@ export function populateBubbleFromMessage(
     if (message.usage !== undefined) {
         bubble.setUsage?.(message.usage);
     }
+
+    // Also on a message with none: a branch switch reuses the bubble, and it must not
+    // keep the "cut off" note of the reply it showed before.
+    bubble.setFinishReason?.(message.finishReason);
+
+    // Likewise with none: the separator above a message goes when its checkpoint does (a
+    // Restore, a branch switch onto a path that never had one). `legacy` says the message
+    // IS the summary an older compaction wrote, which the bubble then replaces with the
+    // separator.
+    bubble.setContextSummary?.(message.contextSummary, { legacy: message.compaction === true });
 }

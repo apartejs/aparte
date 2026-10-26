@@ -16,6 +16,7 @@ export type {
     AparteBubbleRole,
     AparteAttachment,
     AparteMessage,
+    AparteContextSummary,
     AparteMessageBranch,
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
@@ -24,6 +25,7 @@ export type {
 } from './models.js';
 
 export type { AparteStreamBlock, AparteStreamBlockMatch } from './stream-blocks.js';
+export type { AparteCompactor, AparteCompactorRequest, AparteCompactorOutcome, AparteCompactorReason } from './compactor.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Events - Component communication
@@ -115,7 +117,8 @@ export type {
     AparteImagePart,
     AparteStreamEvent,
     AparteStreamEventMap,
-    AparteUsage
+    AparteUsage,
+    AparteFinishReason
 } from './chat.js';
 export { contentToText } from './chat.js';
 

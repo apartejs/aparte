@@ -4,6 +4,7 @@
 
 import type { AparteTool, AparteToolCall } from './tools.js';
 import type { AparteSegment } from './segments.js';
+import type { AparteErrorCode } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Content Parts — multimodal message content (Vercel AI SDK compatible)
@@ -183,6 +184,15 @@ export interface AparteUsage {
 }
 
 /**
+ * Why the model stopped writing, as the provider reported it. The values are the AI SDK's:
+ * `'length'` is the one core acts on — the reply hit the output limit or the context window
+ * and is cut off, which a finished reply must not look like. A provider maps its own
+ * vocabulary (`finish_reason: "tool_calls"`, `stop_reason: "max_tokens"`…) onto these, and
+ * anything it cannot place is `'other'`.
+ */
+export type AparteFinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+
+/**
  * Normalized stream event map — extensible via declaration merging.
  *
  * @example
@@ -196,9 +206,13 @@ export interface AparteUsage {
 export interface AparteStreamEventMap {
     text:     { delta: string }
     thinking: { delta: string }
-    /** Emitted when the stream ends. May carry token usage reported by the provider. */
-    done:     { usage?: AparteUsage }
-    error:    { message: string }
+    /** Emitted when the stream ends. May carry token usage and the finish reason reported by the provider. */
+    done:     { usage?: AparteUsage; finishReason?: AparteFinishReason }
+    /**
+     * A failure mid-stream. `code` names it when the provider can tell (an overflowing prompt
+     * is `USAGE_CONTEXT_EXCEEDED`), so the client can act on the code instead of reading prose.
+     */
+    error:    { message: string; code?: AparteErrorCode }
     tool_use: AparteToolCall
 }
 

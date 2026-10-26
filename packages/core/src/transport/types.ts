@@ -41,6 +41,21 @@ export interface AparteFormatAdapter {
     parseStream(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
     /** Extract text from a non-streaming vendor JSON response. */
     parseText?(json: unknown): string;
+    /**
+     * Name the failure of a non-ok vendor response, for the ones a status cannot: a 400
+     * whose body says the prompt overflowed the model's window is `USAGE_CONTEXT_EXCEEDED`,
+     * not a bad request, and the client acts on the first (it compacts and resends). Return
+     * `undefined` to leave the status to say what it says.
+     *
+     * It is the adapter's because what a vendor writes for an overflow is its wire format —
+     * the same reason `parseStream` is — and core must not learn every server's wording.
+     * It runs on the page for a direct call and on the server for the backend handler, which
+     * forwards only the code it returns (never the vendor's prose).
+     *
+     * @param status The HTTP status.
+     * @param body The response body, parsed as JSON; `undefined` when it was not JSON.
+     */
+    classifyError?(status: number, body: unknown): AparteErrorCode | undefined;
 }
 
 export interface AparteTransportContext {
@@ -81,22 +96,46 @@ export function readAuth(auth: string | Record<string, string> | undefined): { k
     return {};
 }
 
+/** The message a parsed error body carries, or `${label} ${status}` when it carries none. */
+function messageOf(body: unknown, status: number, label: string): string {
+    const raw = (body as { error?: { message?: string } | string } | undefined)?.error;
+    const msg = typeof raw === 'object' ? raw?.message : raw;
+    return typeof msg === 'string' && msg ? msg : `${label} ${status}`;
+}
+
 /** Best-effort human message from a non-ok vendor/backend JSON error response. */
 export async function vendorErrorMessage(response: Response, label = 'HTTP'): Promise<string> {
-    const body = await response.json().catch(() => ({} as Record<string, unknown>));
-    const raw = (body as { error?: { message?: string } | string })?.error;
-    const msg = typeof raw === 'object' ? raw?.message : raw;
-    return typeof msg === 'string' && msg ? msg : `${label} ${response.status}`;
+    const body = await response.json().catch(() => undefined);
+    return messageOf(body, response.status, label);
+}
+
+/** Is this one of {@link AparteErrorCode}'s values — a code a backend forwarded, not a vendor's own. */
+function isAparteErrorCode(value: unknown): value is AparteErrorCode {
+    return typeof value === 'string' && (Object.values(AparteErrorCode) as string[]).includes(value);
 }
 
 /**
  * The error a non-ok vendor/backend response becomes: the message the body carries
- * (or `${label} ${status}`), the status, and the code that status stands for, so a
- * 429 and a 503 are told apart by a listener.
+ * (or `${label} ${status}`), the status, and the code that says what happened — so a
+ * 429 and a 503 are told apart by a listener, and an overflowing prompt from a
+ * malformed one.
+ *
+ * The code is, in order: the adapter's own reading of the body (`classifyError`, direct
+ * calls), the `error.code` a backend handler forwarded when it is one of ours (a vendor's
+ * own `context_length_exceeded` is not, and is ignored here), then the status.
  */
-export async function vendorError(response: Response, label = 'HTTP'): Promise<AparteError> {
-    const message = await vendorErrorMessage(response, label);
-    const code = AparteError.codeForStatus(response.status) ?? AparteErrorCode.UNKNOWN_ERROR;
+export async function vendorError(
+    response: Response,
+    label = 'HTTP',
+    adapter?: Pick<AparteFormatAdapter, 'classifyError'>,
+): Promise<AparteError> {
+    const body = await response.json().catch(() => undefined);
+    const message = messageOf(body, response.status, label);
+    const forwarded = (body as { error?: { code?: unknown } } | undefined)?.error?.code;
+    const code = adapter?.classifyError?.(response.status, body)
+        ?? (isAparteErrorCode(forwarded) ? forwarded : undefined)
+        ?? AparteError.codeForStatus(response.status)
+        ?? AparteErrorCode.UNKNOWN_ERROR;
     return new AparteError(message, code, undefined, undefined, response.status);
 }
 

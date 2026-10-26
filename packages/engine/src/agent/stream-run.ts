@@ -30,6 +30,7 @@ import type {
     StreamToolConfig,
     StreamApprovalResolver,
     StreamUsage,
+    StreamFinishReason,
     StreamDeferral,
     StreamDeferredCall,
     StreamDeferredReason,
@@ -191,6 +192,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     let continueLoop = true;
     let turns = 0;
     let lastUsage: StreamUsage | undefined;
+    // The CURRENT model call's, reset at the top of every turn: a step that reports none
+    // must not inherit the one before it ('tool-calls' from a tool turn would otherwise
+    // stand as the reason the final answer ended).
+    let lastFinishReason: StreamFinishReason | undefined;
 
     // Leading write before turn 1: mark the message streaming.
     emitter({ type: 'run-start' });
@@ -245,6 +250,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         if (signal.aborted) break;
 
         turns++;
+        lastFinishReason = undefined;
         if (turns > maxTurns) {
             emitter({ type: 'turn-limit-exceeded', scope: 'global', limit: maxTurns });
             break;
@@ -470,12 +476,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
                 if (event.type === 'done') {
                     if (event.usage) lastUsage = event.usage;
+                    if (event.finishReason) lastFinishReason = event.finishReason;
                     continue;
                 }
 
                 if (event.type === 'error') {
-                    // Mirror `_streamLoop`: throw; the caller's catch handles it.
-                    throw new Error(event.message);
+                    // Mirror `_streamLoop`: throw; the caller's catch handles it. The code the
+                    // provider named rides on the error, so the caller can act on it — an
+                    // overflowing prompt is compacted and resent — without reading the prose.
+                    throw event.code === undefined
+                        ? new Error(event.message)
+                        : Object.assign(new Error(event.message), { code: event.code });
                 }
 
                 // A DISCRIMINANT GUARD, not a comment.
@@ -569,7 +580,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // only the child controller, so `signal.aborted` stays false and that turn still
     // ends as done, unchanged.
     if (signal.aborted) emitter({ type: 'run-aborted' });
-    emitter({ type: 'run-done', usage: lastUsage });
+    emitter({ type: 'run-done', usage: lastUsage, ...(lastFinishReason ? { finishReason: lastFinishReason } : {}) });
     return lastUsage;
 }
 

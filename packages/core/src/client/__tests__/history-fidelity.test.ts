@@ -288,7 +288,9 @@ describe('send, retry and edit agree about what history is', () => {
             assistantsOf(seen).filter(m => m.content === ''),
             'a failed turn is not the assistant saying nothing',
         ).toEqual([]);
-        expect(rolesOf(seen)).toEqual(['user', 'assistant', 'user', 'user']);
+        // The failed turn's user message and the next one are merged: two user turns in a row
+        // are rejected by strict chat templates (see two-user-turns-in-a-row.test.ts).
+        expect(rolesOf(seen)).toEqual(['user', 'assistant', 'user']);
     });
 
     it('edit puts no empty assistant turn on the wire either', async () => {
@@ -298,7 +300,9 @@ describe('send, retry and edit agree about what history is', () => {
         );
 
         expect(assistantsOf(seen).filter(m => m.content === '')).toEqual([]);
-        expect(rolesOf(seen)).toEqual(['user', 'assistant', 'user', 'user']);
+        // The failed turn's user message and the next one are merged: two user turns in a row
+        // are rejected by strict chat templates (see two-user-turns-in-a-row.test.ts).
+        expect(rolesOf(seen)).toEqual(['user', 'assistant', 'user']);
     });
 
     it('the two mappers return the same history for the same slice', async () => {

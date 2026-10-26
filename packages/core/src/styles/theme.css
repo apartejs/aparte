@@ -192,6 +192,13 @@
      below (it was a frozen plum hex that outlived every rebrand); the assistant is
      plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
+  /* The ink of each role's words is UNSET until a skin names one: `initial` is the declared
+     form of that, a value that makes `var(--aparte-message-ink, …)` fall back to the content
+     colour exactly as an undeclared name does. It is declared because a token read with no
+     fallback and written nowhere is a typo to the guard — these two used to be written only
+     by the old compaction notice's rule, which is how the guard never noticed. */
+  --aparte-message-content-text-user: initial;
+  --aparte-message-content-text-assistant: initial;
   /* The assistant's box has no padding: its reply is prose across the column. A skin that
      gives it a bubble sets this, as the user's box reads --aparte-message-content-padding. */
   --aparte-message-content-padding-assistant: 0;

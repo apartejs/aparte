@@ -17,6 +17,8 @@
  * that does: the compaction this plugin performs. Zero deps, a char-count heuristic.
  */
 
+import { estimateTokens } from '@aparte/core';
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface CompactionConfig {
@@ -38,8 +40,10 @@ export interface CompactionConfig {
      */
     summaryRatio: number;
     /**
-     * Ceiling on that reservation, in tokens. It sizes the WINDOW — it does not bound
-     * the summary your `summarize` returns, and nothing here truncates one.
+     * Ceiling on that reservation, in tokens. It sizes the WINDOW: the verbatim turns
+     * leave this much room for the summary. The summary request's own `maxTokens` is a
+     * looser ceiling that only keeps the answer inside the window (see `setupCompaction`),
+     * and a summary no shorter than the turns it replaces is refused.
      */
     summaryMaxTokens: number;
 }
@@ -65,9 +69,9 @@ export interface BudgetResult {
  * The history budget, split: the room held back for the running summary, and the
  * verbatim window that is what remains.
  *
- * `summary` is a RESERVATION, read only to shrink `window`. Nothing measures the
- * summary against it, and nothing clips one that comes back longer — a summariser that
- * overruns simply costs the turn more than the split assumed.
+ * `summary` is a RESERVATION, read to shrink `window`. The summary request carries a
+ * looser `maxTokens` of its own (it keeps the answer inside the window), and a summary
+ * that is cut off at that limit, or no shorter than the turns it replaces, is refused.
  */
 export interface SplitBudget {
     summary: number;
@@ -93,14 +97,13 @@ export const DEFAULT_COMPACTION_CONFIG: CompactionConfig = {
 // ─── Token estimation ──────────────────────────────────────────────────────
 
 /**
- * Token heuristic (FR ~3.5 chars/tok, EN ~4 chars/tok).
- * Accurate to ±10% — enough for budgeting, and it avoids `tokenizer.encode()`,
- * which costs ~5ms per message × N (too slow to run on every turn).
+ * Token heuristic — core's, re-exported under the name this module always had.
+ *
+ * It lives in `@aparte/core` (`estimateTokens`) because the context gauge and the count
+ * the client records on each reply read the SAME estimate: a plugin that kept a private copy
+ * would decide on figures the page does not show.
  */
-export function estimateTokens(text: string | null | undefined): number {
-    if (!text) return 0;
-    return Math.ceil(text.length / 3.8);
-}
+export { estimateTokens };
 
 /**
  * Estimate tokens for a JSON-serializable structure (e.g. tools array).

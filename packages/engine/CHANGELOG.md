@@ -1,5 +1,17 @@
 # @aparte/engine
 
+## 0.26.0
+
+### Minor Changes
+
+- eb3c0b1: `runStreamAgent` now emits `finishReason` on `run-done`: the reason the LAST model call of the run ended, when its provider reported one.
+
+  A step that reports no reason does not inherit the one before it: the value is reset at the top of every model call, so a final answer that says nothing is not described by the `'tool-calls'` of the turn before. `StreamChatEvent`'s `done` accepts the field (`StreamFinishReason`, the same union as core's `AparteFinishReason`). A run whose providers report nothing emits `run-done` exactly as before.
+
+- f0b38dd: A stream `error` event can now carry a `code`, and the error `runStreamAgent` throws for it carries the same `code`. Nothing for you to change: an event without a code throws the plain `Error` it always did.
+
+  `StreamChatEvent`'s `error` variant gains `code?: string` (core's event map gains the typed `code?: AparteErrorCode`; this is its mirror). The caller reads it from the thrown error: core's `AparteError.from` keeps it when it is one of `AparteErrorCode`'s values, which is how an overflowing prompt a provider reported mid-stream (`USAGE_CONTEXT_EXCEEDED`) becomes something the client can act on instead of a sentence to show.
+
 ## 0.25.0
 
 ## 0.24.0

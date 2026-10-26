@@ -58,10 +58,16 @@ and `X-Title: aparté`; name your app with
 ## The list of models
 
 The provider fetches `GET {baseURL}/models`, and the [model selector](/components/model-selector/)
-lists each model by its `name`, or its `id` when the server sends none; a model's `context_length`
-becomes the `contextWindow` the [context gauge](/components/context-gauge/) reads. Each fetched
+lists each model by its `name`, or its `id` when the server sends none. The model's window, the
+`contextWindow` the [context gauge](/components/context-gauge/) and compaction read, comes from the
+entry's `context_length` (OpenRouter, Together), `max_model_len` (vLLM), `context_window` (Groq) or
+`max_context_length` (Mistral). With `server` set, as the LM Studio, Ollama and llama.cpp presets do,
+the provider also asks that server's own API for the window it runs the model with, which wins over
+the trained maximum: LM Studio's `/api/v1/models` (or `/api/v0/models`), Ollama's `/api/ps`,
+llama.cpp's `/props`. A model the server has not loaded has no window until it is. A `contextWindow`
+you give a model in `models` wins over all of them. Each fetched
 model is marked as streaming and calling tools. A cloud provider fetches nothing without a key; a
-local one — `isLocal: true`, which the Ollama and LM Studio presets set — lists its models with
+local one — `isLocal: true`, which the local-server presets set — lists its models with
 none. A `models` option gives the provider a list of its own, which the client reads for a model
 the fetched list does not have: a fetched entry with the same id wins, and the selector shows only
 the fetched list.

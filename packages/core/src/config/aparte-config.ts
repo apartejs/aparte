@@ -27,6 +27,7 @@ import type {
 } from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
 import type { AparteStreamBlock } from '../types/stream-blocks.js';
+import type { AparteCompactor } from '../types/compactor.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
@@ -282,6 +283,8 @@ export class AparteConfig {
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
     // Per-call approval policy (a mode: plan / ask / auto). `null` = the tools' own flags.
     private _approvalPolicy: AparteApprovalPolicy | null = null;
+    // What makes the context smaller — `@aparte/plugin-compaction` registers itself here. `null` = nothing does.
+    private _compactor: AparteCompactor | null = null;
 
     // Conversation persistence (optional, agnostic)
     private _conversationManager?: AparteConversationManager;
@@ -870,9 +873,20 @@ export class AparteConfig {
             // local providers (e.g. LM Studio) — the provider handles that.
             const auth = await this.getKey(providerId);
             const models = await provider.fetchModels(auth);
+            // A provider answers `[]` when its fetch fails (openai-compat catches and says so
+            // on the console): that is not a server with no models, and wiping the list
+            // already held would take the selected model's capabilities with it.
+            const held = this._fetchedModels.get(providerId);
+            if (models.length === 0 && held?.length) return held;
+            const windowBefore = this.getCurrentModel()?.contextWindow;
             // Cached so `getCurrentModel()` can see it: a fetched list is the only
             // list a compat endpoint has, and capabilities are read off the model.
             this._fetchedModels.set(providerId, models);
+            // A window that appears — a local server that had not loaded the model when the
+            // list was first fetched — is something the gauge and the compaction read, so it
+            // is announced. Only then: a picker that refreshes the list each time it opens
+            // must not re-render every component on the page for nothing.
+            if (this.getCurrentModel()?.contextWindow !== windowBefore) this._notify();
             return models;
         } catch (error) {
             console.warn(`[AparteConfig] Failed to refresh models for ${providerId}`, error);
@@ -1018,6 +1032,28 @@ export class AparteConfig {
     /** The registered approval policy, or `null`. */
     getApprovalPolicy(): AparteApprovalPolicy | null {
         return this._approvalPolicy;
+    }
+
+    /**
+     * Register what makes the context smaller: the gauge's Compact now, a separator's
+     * Retry and the client's pre-flight and overflow retry call it. `null` removes it.
+     *
+     * `@aparte/plugin-compaction`'s `setupCompaction()` registers itself here; core never
+     * compacts on its own, so a page without a compactor has a gauge that measures and a
+     * separator whose Retry falls back to the `aparte-compact` event. A chat reads the one
+     * on ITS config first (`resolveConfig(chat).getCompactor()`), then the client's.
+     *
+     * Notifies like every other registration: a mounted gauge has to hear that "Compact
+     * now" became possible after it was drawn, or went away.
+     */
+    setCompactor(compactor: AparteCompactor | null): void {
+        this._compactor = compactor;
+        this._notify();
+    }
+
+    /** The registered compactor, or `null`. */
+    getCompactor(): AparteCompactor | null {
+        return this._compactor;
     }
 
     /**
@@ -1907,6 +1943,7 @@ export class AparteConfig {
         this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
         this._approvalPolicy = null;
+        this._compactor = null;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();

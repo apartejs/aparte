@@ -58,6 +58,15 @@ describe('createAgentStreamRunner', () => {
         expect((calls[0]!.init.headers as Record<string, string>)['x-test']).toBe('1');
     });
 
+    it('hands the emitter the run-done line whole, finishReason included', async () => {
+        const { fetch } = fakeFetch(() => new Response(ndjson(
+            { type: 'run-start' }, { type: 'run-done', finishReason: 'length' },
+        )));
+        const { opts, events } = options();
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts);
+        expect(events.at(-1)).toEqual({ type: 'run-done', finishReason: 'length' });
+    });
+
     it('carries a continuation as the resume body', async () => {
         const { fetch, calls } = fakeFetch(() => new Response(ndjson({ type: 'run-start' }, { type: 'run-done' })));
         const { opts } = options({ deferral: { token: 'T', outcomes: { c1: { kind: 'decision', approved: true } } } });
@@ -86,6 +95,20 @@ describe('createAgentStreamRunner', () => {
         const { fetch } = fakeFetch(() => new Response(JSON.stringify({ error: { message: 'Invalid or expired continuation ticket.' } }), { status: 400 }));
         const { opts } = options();
         await expect(createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts)).rejects.toThrow('Invalid or expired continuation ticket.');
+    });
+
+    it('throws a code of ours as the error code itself, so the client can act on an overflow', async () => {
+        const { fetch } = fakeFetch(() => new Response(ndjson({ type: 'run-error', message: 'The agent run failed.', code: 'USAGE_CONTEXT_EXCEEDED' })));
+        const { opts } = options();
+        const run = createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts);
+        await expect(run).rejects.toMatchObject({ code: 'USAGE_CONTEXT_EXCEEDED' });
+    });
+
+    it('keeps a code that is not ours in the data, under PROVIDER_ERROR', async () => {
+        const { fetch } = fakeFetch(() => new Response(ndjson({ type: 'run-error', message: 'The agent run failed.', code: 'AGENT_RUN_FAILED' })));
+        const { opts } = options();
+        const run = createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts);
+        await expect(run).rejects.toMatchObject({ code: 'PROVIDER_ERROR', data: { code: 'AGENT_RUN_FAILED' } });
     });
 
     it('rejects when the stream ends without its last line, instead of leaving the reply streaming', async () => {

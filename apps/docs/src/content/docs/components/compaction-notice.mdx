@@ -1,6 +1,6 @@
 ---
-title: Compaction notice
-description: The summary that takes the place of the oldest turns when a long conversation fills the model's context, so the conversation can go on.
+title: Compaction separator
+description: The line that marks where the model's view of a long conversation starts once the older turns are summarised — with the summary, and a way to restore them.
 catalog:
   group: chat
   order: 24
@@ -11,14 +11,23 @@ import Variant from '../../../components/catalog/Variant.astro';
 
 <Variant id="compaction-notice" />
 
-A conversation can outgrow the model's context window. Rather than failing, or silently dropping
-the start, `@aparte/plugin-compaction` asks the model to summarise the oldest turns and puts that
-summary in their place, keeping the recent turns as they were. The summary is shown as a notice:
-centred, with a dashed border, and no avatar, name, time or actions, because nobody said it.
+A conversation can outgrow the model's context window. `@aparte/plugin-compaction` then asks the model
+to summarise the older turns, and the model reads that summary in their place from then on. The turns
+themselves stay where they are, for the person to read: the separator marks the first turn the model
+still reads word for word.
 
-The notice is a message with `compaction: true`. Its title comes from the `compactionSummaryTitle`
-locale key ("Conversation summary"). It is sent to the model as context from the user, introduced
-as a summary, since some providers refuse a system message in the middle of a conversation.
+It sits above that turn's message, centred, outside the bubble, and says how many messages the summary
+stands for. **Show summary** unfolds what the model reads instead of them. **Restore** asks first, then
+sends the original messages to the model again, every summary of the conversation included.
+
+## States
+
+- **Summarising**: "Summarising the context…", while the summary is written.
+- **Done**: the count, Show summary and Restore.
+- **Failed**: what went wrong, and Retry. Nothing was removed, so the conversation goes on as it was.
+
+A conversation compacted before 0.26, whose summary replaced its first turns, shows the same separator
+without a count and without Restore: its original messages are no longer there to restore.
 
 ## Usage
 
@@ -28,31 +37,24 @@ import { setupCompaction } from '@aparte/plugin-compaction';
 setupCompaction(); // the global config, the current model's window
 ```
 
-```html
-<aparte-composer-toolbar>
-  <aparte-context variant="ring" auto-compact></aparte-context>
-</aparte-composer-toolbar>
-```
-
-With the [context gauge](/components/context-gauge/)'s `auto-compact`, compaction starts when the
-gauge reaches `danger`; the plugin can also be called on demand. How much it keeps, how it
-summarises and the events it fires are on [Long conversations](/guides/long-conversations/).
-
-A conversation you restore keeps its notice like any other message: `compaction: true` is part of
-the message, so it is saved and drawn the same way.
+The separator is drawn by the message bubble from the message's `contextSummary`, which the plugin
+writes on the first turn it keeps, so it needs no markup and is saved with the conversation. When to
+compact, how much to keep and how the summary is written are on
+[Long conversations](/guides/long-conversations/).
 
 ## Customize
 
-The notice is the message's bubble with `data-kind="compaction"`, so a selector on
-`aparte-chat-bubble[data-kind="compaction"]` restyles it. Its text is the summary, rendered as
-Markdown when a renderer is installed.
+The separator is `.aparte-checkpoint` inside the bubble; its actions wear the
+[button](/components/button/) recipe, and its text and rules follow the muted text and border tokens.
+A bubble you draw yourself draws the separator from `message.contextSummary`.
 
 ## Accessibility
 
-- The notice is a message like the others in the transcript, read in order; its title says what
-  it is before the summary.
+- The separator is a group named by the `checkpointGroup` key ("Context summary"), read before the message it
+  precedes; Show summary is a disclosure button with `aria-expanded`.
+- Restore asks in place, and the keyboard stays in the transcript once the separator is gone.
 
 ## Related
 
-- [Context gauge](/components/context-gauge/) — what triggers it.
+- [Context gauge](/components/context-gauge/) — how full the window is, and Compact now.
 - [Message](/components/message/) — the bubble it is drawn in.

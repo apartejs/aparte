@@ -43,6 +43,7 @@ import './styles/primitives/select.css';
 import './styles/primitives/progress-spinner.css';
 import './styles/components/shell.css';
 import './styles/components/bubble.css';
+import './styles/components/checkpoint.css';
 import './styles/components/composer.css';
 import './styles/segment/thinking.css';
 import './styles/segment/code.css';
@@ -74,6 +75,11 @@ export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDeta
 export type {
     AparteBubbleRole,
     AparteMessage,
+    AparteContextSummary,
+    AparteCompactor,
+    AparteCompactorRequest,
+    AparteCompactorOutcome,
+    AparteCompactorReason,
     AparteContentParser,
     AparteStreamBlock,
     AparteStreamBlockMatch,
@@ -155,6 +161,7 @@ export type {
     AparteStreamEvent,
     AparteStreamEventMap,
     AparteUsage,
+    AparteFinishReason,
     // Tool types
     AparteTool,
     AparteToolCall,
@@ -302,6 +309,9 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
+export { historyFromCheckpoint } from './context/checkpoint.js';
+export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';

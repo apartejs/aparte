@@ -7,6 +7,10 @@
  * The bar is the `aparte-progress` recipe; this sheet lays it out beside its reading
  * and recolours the fill at the two levels — from the global alert tokens, no token
  * of its own.
+ *
+ * The reading is a disclosure button (the `aparte-btn` ghost recipe at its small step) and
+ * the panel it opens wears `aparte-popover`; what is left here is where the panel floats and
+ * the rows inside it, which no recipe draws.
  */
 aparte-context {
   display: block;
@@ -17,6 +21,8 @@ aparte-context[data-empty] {
 }
 
 .aparte-context {
+  /* The panel floats from this box. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--aparte-space-2);
@@ -89,4 +95,102 @@ aparte-context[data-level="warn"] .aparte-context__value {
 }
 aparte-context[data-level="danger"] .aparte-context__value {
   stroke: var(--aparte-error);
+}
+
+/* The reading as a control: the muted ink the line had as plain text, until the pointer or
+   the keyboard is on it. The recipe draws the hover, the focus ring and the open state. */
+.aparte-context__toggle {
+  --aparte-btn-intent-ink: var(--aparte-text-muted);
+  min-block-size: 0;
+}
+
+.aparte-context__toggle:hover:not(:disabled),
+.aparte-context__toggle:focus-visible {
+  --aparte-btn-intent-ink: var(--aparte-text);
+}
+
+/* The detail panel. It opens above the reading — a gauge sits in the composer at the foot
+   of the page — and the element flips it below, or flush with the far edge, when it would
+   leave the window (`data-placement`, `data-align`, set when it opens). The recipe's `display`
+   would beat `[hidden]`, so the attribute is honoured here. */
+.aparte-context__panel {
+  --aparte-popover-max-width: 20rem;
+
+  position: absolute;
+  inset-block-end: calc(100% + var(--aparte-space-2));
+  inset-inline-start: 0;
+  min-inline-size: 16rem;
+  gap: var(--aparte-space-3);
+  color: var(--aparte-text);
+}
+
+.aparte-context__panel[hidden] {
+  display: none;
+}
+
+.aparte-context__panel[data-placement="below"] {
+  inset-block-end: auto;
+  inset-block-start: calc(100% + var(--aparte-space-2));
+}
+
+.aparte-context__panel[data-align="end"] {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
+.aparte-context__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One part of the window: its name and its tokens on a line, its share as a bar under them. */
+.aparte-context__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--aparte-space-1) var(--aparte-space-4);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-context__row-label {
+  color: var(--aparte-text-muted);
+}
+
+.aparte-context__row-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aparte-context__row-bar {
+  grid-column: 1 / -1;
+}
+
+/* The total closes the list on a hairline, in the same words as the gauge's own reading. */
+.aparte-context__row--total {
+  padding-block-start: var(--aparte-space-2);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  font-weight: var(--aparte-font-weight-medium);
+}
+
+.aparte-context__row--total .aparte-context__row-label {
+  color: var(--aparte-text);
+}
+
+.aparte-context__reclaim,
+.aparte-context__status {
+  margin: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-context__status--failed {
+  color: var(--aparte-error-ink);
+}
+
+.aparte-context__action {
+  align-self: flex-start;
 }

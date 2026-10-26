@@ -693,3 +693,31 @@ describe('<AparteChat> in a hidden tab', () => {
         expect(setSiblings).toHaveBeenCalledWith(2, 1);
     });
 });
+
+describe('<AparteChat> with a transcript the parent owns', () => {
+    beforeEach(() => { cleanup(); });
+
+    // A compaction target backed by the app's store, or a controlled `messages` prop, writes a
+    // checkpoint through the PARENT's list — never through the host's `updateMessage`. The
+    // checkpoint goes on the first kept message, which is almost never the last, and the host
+    // used to re-sync only the last message of a list it had already drawn.
+    it('draws a checkpoint the parent writes onto a message that is not the last, and takes it off again', () => {
+        const messages: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'Hi', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2, status: 'completed' },
+            { id: 'u2', role: 'user', content: 'Again', timestamp: 3 },
+            { id: 'a2', role: 'assistant', content: 'Hello again', timestamp: 4, status: 'completed' },
+        ];
+        const { container, rerender } = render(<AparteChat messages={messages} />);
+        const separator = () => container.querySelector('aparte-chat-bubble[message-id="u2"] > .aparte-checkpoint');
+        expect(separator()).toBeNull();
+
+        rerender(<AparteChat messages={messages.map((m) => (m.id === 'u2'
+            ? { ...m, contextSummary: { summary: 'A greeting.', count: 2, createdAt: 10 } }
+            : m))} />);
+        expect(separator()?.textContent).toContain('2 messages summarised for the model');
+
+        rerender(<AparteChat messages={messages} />);
+        expect(separator()).toBeNull();
+    });
+});

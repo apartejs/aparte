@@ -1,4 +1,4 @@
-import type { AparteMessage, AparteAttachment } from '../types/index.js';
+import type { AparteMessage, AparteAttachment, AparteCompactDoneEventDetail } from '../types/index.js';
 import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation, AparteConversationLoadedDetail } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
@@ -59,6 +59,9 @@ export interface AparteChatBinding {
 
 /** How many renders a compaction's save waits for the summary to reach the binding. */
 const MAX_COMPACTION_SAVE_WAITS = 6;
+
+/** The part of `aparte-compact-done` the save reads. */
+type CompactionSaveDetail = Pick<AparteCompactDoneEventDetail, 'targetId' | 'summary' | 'messageId' | 'restored'>;
 
 export interface AparteConversationControllerOptions {
     /**
@@ -365,14 +368,15 @@ export class AparteConversationController {
             if (targetId && targetId !== this._binding.hostId) return;
             void this.setConversationId(evt.detail?.id ?? null);
         };
-        // A compaction rewrites the transcript (summary in, summarised turns out) and says
-        // so on `window` only. Nothing else fires: the turns it drops and the summary it adds
-        // were saved at the next message, and a reload before it brought the long transcript
-        // back. Saved now, for the chat it names.
+        // A compaction changes the transcript — a checkpoint on one message, or, for an older
+        // host, a summary message in place of the turns — and a Restore changes it back; both
+        // say so on `window` only. Nothing else fires: the change was saved at the next
+        // message, and a reload before it brought back the transcript as it stood. Saved now,
+        // for the chat it names.
         this._onCompactDone = (e: Event) => {
-            const detail = (e as CustomEvent<{ targetId?: string; summary?: string } | undefined>).detail;
+            const detail = (e as CustomEvent<CompactionSaveDetail | undefined>).detail;
             if (detail?.targetId && detail.targetId !== this._binding.hostId) return;
-            queueMicrotask(() => this._persistOnceSummarised(detail?.summary, 0));
+            queueMicrotask(() => this._persistOnceSummarised(detail ?? {}, 0));
         };
         if (typeof window !== 'undefined') {
             window.addEventListener('aparte-conversation-select', this._onSelectConversation);
@@ -683,20 +687,40 @@ export class AparteConversationController {
      * that was partially written before a switch or component destruction.
      */
     /**
-     * Save once the binding holds the summary a compaction announced. A transcript kept in
-     * a framework store reaches the binding only when that framework renders, so a save on
-     * the microtask wrote the conversation as it stood before the compaction. Bounded: a
-     * run with no summary (skipped), or a binding that never shows it, is saved as it is.
+     * Save once the binding holds what a compaction (or a Restore) announced. A transcript
+     * kept in a framework store reaches the binding only when that framework renders, so a
+     * save on the microtask wrote the conversation as it stood before the change. Bounded:
+     * a run that changed nothing (skipped), or a binding that never shows the change, is
+     * saved as it is.
+     *
+     * What "holds" means follows what the run said it did:
+     * - a checkpoint — `messageId` names the message carrying it, and it holds once that
+     *   message carries a `contextSummary` with its `createdAt` (a summary without the
+     *   stamp is a half-written one);
+     * - a Restore — it holds once no message of the path carries a checkpoint any more;
+     * - an older host's summary MESSAGE (`compaction: true`, ending with the summary).
+     * A run that names none of these has nothing to wait for.
      */
-    private _persistOnceSummarised(summary: string | undefined, waits: number): void {
-        const holds = !summary || this._binding.getMessages().some(
-            (m) => m.compaction === true && typeof m.content === 'string' && m.content.endsWith(summary),
-        );
+    private _persistOnceSummarised(detail: CompactionSaveDetail, waits: number): void {
+        const messages = this._binding.getMessages();
+        let holds = true;
+        if (detail.restored) {
+            holds = !messages.some((m) => m.contextSummary !== undefined);
+        } else if (detail.messageId || detail.summary) {
+            const { messageId, summary } = detail;
+            const checkpointed = !!messageId && messages.some(
+                (m) => m.id === messageId && typeof m.contextSummary?.createdAt === 'number',
+            );
+            const summaryMessage = !!summary && messages.some(
+                (m) => m.compaction === true && typeof m.content === 'string' && m.content.endsWith(summary),
+            );
+            holds = checkpointed || summaryMessage;
+        }
         if (holds || !this._binding.afterRender || waits >= MAX_COMPACTION_SAVE_WAITS) {
             this._persistActive();
             return;
         }
-        this._binding.afterRender(() => this._persistOnceSummarised(summary, waits + 1));
+        this._binding.afterRender(() => this._persistOnceSummarised(detail, waits + 1));
     }
 
     private _persistActive(): void {

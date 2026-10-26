@@ -118,6 +118,13 @@ describe('steps', () => {
         expect((events[3] as { usage: { outputTokens: number } }).usage.outputTokens).toBe(99);
     });
 
+    it('a finishReason step sets it on the done event, and a turn without one reports none', async () => {
+        const cut = await drain(playTurn([{ text: 'Half an ans' }, { finishReason: 'length' }], request(user('x')), 'instant'));
+        expect(cut.at(-1)).toMatchObject({ type: 'done', finishReason: 'length' });
+        const plain = await drain(playTurn('whole answer', request(user('x')), 'instant'));
+        expect(plain.at(-1)).not.toHaveProperty('finishReason');
+    });
+
     it('an error step fails the turn: an error event, then the stream closes without done', async () => {
         const events = await drain(playTurn([{ text: 'so far so good' }, { error: 'boom' }, { text: 'never' }], request(user('x')), 'instant'));
         expect(events.map((e) => e.type)).toEqual(['text', 'error']);

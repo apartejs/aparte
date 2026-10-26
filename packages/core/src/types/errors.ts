@@ -70,11 +70,24 @@ export class AparteError extends Error {
         // read what the error says about itself before settling on UNKNOWN — every
         // transport error used to reach the error card as UNKNOWN_ERROR, a 429 and a
         // 503 alike, because nothing here looked.
+        //
+        // What the error says about itself comes first among the readings: a stream `error`
+        // event that carried a code (`USAGE_CONTEXT_EXCEEDED`) reaches here as a plain `Error`
+        // thrown by the loop, and the client acts on that code — it is more exact than any
+        // status, which such an error does not have anyway.
+        const carried = (error as { code?: unknown } | null | undefined)?.code;
         const code = defaultCode !== AparteErrorCode.UNKNOWN_ERROR
             ? defaultCode
-            : AparteError.codeForStatus(status) ?? AparteError.codeForFailure(error) ?? defaultCode;
+            : AparteError.carriedCode(carried) ?? AparteError.codeForStatus(status) ?? AparteError.codeForFailure(error) ?? defaultCode;
 
         return new AparteError(message, code, undefined, error, status);
+    }
+
+    /** The value as an {@link AparteErrorCode}, when it is one — a Node `ECONNRESET` or a vendor's own string is not. */
+    private static carriedCode(value: unknown): AparteErrorCode | undefined {
+        return typeof value === 'string' && (Object.values(AparteErrorCode) as string[]).includes(value)
+            ? value as AparteErrorCode
+            : undefined;
     }
 
     /**
