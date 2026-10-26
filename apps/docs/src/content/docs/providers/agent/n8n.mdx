@@ -139,6 +139,8 @@ takes uploads — PDFs and spreadsheets included: the client hands the runner th
 picked. Give the client `rawFileInject: 'none'`, so text files are not also inlined into the
 message. Turn on **Allow File Uploads** in the trigger's options, and list the types it accepts; an
 AI Agent reads text files and passes images on to its model. See [Attachments](/guides/attachments/).
+In a form, n8n hands the workflow `metadata` as text, as it does from its own widget:
+`JSON.parse($json.metadata)` reads it.
 
 ```ts
 import { AparteClient } from '@aparte/core';

@@ -65,6 +65,8 @@ from n8n the same way.
 | A turn that called a tool, after a reload | The steps the memory stores, as bot bubbles — the tool's result as raw JSON | Left out, as in the live answer |
 | A last node with no `output`, `text` or `message` | Its JSON printed in the bubble | An error that names the fields it got |
 | When n8n can't be reached | `Error: Failed to receive response` | A sentence in the visitor's language; the console says what to check |
+| Files | The paperclip; each file named; its ✕ out of the keyboard's reach, and removing one of two files with the same name removes both | The paperclip, a drop on the composer, a pasted image; each file named; its ✕ a labelled button. A file outside `allowedFilesMimeTypes` is left out, however it arrives |
+| `enableStreaming` that does not match the trigger's response mode | "[No response received. This could happen if streaming is enabled in the trigger but disabled in agent node(s)]" | Nothing to match: a streamed answer and a whole one are both read |
 | A page view, the chat never opened | A history request to n8n, every time | Nothing: the history is asked for when the chat first opens |
 | Languages | English; its eight strings can be overridden | Nine shipped, the chat's whole interface — English, French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified) — each loaded alone |
 | Contrast of the visitor's bubble | 2.55:1 (white on `#20b69e`) | 4.7:1 by default; your `--chat--*` colors kept |
