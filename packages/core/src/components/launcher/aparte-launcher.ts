@@ -42,7 +42,10 @@ const FOCUSABLE = [
  *
  * **The button** shows a speech bubble, or the bubble and your `label` (`label="Help"`)
  * as a pill; it is named by the locale's `launcherOpen`/`launcherClose` when it shows no
- * text. Opening hands the focus to the composer; closing gives it back to the button.
+ * text. Opening with the button hands the focus to the composer, or to the first control of
+ * your card; `show()` and `open` set from a script move no focus, so a page that restores the
+ * state on load does not steal it. Closing gives the focus back to the button when it was
+ * inside.
  *
  * **Server rendering.** The button is drawn when the element connects, which on a
  * server-rendered page is before the framework hydrates, and hydration removes what it did
@@ -165,10 +168,10 @@ export class AparteLauncher extends HTMLElement {
         const open = this.open;
         if (open === this._lastOpen) return;
         this._lastOpen = open;
-        // Opened: the composer takes the focus. Closed with the focus inside: the button
-        // takes it back, or it would fall to <body> with the chat that held it.
-        if (open) this._focusChat();
-        else if (this._button && this.contains(activeElementIn(this))) this._button.focus();
+        // Closed with the focus inside: the button takes it back, or it would fall to <body>
+        // with the chat that held it. Opening moves no focus here — whoever opened it did, or
+        // did not, mean the composer to have it (see `_onButtonClick`).
+        if (!open && this._button && this.contains(activeElementIn(this))) this._button.focus();
         this._announce();
     }
 
@@ -199,7 +202,18 @@ export class AparteLauncher extends HTMLElement {
 
     // ─── Button ───────────────────────────────────────────────────────────
 
-    private _onButtonClick = (): void => this.toggle();
+    /**
+     * The one opening that is a person's: the composer takes the focus, since they opened the
+     * chat to write. `show()` and `open` are a script's — a page restoring the state it saved,
+     * a host driving `open` from its own state — and a focus that jumps on page load is
+     * unasked for, and on a phone raises the keyboard over a sheet nobody pressed. An authored
+     * `open` never took the focus either, so the three ways of starting open now agree.
+     */
+    private _onButtonClick = (): void => {
+        const opening = !this.open;
+        this.toggle();
+        if (opening) this._focusChat();
+    };
 
     private _onConfigChange = (): void => this._renderButton();
 

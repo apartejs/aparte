@@ -146,8 +146,11 @@ launcher sits at `--aparte-z-dropdown`, above the page and below what you raise 
 
 - The button's `aria-expanded` and `aria-controls` follow the state; it is named by its label, or
   by the locale when it shows only the bubble or the ✕.
-- Opening hands the focus to the composer, or to the first control of your card; closing gives it
-  back to the button when the focus was inside.
+- Opening with the button hands the focus to the composer, or to the first control of your card;
+  closing gives it back to the button when the focus was inside. `show()` and `open` set from a
+  script move no focus, so the snippet above that restores the state on page load does not steal
+  it. A control of yours that opens the chat with `show()` and wants the composer ready focuses it
+  itself, right after.
 - Escape closes it from anywhere inside, unless something there has the key first: a control that
   answered it (a menu closing, the [context gauge](/components/context-gauge/)'s panel), an input
   method that is composing text, or a modal `<dialog>` open in your card, which closes itself on

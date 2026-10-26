@@ -329,12 +329,35 @@ describe('<aparte-launcher>: the focus and the keys', () => {
 
     it('focuses the first control of a card that has no composer, never its own button', () => {
         const el = mount('', '<div><a href="#faq" id="faq">FAQ</a></div>');
-        el.show();
+        buttonOf(el).click();
         expect(document.activeElement?.id).toBe('faq');
         const empty = mount('', '<div>nothing to focus</div>');
         (document.getElementById('page') as HTMLButtonElement).focus();
-        empty.show();
+        buttonOf(empty).click();
         expect(document.activeElement?.id).toBe('page');
+    });
+
+    it('moves no focus when a script opens it: show(), the property, the attribute', () => {
+        // A page that restores the state on load, or a host that drives `open` from its own
+        // state, is not a person opening the chat — and a sheet on a phone would raise the
+        // keyboard. Only the button, which a person pressed, hands the focus to the composer.
+        const el = mount();
+        const page = document.getElementById('page') as HTMLButtonElement;
+        page.focus();
+        const seen = record(el);
+        el.show();
+        expect(document.activeElement).toBe(page);
+        el.close();
+        el.open = true;
+        expect(document.activeElement).toBe(page);
+        el.close();
+        el.setAttribute('open', '');
+        expect(document.activeElement).toBe(page);
+        expect(seen).toHaveLength(5);
+        // The button is still the person's way in.
+        el.close();
+        buttonOf(el).click();
+        expect(document.activeElement?.id).toBe('composer');
     });
 
     it('leaves the focus alone when it closes while the focus is elsewhere', () => {
@@ -349,6 +372,7 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         const el = mount();
         el.show();
         const composer = document.getElementById('composer') as HTMLElement;
+        composer.focus();
         const handled = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
         composer.addEventListener('keydown', (e) => e.preventDefault(), { once: true });
         composer.dispatchEvent(handled);
