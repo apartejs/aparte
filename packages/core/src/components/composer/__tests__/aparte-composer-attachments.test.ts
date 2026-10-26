@@ -72,6 +72,20 @@ describe('the pending attachment ✕ — the sheet', () => {
         expect(rule, 'the ✕ is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
     });
 
+    it("shows the file's name on focus as on hover, from the display recipe the bubble shares", () => {
+        const rule = sheet.match(
+            /\.aparte-thumb:hover \.aparte-thumb__name,\s*\n\s*\.aparte-thumb:focus-within \.aparte-thumb__name\s*\{([^}]*)\}/,
+        )?.[1];
+        expect(rule, 'no combined hover/focus-within rule for .aparte-thumb__name').toBeTruthy();
+        expect(rule).toMatch(/opacity:\s*1/);
+    });
+
+    it("shows the file's name outright where there is no hover to give", () => {
+        const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
+        const rule = coarse.match(/\.aparte-thumb__name\s*\{([^}]*)\}/)?.[1] ?? '';
+        expect(rule, 'the name is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
+    });
+
     it('and gives it a finger-sized box there', () => {
         // 18px is under the WCAG 2.2 SC 2.5.8 floor of 24, and this is the only way to
         // drop a file. 24 is not a new number: it is the box `aparte-btn--sm` already

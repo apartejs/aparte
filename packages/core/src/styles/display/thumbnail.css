@@ -96,7 +96,7 @@
 /* ── Attachment thumbnail tile ──────────────────────────────────────────────
    Shared by the composer attachment preview and the sent-message attachment
    strip. A square that shows the image itself (or a file glyph); the filename
-   and — in the composer — a remove button surface on hover. */
+   and — in the composer — a remove button surface on hover and focus, outright on touch. */
 /* The tile is `.aparte-thumbnail`; the composer only sets its own measurements and
    the quieter ground an attachment strip uses. */
 .aparte-thumb {
@@ -155,6 +155,10 @@
   transition: opacity var(--aparte-duration-base) var(--aparte-ease);
   pointer-events: none;
 }
-.aparte-thumb:hover .aparte-thumb__name {
+/* Which file it is, wherever a person is: on hover, on a keyboard's focus inside the tile
+   (its ✕, or the picture when the app opens previews), and outright on touch (responsive.css).
+   Shown on hover alone, a visitor on a phone or on the keyboard never saw what they sent. */
+.aparte-thumb:hover .aparte-thumb__name,
+.aparte-thumb:focus-within .aparte-thumb__name {
   opacity: 1;
 }

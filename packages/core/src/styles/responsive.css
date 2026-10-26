@@ -149,6 +149,12 @@
     --aparte-thumb-remove-size: var(--aparte-btn-size-sm);
   }
 
+  /* Nor the file's name, which hover alone revealed: the tile's label says only its
+     extension, and two PDFs look alike. */
+  .aparte-thumb__name {
+    opacity: 1;
+  }
+
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */
   .aparte-conv-item__more {
     opacity: 1;
