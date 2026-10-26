@@ -5,7 +5,7 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteApprovalPolicy, AparteTool, AparteToolCall, AparteToolHandler } from '../types/tools.js';
 import type { AparteTransport } from './types.js';
 import { AparteDirectTransport } from './direct-transport.js';
-import { AparteError } from '../types/errors.js';
+import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { readableToAsyncIterable } from '../client/stream-adapter.js';
 import { sameCalls, signTicket, verifyTicket, type AparteTicketCall } from './agent-ticket.js';
 
@@ -307,10 +307,15 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     // The vendor's words stay here: they can carry a key, a URL, an account.
                     console.error('[aparte] agent run failed', error);
                     await pendingWrite?.catch(() => {});
+                    // The code is the one thing the page acts on (an overflow it can compact and
+                    // send again), so it travels. The engine throws a provider error streamed
+                    // after a 200 as a plain Error that carries `code`, which `from` reads;
+                    // a failure that says nothing about itself keeps the wire value it had.
+                    const named = AparteError.from(error).code;
                     write({
                         type: 'run-error',
                         message: 'The agent run failed.',
-                        code: error instanceof AparteError ? error.code : 'AGENT_RUN_FAILED',
+                        code: named === AparteErrorCode.UNKNOWN_ERROR ? 'AGENT_RUN_FAILED' : named,
                     });
                     close();
                 });

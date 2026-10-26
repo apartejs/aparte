@@ -201,6 +201,29 @@ describe('createAparteAgentHandler', () => {
         expect(JSON.stringify(last)).not.toContain('sk-secret');
     });
 
+    it('keeps the code a failed run carries, on a plain Error as on an AparteError, and the prose off the wire', async () => {
+        // The engine throws a streamed provider error as a plain Error with a `code`; the page acts on
+        // USAGE_CONTEXT_EXCEEDED, so it must survive the trip.
+        const failing = {
+            id: 'fake', name: 'Fake',
+            async chat() { throw Object.assign(new Error('vendor said: sk-secret-key'), { code: 'USAGE_CONTEXT_EXCEEDED' }); },
+        } as unknown as AparteAIProvider;
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(failing)(post(firstBody())));
+        errorSpy.mockRestore();
+        const last = out.at(-1)!;
+        expect(last).toMatchObject({ type: 'run-error', code: 'USAGE_CONTEXT_EXCEEDED' });
+        expect(JSON.stringify(last)).not.toContain('sk-secret');
+    });
+
+    it('keeps AGENT_RUN_FAILED for a failure that says nothing about itself', async () => {
+        const failing = { id: 'fake', name: 'Fake', async chat() { throw new Error('boom'); } } as unknown as AparteAIProvider;
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(failing)(post(firstBody())));
+        errorSpy.mockRestore();
+        expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
+    });
+
     it('stops the run when the client disconnects', async () => {
         const { provider } = scriptedProvider([{ type: 'hang' }]);
         const client = new AbortController();

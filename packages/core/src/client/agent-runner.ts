@@ -74,7 +74,14 @@ export function createAgentStreamRunner(options: AgentStreamRunnerOptions): Apar
         let ended = false;
         for await (const line of readNdjson<WireLine>(response.body, opts.signal)) {
             if (line.type === 'run-error') {
-                throw new AparteError(line.message || 'The agent run failed.', AparteErrorCode.PROVIDER_ERROR, line.code ? { code: line.code } : undefined);
+                // A code of ours is the error's own code, because the client acts on it: an
+                // overflow is compacted and sent again, and the gauge turns danger. Anything
+                // else (the handler's AGENT_RUN_FAILED) stays a provider error, the raw value
+                // kept in `data`.
+                const known = (Object.values(AparteErrorCode) as string[]).includes(line.code ?? '')
+                    ? line.code as AparteErrorCode
+                    : undefined;
+                throw new AparteError(line.message || 'The agent run failed.', known ?? AparteErrorCode.PROVIDER_ERROR, line.code ? { code: line.code } : undefined);
             }
             if (line.type === 'run-done' || line.type === 'run-suspended') {
                 usage = line.usage;
