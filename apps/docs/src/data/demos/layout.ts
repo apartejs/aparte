@@ -164,9 +164,6 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
 </aparte-launcher>
 
 <script>
-  // A help chat is read, not quoted: no copy button under the answers.
-  window.aparte.aparteGlobalConfig.setBubbleActions({ copy: false });
-
   // The chat inside is an ordinary <aparte-chat>: here a script answers it; in a page, AparteClient.
   const chat = document.getElementById('help');
   let n = 0;
@@ -190,6 +187,14 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
       <aparte-chat-bubble message-id="u1" data-role="user" content="Can I change my delivery address?"></aparte-chat-bubble>
       <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes, until the parcel ships. Which address should it go to?"></aparte-chat-bubble>
     </aparte-chat-viewport>
+    <aparte-composer placeholder="Type the new address…">
+      <div class="aparte-composer-shell">
+        <div class="aparte-composer-row">
+          <aparte-composer-input></aparte-composer-input>
+          <aparte-composer-send></aparte-composer-send>
+        </div>
+      </div>
+    </aparte-composer>
   </aparte-chat>
 </aparte-launcher>`,
     },
