@@ -3,6 +3,7 @@ import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { acceptsFile } from './accepts-file.js';
 
 /**
  * Contenteditable text input primitive.
@@ -363,12 +364,13 @@ export class AparteComposerInput extends HTMLElement {
         // Image paste → push to root attachments, where attachments are on: the same signal
         // drag and drop answers to, an `<aparte-composer-add-attachment>` in the composer.
         // Without it a pasted screenshot became an attachment on a chat that offered none —
-        // one the app had not said it could send.
+        // one the app had not said it could send. Its `accept` list holds here too.
         const root = this._getRoot();
-        const imageFile = root?.querySelector('aparte-composer-add-attachment')
+        const picker = root?.querySelector('aparte-composer-add-attachment');
+        const imageFile = picker
             ? Array.from(cd.items).find(i => i.type.startsWith('image/'))?.getAsFile()
             : undefined;
-        if (imageFile) {
+        if (imageFile && acceptsFile(picker?.getAttribute('accept'), imageFile)) {
             root?.addAttachments([imageFile]);
             return;
         }

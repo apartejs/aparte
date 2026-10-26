@@ -131,6 +131,28 @@ const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
 const only = process.env.E2E_ONLY?.split(',').map((s) => s.trim()).filter(Boolean) as AppKey[] | undefined;
 const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.includes(k));
 
+/**
+ * The Agent Builder article's demo: an OpenAI Agents SDK agent served over AG-UI by
+ * `apps/examples/agents-sdk`, page and agent in one Vite process, on the SDK's scripted
+ * model — no key. Not one of the framework apps, so it runs only `agents-sdk.spec.ts`, in
+ * Chromium; `E2E_ONLY=agents-sdk` picks it alone. The words come 120 ms apart so Stop
+ * lands mid-reply.
+ */
+const AGENTS_SDK_PORT = 5308;
+const runAgentsSdk = !only || (only as string[]).includes('agents-sdk');
+const AGENTS_SDK_SERVER = {
+    command: `node node_modules/vite/bin/vite.js --port ${AGENTS_SDK_PORT} --strictPort`,
+    url: `http://localhost:${AGENTS_SDK_PORT}`,
+    cwd: resolve(rootDir, 'apps/examples/agents-sdk'),
+    // The scripted model, whatever the shell exports: a real key would bill and answer
+    // differently, and MODEL_BASE_URL without MODEL makes the server throw at load.
+    env: { DEMO_DELAY_MS: '120', OPENAI_API_KEY: '', MODEL_BASE_URL: '', MODEL: '' },
+    reuseExistingServer: reuseServers,
+    timeout: 120_000,
+    stdout: 'pipe' as const,
+    stderr: 'pipe' as const,
+};
+
 const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /vanilla-dist\.spec\.ts/;
@@ -226,6 +248,11 @@ const THEMING = /theming\.spec\.ts/;
 // real engine can produce. Anchored on the separator so it does not also match
 // `bubble-layout.spec.ts`.
 const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
+// The launcher: a chat floating in a corner of the window, a card that becomes a sheet on
+// a phone. `vanilla` only, for SHELL_LAYOUT's reason — it is the app with `?layout=launcher` —
+// and because what can be wrong is geometry (fixed in a corner, the sheet filling the window)
+// and the focus moving in and out, neither of which jsdom has.
+const LAUNCHER = /launcher\.spec\.ts/;
 // The transcript as a keyboard surface. `vanilla` only, and for the same reason
 // THEMING is: it is core's own DOM and stylesheet, identical under every wrapper —
 // but vanilla is in WEBKIT_APPS, and WebKit is the entire point here. Chromium and
@@ -268,7 +295,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
@@ -351,7 +378,7 @@ export default defineConfig({
 
     // Boot only the selected apps' servers.
     // The sites, and the agent server the `?agent` spec talks to (one for all of them).
-    webServer: [...selected.map((k) => APPS[k].server), AGENT_SERVER],
+    webServer: [...selected.map((k) => APPS[k].server), AGENT_SERVER, ...(runAgentsSdk ? [AGENTS_SDK_SERVER] : [])],
 
     // One project per app; the five framework apps share the smoke suite,
     // vanilla-dist runs its human-in-the-loop suite.
@@ -384,5 +411,10 @@ export default defineConfig({
             testMatch: firefoxSuiteFor(k),
             expect: { timeout: 20_000 },
         })),
+        ...(runAgentsSdk ? [{
+            name: 'agents-sdk',
+            use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${AGENTS_SDK_PORT}` },
+            testMatch: /agents-sdk\.spec\.ts/,
+        }] : []),
     ],
 });

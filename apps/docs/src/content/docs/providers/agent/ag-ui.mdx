@@ -38,9 +38,9 @@ the approval panel work as they do with aparté's own loop.
 | `TOOL_CALL_START`, `TOOL_CALL_ARGS` or `TOOL_CALL_CHUNK`, `TOOL_CALL_END` | a [tool row](/components/tool/), drawn with its whole arguments once the call ends |
 | `TOOL_CALL_RESULT` | the row's result |
 | `RUN_FINISHED` | the end of the reply, with its usage — or, with an interrupt, a decision to make or a tool the page runs |
-| `RUN_ERROR` | the reply's error, with the agent's message, below what the stream drew |
+| `RUN_ERROR` | the [error card's](/components/error/#what-the-card-says) sentence, below what the stream drew; the agent's message goes to the console and stays on the segment |
 | `STATE_SNAPSHOT`, `STATE_DELTA` | nothing drawn: the agent's state, kept for the thread and sent back as the next run's `state` |
-| an HTTP error | the reply's error, with the start of the response body — keep secrets out of it |
+| an HTTP error | the error card's sentence; the start of the response body goes to the console and stays on the segment, stored with the conversation — keep secrets out of it |
 
 Each model step of the run is a turn of its own in the reply, and the reply reports the usage of
 its last step, as a run in the page does: the size of what the model last saw, which is what the

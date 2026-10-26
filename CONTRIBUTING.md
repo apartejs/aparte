@@ -27,8 +27,9 @@ covers how work lands.
 
 Four areas where a first pull request is safe for you and for the core:
 
-- **A locale** — a new language on the model of `packages/locales/fr` (one object, every
-  key typed; the test tells you which key you missed).
+- **A locale** — a new language in `packages/locales/all/src`, one file per tag on the model
+  of `fr.ts` (one object, every key typed), plus its entry in `package.json` and `vite.config.ts`;
+  the package's tests and `check:locale-keys` tell you which key you missed.
 - **An OpenAI-compatible preset** — a vendor's id, base URL and branding in
   `packages/providers/ai/openai-compat/src/presets.ts`.
 - **A docs page for a segment or a recipe** — the pages under `apps/docs/src/content/docs/`
@@ -223,6 +224,11 @@ A `note:` line in their output means a package was not measured: the snapshot is
   minor earlier.
 
 ## Releasing
+
+A package that leaves the repository gets `npm deprecate` on its published versions once the
+release that removes it is out, with the replacement in the message — a registry write from an
+account with publish rights, which nothing in the repo does for you. (0.27.0:
+`npm deprecate @aparte/locale-fr "Removed in 0.27.0: import { fr } from '@aparte/locales/fr'."`)
 
 Every `@aparte/*` package moves **together, at one version** (`fixed` in
 `.changeset/config.json`). Two consequences worth knowing before you write a changeset: the

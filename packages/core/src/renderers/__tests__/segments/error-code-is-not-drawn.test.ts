@@ -38,7 +38,7 @@ describe('an error code', () => {
         let seen: unknown;
         aparteGlobalConfig.setErrorRenderer((ctx) => { seen = ctx; return '<div class="mine"></div>'; });
         draw({ id: 'e2', type: 'error', content: 'Boom.', code: 'UNKNOWN_ERROR' } as AparteErrorSegment);
-        expect(seen).toEqual({ message: 'Boom.', code: 'UNKNOWN_ERROR' });
+        expect(seen).toEqual({ message: 'Boom.', sentence: 'The assistant couldn’t answer this request.', code: 'UNKNOWN_ERROR' });
     });
 
     it('the turn limit carries its code, not as details', () => {

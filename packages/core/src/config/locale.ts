@@ -19,7 +19,7 @@
  * sandbox lines, the compaction summary's title, the approval mode picker's label and the
  * model selector's placeholder, all drawn by a plugin. They belong in this bag anyway: the
  * locale is one flat object every package shares, so a translator fills one record and
- * `@aparte/locale-fr` needs no companion per plugin. They are the
+ * `@aparte/locales` needs no companion per plugin. They are the
  * exception rather than the pattern, though, and a closed one: a plugin of your own
  * reads its strings off `getLocale()` and defaults them at the call site (the
  * localization guide shows it), and `check:locale-keys` holds those eleven in
@@ -45,6 +45,24 @@ export type AparteLocale = {
     /** The quiet note under a reply the model stopped at its length limit, when the provider said so (default: "Cut off at the model's length limit.") */
     responseCutOff?: string;
     error: string;
+    /**
+     * What a person reads in place of an error's own message, chosen by its code; the
+     * message itself goes to the console. NET_OFFLINE and NET_ERROR (default: "The
+     * assistant can’t be reached right now. Try again in a moment.").
+     */
+    errorUnreachable?: string;
+    /** NET_TIMEOUT (default: "The answer took too long. Try again in a moment."). */
+    errorTimeout?: string;
+    /** CONFIG_INVALID_KEY, a 401 or a 403 — a key, or an app's own endpoint refusing the session (default: "The assistant isn’t allowed to answer right now."). */
+    errorRefused?: string;
+    /** USAGE_RATE_LIMIT, a 429 (default: "Too many requests right now. Try again in a moment."). */
+    errorRateLimited?: string;
+    /** USAGE_CONTEXT_EXCEEDED, once the conversation no longer fits the model (default: "This conversation is too long for the model. Start a new one."). */
+    errorTooLong?: string;
+    /** PROVIDER_ERROR and PROVIDER_UNAVAILABLE, a failing or busy provider (default: "The assistant couldn’t answer. Try again in a moment."). */
+    errorFailed?: string;
+    /** A request refused as malformed, a policy refusal, a provider set up so it cannot answer, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
+    errorNoAnswer?: string;
     running: string; // Terminal running state
 
     // --- Terminal ---
@@ -139,6 +157,10 @@ export type AparteLocale = {
     sidebarLabel?: string;
     /** Accessible name of the seam between a split's two panes (default: "Resize the panes") */
     splitHandleLabel?: string;
+    /** Accessible name of `<aparte-launcher>`'s button while the chat is closed, when it shows no `label` (default: "Open the chat") */
+    launcherOpen?: string;
+    /** Accessible name of `<aparte-launcher>`'s button while the chat is open (default: "Close the chat") */
+    launcherClose?: string;
     /**
      * Accessible name of the transcript itself (default: "Transcript").
      *
@@ -611,6 +633,13 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     typing: "Typing",
     responseCutOff: "Cut off at the model's length limit.",
     error: "Error",
+    errorUnreachable: "The assistant can’t be reached right now. Try again in a moment.",
+    errorTimeout: "The answer took too long. Try again in a moment.",
+    errorRefused: "The assistant isn’t allowed to answer right now.",
+    errorRateLimited: "Too many requests right now. Try again in a moment.",
+    errorTooLong: "This conversation is too long for the model. Start a new one.",
+    errorFailed: "The assistant couldn’t answer. Try again in a moment.",
+    errorNoAnswer: "The assistant couldn’t answer this request.",
     running: "Running...",
     run: "Run",
     file: "File",
@@ -656,5 +685,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Resize the panes",
+    launcherOpen: "Open the chat",
+    launcherClose: "Close the chat",
     transcript: "Transcript"
 };

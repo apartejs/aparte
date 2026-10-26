@@ -62,7 +62,11 @@ async function main(): Promise<void> {
                 status.removeAttribute('visible');
             }
         });
-        aparteGlobalConfig.registerToolSummary(tool.name, (segment) => summaryOf(tool.name, segment.toolCall.input));
+        // An agent's workshop: the reader follows the work, so each row says Running and Done.
+        aparteGlobalConfig.registerToolDisplay(tool.name, {
+            summary: (segment) => summaryOf(tool.name, segment.toolCall.input),
+            quiet: false,
+        });
     }
 
     // Which of these tools read, write or execute: the mode decides which of them ask first,

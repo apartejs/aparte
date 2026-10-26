@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"data\":[{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain_core\",\"messages\",\"HumanMessage\"],\"kwargs\":{\"content\":\"Hi, I am Paul. Do you have gluten-free bread?\",\"additional_kwargs\":{},\"response_metadata\":{}}},{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain_core\",\"messages\",\"AIMessage\"],\"kwargs\":{\"content\":\"Hello Paul! Yes, we do offer a selection of gluten-free bread. Would you like to see our current options?\",\"tool_calls\":[],\"invalid_tool_calls\":[],\"additional_kwargs\":{},\"response_metadata\":{}}}]}"
+}

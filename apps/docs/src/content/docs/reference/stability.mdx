@@ -35,6 +35,9 @@ the release that added it. A frozen name leaves in two steps:
    replacement.
 2. **A removal release**, at least one minor later.
 
+One name has left without a notice release: 0.27.0 removed the package `@aparte/locale-fr` and its
+`fr` in one step. The same `fr` is now `@aparte/locales/fr`; the [changelog](/changelog/) says so.
+
 Adding is always allowed: a new optional attribute, a new optional field on an event's `detail`, a
 new export. What is not frozen can change in a minor, and the changelog says so: read it before
 you implement an exported type yourself, or build on a class name.

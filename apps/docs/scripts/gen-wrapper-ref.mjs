@@ -171,7 +171,7 @@ the same calls at module scope, before the app mounts.
 \`\`\`ts
 import { aparteGlobalConfig } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
-import { fr } from '@aparte/locale-fr';
+import { fr } from '@aparte/locales/fr';
 
 aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 aparteGlobalConfig.setModelConfig({ defaultModel: 'openai/gpt-4o-mini' });

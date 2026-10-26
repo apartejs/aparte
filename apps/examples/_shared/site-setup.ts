@@ -22,6 +22,7 @@ import type { AparteToolCallSegment } from '@aparte/core';
 import { arrowUpIcon, plusIcon, searchIcon, globeIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
+import { createN8nRunner } from '@aparte/runner-n8n';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
@@ -160,6 +161,10 @@ async function run(): Promise<SiteSetup> {
     //    RUN_FINISHED per model step — read through the runner's `relaxedRunFraming`.
     const agUiRelaxed = new URLSearchParams(location.search).get('agui-framing') === 'relaxed';
     const agUiRunner = agUiUrl ? createAgUiRunner({ endpoint: agUiUrl, relaxedRunFraming: agUiRelaxed }) : undefined;
+    //    `?n8n=<url>`: an n8n chat workflow answers the turn (the same file serves a
+    //    scripted Chat Trigger), and the page draws it through `@aparte/runner-n8n`.
+    const n8nUrl = new URLSearchParams(location.search).get('n8n');
+    const n8nRunner = n8nUrl ? createN8nRunner({ webhookUrl: n8nUrl }) : undefined;
     if (scenarioMode) {
         aparteGlobalConfig.registerAIProvider(createScenarioProvider({
             scenarios: {
@@ -188,8 +193,9 @@ async function run(): Promise<SiteSetup> {
         // and auto-edit all put it to the user (its own flag decides), and `auto` lets it
         // through, because auto is auto.
         // Under `?agent` the weather tool is the SERVER's: a page tool of the same name
-        // would be sent as a browser tool, and the server refuses the clash.
-        if (!agentUrl && !agUiUrl) aparteGlobalConfig.registerTool(
+        // would be sent as a browser tool, and the server refuses the clash. An n8n
+        // workflow runs its own tools and is sent none.
+        if (!agentUrl && !agUiUrl && !n8nUrl) aparteGlobalConfig.registerTool(
             {
                 name: 'get_weather',
                 description: 'Current weather for a city.',
@@ -223,8 +229,9 @@ async function run(): Promise<SiteSetup> {
 
     // 2a'. How those calls read. A tool's NAME is the app's wire format, and core shows
     //      it until the app says how a person should read the call: a label, an icon,
-    //      and what the call targets. The rows read "Write file CHANGELOG.md" rather than
-    //      `write_file`, and the approval question asks about the same line.
+    //      and what the call targets. A row reads "Writing a file… CHANGELOG.md", then
+    //      "Wrote a file CHANGELOG.md", rather than `write_file`, and the approval question
+    //      asks about the plain line: "Allow Write file CHANGELOG.md?".
     const arg = (segment: AparteToolCallSegment, ...keys: string[]): string => {
         for (const key of keys) {
             const value = segment.toolCall.input[key];
@@ -232,11 +239,16 @@ async function run(): Promise<SiteSetup> {
         }
         return '';
     };
-    aparteGlobalConfig.registerToolDisplay('get_weather', { label: 'Weather', icon: 'globe', summary: (s) => arg(s, 'city') });
-    aparteGlobalConfig.registerToolDisplay('search_docs', { label: 'Search docs', icon: 'search', summary: (s) => arg(s, 'query') });
-    aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read file', icon: 'file', summary: (s) => arg(s, 'path') });
-    aparteGlobalConfig.registerToolDisplay('write_file', { label: 'Write file', icon: 'edit', summary: (s) => arg(s, 'path') });
-    aparteGlobalConfig.registerToolDisplay('run_command', { label: 'Run command', icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
+    // A quiet row says nothing once a call is done, so the label's tense does: running,
+    // done, and the plain name for the rest — a wait for approval ("Allow Weather Lille?"),
+    // a refusal, a failure.
+    const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment): string =>
+        segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
+    aparteGlobalConfig.registerToolDisplay('get_weather', { label: tense('Checking the weather…', 'Checked the weather', 'Weather'), icon: 'globe', summary: (s) => arg(s, 'city') });
+    aparteGlobalConfig.registerToolDisplay('search_docs', { label: tense('Searching the docs…', 'Searched the docs', 'Search docs'), icon: 'search', summary: (s) => arg(s, 'query') });
+    aparteGlobalConfig.registerToolDisplay('read_file', { label: tense('Reading a file…', 'Read a file', 'Read file'), icon: 'file', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('write_file', { label: tense('Writing a file…', 'Wrote a file', 'Write file'), icon: 'edit', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('run_command', { label: tense('Running a command…', 'Ran a command', 'Run command'), icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model
@@ -272,7 +284,9 @@ async function run(): Promise<SiteSetup> {
     //    below to re-send and rewrite; the image tile needs the lightbox at the bottom
     //    of this file. What it does not handle (the ⓘ details popover, running a
     //    terminal command) stays out of the UI rather than showing a dead button.
-    aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+    //    Not on an n8n workflow: n8n keeps every message it was sent, so a retried or
+    //    edited turn would reach an agent that remembers the first one.
+    aparteGlobalConfig.setBubbleActions({ retry: !n8nUrl, edit: !n8nUrl });
     aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
     // 5. Drive the turn with @aparte/engine's headless loop instead of core's inline
@@ -281,7 +295,7 @@ async function run(): Promise<SiteSetup> {
     //    asserts. Wired here because a capability with no in-repo consumer is a
     //    contract maintained for nobody (ratified decision #7).
     const client = new AparteClient({
-        streamRunner: agUiRunner ?? (agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent),
+        streamRunner: agUiRunner ?? n8nRunner ?? (agentUrl ? createAgentStreamRunner({ endpoint: agentUrl }) : runStreamAgent),
         // The endpoint + token the settings hold, for ANY provider. The record form
         // (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint, and it
         // is honoured on both the chat and the /models path.

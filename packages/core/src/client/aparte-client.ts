@@ -21,6 +21,7 @@ import { eventOrigin, rootOf } from '../utils/event-target.js';
 import { describeToolInput } from '../utils/tool-input.js';
 import { toolNameOf, toolTargetOf } from '../utils/tool-line.js';
 import { requestUserInput } from '../elicitation/index.js';
+import { errorSentence } from '../utils/error-sentence.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -258,6 +259,13 @@ export interface AparteClientOptions {
  */
 const warnedUninlinedFiles = new Set<string>();
 
+/**
+ * The instance configs a started client answers for, with how many clients do. A client on
+ * the global config yields a chat whose boundary holds one of these: that chat is the other
+ * client's, even though a client on the global config otherwise answers everything.
+ */
+const claimedConfigs = new Map<AparteConfig, number>();
+
 /** What a chat looks like from outside: the shell, the viewport, or a host that says so. */
 const CHAT_SELECTOR = 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]';
 
@@ -367,9 +375,17 @@ export class AparteClient {
          * not expose it.
          *
          * A client on the GLOBAL config is deliberately not narrowed: it answers
-         * everything, which is every single-chat app.
+         * everything, which is every single-chat app — except a chat whose boundary
+         * holds a config another started client answers for (`claimedConfigs`). A widget
+         * mounted with its own config beside a page's chat would otherwise get two
+         * answers, and the page's model would read the visitor's message.
          */
-        if (this._config === aparteGlobalConfig) return true;
+        if (this._config === aparteGlobalConfig) {
+            if (claimedConfigs.size === 0) return true;
+            const claimed = this._resolveTarget(detail?.targetId, e);
+            const owner = claimed ? resolveConfig(claimed) : aparteGlobalConfig;
+            return owner === aparteGlobalConfig || !claimedConfigs.has(owner);
+        }
         const target = this._resolveTarget(detail?.targetId, e);
         if (!target) return true;
         const owner = resolveConfig(target);
@@ -390,6 +406,8 @@ export class AparteClient {
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
     private readonly _config: AparteConfig;
+    /** Whether this client, started on an instance config, counts in `claimedConfigs`. */
+    private _claims = false;
 
     /**
      * A `keyResolver` becomes a key source on the client's config at once, before `start()`,
@@ -491,6 +509,10 @@ export class AparteClient {
         // A client that was stopped and started again signs requests with its own
         // key again: `stop()` takes the resolver off the config.
         this._registerKeyResolver();
+        if (this._config !== aparteGlobalConfig && !this._claims) {
+            this._claims = true;
+            claimedConfigs.set(this._config, (claimedConfigs.get(this._config) ?? 0) + 1);
+        }
         if (!this._boundHandler) {
             this._setupListeners();
         }
@@ -551,6 +573,12 @@ export class AparteClient {
         // Before the early return: a client that was never `start()`ed can still
         // have a stream, because `_handleSend` can be invoked directly.
         this.abort();
+        if (this._claims) {
+            this._claims = false;
+            const left = (claimedConfigs.get(this._config) ?? 1) - 1;
+            if (left > 0) claimedConfigs.set(this._config, left);
+            else claimedConfigs.delete(this._config);
+        }
         // Before the early return as well: the key source is put on the config in
         // the CONSTRUCTOR, so a client that never started still holds one, and a
         // resolver left behind keeps answering for whatever mounts next.
@@ -727,6 +755,8 @@ export class AparteClient {
              * be resent, so it neither waits for a compactor nor retries an overflow.
              */
             rebuild?: () => Promise<AparteChatMessage[]>;
+            /** The files picked for this message, for a runner that uploads them itself. */
+            files?: readonly File[];
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
@@ -830,7 +860,7 @@ export class AparteClient {
         const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
-                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files);
             // A server loop paused on calls only the page can answer: ask here — the
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
@@ -1520,10 +1550,10 @@ export class AparteClient {
         // Read once: the files are not read again when a compaction asks for the request to
         // be built again.
         let fileParts: AparteContentPart[] | undefined;
+        const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
         try {
             authConfig = providerId ? await this._resolveAuth(providerId) : undefined;
 
-            const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
             fileParts = contentParts.length > 0 ? contentParts : undefined;
@@ -1537,7 +1567,10 @@ export class AparteClient {
             targetElement, messageId, provider,
             messages, modelId || config.defaultModel || '',
             authConfig,
-            { rebuild: async () => this._buildMessages(content, targetElement, fileParts) },
+            {
+                rebuild: async () => this._buildMessages(content, targetElement, fileParts),
+                ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
+            },
         );
     }
 
@@ -1689,6 +1722,7 @@ export class AparteClient {
         streamController: AbortController = new AbortController(),
         // A paused server run's answers, when this call resumes it (see `_streamTurn`).
         deferral?: StreamDeferral,
+        files?: readonly File[],
     ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1728,7 +1762,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files);
     }
 
     /**
@@ -1749,6 +1783,7 @@ export class AparteClient {
         authConfig: string | Record<string, string> | undefined,
         streamController: AbortController,
         deferral?: StreamDeferral,
+        files?: readonly File[],
     ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
@@ -1772,8 +1807,12 @@ export class AparteClient {
         // A server loop that paused says so on its last event; the turn picks it up.
         let suspended: AparteRunResult['suspended'];
         let finishReason: AparteFinishReason | undefined;
+        // The one-line text of the last handler that crashed: the run ends on that same
+        // error, and it is the tool's, not the model's or the network's (below).
+        let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            if (event.type === 'tool-failed') toolCrash = event.error;
             if (event.type === 'run-done') finishReason = event.finishReason;
             if (event.type === 'run-suspended') {
                 const ticket = (event as { ticket?: unknown }).ticket;
@@ -1834,10 +1873,24 @@ export class AparteClient {
         // `deny` refuses with the policy's own reason, never "the user rejected this".
         const approvalResolver = this._approvalResolverFor(targetElement);
 
+        /*
+         * A handler's crash ends the run on the handler's own error. Classified like a
+         * transport's, a weather tool's `TypeError: Failed to fetch` read "the assistant
+         * can't be reached" and an SDK's `{ status: 401 }` blamed the model provider's
+         * key — while the assistant had answered, and the row above said the tool failed.
+         * It is labelled for what it is: a failure the reader cannot fix by retrying the
+         * connection, its message kept for the console.
+         */
+        const asToolCrash = (error: unknown): unknown => {
+            if (toolCrash === undefined || error instanceof AparteError) return error;
+            const text = error instanceof Error ? (error.message || error.name) : typeof error === 'string' ? error : String(error);
+            return text === toolCrash ? new AparteError(text, AparteErrorCode.UNKNOWN_ERROR, undefined, error) : error;
+        };
         const usage = await streamRunner({
             messageId,
             ...(provider.id ? { providerId: provider.id } : {}),
             ...(deferral ? { deferral } : {}),
+            ...(files && files.length > 0 ? { files } : {}),
             baseRequest,
             transportCall,
             toolLookup,
@@ -1854,7 +1907,7 @@ export class AparteClient {
             // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
-        });
+        }).catch((error: unknown) => { throw asToolCrash(error); });
         return {
             usage: usage ?? undefined,
             ...(finishReason ? { finishReason } : {}),
@@ -2184,6 +2237,13 @@ export class AparteClient {
             content: error.message,
             code: error.code,
         };
+        // The person reads a sentence the renderer picks by the code; what a developer
+        // needs to fix is this message, so it goes to the console, once, when it happens.
+        // An error that keeps its own words (the turn limit, a setup error) is on screen
+        // already, and a setup error has its own warning.
+        if (errorSentence(error.code, (key) => this._config.t(key)) !== undefined) {
+            console.warn(`[aparte] A turn failed (${error.code}): ${error.message}`);
+        }
 
         if (target.updateMessage) {
             /*

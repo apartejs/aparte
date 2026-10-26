@@ -150,7 +150,7 @@ function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig
  * @element aparte-elicitation
  *
  * @cssprop [--aparte-elic-gap=var(--aparte-space-3)] - Vertical gap between the panel's rows (message, body, tabs).
- * @cssprop [--aparte-elic-padding=var(--aparte-space-3) var(--aparte-space-2)] - Padding inside the panel.
+ * @cssprop [--aparte-elic-padding=max(var(--aparte-space-3), calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset))) max(var(--aparte-space-2), calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset)))] - Padding inside the panel; never less than the focus ring's reach, so a focused option's ring is not cut.
  * @cssprop [--aparte-elic-max-height=50vh] - Cap on the panel's height; its body scrolls, the panel does not.
  * @cssprop [--aparte-elic-field-gap=var(--aparte-space-4)] - Space and separator padding between two fields of an object schema.
  * @cssprop [--aparte-elic-message-size=var(--aparte-font-size-base)] - Font size of the question text at the top of the panel.
@@ -170,7 +170,7 @@ function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig
  * @cssprop [--aparte-elic-step-gap=var(--aparte-space-7)] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
  * @cssprop [--aparte-elic-dismiss-room=104px] - Space the tab rail and the question message keep clear for the corner: the hide button and, on a question, Skip. Widen it for a locale whose "Skip" word is wider.
- * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
+ * @cssprop [--aparte-approval-gap=calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset) + var(--aparte-space-1))] - Gap between the stacked options of an approval request; by default wider than the focus ring's reach.
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
  * @cssprop [--aparte-approval-option-radius=8px] - Corner radius of an approval option button.

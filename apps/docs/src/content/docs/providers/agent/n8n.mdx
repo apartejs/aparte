@@ -1,0 +1,205 @@
+---
+title: Put a chat on an n8n workflow
+description: Connect an n8n chat workflow — a Chat Trigger and its AI Agent — and aparté draws the conversation on your page, streamed or not, while the agent, its tools and its memory run in n8n.
+sidebar:
+  order: 3
+  label: n8n
+---
+
+import Cards from '../../../../components/content/Cards.astro';
+import Code from '../../../../components/content/Code.astro';
+import { CORE_VERSION } from '../../../../data/core-version';
+
+## Connect the workflow
+
+```bash
+npm install @aparte/runner-n8n @aparte/core
+```
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner } from '@aparte/runner-n8n';
+
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+}).start();
+```
+
+[n8n](https://n8n.io) runs the workflow: the Chat Trigger receives the message, the AI Agent
+answers with its model, its tools and its memory. aparté takes the place of n8n's chat widget on
+your page — the page sends what the widget sends and draws the answer, so the page registers no
+provider and picks no model. The runner is the client's `streamRunner`: the chat, Stop and the
+Markdown plugins work as they do with aparté's own loop. What depends on the history the page
+keeps — retry, edit, branches, compaction — does not reach n8n's memory; see
+[what is not supported](#what-is-not-supported).
+
+On a website, the button in the corner that n8n's widget draws is
+[`<aparte-launcher>`](/components/launcher/) around the chat, in aparté's look or your own theme:
+
+```html
+<aparte-launcher label="Help">
+  <aparte-chat></aparte-chat>
+</aparte-launcher>
+```
+
+## Set up the workflow in n8n
+
+In the **Chat Trigger** node:
+
+1. Turn on **Make Chat Publicly Available**. The production URL it shows, the one that ends in
+   `/chat`, is the `webhookUrl`.
+2. Put your site's origin in **Allowed Origins (CORS)**, or `*` while you try it.
+3. Set **Response Mode** to **Streaming** to see the answer arrive as it is written — the AI Agent
+   streams by default, under *Options → Enable Streaming*. Or set it to **When Last Node Finishes**
+   for a whole answer.
+4. **Publish** the workflow (on n8n 1.x: activate it): a production URL answers only a published
+   workflow.
+
+Attach a memory to the agent — *Simple Memory*, or any other — and n8n keeps the conversation per
+session, keyed by the `sessionId` the page sends. To read a session back after a reload, set **Load
+Previous Session** to **From Memory** and connect the memory to the Chat Trigger as well as to the
+agent: with the memory on the agent only, n8n answers that request with an error 500.
+
+## From one script tag
+
+<Code lang="html" code={`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/dist/index.css">
+<aparte-chat style="height: 32rem"></aparte-chat>
+<script type="module">
+  import { AparteClient }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/+esm';
+  import { setupMarkedProvider }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/plugin-marked@${CORE_VERSION}/+esm';
+  import { createN8nRunner }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/runner-n8n@${CORE_VERSION}/+esm';
+
+  setupMarkedProvider(); // an agent answers in Markdown
+  new AparteClient({
+    streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+  }).start();
+</script>`} />
+
+The same page as n8n's widget embed, with no build step: jsDelivr serves each package as one
+module. Give every `@aparte/*` URL the same version, so the page loads a single copy of core.
+
+## Sessions and memory
+
+The page sends only the person's new message: the conversation lives in n8n, in the memory
+attached to the agent. So a session is a conversation. By default the runner starts a new session
+for each new conversation — a message with no reply before it — and continues it after, so two
+chats never share a memory. Give `sessionId` when your app keeps a conversation across reloads, and
+read it back with `loadN8nHistory`:
+
+```ts
+import { uuid } from '@aparte/core';
+import { createN8nRunner, loadN8nHistory } from '@aparte/runner-n8n';
+
+const webhookUrl = 'https://your-n8n.example.com/webhook/<id>/chat';
+
+// One conversation per visitor, kept across reloads.
+const sessionId = localStorage.getItem('n8n-session') ?? uuid();
+localStorage.setItem('n8n-session', sessionId);
+
+const runner = createN8nRunner({
+  webhookUrl,
+  sessionId: () => sessionId,   // read on every turn
+  metadata: { page: location.pathname },
+});
+
+// What the person and the agent said before, from n8n's memory.
+const earlier = await loadN8nHistory({ webhookUrl, sessionId });
+```
+
+`loadN8nHistory` returns messages a viewport takes (`setMessages`): what the person wrote and what
+the agent answered. A tool's call and its result, which n8n's memory stores beside them, are left
+out, as the live stream leaves them out. With a conversation manager, return its `activeId` from
+the `sessionId` function, so each conversation runs in its own session.
+
+A function is read on every turn, so it can follow the conversation your app has open. `metadata`
+travels with every message; the workflow reads it from the Chat Trigger's output. The transcript on
+the page is aparté's: [Conversation persistence](/guides/conversation-persistence/) keeps it, while
+n8n keeps what the agent remembers.
+
+## What n8n's answer becomes
+
+| n8n sends | The chat shows, and the console says |
+| --- | --- |
+| the streamed frames of a node (`begin`, `item`, `end`) | the reply's text, as it arrives |
+| the frames of a second node that streams | a block of its own, below the first — never interleaved |
+| a whole answer (`{ output }`, `text` or `message`) | the reply's text, at once |
+| a whole answer with none of those fields | the [error card's](/components/error/#what-the-card-says) sentence; the console names the fields it got and how to end the workflow — never the JSON |
+| an `error` frame | the error card's sentence, below what was drawn; the console has the workflow's message |
+| `keepalive` frames, every 30 seconds while a slow node runs | nothing: the stream goes on |
+| nothing, from a trigger that streams | the error card's sentence; the console says to turn on streaming in the agent |
+| an HTTP error, such as an inactive workflow's 404 | the error card's sentence; the console has n8n's message and hint |
+| a 428 from a workflow that waits for credentials | the error card's sentence; the console names the credentials to connect |
+| a proxy's page instead of the answer (a 502, a 504) | the timeout sentence; the console says the workflow may still be running — never the page's markup |
+
+The runner's message stays on the error segment's `content`, and reaches
+[`setErrorRenderer`](/components/error/#customize) as `message` for an app that wants it on screen.
+
+The answer is read line by line as it streams, whatever pieces the network cuts it into. A frame
+type the runner does not know is skipped, and `onWarning` is told, `console.warn` by default; so
+is a stream cut in the middle of a frame, whose text before the cut is kept.
+
+## Files
+
+The files the person attaches go to the workflow as files, in a form, the way the Chat Trigger
+takes uploads — PDFs and spreadsheets included: the client hands the runner the files as they were
+picked. Give the client `rawFileInject: 'none'`, so text files are not also inlined into the
+message. Turn on **Allow File Uploads** in the trigger's options, and list the types it accepts; an
+AI Agent reads text files and passes images on to its model. See [Attachments](/guides/attachments/).
+In a form, n8n hands the workflow `metadata` as text, as it does from its own widget:
+`JSON.parse($json.metadata)` reads it.
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner } from '@aparte/runner-n8n';
+
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+  rawFileInject: 'none', // the files go to n8n as files, not into the message's text
+}).start();
+```
+
+## Options
+
+| Option | What it does |
+| --- | --- |
+| `webhookUrl` | the Chat Trigger's production URL, ending in `/chat`, or a Webhook node's URL; required |
+| `sessionId` | the n8n session a turn runs in: a string, or a function of the run's options; a new one per new conversation by default |
+| `metadata` | sent with every message as `metadata`: an object, or a function of the run's options |
+| `headers` | sent with every request — the trigger's Basic Auth, say; a function is called for each, for a fresh token |
+| `fetch` | the `fetch` the runner calls; the global one by default |
+| `credentials` | for a workflow on another origin that authenticates by cookie |
+| `chatSessionKey` | the body field that carries the session, `sessionId` by default, for a workflow that reads another |
+| `chatInputKey` | the body field that carries the message, `chatInput` by default, for a workflow that reads another |
+| `onWarning` | told what the runner skipped; `console.warn` by default |
+
+These are the `N8nRunnerOptions`. `loadN8nHistory` takes `N8nHistoryOptions` — the same
+`webhookUrl`, `sessionId`, `metadata`, `headers`, `fetch`, `credentials` and `chatSessionKey`, plus a
+`signal` — and `n8nHistoryToMessages` turns the stored messages into the chat's, for a history you
+fetch yourself. A Webhook node can stand in for the Chat Trigger: give its URL,
+read `chatInput` and `sessionId` from its body (or name your fields with `chatInputKey` and
+`chatSessionKey`), and answer with a streaming *Respond to Webhook* or with the agent's output.
+
+## What is not supported
+
+- The agent's tool calls are not drawn: n8n's stream carries the text of the answer only, so a
+  tool runs in n8n without a row in the chat. The answer that follows is drawn as usual.
+- A Chat Trigger whose Response Mode is *Using Response Nodes* answers over n8n's chat WebSocket,
+  which the runner does not read; the reply says so and names the two modes that work.
+- Retry, edit and branch navigation cannot rewind n8n's memory: n8n keeps every message it was sent,
+  so a retried or edited turn reaches an agent that remembers the first one. Leave them off with
+  this runner (`setBubbleActions({ retry: false, edit: false })`, their default).
+- Stop ends the drawing and the request, not the n8n execution, which runs to its end.
+- Compaction and the context gauge measure the page's history, which n8n never receives; the
+  memory node's window bounds what the agent reads.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/providers/agent/ag-ui/', title: 'AG-UI agents', line: 'An agent on its own server — Agno, LangGraph, Mastra — with its tool calls drawn.' },
+        { href: '/guides/conversation-persistence/', title: 'Conversation persistence', line: 'Keep the transcript on the page across reloads.' },
+    ]}
+/>

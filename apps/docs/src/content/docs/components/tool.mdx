@@ -15,7 +15,8 @@ import Fields from '../../../generated/api/segments/tool_call.fields.mdx';
 <Variant id="tool" />
 
 When the model calls a tool, the reply gets a `tool_call` segment and the bubble draws it as a
-quiet row: the tool's name and its status. Opening the row shows the input the model chose and
+quiet row: the tool's name, which shimmers while the call runs, and a word only when it waits for a
+person or something went wrong. Opening the row shows the input the model chose and
 the result your handler returned. The row is drawn for you; a tool registered with
 `aparteGlobalConfig.registerTool()` produces it during a turn without any code of yours.
 
@@ -25,7 +26,9 @@ the result your handler returned. The row is drawn for you; a tool registered wi
 
 <Variant id="tool-statuses" />
 
-A call is `pending` while your handler runs, `awaiting-approval` when the tool is marked
+This one is an agent's row (`quiet: false`), which names every state; the default, quiet row shows
+a word only for `awaiting-approval`, `rejected`, `aborted` and `failed`, and leaves "Running" and
+"Done" to a screen reader. A call is `pending` while your handler runs, `awaiting-approval` when the tool is marked
 `needsApproval` and a person has to decide (see [Tools and approval](/guides/tools/)), then
 `resolved`, `rejected`, `aborted` or `failed`. Only the first two are still open. A refused or stopped call also says why, in a note after
 the state word: `You said: “…”` when the person wrote something instead of choosing, `Refused by
@@ -72,14 +75,24 @@ until there is something to show. The details are in
 
 <Variant id="tool-quiet" />
 
-The default row is an agent's: a spinner and "Running", then "✓ Done". A chat for people says it
-differently, and `quiet: true` gives that line. While the call runs, the label
+The default row is a person's line. While the call runs, the label
 [shimmers](/components/shimmer/) instead of a spinner and a word. Once it is done, nothing marks
 success: the label's tense says it, so write one that reads the status ("Searching the web…",
 then "Searched the web", and a plain "Search the web" for the rest). A wait for approval, a refusal, a failure and a stop still show their
 word and their note, because the person has to know. The words a quiet row does not show are
 still read by a screen reader. The target is set in the chat's font, the chevron moves to the
 end of the line, and the row carries `data-quiet` for a stylesheet of your own.
+
+An agent's chat, where the reader follows the work, asks for the other row with `quiet: false`: a
+spinner and "Running", then "✓ Done", as in [Every status](#every-status). On `'*'` it reaches every
+tool without an entry of its own; a tool that has one says `quiet: false` there too, since an
+entry is used whole.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
+```
 
 ### Hidden calls
 

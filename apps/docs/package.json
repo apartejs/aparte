@@ -1,7 +1,7 @@
 {
     "name": "@aparte-workspace/docs",
     "type": "module",
-    "version": "0.0.43",
+    "version": "0.0.44",
     "private": true,
     "scripts": {
         "gen:css-vars": "node scripts/gen-css-vars.mjs",
@@ -22,7 +22,7 @@
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
-        "@aparte/locale-fr": "workspace:*",
+        "@aparte/locales": "workspace:*",
         "@aparte/plugin-shiki": "workspace:*",
         "@astrojs/markdown-remark": "^7.2.4",
         "@astrojs/starlight": "^0.41.9",
@@ -48,6 +48,7 @@
         "@aparte/plugin-titler": "workspace:*",
         "@aparte/privacy": "^1.1.0",
         "@aparte/provider-scenario": "workspace:*",
+        "@aparte/runner-n8n": "workspace:*",
         "@aparte/secrets": "^1.1.1",
         "@aparte/titler": "^1.2.0",
         "@aparte/titler-efigsp": "^1.2.0",

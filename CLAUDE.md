@@ -38,13 +38,14 @@ apartejs/
 ├── apps/
 │   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
 │   └── examples/             react · vue · svelte4 · svelte5 · angular · vanilla (+ vanilla-dist)
+│                             + agents-sdk (an Agents SDK agent over AG-UI, the article's demo)
 ├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent (the loop, nothing else)
-│   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
+│   ├── locales/              @aparte/locales — nine languages, one entry each (EN = core's built-in)
 │   ├── providers/            ai/: @aparte/provider-{openai-compat, ai-sdk, transformers, scenario}
-│   │                         agent/: @aparte/runner-ag-ui (AG-UI agents, TanStack AI)
+│   │                         agent/: @aparte/runner-ag-ui (AG-UI agents, TanStack AI), runner-n8n (Chat Trigger)
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
 │   │                         model-selector (light), ask-user, approval, compaction}
 │   ├── tools/                @aparte/docs-mcp — the docs as an MCP server (Node, not in the lib)
@@ -153,7 +154,7 @@ put down on purpose, so a future session does not re-derive the answer from scra
    halves in #9). The positional names went with it: no chat library exposes left/right, CSS
    itself moved to logical properties, and a name that a right-to-left locale contradicts is a
    name that will lie. Placement is now the DOM order plus `margin-inline-start: auto`.
-5. **Docs EN-first** (FR is a post-launch port). Both `locale-en`/`locale-fr` packages
+5. **Docs EN-first** (FR is a post-launch port). The locale packages (`@aparte/locales`)
    stay — that's data, not docs.
 6. **ONE agent loop — revised 2026-08-28 (D1).** This line used to keep `_streamLoop`
    inline in core beside engine's `runStreamAgent`, on the premise "parity proven by the
@@ -180,7 +181,8 @@ put down on purpose, so a future session does not re-derive the answer from scra
    surface (byte-stable prefix across turns) and a home — not a duplication count.
 8. **A visible affordance core cannot honour end-to-end is not enabled by default.** Three
    tiers decide it: (a) honoured by core alone → **on** (`copy`, the `‹1/2›` picker, the
-   waiting indicator, the stop button, the model selector); (b) honoured only by an optional
+   waiting indicator, the stop button; the model selector too once an app places it — it is a
+   plugin, not part of the default composition); (b) honoured only by an optional
    host — `AparteClient` or an app listening for the event → **off**, with one lever to turn
    it on (`setBubbleActions` for the action bar, `setHostHandlers` for everything else);
    (c) rendered only inside content the app produced (segments) → follows (b): a model

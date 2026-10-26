@@ -1,6 +1,6 @@
 ---
 title: Translate the chat
-description: Show the chat's own labels in French or in your language, switch at runtime, and set the date format and the reading direction.
+description: Show the chat's own labels in one of nine languages or in your own, switch at runtime, and set the date format and the reading direction.
 sidebar:
   order: 6
   label: Translation
@@ -14,15 +14,15 @@ The chat's own words — the composer's placeholder, the Copy and Retry buttons,
 names a screen reader hears — come from a locale. English is built in, as
 `APARTE_DEFAULT_LOCALE`, so a chat with no locale set is in English.
 
-## Switch to French
+## Switch language
 
 ```bash
-npm install @aparte/locale-fr
+npm install @aparte/locales
 ```
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
-import { fr } from '@aparte/locale-fr';
+import { fr } from '@aparte/locales/fr';
 
 aparteGlobalConfig.setLocale(fr);
 ```
@@ -31,9 +31,60 @@ The switch is live: the chats already on the page relabel at once, so it can hap
 before or after they render. A chat with a [configuration of its own](/guides/customization/#per-chat-configuration)
 has its own locale: call `setLocale(fr)` on that configuration too.
 
+`@aparte/locales` carries nine languages, each its own entry, so a page built with a bundler loads
+only the one it imports. French used to ship alone as `@aparte/locale-fr`, which 0.27.0 removes:
+the same `fr` is now `@aparte/locales/fr`.
+
+| Language | Import | `tag` |
+| --- | --- | --- |
+| French | `import { fr } from '@aparte/locales/fr'` | `fr-FR` |
+| Spanish | `import { es } from '@aparte/locales/es'` | `es` |
+| Portuguese (Brazil) | `import { ptBR } from '@aparte/locales/pt-BR'` | `pt-BR` |
+| German | `import { de } from '@aparte/locales/de'` | `de` |
+| Italian | `import { it } from '@aparte/locales/it'` | `it` |
+| Russian | `import { ru } from '@aparte/locales/ru'` | `ru` |
+| Japanese | `import { ja } from '@aparte/locales/ja'` | `ja` |
+| Korean | `import { ko } from '@aparte/locales/ko'` | `ko` |
+| Chinese (Simplified) | `import { zhCN } from '@aparte/locales/zh-CN'` | `zh-CN` |
+
+Each one translates every string core draws, keeps English's placeholders, and is written left to
+right; the package's tests check all three for every language. To follow the browser's language,
+with English when none matches:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { de, es, fr } from '@aparte/locales';
+
+const byLanguage = { de, es, fr };
+const language = navigator.language.slice(0, 2) as keyof typeof byLanguage;
+if (byLanguage[language]) aparteGlobalConfig.setLocale(byLanguage[language]);
+```
+
+To download the visitor's language alone, load it when it is needed. Write each import out in
+full: a bundler splits an import it can read, and a path built from a variable is not one.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteLocale } from '@aparte/core';
+
+const languages: Record<string, () => Promise<AparteLocale>> = {
+  fr: () => import('@aparte/locales/fr').then((m) => m.fr),
+  de: () => import('@aparte/locales/de').then((m) => m.de),
+  'pt-BR': () => import('@aparte/locales/pt-BR').then((m) => m.ptBR),
+};
+
+const load = languages[navigator.language] ?? languages[navigator.language.slice(0, 2)];
+void load?.().then((locale) => aparteGlobalConfig.setLocale(locale));
+```
+
+The chat shows English until the language lands, then switches, as on any change of locale.
+
 ## Let the person choose
 
 ```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { fr } from '@aparte/locales/fr';
+
 function setLanguage(lang: 'fr' | 'en'): void {
   if (lang === 'fr') aparteGlobalConfig.setLocale(fr);
   else aparteGlobalConfig.resetLocale();
@@ -71,7 +122,10 @@ A tool row's notes are keys too: `toolRejectedSaid`, `toolRefusedByPolicy`,
 `toolNotRunAfterRefusal`, `toolTimedOut`, `toolUnavailable`, `toolNoApprover` and `toolTurnLimit`.
 So are the reasoning block's `thought` ("Thought") and `thoughtFor` (shown with `showDuration`), and two read by plugins:
 `questionDeclined` (`@aparte/plugin-ask-user`) and `artifactNotCreated`
-(`@aparte/plugin-artifacts`). `@aparte/locale-fr` translates them all.
+(`@aparte/plugin-artifacts`). So are the sentences a failed turn reads as, one per family of error
+codes: `errorUnreachable`, `errorTimeout`, `errorRefused`, `errorRateLimited`, `errorTooLong` and
+`errorFailed` (see [the error card](/components/error/#what-the-card-says)). Every language of
+`@aparte/locales` translates them all.
 
 `tag` and `direction` are not words:
 
@@ -86,7 +140,7 @@ So are the reasoning block's `thought` ("Thought") and `thoughtFor` (shown with 
 
 ```ts
 import { aparteGlobalConfig, subscribeConfigChange } from '@aparte/core';
-import { fr } from '@aparte/locale-fr';
+import { fr } from '@aparte/locales/fr';
 
 aparteGlobalConfig.setLocale(fr);
 aparteGlobalConfig.extendLocale({ myPluginRetry: 'Réessayer' });

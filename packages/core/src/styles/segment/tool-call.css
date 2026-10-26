@@ -228,3 +228,19 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 }
 
 /* Pipeline waiting */
+
+/* Where the shimmer cannot say "running" — it holds still under reduced motion, and is plain
+   text in forced colours — the quiet row's state word does, as on an agent's row. Without it
+   a running call and a finished one differed by their ink alone, or not at all. "Done" stays
+   for a screen reader: once the word goes, that change is the signal. */
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .aparte-segment-tool-call[data-quiet][data-status='pending'] .aparte-tool-state {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+  }
+}

@@ -331,11 +331,13 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
 
 <script>
   // The failure sits in the turn that produced it, not in a toast elsewhere on the page.
+  // As the client makes it: the code picks the sentence the reader sees; the provider's own
+  // message stays on the segment, and went to the console.
   document.querySelectorAll('aparte-chat-bubble')[1].setSegments([{
     id: 's1',
     type: 'error',
-    content: 'The model did not answer.',
-    details: 'HTTP 429: rate limited. Try again in 20 seconds.',
+    code: 'USAGE_RATE_LIMIT',
+    content: 'HTTP 429: {"error":{"type":"rate_limit_error","message":"Number of requests exceeded"}}',
   }]);
 </script>`,
     },
@@ -345,15 +347,10 @@ export const CHAT_MESSAGE_DEMOS: DemoEntry[] = [
         html: `<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
 
 <script>
-  // What arrived stays; the error follows it, with the technical detail under its message.
+  // What arrived stays; the error follows it.
   document.querySelector('aparte-chat-bubble').setSegments([
     { id: 's1', type: 'text', content: 'Here is the summary of the first two sections. The release fixes' },
-    {
-      id: 's2',
-      type: 'error',
-      content: 'The connection closed before the reply ended.',
-      details: 'net::ERR_CONNECTION_RESET',
-    },
+    { id: 's2', type: 'error', code: 'PROVIDER_ERROR', content: 'HTTP 502: upstream connect error' },
   ]);
 </script>`,
     },

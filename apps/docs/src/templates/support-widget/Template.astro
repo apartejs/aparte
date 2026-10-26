@@ -2,10 +2,9 @@
 /**
  * The Support widget template: the website of Kilnhouse, an invented booking app for craft
  * studios, with its help chat in the corner. The page is a backdrop made of kit recipes; the
- * widget is a launcher and a panel holding a hand-composed <aparte-chat>. The behaviour is
- * app.ts.
+ * widget is an <aparte-launcher> around a card of Kilnhouse's own, which holds a hand-composed
+ * <aparte-chat>. The behaviour is app.ts.
  */
-import { messageSquareIcon } from '@aparte/core/icons';
 import { AGENT, ASSISTANT_NAME, MARK_SVG } from './brand';
 import './support-widget.css';
 
@@ -110,8 +109,8 @@ const suggestions = JSON.stringify([
         </footer>
     </div>
 
-    <div class="sw-widget">
-        <section class="sw-panel aparte-card" id="sw-panel" aria-labelledby="sw-panel-title">
+    <aparte-launcher class="sw-widget" label="Help" open>
+        <section class="sw-panel aparte-card" aria-labelledby="sw-panel-title">
             <header class="aparte-card__header sw-panel__header">
                 <span class="aparte-avatar-group sw-panel__faces">
                     <span class="aparte-avatar"><span class="sw-face sw-face--assistant"><Fragment set:html={MARK_SVG} /></span></span>
@@ -124,7 +123,7 @@ const suggestions = JSON.stringify([
                         <span class="sw-panel__status-text">Online. A person is a message away.</span>
                     </p>
                 </div>
-                <button class="aparte-btn aparte-btn--icon aparte-btn--ghost sw-panel__close" type="button" aria-label="Close the help chat">
+                <button class="aparte-btn aparte-btn--icon aparte-btn--ghost" type="button" aria-label="Close the help chat" data-aparte-launcher-close>
                     <aparte-icon name="close"></aparte-icon>
                 </button>
             </header>
@@ -145,13 +144,7 @@ const suggestions = JSON.stringify([
                 </aparte-composer>
             </aparte-chat>
         </section>
-        <button class="sw-launcher aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--pill aparte-btn--lg" type="button" aria-expanded="true" aria-controls="sw-panel">
-            <span class="sw-launcher__closed" aria-hidden="true"><Fragment set:html={messageSquareIcon} /></span>
-            <aparte-icon class="sw-launcher__open" name="close" aria-hidden="true"></aparte-icon>
-            <span class="sw-launcher__closed">Help</span>
-            <span class="sw-launcher__open">Close</span>
-        </button>
-    </div>
+    </aparte-launcher>
 </div>
 
 <script>

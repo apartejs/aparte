@@ -147,6 +147,15 @@
         "name"
       ]
     },
+    "aparte-launcher": {
+      "package": "@aparte/core",
+      "attributes": [
+        "breakpoint",
+        "data-sheet",
+        "label",
+        "open"
+      ]
+    },
     "aparte-model-selector": {
       "package": "@aparte/plugin-model-selector",
       "attributes": [
@@ -260,6 +269,7 @@
       "aparte-conversation-unpin",
       "aparte-edit",
       "aparte-feedback",
+      "aparte-launcher-toggle",
       "aparte-link-click",
       "aparte-message-aborted",
       "aparte-message-done",
@@ -313,6 +323,7 @@
       "AparteConversationListDirective",
       "AparteElicitationDirective",
       "AparteIconDirective",
+      "AparteLauncherDirective",
       "AparteOptgroupDirective",
       "AparteOptionDirective",
       "AparteProgressSpinnerDirective",
@@ -363,6 +374,7 @@
       "AparteError",
       "AparteErrorCode",
       "AparteIcon",
+      "AparteLauncher",
       "AparteMessageRepository",
       "AparteOptgroup",
       "AparteOption",
@@ -434,8 +446,16 @@
       "toolRefusal",
       "unansweredTail"
     ],
-    "@aparte/locale-fr": [
-      "fr"
+    "@aparte/locales": [
+      "de",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "ptBR",
+      "ru",
+      "zhCN"
     ],
     "@aparte/plugin-approval": [
       "APPROVAL_MODES",
@@ -544,6 +564,11 @@
     "@aparte/runner-ag-ui": [
       "createAgUiRunner"
     ],
+    "@aparte/runner-n8n": [
+      "createN8nRunner",
+      "loadN8nHistory",
+      "n8nHistoryToMessages"
+    ],
     "@aparte/svelte": [
       "AparteChat",
       "AparteUi",
@@ -628,11 +653,20 @@
     "elicitationWaiting",
     "elicitationYes",
     "error",
+    "errorFailed",
+    "errorNoAnswer",
+    "errorRateLimited",
+    "errorRefused",
+    "errorTimeout",
+    "errorTooLong",
+    "errorUnreachable",
     "feedbackNegative",
     "feedbackPositive",
     "file",
     "generating",
     "inputPlaceholder",
+    "launcherClose",
+    "launcherOpen",
     "loading",
     "loadingConversation",
     "loadingConversations",
@@ -923,6 +957,11 @@
     "--aparte-kbd-min-width",
     "--aparte-kbd-padding",
     "--aparte-kbd-radius",
+    "--aparte-launcher-gap",
+    "--aparte-launcher-height",
+    "--aparte-launcher-offset",
+    "--aparte-launcher-radius",
+    "--aparte-launcher-width",
     "--aparte-line-height-loose",
     "--aparte-line-height-none",
     "--aparte-line-height-normal",

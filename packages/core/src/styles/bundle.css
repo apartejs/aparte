@@ -52,6 +52,7 @@
 @import './components/suggestions.css';
 @import './components/context.css';
 @import './components/scroll-rail.css';
+@import './components/launcher.css';
 @import './shell/sidebar.css';
 @import './shell/app-header.css';
 @import './shell/app-shell.css';

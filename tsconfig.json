@@ -12,7 +12,7 @@
     { "path": "./packages/wrappers/vue" },
     { "path": "./packages/wrappers/svelte" },
     { "path": "./packages/wrappers/angular" },
-    { "path": "./packages/locales/fr" },
+    { "path": "./packages/locales/all" },
     { "path": "./packages/plugins/marked" },
     { "path": "./packages/plugins/streaming-markdown" },
     { "path": "./packages/plugins/shiki" },

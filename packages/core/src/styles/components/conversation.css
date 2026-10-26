@@ -85,7 +85,7 @@
    Inset by its own width, not offset outward: the list clips horizontally
    (`overflow-x: hidden` in base.css) and a ring outside the row was cut on both sides
    — which is why it was removed rather than kept. Inside, it follows the row's own
-   radius. Same token, same colour, same 1px as every other ring in the kit. */
+   radius. Same token, same colour, same width as every other ring in the kit. */
 .aparte-conv-item__select:focus-visible {
   outline: none;
 }

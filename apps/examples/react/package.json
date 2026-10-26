@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/example-react",
-  "version": "0.0.43",
+  "version": "0.0.44",
   "private": true,
   "type": "module",
   "description": "Minimal React example — @aparte/react + a real (BYOK / local) model.",
@@ -13,7 +13,6 @@
   "dependencies": {
     "@aparte/core": "workspace:*",
     "@aparte/engine": "workspace:*",
-    "@aparte/locale-fr": "workspace:*",
     "@aparte/plugin-approval": "workspace:*",
     "@aparte/plugin-artifacts": "workspace:*",
     "@aparte/plugin-ask-user": "workspace:*",

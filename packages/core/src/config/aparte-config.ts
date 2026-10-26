@@ -1530,8 +1530,13 @@ export class AparteConfig {
      * aparteGlobalConfig.registerToolDisplay('*', { hidden: true });
      *
      * @example
+     * // An agent's chat: the spinner, "Running" and "Done" (the default is quiet), on every
+     * // tool without an entry of its own — a tool with one says `quiet: false` there too.
+     * aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
+     *
+     * @example
      * // The line, and no raw JSON behind it: nothing, or a detail of the app's own.
-     * aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Reading a file', details: false });
+     * aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read a file', details: false });
      * aparteGlobalConfig.registerToolDisplay('web_search', {
      *     label: 'Searched the web',
      *     details: (segment) => sourcesList(segment.result),

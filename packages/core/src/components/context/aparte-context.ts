@@ -383,6 +383,7 @@ export class AparteContext extends HTMLElement {
         // A compactor registered after the gauge was drawn arrives the same way.
         window.addEventListener('aparte-config-change', this._onRerender);
         this.addEventListener('click', this._onClick);
+        this.addEventListener('keydown', this._onKeydown);
         this._render();
     }
 
@@ -396,6 +397,7 @@ export class AparteContext extends HTMLElement {
         window.removeEventListener('aparte-conversation-loaded', this._onLoaded);
         window.removeEventListener('aparte-config-change', this._onRerender);
         this.removeEventListener('click', this._onClick);
+        this.removeEventListener('keydown', this._onKeydown);
         this._stopListeningWhileOpen();
     }
 
@@ -796,13 +798,30 @@ export class AparteContext extends HTMLElement {
         if (!event.composedPath().includes(this)) this._setOpen(false);
     };
 
+    /**
+     * Escape from inside the gauge — the toggle, the panel — is the gauge's, and it is
+     * answered HERE, on the element, not on the document. An ancestor that also answers
+     * Escape (a launcher closing its card, a dialog) listens on its own element, which runs
+     * before any listener on the document, so a press consumed only there had already
+     * closed the card around the panel it was meant for. Taken means stopped, so nothing
+     * above answers it too, and prevented, so a listener that still sees it — one on this
+     * element, a capture listener — knows it is spoken for, and a dialog around does not
+     * take it as its own close request.
+     */
+    private _onKeydown = (event: KeyboardEvent): void => {
+        if (!this._open || event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        this._setOpen(false, true);
+    };
+
+    /**
+     * A press elsewhere still closes the panel, but is left to whatever else listens for
+     * Escape (a dialog, the composer).
+     */
     private _onDocumentKeydown = (event: KeyboardEvent): void => {
         if (event.key !== 'Escape') return;
-        const inside = event.composedPath().includes(this);
-        // A press inside the gauge is for the gauge; one elsewhere still closes it but is
-        // left to whatever else listens for Escape (a dialog, the composer).
-        if (inside) event.stopPropagation();
-        this._setOpen(false, inside || this.contains(document.activeElement));
+        this._setOpen(false, this.contains(document.activeElement));
     };
 
     private _listenWhileOpen(): void {

@@ -17,8 +17,10 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
-            name: 'AparteLocaleFr',
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+            },
+            name: 'AparteRunnerN8n',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
         },
@@ -27,6 +29,7 @@ export default defineConfig({
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
+            // Peer — never bundle: @aparte/core. The n8n wire is parsed here, with no SDK.
             external: ['@aparte/core'],
         },
     },

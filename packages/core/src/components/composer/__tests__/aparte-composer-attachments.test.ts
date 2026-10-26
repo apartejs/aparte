@@ -72,6 +72,32 @@ describe('the pending attachment ✕ — the sheet', () => {
         expect(rule, 'the ✕ is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
     });
 
+    it("shows the file's name on focus as on hover, from the display recipe the bubble shares", () => {
+        const rule = sheet.match(
+            /\.aparte-thumb:hover \.aparte-thumb__name,\s*\n\s*\.aparte-thumb:focus-within \.aparte-thumb__name\s*\{([^}]*)\}/,
+        )?.[1];
+        expect(rule, 'no combined hover/focus-within rule for .aparte-thumb__name').toBeTruthy();
+        expect(rule).toMatch(/opacity:\s*1/);
+    });
+
+    it("shows the file's name outright where there is no hover to give", () => {
+        const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
+        const rule = coarse.match(/\.aparte-thumb__name\s*\{([^}]*)\}/)?.[1] ?? '';
+        expect(rule, 'the name is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
+    });
+
+    it('keeps the name from burying a small tile there: bigger sent tiles, a tighter band', () => {
+        const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
+        expect(coarse.match(/\.aparte-attachments\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-attachment-image-size:\s*56px/);
+        expect(coarse.match(/\.aparte-thumb\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-thumb-name-padding:\s*6px 4px 3px/);
+        // A sent file's extension sits above the band; only the sent strip's, since a pending
+        // tile's top corner is its ✕.
+        expect(coarse.match(/\.aparte-attachments \.aparte-thumb--file\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/align-items:\s*flex-start/);
+        expect(coarse).not.toMatch(/\n\s*\.aparte-thumb--file\s*\{/);
+        // A pending tile grows enough for its extension to clear both the ✕ and the band.
+        expect(coarse.match(/\n\s*aparte-composer-attachments\s*\{([^}]*)\}/)?.[1] ?? '').toMatch(/--aparte-attachment-image-size:\s*72px/);
+    });
+
     it('and gives it a finger-sized box there', () => {
         // 18px is under the WCAG 2.2 SC 2.5.8 floor of 24, and this is the only way to
         // drop a file. 24 is not a new number: it is the box `aparte-btn--sm` already

@@ -171,11 +171,15 @@
      It does not flip with the theme, and in a themed system that anomaly was the tell
      I wrote a paragraph justifying instead of reading. */
   --aparte-on-intent: #14100a;
-  /* Outline width for keyboard focus + drag-over indicators. */
-  --aparte-focus-outline-width: 1px;
-  /* Flush with the box since 2026-09-05 (it was one spacing step outside). A literal, so
-     it lives here with the width rather than in the derived layer. */
-  --aparte-focus-outline-offset: 0px;
+  /* The width of the keyboard focus ring and of the drag-over outline. 2px, with the gap
+     below: the thickness WCAG 2.2 asks of a focus indicator (2.4.13), found at a glance on
+     any ground. Its colour is `--aparte-border-focus`, a step on the neutral. For a quieter
+     ring: `--aparte-focus-outline-width: 1px; --aparte-focus-outline-offset: 0px`. */
+  --aparte-focus-outline-width: 2px;
+  /* The gap between a control and its focus ring (`outline-offset`); 0px draws the ring
+     flush with the box. A literal, so it lives here with the width rather than in the
+     derived layer. */
+  --aparte-focus-outline-offset: 2px;
   /* Scrollbars rendered by the library. */
   --aparte-scrollbar-width: 6px;
   /* The transcript's scrollbar track; the thumb is derived from the neutral, in the
@@ -359,6 +363,12 @@
   /* Context gauge, ring variant — a diameter, and a stroke in the ring's own 36-unit
      box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */
   --aparte-context-ring-size: 22px;
+
+  /* The launcher — the card a floating chat opens, and how far from the window's edges it
+     floats. The template it was lifted from measured them: a phone-width card, 600px tall. */
+  --aparte-launcher-width: 23.75rem;
+  --aparte-launcher-height: 37.5rem;
+  --aparte-launcher-offset: 1.25rem;
 
   /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
@@ -786,7 +796,10 @@
   --aparte-branch-picker-gap: var(--aparte-space-2);
   --aparte-waiting-dot-gap: var(--aparte-space-2);
   --aparte-elic-gap: var(--aparte-space-3);
-  --aparte-elic-padding: var(--aparte-space-3) var(--aparte-space-2);
+  /* Never less than the focus ring's reach, on either side: the body gives its options that
+     much room with a negative margin, and a panel padded thinner (a denser space unit) cut
+     the rings of its options. */
+  --aparte-elic-padding: max(var(--aparte-space-3), calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset))) max(var(--aparte-space-2), calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset)));
   --aparte-elic-field-gap: var(--aparte-space-4);
   --aparte-elic-step-padding: var(--aparte-space-2) var(--aparte-space-1);
   --aparte-elic-step-gap: var(--aparte-space-7);
@@ -1005,11 +1018,12 @@
      into a frame gallery (2026-09-05, the chat-site review). The ring is a contrast step
      on the neutral, which clears 3:1 on both grounds; the accent stays for actions. */
   --aparte-border-focus: var(--aparte-neutral);
-  /* THE focus ring: a 2px outline in this colour, one spacing step OUTSIDE the box, on
-     every control. It used to be drawn two ways — this outline on seventeen recipes and a
-     soft box-shadow wash (30 % of the accent, 1.39:1 against the page) on five — and the
-     offset was −2px, inside the box, so on a bordered row the ring sat as a second
-     concentric line and the next row painted over its edge. */
+  /* THE focus ring: an outline in this colour, `--aparte-focus-outline-width` wide and
+     `--aparte-focus-outline-offset` OUTSIDE the box, on every control. It used to be drawn
+     two ways — this outline on seventeen recipes and a soft box-shadow wash (30 % of the
+     accent, 1.39:1 against the page) on five — and the offset was −2px, inside the box, so
+     on a bordered row the ring sat as a second concentric line and the next row painted
+     over its edge. */
   /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
      separates two regions and is right to be faint; a thing someone can touch has to be
      seen, and six previews showed a control with no visible edge. Derived from the ink
@@ -1152,6 +1166,10 @@
   /* The one inline inset of the column's four regions — header, search, body, footer.
      They used to carry three (16 / 12 / 12 / 16) and the content sat on two axes. */
   --aparte-sidebar-inset: var(--aparte-space-3);
+
+  /* Launcher — between the open card and its button, and the card's corners. */
+  --aparte-launcher-gap: var(--aparte-space-5);
+  --aparte-launcher-radius: var(--aparte-radius-xl);
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);

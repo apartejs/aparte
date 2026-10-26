@@ -383,16 +383,20 @@ function iconOf(segment: AparteToolCallSegment): string {
     return (key ? cfg.getIcon(key) : undefined) || cfg.getIcon('tool');
 }
 
-/** Whether the tool's display asks for the quiet line, a person's (`quiet`). */
+/**
+ * Whether the row is the quiet line, a person's: the default, unless the tool's display
+ * says `quiet: false` — an agent's row, with its spinner and its "Done".
+ */
 const isQuiet = (segment: AparteToolCallSegment): boolean =>
-    contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.quiet === true;
+    contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.quiet ?? true;
 
 /**
  * What the row shows of its state, quiet or not — one answer for `render`, `update` and
- * `relabel`, so the three cannot disagree. The default row: the spinner while it runs and
- * every word. A quiet one: the label shimmers while it runs, and the word for "running" and
- * "done" leaves the screen (the label's tense says it) but stays for a screen reader. A
- * wait, a refusal, a failure and a stop show as on any row: those a person must know.
+ * `relabel`, so the three cannot disagree. The default, quiet row: the label shimmers while
+ * it runs, and the word for "running" and "done" leaves the screen (the label's tense says
+ * it) but stays for a screen reader. An agent's row (`quiet: false`): the spinner while it
+ * runs and every word. A wait, a refusal, a failure and a stop show on both: those a person
+ * must know.
  */
 function quietOf(segment: AparteToolCallSegment): { shimmer: boolean; spinner: boolean; stateHidden: boolean } {
     const status = segment.status ?? 'pending';

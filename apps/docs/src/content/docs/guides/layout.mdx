@@ -91,7 +91,7 @@ with the composer.
 | Full-width feed | Slack, Discord | `aparte-chat { --aparte-message-max-width: none; }` |
 | Side panel | an editor's or a browser's chat strip | a panel with a height, and `.panel aparte-chat { --aparte-message-max-width: none; }` |
 | A chat beside a preview | Canvas, Artifacts, v0 | `<aparte-split>`, below |
-| A floating widget | a support chat on a product's site | the [Support widget](/templates/support-widget/) template builds one |
+| A floating widget | a support chat on a product's site | [`<aparte-launcher>`](/components/launcher/) holds the chat; the [Support widget](/templates/support-widget/) template builds a page around one |
 
 A message list or a composer narrower than 520px switches to its narrow spacing by itself — a
 container query, not a media query — so a side panel and a phone get the same spacing. That

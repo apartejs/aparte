@@ -20,6 +20,13 @@ export enum AparteErrorCode {
     PROVIDER_ERROR = 'PROVIDER_ERROR',           // HTTP 5xx
     PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE', // HTTP 503
     PROVIDER_POLICY = 'PROVIDER_POLICY',         // Moderation / Policy
+    /**
+     * The provider was reached but is set up so it cannot answer — an n8n workflow that is
+     * not published, waits for credentials, streams nothing or answers without a text
+     * field. Waiting will not mend it: the person reads a sentence that asks for no retry,
+     * the developer reads what to change.
+     */
+    PROVIDER_MISCONFIGURED = 'PROVIDER_MISCONFIGURED',
 
     // The loop
     /** The turn reached `maxTurns`: the loop stopped asking the model, to avoid an endless loop. */

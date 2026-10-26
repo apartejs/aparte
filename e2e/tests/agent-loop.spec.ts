@@ -197,3 +197,55 @@ test.describe(agent, () => {
     });
 });
 }
+
+/*
+ * An n8n chat workflow (`?n8n=`, `@aparte/runner-n8n`). `POST /n8n/<id>/chat` is a scripted
+ * Chat Trigger that answers as n8n 2.35.7 does — newline-delimited JSON frames labelled
+ * `application/json` — with a memory per session: the page sends only the new message, so the
+ * second turn shows the workflow kept the first. `/n8n/whole/chat` answers once, as a trigger
+ * that waits for its last node does.
+ */
+const N8N = 'http://localhost:5399/n8n/aparte/chat';
+const N8N_WHOLE = 'http://localhost:5399/n8n/whole/chat';
+
+async function openN8nSite(page: Page, webhookUrl = N8N): Promise<ChatPage> {
+    const chat = new ChatPage(page);
+    await page.goto(`/?scenario&n8n=${encodeURIComponent(webhookUrl)}`);
+    await expect(chat.approvalMode.locator('aparte-select')).toBeVisible();
+    return chat;
+}
+
+test.describe('an n8n chat workflow', () => {
+    test('streams the answer, and the workflow remembers the session from one turn to the next', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = await openN8nSite(page);
+        await chat.send('bonjour');
+        await expect(chat.lastReply).toContainText('n8n heard bonjour, message 1 of this session.');
+        // The agent answers in Markdown, and the site's Markdown plugin draws it.
+        await expect(chat.lastReply.locator('strong')).toHaveText('bonjour');
+
+        await chat.send('encore');
+        await expect(chat.lastReply).toContainText('n8n heard encore, message 2 of this session.');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('draws the whole answer of a workflow that waits for its last node', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = await openN8nSite(page, N8N_WHOLE);
+        await chat.send('salut');
+        await expect(chat.lastReply).toContainText('n8n heard salut, message 1 of this session.');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test("shows a plain sentence when the workflow fails mid-stream, and logs the workflow's own error", async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const warnings: string[] = [];
+        page.on('console', (m) => { if (m.type() === 'warning') warnings.push(m.text()); });
+        const chat = await openN8nSite(page);
+        await chat.send('please fail');
+        await expect(chat.lastReply.locator('.aparte-segment-error[data-error-code="PROVIDER_ERROR"]')).toBeVisible();
+        await expect(chat.lastReply).not.toContainText('The model is down (scripted failure).');
+        await expect.poll(() => warnings.some((w) => w.includes('The model is down (scripted failure).'))).toBe(true);
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+});

@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"type\":\"begin\",\"metadata\":{\"nodeId\":\"22222222-2222-4222-8222-222222222222\",\"nodeName\":\"AI Agent\",\"itemIndex\":0,\"runIndex\":0,\"timestamp\":1792982926611}}\n{\"type\":\"error\",\"content\":\"The provided messages contain images, but gemma-e2b does not support image inputs.\",\"metadata\":{\"nodeId\":\"22222222-2222-4222-8222-222222222222\",\"nodeName\":\"AI Agent\",\"runIndex\":0,\"itemIndex\":0}}\n"
+}

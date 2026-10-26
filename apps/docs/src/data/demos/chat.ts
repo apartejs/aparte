@@ -122,9 +122,14 @@ export const CHAT_DEMOS: DemoEntry[] = [
     {
         id: 'tool-statuses',
         title: 'Every status a tool call can be in',
-        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
+        html: `<!-- In your app: import { aparteGlobalConfig } from '@aparte/core'. -->
+<aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant"></aparte-chat-bubble>
 
 <script>
+  const { aparteGlobalConfig } = window.aparte;
+  // An agent's row, which names every state; the default, quiet row shows a word only for
+  // awaiting-approval, rejected, aborted and failed.
+  aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
   const call = (id, name, input) => ({ id, name, input });
   document.querySelector('aparte-chat-bubble').setSegments([
     // Running: the model asked, the handler has not answered yet.
@@ -187,12 +192,12 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
   // A label replaces the identifier; the identifier stays on the row as data-tool-name.
   aparteGlobalConfig.registerToolDisplay('web_search', {
-    label: 'Searching the web',
+    label: (segment) => (segment.status === 'resolved' ? 'Searched the web' : 'Search the web'),
     icon: 'search',
     summary: (segment) => \`“\${segment.toolCall.input.query}”\`,
   });
   aparteGlobalConfig.registerToolDisplay('read_file', {
-    label: 'Reading a file',
+    label: (segment) => (segment.status === 'resolved' ? 'Read a file' : 'Read a file…'),
     icon: 'file',
     summary: (segment) => String(segment.toolCall.input.path ?? ''),
   });
@@ -261,13 +266,12 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
 <script>
   const { aparteGlobalConfig } = window.aparte;
-  // quiet: a shimmer instead of a spinner and "Running", and nothing once it is done — the
-  // label's tense says it. A refusal, a failure or a stop still says so, after a plain name.
+  // Quiet, the default: a shimmer instead of a spinner and "Running", and nothing once it is
+  // done — the label's tense says it. A refusal, a failure or a stop still says so.
   aparteGlobalConfig.registerToolDisplay('web_search', {
     label: (segment) => segment.status === 'pending' ? 'Searching the web…' : segment.status === 'resolved' ? 'Searched the web' : 'Search the web',
     summary: (segment) => '“' + segment.toolCall.input.query + '”',
     details: false,
-    quiet: true,
   });
 
   document.querySelector('aparte-chat-bubble').setSegments([
@@ -307,7 +311,7 @@ export const CHAT_DEMOS: DemoEntry[] = [
   // Every tool row arrives open: Input and Output on screen, each with a copy button. A display's
   // open is read when the row is drawn; in a chat, setSegmentDefaults('tool_call', { collapsed: false })
   // does the same for every row (a bare bubble like this one never applies a segment default).
-  aparteGlobalConfig.registerToolDisplay('*', { open: true });
+  aparteGlobalConfig.registerToolDisplay('*', { open: true, quiet: false });
 
   document.querySelector('aparte-chat-bubble').setSegments([
     { id: 's1', type: 'tool_call', status: 'resolved', toolCall: { id: 't1', name: 'search_docs', input: { query: 'release checklist', limit: 3 } }, result: JSON.stringify({ hits: [{ title: 'Release', score: 0.92 }, { title: 'Changelog', score: 0.71 }] }) },

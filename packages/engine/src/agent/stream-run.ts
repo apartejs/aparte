@@ -129,6 +129,15 @@ export interface StreamRunOptions {
      * forwards the run elsewhere (a server) needs it.
      */
     providerId?: string;
+    /**
+     * The files the person attached to the message this run answers, as they were
+     * picked. Opaque to the loop, like `providerId`: a runner that sends the turn
+     * elsewhere and uploads files itself needs them (n8n's Chat Trigger takes them as
+     * a form). A provider never sees them — it reads what the client inlined into
+     * `baseRequest`, per its `rawFileInject` option. Set on a send only, never on a
+     * retry or an edit, which do not carry files again.
+     */
+    files?: readonly File[];
 }
 
 /** Warn once per event type for something this version does not map, then skip it. */

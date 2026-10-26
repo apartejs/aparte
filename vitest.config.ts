@@ -96,8 +96,8 @@ export default defineConfig({
         // Raised 89 -> 91 on 2026-09-02 by the UI kit audit: some fifty stylesheet and
         // jsdom suites (the height scale, the type ramp, the focus ring, the rails, the
         // specimens) moved the global to 92.17%. The ratchet asked a fourth time.
-        lines: 93,
-        statements: 93,
+        lines: 95,
+        statements: 95,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
@@ -105,7 +105,7 @@ export default defineConfig({
         // exercises the whole surface rather than a sample.
         // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
         // its least-covered; measured 84.09% after. The ratchet asked for it.
-        functions: 89,
+        functions: 91,
         // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
@@ -215,7 +215,7 @@ export default defineConfig({
         // defer-hydration and echo tests; the ratchet asked.
         'packages/core/src/**': { lines: 95, statements: 95, functions: 94, branches: 90 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
-        'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        'packages/locales/all/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
@@ -227,6 +227,8 @@ export default defineConfig({
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
         'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
+        // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.
+        'packages/providers/agent/n8n/src/**': { lines: 99, statements: 99, functions: 99, branches: 97 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 92, branches: 86 },
         'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 91 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
@@ -235,7 +237,7 @@ export default defineConfig({
         // point under that, as every floor here.
         'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
-        'packages/wrappers/angular/src/**': { lines: 91, statements: 91, functions: 69, branches: 85 },
+        'packages/wrappers/angular/src/**': { lines: 91, statements: 91, functions: 80, branches: 87 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
         'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 81, branches: 94 },

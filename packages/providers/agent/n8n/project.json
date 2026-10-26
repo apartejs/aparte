@@ -1,7 +1,7 @@
 {
-    "name": "@aparte/locale-fr",
-    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-    "sourceRoot": "packages/locales/fr/src",
+    "name": "@aparte/runner-n8n",
+    "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "packages/providers/agent/n8n/src",
     "projectType": "library",
     "targets": {
         "build": {
@@ -20,8 +20,8 @@
                 "{options.reportsDirectory}"
             ],
             "options": {
-                "reportsDirectory": "../../../coverage/packages/locales/fr",
-                "cwd": "packages/locales/fr"
+                "reportsDirectory": "../../../../coverage/packages/providers/agent/n8n",
+                "cwd": "packages/providers/agent/n8n"
             }
         },
         "typecheck": {

@@ -21,7 +21,7 @@ with assistant-ui, AI Elements, Deep Chat and Loquix.
 > number). The number itself is a plain `0.x`: what says *beta* is the npm tag, the
 > leading zero and this notice — not a `-beta` suffix. The declared surface is
 > [frozen as of 0.17.0](https://apartejs.dev/reference/stability/) and leaves only
-> through a notice release; what changed when is at
+> through a notice release (one exception, listed on that page); what changed when is at
 > **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
 > [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.
@@ -142,11 +142,12 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
 | `@aparte/runner-ag-ui` | Render an AG-UI agent (Agno, LangGraph, Mastra, CrewAI) or a TanStack AI route |
+| `@aparte/runner-n8n` | Put the chat on an n8n chat workflow (Chat Trigger + AI Agent), streamed or not |
 | `@aparte/provider-scenario` | A scripted model — replays turns you wrote, for demos, docs and your own tests |
 | `@aparte/docs-mcp` | The docs as an MCP server — `npx @aparte/docs-mcp` lets your coding agent search and read them |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
 | `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
-| `@aparte/locale-fr` | French UI strings (English is core's built-in default) |
+| `@aparte/locales` | The UI strings in nine languages — French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified); English is core's built-in default |
 
 ## Documentation
 

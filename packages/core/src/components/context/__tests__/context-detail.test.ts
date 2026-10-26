@@ -216,6 +216,32 @@ describe('<aparte-context> — the disclosure', () => {
         expect(document.activeElement).toBe(toggle(gauge));
     });
 
+    it('Escape from inside is answered on the gauge itself: an ancestor that also answers Escape never sees it', () => {
+        // A launcher or a dialog around the gauge listens for Escape on its own element, and
+        // that runs BEFORE a listener on the document. A press consumed only there has already
+        // closed the card round the panel it was meant for.
+        const { chat, gauge } = open();
+        const above: KeyboardEvent[] = [];
+        chat.addEventListener('keydown', (e) => above.push(e));
+        toggle(gauge).click();
+        toggle(gauge).focus();
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, composed: true });
+        toggle(gauge).dispatchEvent(escape);
+        expect(panel(gauge).hidden).toBe(true);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(above).toEqual([]);
+    });
+
+    it('leaves Escape alone while the panel is closed', () => {
+        const { chat, gauge } = open();
+        const above: KeyboardEvent[] = [];
+        chat.addEventListener('keydown', (e) => above.push(e));
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, composed: true });
+        toggle(gauge).dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(false);
+        expect(above).toEqual([escape]);
+    });
+
     it('Escape pressed elsewhere on the page closes it too', () => {
         const { gauge } = open();
         toggle(gauge).click();

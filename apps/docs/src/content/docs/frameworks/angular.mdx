@@ -120,13 +120,13 @@ the reply. With the client running, turn on retry and edit with
 ## Configure it at bootstrap
 
 ```bash
-npm install @aparte/provider-openai-compat @aparte/plugin-marked @aparte/plugin-model-selector @aparte/locale-fr
+npm install @aparte/provider-openai-compat @aparte/plugin-marked @aparte/plugin-model-selector @aparte/locales
 ```
 
 ```ts
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { provideAparte } from '@aparte/angular';
-import { fr } from '@aparte/locale-fr';
+import { fr } from '@aparte/locales/fr';
 
 export const aparte = provideAparte({
   providers: [createOpenAICompatProvider(presets.OPENROUTER)],
@@ -151,7 +151,7 @@ Pass `aparte` to `bootstrapApplication(App, { providers: [aparte] })`.
 | `plugins.markdown` | a Markdown provider `(raw) => html`, which declares its `raw` parameter, or a loader |
 | `plugins.theme` | a loader |
 | `modelConfig` | the model to send to, as `setModelConfig` takes it — a provider that lists its models over the network selects none |
-| `locale` | an `AparteLocale` object, such as `fr` from `@aparte/locale-fr` |
+| `locale` | an `AparteLocale` object, such as `fr` from `@aparte/locales/fr` |
 | `themeMode` | `'light'`, `'dark'` or `'auto'`, which follows the system |
 | `clientOptions` | the `AparteClientOptions` — a `keyResolver` gives a cloud provider its key |
 | `autoConnect` | whether the client starts at bootstrap: `true` by default |

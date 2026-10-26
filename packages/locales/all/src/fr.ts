@@ -1,10 +1,9 @@
 /**
- * @aparte/locale-fr
+ * French (fr) — the chat's interface strings: pass `fr` to `aparteGlobalConfig.setLocale()`.
  *
- * French translations for aparté. Core ships English (`APARTE_DEFAULT_LOCALE`) by
- * default — pass this to `aparteGlobalConfig.setLocale(fr)` to switch.
+ * Core ships English (`APARTE_DEFAULT_LOCALE`). Every key is translated here — a key left out
+ * would show in English, and the package's tests and `check:locale-keys` refuse that.
  */
-
 import type { AparteLocale } from '@aparte/core';
 
 export const fr: AparteLocale = {
@@ -92,6 +91,13 @@ export const fr: AparteLocale = {
     typing: "Écrit...",
     responseCutOff: "Coupée à la limite de longueur du modèle.",
     error: "Erreur",
+    errorUnreachable: "L'assistant est injoignable pour le moment. Réessayez dans un instant.",
+    errorTimeout: "La réponse a pris trop de temps. Réessayez dans un instant.",
+    errorRefused: "L'assistant n'est pas autorisé à répondre pour le moment.",
+    errorRateLimited: "Trop de requêtes en ce moment. Réessayez dans un instant.",
+    errorTooLong: "Cette conversation est trop longue pour le modèle. Commencez-en une nouvelle.",
+    errorFailed: "L'assistant n'a pas pu répondre. Réessayez dans un instant.",
+    errorNoAnswer: "L'assistant n'a pas pu répondre à cette demande.",
     running: "Exécution...",
     run: "Exécuter",
     file: "Fichier",
@@ -137,6 +143,8 @@ export const fr: AparteLocale = {
     scrollRailLabel: "Plan de la conversation",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Redimensionner les panneaux",
+    launcherOpen: "Ouvrir la discussion",
+    launcherClose: "Fermer la discussion",
     transcript: "Transcription",
     tag: "fr-FR",
     direction: 'ltr'

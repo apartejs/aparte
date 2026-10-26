@@ -48,7 +48,8 @@ import { searchIcon, globeIcon } from '@aparte/core/icons';
 
 aparteGlobalConfig.registerIcons({ search: () => searchIcon, globe: () => globeIcon });
 
-// The label's tense says where the call is, so a quiet line needs no "Running" and no "Done":
+// The label's tense says where the call is, so the quiet line (the default) needs no "Running"
+// and no "Done":
 // running, done, and a plain name for the rest (a wait for approval, a refusal, a failure).
 const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment) =>
   segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
@@ -62,7 +63,6 @@ aparteGlobalConfig.registerToolDisplay('web_search', {
   icon: 'search',
   summary: (segment) => `“${String(segment.toolCall.input['query'] ?? '')}”`,
   details: false,   // the line alone: no raw JSON behind it
-  quiet: true,      // a person's line: a shimmer while it runs, nothing once done
 });
 
 aparteGlobalConfig.registerToolDisplay('fetch_page', {
@@ -70,7 +70,6 @@ aparteGlobalConfig.registerToolDisplay('fetch_page', {
   icon: 'globe',
   summary: (segment) => String(segment.toolCall.input['url'] ?? ''),
   details: false,
-  quiet: true,
 });
 ```
 
@@ -81,10 +80,11 @@ What the person sees:
 - **A label** in the chat's own font, in place of the identifier: "Searching the web…" while it
   runs, "Searched the web" once done, "Search the web" when it waits for approval or failed. The
   identifier stays on the row as `data-tool-name`, for a stylesheet or a test.
-- **A quiet line** (`quiet: true`): the label [shimmers](/components/shimmer/) while the call runs,
-  where an agent's row shows a spinner and "Running", and nothing marks success once it is done.
-  A wait for approval, a refusal, a failure and a stop still show their word and their note. The
-  target is set in the chat's font and the chevron sits at the end of the line.
+- **A quiet line**, the default: the label [shimmers](/components/shimmer/) while the call runs,
+  and nothing marks success once it is done. A wait for approval, a refusal, a failure and a stop
+  still show their word and their note. The target is set in the chat's font and the chevron sits
+  at the end of the line. `quiet: false` gives an agent's row instead, with a spinner and
+  "Running", then "Done".
 - **An icon** from the icon provider. `file`, `edit` and `terminal` are core's; `search` and
   `globe` are in `@aparte/core/icons`, and are drawn once you register them as above. A key
   nobody registered falls back to `tool`.
@@ -184,8 +184,8 @@ specific describes, and a tool with an entry of its own says its own `details`.
 
 ## A developer's view
 
-The reader wants to see what the agent did: every call, open, with the input and output, and
-how long it took.
+The reader wants to see what the agent did: every call, open, with the input and output, its
+state in words, and how long it took.
 
 ```ts
 import { aparteGlobalConfig, isSegmentSettled, segmentDuration } from '@aparte/core';
@@ -195,15 +195,16 @@ import type { AparteToolSummary } from '@aparte/core';
 // A row drawn by hand, as in the demo below, takes `open` from a display instead.
 aparteGlobalConfig.setSegmentDefaults('tool_call', { collapsed: false });
 
-// How long each call took, on the row's line.
+// How long each call took, on the row's line; and an agent's row (`quiet: false`): a spinner and
+// "Running", then "Done", where the default, quiet line says neither.
 const took: AparteToolSummary = (segment) => {
   const ms = segmentDuration(segment);
   return isSegmentSettled(segment) && ms !== undefined ? `${(ms / 1000).toFixed(1)}s` : '';
 };
-aparteGlobalConfig.registerToolDisplay('*', { summary: took });
+aparteGlobalConfig.registerToolDisplay('*', { summary: took, quiet: false });
 
-// Or open only the tools you are debugging. An entry is used whole, so it repeats the summary.
-aparteGlobalConfig.registerToolDisplay('run_command', { open: true, summary: took });
+// Or open only the tools you are debugging. An entry is used whole, so it repeats the rest.
+aparteGlobalConfig.registerToolDisplay('run_command', { open: true, summary: took, quiet: false });
 ```
 
 <Variant id="tool-open" caption="Rows opened by default. The demo draws one bubble by hand, which never applies a segment default, so it opens them with a display's open." />

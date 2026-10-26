@@ -1,10 +1,10 @@
 /**
  * The Support widget's behaviour: a scripted model behind the real client, the help-center
- * search, the plan question (@aparte/plugin-ask-user), the handoff to a person, the launcher
- * that opens and closes the panel, and the three modes (src/templates/runtime.ts).
+ * search, the plan question (@aparte/plugin-ask-user), the handoff to a person, what the page
+ * does when the launcher opens over it, and the three modes (src/templates/runtime.ts).
  */
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport, APARTE_DEFAULT_LOCALE } from '@aparte/core';
-import type { AparteMessage } from '@aparte/core';
+import type { AparteLauncher, AparteMessage } from '@aparte/core';
 import { setupAskUser } from '@aparte/plugin-ask-user';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
@@ -47,44 +47,34 @@ type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void; ap
 type Chat = HTMLElement & { viewport: Viewport | null };
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
 
-const widget = document.querySelector<HTMLElement>('.sw-widget')!;
-const panel = widget.querySelector<HTMLElement>('.sw-panel')!;
-const launcher = widget.querySelector<HTMLButtonElement>('.sw-launcher')!;
+const launcher = document.querySelector<AparteLauncher>('aparte-launcher.sw-widget')!;
+const panel = launcher.querySelector<HTMLElement>('.sw-panel')!;
 const chat = panel.querySelector<Chat>('aparte-chat')!;
 const composer = panel.querySelector<Composer>('aparte-composer')!;
 const input = panel.querySelector<HTMLElement & { focusEnd(): void }>('aparte-composer-input')!;
 const suggestions = panel.querySelector<HTMLElement>('aparte-suggestions')!;
 const site = document.querySelector<HTMLElement>('.sw-site')!;
 const status = panel.querySelector<HTMLElement & { show(): void; hide(): void }>('aparte-chat-status')!;
-// The same breakpoint as the CSS: under it the panel is a full-screen sheet.
-const sheet = matchMedia('(max-width: 30rem)');
 
-// ── The launcher and the panel ───────────────────────────────────────────────────────────────
-// The panel starts open, so a visitor sees it (on a phone it would cover the whole site, so
-// there it starts closed); nothing takes the focus until they act. A click that opens it moves
-// the focus into it, and closing it gives the focus back to the launcher.
-function setOpen(open: boolean): void {
-    panel.hidden = !open;
-    launcher.setAttribute('aria-expanded', String(open));
-    syncSite();
-    if (open) input.focusEnd();
-    else launcher.focus();
-}
+// ── The launcher ─────────────────────────────────────────────────────────────────────────────
+// The launcher opens, closes and moves the focus; the ✕ in the card's header closes it through
+// `data-aparte-launcher-close`. The panel starts open, so a visitor sees it (on a phone it
+// would cover the whole site, so there it starts closed); nothing takes the focus until they act.
 
-/** A sheet covers the site: take it out of the tab order and the accessibility tree meanwhile. */
+/**
+ * An open sheet covers the site: take it out of the tab order and the accessibility tree
+ * meanwhile. The toggle fires again when the window crosses the breakpoint while it is open.
+ */
 function syncSite(): void {
-    site.inert = !panel.hidden && sheet.matches;
+    site.inert = launcher.open && launcher.sheet;
 }
-sheet.addEventListener('change', syncSite);
+launcher.addEventListener('aparte-launcher-toggle', syncSite);
 
-launcher.addEventListener('click', () => setOpen(panel.hidden));
-panel.querySelector('.sw-panel__close')!.addEventListener('click', () => setOpen(false));
-// Escape from inside the widget, or from nowhere in particular (the page's body): the panel is
-// the one thing open over the page.
+// Escape from inside the launcher is the launcher's. From nowhere in particular (the page's
+// body, after a click on the site), the open chat is still the one thing over the page.
 document.addEventListener('keydown', (event) => {
     const from = document.activeElement;
-    const ours = !from || from === document.body || widget.contains(from);
-    if (event.key === 'Escape' && !event.defaultPrevented && !panel.hidden && ours) setOpen(false);
+    if (event.key === 'Escape' && !event.defaultPrevented && launcher.open && (!from || from === document.body)) launcher.close();
 });
 
 // The topics belong to the welcome: they go once the visitor has asked something. The element
@@ -112,11 +102,8 @@ if (mode === 'thumb') {
     chat.viewport?.setMessages(SEED);
 } else {
     chat.viewport?.appendMessage(welcome());
-    // On a phone the open panel is a sheet over the whole site: start with the launcher instead.
-    if (mode === 'full' && sheet.matches) {
-        panel.hidden = true;
-        launcher.setAttribute('aria-expanded', 'false');
-    }
+    // On a phone the open panel is a sheet over the whole site: start with the button instead.
+    if (mode === 'full' && launcher.sheet) launcher.close();
 }
 syncSite();
 

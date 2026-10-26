@@ -1,0 +1,213 @@
+---
+title: "Agent Builder shuts down on November 30: stop tying your chat UI to a vendor"
+description: OpenAI's Agent Builder closes on November 30, 2026. What stops, what the migration path is, and how to put an open protocol between your agent and its chat so the next shutdown costs less — with a tested demo.
+sidebar:
+  label: Agent Builder shuts down
+  order: 1
+---
+
+*Published October 26, 2026.*
+
+On November 30, 2026, OpenAI shuts down Agent Builder, the visual editor that ran agent workflows on
+OpenAI's servers. It was released in late 2025 and deprecated on June 3, 2026. If your chat talks
+to an Agent Builder workflow, it stops working that day. This page covers what stops, the way out
+OpenAI documents, and one choice that would have made this shutdown cheaper: an open protocol
+between the chat and the agent.
+
+## What stops, and what stays
+
+| Date | What happens |
+| --- | --- |
+| June 3, 2026 | OpenAI notifies Agent Builder users that the product is deprecated. |
+| November 30, 2026 | Agent Builder is scheduled to shut down. |
+
+Source: OpenAI's [deprecations page](https://developers.openai.com/api/docs/deprecations).
+
+**ChatKit stays.** ChatKit is OpenAI's chat component, and its recommended setup pointed it at an
+Agent Builder workflow. What goes is that backend: a ChatKit embed connected to an Agent Builder
+workflow works only "during the Agent Builder transition window", in the words of the
+[ChatKit guide](https://developers.openai.com/api/docs/guides/chatkit). After that, ChatKit needs
+a server you run, through its "custom server integration" and the ChatKit Python SDK.
+
+**The migration path is an export to code.** In Agent Builder, **Code → Agents SDK** exports the
+workflow as TypeScript or Python for the [OpenAI Agents SDK](https://openai.github.io/openai-agents-js/).
+You run that code yourself, or paste it into a ChatGPT Workspace Agent, which needs a Business,
+Enterprise or Edu plan. OpenAI's
+[migration guide](https://developers.openai.com/api/docs/guides/agent-builder/migrate-from-agent-builder)
+is candid about the limits: the export "does not convert your workflow graph or guarantee that
+every behavior transfers unchanged".
+
+## What it cost the people who built on it
+
+The [deprecation thread](https://community.openai.com/t/1382650) on OpenAI's forum, from June
+2026, shows what the export leaves you to do:
+
+- One developer who built ChatKit apps for several clients on Agent Builder wrote that managing the
+  backend themselves "makes the use of this tool economically unviable".
+- Several rebuilt the backend on servers of their own, such as a FastAPI server deployed on IBM or
+  a container on AWS Lambda. The thread then turns to cold starts: one developer had cut theirs
+  "from 30 seconds to just under 20. Still way too long.", and moved to Lambda, where another had
+  measured about three seconds.
+- "Agent Builder was much easier. I am already missing it."
+
+None of this is about the chat. The chat was fine. It stopped working because it was wired to a
+product's backend: a workflow ID, exchanged by your server for a client secret, opening a session
+on OpenAI's hosted workflow. The interface and the backend were one product, so when the backend
+went, the integration went with it.
+
+## Put a protocol between the chat and the agent
+
+The lesson is not "avoid OpenAI". The Agents SDK code you export is a good place to be. The lesson
+is about the line between the chat and the agent: make it a **protocol that both sides can
+implement independently**, not a product's session API. Then you can change either side without
+touching the other: move the agent to another host, another framework or another model, or move
+the chat to another library.
+
+[AG-UI](https://docs.ag-ui.com) is such a protocol. It is an open, MIT-licensed event stream for
+agent UIs: text as it is written, tool calls with their arguments and results, state, and
+interrupts for human approval. Agno, LangGraph, Mastra, CrewAI, Pydantic AI and Google's ADK serve
+their agents over it, and TanStack AI is
+[compliant in both directions](https://tanstack.com/blog/ag-ui-compliance). AG-UI lists the OpenAI Agents SDK integration as "in
+progress" ([AG-UI README](https://github.com/ag-ui-protocol/ag-ui)), so today it takes about
+eighty lines of glue. Here they are.
+
+### 1. The agent, as Agent Builder exports it
+
+{/* doc-check: skip excerpt — compiled and tested in apps/examples/agents-sdk/server/agent.ts */}
+```ts
+import { Agent, tool } from '@openai/agents';
+
+export const getOrderStatus = tool({
+  name: 'get_order_status',
+  description: 'Look up where an order is, by its number.',
+  parameters: {
+    type: 'object',
+    properties: { orderNumber: { type: 'string' } },
+    required: ['orderNumber'],
+    additionalProperties: false,
+  },
+  strict: true,
+  async execute(input) {
+    const { orderNumber } = input as { orderNumber: string };
+    return { orderNumber, status: 'shipped', carrier: 'La Poste', arrives: 'in 2 days' };
+  },
+});
+
+export const supportAgent = new Agent({
+  name: 'Support',
+  instructions: 'You answer questions about orders. Look an order up before saying where it is.',
+  tools: [getOrderStatus],
+});
+```
+
+This file never mentions the chat. That is the point.
+
+### 2. The bridge: the agent's run, as AG-UI events
+
+The Agents SDK streams its run as events: the model's text deltas, then each tool call and its
+output. The bridge reads them and writes AG-UI events as server-sent events. It is a Web `Request`
+in and a Web `Response` out, so it drops into a Next.js route, Hono, Deno, Bun or a Worker as it is.
+This is the core of it:
+
+{/* doc-check: skip excerpt — the loop of apps/examples/agents-sdk/server/ag-ui.ts, compiled and tested there */}
+```ts
+send({ type: EventType.RUN_STARTED, threadId, runId });
+const result = await runner.run(agent, toAgentInput(messages), { stream: true, signal: request.signal });
+for await (const event of result) {
+  if (event.type === 'raw_model_stream_event' && event.data.type === 'output_text_delta') {
+    // first word: TEXT_MESSAGE_START, then one TEXT_MESSAGE_CONTENT per delta
+    send({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: open, delta: event.data.delta });
+  } else if (event.type === 'run_item_stream_event') {
+    const raw = event.item.rawItem;
+    if (event.name === 'tool_called' && raw.type === 'function_call') {
+      send({ type: EventType.TOOL_CALL_START, toolCallId: raw.callId, toolCallName: raw.name });
+      send({ type: EventType.TOOL_CALL_ARGS, toolCallId: raw.callId, delta: raw.arguments });
+      send({ type: EventType.TOOL_CALL_END, toolCallId: raw.callId });
+    } else if (event.name === 'tool_output' && raw.type === 'function_call_result') {
+      send({ type: EventType.TOOL_CALL_RESULT, messageId: crypto.randomUUID(), toolCallId: raw.callId, content: resultText(event.item.output) });
+    }
+  }
+}
+await result.completed;
+send({ type: EventType.RUN_FINISHED, threadId, runId });
+```
+
+The [whole file](https://github.com/apartejs/aparte/blob/main/apps/examples/agents-sdk/server/ag-ui.ts)
+also validates the request against AG-UI's own schema and answers 422 otherwise, opens and closes
+each text message, and reports `RUN_ERROR` when the model fails. When the person presses Stop, the
+request's abort signal reaches the SDK, the run ends early, and the bridge reports it as
+`RUN_FINISHED` with a `cancelled` outcome.
+
+### 3. The page
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+new AparteClient({ streamRunner: createAgUiRunner({ endpoint: '/agent' }) }).start();
+```
+
+With an `<aparte-chat>` in the page, that is the whole front end: the text streams in, each tool
+call is a row with its arguments and its result, and Stop works. The page knows nothing about the
+Agents SDK, OpenAI or the model. Any AG-UI client would do here; aparté is the one this site is
+about.
+
+### The model is now one line
+
+Once the agent is your code, the model is a setting. The demo picks it from the environment:
+
+| Set | The agent runs on |
+| --- | --- |
+| nothing | the Agents SDK's own `ScriptedModel`: no key, scripted words, real loop and tools |
+| `OPENAI_API_KEY` | OpenAI |
+| `MODEL_BASE_URL` and `MODEL` | any Chat Completions server: Mistral, Groq, OpenRouter, a local Ollama |
+
+The last row uses the SDK's `OpenAIProvider` with `useResponses: false`. This is the other half of
+the lesson: when the vendor you depend on changes course, you want to move without rewriting.
+The protocol keeps the chat independent of the agent; the SDK's provider setting keeps the agent
+independent of OpenAI.
+
+## What you give up compared with ChatKit
+
+- **Widgets.** ChatKit draws rich interactive cards that the agent describes in JSON. aparté draws a
+  tool's result through tool renderers that you register; these are not ChatKit widgets, and
+  nothing translates one into the other.
+- **Threads in the protocol.** ChatKit's protocol has threads, and its server SDK defines a store
+  for them that you implement. AG-UI has a thread ID and no storage: your app keeps the
+  conversations.
+- **Approvals, in this bridge.** AG-UI carries interrupts for human approval and aparté renders
+  them, but the bridge above does not yet map the SDK's tools that ask for approval.
+- **Earlier tool calls, in the history.** The bridge rebuilds each turn's history from the
+  messages' text, so a tool call from an earlier turn reaches the model as the reply that followed
+  it. A person's images are dropped.
+
+What you gain: the agent stays the code you exported, the chat works with any agent that serves
+AG-UI, and neither depends on a vendor's hosted backend.
+
+## How this was checked
+
+The demo is in the repository:
+[`apps/examples/agents-sdk`](https://github.com/apartejs/aparte/tree/main/apps/examples/agents-sdk).
+`pnpm --filter @aparte-workspace/example-agents-sdk dev` runs the page and the agent in one
+process, with no key.
+
+- **14 server tests, no key and no network.** They use the real `Runner` and tool, with the
+  model's words from the SDK's `ScriptedModel`. Every event is checked against AG-UI's own
+  schemas. The stream is read by aparté's AG-UI runner, the strict reader the page uses. The same
+  agent also runs over HTTP against a local server that speaks Chat Completions, through the SDK's
+  own client: the tool call arrives in pieces, its result goes back, and the answer streams.
+- **3 browser tests** drive the page: the tool row and the answer, the history sent on the next
+  turn, and Stop in the middle of a reply.
+- **Not checked:** OpenAI's own API, Mistral and Ollama themselves. There are no keys in the test
+  run, so the Chat Completions path is tested against a local server that speaks that format.
+
+Versions: `@openai/agents` 0.21.0, `@ag-ui/core` 1.0.3, aparté 0.27.
+
+## Sources
+
+- OpenAI, [Deprecations](https://developers.openai.com/api/docs/deprecations), entry of June 3, 2026.
+- OpenAI, [ChatKit](https://developers.openai.com/api/docs/guides/chatkit) and
+  [Migrate from Agent Builder](https://developers.openai.com/api/docs/guides/agent-builder/migrate-from-agent-builder).
+- OpenAI Developer Community, [Deprecation notice: Agent Builder](https://community.openai.com/t/1382650), June 2026.
+- [AG-UI](https://docs.ag-ui.com) and its [README](https://github.com/ag-ui-protocol/ag-ui).
+- aparté, [AG-UI runner](/providers/agent/ag-ui/).

@@ -101,9 +101,9 @@
 .aparte-elic-options {
   display: flex;
   flex-direction: column;
-  /* At least the focus ring's outset: at 2px the next row painted over the bottom of
+  /* Wider than the focus ring's outset: at 2px the next row painted over the bottom of
      the focused row's ring and ~8px of it survived. Any list of options that wears an
-     outset ring needs a gap at least as wide as the offset. */
+     outset ring needs a gap wider than the ring's width plus its offset. */
   gap: var(--aparte-space-3);
 }
 
@@ -250,7 +250,9 @@ textarea.aparte-elic-text {
 .aparte-approval-options {
   display: flex;
   flex-direction: column;
-  gap: var(--aparte-approval-gap, 4px);
+  /* Wider than the focus ring's reach (its width plus its offset), so a focused option's
+     ring has air between it and the next option's border; equal to it, the two touched. */
+  gap: var(--aparte-approval-gap, calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset) + var(--aparte-space-1)));
   margin: 0 var(--aparte-space-3);
 }
 

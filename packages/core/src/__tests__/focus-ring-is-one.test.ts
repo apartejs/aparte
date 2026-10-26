@@ -14,9 +14,10 @@
  * same reason (its tile clips), and a field inside a field group draws none — the group
  * draws it.
  *
- * Revised on the chat-site review (2026-09-05): the ring is 1px and FLUSH with the box —
- * the 2px offset ring on every control read as a frame gallery — so the offset token is
- * 0px. The select's search field, flush at the top of an opened menu, draws none: it is
+ * Revised on the chat-site review (2026-09-05): the ring was 1px and FLUSH with the box —
+ * the 2px offset ring on every control read as a frame gallery — and 0.27.0 brought it back
+ * to 2px with a 2px gap, the thickness WCAG 2.2 asks of a focus indicator, keeping the
+ * neutral colour that answered the frame gallery. The select's search field, flush at the top of an opened menu, draws none: it is
  * the caret's, and a rectangle inside a rounded panel was the wrong shape.
  *
  * Revised again (the CSS/a11y audit, 2026-09-05). Two rules MOVE their ring rather than
@@ -86,6 +87,9 @@ const INSET_ALLOWED = new Set([
     // The tick's pressable zone spans the rail, and the rail clips: an outward ring lost
     // both verticals (and a third side on the first and last tick).
     '.aparte-scroll-rail__tick:focus-visible::before',
+    // A pending file's ✕ sits inside its tile, and the tile clips: the 2px ring 2px out was
+    // cut along the top and the end.
+    '.aparte-thumb__remove:focus-visible',
 ]);
 /** One shape for every inset ring: pulled in by exactly the ring's own width. */
 const INSET_OFFSET = 'calc(-1 * var(--aparte-focus-outline-width))';
@@ -99,9 +103,9 @@ const NO_RING_ALLOWED = new Set([
 ]);
 
 describe('the tokens', () => {
-    it('the ring is 1px, flush with the box; the soft ring and the private offsets are gone', () => {
-        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*0px/);
-        expect(theme).toMatch(/--aparte-focus-outline-width:\s*1px/);
+    it('the ring is 2px, 2px outside the box; the soft ring and the private offsets are gone', () => {
+        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*2px/);
+        expect(theme).toMatch(/--aparte-focus-outline-width:\s*2px/);
         expect(theme).not.toMatch(/--aparte-focus-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-field-error-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-btn-focus-offset\s*:/);

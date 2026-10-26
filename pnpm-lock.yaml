@@ -91,9 +91,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@aparte/locale-fr':
+      '@aparte/locales':
         specifier: workspace:*
-        version: link:../../packages/locales/fr
+        version: link:../../packages/locales/all
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../packages/plugins/shiki
@@ -164,6 +164,9 @@ importers:
       '@aparte/provider-scenario':
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
+      '@aparte/runner-n8n':
+        specifier: workspace:*
+        version: link:../../packages/providers/agent/n8n
       '@aparte/secrets':
         specifier: ^1.1.1
         version: 1.1.1
@@ -248,6 +251,9 @@ importers:
       '@aparte/runner-ag-ui':
         specifier: workspace:*
         version: link:../../../packages/providers/agent/ag-ui
+      '@aparte/runner-n8n':
+        specifier: workspace:*
+        version: link:../../../packages/providers/agent/n8n
       '@shikijs/langs':
         specifier: ^4.0.0
         version: 4.3.1
@@ -260,6 +266,28 @@ importers:
       shiki:
         specifier: ^4.0.0
         version: 4.3.1
+
+  apps/examples/agents-sdk:
+    dependencies:
+      '@ag-ui/core':
+        specifier: ^1.0.3
+        version: 1.0.3(zod@4.6.6)
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@aparte/runner-ag-ui':
+        specifier: workspace:*
+        version: link:../../../packages/providers/agent/ag-ui
+      '@openai/agents':
+        specifier: ^0.21.0
+        version: 0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
 
   apps/examples/angular:
     dependencies:
@@ -345,9 +373,6 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
-      '@aparte/locale-fr':
-        specifier: workspace:*
-        version: link:../../../packages/locales/fr
       '@aparte/plugin-approval':
         specifier: workspace:*
         version: link:../../../packages/plugins/approval
@@ -866,13 +891,13 @@ importers:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
 
-  packages/locales/fr:
+  packages/locales/all:
     devDependencies:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../core
       typescript:
-        specifier: ^5.4.0
+        specifier: ~5.7.0
         version: 5.7.3
       vite:
         specifier: ^6.0.0
@@ -1073,6 +1098,21 @@ importers:
         version: 20.11.0
       typescript:
         specifier: ^5.4.0
+        version: 5.7.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
+
+  packages/providers/agent/n8n:
+    devDependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../../core
+      '@types/node':
+        specifier: 20.11.0
+        version: 20.11.0
+      typescript:
+        specifier: ~5.7.0
         version: 5.7.3
       vite:
         specifier: ^6.0.0
@@ -1320,6 +1360,14 @@ packages:
 
   '@ag-ui/core@1.0.0':
     resolution: {integrity: sha512-yCRhsQvb4+lmGMrDsi4TOJxqKpm/kb3H64wwL+Z90jNVrkhy17RErfzsNgybfbjNKLM0nenEDYDVJsZHJJSigQ==}
+    peerDependencies:
+      zod: ^3.25.18 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
+  '@ag-ui/core@1.0.3':
+    resolution: {integrity: sha512-HdMdZPOqworKlnzLaNktnbNYgIzOPbzt5ow6J4bPhbmHCdpWpCSZQFgkifQkn1zVHgCK1V+pmKc8xtW6FsQZKA==}
     peerDependencies:
       zod: ^3.25.18 || ^4.0.0
     peerDependenciesMeta:
@@ -4119,6 +4167,14 @@ packages:
   '@mdx-js/mdx@3.1.1':
     resolution: {integrity: sha512-f6ZO2ifpwAQIpzGWaBQT2TXxPv6z3RBzQKpVftEWN78Vl/YweF1uwussDx8ECAXVtr3Rs89fKyG9YlzUs9DyGQ==}
 
+  '@modelcontextprotocol/client@2.4.0':
+    resolution: {integrity: sha512-LgrD2OphHuG12vfKFKz6SOnq7bKHQmhGJIAYdD+MZBn2npHEyry6uD8zvktodtl5CQM85MO0anUyD9JwmUmxww==}
+    engines: {node: '>=20'}
+
+  '@modelcontextprotocol/core@2.4.0':
+    resolution: {integrity: sha512-z8QBKqdfXLPzkLQuG4xp8hrVEMm1PZ1IgxMN2sMbJiFiAKOWXnAzogXn2W4aqIBlP1ea6U5yiqVquvUNM1Cj6Q==}
+    engines: {node: '>=20'}
+
   '@modelcontextprotocol/sdk@1.30.0':
     resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
     engines: {node: '>=18'}
@@ -4590,6 +4646,29 @@ packages:
 
   '@one-ini/wasm@0.1.1':
     resolution: {integrity: sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==}
+
+  '@openai/agents-core@0.21.0':
+    resolution: {integrity: sha512-P2jJhc85xrKpe9GUOHAVfPHqK52my49fD1CI0LnfYEvBUwZxJXQI6lgSwby9nWhvQECveM9OvBUglAXuArsHXw==}
+    peerDependencies:
+      zod: ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
+  '@openai/agents-openai@0.21.0':
+    resolution: {integrity: sha512-Y1u1ek6FwKx8j+T7gRYcm4kKyN0irqsyZm0XUDZ+g+8s15tu4EhNwNJ92zOHGx7Vjkr2RugWBxTeNspHjw/lQw==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@openai/agents-realtime@0.21.0':
+    resolution: {integrity: sha512-nI0jGkSdivlXzS7HXAB1EVplaeSyoAvfM2ofHheJDJdshs3UQl3x405nmTflKWye+wQrqemK4uxL06NIhgvjHg==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@openai/agents@0.21.0':
+    resolution: {integrity: sha512-NpJ74/dGbpYZiRYF474pCaBpxqh4A8+WHbZmaEZVQpRqieZAVH+MV4fesR9MtRGUZfpW5B91zuHzIilQp2iSxQ==}
+    peerDependencies:
+      zod: ^4.0.0
 
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
@@ -6439,6 +6518,9 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@typescript-eslint/eslint-plugin@8.63.0':
     resolution: {integrity: sha512-rvwSgqT+DHpWdzfSzPatRLm02a0GlESt++9iy3hLCDY4BgkaLcl8LBi9Yh7XGFBpwcBE/K3024QuXWTpbz4FfQ==}
@@ -10481,6 +10563,33 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
+  openai@7.43.0:
+    resolution: {integrity: sha512-fBjKaDFG8AVfkGYoIo/E+xNRlNk7nx2nQ9GoQtXfePzPjg4QcT6nejkhXayJnEwSpFGfthOrAPI2KXj5yAqg9A==}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
+      google-auth-library: '>=9.15.1 <11'
+      undici: '>=5 <9'
+      ws: ^8.21.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
+      google-auth-library:
+        optional: true
+      undici:
+        optional: true
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -13397,6 +13506,10 @@ packages:
 snapshots:
 
   '@ag-ui/core@1.0.0(zod@4.6.6)':
+    optionalDependencies:
+      zod: 4.6.6
+
+  '@ag-ui/core@1.0.3(zod@4.6.6)':
     optionalDependencies:
       zod: 4.6.6
 
@@ -16672,6 +16785,22 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@modelcontextprotocol/client@2.4.0':
+    dependencies:
+      '@modelcontextprotocol/core': 2.4.0
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      jose: 6.2.10
+      pkce-challenge: 5.0.1
+      zod: 4.6.6
+    optional: true
+
+  '@modelcontextprotocol/core@2.4.0':
+    dependencies:
+      zod: 4.6.6
+    optional: true
+
   '@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.5)
@@ -17459,6 +17588,71 @@ snapshots:
       - supports-color
 
   '@one-ini/wasm@0.1.1': {}
+
+  '@openai/agents-core@0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      debug: 4.4.3
+      openai: 7.43.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+    optionalDependencies:
+      '@modelcontextprotocol/client': 2.4.0
+      zod: 4.6.6
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - google-auth-library
+      - supports-color
+      - undici
+      - ws
+
+  '@openai/agents-openai@0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)':
+    dependencies:
+      '@openai/agents-core': 0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      openai: 7.43.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      zod: 4.6.6
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - google-auth-library
+      - supports-color
+      - undici
+      - ws
+
+  '@openai/agents-realtime@0.21.0(undici@8.10.0)(zod@4.6.6)':
+    dependencies:
+      '@openai/agents-core': 0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      '@types/ws': 8.18.2
+      ws: 8.22.0
+      zod: 4.6.6
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - bufferutil
+      - google-auth-library
+      - supports-color
+      - undici
+      - utf-8-validate
+
+  '@openai/agents@0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)':
+    dependencies:
+      '@openai/agents-core': 0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      '@openai/agents-openai': 0.21.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      '@openai/agents-realtime': 0.21.0(undici@8.10.0)(zod@4.6.6)
+      openai: 7.43.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6)
+      zod: 4.6.6
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - bufferutil
+      - google-auth-library
+      - supports-color
+      - undici
+      - utf-8-validate
+      - ws
 
   '@oslojs/encoding@1.1.0': {}
 
@@ -18939,6 +19133,10 @@ snapshots:
   '@types/unist@3.0.3': {}
 
   '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 20.11.0
+
+  '@types/ws@8.18.2':
     dependencies:
       '@types/node': 20.11.0
 
@@ -24198,6 +24396,12 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
+  openai@7.43.0(undici@8.10.0)(ws@8.22.0)(zod@4.6.6):
+    optionalDependencies:
+      undici: 8.10.0
+      ws: 8.22.0
+      zod: 4.6.6
+
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -26106,8 +26310,8 @@ snapshots:
       picocolors: 1.1.1
       sade: 1.8.1
       svelte: 4.2.20
-      svelte-preprocess: 5.1.4(@babel/core@7.29.7)(less@4.9.0)(postcss@8.5.31)(sass@1.101.0)(svelte@4.2.20)(typescript@5.7.3)
-      typescript: 5.7.3
+      svelte-preprocess: 5.1.4(@babel/core@7.29.7)(less@4.9.0)(postcss@8.5.31)(sass@1.101.0)(svelte@4.2.20)(typescript@5.9.3)
+      typescript: 5.9.3
     transitivePeerDependencies:
       - '@babel/core'
       - coffeescript
@@ -26136,7 +26340,7 @@ snapshots:
     dependencies:
       svelte: 4.2.20
 
-  svelte-preprocess@5.1.4(@babel/core@7.29.7)(less@4.9.0)(postcss@8.5.31)(sass@1.101.0)(svelte@4.2.20)(typescript@5.7.3):
+  svelte-preprocess@5.1.4(@babel/core@7.29.7)(less@4.9.0)(postcss@8.5.31)(sass@1.101.0)(svelte@4.2.20)(typescript@5.9.3):
     dependencies:
       '@types/pug': 2.0.10
       detect-indent: 6.1.0
@@ -26149,7 +26353,7 @@ snapshots:
       less: 4.9.0
       postcss: 8.5.31
       sass: 1.101.0
-      typescript: 5.7.3
+      typescript: 5.9.3
 
   svelte2tsx@0.7.62(svelte@5.56.10(@typescript-eslint/types@8.63.0))(typescript@5.7.3):
     dependencies:
