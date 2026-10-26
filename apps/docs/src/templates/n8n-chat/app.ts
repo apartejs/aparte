@@ -104,6 +104,7 @@ const HINT = hint.innerHTML;
 form.addEventListener('submit', (event) => {
     event.preventDefault();
     const value = field.value.trim();
+    field.removeAttribute('aria-invalid');
     if (!value) {
         ownUrl = undefined;
         hint.innerHTML = HINT;
@@ -112,13 +113,15 @@ form.addEventListener('submit', (event) => {
     }
     let url: URL;
     try { url = new URL(value); } catch {
+        field.setAttribute('aria-invalid', 'true');
         hint.textContent = 'That is not a URL. Paste the Chat Trigger’s production URL, the one that ends in /chat.';
         return;
     }
     ownUrl = url.href;
+    // Nothing is connected until a message goes through: say what was set, and how to test it.
     hint.textContent = url.pathname.endsWith('/chat')
-        ? `Connected to ${url.host}. If nothing answers, add ${location.origin} to the trigger’s Allowed Origins.`
-        : 'Connected — but a Chat Trigger’s URL ends in /chat: check it is the production URL.';
+        ? `The chat now sends to ${url.host}: ask it something. If nothing answers, the browser console says why — often ${location.origin} missing from the trigger’s Allowed Origins.`
+        : 'The chat now sends there — but a Chat Trigger’s URL ends in /chat: check it is the production URL.';
     mount().open();
 });
 

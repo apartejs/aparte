@@ -60,10 +60,10 @@ import './n8n-chat.css';
             <form class="nd-connect" novalidate>
                 <label class="nd-control__label" for="nd-url">Your n8n</label>
                 <div class="nd-connect__row">
-                    <input class="aparte-field" id="nd-url" type="url" placeholder="https://…/webhook/…/chat" autocomplete="off" spellcheck="false" />
+                    <input class="aparte-field" id="nd-url" type="url" placeholder="https://…/webhook/…/chat" autocomplete="off" spellcheck="false" aria-describedby="nd-url-hint" />
                     <button type="submit" class="aparte-btn aparte-btn--sm aparte-btn--primary aparte-btn--solid">Connect</button>
                 </div>
-                <p class="nd-connect__hint" aria-live="polite">
+                <p class="nd-connect__hint" id="nd-url-hint" aria-live="polite">
                     The Chat Trigger’s production URL. In n8n: <em>Embedded Chat</em>, this site in <em>Allowed Origins</em>,
                     streaming on the trigger and on the agent.
                 </p>
