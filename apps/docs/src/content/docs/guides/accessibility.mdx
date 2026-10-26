@@ -48,12 +48,13 @@ by the question. The [split](/components/split/)'s arrows follow the reading dir
 
 ## Focus, motion, contrast and touch
 
-- **Focus.** Every control shows a ring on keyboard focus (`:focus-visible`), flush against it,
-  drawn in `--aparte-border-focus` — which follows `--aparte-neutral` — at
-  `--aparte-focus-outline-width`. Widen it everywhere at once:
+- **Focus.** Every control shows a ring on keyboard focus (`:focus-visible`): 2px wide, 2px
+  outside the control (`--aparte-focus-outline-width`, `--aparte-focus-outline-offset`), the
+  thickness WCAG 2.2 asks of a focus indicator, drawn in `--aparte-border-focus`, which follows
+  `--aparte-neutral`. A design that wants it quieter narrows it everywhere at once:
 
   ```css
-  :root { --aparte-focus-outline-width: 2px; }
+  :root { --aparte-focus-outline-width: 1px; --aparte-focus-outline-offset: 0px; }
   ```
 
 - **Motion.** Under `prefers-reduced-motion`, the duration tokens drop to near zero, so the

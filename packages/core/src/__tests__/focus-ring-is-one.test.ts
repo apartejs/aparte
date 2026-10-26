@@ -99,9 +99,9 @@ const NO_RING_ALLOWED = new Set([
 ]);
 
 describe('the tokens', () => {
-    it('the ring is 1px, flush with the box; the soft ring and the private offsets are gone', () => {
-        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*0px/);
-        expect(theme).toMatch(/--aparte-focus-outline-width:\s*1px/);
+    it('the ring is 2px, 2px outside the box; the soft ring and the private offsets are gone', () => {
+        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*2px/);
+        expect(theme).toMatch(/--aparte-focus-outline-width:\s*2px/);
         expect(theme).not.toMatch(/--aparte-focus-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-field-error-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-btn-focus-offset\s*:/);

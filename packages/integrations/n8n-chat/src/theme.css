@@ -40,9 +40,6 @@
   --aparte-message-content-bg-assistant: var(--chat--message--bot--background, var(--chat--color-white, #fff));
   --aparte-message-content-text-assistant: var(--chat--message--bot--color, var(--chat--color-dark, #101330));
   --aparte-message-content-padding-assistant: var(--chat--message--padding, var(--chat--spacing, 1rem));
-  /* A ring a keyboard user can find, on any of the theme's grounds. */
-  --aparte-focus-outline-width: 2px;
-  --aparte-focus-outline-offset: 2px;
 
   /* What core derives on the chat's own anchors, kept here and handed down below. */
   --aparte-n8n-accent: var(--chat--color--primary, #e74266);
