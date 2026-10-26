@@ -1,5 +1,66 @@
 # @aparte/core
 
+## 0.27.0
+
+### Minor Changes
+
+- 4b33046: The keyboard focus ring is now 2px wide with a 2px gap, instead of 1px flush against the control. For the old ring, set `:root { --aparte-focus-outline-width: 1px; --aparte-focus-outline-offset: 0px; }`.
+
+  2px is the thickness WCAG 2.2 asks of a focus indicator (2.4.13). The ring keeps its neutral colour, which is what kept a page full of focusable controls from looking framed. Measured on every component and template page of the docs, focused as a keyboard would: no ring there was newly cut by the gap. One control that appears only once a file is attached was — a pending file's ✕, inside a tile that clips — and it now draws its ring inside, like the picture beside it.
+
+- aa1f369: A `streamRunner` now receives the files attached to the message it answers, as `files` in its run options — so a runner whose backend takes uploads can send them as files, PDFs and spreadsheets included. Nothing changes for a provider or for `runStreamAgent`.
+
+  The client inlines images and text files into the request and drops every other file with a warning: right for a model, wrong for a backend that reads uploads itself, such as n8n's Chat Trigger. Pair it with `rawFileInject: 'none'` so the files are not also inlined into the message's text. Set on a send only: a retry or an edit carries no files again.
+
+- 79e2fd1: A failed turn now shows a plain sentence chosen by the error's code, in the reader's language, instead of the transport's or the provider's raw message. The raw message goes to the browser's console and stays on the error segment; `setErrorRenderer` still receives it as `message`, and now also the `sentence`.
+
+  Seven locale keys hold the sentences, and every language of `@aparte/locales` translates them: `errorUnreachable` (NET_OFFLINE, NET_ERROR), `errorTimeout` (NET_TIMEOUT), `errorRefused` (CONFIG_INVALID_KEY, a 401 or a 403), `errorRateLimited` (USAGE_RATE_LIMIT), `errorTooLong` (USAGE_CONTEXT_EXCEEDED), `errorFailed` (PROVIDER_ERROR, PROVIDER_UNAVAILABLE) and `errorNoAnswer` (USAGE_BAD_REQUEST, PROVIDER_POLICY, CONFIG_INVALID_MODEL, UNKNOWN_ERROR). "Try again in a moment" is said only where a moment can help. `extendLocale` changes them.
+
+  A tool whose handler throws now ends the turn as UNKNOWN_ERROR, whatever it threw: its own failed fetch or 401 no longer reads as the assistant being unreachable or the provider refusing the key.
+
+  An error keeps its own words when they were written for the reader or the developer already: the turn limit (MAX_TURNS_EXCEEDED, localized when it is raised), the two setup errors core raises before any request (CONFIG_NO_PROVIDER, CONFIG_MISSING_KEY), and an error segment an app or a plugin adds with a code of its own or none. A custom error renderer's card is left alone on a language switch.
+
+- 26151fa: Add `<aparte-launcher>`: put your chat inside it and it floats as a button in the bottom corner of the window, opening the chat as a card above it, and as a full-window sheet on a phone.
+
+  ```html
+  <aparte-launcher label="Help">
+    <aparte-chat></aparte-chat>
+  </aparte-launcher>
+  ```
+
+  The button is the button recipe (solid, primary, large): round with a speech bubble, or a pill when you give it a `label`. A click opens the chat, and a second click, Escape, or any control of yours marked `data-aparte-launcher-close` closes it. Opening with the button hands the focus to the composer; `show()` and `open` set from a script move no focus, so a page that restores the saved state on load does not steal it. Closing gives the focus back to the button when it was inside. A closed launcher keeps the chat mounted, so the conversation and the client stay, but out of sight, out of the tab order and out of the accessibility tree — whatever `display` your card sets, inline or by a rule. `open`, `show()`, `close()` and `toggle()` drive it from a script, and `aparte-launcher-toggle` reports every change — including, while the chat is open, the window crossing the breakpoint, so a host that takes its page out of reach under the sheet needs no media query of its own.
+
+  Escape closes the launcher unless something inside has the key first: a control that answered it (a menu closing, the context gauge's panel), an input method that is composing, or a modal dialog open in your card, which closes itself on it. The next Escape closes the launcher.
+
+  Under `breakpoint` (30rem of window in width or in height unless you set a width, `none` for a card at any size) the open chat fills the window, Tab stays inside it, and the button moves to the top corner — or hides, when your card holds its own close control. The size, the offset from the edges, the gap and the corners are `--aparte-launcher-width`, `-height`, `-offset`, `-gap` and `-radius`.
+
+  The locale gains `launcherOpen` and `launcherClose`, the button's accessible name when it shows no text, translated in the nine languages of `@aparte/locales`. The icon provider gains `messageSquare`, the closed button's glyph, and the button asks for `launcherOpen` and `launcherClose` first, so a theme redraws the button alone (`registerIcons`) without redrawing every close button in the chat. The button reads them from the chat inside it when that chat carries its own config (a wrapper's `config` prop, `attachConfig`), and from the page's config otherwise, so a French chat gets a French button without a global setting.
+
+  On a server-rendered page, hold the launcher with `defer-hydration` — on it, or on an element around it — and release it with `releaseDeferredHydration` once your framework has hydrated, as the launcher page shows. The launcher draws its button when it connects, and hydration removes what it did not render; if something removes the button anyway, the element puts it back.
+
+  The context gauge now answers an Escape pressed inside it on its own element, and stops and default-prevents it: an element around a gauge that listens for Escape no longer sees that press, which is what lets a launcher or a dialog around it stay open under the panel. An Escape from elsewhere still closes the panel and is left to whatever else listens for it.
+
+  The docs' Support widget template is now built on it, in place of the launcher it drew by hand.
+
+- e5435a4: Tool rows are quiet by default: the label shimmers while a call runs and nothing says "Done" once it ends. For the old row with a spinner, "Running" and "Done", call `aparteGlobalConfig.registerToolDisplay('*', { quiet: false })`.
+
+  A wait for approval, a refusal, a failure and a stop still show their word and their note, and a screen reader still hears "Running" and "Done". `quiet` keeps its meaning: it was opt-in for a chat read by people, and it is now what a chat gets unless a display says `quiet: false`.
+
+  A display is used whole, so `quiet: false` on `'*'` reaches only the tools without an entry of their own. A tool that has one — a label, an icon, a summary from `registerToolSummary`, a formatter from `registerToolInputFormatter`, any field — says `quiet: false` in that entry to keep the agent's row. Under reduced motion and in forced colours, where the shimmer cannot say a call is running, a quiet row shows "Running".
+
+### Patch Changes
+
+- dd56ac6: A file outside the `accept` list of `<aparte-composer-add-attachment>` is no longer attached when it is dropped, pasted, or picked through the dialog's "All files". It is left out without a message.
+
+  `accept` only reached the file input, where the browser reads it as a suggestion: its dialog offers "All files", and a drop or a paste never sees the list at all. Measured against a real n8n: with `accept="image/*"`, a PDF dropped on the composer was attached and sent. The list is now checked where the file arrives, read the way the browser reads it — `.ext` against the name, `type/*` against the MIME family, anything else against the exact type.
+
+- 96fd2c8: An attachment tile now shows its file name on a touch screen all the time, and on keyboard focus where the tile takes it — a pending file through its ✕, a picture the app opens previews for — not only on hover. A sent file tile that is not a control still shows it on hover and on touch.
+
+  The tile's label shows only the extension, so two PDFs looked alike to anyone who could not hover. The name keeps its scrim over a picture.
+
+- Updated dependencies [aa1f369]
+  - @aparte/engine@0.27.0
+
 ## 0.26.0
 
 ### Minor Changes
