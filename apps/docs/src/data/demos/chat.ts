@@ -127,7 +127,8 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
 <script>
   const { aparteGlobalConfig } = window.aparte;
-  // An agent's row, which names every state; the default, quiet row names only the last four.
+  // An agent's row, which names every state; the default, quiet row shows a word only for
+  // awaiting-approval, rejected, aborted and failed.
   aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
   const call = (id, name, input) => ({ id, name, input });
   document.querySelector('aparte-chat-bubble').setSegments([
@@ -191,12 +192,12 @@ export const CHAT_DEMOS: DemoEntry[] = [
 
   // A label replaces the identifier; the identifier stays on the row as data-tool-name.
   aparteGlobalConfig.registerToolDisplay('web_search', {
-    label: 'Searching the web',
+    label: (segment) => (segment.status === 'resolved' ? 'Searched the web' : 'Search the web'),
     icon: 'search',
     summary: (segment) => \`“\${segment.toolCall.input.query}”\`,
   });
   aparteGlobalConfig.registerToolDisplay('read_file', {
-    label: 'Reading a file',
+    label: (segment) => (segment.status === 'resolved' ? 'Read a file' : 'Read a file…'),
     icon: 'file',
     summary: (segment) => String(segment.toolCall.input.path ?? ''),
   });

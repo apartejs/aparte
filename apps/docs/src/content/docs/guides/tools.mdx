@@ -53,9 +53,14 @@ reaches it ends on an error message. A model whose declared `capabilities` leave
 
 ## What the row shows
 
-<Variant id="tool-statuses" caption="A tool call in each of its states." />
+<Variant id="tool-statuses" caption="A tool call in each of its states, on an agent's row (quiet: false)." />
 
-Each call is one line in the reply, in the order it happened: the tool's name and its state.
+Each call is one line in the reply, in the order it happened: the tool's name and its state. The
+row is quiet by default: while the call runs its name [shimmers](/components/shimmer/) instead of a
+spinner, and "Running" and "Done" are read by a screen reader but not shown — under reduced motion
+and in forced colours, where the shimmer cannot say it, "Running" is shown. A wait, a refusal, a
+stop and a failure show their word on every row. The table is an agent's row
+(`registerToolDisplay('*', { quiet: false })`), which shows them all.
 Opened, it shows the arguments the model chose under **Input** and the result under **Output**.
 A part that is JSON is pretty-printed, and coloured when a [highlighter](/guides/markdown/) is
 registered; any other text stays as it is. Each part has a copy button, and a long one scrolls
@@ -66,7 +71,7 @@ scroll. What a tool is called, and whether its row is drawn at all, is yours to 
 | State | Word | Note after the word | When |
 | --- | --- | --- | --- |
 | `awaiting-approval` | Waiting | | a person has not decided yet |
-| `pending` | Running | | the handler runs, with a spinner |
+| `pending` | Running | | the handler runs, with a spinner on an agent's row and a shimmer on a quiet one |
 | `resolved` | Done | | the handler answered |
 | `rejected` | Rejected | `You said: “…”`, when the person wrote something instead of choosing | a person refused it |
 | `rejected` | Rejected | `Refused by policy` | a [policy](#decide-in-code) refused it |

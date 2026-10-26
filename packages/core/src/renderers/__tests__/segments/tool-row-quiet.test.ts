@@ -1,12 +1,12 @@
 /**
- * A quiet tool row: the line a person reads in a conversational chat.
+ * A quiet tool row: the line a person reads in a conversational chat, and the default.
  *
- * The default row is an agent's: a spinner and "Running", then "✓ Done". No consumer chat
- * shows either — the label's tense carries the state ("Searching the web…", then "Searched
- * the web"), a light sweeps across it while it runs, and nothing marks success. A display's
- * `quiet` gives that line. What a person must act on or know still says so: a wait for
- * approval, a refusal, a failure, a stop. The state word a quiet row does not show is still
- * read by a screen reader.
+ * No consumer chat shows a spinner and "Running", then "✓ Done" — the label's tense carries
+ * the state ("Searching the web…", then "Searched the web"), a light sweeps across it while it
+ * runs, and nothing marks success. That is the row a tool gets unless a display says
+ * `quiet: false`, the agent's row. What a person must act on or know still says so: a wait
+ * for approval, a refusal, a failure, a stop. The state word a quiet row does not show is
+ * still read by a screen reader, and shown where the sweep cannot say "running".
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { getSegmentRenderer, registerDefaultRenderers } from '../../segment-renderers.js';
@@ -145,5 +145,17 @@ describe('a quiet row on the page', () => {
 
     it('puts the chevron at the end of the line, where a chat app puts it', () => {
         expect(rule('.aparte-segment-tool-call[data-quiet] .aparte-tool-toggle')).toMatch(/order:\s*1/);
+    });
+});
+
+describe('where the sweep cannot say "running"', () => {
+    it('a running quiet row shows its word under reduced motion and in forced colours', async () => {
+        const { readAparteStylesheet } = await import('../../../__tests__/read-stylesheet.js');
+        const sheet = readAparteStylesheet();
+        const block = sheet.slice(sheet.indexOf('@media (prefers-reduced-motion: reduce), (forced-colors: active)'));
+        expect(block, 'no media block for reduced motion and forced colours').not.toBe(sheet);
+        const rule = block.match(/\.aparte-segment-tool-call\[data-quiet\]\[data-status='pending'\] \.aparte-tool-state\s*\{([^}]*)\}/)?.[1] ?? '';
+        expect(rule).toMatch(/position:\s*static/);
+        expect(rule).toMatch(/clip:\s*auto/);
     });
 });

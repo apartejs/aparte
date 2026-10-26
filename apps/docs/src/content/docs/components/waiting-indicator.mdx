@@ -18,7 +18,7 @@ that is `streaming` with nothing in it yet shows it.
 
 The dots also show between the steps of an agent turn: while the reply streams and its last
 segment is a tool call that has finished (or one your app hides), they stay until the next step
-writes, so a long turn does not look frozen after each "Done". They do not show while a call waits
+writes, so a long turn does not look frozen after each finished step. They do not show while a call waits
 for an approval, hidden or not, since nothing comes until the person answers. A hidden call that is
 running keeps them, because nothing else shows that work, a hidden question included.
 

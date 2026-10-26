@@ -192,16 +192,19 @@ describe('default renderer: tool_call', () => {
         expect(html).toContain('&lt;img src=x onerror=');
     });
 
-    it('renders spinner for pending status', () => {
+    it("renders a spinner for pending status on an agent's row", () => {
+        // The default, quiet row draws the spinner hidden; an agent's row shows it.
+        aparteGlobalConfig.registerToolDisplay('*', { quiet: false });
         const renderer = getSegmentRenderer('tool_call')!;
         const seg = {
             id: 'tc2', type: 'tool_call',
             toolCall: { id: 'c2', name: 'my_tool', input: {} },
             status: 'pending'
         };
-        const html = renderer.render(seg as any);
-        expect(html).toContain('aparte-tool-spinner');
+        const html = renderer.render(seg as any) as string;
+        expect(html).toMatch(/<span[^>]*class="[^"]*aparte-tool-spinner[^"]*"(?![^>]*\shidden[\s>])[^>]*>/);
         expect(html).not.toContain(aparteGlobalConfig.getIcon('check'));
+        aparteGlobalConfig.unregisterToolDisplay('*');
     });
 
     /*
