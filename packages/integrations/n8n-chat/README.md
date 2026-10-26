@@ -25,8 +25,8 @@ chat.open();
 
 It keeps what a page relies on — the option names and defaults, the session in `localStorage`
 (`n8n-chat/sessionId`), the history on load, files, n8n's main `--chat--*` variables — and adds a
-handle (`open`, `close`, `toggle`, `send`, `reset`, `destroy`), French, a history without the tool
-steps, errors a visitor can read (and a console that says what to change in n8n), readable
+handle (`open`, `close`, `toggle`, `send`, `reset`, `destroy`), a history without the tool
+steps, nine languages loaded one at a time, errors a visitor can read (and a console that says what to change in n8n), readable
 contrast, keyboard and screen-reader access, and a dark scheme. What it does not take over —
 response nodes, highlighted code, `messageComponents`, CSS written for n8n's `.chat-*` classes — is
 on the docs page.

@@ -66,6 +66,7 @@ from n8n the same way.
 | A last node with no `output`, `text` or `message` | Its JSON printed in the bubble | An error that names the fields it got |
 | When n8n can't be reached | `Error: Failed to receive response` | A sentence in the visitor's language; the console says what to check |
 | A page view, the chat never opened | A history request to n8n, every time | Nothing: the history is asked for when the chat first opens |
+| Languages | English; its eight strings can be overridden | Nine shipped, the chat's whole interface — English, French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified) — each loaded alone |
 | Contrast of the visitor's bubble | 2.55:1 (white on `#20b69e`) | 4.7:1 by default; your `--chat--*` colors kept |
 | Keyboard and screen reader | No roles, no labels; the launcher is a `div` | A real button, named; the window labelled; a modal sheet on a phone |
 | Dark scheme | No | `colorScheme: 'dark'` or `'auto'` |
@@ -98,7 +99,7 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name, with its 
 | `loadPreviousSession` | `true` | Keep the session in the browser and show its history again — in a window when the chat first opens, so a page view alone reaches no n8n execution. |
 | `sessionId` | — | Use this session (your app's conversation id) instead of the stored one. |
 | `chatInputKey`, `chatSessionKey` | `'chatInput'`, `'sessionId'` | The body fields, for a workflow that reads others. |
-| `defaultLanguage` | `'en'` | `'en'` or `'fr'`; with `i18n` for the chrome's words in any language. |
+| `defaultLanguage` | `'en'` | A language tag (`'de'`, `'pt-BR'`, `'fr-CA'`). Nine ship; the page downloads the one it uses. Another tag reads in English, or in the `locale` you give. |
 | `initialMessages` | n8n's two | The assistant's first messages, neither sent nor kept. |
 | `messageHistory` | — | A conversation to show when n8n has none for the session. |
 | `metadata` | — | Sent with every message, read from the trigger's output. |
@@ -111,7 +112,20 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name, with its 
 These are the `ChatOptions`; the chrome's words are `ChatStrings`, and `createChat` returns a
 `Chat`. And four of aparté's own: `suggestions` (questions offered above the input until the first message),
 `colorScheme` (`'light'`, `'dark'`, `'auto'`), `fetch` (every request to n8n goes through it — a
-proxy, a test) and `locale`, the chat's own words for a language aparté does not ship:
+proxy, a test) and `locale`, the chat's own words for a language aparté does not ship.
+
+A shipped language is one option — the header, the input, the first messages and the chat's own
+words switch together:
+
+```ts
+import { createChat } from '@aparte/n8n-chat';
+
+createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat', defaultLanguage: 'de' });
+```
+
+Another language takes its words from you: `i18n` for the header's and the input's, as with
+`@n8n/chat`, and `locale` for the rest — the send button, the error card, what a screen reader
+hears. See [Translation](/guides/localization/) for every key.
 
 ```ts
 import { APARTE_DEFAULT_LOCALE } from '@aparte/core';
@@ -119,15 +133,15 @@ import { createChat } from '@aparte/n8n-chat';
 
 createChat({
   webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat',
-  defaultLanguage: 'de',
-  i18n: { de: { title: 'Hallo! 👋', inputPlaceholder: 'Ihre Frage…' } },
-  locale: { ...APARTE_DEFAULT_LOCALE, tag: 'de', launcherOpen: 'Chat öffnen', launcherClose: 'Chat schließen' },
+  defaultLanguage: 'nl',
+  initialMessages: ['Hallo! 👋', 'Waarmee kan ik je helpen?'],
+  i18n: { nl: { title: 'Hallo! 👋', inputPlaceholder: 'Stel je vraag…' } },
+  locale: { ...APARTE_DEFAULT_LOCALE, tag: 'nl', launcherOpen: 'Chat openen', launcherClose: 'Chat sluiten' },
 });
 ```
 
-`i18n` holds the header's and the input's words, as with `@n8n/chat`; `locale` holds the rest — the
-send button, the error card, what a screen reader hears. See [Translation](/guides/localization/)
-for every key.
+Every shipped language is written left to right; the eight beyond English have not yet been read
+by a native speaker.
 
 ## Drive it from your page
 
