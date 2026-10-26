@@ -1,10 +1,9 @@
 /**
- * @aparte/locale-fr
+ * French (fr) — the chat's interface strings: pass `fr` to `aparteGlobalConfig.setLocale()`.
  *
- * French translations for aparté. Core ships English (`APARTE_DEFAULT_LOCALE`) by
- * default — pass this to `aparteGlobalConfig.setLocale(fr)` to switch.
+ * Core ships English (`APARTE_DEFAULT_LOCALE`). Every key is translated here — a key left out
+ * would show in English, and the package's tests and `check:locale-keys` refuse that.
  */
-
 import type { AparteLocale } from '@aparte/core';
 
 export const fr: AparteLocale = {

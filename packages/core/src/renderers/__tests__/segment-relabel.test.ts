@@ -148,8 +148,8 @@ describe('relabel reaches a rendered segment', () => {
         // `locale.error` is a REQUIRED key, documented, and already translated — and
         // was read by nothing at all while this heading hardcoded "Error". A
         // translated string with no consumer and a literal with no translation, in
-        // the same card. "Erreur" is what `@aparte/locale-fr` ships for this key —
-        // `packages/locales/fr` has carried it since it existed.
+        // the same card. "Erreur" is what the French locale ships for this key —
+        // `@aparte/locales/fr` carries it.
         expect(el.querySelector('.aparte-alert__title')!.textContent).toBe('Erreur');
         // Not the message: that is the model's or the transport's text, in whatever
         // language it arrived in. Relabelling it would be inventing content.

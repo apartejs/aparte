@@ -73,7 +73,7 @@ const BARRELS = [
     // Published like the rest (`private` is unset), so its surface is measured here too
     // even though the package is a Node CLI rather than part of the browser library.
     { pkg: '@aparte/docs-mcp', types: 'packages/tools/docs-mcp/dist/index.d.ts', readme: 'packages/tools/docs-mcp/README.md' },
-    { pkg: '@aparte/locale-fr', types: 'packages/locales/fr/dist/index.d.ts', readme: 'packages/locales/fr/README.md' },
+    { pkg: '@aparte/locales', types: 'packages/locales/all/dist/index.d.ts', readme: 'packages/locales/all/README.md' },
 ];
 
 /** Core's runtime barrel — the only way to tell a value export from a type export. */
@@ -156,7 +156,8 @@ const MAX_UNMENTIONED = new Map([
     // runner-ag-ui: the runner and its options, both on the AG-UI page.
     ['@aparte/runner-ag-ui', 0],
     ['@aparte/docs-mcp', 7],
-    ['@aparte/locale-fr', 0],
+    // locales: the nine languages, each named in the README's table.
+    ['@aparte/locales', 0],
 ]);
 
 /*

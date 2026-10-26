@@ -171,9 +171,9 @@ describe('check-locale-keys — core renders it, or a plugin owns it', () => {
         expect(r.code).toBe(1);
         // A name the real AparteLocale does not declare: only the given file can produce this line.
         expect(r.out).toContain('pluginOnlyThing is declared in AparteLocale and no core file renders it');
-        // And the French mirror stands down, because it has nothing to mirror: three fixture
-        // keys against 91 real translations is 90 findings around the one that matters.
-        expect(r.out).not.toContain('locale-fr');
+        // And the mirror stands down, because it has nothing to mirror: three fixture keys
+        // against 91 real translations is 90 findings around the one that matters.
+        expect(r.out).not.toContain('@aparte/locales');
     });
 
     it('is green over a doctored locale core renders whole, and says what it read', () => {
@@ -182,6 +182,6 @@ describe('check-locale-keys — core renders it, or a plugin owns it', () => {
         const r = run(['--locale', file, '--sources', tree]);
         expect(r.code).toBe(0);
         expect(r.out).toContain("OK — 3 keys, 4 t('…') reads");
-        expect(r.out).not.toContain('locale-fr');
+        expect(r.out).not.toContain('locale bundles');
     });
 });

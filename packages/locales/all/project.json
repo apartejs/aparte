@@ -1,7 +1,7 @@
 {
-    "name": "@aparte/locale-fr",
+    "name": "@aparte/locales",
     "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-    "sourceRoot": "packages/locales/fr/src",
+    "sourceRoot": "packages/locales/all/src",
     "projectType": "library",
     "targets": {
         "build": {
@@ -20,8 +20,8 @@
                 "{options.reportsDirectory}"
             ],
             "options": {
-                "reportsDirectory": "../../../coverage/packages/locales/fr",
-                "cwd": "packages/locales/fr"
+                "reportsDirectory": "../../../coverage/packages/locales/all",
+                "cwd": "packages/locales/all"
             }
         },
         "typecheck": {

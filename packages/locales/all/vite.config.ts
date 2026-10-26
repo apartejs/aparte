@@ -1,15 +1,13 @@
-// No `vite-plugin-dts` here.
-//
-// It rolled declarations up into `dist/index.d.ts`, and the `tsc -b
-// --emitDeclarationOnly` in the build script then wrote per-file declarations into
-// the SAME directory and overwrote it. Every package paid the rollup cost on every
-// build for output that was thrown away, and two writers raced on one directory.
-// `tsc` is the surviving producer — it is the one whose output actually ships.
+// No `vite-plugin-dts`: `tsc -b --emitDeclarationOnly` in the build script writes the
+// declarations, one per language beside its module (see packages/locales/fr for why).
 import { defineConfig } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** One entry per language, so `@aparte/locales/es` loads Spanish and nothing else. */
+const LOCALES = ['fr', 'es', 'pt-BR', 'de', 'it', 'ru', 'ja', 'ko', 'zh-CN'];
 
 export default defineConfig({
     plugins: [],
@@ -17,8 +15,11 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
-            name: 'AparteLocaleFr',
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                ...Object.fromEntries(LOCALES.map((l) => [l, resolve(__dirname, `src/${l}.ts`)])),
+            },
+            name: 'AparteLocales',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
         },

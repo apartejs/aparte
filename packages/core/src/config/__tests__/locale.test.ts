@@ -45,7 +45,7 @@ describe('APARTE_DEFAULT_LOCALE', () => {
  * Every key core declares is read by something.
  *
  * `tokensPerSecondLabel` was the one key of the eighty-odd with no reader anywhere:
- * declared in the interface, given a default, mirrored into `@aparte/locale-fr`, and
+ * declared in the interface, given a default, mirrored into the French locale, and
  * rendered by nothing — its JSDoc named a "tokens-per-second perf chip" that does not
  * exist in this library. A locale key is a public contract a translator pays for, so
  * one that renders nowhere is work asked of every locale author for no screen.
@@ -54,7 +54,8 @@ describe('APARTE_DEFAULT_LOCALE', () => {
  * reached in more ways than one call shape: `t('copy')`, `getLocale().approvalAsk`,
  * a computed `word(key)` inside a status table, a docs page naming it as a knob. Any
  * of those counts as a reader; only a name that appears in no file at all does not.
- * Its two declaration sites are excluded, since a key declares itself in both.
+ * Its declaration sites are excluded — core's list and every language of `@aparte/locales` —
+ * since a key declares itself in each of them.
  *
  * The FLOOR is the point. A corpus located by a walk silently shrinks when a directory
  * is renamed, and a shrunken corpus makes every assertion above vacuous — it would
@@ -69,16 +70,17 @@ describe('APARTE_DEFAULT_LOCALE — every key has a reader', () => {
     const SKIP = new Set(['direction', 'tag', 'compactionSummaryTitle']);
     const CORPUS_FLOOR = 600;
     /*
-     * The two declaration sites — a key declares itself in both — and this file,
+     * The declaration sites — core's list, where a key declares itself, and each language
+     * of `@aparte/locales` (`EXCLUDED_DIRS`), which names every key too — and this file,
      * which names dead keys in prose by design: the paragraph above cites the one
      * this check was written for, and a scan that counted its own explanation as a
      * reader would go green on exactly the key it exists to find. Measured: it did.
      */
     const EXCLUDED = [
         'packages/core/src/config/locale.ts',
-        'packages/locales/fr/src/index.ts',
         'packages/core/src/config/__tests__/locale.test.ts',
     ];
+    const EXCLUDED_DIRS = ['packages/locales/all/src/'];
     const EXTENSIONS = /\.(ts|tsx|mts|mjs|js|svelte|vue|astro|md|mdx|html|css)$/;
 
     function repoRoot(): string {
@@ -104,7 +106,8 @@ describe('APARTE_DEFAULT_LOCALE — every key has a reader', () => {
     const files = [join(root, 'packages'), join(root, 'apps', 'docs', 'src')]
         .filter((d) => existsSync(d))
         .flatMap((d) => walk(d))
-        .filter((f) => !EXCLUDED.some((e) => f.endsWith(e.split('/').join(sep))));
+        .filter((f) => !EXCLUDED.some((e) => f.endsWith(e.split('/').join(sep))))
+        .filter((f) => !EXCLUDED_DIRS.some((d) => f.includes(d.split('/').join(sep))));
     const corpus = files.map((f) => readFileSync(f, 'utf8'));
 
     it(`read enough of the repo to mean something (>= ${CORPUS_FLOOR} files)`, () => {
