@@ -192,6 +192,24 @@ Once you say you open them, an image becomes a button, by click, <kbd>Enter</kbd
 a picture, with no pointer and no tab stop. Core draws no lightbox: the view is yours. A chat with
 its own configuration takes `setHostHandlers` on that configuration.
 
+## Open a file
+
+A file in a sent message — a PDF, a spreadsheet — opens the same way, under its own declaration, so a
+lightbox written for images is never handed a PDF. The event carries the file's `type`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setHostHandlers({ filePreview: true });
+
+document.addEventListener('aparte-attachment-preview', (event) => {
+  if (!event.detail.type.startsWith('image/')) window.open(event.detail.url, '_blank', 'noopener');
+});
+```
+
+Only a file whose URL a tab can open becomes a button: the object URL the composer made for it, or a
+remote URL. A `data:` URL stays a plain tile, since a browser refuses to open one in a tab.
+
 ## Drag, drop and paste
 
 A file dropped anywhere on the composer attaches. While a file is dragged over it, the composer

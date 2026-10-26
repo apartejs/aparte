@@ -165,6 +165,14 @@ export interface AparteHostHandlersConfig {
      * tile is inert and is not signalled as a button. Default: false
      */
     attachmentPreview?: boolean;
+    /**
+     * Clicking a file — not an image — in a sent message asks for it to be opened, with the
+     * same `aparte-attachment-preview` and its `type`. Its own declaration, so a lightbox
+     * written for images is never handed a PDF: you claim files when you open them, in a
+     * new tab for instance. Only a file whose URL a tab can open (an object URL, a remote
+     * one) becomes a button. Default: false
+     */
+    filePreview?: boolean;
 }
 
 /**

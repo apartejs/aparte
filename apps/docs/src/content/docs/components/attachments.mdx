@@ -57,12 +57,14 @@ of the message you append.
 
 Clicking an image can open it full size: declare it with
 `aparteGlobalConfig.setHostHandlers({ attachmentPreview: true })` and open your own lightbox on
-`aparte-attachment-preview`. Until you declare it, the tile is not a button. To draw the tiles
-yourself, `setAttachmentRenderer()` replaces them.
+`aparte-attachment-preview`. Until you declare it, the tile is not a button. A file in a sent
+message opens the same way once you declare `filePreview: true`, with the file's `type` in the
+event. To draw the tiles yourself, `setAttachmentRenderer()` replaces them.
 
 ## Accessibility
 
-- An image tile becomes a keyboard-reachable button only when your app opens previews.
+- An image tile, or a file tile with `filePreview`, becomes a keyboard-reachable button only when
+  your app opens it.
 - The remove button on a pending file is named after the file.
 
 ## Related

@@ -477,17 +477,20 @@ export interface AparteCompactErrorEventDetail {
 
 /**
  * Detail payload for `aparte-attachment-preview`.
- * Dispatched when a user clicks an image tile, once
- * `setHostHandlers({ attachmentPreview: true })` has declared that you will open
- * a lightbox. Without the handler the tile is not interactive at all.
+ * Dispatched when a user clicks an image tile, once `setHostHandlers({ attachmentPreview:
+ * true })` has declared that you will open a lightbox — or, with `filePreview: true`, a
+ * file tile in a sent message whose URL a tab can open. Without the declaration the tile
+ * is not interactive at all.
  *
  * @event aparte-attachment-preview
  */
 export interface AparteAttachmentPreviewEventDetail {
-    /** Object URL or remote URL of the image. */
+    /** Object URL or remote URL of the image or the file. */
     url: string;
     /** File name, or `''` when the attachment carries none. */
     name: string;
+    /** The MIME type, `''` when unknown: an image to show in a lightbox, another file to open in a tab. */
+    type: string;
 }
 
 

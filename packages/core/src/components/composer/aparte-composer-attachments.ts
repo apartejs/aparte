@@ -181,7 +181,7 @@ export class AparteComposerAttachments extends HTMLElement {
                 this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
                     bubbles: true,
                     composed: true,
-                    detail: { url: img.src, name: images[i]?.name ?? '' },
+                    detail: { url: img.src, name: images[i]?.name ?? '', type: images[i]?.type ?? '' },
                 }));
             };
             img.addEventListener('click', open);
