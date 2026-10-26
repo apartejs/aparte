@@ -72,10 +72,9 @@ const key = (target: Element, k: string, shiftKey = false): KeyboardEvent => {
 };
 
 describe('<aparte-launcher>: what it adds', () => {
-    it('adds its class, an id, and one button after the children it leaves in place', () => {
+    it('adds its class and one button after the children it leaves in place', () => {
         const el = mount();
         expect(el.classList.contains('aparte-launcher')).toBe(true);
-        expect(el.id).toMatch(/^aparte-launcher-\d+$/);
         expect(Array.from(el.children).map((c) => c.id || c.className)).toEqual(['chat', expect.stringContaining('aparte-launcher__button')]);
         expect(buttonOf(el).type).toBe('button');
     });
@@ -106,9 +105,16 @@ describe('<aparte-launcher>: what it adds', () => {
         expect(button.hasAttribute('aria-label')).toBe(false);
     });
 
-    it('names what the button controls', () => {
+    it('says whether it is expanded, and writes no id and no aria-controls', () => {
+        // `aria-controls` named the launcher, the button's own ancestor, which is not what it
+        // opens, and the element wrote an id on the host's element only to make that possible.
+        // `aria-expanded` is the disclosure's contract; the id is the host's to give or not.
         const el = mount();
-        expect(buttonOf(el).getAttribute('aria-controls')).toBe(el.id);
+        expect(buttonOf(el).getAttribute('aria-expanded')).toBe('false');
+        expect(buttonOf(el).hasAttribute('aria-controls')).toBe(false);
+        expect(el.hasAttribute('id')).toBe(false);
+        el.show();
+        expect(buttonOf(el).hasAttribute('aria-controls')).toBe(false);
     });
 });
 

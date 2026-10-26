@@ -123,7 +123,6 @@ export class AparteLauncher extends HTMLElement {
 
     connectedCallback(): void {
         if (!this.classList.contains('aparte-launcher')) this.classList.add('aparte-launcher');
-        if (!this.id) this.id = `aparte-launcher-${++launcherIdSeq}`;
         // Re-used on a re-parent: a second button would be the element's own doing twice.
         if (!this._button) {
             this._button = document.createElement('button');
@@ -243,7 +242,9 @@ export class AparteLauncher extends HTMLElement {
      * The button, for the state it is in: the bubble (and the label, as a pill) while
      * closed, a close glyph while open. Its name comes from the locale when it shows no
      * text, and from that text when it does — a visible label the name did not contain
-     * is what speech users cannot say to press it.
+     * is what speech users cannot say to press it. `aria-expanded` is the disclosure's whole
+     * contract: there is no `aria-controls`, since the one element it could name without
+     * writing an id on the host's card is the launcher itself, the button's own ancestor.
      */
     private _renderButton(): void {
         const button = this._button;
@@ -256,7 +257,6 @@ export class AparteLauncher extends HTMLElement {
         const shape = label ? 'aparte-btn--pill' : 'aparte-btn--circle';
         button.className = ['aparte-btn', 'aparte-btn--primary', 'aparte-btn--solid', 'aparte-btn--lg', shape, 'aparte-launcher__button'].join(' ');
         button.setAttribute('aria-expanded', String(open));
-        button.setAttribute('aria-controls', this.id);
         if (label) button.removeAttribute('aria-label');
         else button.setAttribute('aria-label', open ? (locale.launcherClose ?? 'Close the chat') : (locale.launcherOpen ?? 'Open the chat'));
         const icon = document.createElement('span');
@@ -377,9 +377,6 @@ export class AparteLauncher extends HTMLElement {
         }
     };
 }
-
-/** For the id a launcher gives itself when the host wrote none, so its button can name it. */
-let launcherIdSeq = 0;
 
 deferHydrationOf(AparteLauncher);
 if (!customElements.get('aparte-launcher')) {
