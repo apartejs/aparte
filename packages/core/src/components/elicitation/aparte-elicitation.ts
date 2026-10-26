@@ -170,7 +170,7 @@ function addRetract(panelEl: HTMLElement, corner: HTMLElement, cfg: AparteConfig
  * @cssprop [--aparte-elic-step-gap=var(--aparte-space-7)] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
  * @cssprop [--aparte-elic-dismiss-room=104px] - Space the tab rail and the question message keep clear for the corner: the hide button and, on a question, Skip. Widen it for a locale whose "Skip" word is wider.
- * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
+ * @cssprop [--aparte-approval-gap=calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset) + var(--aparte-space-1))] - Gap between the stacked options of an approval request; by default wider than the focus ring's reach.
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
  * @cssprop [--aparte-approval-option-radius=8px] - Corner radius of an approval option button.
