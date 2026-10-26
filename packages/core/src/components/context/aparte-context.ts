@@ -1,4 +1,4 @@
-import { resolveConfig } from '../../config/index.js';
+import { resolveConfig, type AparteConfig } from '../../config/index.js';
 import type { AparteMessage } from '../../types/models.js';
 import type { AparteUsage } from '../../types/chat.js';
 import type {
@@ -406,10 +406,22 @@ export class AparteContext extends HTMLElement {
         if (this.isConnected) this._render();
     }
 
+    /**
+     * The config the chat this gauge watches answers to, not the one at the gauge's own
+     * position. A gauge in a header, with `target=`, stands outside the chat's boundary, and
+     * a chat that carries its own config (a wrapper's `config` prop) has its own prompt, tools,
+     * window and compactor: the client and the plugin read them from there, so the gauge must
+     * too, or it measures a different request and offers no Compact now. Resolved live, like
+     * every config read: the boundary may be attached after this element connects.
+     */
+    private _cfg(): AparteConfig {
+        return resolveConfig(this._chat() ?? this);
+    }
+
     private _window(): number | null {
         const attr = Number(this.getAttribute('window'));
         if (this.hasAttribute('window') && Number.isFinite(attr) && attr > 0) return attr;
-        const model = resolveConfig(this).getCurrentModel();
+        const model = this._cfg().getCurrentModel();
         return model?.contextWindow && model.contextWindow > 0 ? model.contextWindow : null;
     }
 
@@ -476,7 +488,7 @@ export class AparteContext extends HTMLElement {
             : stored;
         const hasUsage = !!messages?.some((m) => m.role === 'assistant' && m.usage);
         if (messages && ((hasUsage && !this._blank) || (this._overflow && messages.length > 0))) {
-            return measureContext({ messages, config: resolveConfig(this), windowOverride: capacity, viewChanged: this._viewChanged });
+            return measureContext({ messages, config: this._cfg(), windowOverride: capacity, viewChanged: this._viewChanged });
         }
         if (this._used === null) return null;
         return { window: capacity, used: this._used, estimated: false, parts: { ...NO_PARTS }, other: this._used };
@@ -559,7 +571,7 @@ export class AparteContext extends HTMLElement {
          * `|| undefined` and not `??`: an empty tag is not a language, and passing
          * `''` to `Intl` throws a RangeError rather than falling back.
          */
-        const cfg = resolveConfig(this);
+        const cfg = this._cfg();
         const tag = cfg.getLocale().tag || undefined;
         const format = new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 });
         // An estimate says so: the tilde is the shortest honest word for it.
@@ -625,7 +637,7 @@ export class AparteContext extends HTMLElement {
      * zero; otherwise the difference is `other`, the part the heuristic cannot see.
      */
     private _renderPanel(panel: HTMLElement, measure: AparteContextMeasure, capacity: number, format: Intl.NumberFormat): void {
-        const cfg = resolveConfig(this);
+        const cfg = this._cfg();
         const compactor = cfg.getCompactor();
         const chat = this._chat();
         const targetId = this._ownTargetId();
@@ -720,7 +732,7 @@ export class AparteContext extends HTMLElement {
      * is the way to ask, the one a host's own button uses.
      */
     private async _compactNow(reason: 'manual' | 'retry'): Promise<void> {
-        const compactor = resolveConfig(this).getCompactor();
+        const compactor = this._cfg().getCompactor();
         const targetId = this._ownTargetId();
         if (!compactor) {
             window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', { detail: { targetId } }));

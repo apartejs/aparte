@@ -391,6 +391,36 @@ describe('<aparte-context> — the panel', () => {
         expect(global.compact).not.toHaveBeenCalled();
     });
 
+    it('reads everything from the chat it watches when the gauge stands outside it, a chat that carries its own config', () => {
+        // A header gauge with `target=`: it is not under the chat's host, so its own position
+        // resolves the GLOBAL config. The chat's prompt, its tools and its compactor
+        // are the chat's, and the client and the plugin already read them from there.
+        const own = new AparteConfig();
+        const compactor = compactorWith();
+        own.setCompactor(compactor);
+        own.setSystemPrompt(text(380));
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'chat-a';
+        document.body.appendChild(chat);
+        attachConfig(chat, own);
+        (chat as unknown as { getMessages: () => AparteMessage[] }).getMessages = () => [
+            user('u1', text(380)), reply('a1', text(380), { usage: { inputTokens: 200, outputTokens: 0 } }), user('u2', text(380)),
+        ];
+        const header = document.createElement('header');
+        header.innerHTML = '<aparte-context target="chat-a" window="1000"></aparte-context>';
+        document.body.appendChild(header);
+        const gauge = header.querySelector('aparte-context') as AparteContext;
+        turn('a1', 200, 0);
+        toggle(gauge).click();
+
+        expect(num(valueOf(gauge, 'system')), "the chat's system prompt, 100 tokens").toBe(100);
+        const button = gauge.querySelector<HTMLButtonElement>('[data-context-action="compact"]');
+        expect(button, "Compact now is offered: the chat's compactor can preview").not.toBeNull();
+        button!.click();
+        expect(compactor.compact).toHaveBeenCalledWith(expect.objectContaining({ target: chat, force: true, reason: 'manual' }));
+    });
+
     it('a compactor registered after the panel opened makes Compact now appear', () => {
         const m = mount([user('u1', text(380)), reply('a1', text(380), { usage: { inputTokens: 200, outputTokens: 0 } })]);
         turn('a1', 200, 0);
