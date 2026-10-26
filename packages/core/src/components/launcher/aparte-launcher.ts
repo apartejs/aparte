@@ -294,11 +294,32 @@ export class AparteLauncher extends HTMLElement {
         if (control && this.contains(control)) this.close();
     };
 
+    /**
+     * A modal dialog open inside the card, with the key pressed inside it. The browser
+     * closes it on Escape — unless the keydown was cancelled, which is what closing the
+     * launcher would do: the dialog refused its close request and the card hidden under it.
+     * An engine that cannot tell a modal dialog from one opened with `show()` (no `:modal`)
+     * leaves the key to the dialog, which is the answer that loses nothing.
+     */
+    private _inModalDialog(e: Event): boolean {
+        const dialog = (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
+        if (!dialog || !this.contains(dialog)) return false;
+        try {
+            return dialog.matches(':modal');
+        } catch {
+            return true;
+        }
+    }
+
     private _onKeydown = (e: KeyboardEvent): void => {
         if (!this.open) return;
-        // On the element, not the document: Escape elsewhere on the page is not ours, and a
-        // control inside that answered it first (a menu closing) has the last word.
-        if (e.key === 'Escape' && !e.defaultPrevented) {
+        if (e.key === 'Escape') {
+            // On the element, not the document: Escape elsewhere on the page is not ours. Nor
+            // is it when something inside answered it first — a menu closing, the context
+            // gauge's panel, anything that took it has set `defaultPrevented` — or is about
+            // to: an IME cancelling its composition (`keyCode` 229 for the engines that do not
+            // say `isComposing`, the composer's own test), a modal dialog closing itself.
+            if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || this._inModalDialog(e)) return;
             e.preventDefault();
             this.close();
             return;

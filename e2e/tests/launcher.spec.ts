@@ -151,6 +151,56 @@ test.describe('the launcher, at desktop width', () => {
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 
+    test('leaves Escape to a modal dialog open inside the card, and closes on the next press', async ({ page }) => {
+        // A modal dialog closes on Escape unless the keydown was cancelled, and the launcher
+        // cancels the one it answers. Pressed inside the dialog, the first Escape is the
+        // dialog's; the launcher closes on the one after.
+        const errors = collectPageErrors(page);
+        await page.goto('/');
+        await page.evaluate(() => {
+            const launcher = document.createElement('aparte-launcher');
+            launcher.id = 'asks';
+            launcher.setAttribute('breakpoint', 'none');
+            launcher.innerHTML = '<section><button type="button" id="ask" data-aparte-dialog-open="sure">Ask</button>'
+                + '<dialog id="sure" class="aparte-dialog"><p>Sure?</p><button type="button" id="no" data-aparte-dialog-close>Cancel</button></dialog></section>';
+            document.body.append(launcher);
+        });
+        const launcher = page.locator('#asks');
+        await launcher.locator('.aparte-launcher__button').click();
+        await expect(launcher).toHaveAttribute('open', '');
+        await launcher.locator('#ask').click();
+        await expect(launcher.locator('#sure')).toBeVisible();
+        await expect(launcher.locator('#no')).toBeFocused();
+
+        await page.keyboard.press('Escape');
+        await expect(launcher.locator('#sure')).toBeHidden();
+        await expect(launcher).toHaveAttribute('open', '');
+        await expect(launcher.locator('#ask')).toBeFocused();
+
+        await page.keyboard.press('Escape');
+        await expect(launcher).not.toHaveAttribute('open', '');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('still closes on Escape from a dialog opened without the modal, which closes on nothing', async ({ page }) => {
+        // `show()` gives no top layer and no close request of its own: nothing else would
+        // answer the key, so the launcher does.
+        await page.goto('/');
+        await page.evaluate(() => {
+            const launcher = document.createElement('aparte-launcher');
+            launcher.id = 'inline-dialog';
+            launcher.setAttribute('breakpoint', 'none');
+            launcher.innerHTML = '<section><dialog id="note"><button type="button" id="ok">OK</button></dialog></section>';
+            document.body.append(launcher);
+        });
+        const launcher = page.locator('#inline-dialog');
+        await launcher.locator('.aparte-launcher__button').click();
+        await launcher.locator('#note').evaluate((el) => (el as HTMLDialogElement).show());
+        await launcher.locator('#ok').focus();
+        await page.keyboard.press('Escape');
+        await expect(launcher).not.toHaveAttribute('open', '');
+    });
+
     test('has no serious accessibility violation, closed or open', async ({ page }) => {
         await open(page);
         expect(await gatedViolations(page)).toEqual([]);

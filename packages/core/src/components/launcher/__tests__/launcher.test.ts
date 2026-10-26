@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-launcher.js';
+import '../../context/aparte-context.js';
 import type { AparteLauncher, AparteLauncherToggleDetail } from '../aparte-launcher.js';
 import { aparteGlobalConfig, APARTE_DEFAULT_LOCALE } from '../../../config/index.js';
 import { releaseDeferredHydration } from '../../../interop/defer-hydration.js';
@@ -299,6 +300,54 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         expect(escape.defaultPrevented).toBe(true);
         expect(el.open).toBe(false);
         expect(document.activeElement).toBe(buttonOf(el));
+    });
+
+    it('leaves Escape to an IME that is composing: it cancels the composition, not the chat', () => {
+        const el = mount();
+        el.show();
+        const composer = document.getElementById('composer') as HTMLElement;
+        const composing = new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true, cancelable: true });
+        composer.dispatchEvent(composing);
+        expect(composing.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+        // The engines that do not set `isComposing` say 229, the way the composer reads them.
+        const legacy = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 229, bubbles: true, cancelable: true });
+        composer.dispatchEvent(legacy);
+        expect(legacy.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+        key(composer, 'Escape');
+        expect(el.open).toBe(false);
+    });
+
+    it('leaves Escape to the context gauge\'s panel open inside the card, and closes on the next', () => {
+        const el = mount('', '<div id="chat"><div id="composer" role="textbox" tabindex="0"></div><aparte-context window="1000" used="300"></aparte-context></div>');
+        el.show();
+        const toggle = el.querySelector<HTMLButtonElement>('.aparte-context__toggle')!;
+        const panel = el.querySelector<HTMLElement>('.aparte-context__panel')!;
+        toggle.click();
+        toggle.focus();
+        expect(panel.hidden).toBe(false);
+        key(toggle, 'Escape');
+        expect(panel.hidden).toBe(true);
+        expect(el.open).toBe(true);
+        key(toggle, 'Escape');
+        expect(el.open).toBe(false);
+    });
+
+    it('leaves Escape to a dialog open inside the card, which closes itself on it', () => {
+        // A modal dialog closes on Escape unless the keydown was cancelled: the launcher
+        // cancelling it would refuse the dialog its close request and hide the card under it.
+        // jsdom has no `:modal`, so every open dialog counts here; the browser spec tells a
+        // modal one from one opened with `show()`.
+        const el = mount('', '<div id="chat"><div id="composer" role="textbox" tabindex="0"></div><dialog id="dlg" open><button type="button" id="in-dialog">OK</button></dialog></div>');
+        el.show();
+        const inDialog = document.getElementById('in-dialog') as HTMLElement;
+        const pressed = key(inDialog, 'Escape');
+        expect(pressed.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+        (document.getElementById('dlg') as HTMLDialogElement).removeAttribute('open');
+        key(inDialog, 'Escape');
+        expect(el.open).toBe(false);
     });
 
     it('ignores Escape while closed, and Escape outside', () => {

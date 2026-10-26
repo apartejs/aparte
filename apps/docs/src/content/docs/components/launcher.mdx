@@ -145,8 +145,10 @@ launcher sits at `--aparte-z-dropdown`, above the page and below what you raise 
   by the locale when it shows only the bubble or the ✕.
 - Opening hands the focus to the composer, or to the first control of your card; closing gives it
   back to the button when the focus was inside.
-- Escape closes it from anywhere inside, unless a control there answered Escape first (a menu
-  closing).
+- Escape closes it from anywhere inside, unless something there has the key first: a control that
+  answered it (a menu closing, the [context gauge](/components/context-gauge/)'s panel), an input
+  method that is composing text, or a modal `<dialog>` open in your card, which closes itself on
+  it. The next Escape closes the launcher.
 - A closed launcher's content is `display: none`: nothing invisible keeps a tab stop.
 - The sheet keeps Tab inside it while it covers the page; the card leaves the page reachable.
 - The page behind the sheet is still in the accessibility tree, since the launcher does not own
