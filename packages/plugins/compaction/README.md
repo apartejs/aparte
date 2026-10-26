@@ -28,7 +28,8 @@ heuristic's undercount is calibrated from the last reply, as the context gauge d
 room for the turn being prepared, so a long paste is made room for. A `selector` of your own is
 called with the messages alone and is left as it is. Each chat compacts on its own: a summary
 being written for one does not hold up another. A Restore cancels a summary still being written
-for that chat, and so does Stop.
+for that chat (with `listen: false`, which hears no window event, the summary is refused when it
+comes back instead), and Stop cancels it in every case.
 
 A compaction **writes a checkpoint, it deletes nothing**. The summary goes on the first turn it
 keeps — `contextSummary: { summary, count, createdAt }`, saved with the conversation — and the

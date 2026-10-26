@@ -101,6 +101,12 @@ export class CheckpointStateWatcher {
         const onError = (e: Event): void => {
             const detail = (e as CustomEvent<AparteCompactErrorEventDetail | undefined>).detail;
             if (!mine(detail?.targetId) || !mineMessage(detail?.messageId)) return;
+            // Cancelled, not failed: the line goes, and no Retry is offered for a summary the
+            // person stopped or restored away.
+            if (detail.aborted) {
+                if (detail.messageId === this._messageId) this.clear();
+                return;
+            }
             if (detail.messageId !== this._messageId) this.clear();
             this._set(detail.messageId, 'failed', detail.error ?? '');
         };

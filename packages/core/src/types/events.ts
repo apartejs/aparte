@@ -462,6 +462,13 @@ export interface AparteCompactErrorEventDetail {
      * transcript turns its "Summarising the context…" line into a failure with a Retry.
      */
     messageId?: string;
+    /**
+     * The compaction was cancelled — a Stop, an `abort()`, a Restore — rather than failed.
+     * Nothing went wrong and nothing is offered: the transcript and the gauge clear their
+     * "Summarising the context…" instead of showing a failure with a Retry, which would
+     * bring back a summary the person just turned away.
+     */
+    aborted?: true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

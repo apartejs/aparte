@@ -311,8 +311,9 @@ export class AparteContext extends HTMLElement {
         const detail = (e as CustomEvent<AparteCompactErrorEventDetail | undefined>).detail;
         if (!this._isMine(detail?.targetId)) return;
         this._compactRequested = false;
-        this._compact = 'failed';
-        this._failure = typeof detail?.error === 'string' ? detail.error : '';
+        // A cancelled compaction (Stop, Restore) is not a failure: no "failed", no Retry.
+        this._compact = detail?.aborted ? null : 'failed';
+        this._failure = detail?.aborted ? '' : (typeof detail?.error === 'string' ? detail.error : '');
         this._render();
     };
 

@@ -147,6 +147,9 @@ describe('a Restore while a summary is being written', () => {
         const answers = held();
         const { cfg, chat } = makeConfig((request) => answers.reply(request), 1000);
         const c = setup({ selector: dropFirstTwo, resolveTarget: () => target }, cfg);
+        const errors: Array<{ aborted?: true }> = [];
+        const onError = (e: Event): void => { errors.push((e as CustomEvent).detail); };
+        window.addEventListener('aparte-compact-error', onError);
 
         const running = c.compact('c');
         await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
@@ -154,10 +157,13 @@ describe('a Restore while a summary is being written', () => {
         restored();                       // then says so on window
         answers.release('UPDATED');
         const outcome = await running;
+        window.removeEventListener('aparte-compact-error', onError);
 
         expect(outcome).toMatchObject({ ok: false });
         expect(checkpointOf(target.messages), 'the Restore stands').toBeUndefined();
         expect(c.running).toBe(false);
+        // Said as a cancellation, so no bubble offers to Retry the summary just turned away.
+        expect(errors.at(-1)).toMatchObject({ aborted: true });
     });
 
     it('refuses the write even when nothing said so: the checkpoint it updates is gone', async () => {
