@@ -181,7 +181,8 @@ put down on purpose, so a future session does not re-derive the answer from scra
    surface (byte-stable prefix across turns) and a home — not a duplication count.
 8. **A visible affordance core cannot honour end-to-end is not enabled by default.** Three
    tiers decide it: (a) honoured by core alone → **on** (`copy`, the `‹1/2›` picker, the
-   waiting indicator, the stop button, the model selector); (b) honoured only by an optional
+   waiting indicator, the stop button; the model selector too once an app places it — it is a
+   plugin, not part of the default composition); (b) honoured only by an optional
    host — `AparteClient` or an app listening for the event → **off**, with one lever to turn
    it on (`setBubbleActions` for the action bar, `setHostHandlers` for everything else);
    (c) rendered only inside content the app produced (segments) → follows (b): a model

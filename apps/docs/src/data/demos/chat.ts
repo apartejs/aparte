@@ -310,7 +310,7 @@ export const CHAT_DEMOS: DemoEntry[] = [
   // Every tool row arrives open: Input and Output on screen, each with a copy button. A display's
   // open is read when the row is drawn; in a chat, setSegmentDefaults('tool_call', { collapsed: false })
   // does the same for every row (a bare bubble like this one never applies a segment default).
-  aparteGlobalConfig.registerToolDisplay('*', { open: true });
+  aparteGlobalConfig.registerToolDisplay('*', { open: true, quiet: false });
 
   document.querySelector('aparte-chat-bubble').setSegments([
     { id: 's1', type: 'tool_call', status: 'resolved', toolCall: { id: 't1', name: 'search_docs', input: { query: 'release checklist', limit: 3 } }, result: JSON.stringify({ hits: [{ title: 'Release', score: 0.92 }, { title: 'Changelog', score: 0.71 }] }) },

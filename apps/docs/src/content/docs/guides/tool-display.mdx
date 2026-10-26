@@ -184,8 +184,8 @@ specific describes, and a tool with an entry of its own says its own `details`.
 
 ## A developer's view
 
-The reader wants to see what the agent did: every call, open, with the input and output, and
-how long it took.
+The reader wants to see what the agent did: every call, open, with the input and output, its
+state in words, and how long it took.
 
 ```ts
 import { aparteGlobalConfig, isSegmentSettled, segmentDuration } from '@aparte/core';
@@ -195,15 +195,16 @@ import type { AparteToolSummary } from '@aparte/core';
 // A row drawn by hand, as in the demo below, takes `open` from a display instead.
 aparteGlobalConfig.setSegmentDefaults('tool_call', { collapsed: false });
 
-// How long each call took, on the row's line.
+// How long each call took, on the row's line; and an agent's row (`quiet: false`): a spinner and
+// "Running", then "Done", where the default, quiet line says neither.
 const took: AparteToolSummary = (segment) => {
   const ms = segmentDuration(segment);
   return isSegmentSettled(segment) && ms !== undefined ? `${(ms / 1000).toFixed(1)}s` : '';
 };
-aparteGlobalConfig.registerToolDisplay('*', { summary: took });
+aparteGlobalConfig.registerToolDisplay('*', { summary: took, quiet: false });
 
-// Or open only the tools you are debugging. An entry is used whole, so it repeats the summary.
-aparteGlobalConfig.registerToolDisplay('run_command', { open: true, summary: took });
+// Or open only the tools you are debugging. An entry is used whole, so it repeats the rest.
+aparteGlobalConfig.registerToolDisplay('run_command', { open: true, summary: took, quiet: false });
 ```
 
 <Variant id="tool-open" caption="Rows opened by default. The demo draws one bubble by hand, which never applies a segment default, so it opens them with a display's open." />
