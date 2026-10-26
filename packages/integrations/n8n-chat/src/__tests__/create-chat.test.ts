@@ -473,6 +473,18 @@ describe('createChat: on a page with other chats, and while an answer is on its 
         warn.mockRestore();
     });
 
+    it('tells a visitor the answer took too long when a proxy gives up waiting', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('<html><body>504 Gateway Time-out</body></html>', { status: 504, headers: { 'content-type': 'text/html' } })));
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const chat = mount({ loadPreviousSession: false });
+        chat.send('Still there?');
+        await vi.waitFor(() => expect(chat.element.querySelector('.aparte-segment-error')).not.toBeNull());
+        const alert = chat.element.querySelector('.aparte-segment-error')!;
+        expect(alert.textContent).toContain('The answer took too long. Try again in a moment.');
+        expect(alert.getAttribute('data-error-code')).toBe('NET_TIMEOUT');
+        warn.mockRestore();
+    });
+
     it('keeps a finished answer finished when afterMessageSent throws, and says so on the console', async () => {
         n8n({ reply: 'All good.' });
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
