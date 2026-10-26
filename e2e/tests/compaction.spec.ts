@@ -31,9 +31,19 @@ test('a compaction keeps every message, sends from the summary, and Restore send
     const chat = new ChatPage(page);
     await page.goto('/');
 
-    await chat.sendAndSettle(long('first'), { expect: MOCK_REPLY_MARK });
-    await chat.sendAndSettle(long('second'), { expect: MOCK_REPLY_MARK });
-    await chat.sendAndSettle(long('third'), { expect: MOCK_REPLY_MARK });
+    // Filled, not typed: 3 600 characters key by key outlast the test's timeout on a CI runner.
+    const sendLong = async (message: string): Promise<void> => {
+        const replies = await chat.bubbles('assistant').count();
+        await chat.waitUngated();
+        await chat.editor.fill(message);
+        await chat.sendButton.click();
+        await expect(chat.bubbles('assistant')).toHaveCount(replies + 1, { timeout: 20_000 });
+        await expect(chat.bubbles('assistant').last()).toContainText(MOCK_REPLY_MARK, { timeout: 20_000 });
+        await expect(chat.bubbles('assistant').last().locator('.aparte-message-streaming')).toHaveCount(0, { timeout: 20_000 });
+    };
+    await sendLong(long('first'));
+    await sendLong(long('second'));
+    await sendLong(long('third'));
 
     // The summary was asked for, once, before the third turn went out.
     const bodies = mock.chatRequests as Body[];

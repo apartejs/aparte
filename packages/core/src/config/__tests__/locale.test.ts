@@ -62,7 +62,11 @@ describe('APARTE_DEFAULT_LOCALE', () => {
  * docs generators each hit once.
  */
 describe('APARTE_DEFAULT_LOCALE — every key has a reader', () => {
-    const SKIP = new Set(['direction', 'tag']);
+    // `compactionSummaryTitle` is deprecated (0.26): compactions write a checkpoint instead of
+    // a titled summary message, so nothing reads it, and it stays declared until a later minor
+    // so a locale that sets it keeps compiling. It passed locally only because the generated
+    // reference page, absent from a fresh checkout, names it.
+    const SKIP = new Set(['direction', 'tag', 'compactionSummaryTitle']);
     const CORPUS_FLOOR = 600;
     /*
      * The two declaration sites — a key declares itself in both — and this file,
