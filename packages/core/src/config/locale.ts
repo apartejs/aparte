@@ -255,10 +255,13 @@ export type AparteLocale = {
     /** The panel's button that compacts the conversation now (default: "Compact now"). */
     contextCompactNow?: string;
     /**
-     * Title line of the summary message `@aparte/plugin-compaction` injects in place
-     * of the summarised turns (default: "Conversation summary"). The plugin reads it
-     * through `config.t()`, so the notice follows the locale like every other string
-     * the user reads.
+     * Title line of the summary message `@aparte/plugin-compaction` used to inject in
+     * place of the summarised turns (default: "Conversation summary").
+     *
+     * @deprecated Since 0.26 a compaction deletes nothing: it writes `contextSummary` on
+     * the first turn it keeps, and the separator above it says what happened through the
+     * `checkpoint*` keys. Nothing reads this key any more; it stays until a later minor
+     * so a locale that sets it keeps compiling.
      */
     compactionSummaryTitle?: string;
     /**

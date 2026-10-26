@@ -11,7 +11,7 @@ What you may have to change:
 - **`DEFAULT_COMPACTION_PROMPT` has a new value** (the name is unchanged). It asks for fixed sections (the goal and constraints, the decisions and why, the open tasks, the facts and tool results still needed, the next step) in the language of the conversation, and keeps the clause that stops the model from answering the transcript. If you pass your own `prompt`, nothing changes for you.
 - **`summary` in the outcome and in `aparte-compact-done` is what is stored**: the model's summary, then, on the first compaction of a conversation, the first user message verbatim (clipped at 1 500 characters) under a fixed English line. The conversation's first request survives every compaction.
 - **A `selector` you pass receives the model's view** (the messages from the latest checkpoint on, less the turn being prepared), and the cut is moved so the first message kept is a user message: it may keep more than your selector asked for, or skip with `'nothing-to-drop'` when no user message can carry the checkpoint.
-- The "notice" message is gone from new compactions: no `compaction: true` message is written, and `compactionSummaryTitle` is no longer used for them (it is still read for old stored conversations).
+- The "notice" message is gone from new compactions: no `compaction: true` message is written, and the `compactionSummaryTitle` locale key is no longer read (old stored conversations keep the title inside their summary message, and are drawn as a separator).
 
 What is new:
 
