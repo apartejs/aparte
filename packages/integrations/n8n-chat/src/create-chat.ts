@@ -9,9 +9,10 @@
  * that say what to change in n8n; and no style leaking into the page.
  */
 import { AparteClient, AparteConfig, attachConfig, uuid } from '@aparte/core';
-import type { AparteLauncher, AparteMessage, AparteStreamRunner } from '@aparte/core';
+import type { AparteLauncher, AparteLocale, AparteMessage, AparteStreamRunner } from '@aparte/core';
 import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
 import { createN8nRunner, loadN8nHistory } from '@aparte/runner-n8n';
+import { N8N_ICONS } from './icons.js';
 import { BUILT_IN_INITIAL_MESSAGES, localeFor, stringsFor } from './strings.js';
 import type { ChatStrings } from './strings.js';
 
@@ -76,6 +77,12 @@ export interface ChatOptions {
     metadata?: Record<string, unknown>;
     /** The chrome's words, by language, over the built-in ones. */
     i18n?: Record<string, Partial<ChatStrings>>;
+    /**
+     * The chat's own words — its buttons, its error card, its screen-reader names — for a
+     * language aparté does not ship: an `AparteLocale` (see the localization guide).
+     * @default English, or French for `defaultLanguage: 'fr'`
+     */
+    locale?: AparteLocale;
     /** Let the person attach files; n8n receives them as `files`. @default false */
     allowFileUploads?: boolean;
     /** What the file picker offers, as an `accept` list (`'image/*,.pdf'`). @default any */
@@ -185,7 +192,9 @@ export function createChat(options: ChatOptions): Chat {
 
     // ── The config: this widget's own, so nothing on the page's other chats changes ───────
     const config = new AparteConfig();
-    config.setLocale(localeFor(language));
+    config.setLocale(options.locale ?? localeFor(language));
+    // n8n's look in the icons too: a filled bubble on the button, a chevron once open.
+    config.registerIcons(N8N_ICONS);
     setupMarkedStreamingProvider(undefined, config);
 
     // ── The markup ─────────────────────────────────────────────────────────────────────

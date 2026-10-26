@@ -102,9 +102,25 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name.
 | `theme` | — | Accepted: `@n8n/chat` never read it either. Style with CSS variables. |
 
 These are the `ChatOptions`; the chrome's words are `ChatStrings`, and `createChat` returns a
-`Chat`. And three of aparté's own: `suggestions` (questions offered above the input until the first message),
-`colorScheme` (`'light'`, `'dark'`, `'auto'`) and `fetch` (every request to n8n goes through it — a
-proxy, a test).
+`Chat`. And four of aparté's own: `suggestions` (questions offered above the input until the first message),
+`colorScheme` (`'light'`, `'dark'`, `'auto'`), `fetch` (every request to n8n goes through it — a
+proxy, a test) and `locale`, the chat's own words for a language aparté does not ship:
+
+```ts
+import { APARTE_DEFAULT_LOCALE } from '@aparte/core';
+import { createChat } from '@aparte/n8n-chat';
+
+createChat({
+  webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat',
+  defaultLanguage: 'de',
+  i18n: { de: { title: 'Hallo! 👋', inputPlaceholder: 'Ihre Frage…' } },
+  locale: { ...APARTE_DEFAULT_LOCALE, tag: 'de', launcherOpen: 'Chat öffnen', launcherClose: 'Chat schließen' },
+});
+```
+
+`i18n` holds the header's and the input's words, as with `@n8n/chat`; `locale` holds the rest — the
+send button, the error card, what a screen reader hears. See [Translation](/guides/localization/)
+for every key.
 
 ## Drive it from your page
 

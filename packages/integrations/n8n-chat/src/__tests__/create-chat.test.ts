@@ -116,6 +116,25 @@ describe('createChat: the widget, as n8n draws it', () => {
         expect(contents(chat)[1]).toEqual(['assistant', 'Je m’appelle Nathan. Comment puis-je vous aider ?']);
     });
 
+    it("draws n8n's icons on its button — a filled bubble, a chevron once open — and nowhere else", () => {
+        n8n();
+        const chat = mount({ loadPreviousSession: false });
+        const button = () => chat.element.querySelector('.aparte-launcher__button')!;
+        expect(button().querySelector('svg path')?.getAttribute('d')).toMatch(/^M5\.5 3\.5h13/);
+        chat.open();
+        expect(button().querySelector('svg path')?.getAttribute('d')).toBe('m6 9.5 6 6 6-6');
+        // The page's own config draws its own icons.
+        expect(document.body.querySelector('.aparte-n8n__close aparte-icon')?.getAttribute('name')).toBe('close');
+    });
+
+    it('speaks a language aparté does not ship, from the locale it is given', async () => {
+        n8n();
+        const { APARTE_DEFAULT_LOCALE } = await import('@aparte/core');
+        const chat = mount({ loadPreviousSession: false, defaultLanguage: 'de', locale: { ...APARTE_DEFAULT_LOCALE, tag: 'de', launcherOpen: 'Chat öffnen' }, i18n: { de: { title: 'Hallo!' } } });
+        expect(chat.element.querySelector('.aparte-launcher__button')?.getAttribute('aria-label')).toBe('Chat öffnen');
+        expect(chat.element.querySelector('.aparte-n8n__title')?.textContent).toBe('Hallo!');
+    });
+
     it('leaves the subtitle out when it is empty, shows a footer when there is one, and shows the given first messages', () => {
         n8n();
         const chat = mount({ loadPreviousSession: false, i18n: { en: { subtitle: '', footer: 'Answers by our assistant.' } }, initialMessages: ['Hello!'] });

@@ -251,6 +251,8 @@
 
 .aparte-n8n .aparte-launcher__button {
   --aparte-btn-size-lg: var(--chat--toggle--size, 64px);
+  /* Half the button, as n8n draws it. */
+  --aparte-btn-icon-size: calc(var(--chat--toggle--size, 64px) / 2);
   --aparte-primary: var(--aparte-n8n-toggle-bg);
   --aparte-primary-hover: var(--aparte-n8n-toggle-hover-bg);
   --aparte-on-primary: var(--aparte-n8n-toggle-color);
