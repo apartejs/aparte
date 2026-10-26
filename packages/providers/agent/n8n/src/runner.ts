@@ -6,9 +6,10 @@
  * session, the message, the files — and the runner turns n8n's answer into the events
  * `AparteClient`'s adapter draws, the same ones a loop run in the page emits.
  */
-import { AparteError, AparteErrorCode, contentToText, uuid } from '@aparte/core';
+import { AparteError, AparteErrorCode, uuid } from '@aparte/core';
 import type { AparteChatMessage, AparteStreamRunner, AparteStreamRunOptions } from '@aparte/core';
 import { readN8nReply } from './wire.js';
+import { httpError } from './http.js';
 
 export interface N8nRunnerOptions {
     /**
@@ -17,10 +18,13 @@ export interface N8nRunnerOptions {
      */
     webhookUrl: string;
     /**
-     * The n8n session a turn runs in. n8n keeps the agent's memory per session, and the
-     * page sends only the new message, so give the conversation's id when your app has
-     * several conversations or keeps one across reloads; a function is read every turn.
-     * @default one session for the runner's lifetime
+     * The n8n session a turn runs in. n8n keeps the agent's memory per session and the
+     * page sends only the new message, so this is what ties a conversation to its memory.
+     * Give the id your app keeps for the conversation — the one you loaded its history
+     * with ({@link loadN8nHistory}), or a conversation manager's `activeId`. A function
+     * is read every turn.
+     * @default a new session for each new conversation: a turn with no reply before it
+     * starts one, and the turns after it continue it
      */
     sessionId?: string | ((opts: AparteStreamRunOptions) => string);
     /** Sent with every message as `metadata`, which the workflow reads from the trigger's output. */
@@ -43,16 +47,19 @@ export interface N8nRunnerOptions {
     chatInputKey?: string;
     /**
      * Told what the runner could not read in n8n's answer — a frame type it does not
-     * know. For the developer, not the person chatting.
+     * know, a stream cut mid-frame. For the developer, not the person chatting.
      * @default `console.warn`
      */
     onWarning?: (message: string) => void;
 }
 
 /** The workflow streamed nothing: the widget's own diagnosis, said to the developer. */
-const EMPTY_REPLY = 'The n8n workflow answered with nothing. When its Chat Trigger streams, the node that answers '
+const EMPTY_STREAM = 'The n8n workflow streamed nothing. When its Chat Trigger streams, the node that answers '
     + 'has to stream too: turn on streaming in the AI Agent\'s options, or set the trigger\'s Response Mode to '
     + '"When Last Node Finishes".';
+
+const EMPTY_WHOLE = 'The n8n workflow finished without an answer: its last node returned no text. End the '
+    + 'workflow on the node that answers — an AI Agent, or a node that returns an `output` field.';
 
 const PROXY_TIMEOUT = 'A proxy timed out waiting for n8n\'s answer. The workflow may still be running — '
     + 'its execution list shows the result.';
@@ -60,10 +67,21 @@ const PROXY_TIMEOUT = 'A proxy timed out waiting for n8n\'s answer. The workflow
 const DEFERRED = 'This n8n workflow answers through response nodes, over n8n\'s chat WebSocket, which this runner '
     + 'does not read. Set the Chat Trigger\'s Response Mode to "Streaming" or "When Last Node Finishes".';
 
+const unreadable = (fields: string[]) => `The n8n workflow answered with the fields ${fields.map((f) => `"${f}"`).join(', ')} `
+    + 'but no "output", "text" or "message" field, which is where a chat reads the answer. End the workflow on an AI Agent, '
+    + 'or add a Set node that puts the reply in "output".';
+
 /** The message the turn answers: the last one the person wrote. */
-function lastUserMessage(messages: AparteChatMessage[]): AparteChatMessage | undefined {
-    for (let i = messages.length - 1; i >= 0; i--) if (messages[i]?.role === 'user') return messages[i];
-    return undefined;
+function lastUserIndex(messages: AparteChatMessage[]): number {
+    for (let i = messages.length - 1; i >= 0; i--) if (messages[i]?.role === 'user') return i;
+    return -1;
+}
+
+/** The text of a message, its parts kept apart: a file inlined after the words starts on a line of its own. */
+function textOf(content: AparteChatMessage['content'] | undefined): string {
+    if (content === undefined) return '';
+    if (typeof content === 'string') return content;
+    return content.flatMap((part) => (part.type === 'text' && part.text ? [part.text] : [])).join('\n\n');
 }
 
 const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg' };
@@ -82,19 +100,17 @@ function imageFile(image: string, mimeType: string | undefined, index: number): 
     return { blob: new Blob([bytes], { type }), name: `image-${index + 1}.${EXTENSIONS[type] ?? 'bin'}` };
 }
 
-/** An error n8n answered with: its `message` and `hint` when it sent JSON, else its text. */
-async function httpError(response: Response): Promise<AparteError> {
-    const text = (await response.text().catch(() => '')).trim();
-    let message = text;
-    try {
-        const body = JSON.parse(text) as { message?: unknown; hint?: unknown };
-        if (typeof body.message === 'string') message = typeof body.hint === 'string' ? `${body.message} ${body.hint}` : body.message;
-    } catch { /* not JSON: its text */ }
-    return new AparteError(
-        message.slice(0, 300) || `The n8n workflow answered HTTP ${response.status}.`,
-        AparteError.codeForStatus(response.status) ?? AparteErrorCode.PROVIDER_ERROR,
-        undefined, undefined, response.status,
-    );
+/**
+ * What the Chat Trigger receives as `files`: the files the person picked, whatever their
+ * type, when the client hands them over (`files` on a send) — else the images inlined in
+ * the message, for a caller that only has those.
+ */
+function filesOf(opts: AparteStreamRunOptions, message: AparteChatMessage | undefined): { blob: Blob; name: string }[] {
+    if (opts.files && opts.files.length > 0) return opts.files.map((file) => ({ blob: file, name: file.name }));
+    return (Array.isArray(message?.content) ? message.content : [])
+        .flatMap((part) => (part.type === 'image' ? [part] : []))
+        .map((part, i) => imageFile(part.image, part.mimeType, i))
+        .filter((file) => file !== undefined);
 }
 
 /**
@@ -106,27 +122,30 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
     const warn = options.onWarning ?? ((message: string) => console.warn(`[aparte] n8n: ${message}`));
     const sessionKey = options.chatSessionKey ?? 'sessionId';
     const inputKey = options.chatInputKey ?? 'chatInput';
-    const ownSession = `aparte-${uuid()}`;
+    let ownSession = `aparte-${uuid()}`;
 
     return async (opts) => {
         const emit = opts.emitter;
         const doFetch = options.fetch ?? fetch;
         try {
+            const messages = (opts.baseRequest as { messages: AparteChatMessage[] }).messages;
+            const last = lastUserIndex(messages);
+            const message = last >= 0 ? messages[last] : undefined;
+            // No reply before the message: a new conversation, or one that was cleared. n8n
+            // must not answer it from the memory of the one before.
+            if (options.sessionId === undefined && !messages.slice(0, Math.max(last, 0)).some((m) => m.role === 'assistant')) {
+                ownSession = `aparte-${uuid()}`;
+            }
             const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
             const sessionId = (typeof options.sessionId === 'function' ? options.sessionId(opts) : options.sessionId) ?? ownSession;
             const metadata = typeof options.metadata === 'function' ? options.metadata(opts) : options.metadata;
-            const message = lastUserMessage((opts.baseRequest as { messages: AparteChatMessage[] }).messages);
-            const chatInput = message ? contentToText(message.content) : '';
-            const files = (Array.isArray(message?.content) ? message.content : [])
-                .flatMap((part) => (part.type === 'image' ? [part] : []))
-                .map((part, i) => imageFile(part.image, part.mimeType, i))
-                .filter((file) => file !== undefined);
+            const files = filesOf(opts, message);
 
             // As n8n's widget sends it: JSON, or a form when the message carries files.
             const fields: Record<string, string | Record<string, unknown>> = {
                 action: 'sendMessage',
                 [sessionKey]: sessionId,
-                [inputKey]: chatInput,
+                [inputKey]: textOf(message?.content),
                 ...(metadata ? { metadata } : {}),
             };
             let body: string | FormData;
@@ -148,7 +167,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 signal: opts.signal,
                 ...(options.credentials ? { credentials: options.credentials } : {}),
             });
-            if (!response.ok) throw await httpError(response);
+            if (!response.ok) throw await httpError(response, 'answer');
 
             emit({ type: 'run-start' });
             emit({ type: 'turn-start' });
@@ -157,10 +176,15 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             // they began: another node's text waits for the drawn one to end, and starts a
             // block of its own below it.
             let drawn = false;
+            let whole = false;
             let textOpen = false;
             let active: string | undefined;
             const waiting = new Map<string, { text: string[]; ended: boolean }>();
             const unknown = new Set<string>();
+            const flush = () => {
+                if (textOpen) emit({ type: 'text-flush' });
+                textOpen = false;
+            };
             const draw = (text: string) => {
                 if (!text) return;
                 drawn = true;
@@ -169,7 +193,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             };
             const open = (stream: string) => {
                 active = stream;
-                if (textOpen) { emit({ type: 'text-flush' }); textOpen = false; }
+                flush();
             };
             const drain = () => {
                 active = undefined;
@@ -187,7 +211,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 return queued;
             };
 
-            if (!response.body) throw new AparteError(EMPTY_REPLY, AparteErrorCode.PROVIDER_ERROR);
+            if (!response.body) throw new AparteError(EMPTY_STREAM, AparteErrorCode.PROVIDER_ERROR);
             for await (const part of readN8nReply(response.body)) {
                 switch (part.kind) {
                     case 'begin':
@@ -204,16 +228,22 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         else waitFor(part.stream).ended = true;
                         break;
                     case 'error':
-                        if (textOpen) emit({ type: 'text-flush' });
+                        flush();
                         throw new AparteError(part.message || 'The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
                     case 'reply':
+                        whole = true;
                         draw(part.text);
                         break;
+                    case 'unreadable':
+                        throw new AparteError(unreadable(part.fields), AparteErrorCode.PROVIDER_ERROR);
                     case 'deferred':
                         throw new AparteError(DEFERRED, AparteErrorCode.PROVIDER_ERROR);
                     case 'html':
-                        if (textOpen) emit({ type: 'text-flush' });
+                        flush();
                         throw new AparteError(PROXY_TIMEOUT, AparteErrorCode.NET_TIMEOUT);
+                    case 'cut':
+                        warn('n8n\'s stream stopped in the middle of a frame; the text before it is kept.');
+                        break;
                     case 'unknown':
                         if (!unknown.has(part.type)) warn(`n8n sent a "${part.type}" frame, which this runner does not read; it was skipped.`);
                         unknown.add(part.type);
@@ -222,8 +252,8 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             }
             // A stream that was cut before its `end`: what it sent is still the answer.
             drain();
-            if (!drawn) throw new AparteError(EMPTY_REPLY, AparteErrorCode.PROVIDER_ERROR);
-            if (textOpen) emit({ type: 'text-flush' });
+            if (!drawn) throw new AparteError(whole ? EMPTY_WHOLE : EMPTY_STREAM, AparteErrorCode.PROVIDER_ERROR);
+            flush();
             emit({ type: 'run-done' });
             return undefined;
         } catch (error) {

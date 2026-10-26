@@ -4,12 +4,13 @@
  * Two shapes come back, both labelled `application/json` by n8n:
  * - **streamed** — a Chat Trigger (or Webhook node) whose Response Mode is *Streaming*
  *   sends newline-delimited JSON frames, `begin` / `item` / `end` per node that streams,
- *   and `error` when the workflow fails;
+ *   `error` when the workflow fails, and `keepalive` every 30 seconds while nothing else
+ *   comes — so before the first `begin` when a slow node runs first;
  * - **whole** — any other Response Mode sends one value once the workflow ends: the last
  *   node's item (`{ output }` for an AI Agent), or what a *Respond to Webhook* node sent.
  *
- * Which one it is shows on the first line: a frame has a `type`. Read off `@n8n/chat`
- * 1.43.3, the widget n8n embeds, and recorded against n8n 2.35.7.
+ * Which one it is shows on the first line: a frame has a known `type`. Read off
+ * `@n8n/chat` 1.43.3, the widget n8n embeds, and recorded against n8n 2.35.7 and 2.44.6.
  */
 
 /** One thing an answer carries, in order. */
@@ -25,22 +26,34 @@ export type N8nReplyPart =
     | { kind: 'unknown'; type: string }
     /** The whole answer of a workflow that does not stream. */
     | { kind: 'reply'; text: string }
+    /** A whole answer that is JSON with none of the fields a chat reads; its field names. */
+    | { kind: 'unreadable'; fields: string[] }
     /** The workflow answers later, through response nodes over n8n's chat WebSocket. */
     | { kind: 'deferred' }
     /** An HTML page instead of the answer: a proxy gave up waiting. */
-    | { kind: 'html' };
+    | { kind: 'html' }
+    /** The stream stopped in the middle of a frame. */
+    | { kind: 'cut' };
 
-const FRAME_TYPES = new Set(['begin', 'item', 'end', 'error']);
+const FRAME_TYPES = new Set(['begin', 'item', 'end', 'error', 'keepalive']);
 
-/** A frame: one of the four types, or any type with n8n's `metadata` (a newer frame). */
+/**
+ * A frame: one of the known types, or a newer type that carries n8n's `metadata` with a
+ * `nodeId`. A whole answer can be any JSON, so a bare `type` is not enough.
+ */
 function opensStream(value: unknown): boolean {
     if (!isFrame(value)) return false;
-    return FRAME_TYPES.has(value.type) || (typeof value.metadata === 'object' && value.metadata !== null);
+    if (FRAME_TYPES.has(value.type)) return true;
+    const metadata = value.metadata;
+    return typeof metadata === 'object' && metadata !== null && typeof metadata['nodeId'] === 'string';
 }
 
-/** The widget's own test for a proxy's error page. */
+/**
+ * A proxy's error page: text that STARTS as HTML. An answer that merely contains markup —
+ * an agent asked for a snippet — is not one, which is why this is a prefix test.
+ */
 function isHtml(text: string): boolean {
-    return text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('</html>');
+    return /^\s*<(?:!doctype|html|head|body)[\s>]/i.test(text);
 }
 
 function parse(line: string): unknown {
@@ -57,44 +70,61 @@ function streamOf(frame: { metadata?: Record<string, unknown> }): string {
     return `${String(m['nodeId'] ?? '')}:${String(m['runIndex'] ?? 0)}:${String(m['itemIndex'] ?? 0)}`;
 }
 
-function frameToPart(frame: { type: string; content?: unknown; metadata?: Record<string, unknown> }): N8nReplyPart {
+function frameToPart(frame: { type: string; content?: unknown; metadata?: Record<string, unknown> }): N8nReplyPart | undefined {
     switch (frame.type) {
         case 'begin': return { kind: 'begin', stream: streamOf(frame) };
         case 'item': return { kind: 'item', stream: streamOf(frame), text: typeof frame.content === 'string' ? frame.content : '' };
         case 'end': return { kind: 'end', stream: streamOf(frame) };
         case 'error': return { kind: 'error', message: typeof frame.content === 'string' ? frame.content : '' };
+        // n8n's heartbeat: it says the workflow is still running, nothing to draw.
+        case 'keepalive': return undefined;
         default: return { kind: 'unknown', type: frame.type };
     }
 }
 
 /**
  * The text of a whole answer, the way n8n's widget reads it: `output`, else `text`, else
- * `message`; a `{ type: 'text', text }` part as its text; anything else as JSON, so a
- * workflow ending on a node that is not an agent still shows what it returned. An empty
- * `output` is an empty answer, where the widget printed `{ "output": "" }`.
+ * `message`; a `{ type: 'text', text }` part as its text. `undefined` when the value has
+ * none of them — where the widget printed the JSON into the bubble, the most asked-about
+ * failure on n8n's forum, this lets the runner say which field is missing instead.
  */
-export function replyText(value: unknown): string {
+export function replyText(value: unknown): string | undefined {
     if (typeof value === 'string') return value;
-    if (Array.isArray(value)) return value.map(replyText).join('\n\n');
+    if (Array.isArray(value)) {
+        const texts = value.map(replyText);
+        return texts.every((t) => t === undefined) && value.length > 0 ? undefined : texts.filter((t) => t !== undefined).join('\n\n');
+    }
     if (typeof value !== 'object' || value === null) return value === null || value === undefined ? '' : String(value);
     const record = value as Record<string, unknown>;
     const key = ['output', 'text', 'message'].find((k) => record[k] !== undefined && record[k] !== null);
-    const text = key === undefined ? undefined : record[key];
+    if (key === undefined) return Object.keys(record).length > 0 ? undefined : '';
+    const text = record[key];
     if (typeof text === 'string') return text;
     if (typeof text === 'object' && text !== null && (text as { type?: unknown }).type === 'text' && typeof (text as { text?: unknown }).text === 'string') {
         return (text as { text: string }).text;
     }
-    return Object.keys(record).length > 0 ? JSON.stringify(record, null, 2) : '';
+    return typeof text === 'number' || typeof text === 'boolean' ? String(text) : undefined;
+}
+
+/**
+ * The field names a whole answer carried, to name them in the error: the first item's, for
+ * a list. Called only for a value `replyText` could not read, which always holds a record.
+ */
+function fieldsOf(value: unknown): string[] {
+    let record = value;
+    while (Array.isArray(record)) record = record[0];
+    return Object.keys(record as object).slice(0, 6);
 }
 
 function wholePart(raw: string): N8nReplyPart | undefined {
     const text = raw.trim();
     if (!text) return undefined;
-    if (isHtml(text)) return { kind: 'html' };
+    // Parsed first: a JSON answer is an answer, whatever markup its text holds.
     const value = parse(text);
-    if (value === undefined) return { kind: 'reply', text: raw };
+    if (value === undefined) return isHtml(text) ? { kind: 'html' } : { kind: 'reply', text: raw };
     if (typeof value === 'object' && value !== null && (value as { executionStarted?: unknown }).executionStarted === true) return { kind: 'deferred' };
-    return { kind: 'reply', text: replyText(value) };
+    const reply = replyText(value);
+    return reply === undefined ? { kind: 'unreadable', fields: fieldsOf(value) } : { kind: 'reply', text: reply };
 }
 
 /** Yields what n8n's answer carries, frame by frame as it streams, or once for a whole answer. */
@@ -106,18 +136,27 @@ export async function* readN8nReply(body: ReadableStream<Uint8Array>): AsyncGene
     let raw = '';
     let pending = '';
 
-    function* lines(text: string): Generator<N8nReplyPart> {
-        for (const line of text.split('\n')) {
+    function* lines(text: string, last: boolean): Generator<N8nReplyPart> {
+        const all = text.split('\n');
+        for (const [i, line] of all.entries()) {
             if (!line.trim()) continue;
             const value = parse(line);
             if (mode === 'unknown') {
                 if (!opensStream(value)) { mode = 'whole'; return; }
                 mode = 'frames';
             }
-            if (isFrame(value)) yield frameToPart(value);
-            else if (isHtml(line)) yield { kind: 'html' };
-            // A line that is not a frame is text, as the widget reads it.
-            else yield { kind: 'item', text: line };
+            if (isFrame(value)) {
+                const part = frameToPart(value);
+                if (part) yield part;
+            } else if (last && i === all.length - 1 && line.trimStart().startsWith('{')) {
+                // The body ended inside a frame: what came before it stands, the fragment does not.
+                yield { kind: 'cut' };
+            } else if (isHtml(line)) {
+                yield { kind: 'html' };
+            } else {
+                // A line that is not a frame is text, as the widget reads it.
+                yield { kind: 'item', text: line };
+            }
         }
     }
 
@@ -131,7 +170,7 @@ export async function* readN8nReply(body: ReadableStream<Uint8Array>): AsyncGene
                 const cut = done ? pending.length : pending.lastIndexOf('\n') + 1;
                 const complete = pending.slice(0, cut);
                 pending = pending.slice(cut);
-                yield* lines(complete);
+                yield* lines(complete, done);
             }
             if (done) break;
         }

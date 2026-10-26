@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"output\":\"Here is a tiny snippet using an anchor tag styled as a button:\\n\\n```html\\n<a href=\\\"/product-link\\\" style=\\\"background-color: #ff6600; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\\\">Buy Now</a>\\n```\"}"
+}

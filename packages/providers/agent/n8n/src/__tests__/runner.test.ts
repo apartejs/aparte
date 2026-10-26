@@ -147,11 +147,12 @@ describe('createN8nRunner: what it sends', () => {
         expect(sentBody(calls[0]!)).toEqual({ action: 'sendMessage', conversation: expect.any(String), question: 'Combien font 6*7 ?' });
     });
 
-    it("sends the text of a message's parts, and an empty message when the person wrote none", async () => {
+    it("sends the text of a message's parts a paragraph apart, and an empty message when the person wrote none", async () => {
         const { fetch, calls } = fakeFetch(replay(fixture('last-node')), replay(fixture('last-node')));
         await run(fetch, { messages: [{ role: 'user', content: [{ type: 'text', text: 'Bon' }, { type: 'text', text: 'jour' }] }] }).done;
         await run(fetch, { messages: [{ role: 'system', content: 'You are helpful.' }] }).done;
-        expect(sentBody(calls[0]!)['chatInput']).toBe('Bonjour');
+        // A text file inlined after the words starts on a line of its own, its fence intact.
+        expect(sentBody(calls[0]!)['chatInput']).toBe('Bon\n\njour');
         expect(sentBody(calls[1]!)['chatInput']).toBe('');
     });
 
@@ -261,7 +262,7 @@ describe('createN8nRunner: what it draws (recorded from n8n 2.35.7)', () => {
         const error = await r.done.catch((e: unknown) => e) as AparteError;
         expect(error).toBeInstanceOf(AparteError);
         expect(error.message).toMatch(/^The requested webhook "POST hook-does-not-exist\/chat" is not registered\. The workflow must be active/);
-        expect(error.message.length).toBeLessThanOrEqual(300);
+        expect(error.message.length).toBeLessThanOrEqual(400);
         expect(error.httpStatus).toBe(404);
         expect(r.events).toEqual([]);
     });
@@ -367,7 +368,7 @@ describe('createN8nRunner: streams n8n can send', () => {
 
     it('fails as a stream that answered nothing when every node streamed empty', async () => {
         const r = run(fakeFetch(respond(frames({ type: 'begin', ...meta('a') }, { type: 'item', content: '', ...meta('a') }, { type: 'end', ...meta('a') }))).fetch);
-        await expect(r.done).rejects.toThrow(/answered with nothing/);
+        await expect(r.done).rejects.toThrow(/streamed nothing/);
     });
 
     it('reports a proxy that gave up waiting, before or during the stream', async () => {
@@ -397,19 +398,37 @@ describe('createN8nRunner: answers that do not stream', () => {
         expect(await whole('"a JSON string"')).toBe('a JSON string');
     });
 
-    it('shows what a workflow returned when it is not an answer, as JSON', async () => {
-        expect(await whole('{"status":"queued","id":7}')).toBe('{\n  "status": "queued",\n  "id": 7\n}');
+    it("names the fields a workflow's JSON carried when none of them is the answer, instead of printing it", async () => {
+        // n8n's widget printed the JSON into the bubble: its forum's most asked-about failure.
+        const r = run(fakeFetch(respond('{"status":"queued","id":7}')).fetch);
+        await expect(r.done).rejects.toThrow(/answered with the fields "status", "id" but no "output", "text" or "message" field/);
+        const list = run(fakeFetch(respond('[{"rows":3}]')).fetch);
+        await expect(list.done).rejects.toThrow(/the fields "rows"/);
+        const nested = run(fakeFetch(respond('{"output":{"rows":3}}')).fetch);
+        await expect(nested.done).rejects.toThrow(/the fields "output"/);
         expect(await whole('42')).toBe('42');
+        expect(await whole('{"output":12}')).toBe('12');
+    });
+
+    it('reads a whole answer whose JSON has a type and metadata as an answer, not as a stream', async () => {
+        expect(await whole('{"type":"order","metadata":{"ref":"A1"},"output":"Order A1 is on its way."}')).toBe('Order A1 is on its way.');
+    });
+
+    it('draws a whole answer that holds an HTML page in its text, which is not a proxy page', async () => {
+        const html = 'Here:\n```html\n<!DOCTYPE html>\n<html><body>Hi</body></html>\n```';
+        expect(await whole(JSON.stringify({ output: html }))).toBe(html);
     });
 
     it('draws a text answer as it came', async () => {
         expect(await whole('Thanks, we will call you back.', 'text/plain')).toBe('Thanks, we will call you back.');
     });
 
-    it('fails on an answer with nothing to show', async () => {
-        for (const body of ['{}', 'null', '{"output":""}', '   \n']) {
-            await expect(run(fakeFetch(respond(body)).fetch).done).rejects.toThrow(/answered with nothing/);
+    it('fails on an answer with nothing to show, saying it is the last node that returned no text', async () => {
+        for (const body of ['{}', 'null', '{"output":""}']) {
+            await expect(run(fakeFetch(respond(body)).fetch).done).rejects.toThrow(/finished without an answer/);
         }
+        // Blank is what a trigger that streams sends when its agent does not.
+        await expect(run(fakeFetch(respond('   \n')).fetch).done).rejects.toThrow(/streamed nothing/);
     });
 
     it('says the workflow answers through response nodes, which it does not read', async () => {
@@ -419,7 +438,7 @@ describe('createN8nRunner: answers that do not stream', () => {
 
     it('fails as an empty answer when there is no body at all', async () => {
         const r = run(fakeFetch(respond('', { status: 204 })).fetch);
-        await expect(r.done).rejects.toThrow(/answered with nothing/);
+        await expect(r.done).rejects.toThrow(/streamed nothing/);
     });
 });
 
@@ -480,5 +499,161 @@ describe('createN8nRunner: Stop', () => {
         await expect(r.done).resolves.toBeUndefined();
         expect(r.text()).toBe('Hel');
         expect(r.types()).not.toContain('run-done');
+    });
+});
+
+describe('createN8nRunner: what it draws (recorded from n8n 2.44.6, a real model)', () => {
+    it('reads a stream that opens on a keepalive, sent while a slow node runs before the agent', async () => {
+        const warnings: string[] = [];
+        const r = run(fakeFetch(replay(fixture('v2.44-stream-keepalive'))).fetch, { runner: { onWarning: (m) => warnings.push(m) } });
+        await r.done;
+        expect(r.text()).toBe('Hello! Enjoy this sweet moment.');
+        expect(warnings).toEqual([]);
+    });
+
+    it('draws a tool turn as one answer: the agent streams an empty block before the call, then the reply', async () => {
+        const r = run(fakeFetch(replay(fixture('v2.44-stream-tool'))).fetch);
+        await r.done;
+        expect(r.text()).toBe('It will cost $5.55 for 3 croissants at $1.85 each.');
+        expect(r.types().filter((t) => t === 'text-flush')).toHaveLength(1);
+    });
+
+    it("draws a turn that reads the session's memory, and one that read an uploaded text file", async () => {
+        const memory = run(fakeFetch(replay(fixture('v2.44-stream-memory'))).fetch);
+        const file = run(fakeFetch(replay(fixture('v2.44-stream-text-file'))).fetch);
+        await Promise.all([memory.done, file.done]);
+        expect(memory.text()).toBe('You asked, "Hello! What do you sell?"');
+        expect(file.text()).toBe('Thank you! I can confirm your order: 2 baguettes and 1 sourdough.');
+    });
+
+    it("fails with the model's own words when it refuses the turn mid-stream", async () => {
+        const r = run(fakeFetch(replay(fixture('v2.44-stream-image-refused'))).fetch);
+        await expect(r.done).rejects.toThrow('The provided messages contain images, but gemma-e2b does not support image inputs.');
+    });
+
+    it('draws a whole answer whose text holds markup', async () => {
+        const r = run(fakeFetch(replay(fixture('v2.44-last-node'))).fetch);
+        await r.done;
+        expect(r.text()).toMatch(/^Here is a tiny snippet[\s\S]*<a href="\/product-link"[\s\S]*```$/);
+    });
+
+    it('reads every recording the same whatever pieces the network cuts it into', async () => {
+        for (const name of ['v2.44-stream-keepalive', 'v2.44-stream-tool', 'v2.44-last-node']) {
+            const whole = run(fakeFetch(replay(fixture(name))).fetch);
+            const cut = run(fakeFetch(respond(byteByByte(fixture(name).body))).fetch);
+            await Promise.all([whole.done, cut.done]);
+            expect(cut.text()).toBe(whole.text());
+        }
+    });
+});
+
+describe('createN8nRunner: sessions', () => {
+    const turn = (runner: ReturnType<typeof createN8nRunner>, messages: { role: string; content: string }[]) => runner({
+        messageId: 'm', providerId: 'n8n', signal: new AbortController().signal, emitter: () => {},
+        baseRequest: { messages, modelId: 'n8n' },
+        transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
+    } as unknown as AparteStreamRunOptions);
+
+    it('starts a new session for a new conversation and continues it after, so n8n never mixes two memories', async () => {
+        const { fetch, calls } = fakeFetch(...Array.from({ length: 4 }, () => replay(fixture('last-node'))));
+        const runner = createN8nRunner({ webhookUrl: 'https://n8n.example.com/webhook/abc/chat', fetch });
+        await turn(runner, [{ role: 'user', content: 'one' }]);
+        await turn(runner, [{ role: 'user', content: 'one' }, { role: 'assistant', content: 'A' }, { role: 'user', content: 'two' }]);
+        // A new chat: no reply before the message.
+        await turn(runner, [{ role: 'system', content: 'Be brief.' }, { role: 'user', content: 'fresh' }]);
+        await turn(runner, [{ role: 'user', content: 'fresh' }, { role: 'assistant', content: 'B' }, { role: 'user', content: 'again' }]);
+        const sessions = calls.map((c) => sentBody(c)['sessionId']);
+        expect(sessions[1]).toBe(sessions[0]);
+        expect(sessions[2]).not.toBe(sessions[0]);
+        expect(sessions[3]).toBe(sessions[2]);
+    });
+
+    it('keeps the session it is given, even for a new conversation', async () => {
+        const { fetch, calls } = fakeFetch(replay(fixture('last-node')), replay(fixture('last-node')));
+        const runner = createN8nRunner({ webhookUrl: 'https://n8n.example.com/webhook/abc/chat', fetch, sessionId: 'kept' });
+        await turn(runner, [{ role: 'user', content: 'one' }]);
+        await turn(runner, [{ role: 'user', content: 'two' }]);
+        expect(calls.map((c) => sentBody(c)['sessionId'])).toEqual(['kept', 'kept']);
+    });
+});
+
+describe('createN8nRunner: files the client hands over', () => {
+    it('uploads every file picked, whatever its type, under their own names, instead of the inlined images', async () => {
+        const { fetch, calls } = fakeFetch(replay(fixture('v2.44-stream-text-file')));
+        const events: Event[] = [];
+        const pdf = new File([new Uint8Array([37, 80, 68, 70])], 'menu.pdf', { type: 'application/pdf' });
+        const txt = new File(['- 2 baguettes'], 'order.txt', { type: 'text/plain' });
+        const runner = createN8nRunner({ webhookUrl: 'https://n8n.example.com/webhook/abc/chat', fetch, sessionId: 's' });
+        await runner({
+            messageId: 'm', providerId: 'n8n', signal: new AbortController().signal, emitter: (e: Event) => events.push(e),
+            baseRequest: { messages: [{ role: 'user', content: [{ type: 'text', text: 'Can you confirm?' }, { type: 'image', image: 'data:image/png;base64,AAAA' }] }], modelId: 'n8n' },
+            transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
+            files: [pdf, txt],
+        } as unknown as AparteStreamRunOptions);
+        const form = calls[0]!.init.body as FormData;
+        expect(form.get('chatInput')).toBe('Can you confirm?');
+        expect((form.getAll('files') as File[]).map((f) => [f.name, f.type])).toEqual([['menu.pdf', 'application/pdf'], ['order.txt', 'text/plain']]);
+        expect(events.some((e) => e.type === 'text-delta')).toBe(true);
+    });
+});
+
+describe('createN8nRunner: what a proxy or n8n refuses', () => {
+    const fail = async (response: Response) => run(fakeFetch(response).fetch).done.catch((e: unknown) => e) as Promise<AparteError>;
+
+    it("says a proxy gave up on a 502 or 504 page, without showing the page's markup", async () => {
+        for (const status of [502, 504]) {
+            const error = await fail(respond('<html><head><title>504 Gateway Time-out</title></head><body>nginx</body></html>', { status, contentType: 'text/html' }));
+            expect(error.code).toBe(AparteErrorCode.NET_TIMEOUT);
+            expect(error.message).toContain(`gave up waiting (HTTP ${status})`);
+            expect(error.message).not.toContain('<');
+            expect(error.httpStatus).toBe(status);
+        }
+    });
+
+    it('says a web page came back instead of an answer, for any other status', async () => {
+        const error = await fail(respond('<!doctype html><title>Not found</title>', { status: 404, contentType: 'text/html' }));
+        expect(error.message).toMatch(/web page instead of a chat answer.*ends in \/chat/);
+    });
+
+    it('names the credentials a workflow waits for, and says when n8n could not check them', async () => {
+        const gate = await fail(respond(JSON.stringify({ status: 'credential_connections_required', readyToExecute: false, credentials: [{ credentialId: '1', credentialName: 'OpenAI account' }, { credentialName: 'Slack' }] }), { status: 428 }));
+        expect(gate.message).toBe('The n8n workflow cannot run until its credentials are connected (OpenAI account, Slack). Connect them in n8n, then try again.');
+        const check = await fail(respond('{"status":"credential_readiness_check_failed"}', { status: 503 }));
+        expect(check.message).toMatch(/could not check the workflow's credentials/);
+        expect(check.code).toBe(AparteErrorCode.PROVIDER_UNAVAILABLE);
+        const unnamed = await fail(respond(JSON.stringify({ credentials: [null, { credentialName: '' }, 'x'] }), { status: 428 }));
+        expect(unnamed.message).toBe('The n8n workflow cannot run until its credentials are connected. Connect them in n8n, then try again.');
+    });
+
+    it('reads a page by its content type too, when its text does not start with markup', async () => {
+        const error = await fail(respond('Bad gateway', { status: 502, contentType: 'text/html; charset=utf-8' }));
+        expect(error.code).toBe(AparteErrorCode.NET_TIMEOUT);
+    });
+
+    it('uses the global fetch when given none', async () => {
+        const { fetch, calls } = fakeFetch(replay(fixture('last-node')));
+        vi.stubGlobal('fetch', fetch);
+        try {
+            const runner = createN8nRunner({ webhookUrl: 'https://n8n.example.com/webhook/abc/chat' });
+            await runner({
+                messageId: 'm', signal: new AbortController().signal, emitter: () => {},
+                baseRequest: { messages: [{ role: 'user', content: 'hi' }], modelId: 'n8n' },
+                transportCall: async () => { throw new Error('never called'); }, toolLookup: () => undefined,
+            } as unknown as AparteStreamRunOptions);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+        expect(calls).toHaveLength(1);
+    });
+});
+
+describe('createN8nRunner: a stream cut mid-frame', () => {
+    it('keeps the text before the cut, drops the fragment, and says so to the developer', async () => {
+        const warnings: string[] = [];
+        const body = frames({ type: 'begin', ...meta('a') }, { type: 'item', content: 'Kept.', ...meta('a') }) + '{"type":"item","content":"lo';
+        const r = run(fakeFetch(respond(body)).fetch, { runner: { onWarning: (m) => warnings.push(m) } });
+        await r.done;
+        expect(r.text()).toBe('Kept.');
+        expect(warnings).toEqual(["n8n's stream stopped in the middle of a frame; the text before it is kept."]);
     });
 });
