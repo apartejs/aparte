@@ -21,10 +21,15 @@ export interface N8nButtonsInput {
     blockUserInput: boolean;
 }
 
-/** What a click answers with: the button, by its place and its label. */
+/**
+ * What the person answered: a button, by its place and its label — or words of their own
+ * (`written`, `index` -1), which n8n hears as a chat message: the Chat node resumes on it as
+ * not approved, with the words as its input.
+ */
 export interface N8nButtonsResult {
     index: number;
     text: string;
+    written?: true;
 }
 
 /**
@@ -54,8 +59,13 @@ export function setupN8nButtons(config: AparteConfig = aparteGlobalConfig): void
             signal,
             ...(context?.target ? { target: context.target } : {}),
         });
-        const option = answer.action === 'accept' ? (answer.content as { option?: string } | undefined)?.option : undefined;
-        const index = option === undefined ? -1 : Number(option);
+        const content = answer.action === 'accept' ? (answer.content as { option?: string; instruction?: string } | undefined) : undefined;
+        const written = content?.instruction?.trim();
+        if (written && content?.option === undefined) {
+            const result: N8nButtonsResult = { index: -1, text: written, written: true };
+            return { toolCallId: call.id, content: written, structuredContent: result };
+        }
+        const index = content?.option === undefined ? -1 : Number(content.option);
         const chosen = input.buttons[index];
         if (!chosen) throw new Error('No button was chosen.');
         const result: N8nButtonsResult = { index, text: chosen.text };
@@ -63,7 +73,7 @@ export function setupN8nButtons(config: AparteConfig = aparteGlobalConfig): void
     });
     // The line in the transcript is the answer, quietly: no tool name, no "Done", nothing to open.
     config.registerToolDisplay(N8N_BUTTONS_TOOL, {
-        icon: 'check',
+        icon: 'messageSquare',
         label: (segment: AparteToolCallSegment) => (typeof segment.result === 'string' && segment.result ? segment.result : input(segment)),
         quiet: true,
         details: false,

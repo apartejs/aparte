@@ -178,6 +178,28 @@ describe('createN8nRunner: response nodes over the chat socket', () => {
         await expect(t.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_ERROR, message: 'The Chat node failed.' });
     });
 
+    it('sends written words on the socket instead of a button, as n8n hears a message while it waits', async () => {
+        const { turn, calls } = setup({ answers: [started()] });
+        const first = turn('hi');
+        await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(1));
+        const socket = FakeSocket.all[0]!;
+        socket.open();
+        socket.receive(BUTTONS);
+        await first.done;
+        const suspended = first.events.at(-1)!;
+        const toolCallId = String((suspended['pending'] as { toolCallId: string }[])[0]!.toolCallId);
+        const resumed = turn('hi', {
+            token: String(suspended['ticket']),
+            outcomes: { [toolCallId]: { kind: 'result', content: 'Tomorrow instead', structuredContent: { index: -1, text: 'Tomorrow instead', written: true } } },
+        });
+        await vi.waitFor(() => expect(socket.sent).toHaveLength(1));
+        expect(JSON.parse(socket.sent[0]!)).toEqual({ sessionId: 'conv-1', action: 'sendMessage', chatInput: 'Tomorrow instead', files: [] });
+        socket.receive('No booking, then.');
+        await resumed.done;
+        expect(calls).toHaveLength(1);
+        expect(resumed.text()).toBe('No booking, then.');
+    });
+
     it('fetches nothing when no button was chosen: the execution keeps waiting in n8n', async () => {
         const { turn, calls } = setup({ answers: [started()] });
         const first = turn('hi');

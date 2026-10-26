@@ -274,6 +274,15 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
         const outcome = opts.deferral?.outcomes?.[ticket.toolCallId];
         const chosen = outcome?.kind === 'result' ? (outcome.structuredContent as N8nButtonsResult | undefined) : undefined;
         const link = chosen ? ticket.links[chosen.index] : undefined;
+        // Words of the person's own instead of a button: n8n hears them as a chat message,
+        // which the waiting Chat node resumes on as not approved.
+        if (outcome?.kind === 'result' && chosen?.written) {
+            emit({ type: 'tool-resolved', toolCallId: ticket.toolCallId, result: outcome.content, structuredResult: chosen });
+            const entry = sockets.get(ticket.sessionId) ?? openSocket(ticket.sessionId, ticket.executionId, ticket.token);
+            await entry.socket.send({ sessionId: ticket.sessionId, action: 'sendMessage', chatInput: chosen.text, files: [] });
+            await listen(opts, ticket.sessionId);
+            return;
+        }
         if (!outcome || outcome.kind !== 'result' || !link) {
             // No button: the execution keeps waiting in n8n, and a written message answers it.
             emit({ type: 'tool-aborted', toolCallId: ticket.toolCallId });

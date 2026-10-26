@@ -31,6 +31,13 @@ describe('setupN8nButtons', () => {
         expect(result).toEqual({ toolCallId: 'n8n-buttons-1', content: 'No thanks', structuredContent: { index: 1, text: 'No thanks' } });
     });
 
+    it("answers with the person's own words when they write instead of choosing", async () => {
+        aparteGlobalConfig.setElicitationPresenter(async () => ({ action: 'accept', content: { instruction: ' Tomorrow instead ' } }));
+        setupN8nButtons();
+        const result = await aparteGlobalConfig.getToolHandler(N8N_BUTTONS_TOOL)!(call, new AbortController().signal);
+        expect(result).toEqual({ toolCallId: 'n8n-buttons-1', content: 'Tomorrow instead', structuredContent: { index: -1, text: 'Tomorrow instead', written: true } });
+    });
+
     it('fails the call when the person declines without a button', async () => {
         aparteGlobalConfig.setElicitationPresenter(async () => ({ action: 'decline' }));
         setupN8nButtons();
