@@ -275,6 +275,32 @@ describe('createChat: the session, as n8n keeps it', () => {
         warn.mockRestore();
     });
 
+    it('shows messageHistory when n8n has no conversation for the session, and the stored one over it', async () => {
+        n8n();
+        const seed = [{ text: 'Do you deliver?', sender: 'user' as const }, { text: 'Within 5 km, yes.', sender: 'bot' as const }];
+        const fresh = mount({ initialMessages: ['Hello!'], messageHistory: seed });
+        expect(contents(fresh)).toEqual([['assistant', 'Hello!'], ['user', 'Do you deliver?'], ['assistant', 'Within 5 km, yes.']]);
+        fresh.destroy();
+        n8n({ history: [human('Earlier'), ai('Stored answer')] });
+        const stored = mount({ initialMessages: ['Hello!'], messageHistory: seed, target: '#b' });
+        await vi.waitFor(() => expect(contents(stored)).toEqual([['assistant', 'Hello!'], ['user', 'Earlier'], ['assistant', 'Stored answer']]));
+    });
+
+    it('sends every request through the fetch it is given', async () => {
+        const own = vi.fn(async (_url: string, init: RequestInit) => {
+            const action = JSON.parse(String(init.body))['action'];
+            return new Response(action === 'loadPreviousSession' ? '{"data":[]}' : stream('Through your fetch.'), { status: 200 });
+        });
+        const global = vi.fn();
+        vi.stubGlobal('fetch', global);
+        const after = vi.fn();
+        const chat = mount({ fetch: own as unknown as typeof fetch, afterMessageSent: after });
+        chat.send('hi');
+        await vi.waitFor(() => expect(after).toHaveBeenCalledWith('hi', 'Through your fetch.'));
+        expect(own.mock.calls.map((c) => JSON.parse(String(c[1].body))['action'])).toEqual(['loadPreviousSession', 'sendMessage']);
+        expect(global).not.toHaveBeenCalled();
+    });
+
     it('removes the widget on destroy, and unmount does the same', () => {
         n8n();
         const chat = mount({ loadPreviousSession: false });

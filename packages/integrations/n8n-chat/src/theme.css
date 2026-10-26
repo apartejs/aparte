@@ -231,6 +231,11 @@
   align-items: end;
 }
 
+/* `createChat`'s first messages are the widget's greeting, not an answer: nothing to copy. */
+.aparte-n8n aparte-chat-bubble[message-id^='n8n-initial-'] .aparte-action-bar {
+  display: none;
+}
+
 /* n8n names no one and shows no time. Hidden from the eye only: a screen reader still
    hears who is speaking, which n8n's widget never said. */
 .aparte-n8n .aparte-message > .aparte-body > .aparte-header {

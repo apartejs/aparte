@@ -67,6 +67,11 @@ export interface ChatOptions {
     defaultLanguage?: string;
     /** Messages shown first, from the assistant; neither sent nor kept. @default n8n's two */
     initialMessages?: string[];
+    /**
+     * A conversation to show when n8n has none for the session — after the first messages,
+     * as n8n's widget shows it. Shown, not sent: n8n's memory does not hold it.
+     */
+    messageHistory?: { text: string; sender: 'user' | 'bot' }[];
     /** Sent with every message, as `metadata` in the trigger's output. */
     metadata?: Record<string, unknown>;
     /** The chrome's words, by language, over the built-in ones. */
@@ -93,6 +98,8 @@ export interface ChatOptions {
      * @default 'light'
      */
     colorScheme?: 'light' | 'dark' | 'auto';
+    /** Every request to n8n goes through it: a proxy, a test, a recorded demo. @default the global `fetch` */
+    fetch?: typeof fetch;
 }
 
 /** What `createChat` returns: the widget, and what a page can do with it. */
@@ -262,8 +269,12 @@ export function createChat(options: ChatOptions): Chat {
     const firstMessages = (): AparteMessage[] => initial.map((content, i) => ({
         id: `n8n-initial-${i}`, role: 'assistant', content, timestamp: Date.now() - initial.length + i, status: 'completed',
     }));
+    const seeded = (): AparteMessage[] => (options.messageHistory ?? []).map((m, i) => ({
+        id: `n8n-seed-${i}`, role: m.sender === 'user' ? 'user' : 'assistant', content: m.text, timestamp: Date.now(), status: 'completed',
+    }));
     const show = (messages: AparteMessage[]) => chat.viewport?.setMessages(messages);
-    show(firstMessages());
+    show([...firstMessages(), ...seeded()]);
+    if (options.messageHistory?.length && suggestions) suggestions.hidden = true;
 
     let loaded = 0;
     const loadHistory = () => {
@@ -274,6 +285,7 @@ export function createChat(options: ChatOptions): Chat {
             ...(options.metadata ? { metadata: options.metadata } : {}),
             ...(options.chatSessionKey ? { chatSessionKey: options.chatSessionKey } : {}),
             headers: () => ({ ...(options.webhookConfig?.headers ?? {}) }),
+            ...(options.fetch ? { fetch: options.fetch } : {}),
         }).then((history) => {
             // A reset or a first message since: that conversation is the one on screen.
             if (ticket !== loaded || history.length === 0) return;
@@ -297,6 +309,7 @@ export function createChat(options: ChatOptions): Chat {
         webhookUrl: options.webhookUrl,
         sessionId: () => sessionId,
         headers: () => ({ ...(options.webhookConfig?.headers ?? {}) }),
+        ...(options.fetch ? { fetch: options.fetch } : {}),
         ...(options.metadata ? { metadata: options.metadata } : {}),
         ...(options.chatInputKey ? { chatInputKey: options.chatInputKey } : {}),
         ...(options.chatSessionKey ? { chatSessionKey: options.chatSessionKey } : {}),
