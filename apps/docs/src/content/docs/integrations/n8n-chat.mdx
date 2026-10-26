@@ -65,6 +65,7 @@ from n8n the same way.
 | A turn that called a tool, after a reload | The steps the memory stores, as bot bubbles — the tool's result as raw JSON | Left out, as in the live answer |
 | A last node with no `output`, `text` or `message` | Its JSON printed in the bubble | An error that names the fields it got |
 | When n8n can't be reached | `Error: Failed to receive response` | A sentence in the visitor's language; the console says what to check |
+| A page view, the chat never opened | A history request to n8n, every time | Nothing: the history is asked for when the chat first opens |
 | Contrast of the visitor's bubble | 2.55:1 (white on `#20b69e`) | 4.7:1 by default; your `--chat--*` colors kept |
 | Keyboard and screen reader | No roles, no labels; the launcher is a `div` | A real button, named; the window labelled; a modal sheet on a phone |
 | Dark scheme | No | `colorScheme: 'dark'` or `'auto'` |
@@ -94,7 +95,7 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name, with its 
 | `mode` | `'window'` | `'window'`: a button in the corner. `'fullscreen'`: the chat fills the target, which needs a height. |
 | `showWindowCloseButton` | `false` | A ✕ in the header. Without it the button in the corner closes the chat; on a phone it moves to the top corner. |
 | `showWelcomeScreen` | `false` | A screen with a "New Conversation" button before the chat. |
-| `loadPreviousSession` | `true` | Keep the session in the browser and show its history on load. |
+| `loadPreviousSession` | `true` | Keep the session in the browser and show its history again — in a window when the chat first opens, so a page view alone reaches no n8n execution. |
 | `sessionId` | — | Use this session (your app's conversation id) instead of the stored one. |
 | `chatInputKey`, `chatSessionKey` | `'chatInput'`, `'sessionId'` | The body fields, for a workflow that reads others. |
 | `defaultLanguage` | `'en'` | `'en'` or `'fr'`; with `i18n` for the chrome's words in any language. |

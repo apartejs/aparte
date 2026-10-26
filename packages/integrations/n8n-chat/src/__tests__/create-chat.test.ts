@@ -281,10 +281,26 @@ describe('createChat: the session, as n8n keeps it', () => {
         ] });
         localStorage.setItem('n8n-chat/sessionId', 's-42');
         const chat = mount({ initialMessages: ['Hello!'] });
+        chat.open();
         await vi.waitFor(() => expect(contents(chat)).toHaveLength(3));
         expect(actions()).toEqual(['loadPreviousSession']);
         expect(sent[0]!.body).toMatchObject({ sessionId: 's-42' });
         expect(contents(chat)).toEqual([['assistant', 'Hello!'], ['user', 'What is 12 times 7.5?'], ['assistant', '12 times 7.5 is 90.']]);
+    });
+
+    it('asks for the history when the window first opens, not on every page view; a full page asks at once', async () => {
+        const { actions } = n8n();
+        const chat = mount();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(actions(), 'a page view alone reaches no n8n execution').toEqual([]);
+        chat.open();
+        await vi.waitFor(() => expect(actions()).toEqual(['loadPreviousSession']));
+        chat.close();
+        chat.open();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(actions(), 'once').toEqual(['loadPreviousSession']);
+        mount({ mode: 'fullscreen', target: '#full' });
+        await vi.waitFor(() => expect(actions()).toEqual(['loadPreviousSession', 'loadPreviousSession']));
     });
 
     it('starts a new conversation on every load with loadPreviousSession off, and asks n8n nothing on load', () => {
@@ -322,6 +338,7 @@ describe('createChat: the session, as n8n keeps it', () => {
         vi.stubGlobal('fetch', vi.fn(async () => new Response('{"code":0,"message":"Workflow could not be started!"}', { status: 500 })));
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         const chat = mount();
+        chat.open();
         await vi.waitFor(() => expect(warn).toHaveBeenCalled());
         expect(String(warn.mock.calls[0]![0])).toMatch(/connect the memory node to the Chat Trigger/);
         expect(contents(chat)).toHaveLength(2);
@@ -336,6 +353,7 @@ describe('createChat: the session, as n8n keeps it', () => {
         fresh.destroy();
         n8n({ history: [human('Earlier'), ai('Stored answer')] });
         const stored = mount({ initialMessages: ['Hello!'], messageHistory: seed, target: '#b' });
+        stored.open();
         await vi.waitFor(() => expect(contents(stored)).toEqual([['assistant', 'Hello!'], ['user', 'Earlier'], ['assistant', 'Stored answer']]));
     });
 
@@ -350,7 +368,8 @@ describe('createChat: the session, as n8n keeps it', () => {
         const chat = mount({ fetch: own as unknown as typeof fetch, afterMessageSent: after });
         chat.send('hi');
         await vi.waitFor(() => expect(after).toHaveBeenCalledWith('hi', expect.objectContaining({ output: 'Through your fetch.' })));
-        expect(own.mock.calls.map((c) => JSON.parse(String(c[1].body))['action'])).toEqual(['loadPreviousSession', 'sendMessage']);
+        // Sent before the chat was ever opened: the message starts the conversation, no history is asked for.
+        expect(own.mock.calls.map((c) => JSON.parse(String(c[1].body))['action'])).toEqual(['sendMessage']);
         expect(global).not.toHaveBeenCalled();
     });
 

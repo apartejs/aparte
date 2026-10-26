@@ -381,7 +381,22 @@ export function createChat(options: ChatOptions): Chat {
             console.warn(`[aparte] n8n: ${error instanceof Error ? error.message : String(error)}`);
         });
     };
-    if (loadPrevious) loadHistory();
+    // In a window, when the chat first opens, not on every page view: each request reaches the
+    // n8n instance — an execution on n8n Cloud — whether or not the visitor ever chats. A full
+    // page shows its chat at once, so it asks at once.
+    if (loadPrevious) {
+        if (mode === 'window') {
+            const onFirstOpen = (event: Event) => {
+                if (!(event as CustomEvent<{ open: boolean }>).detail.open) return;
+                root.removeEventListener('aparte-launcher-toggle', onFirstOpen);
+                // A message sent before the first opening has started the conversation already.
+                if (loaded === 0) loadHistory();
+            };
+            root.addEventListener('aparte-launcher-toggle', onFirstOpen);
+        } else {
+            loadHistory();
+        }
+    }
 
     // The person's message and its session, taken when it is sent: a reset while its turn
     // waits on `beforeMessageSent` must not post it into the new conversation.
