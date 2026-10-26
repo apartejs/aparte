@@ -14,8 +14,8 @@ import { CORE_VERSION } from '../../../data/core-version';
 `@aparte/n8n-chat` replaces n8n's chat widget on your site with the same call. `createChat` takes
 [`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat)'s options and mounts the same thing on your
 Chat Trigger — a button in the corner that opens the chat, or a chat that fills its target — and
-it keeps what your page relies on: the option names, the session, the history, the files and the
-`--chat--*` variables you styled it with.
+it keeps what your page relies on: the option names, the session, the history, the files and n8n's
+main `--chat--*` variables. What does not carry over is listed [below](#what-it-does-not-do-yet).
 
 <ProductFrame meta={meta} />
 
@@ -60,25 +60,31 @@ from n8n the same way.
 
 | | `@n8n/chat` 1.43.3 | `@aparte/n8n-chat` |
 | --- | --- | --- |
-| Your page can open, close, send, reset | No: `createChat` returns the Vue app | `open()`, `close()`, `toggle()`, `send()`, `reset()`, `destroy()` |
-| A new conversation | Keeps the same session when history is on | `reset()` starts a new session |
-| A turn that called a tool, after a reload | The call and its result as bubbles of raw JSON | Left out, as in the live answer |
-| A last node with no `output` field | Its JSON printed in the bubble | An error that names the fields it got |
-| Languages | English strings you can override | English and French shipped, every string translatable |
-| Keyboard and screen reader | No roles, no labels; the launcher is a `div` | A real button, named; the window is a labelled region |
+| Your page can open, close, send, reset | No documented way: `createChat` returns the Vue app | `open()`, `close()`, `toggle()`, `send()`, `reset()`, `destroy()` |
+| A new conversation | None: with the history on, the stored session is reused until the browser's storage is cleared | `reset()` starts a new session (keeping a `sessionId` you gave: that one is yours to change) |
+| A turn that called a tool, after a reload | The steps the memory stores, as bot bubbles — the tool's result as raw JSON | Left out, as in the live answer |
+| A last node with no `output`, `text` or `message` | Its JSON printed in the bubble | An error that names the fields it got |
+| When n8n can't be reached | `Error: Failed to receive response` | A sentence in the visitor's language; the console says what to check |
+| Contrast of the visitor's bubble | 2.55:1 (white on `#20b69e`) | 4.7:1 by default; your `--chat--*` colors kept |
+| Keyboard and screen reader | No roles, no labels; the launcher is a `div` | A real button, named; the window labelled; a modal sheet on a phone |
 | Dark scheme | No | `colorScheme: 'dark'` or `'auto'` |
-| Styles leaking into your page | `.hljs`, `.empty`, an `h1` title | Every class prefixed `aparte-`, no heading |
-| React, Vue, Svelte, Angular | No | The same chat as components, with the n8n theme |
-| Weight on the wire (brotli) | 449 KB JS + 7 KB CSS | about 95 KB JS + 21 KB CSS |
+| What it adds to your page | Global `.hljs` and `.empty` rules, an `h1` title | Classes prefixed `aparte-`, no heading |
+| Code in answers | Highlighted (five languages) | Shown as code, not highlighted |
+| React, Vue, Svelte, Angular | `createChat` in a mount hook | `createChat` the same way, or the chat as components with the n8n theme |
+| Weight (brotli, everything the first render loads) | about 465 KB JS in four files + 6 KB CSS | about 95 KB JS + 21 KB CSS |
 | License | Sustainable Use License | MIT |
 
 The `@n8n/chat` column is what its version 1.43.3 does (npm's `latest`, October 2026), read from its
-published package; its size is jsDelivr's. Ours is the same widget built from this repository,
-minified, with every dependency it loads.
+published package. Both weights are brotli at its highest level, measured the same way: theirs is
+the four files the unversioned jsDelivr URL serves (about 571 KB pinned to `@1.43.3`); ours is the
+widget built from this repository, minified, with every dependency it loads. Through jsDelivr's
+`+esm`, ours arrives as several modules, a little heavier on the wire.
 
 ## The options
 
-Every option of `@n8n/chat`'s `createChat` is accepted under its name.
+Every option of `@n8n/chat`'s `createChat` is accepted under its name, with its default — except
+`messageComponents`, `enableMessageActions` and `disabled` ([below](#what-it-does-not-do-yet)), and
+`webhookConfig.method`, which is ignored: every request is a POST.
 
 | Option | Default | |
 | --- | --- | --- |
@@ -86,7 +92,7 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name.
 | `webhookConfig` | `{}` | `headers` are sent with every request and read each time, so a token you refresh is sent. Every request is a POST. |
 | `target` | `'#n8n-chat'` | An element or a selector; a selector that matches nothing gets a `div` at the end of the body. |
 | `mode` | `'window'` | `'window'`: a button in the corner. `'fullscreen'`: the chat fills the target, which needs a height. |
-| `showWindowCloseButton` | `true` | The ✕ in the header. On a phone, where the open chat covers the page, it is the way back. |
+| `showWindowCloseButton` | `false` | A ✕ in the header. Without it the button in the corner closes the chat; on a phone it moves to the top corner. |
 | `showWelcomeScreen` | `false` | A screen with a "New Conversation" button before the chat. |
 | `loadPreviousSession` | `true` | Keep the session in the browser and show its history on load. |
 | `sessionId` | — | Use this session (your app's conversation id) instead of the stored one. |
@@ -97,7 +103,7 @@ Every option of `@n8n/chat`'s `createChat` is accepted under its name.
 | `metadata` | — | Sent with every message, read from the trigger's output. |
 | `i18n` | — | `title`, `subtitle`, `footer`, `getStarted`, `inputPlaceholder`, `closeButtonTooltip`, by language. |
 | `allowFileUploads`, `allowedFilesMimeTypes` | `false`, any | The paperclip, and what the picker offers. |
-| `beforeMessageSent`, `afterMessageSent` | — | Called with the message, and with the message and the answer's text. |
+| `beforeMessageSent`, `afterMessageSent` | — | Called with the message before it is sent, and with the message and the answer once it is complete. The answer, a `ChatResponse`, reads like both of n8n's: `output` (a whole answer), `message` and `hasReceivedChunks` (a streamed one). `afterMessageSent` runs after the turn: a hook that throws or takes its time changes nothing on screen. |
 | `enableStreaming` | — | Accepted and not needed: a streamed answer and a whole one are both read. |
 | `theme` | — | Accepted: `@n8n/chat` never read it either. Style with CSS variables. |
 
@@ -142,8 +148,11 @@ document.querySelector('#logout')?.addEventListener('click', () => chat.reset())
 
 ## Your colors
 
-The n8n theme reads n8n's own variables, with n8n's defaults: a page that restyled `@n8n/chat`
-keeps its look.
+The n8n theme reads n8n's main variables — the colors, the fonts, the radii, the window's size and
+its button — with n8n's defaults, but one: the green behind white text is darkened to read (4.7:1).
+A page that restyled `@n8n/chat` with those variables keeps its look. The input's and the buttons'
+own variables, `--chat--window--right` and `--chat--window--z-index`, and rules written against
+n8n's `.chat-*` classes, do not carry over.
 
 ```css
 :root {
@@ -155,45 +164,56 @@ keeps its look.
 }
 ```
 
-Everything else is aparté's [theming](/guides/theming/): any `--aparte-*` variable set on
-`.aparte-n8n` wins over the theme. The [template](/templates/n8n-chat/) switches between n8n's look
-and a bakery's with these variables alone.
+Everything else is aparté's [theming](/guides/theming/): the palette (`--aparte-primary`,
+`--aparte-bg`, `--aparte-text`…) set on `.aparte-n8n` wins over the theme; a message's own tokens
+(`--aparte-message-content-*`) go on `.aparte-n8n aparte-chat`, where core derives them. The
+[template](/templates/n8n-chat/) switches between n8n's look and a bakery's with `--chat--*`
+variables alone.
 
 ## Set up the Chat Trigger
 
 1. In the **Chat Trigger**, turn **Make Chat Publicly Available** on, set **Mode** to
    **Embedded Chat**, and add your site to **Allowed Origins (CORS)**.
-2. Set **Response Mode** to **Streaming**, and turn **Enable Streaming** on in the AI Agent's options
-   too. With **When Last Node Finishes** instead, the answer arrives whole: that works as well.
+2. Set **Response Mode** to **Streaming**, and check that **Enable Streaming** is on in the AI Agent's
+   options (its default). With **When Last Node Finishes** instead, the answer arrives whole: that
+   works as well.
 3. For the history after a reload, set **Load Previous Session** to **From Memory**, and connect the
    memory node to the Chat Trigger **as well as** to the agent. With the memory on the agent only,
    n8n answers the history request with an error 500.
-4. **Activate** the workflow. Its production URL — not the test URL — is your `webhookUrl`.
+4. **Publish** the workflow (on n8n 1.x: activate it). Its production URL — not the test URL — is
+   your `webhookUrl`.
 
 Or start from [this workflow](/n8n/aparte-chat-workflow.json), set up that way: import it in n8n
 (**Import from File**), choose your OpenAI credential in the model node, set your site in Allowed
-Origins, and activate it.
+Origins, and publish it.
 
 ## When something is wrong, it says what
 
-| What happened | What the chat says |
+The visitor reads a short sentence in their language — the assistant can't be reached, took too
+long, or couldn't answer. What to change in n8n goes to the browser's console, once:
+
+| What happened | What the console says |
 | --- | --- |
-| The workflow is not active | n8n's own message: the webhook is not registered, activate the workflow |
+| n8n can't be reached, or refuses this page's origin | The URL, and to check it is the production URL, the workflow published, your site in Allowed Origins |
+| The workflow is not published | n8n's own message: the webhook is not registered |
 | The trigger streams, the agent does not | Turn on streaming in the AI Agent's options |
 | The last node returns no `output`, `text` or `message` | The fields it returned, and how to end the workflow |
 | The workflow waits for credentials | Which ones to connect |
-| A proxy gave up (502, 504) | That the workflow may still be running — never the proxy's page |
-| The history request fails with the memory not on the trigger | Connect the memory to the Chat Trigger (on the console) |
+| A proxy gave up (502, 504) | That the workflow may still be running |
+| The history request fails with a 500 | Usually the memory not connected to the Chat Trigger |
 | The workflow answers through response nodes | Use Streaming or When Last Node Finishes |
 
 ## What it does not do yet
 
 - **Response nodes** (the Chat node, "Respond to Chat"): n8n then answers over its chat WebSocket,
   which human-in-the-loop flows and approval buttons use. The chat says so instead of hanging.
+- **Highlighted code**: code in answers is shown as code, without colors.
 - **`messageComponents`**: custom Vue components for messages. aparté has its own seams for that
   ([segments](/guides/customization/segments/)), not Vue's.
-- **`enableMessageActions`**: n8n's "repost" and "reuse" on the person's messages. Answers have a copy
-  button instead.
+- **`enableMessageActions`**: n8n's "repost" and "reuse" on the person's messages.
+- **`disabled`**: a Vue ref that locks the input.
+- **CSS written for `@n8n/chat`'s classes** (`.chat-window`, `.chat-message`…): the elements are
+  aparté's, under `aparte-` names.
 
 ## With React, Vue, Svelte or Angular
 

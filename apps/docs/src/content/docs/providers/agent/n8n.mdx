@@ -46,7 +46,8 @@ In the **Chat Trigger** node:
 3. Set **Response Mode** to **Streaming** to see the answer arrive as it is written — the AI Agent
    streams by default, under *Options → Enable Streaming*. Or set it to **When Last Node Finishes**
    for a whole answer.
-4. **Activate** the workflow: a production URL answers only an active workflow.
+4. **Publish** the workflow (on n8n 1.x: activate it): a production URL answers only a published
+   workflow.
 
 Attach a memory to the agent — *Simple Memory*, or any other — and n8n keeps the conversation per
 session, keyed by the `sessionId` the page sends. To read a session back after a reload, set **Load

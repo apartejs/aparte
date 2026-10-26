@@ -24,9 +24,12 @@ chat.open();
 ```
 
 It keeps what a page relies on — the option names and defaults, the session in `localStorage`
-(`n8n-chat/sessionId`), the history on load, files, the `--chat--*` variables — and adds a handle
-(`open`, `close`, `toggle`, `send`, `reset`, `destroy`), French, a history without the tool steps,
-errors that say what to change in n8n, keyboard and screen-reader access, and a dark scheme.
+(`n8n-chat/sessionId`), the history on load, files, n8n's main `--chat--*` variables — and adds a
+handle (`open`, `close`, `toggle`, `send`, `reset`, `destroy`), French, a history without the tool
+steps, errors a visitor can read (and a console that says what to change in n8n), readable
+contrast, keyboard and screen-reader access, and a dark scheme. What it does not take over —
+response nodes, highlighted code, `messageComponents`, CSS written for n8n's `.chat-*` classes — is
+on the docs page.
 
 `@aparte/n8n-chat/theme.css` is the n8n theme alone: put a chat you compose with
 `@aparte/runner-n8n` and the React, Vue, Svelte or Angular components inside `.aparte-n8n`.
