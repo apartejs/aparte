@@ -155,7 +155,8 @@ launcher sits at `--aparte-z-dropdown`, above the page and below what you raise 
   answered it (a menu closing, the [context gauge](/components/context-gauge/)'s panel), an input
   method that is composing text, or a modal `<dialog>` open in your card, which closes itself on
   it. The next Escape closes the launcher.
-- A closed launcher's content is `display: none`: nothing invisible keeps a tab stop.
+- A closed launcher's content is `display: none`, and stays so when your card sets its own
+  `display` — inline, or by a rule of any weight: nothing invisible keeps a tab stop.
 - The sheet keeps Tab inside it while it covers the page; the card leaves the page reachable.
 - The page behind the sheet is still in the accessibility tree, since the launcher does not own
   it. Take your page's container out while the sheet covers it — the event fires again when the
