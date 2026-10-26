@@ -1,4 +1,4 @@
-import { resolveConfig } from '../../config/index.js';
+import { resolveConfig, APARTE_HOST_ATTR, type AparteConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -86,6 +86,13 @@ export class AparteLauncher extends HTMLElement {
      * nothing, and nothing can open the chat.
      */
     private _childWatch: MutationObserver | null = null;
+    /**
+     * Watches for a config boundary appearing, changing or leaving inside the element. A
+     * framework wrapper attaches its chat's `config` from a post-mount hook, after the
+     * launcher has connected and drawn its button, and `attachConfig` tells the elements
+     * INSIDE the boundary, never the launcher around it.
+     */
+    private _hostWatch: MutationObserver | null = null;
     private _media: MediaQueryList | null = null;
     private _lastOpen: boolean | null = null;
 
@@ -124,6 +131,8 @@ export class AparteLauncher extends HTMLElement {
         if (typeof MutationObserver === 'function') {
             this._childWatch ??= new MutationObserver(() => this._keepButton());
             this._childWatch.observe(this, { childList: true });
+            this._hostWatch ??= new MutationObserver(() => this._renderButton());
+            this._hostWatch.observe(this, { attributes: true, attributeFilter: [APARTE_HOST_ATTR], subtree: true });
         }
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
@@ -139,6 +148,7 @@ export class AparteLauncher extends HTMLElement {
         this.removeEventListener('keydown', this._onKeydown);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
         this._childWatch?.disconnect();
+        this._hostWatch?.disconnect();
         this._media?.removeEventListener('change', this._onMediaChange);
         this._media = null;
         this._ready = false;
@@ -194,6 +204,18 @@ export class AparteLauncher extends HTMLElement {
     private _onConfigChange = (): void => this._renderButton();
 
     /**
+     * The config the button answers to: the chat's own when the chat inside carries an
+     * instance config (a wrapper's `config` prop, `attachConfig(chat, config)`), else the
+     * one at the launcher's own place — an ancestor's boundary, or the page's. The button
+     * labels and draws a control of THAT chat, and the chat's boundary is below the launcher,
+     * so resolving from the launcher alone read the page's locale and icons next to a chat
+     * in another language. Resolved live, never kept: the boundary may arrive after connect.
+     */
+    private _config(): AparteConfig {
+        return resolveConfig(this.querySelector(`[${APARTE_HOST_ATTR}]`) ?? this);
+    }
+
+    /**
      * The button is a child of the element, whatever was done to the children since: put
      * back at the end when something took it out. A button that is still a child stays
      * where it is, since the host may have placed it. Called on every render, and from the
@@ -213,7 +235,7 @@ export class AparteLauncher extends HTMLElement {
         const button = this._button;
         if (!button) return;
         this._keepButton();
-        const config = resolveConfig(this);
+        const config = this._config();
         const locale = config.getLocale();
         const open = this.open;
         const label = open ? '' : (this.getAttribute('label') ?? '').trim();

@@ -10,7 +10,7 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-launcher.js';
 import '../../context/aparte-context.js';
 import type { AparteLauncher, AparteLauncherToggleDetail } from '../aparte-launcher.js';
-import { aparteGlobalConfig, APARTE_DEFAULT_LOCALE } from '../../../config/index.js';
+import { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_LOCALE, attachConfig, detachConfig } from '../../../config/index.js';
 import { releaseDeferredHydration } from '../../../interop/defer-hydration.js';
 import { messageSquareIcon, closeIcon } from '../../../icons/glyphs.js';
 import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
@@ -257,6 +257,63 @@ describe('<aparte-launcher>: opening and closing', () => {
         expect(buttonOf(el).getAttribute('aria-label')).toBe('Ouvrir la discussion');
         el.show();
         expect(buttonOf(el).getAttribute('aria-label')).toBe('Fermer la discussion');
+    });
+});
+
+describe('<aparte-launcher>: the config of the chat inside', () => {
+    const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+    const ownBubble = '<svg class="aparte-icon" id="own-bubble"></svg>';
+
+    /** A French chat with a glyph of its own, the way a wrapper's `config` prop gives one: `attachConfig` on the chat's element. */
+    function frenchConfig(): AparteConfig {
+        const config = new AparteConfig();
+        config.setLocale({ ...APARTE_DEFAULT_LOCALE, launcherOpen: 'Ouvrir la discussion', launcherClose: 'Fermer la discussion' });
+        config.registerIcons({ messageSquare: () => ownBubble });
+        return config;
+    }
+
+    it('names its button, and draws its bubble, from the config the chat inside carries', () => {
+        const el = mount();
+        attachConfig(el.querySelector('#chat') as HTMLElement, frenchConfig());
+        return settle().then(() => {
+            expect(buttonOf(el).getAttribute('aria-label')).toBe('Ouvrir la discussion');
+            expect(buttonOf(el).querySelector('#own-bubble')).not.toBeNull();
+            el.show();
+            expect(buttonOf(el).getAttribute('aria-label')).toBe('Fermer la discussion');
+            // The global config is the page's, and stays as it was.
+            expect(aparteGlobalConfig.getLocale().launcherOpen).toBe('Open the chat');
+        });
+    });
+
+    it('reads it when the chat carries it already at connect, and follows a live change of it', () => {
+        const el = document.createElement('aparte-launcher') as AparteLauncher;
+        el.innerHTML = '<div id="chat"></div>';
+        const config = frenchConfig();
+        attachConfig(el.firstElementChild as HTMLElement, config);
+        document.body.append(el);
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Ouvrir la discussion');
+        config.setLocale({ ...APARTE_DEFAULT_LOCALE, launcherOpen: 'Abrir el chat' });
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Abrir el chat');
+    });
+
+    it('falls back to the config at its own place when the chat has none, and when it loses it', async () => {
+        const el = mount();
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Open the chat');
+        const chat = el.querySelector('#chat') as HTMLElement;
+        attachConfig(chat, frenchConfig());
+        await settle();
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Ouvrir la discussion');
+        detachConfig(chat);
+        await settle();
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Open the chat');
+        // An ancestor's boundary governs a chat that has none of its own.
+        const ancestor = new AparteConfig();
+        ancestor.setLocale({ ...APARTE_DEFAULT_LOCALE, launcherOpen: 'Chat öffnen' });
+        const shell = document.createElement('div');
+        document.body.append(shell);
+        attachConfig(shell, ancestor);
+        shell.append(el);
+        expect(buttonOf(el).getAttribute('aria-label')).toBe('Chat öffnen');
     });
 });
 

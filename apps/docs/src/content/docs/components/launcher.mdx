@@ -76,8 +76,11 @@ column and lets the chat take the rest, which is what the two `style` attributes
 <Usage />
 
 `label` puts text beside the bubble, and the button reads as a pill; without it the button is
-round and named by the locale (`launcherOpen` and `launcherClose`). `open` opens it from the
-markup or from a script, and `show()`, `close()` and `toggle()` do the same.
+round and named by the locale (`launcherOpen` and `launcherClose`). The locale and the icons are
+those of the chat inside when it carries its own config — the `config` a wrapper takes, or
+`attachConfig(chat, config)` — and the page's otherwise, so a French chat gets a French button
+without a global setting. `open` opens it from the markup or from a script, and `show()`,
+`close()` and `toggle()` do the same.
 
 ```ts
 const launcher = document.querySelector('aparte-launcher');
