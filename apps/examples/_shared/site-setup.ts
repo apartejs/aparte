@@ -229,8 +229,9 @@ async function run(): Promise<SiteSetup> {
 
     // 2a'. How those calls read. A tool's NAME is the app's wire format, and core shows
     //      it until the app says how a person should read the call: a label, an icon,
-    //      and what the call targets. The rows read "Write file CHANGELOG.md" rather than
-    //      `write_file`, and the approval question asks about the same line.
+    //      and what the call targets. A row reads "Writing a file… CHANGELOG.md", then
+    //      "Wrote a file CHANGELOG.md", rather than `write_file`, and the approval question
+    //      asks about the plain line: "Allow Write file CHANGELOG.md?".
     const arg = (segment: AparteToolCallSegment, ...keys: string[]): string => {
         for (const key of keys) {
             const value = segment.toolCall.input[key];
@@ -238,11 +239,16 @@ async function run(): Promise<SiteSetup> {
         }
         return '';
     };
-    aparteGlobalConfig.registerToolDisplay('get_weather', { label: 'Weather', icon: 'globe', summary: (s) => arg(s, 'city') });
-    aparteGlobalConfig.registerToolDisplay('search_docs', { label: 'Search docs', icon: 'search', summary: (s) => arg(s, 'query') });
-    aparteGlobalConfig.registerToolDisplay('read_file', { label: 'Read file', icon: 'file', summary: (s) => arg(s, 'path') });
-    aparteGlobalConfig.registerToolDisplay('write_file', { label: 'Write file', icon: 'edit', summary: (s) => arg(s, 'path') });
-    aparteGlobalConfig.registerToolDisplay('run_command', { label: 'Run command', icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
+    // A quiet row says nothing once a call is done, so the label's tense does: running,
+    // done, and the plain name for the rest — a wait for approval ("Allow Weather Lille?"),
+    // a refusal, a failure.
+    const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment): string =>
+        segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
+    aparteGlobalConfig.registerToolDisplay('get_weather', { label: tense('Checking the weather…', 'Checked the weather', 'Weather'), icon: 'globe', summary: (s) => arg(s, 'city') });
+    aparteGlobalConfig.registerToolDisplay('search_docs', { label: tense('Searching the docs…', 'Searched the docs', 'Search docs'), icon: 'search', summary: (s) => arg(s, 'query') });
+    aparteGlobalConfig.registerToolDisplay('read_file', { label: tense('Reading a file…', 'Read a file', 'Read file'), icon: 'file', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('write_file', { label: tense('Writing a file…', 'Wrote a file', 'Write file'), icon: 'edit', summary: (s) => arg(s, 'path') });
+    aparteGlobalConfig.registerToolDisplay('run_command', { label: tense('Running a command…', 'Ran a command', 'Run command'), icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model
