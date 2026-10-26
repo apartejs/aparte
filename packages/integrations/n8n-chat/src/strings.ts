@@ -20,6 +20,15 @@ export interface ChatStrings {
     inputPlaceholder: string;
     /** The name of the header's close button. */
     closeButtonTooltip: string;
+    /**
+     * What the person reads when n8n cannot be reached. What to change in n8n goes to the
+     * browser's console, for the page's developer.
+     */
+    errorUnreachable: string;
+    /** What the person reads when the answer took too long. */
+    errorTimeout: string;
+    /** What the person reads when the workflow failed. */
+    errorFailed: string;
 }
 
 /** n8n's widget's own English, word for word, so a page that switches looks the same. */
@@ -30,6 +39,9 @@ const EN: ChatStrings = {
     getStarted: 'New Conversation',
     inputPlaceholder: 'Type your question..',
     closeButtonTooltip: 'Close chat',
+    errorUnreachable: 'The assistant can’t be reached right now. Try again in a moment.',
+    errorTimeout: 'The answer took too long. Try again in a moment.',
+    errorFailed: 'The assistant couldn’t answer. Try again in a moment.',
 };
 
 const FR: ChatStrings = {
@@ -39,6 +51,9 @@ const FR: ChatStrings = {
     getStarted: 'Nouvelle conversation',
     inputPlaceholder: 'Posez votre question…',
     closeButtonTooltip: 'Fermer le chat',
+    errorUnreachable: 'L’assistant est injoignable pour le moment. Réessayez dans un instant.',
+    errorTimeout: 'La réponse a pris trop de temps. Réessayez dans un instant.',
+    errorFailed: 'L’assistant n’a pas pu répondre. Réessayez dans un instant.',
 };
 
 export const BUILT_IN_STRINGS: Record<string, ChatStrings> = { en: EN, fr: FR };

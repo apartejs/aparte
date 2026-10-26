@@ -130,6 +130,25 @@ describe('createChat: the widget, as n8n draws it', () => {
         expect(withClose.element.querySelector('.aparte-n8n__close aparte-icon')?.getAttribute('name')).toBe('close');
     });
 
+    it('carries its language, and is a modal dialog while it covers a phone', () => {
+        n8n();
+        const matchMedia = window.matchMedia;
+        window.matchMedia = ((query: string) => ({ matches: true, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+        try {
+            const chat = mount({ loadPreviousSession: false, defaultLanguage: 'fr' });
+            expect(chat.element.getAttribute('lang')).toBe('fr');
+            const card = chat.element.querySelector('.aparte-n8n__window')!;
+            expect(card.getAttribute('role')).toBeNull();
+            chat.open();
+            expect(card.getAttribute('role')).toBe('dialog');
+            expect(card.getAttribute('aria-modal')).toBe('true');
+            chat.close();
+            expect(card.getAttribute('role')).toBeNull();
+        } finally {
+            window.matchMedia = matchMedia;
+        }
+    });
+
     it('speaks a language aparté does not ship, from the locale it is given', async () => {
         n8n();
         const { APARTE_DEFAULT_LOCALE } = await import('@aparte/core');
@@ -408,6 +427,20 @@ describe('createChat: on a page with other chats, and while an answer is on its 
         letGo();
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(held.sent).toHaveLength(0);
+    });
+
+    it("tells a visitor in plain words, in their language, that n8n can't be reached — and the developer what to check", async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const chat = mount({ loadPreviousSession: false, defaultLanguage: 'fr' });
+        chat.send('Bonjour ?');
+        await vi.waitFor(() => expect(chat.element.querySelector('.aparte-segment-error')).not.toBeNull());
+        const alert = chat.element.querySelector('.aparte-segment-error')!;
+        expect(alert.textContent).toContain('L’assistant est injoignable pour le moment.');
+        expect(alert.textContent).not.toContain('Failed to fetch');
+        expect(alert.getAttribute('data-error-code')).toBe('NET_ERROR');
+        expect(warn.mock.calls.map((c) => String(c[0])).some((m) => /Could not reach n8n at .*Allowed Origins/.test(m))).toBe(true);
+        warn.mockRestore();
     });
 
     it('keeps a finished answer finished when afterMessageSent throws, and says so on the console', async () => {

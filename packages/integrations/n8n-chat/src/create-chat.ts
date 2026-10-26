@@ -220,6 +220,26 @@ export function createChat(options: ChatOptions): Chat {
     // button under the answers, and a quiet line for a tool call should one be drawn.
     config.setBubbleActions({ copy: false });
     config.registerToolDisplay('*', { quiet: true });
+    // A visitor reads a sentence in their language; what to change in n8n goes to the console,
+    // once, for the page's developer.
+    const told = new Set<string>();
+    config.setErrorRenderer(({ message, code }) => {
+        if (!told.has(message)) {
+            told.add(message);
+            console.warn(`[aparte] n8n: ${message}`);
+        }
+        const text = code === 'NET_ERROR' || code === 'NET_OFFLINE' ? strings.errorUnreachable
+            : code === 'NET_TIMEOUT' ? strings.errorTimeout
+                : strings.errorFailed;
+        const alert = el('div', 'aparte-segment aparte-alert aparte-alert--danger aparte-segment-error');
+        if (code) alert.setAttribute('data-error-code', code);
+        const icon = el('span', 'aparte-alert__icon');
+        icon.innerHTML = config.getIcon('error');
+        const body = el('div', 'aparte-alert__body');
+        body.append(el('div', 'aparte-alert__message', text));
+        alert.append(icon, body);
+        return alert;
+    });
     setupMarkedStreamingProvider(undefined, config);
 
     // ── The markup ─────────────────────────────────────────────────────────────────────
@@ -298,6 +318,22 @@ export function createChat(options: ChatOptions): Chat {
     }
     const scheme = options.colorScheme ?? 'light';
     if (scheme !== 'auto') root.setAttribute('data-aparte-theme', scheme);
+    // Its own language, so a screen reader reads a French widget on an English page in French.
+    root.setAttribute('lang', language);
+    if (mode === 'window') {
+        // On a phone the open chat covers the page: a modal dialog to assistive technology too,
+        // not only to Tab.
+        root.addEventListener('aparte-launcher-toggle', (event) => {
+            const { open, sheet } = (event as CustomEvent<{ open: boolean; sheet: boolean }>).detail;
+            if (open && sheet) {
+                card.setAttribute('role', 'dialog');
+                card.setAttribute('aria-modal', 'true');
+            } else {
+                card.removeAttribute('role');
+                card.removeAttribute('aria-modal');
+            }
+        });
+    }
     attachConfig(root, config);
     resolveTarget(options.target ?? '#n8n-chat').append(root);
 

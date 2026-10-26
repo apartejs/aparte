@@ -2,23 +2,30 @@
  * The n8n theme: aparté's chat in the look of n8n's chat widget, on anything inside
  * `.aparte-n8n` — the widget `createChat()` mounts, or a chat you compose yourself.
  *
- * Every value is read from the `--chat--*` variable n8n's widget reads, with its default
- * as the fallback. A page that restyled n8n's widget with those variables keeps its colors,
- * its sizes and its font when it switches. The `--aparte-*` variables still win over all
- * of it: set them on `.aparte-n8n` like on any aparté chat.
+ * It reads n8n's main `--chat--*` variables — the colors, the fonts, the radii, the window's
+ * size and its button — so a page that set them for n8n's widget keeps them. Their defaults
+ * are n8n's, but for one: the green behind white text is n8n's darkened just enough to read
+ * (#178272, 4.7:1, where n8n's #20b69e gives 2.55:1). The input's and buttons' own variables,
+ * and rules written against n8n's `.chat-*` classes, do not carry over.
  *
- * The palette is declared whole on `.aparte-n8n`, light by default like n8n's widget: a
- * visitor whose system is dark does not get a chat half in the page's colors. Dark is
- * `colorScheme: 'dark'` (or `data-aparte-theme="dark"`), or the visitor's own with
- * `colorScheme: 'auto'`.
+ * To restyle with aparté's variables instead: the palette (`--aparte-primary`, `--aparte-bg`,
+ * `--aparte-text`…) on `.aparte-n8n`; a message's own tokens (`--aparte-message-content-*`)
+ * on `.aparte-n8n aparte-chat`, where core derives them.
+ *
+ * Light by default like n8n's widget, whatever the visitor's system: a chat half in the
+ * page's colors is worse than one in its own. Dark is `colorScheme: 'dark'` (or
+ * `data-aparte-theme="dark"`), or the visitor's own with `colorScheme: 'auto'`.
  */
 
-.aparte-n8n,
-.aparte-n8n :is(aparte-chat, [data-aparte-host]) {
+.aparte-n8n {
   color-scheme: light;
+  font-family: var(--aparte-font-family);
+  color: var(--aparte-text);
+
   --aparte-font-family: var(--chat--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif);
   --aparte-code-font-family: var(--chat--font-family--monospace, ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace);
 
+  /* The palette: literal, on the root, inherited by everything inside. */
   --aparte-bg: var(--chat--body--background, var(--chat--color-light, #f2f4f8));
   --aparte-surface-1: var(--chat--color-white, #fff);
   --aparte-surface-2: var(--chat--color-light-shade-50, #e6e9f1);
@@ -26,28 +33,33 @@
   --aparte-text-muted: #5b5f7a;
   --aparte-neutral: #5b5f7a;
   --aparte-border: var(--chat--color-light-shade-50, #e6e9f1);
-  --aparte-primary: var(--chat--color--secondary, #20b69e);
-  --aparte-primary-hover: var(--chat--color-secondary-shade-50, #1ca08a);
+  --aparte-primary: var(--chat--color--secondary, #178272);
+  --aparte-primary-hover: var(--chat--color-secondary-shade-50, #126a5d);
   --aparte-on-primary: var(--chat--color-white, #fff);
-  --aparte-accent: var(--chat--color--primary, #e74266);
-
-  --aparte-message-content-bg-user: var(--chat--message--user--background, var(--chat--color--secondary, #20b69e));
   --aparte-message-content-text-user: var(--chat--message--user--color, var(--chat--color-white, #fff));
   --aparte-message-content-bg-assistant: var(--chat--message--bot--background, var(--chat--color-white, #fff));
   --aparte-message-content-text-assistant: var(--chat--message--bot--color, var(--chat--color-dark, #101330));
-  --aparte-radius-bubble: var(--chat--message--border-radius, var(--chat--border-radius, 0.25rem));
-  --aparte-message-content-radius: var(--chat--message--border-radius, var(--chat--border-radius, 0.25rem));
-  --aparte-code-bg: var(--chat--message--pre--background, rgba(0, 0, 0, 0.05));
-  --aparte-prose-code-bg: var(--chat--message--pre--background, rgba(0, 0, 0, 0.05));
-  --aparte-input-bg: var(--chat--input--background, var(--chat--color-white, #fff));
+  --aparte-message-content-padding-assistant: var(--chat--message--padding, var(--chat--spacing, 1rem));
+  /* A ring a keyboard user can find, on any of the theme's grounds. */
+  --aparte-focus-outline-width: 2px;
+  --aparte-focus-outline-offset: 2px;
 
+  /* What core derives on the chat's own anchors, kept here and handed down below. */
+  --aparte-n8n-accent: var(--chat--color--primary, #e74266);
+  --aparte-n8n-user-bg: var(--chat--message--user--background, var(--aparte-primary));
+  --aparte-n8n-radius: var(--chat--message--border-radius, var(--chat--border-radius, 0.25rem));
+  --aparte-n8n-code-bg: var(--chat--message--pre--background, rgba(0, 0, 0, 0.05));
+  --aparte-n8n-input-bg: var(--chat--input--background, var(--chat--color-white, #fff));
+  --aparte-n8n-message-padding: var(--chat--message--padding, var(--chat--spacing, 1rem));
+
+  /* The window and the button in the corner, read by the launcher, which is this element. */
   --aparte-launcher-width: var(--chat--window--width, 400px);
   --aparte-launcher-height: var(--chat--window--height, 600px);
   --aparte-launcher-offset: var(--chat--window--bottom, var(--chat--spacing, 1rem));
   --aparte-launcher-gap: var(--chat--window--margin-bottom, var(--chat--spacing, 1rem));
   --aparte-launcher-radius: var(--chat--window--border-radius, var(--chat--border-radius, 0.25rem));
 
-  /* The header and the footer, drawn by this theme. */
+  /* The header, the footer and the button, drawn by this theme. */
   --aparte-n8n-header-bg: var(--chat--header--background, var(--chat--color-dark, #101330));
   --aparte-n8n-header-color: var(--chat--header--color, var(--chat--color-light, #f2f4f8));
   --aparte-n8n-footer-bg: var(--chat--footer--background, var(--chat--color-light, #f2f4f8));
@@ -55,19 +67,25 @@
   --aparte-n8n-toggle-bg: var(--chat--toggle--background, var(--chat--color--primary, #e74266));
   --aparte-n8n-toggle-hover-bg: var(--chat--toggle--hover--background, var(--chat--color--primary-shade-50, #db4061));
   --aparte-n8n-toggle-color: var(--chat--toggle--color, var(--chat--color-white, #fff));
-
-  --aparte-message-content-padding: var(--chat--message--padding, var(--chat--spacing, 1rem));
-  --aparte-message-content-padding-assistant: var(--chat--message--padding, var(--chat--spacing, 1rem));
 }
 
-.aparte-n8n {
-  font-family: var(--aparte-font-family);
-  color: var(--aparte-text);
+/*
+ * On the chat's own anchors, where core derives these tokens from its own: as references to
+ * the root's, so the root's values — and a page's `--chat--*` — reach the messages.
+ */
+.aparte-n8n :is(aparte-chat, [data-aparte-host]) {
+  --aparte-accent: var(--aparte-n8n-accent);
+  --aparte-message-content-bg-user: var(--aparte-n8n-user-bg);
+  --aparte-radius-bubble: var(--aparte-n8n-radius);
+  --aparte-message-content-radius: var(--aparte-n8n-radius);
+  --aparte-code-bg: var(--aparte-n8n-code-bg);
+  --aparte-prose-code-bg: var(--aparte-n8n-code-bg);
+  --aparte-input-bg: var(--aparte-n8n-input-bg);
+  --aparte-message-content-padding: var(--aparte-n8n-message-padding);
 }
 
 /* Dark: n8n's own navy, which its widget never had. */
-.aparte-n8n[data-aparte-theme='dark'],
-.aparte-n8n[data-aparte-theme='dark'] :is(aparte-chat, [data-aparte-host]) {
+.aparte-n8n[data-aparte-theme='dark'] {
   color-scheme: dark;
   --aparte-bg: #0b0d24;
   --aparte-surface-1: #151937;
@@ -78,17 +96,15 @@
   --aparte-border: #262b52;
   --aparte-message-content-bg-assistant: #171b3d;
   --aparte-message-content-text-assistant: #eef0f6;
-  --aparte-code-bg: rgba(255, 255, 255, 0.06);
-  --aparte-prose-code-bg: rgba(255, 255, 255, 0.06);
-  --aparte-input-bg: #151937;
+  --aparte-n8n-code-bg: rgba(255, 255, 255, 0.06);
+  --aparte-n8n-input-bg: #151937;
   --aparte-n8n-header-bg: #060716;
   --aparte-n8n-footer-bg: #0b0d24;
   --aparte-n8n-footer-color: #eef0f6;
 }
 
 @media (prefers-color-scheme: dark) {
-  .aparte-n8n:not([data-aparte-theme]),
-  .aparte-n8n:not([data-aparte-theme]) :is(aparte-chat, [data-aparte-host]) {
+  .aparte-n8n:not([data-aparte-theme]) {
     color-scheme: dark;
     --aparte-bg: #0b0d24;
     --aparte-surface-1: #151937;
@@ -99,9 +115,8 @@
     --aparte-border: #262b52;
     --aparte-message-content-bg-assistant: #171b3d;
     --aparte-message-content-text-assistant: #eef0f6;
-    --aparte-code-bg: rgba(255, 255, 255, 0.06);
-    --aparte-prose-code-bg: rgba(255, 255, 255, 0.06);
-    --aparte-input-bg: #151937;
+    --aparte-n8n-code-bg: rgba(255, 255, 255, 0.06);
+    --aparte-n8n-input-bg: #151937;
     --aparte-n8n-header-bg: #060716;
     --aparte-n8n-footer-bg: #0b0d24;
     --aparte-n8n-footer-color: #eef0f6;
@@ -133,6 +148,8 @@
 }
 
 .aparte-n8n__header {
+  /* The focus ring in the header's own ink: core's would be lost on its navy. */
+  --aparte-border-focus: var(--aparte-n8n-header-color);
   display: flex;
   align-items: flex-start;
   gap: var(--aparte-space-2, 0.5rem);
@@ -215,12 +232,13 @@
   max-width: 100%;
   border-radius: var(--aparte-message-content-radius);
   border-end-start-radius: 0;
-  border: var(--chat--message--bot--border, none);
+  /* Transparent, not none: under Windows' high contrast the edge is drawn, and the bubble keeps it. */
+  border: var(--chat--message--bot--border, 1px solid transparent);
 }
 
 .aparte-n8n .aparte-message[data-role='user'] .aparte-message-content {
   border-end-end-radius: 0;
-  border: var(--chat--message--user--border, none);
+  border: var(--chat--message--user--border, 1px solid transparent);
 }
 
 /* The person's messages on the far side, as in n8n's widget (and any messenger): their
@@ -262,4 +280,24 @@
   inline-size: var(--chat--toggle--width, var(--chat--toggle--size, 64px));
   block-size: var(--chat--toggle--height, var(--chat--toggle--size, 64px));
   border-radius: var(--chat--toggle--border-radius, 50%);
+}
+
+/* The button floats over a page that is not ours: a ring in two tones, light then dark,
+   that shows on any ground and on the button's own color. */
+.aparte-n8n .aparte-launcher__button:focus-visible {
+  outline: 3px solid var(--aparte-n8n-header-bg);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #fff, var(--aparte-popover-shadow);
+}
+
+/* A short window — a phone held sideways, a page zoomed in: the header gives the room
+   back to the conversation. */
+@media (max-height: 34rem) {
+  .aparte-n8n__title {
+    font-size: 1.25em;
+  }
+
+  .aparte-n8n__subtitle {
+    display: none;
+  }
 }
