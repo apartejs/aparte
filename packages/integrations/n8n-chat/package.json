@@ -17,8 +17,13 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
-        "./style.css": "./dist/style.css",
-        "./theme.css": "./dist/theme.css"
+        "./style.css": {
+            "default": "./dist/style.css"
+        },
+        "./theme.css": {
+            "@aparte-workspace/source": "./src/theme.css",
+            "default": "./dist/theme.css"
+        }
     },
     "files": [
         "dist",
