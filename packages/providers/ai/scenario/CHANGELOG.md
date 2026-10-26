@@ -1,5 +1,13 @@
 # @aparte/provider-scenario
 
+## 0.26.0
+
+### Minor Changes
+
+- 1f62ccc: A scripted turn can end with `{ finishReason: 'length' }` to set `finishReason` on its `done` event, so a demo can show the "cut off" note.
+
+  A turn that declares none reports none, as before.
+
 ## 0.25.0
 
 ## 0.24.0
