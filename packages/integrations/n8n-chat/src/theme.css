@@ -265,6 +265,51 @@
   white-space: nowrap;
 }
 
+/* ── Files ──────────────────────────────────────────────────────────────────────────── */
+
+/* A file as n8n draws it: a chip with its name, waiting in the composer and sent in the
+   conversation. Core's square tile shows the name on hover alone, so a visitor on a phone,
+   or on the keyboard, never saw which invoice they were sending. The ✕ stays in sight. */
+.aparte-n8n .aparte-thumb {
+  --aparte-thumbnail-size: auto;
+  --aparte-thumbnail-radius: 0.25rem;
+  --aparte-thumbnail-bg: var(--aparte-surface-1);
+  --aparte-thumbnail-border: var(--aparte-border);
+  --aparte-thumb-name-color: var(--aparte-text);
+  --aparte-thumb-remove-bg: transparent;
+  --aparte-thumb-remove-bg-hover: var(--aparte-bg);
+  --aparte-thumb-remove-color: var(--aparte-text-muted);
+  max-inline-size: 15rem;
+  justify-content: flex-start;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.aparte-n8n .aparte-thumb .aparte-thumbnail__image {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: none;
+  border-radius: 0.125rem;
+}
+
+.aparte-n8n .aparte-thumb__name,
+.aparte-n8n .aparte-thumb__remove {
+  position: static;
+  opacity: 1;
+}
+
+.aparte-n8n .aparte-thumb__name {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  min-inline-size: 0;
+}
+
+.aparte-n8n .aparte-thumb__remove {
+  flex: none;
+}
+
 /* ── The button in the corner ───────────────────────────────────────────────────────── */
 
 .aparte-n8n .aparte-launcher__button {
