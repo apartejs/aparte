@@ -225,6 +225,11 @@ A `note:` line in their output means a package was not measured: the snapshot is
 
 ## Releasing
 
+A package that leaves the repository gets `npm deprecate` on its published versions once the
+release that removes it is out, with the replacement in the message — a registry write from an
+account with publish rights, which nothing in the repo does for you. (0.27.0:
+`npm deprecate @aparte/locale-fr "Removed in 0.27.0: import { fr } from '@aparte/locales/fr'."`)
+
 Every `@aparte/*` package moves **together, at one version** (`fixed` in
 `.changeset/config.json`). Two consequences worth knowing before you write a changeset: the
 bump type is the **highest** one in the whole group — a single `minor` anywhere makes all

@@ -23,5 +23,8 @@ export default defineWorkspace([
     'scripts/vitest.config.ts',
     // The one example with a server of its own: the Agents SDK → AG-UI bridge that the
     // Agent Builder article teaches. Its page is covered by e2e; its server is covered here.
-    'apps/examples/agents-sdk/vitest.config.ts',
+    // From Node 22 only: openai and undici declare engines >=22, and the bridge uses the global
+    // Web Crypto, which Node 18 lacks. The node-floor job runs 18 for the published packages;
+    // this private example makes no Node 18 claim, and the main CI job still runs it.
+    ...(Number(process.versions.node.split('.')[0]) >= 22 ? ['apps/examples/agents-sdk/vitest.config.ts'] : []),
 ]);

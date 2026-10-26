@@ -21,7 +21,7 @@ with assistant-ui, AI Elements, Deep Chat and Loquix.
 > number). The number itself is a plain `0.x`: what says *beta* is the npm tag, the
 > leading zero and this notice — not a `-beta` suffix. The declared surface is
 > [frozen as of 0.17.0](https://apartejs.dev/reference/stability/) and leaves only
-> through a notice release; what changed when is at
+> through a notice release (one exception, listed on that page); what changed when is at
 > **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
 > [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.

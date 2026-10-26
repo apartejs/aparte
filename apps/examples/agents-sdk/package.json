@@ -3,6 +3,9 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
     "description": "An OpenAI Agents SDK agent — what Agent Builder exports — served over AG-UI and drawn by aparté. Runs with no key on a scripted model.",
     "scripts": {
         "dev": "vite",

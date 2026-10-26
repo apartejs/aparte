@@ -144,7 +144,9 @@ const AGENTS_SDK_SERVER = {
     command: `node node_modules/vite/bin/vite.js --port ${AGENTS_SDK_PORT} --strictPort`,
     url: `http://localhost:${AGENTS_SDK_PORT}`,
     cwd: resolve(rootDir, 'apps/examples/agents-sdk'),
-    env: { DEMO_DELAY_MS: '120' },
+    // The scripted model, whatever the shell exports: a real key would bill and answer
+    // differently, and MODEL_BASE_URL without MODEL makes the server throw at load.
+    env: { DEMO_DELAY_MS: '120', OPENAI_API_KEY: '', MODEL_BASE_URL: '', MODEL: '' },
     reuseExistingServer: reuseServers,
     timeout: 120_000,
     stdout: 'pipe' as const,
