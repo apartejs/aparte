@@ -69,8 +69,15 @@ describe('maths in one go', () => {
     it('reads an unclosed formula in finished text as text', () => {
         setupMarkedProvider();
         drawMaths();
-        const el = html(aparteGlobalConfig.renderMarkdown('use \\( to group, and $$ for a pid'));
-        expect(mathsIn(el)).toEqual([]);
+        expect(mathsIn(html(aparteGlobalConfig.renderMarkdown('use \\( to group, and $$ for a pid')))).toEqual([]);
+        expect(mathsIn(html(aparteGlobalConfig.renderMarkdown('$$\nthe reply stopped here')))).toEqual([]);
+    });
+
+    it('keeps its own marked options beside maths', () => {
+        setupMarkedProvider({ breaks: true, math: true });
+        const el = html(aparteGlobalConfig.renderMarkdown('a\nb $x$'));
+        expect(el.querySelector('br')).not.toBeNull();
+        expect(mathsIn(el)).toEqual([['x', false]]);
     });
 });
 
@@ -117,6 +124,15 @@ describe('maths while it streams', () => {
         expect(target.textContent).toContain('$5 and more');
     });
 
+    it('takes maths and marked options together, and maths alone', () => {
+        setupMarkedStreamingProvider({ breaks: true, math: true });
+        expect(mathsIn(streamCharByChar('a\nb $x$'))).toEqual([['x', false]]);
+        aparteGlobalConfig.reset();
+        setupMarkedStreamingProvider({ math: true });
+        expect(mathsIn(streamCharByChar('$y$'))).toEqual([['y', false]]);
+        expect(mathsIn(html(aparteGlobalConfig.renderMarkdown('$z$')))).toEqual([['z', false]]);
+    });
+
     it('streams exactly as before when no maths renderer is registered', () => {
         setupMarkedStreamingProvider();
         const el = streamCharByChar('see $x$ and \\(y\\)');
@@ -127,11 +143,17 @@ describe('maths while it streams', () => {
 
 describe('maskMath', () => {
     it('hides each formula and puts it back verbatim', () => {
-        const src = 'a $x_1$ and \\[ y \\] and `$k$` and $5';
+        const src = 'a $x_1$ and \\[ y \\] and `$k$` and \\$5 and $5 and ``unclosed';
         const { masked, unmask } = maskMath(src);
         expect(masked).not.toContain('x_1');
         expect(masked).toContain('`$k$`');
         expect(masked).toContain('$5');
         expect(unmask(masked)).toBe(src);
+    });
+
+    it('leaves a $ alone across a blank line, and a marker it never made', () => {
+        const { masked, unmask } = maskMath('$a\n\nb$');
+        expect(masked).toBe('$a\n\nb$');
+        expect(unmask('7')).toBe('');
     });
 });

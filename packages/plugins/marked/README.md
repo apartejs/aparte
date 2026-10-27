@@ -33,3 +33,17 @@ the blocks above it are not. Every block goes through the config's sanitizer. `r
 dependency of this plugin, imported by the `/streaming` entry only.
 
 > ESM-only. Part of the aparté monorepo.
+
+## Maths
+
+Install `@aparte/plugin-katex` and marked hands it every formula — `$…$`, `$$…$$`, `\(…\)`,
+`\[…\]` — instead of reading the TeX as Markdown (`\,` and `a*b*c` mean something else to it). It
+turns on by itself when a `math` renderer is registered; `MarkedProviderOptions.math` forces it
+either way:
+
+```ts
+setupMarkedProvider({ math: false }); // leave dollars as text, whatever is registered
+```
+
+A single `$` follows Pandoc's rule, so `$5 and $10` stays text. While a reply streams, a formula
+is drawn as it arrives.

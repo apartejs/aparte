@@ -37,6 +37,8 @@ export const MATH_CORPUS: readonly MathCase[] = [
     { md: 'text $$x$$ text', maths: [['x', true]] },
     { md: '$$x^2$$', maths: [['x^2', true]] },
     { md: '\\[x\\]', maths: [['x', true]] },
+    { md: '$$x$$ then text', maths: [['x', true]] },
+    { md: 'escaped $a \\$ b$ inside', maths: [['a \\$ b', false]] },
     { md: '$$\nx^2\n$$', maths: [['x^2', true]] },
     { md: '\\[\ny\n\\]', maths: [['y', true]] },
     { md: 'The formula is\n$$\nE = mc^2\n$$\nafter it.', maths: [['E = mc^2', true]] },
