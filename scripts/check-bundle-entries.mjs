@@ -78,14 +78,20 @@ const CONTRACTS = [
     },
     {
         file: 'packages/plugins/marked/dist/index.js',
-        allowed: ['@aparte/core', 'marked'],
+        allowed: ['@aparte/core', 'marked', './math.js'],
         why: 'the one-shot entry: remend belongs to `./streaming`, and a consumer who renders only '
             + 'finished replies must not have it in their graph',
     },
     {
         file: 'packages/plugins/marked/dist/streaming.js',
-        allowed: ['@aparte/core', 'marked', 'remend'],
+        allowed: ['@aparte/core', 'marked', 'remend', './math.js'],
         why: 'the streaming entry: completing unclosed Markdown with remend is the point',
+    },
+    {
+        file: 'packages/plugins/marked/dist/math.js',
+        allowed: [],
+        why: 'the maths tokenizer both entries share: it imports nothing, not even marked, whose '
+            + 'types alone it uses',
     },
     {
         file: 'packages/providers/ai/transformers/dist/worker.js',

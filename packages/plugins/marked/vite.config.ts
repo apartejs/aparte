@@ -35,6 +35,12 @@ export default defineConfig({
             // Never bundled: the peers (@aparte/core, the marked the consumer brings) and
             // remend, a dependency npm installs beside the plugin.
             external: ['@aparte/core', 'marked', 'remend'],
+            // The maths tokenizer both entries use lands in one chunk, `math.js`: named,
+            // not hashed, so the bundle contract can name it.
+            output: {
+                chunkFileNames: '[name].js',
+                manualChunks: (id) => (/[\\/]src[\\/](math|scan)\.ts$/.test(id) ? 'math' : undefined),
+            },
         },
     },
 });
