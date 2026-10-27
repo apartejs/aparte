@@ -112,7 +112,8 @@ const warned = new WeakSet<AparteCodeLanguageRenderer>();
 /** Lazy renderers: placeholders that came near the screen once, and where each one waits. */
 const seen = new WeakSet<HTMLElement>();
 const waitingRoot = new WeakMap<HTMLElement, Element>();
-const observers = new Map<Element | null, IntersectionObserver>();
+/** One observer per scroll container, made by the `IntersectionObserver` in place when it was made. */
+const observers = new WeakMap<typeof IntersectionObserver, Map<Element | null, IntersectionObserver>>();
 
 function cacheOf(renderer: AparteCodeLanguageRenderer): DrawingCache {
     let cache = caches.get(renderer);
@@ -245,9 +246,15 @@ function rerun(root: Element): void {
  * environment, or it came near before).
  */
 function deferred(code: HTMLElement, root: Element): boolean {
-    if (seen.has(code) || typeof IntersectionObserver === 'undefined') return false;
-    const scroller = scrollerOf(code);
-    let observer = observers.get(scroller);
+    // What is watched is the box the reader sees: the `<pre>` around a block. The source
+    // itself is hidden as soon as anything is drawn beside it, and a hidden element never
+    // comes near the screen — the final drawing of a diagram would wait forever.
+    const target = code.closest('pre') ?? code;
+    if (seen.has(target) || typeof IntersectionObserver === 'undefined') return false;
+    const scroller = scrollerOf(target);
+    let byScroller = observers.get(IntersectionObserver);
+    if (!byScroller) { byScroller = new Map(); observers.set(IntersectionObserver, byScroller); }
+    let observer = byScroller.get(scroller);
     if (!observer) {
         observer = new IntersectionObserver((entries, obs) => {
             for (const entry of entries) {
@@ -260,10 +267,10 @@ function deferred(code: HTMLElement, root: Element): boolean {
                 if (waiting) rerun(waiting);
             }
         }, { root: scroller, rootMargin: '100% 0px' });
-        observers.set(scroller, observer);
+        byScroller.set(scroller, observer);
     }
-    waitingRoot.set(code, root);
-    observer.observe(code);
+    waitingRoot.set(target, root);
+    observer.observe(target);
     return true;
 }
 
@@ -285,8 +292,10 @@ function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLangua
         const provisional = lastGood.get(root)?.get(pos);
         if (provisional && ctx.source.startsWith(provisional.source)) fill(code, provisional, renderer, ctx, null);
     }
-    // A refresh only redraws what is drawn, which came near the screen already.
-    if (renderer.lazy && !refresh && deferred(code, root)) return;
+    // Held until near the screen only when nothing is drawn yet: a reopened conversation.
+    // A source drawn already — while it streamed, or before a refresh — is on screen, and
+    // its final drawing must not wait for an observer that only reports on rendered frames.
+    if (renderer.lazy && !refresh && !state && deferred(code, root)) return;
 
     const pending = inflightOf(renderer);
     const running = pending.get(key);

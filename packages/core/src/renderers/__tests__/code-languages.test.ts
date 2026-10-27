@@ -337,6 +337,44 @@ describe('around the drawing', () => {
         vi.unstubAllGlobals();
     });
 
+    it('draws the final version of a source drawn while it streamed without waiting', () => {
+        // Found on screen: a diagram drawn while it streamed hides its source, and its
+        // final drawing waited for the observer — which reports only on rendered frames,
+        // and was watching that hidden source. It is on screen already: nothing to wait for.
+        const observed: Element[] = [];
+        vi.stubGlobal('IntersectionObserver', class {
+            observe(el: Element) { observed.push(el); }
+            unobserve() { /* nothing to undo */ }
+            disconnect() { /* nothing to undo */ }
+        });
+        const { renderer, calls } = fake({ languages: ['mermaid'], lazy: true });
+        aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
+        const el = root('<pre><code class="language-mermaid">flowchart TD</code></pre>');
+        renderCodeLanguages(el, { streaming: true });
+        expect(el.querySelector('code')!.hidden).toBe(true);
+
+        el.querySelector('code')!.textContent = 'flowchart TD\n  A --> B';
+        renderCodeLanguages(el, { streaming: false });
+        expect(observed).toEqual([]);
+        expect(calls.map((c) => [c.source, c.open])).toEqual([['flowchart TD', true], ['flowchart TD\n  A --> B', false]]);
+        expect(drawing(el)!.textContent).toBe('flowchart TD\n  A --> B');
+        vi.unstubAllGlobals();
+    });
+
+    it('watches the box the reader sees: the <pre> around a block', () => {
+        const observed: Element[] = [];
+        vi.stubGlobal('IntersectionObserver', class {
+            observe(el: Element) { observed.push(el); }
+            unobserve() { /* nothing to undo */ }
+            disconnect() { /* nothing to undo */ }
+        });
+        aparteGlobalConfig.registerCodeLanguageRenderer(fake({ languages: ['mermaid'], lazy: true }).renderer);
+        const el = root('<pre><code class="language-mermaid">flowchart TD</code></pre>');
+        renderCodeLanguages(el);
+        expect(observed).toEqual([el.querySelector('pre')]);
+        vi.unstubAllGlobals();
+    });
+
     it('scrolls by what a drawing added above the reader, and never back', async () => {
         let resolve!: (html: string) => void;
         aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], render: () => new Promise<string>((res) => { resolve = res; }) });
