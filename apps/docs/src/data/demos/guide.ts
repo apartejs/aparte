@@ -472,4 +472,50 @@ export const GUIDE_DEMOS: DemoEntry[] = [
   bubble.setAttribute('name', 'Assistant');   // the bubble writes it into .aparte-name
 </script>`,
     },
+    {
+        id: 'math-streaming',
+        title: 'Maths drawn while the reply streams',
+        plugins: ['markdown', 'math'],
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>
+
+<script>
+  // A formula is drawn as it arrives; one that does not parse yet keeps its last drawing.
+  const bubble = document.querySelector('aparte-chat-bubble');
+  bubble.setSegments([{ id: 's1', type: 'text', content: '' }]);
+  const text = 'The area under $x^2$ from 0 to 1:\\n\\n$$\\n\\\\int_0^1 x^2\\\\,dx = \\\\frac{1}{3}\\n$$\\n\\nAnd a price stays a price: it costs $5 and $10.';
+  let i = 0;
+  const tick = setInterval(() => {
+    bubble.appendToSegment('s1', text.slice(i, i + 3));
+    i += 3;
+    if (i >= text.length) {
+      clearInterval(tick);
+      bubble.updateSegment('s1', { isStreaming: false });
+      bubble.removeAttribute('streaming');
+    }
+  }, 60);
+</script>`,
+    },
+    {
+        id: 'diagram-streaming',
+        title: 'A diagram drawn while its fence streams',
+        plugins: ['markdown', 'diagrams'],
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>
+
+<script>
+  // Every fence in a reply is a code segment: a mermaid one is redrawn as it arrives.
+  const bubble = document.querySelector('aparte-chat-bubble');
+  bubble.setSegments([{ id: 's1', type: 'code', language: 'mermaid', content: '', isStreaming: true }]);
+  const source = 'flowchart LR\\n  accTitle: How a reply reaches the screen\\n  A[Model] -->|tokens| B[Markdown provider]\\n  B --> C{A code language?}\\n  C -->|math| D[KaTeX]\\n  C -->|mermaid| E[Mermaid]\\n  C -->|anything else| F[Highlighter]';
+  let i = 0;
+  const tick = setInterval(() => {
+    bubble.appendToSegment('s1', source.slice(i, i + 4));
+    i += 4;
+    if (i >= source.length) {
+      clearInterval(tick);
+      bubble.updateSegment('s1', { isStreaming: false });
+      bubble.removeAttribute('streaming');
+    }
+  }, 60);
+</script>`,
+    },
 ];

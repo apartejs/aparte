@@ -48,6 +48,8 @@
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/plugin-streaming-markdown": "workspace:*",
         "@aparte/plugin-titler": "workspace:*",
+        "katex": "^0.19.1",
+        "mermaid": "^11.17.2",
         "@aparte/privacy": "^1.1.0",
         "@aparte/provider-scenario": "workspace:*",
         "@aparte/runner-n8n": "workspace:*",
