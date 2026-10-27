@@ -54,6 +54,7 @@ import type {
 import { AparteErrorCode, contentToText } from '@aparte/core';
 import { streamText, jsonSchema, tool } from 'ai';
 import type { LanguageModel, ModelMessage, ToolSet, ToolChoice } from 'ai';
+import { createSourceCollector, nonStreamedAnswer } from './sources.js';
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 
@@ -255,9 +256,10 @@ function errorEvent(message: string, err: unknown): AparteStreamEvent {
 /**
  * Map the AI SDK `fullStream` to aparté's event stream:
  * `text-delta`→text · `reasoning-delta`→thinking · `tool-call`→tool_use ·
- * `finish`→done{usage} · `error`→error. Everything else (step markers,
- * tool-input deltas, sources, files) is dropped — aparté's loop consumes whole
- * tool calls, not input deltas.
+ * `finish`→done{usage} · `error`→error · `source` (and, from ai 7.0.138, the
+ * `citations` of a `text-end`) → one `sources` event just before the `done`.
+ * Everything else (step markers, tool-input deltas, files) is dropped — aparté's
+ * loop consumes whole tool calls, not input deltas.
  */
 export function fullStreamToAparteEvents(
     fullStream: AsyncIterable<{ type: string } & Record<string, unknown>>,
@@ -267,6 +269,7 @@ export function fullStreamToAparteEvents(
     // loop would), instead of leaving `start()` draining `fullStream` to its
     // natural end after the consumer has already walked away.
     let iterator: AsyncIterator<{ type: string } & Record<string, unknown>> | undefined;
+    const cited = createSourceCollector();
 
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
@@ -277,8 +280,18 @@ export function fullStreamToAparteEvents(
                     if (done) break;
 
                     switch (part.type) {
+                        case 'text-start':
+                            cited.textStart(part['id'] as string);
+                            break;
                         case 'text-delta':
+                            cited.textDelta(part['id'] as string, part['text'] as string);
                             controller.enqueue({ type: 'text', delta: part['text'] as string });
+                            break;
+                        case 'text-end':
+                            cited.textEnd(part['id'] as string, part['citations']);
+                            break;
+                        case 'source':
+                            cited.addSource(part);
                             break;
                         case 'reasoning-delta':
                             controller.enqueue({ type: 'thinking', delta: part['text'] as string });
@@ -293,6 +306,10 @@ export function fullStreamToAparteEvents(
                             break;
                         case 'finish':
                             {
+                                // The sources first: their offsets are into the text, which is
+                                // complete now, and `done` ends the turn.
+                                const sources = cited.finish();
+                                if (sources) controller.enqueue(sources);
                                 const finishReason = toAparteFinishReason(part['finishReason']);
                                 controller.enqueue({
                                     type: 'done',
@@ -309,7 +326,7 @@ export function fullStreamToAparteEvents(
                             controller.enqueue(errorEvent(err instanceof Error ? err.message : String(err), err));
                             return;
                         }
-                        // 'abort', step markers, tool-input-* deltas, sources… → dropped.
+                        // 'abort', step markers, tool-input-* deltas… → dropped.
                     }
                 }
             } catch (err: unknown) {
@@ -395,7 +412,8 @@ export function createAiSdkProvider(opts: AiSdkProviderOptions): AparteAIProvide
             });
 
             if (request.stream === false) {
-                return await result.text;
+                const [text, sources, content] = await Promise.all([result.text, result.sources, result.content]);
+                return nonStreamedAnswer(text, sources, content);
             }
             return fullStreamToAparteEvents(result.fullStream);
         },
