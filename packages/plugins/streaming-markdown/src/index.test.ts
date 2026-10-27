@@ -396,6 +396,12 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
         const cut = streamDrawn('Then:\n\n$$\nx +');
         expect(cut.querySelector('code.language-math')).toBeNull();
         expect(cut.textContent).toContain('x +');
+        // A display block a blank line ends before its closer: text, its opener with it.
+        for (const [md, text] of [['$$\na\n\nb', '$$'], ['\\[\na\n\nb', '[']] as const) {
+            const ended = streamDrawn(md);
+            expect(ended.querySelector('code.language-math')).toBeNull();
+            expect(ended.textContent).toContain(`${text}\na`);
+        }
         const cited = streamDrawn('As \\[12\\] shows, and \\(3\\) too.');
         expect(cited.querySelector('code.language-math')).toBeNull();
         expect(cited.textContent).toContain('As [12] shows, and (3) too.');
@@ -419,24 +425,9 @@ describe('@aparte/plugin-streaming-markdown — the maths corpus plugin-marked r
             .map((c) => [(c.textContent ?? '').trim(), c.classList.contains('math-display')]);
     }
 
-    /**
-     * Where the parser reads otherwise, and why. With plugin-marked as the one-shot
-     * provider, the settled reply reads these as the corpus says; they show while the
-     * reply streams, or for good with this plugin alone.
-     */
-    const DIFFERS: Record<string, string> = {
-        '$$\na\n\nb\n$$': 'a display block is written as it arrives, so one a blank line ends with no closer stays a formula',
-        '$\\text{in $x$ units}$': 'the parser counts no braces, so the `$` inside `\\text{}` closes the formula',
-    };
     const expected = (c: MathCase): Array<[string, boolean]> => c.maths.map(([tex, display]) => [tex.trim(), display]);
 
-    it.each(MATH_CORPUS.filter((c) => !(c.md in DIFFERS)).map((c) => [c.md, c] as const))('%j', (_md, c) => {
+    it.each(MATH_CORPUS.map((c) => [c.md, c] as const))('%j', (_md, c) => {
         expect(mathsOf(c.md)).toEqual(expected(c));
-    });
-
-    it.each(Object.keys(DIFFERS))('still reads %j otherwise — drop it from the list once it does not', (md) => {
-        const c = MATH_CORPUS.find((x) => x.md === md);
-        expect(c, 'a case the corpus no longer has').toBeDefined();
-        expect(mathsOf(md)).not.toEqual(expected(c!));
     });
 });

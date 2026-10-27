@@ -1,5 +1,5 @@
 import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
-import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
+import { parser, parser_write, parser_end, default_renderer, Attr, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
 
 /** What core's code-language engine reads as a formula still arriving. */
 const OPEN = 'data-aparte-open';
@@ -83,6 +83,13 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
         const renderer = default_renderer(target);
         const originalSetAttr = renderer.set_attr;
         renderer.set_attr = (data, type, value) => {
+            if (type === Attr.Unclosed) {
+                // A display block a blank line or a block's line ended before its closer
+                // came: it was not maths after all, and reads as text, opener included.
+                const node = data.nodes[data.index]!;
+                node.replaceWith(`${value === '\\[' ? '[' : value}\n${node.textContent}`);
+                return;
+            }
             if (type === HREF && !isSafeUrl(value, 'a')) return;
             if (type === SRC && !isSafeUrl(value, 'img')) return;
             if (type === LANG) {
