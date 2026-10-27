@@ -2,11 +2,12 @@
    Citations — the chip at the end of a cited passage, its card, the list of sources
    =========================================
    The chip wears the tag recipe (`display/tag.css`) as a button; what it adds is only
-   its own: a place in a line of text, a cursor, and no selection — a reader copying the
-   passage takes its words, not "wikipedia +2". The card wears the popover recipe and is
-   mounted beside the transcript (the bubble clips what it paints), so it is fixed.
+   its own: a place in a line of text, a cursor, and a label drawn from `data-label` —
+   not text, so a reader copying the passage takes its words, not "wikipedia +2" (WebKit
+   copies a button's text with the selection). The card wears the popover recipe and is
+   shown in the top layer (the bubble clips what it paints), placed fixed under its chip.
 
-       <p>The sky is blue.<button class="aparte-citation aparte-tag aparte-tag--sm">wikipedia +2</button></p>
+       <p>The sky is blue.<button class="aparte-citation aparte-tag aparte-tag--sm" data-label="wikipedia +2"></button></p>
        <div class="aparte-citation-card aparte-popover" role="dialog">…</div>
        <details class="aparte-sources"><summary>3 sources</summary><ol>…</ol></details> */
 
@@ -25,6 +26,10 @@
   user-select: none;
 }
 
+.aparte-citation::before {
+  content: attr(data-label);
+}
+
 .aparte-citation:hover,
 .aparte-citation[aria-expanded="true"] {
   color: var(--aparte-text);
@@ -38,6 +43,9 @@
 
 .aparte-citation-card {
   position: fixed;
+  /* A popover's own box is centred in the window by the browser's sheet: placed by its chip instead. */
+  inset: auto;
+  margin: 0;
   z-index: var(--aparte-z-dropdown);
   gap: var(--aparte-space-1);
   font-size: var(--aparte-font-size-sm);

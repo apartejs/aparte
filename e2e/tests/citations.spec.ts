@@ -24,7 +24,13 @@ test('a cited reply draws a chip at the end of each passage, a card, and its sou
     const chips = reply.locator('.aparte-citation');
 
     // One chip per passage: the first cites two sources, the second one.
-    await expect(chips).toHaveText(['en.wikipedia.org +1', 'britannica.com']);
+    // The label is drawn by the stylesheet, not written in the text a reader copies.
+    await expect(chips).toHaveCount(2);
+    expect(await chips.evaluateAll((all) => all.map((chip) => chip.getAttribute('data-label')))).toEqual(['en.wikipedia.org +1', 'britannica.com']);
+    // Chromium and WebKit resolve the label in the computed value, Firefox keeps `attr()`: both draw it.
+    expect(await chips.first().evaluate((chip) => getComputedStyle(chip, '::before').content)).toMatch(/^("en\.wikipedia\.org \+1"|attr\(data-label\))$/);
+    await expect(chips.first()).toHaveText('');
+    expect((await chips.first().boundingBox())!.width).toBeGreaterThan(40);
     // At the end of its passage, after its punctuation and outside the bold.
     const before = await chips.first().evaluate((chip) => {
         const range = document.createRange();

@@ -17,10 +17,11 @@ A model that searches the web returns its sources beside the text. aparté shows
 people already read them:
 
 - **a chip** at the end of the passage a source backs — its domain, and `+2` when two more back
-  the same passage. It sits after the passage's punctuation, never inside bold, a link or code;
+  the same passage. It sits after the passage's punctuation, after the bold, link or code the
+  passage ends in, and after a code block rather than inside it;
 - **a card** the chip opens, on a click, a tap or <kbd>Enter</kbd>: the source's title as a link,
-  its domain and an excerpt, and a `‹ 1/3 ›` pager when there are several. <kbd>Escape</kbd>
-  closes it and gives the focus back to the chip;
+  its domain and an excerpt, and a `‹ 1/3 ›` pager when there are several. <kbd>Escape</kbd>, or
+  <kbd>Tab</kbd> past its last control, closes it and gives the focus back to the chip;
 - **the list** under the reply: a closed "3 sources", every source once, each a link.
 
 Nothing is drawn for a reply that cites nothing. No favicon is fetched: an icon service would
@@ -91,7 +92,7 @@ const segment: AparteTextSegment = {
 
 | Field | On | What it says |
 |---|---|---|
-| `sources` | `AparteTextSegment` | `{ id, url?, title?, snippet? }` — `url` is linked only when the sanitizer's URL policy allows it |
+| `sources` | `AparteTextSegment` | `{ id, url?, title?, snippet? }` — `url` is linked only when it is an absolute `http(s)` address the sanitizer's URL policy allows |
 | `citations` | `AparteTextSegment` | `{ start?, end, sources, marker? }` — `sources` are ids, in the order the card pages through them |
 
 ## How a chip finds its place
@@ -100,8 +101,8 @@ The offsets say where a passage ends in the segment's Markdown; the screen shows
 rendered, by whichever provider you installed. So the chip is placed by text: the letters and
 digits up to the passage's end are found again in the rendered reply, at the same occurrence, and
 the chip goes after them. That is why it works the same under marked, its streaming entry and
-`@aparte/plugin-streaming-markdown`, and through maths and code. A passage that cannot be found
-again gets its chip at the end of the segment.
+`@aparte/plugin-streaming-markdown`, and through lists, entities, maths and code. A passage that
+cannot be found again gets no chip: its source stays in the list.
 
 A renderer of your own for text segments places them with the same function, after writing its
 Markdown:
