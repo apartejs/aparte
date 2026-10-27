@@ -141,7 +141,8 @@ export type LlmScenario =
     | 'math'
     | 'math-hostile'
     | 'diagram'
-    | 'diagram-broken';
+    | 'diagram-broken'
+    | 'citations';
 
 export interface LlmMockOptions {
     /** Return an empty model list → nothing auto-selects, the gate stays shut. */
@@ -212,8 +213,35 @@ function eventsForScenario(scenario: LlmScenario): string[] {
  */
 const TAIL_CHUNKS = Array.from({ length: 24 }, (_, i) => (i === 0 ? '\n\nSome prose' : ` follows, part ${i}`));
 
+/**
+ * A searched answer, as OpenAI and OpenRouter stream one: the text first, then a delta
+ * carrying `annotations` — `url_citation`s with offsets into the whole message.
+ */
+export const CITED_FIRST = 'The sky is blue because of **Rayleigh scattering**.';
+export const CITED_SECOND = 'Sunsets are red for the same reason.';
+const CITED_TEXT = `${CITED_FIRST}\n\n${CITED_SECOND}`;
+export const CITED_SOURCES = [
+    { url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering', title: 'Rayleigh scattering — Wikipedia', content: 'Scattering of light by particles much smaller than its wavelength.' },
+    { url: 'https://www.nasa.gov/why-is-the-sky-blue', title: 'Why is the sky blue?' },
+    { url: 'https://www.britannica.com/science/sunset', title: 'Sunset | Britannica' },
+] as const;
+const citation = (source: (typeof CITED_SOURCES)[number], start: number, end: number) =>
+    ({ type: 'url_citation', url_citation: { start_index: start, end_index: end, url: source.url, title: source.title, ...('content' in source ? { content: source.content } : {}) } });
+
 function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
+        case 'citations':
+            return [
+                ...CITED_TEXT.match(/.{1,12}/gs)!.map(contentEvent),
+                sse({ choices: [{ index: 0, delta: { annotations: [
+                    citation(CITED_SOURCES[0], 0, CITED_FIRST.length),
+                    citation(CITED_SOURCES[1], 0, CITED_FIRST.length),
+                    citation(CITED_SOURCES[2], CITED_TEXT.length - CITED_SECOND.length, CITED_TEXT.length),
+                ] } }] }),
+                ...TAIL_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
         case 'math':
             return [
                 contentEvent('The area under '), contentEvent('$x^2$'), contentEvent(' from 0 to 1 is:\n\n'),

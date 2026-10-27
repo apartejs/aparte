@@ -279,6 +279,9 @@ const COMPACTION = /compaction\.spec\.ts/;
 // Mermaid, and each Markdown provider a site can pick. A DEEP suite — the drawing is
 // core's DOM — and Firefox's on vanilla, the third engine to lay a formula out.
 const MATH = /math-diagrams\.spec\.ts/;
+// Citations: a provider's annotations read by the real provider, placed by core in the
+// rendered text, the card mounted beside the transcript. DEEP, and Firefox's on vanilla.
+const CITATIONS = /citations\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -292,7 +295,7 @@ const MATH = /math-diagrams\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL, COMPACTION, MATH];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL, COMPACTION, MATH, CITATIONS];
 const suiteFor = (k: AppKey): RegExp[] =>
     // vanilla-dist also runs THEMING: its page has no skin at all (a bare
     // `<aparte-chat>`, core's own default composition), which is exactly where the
@@ -349,7 +352,7 @@ const FIREFOX_SUITE: RegExp[] = [SMOKE, AXE];
 // reports 0 for a button that is still down (the reason the release check is in
 // `pointermove` and never on `pointerleave`).
 const firefoxSuiteFor = (k: AppKey): RegExp[] =>
-    k === 'vanilla' ? [...FIREFOX_SUITE, SHELL_LAYOUT, SCROLL_RAIL, MATH] : FIREFOX_SUITE;
+    k === 'vanilla' ? [...FIREFOX_SUITE, SHELL_LAYOUT, SCROLL_RAIL, MATH, CITATIONS] : FIREFOX_SUITE;
 const skipFirefox = !process.env.CI && process.env.E2E_NO_FIREFOX === '1';
 
 export default defineConfig({
