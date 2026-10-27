@@ -82,6 +82,10 @@ const KIT_FAMILIES = count(() =>
     (JSON.parse(readFileSync(at('apps/docs/src/generated/api/kit.json'), 'utf8')) as unknown[]).length, 25);
 const PLUGINS = count(() =>
     readdirSync(at('packages/plugins/'), { withFileTypes: true }).filter((e) => e.isDirectory()).length, 9);
+// One file per language in @aparte/locales, plus English, which is core's built-in. Typed,
+// this line went on asking for es and de after both had shipped.
+const LOCALES = count(() =>
+    readdirSync(at('packages/locales/all/src/')).filter((f) => /^[a-z]{2}(-[A-Z]{2})?\.ts$/.test(f)).length + 1, 10);
 
 /**
  * How many tests actually RAN, stamped by `scripts/stamp-test-count.mjs` on every
@@ -351,7 +355,6 @@ const ROADMAP_IMAGE_ALT =
               <h3>Components</h3>
               <ul>
                 <li><b>Sources and citations</b>, as an annotation on a range of a text segment: an inline marker, and a source list. The ai-sdk bridge drops source parts today.</li>
-                <li><b>Theme presets</b>, as pure token sheets.</li>
               </ul>
             </div>
             <div class="cluster">
@@ -359,25 +362,22 @@ const ROADMAP_IMAGE_ALT =
               <ul>
                 <li><code>@aparte/plugin-storage-idb</code> &#8212; the reference IndexedDB adapter.</li>
                 <li><code>@aparte/plugin-katex</code>.</li>
-                <li>A one-line <code>setupDompurify()</code>.</li>
                 <li><code>@aparte/plugin-mermaid</code>.</li>
                 <li><code>@aparte/plugin-speech</code> &#8212; microphone input, over the Web Speech API.</li>
-                <li>More locales &#8212; <code>es</code>, <code>de</code>. The ideal first contribution.</li>
+                <li>More locales, beyond the {LOCALES} that ship: each is one file in <code>@aparte/locales</code>. The ideal first contribution.</li>
               </ul>
             </div>
             <div class="cluster">
               <h3>The site</h3>
               <ul>
-                <li>The kit gallery on one page, and an <b>Examples</b> page: a ChatGPT-shaped app and a builder split, assembled and copyable.</li>
-                <li>Framework tabs on every demo &#8212; React, Vue, Svelte, Angular, vanilla.</li>
+                <li>Framework tabs &#8212; React, Vue, Svelte, Angular, vanilla &#8212; on every demo whose wiring differs by framework. A demo that only places an element shows it once: all five render the same element.</li>
                 <li><b>The Builder</b>: a live chat beside a composition panel that exports the exact install and setup of your selection, with the theme editor folded in.</li>
-                <li>The landing where the chat is the hero, and the page splits open as you scroll.</li>
               </ul>
             </div>
             <div class="cluster">
               <h3>Not hostage to our UI</h3>
               <ul>
-                <li>First <b>skin packs</b>, pure CSS.</li>
+                <li>First <b>skin packs</b>: ready-made token sheets, pure CSS.</li>
                 <li>Then a <b>control-renderer seam</b>, so a design system&#8217;s own buttons &#8212; PrimeNG under Angular, shadcn under React &#8212; draw apart&eacute;&#8217;s controls without a single CSS override.</li>
               </ul>
             </div>
