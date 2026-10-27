@@ -220,7 +220,11 @@ export default defineConfig({
         'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
+        // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
+        'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 90 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
+        'packages/plugins/mermaid/src/**': { lines: 96, statements: 96, functions: 90, branches: 75 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },

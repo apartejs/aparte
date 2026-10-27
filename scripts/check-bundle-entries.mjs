@@ -94,6 +94,26 @@ const CONTRACTS = [
             + 'types alone it uses',
     },
     {
+        file: 'packages/plugins/katex/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the KaTeX you hand it: katex itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/katex/dist/index.js',
+        allowed: ['@aparte/core', 'katex', './core.js'],
+        why: 'the batteries-included entry: loading katex on the first formula is the point',
+    },
+    {
+        file: 'packages/plugins/mermaid/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the Mermaid you hand it: mermaid itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/mermaid/dist/index.js',
+        allowed: ['@aparte/core', 'mermaid', './core.js'],
+        why: 'the batteries-included entry: loading mermaid on the first diagram is the point',
+    },
+    {
         file: 'packages/providers/ai/transformers/dist/worker.js',
         bareOnly: true,
         allowed: ['@huggingface/transformers'],

@@ -1,0 +1,67 @@
+{
+    "name": "@aparte/plugin-mermaid",
+    "version": "0.27.4",
+    "homepage": "https://apartejs.dev/guides/diagrams/",
+    "description": "Diagrams for aparté via Mermaid — drawn as the fence streams, in a sandboxed image.",
+    "type": "module",
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./core": {
+            "@aparte-workspace/source": "./src/core.ts",
+            "types": "./dist/core.d.ts",
+            "import": "./dist/core.js",
+            "default": "./dist/core.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && node ../../../scripts/stamp-dist.mjs",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@aparte/core": ">=0.27.4 <1.0.0",
+        "mermaid": "^11.16.1"
+    },
+    "devDependencies": {
+        "@aparte/core": "workspace:*",
+        "mermaid": "^11.17.2",
+        "typescript": "~5.7.0",
+        "vite": "^6.0.0"
+    },
+    "keywords": [
+        "aparte",
+        "plugin",
+        "diagram",
+        "mermaid",
+        "flowchart"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apartejs/aparte.git",
+        "directory": "packages/plugins/mermaid"
+    },
+    "bugs": {
+        "url": "https://github.com/apartejs/aparte/issues"
+    }
+}

@@ -256,6 +256,8 @@ function workspacePaths() {
     Object.assign(paths, {
         marked: ['../packages/plugins/marked/node_modules/marked'],
         shiki: ['../packages/plugins/shiki/node_modules/shiki'],
+        katex: ['../packages/plugins/katex/node_modules/katex'],
+        mermaid: ['../packages/plugins/mermaid/node_modules/mermaid'],
         // Subpath exports need the concrete declaration file: a `paths` mapping does
         // not consult the target package's own `exports` map.
         'shiki/core': ['../packages/plugins/shiki/node_modules/shiki/dist/core.d.mts'],

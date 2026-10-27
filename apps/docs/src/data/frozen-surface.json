@@ -504,8 +504,16 @@
       "splitHistoryBudget",
       "transcriptForSummary"
     ],
+    "@aparte/plugin-katex": [
+      "setupKatex",
+      "setupKatexWith"
+    ],
     "@aparte/plugin-marked": [
       "setupMarkedProvider"
+    ],
+    "@aparte/plugin-mermaid": [
+      "setupMermaid",
+      "setupMermaidWith"
     ],
     "@aparte/plugin-model-selector": [
       "AparteModelSelector"

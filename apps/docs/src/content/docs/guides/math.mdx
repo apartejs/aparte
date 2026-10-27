@@ -1,0 +1,93 @@
+---
+title: Render maths with KaTeX
+description: Draw the formulas a model writes — $…$, $$…$$, \(…\), \[…\] — while the reply streams, with @aparte/plugin-katex.
+sidebar:
+  order: 3.5
+  label: Maths
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## Install and register
+
+```bash
+npm install @aparte/plugin-katex katex
+```
+
+{/* doc-check: skip the stylesheet import is the reader's bundler's to resolve */}
+```ts
+import 'katex/dist/katex.min.css';
+import { setupKatex } from '@aparte/plugin-katex';
+
+setupKatex();
+```
+
+A formula is drawn by [KaTeX](https://katex.org), loaded on the first one. Its stylesheet is
+yours to import, because its fonts are relative URLs your bundler resolves; without it each
+formula shows twice, and the plugin says so once in the console.
+
+## Which Markdown provider
+
+Maths is recognised by the Markdown provider, before Markdown can read it: to Markdown, `\,` is an
+escape and `a*b*c` is emphasis. [`@aparte/plugin-marked`](/guides/markdown/), streaming or not, and
+`@aparte/plugin-streaming-markdown` do it on their own once `setupKatex()` has run — nothing else
+to configure. To keep dollars as text whatever is registered, pass `math: false` to the marked
+provider.
+
+A provider of your own hands maths over by writing the markup remark-math already writes:
+`<code class="language-math math-inline">TeX</code>` inline, and
+`<pre><code class="language-math math-display">TeX</code></pre>` for a block.
+
+## What counts as maths
+
+| written | drawn as |
+| --- | --- |
+| `$x^2$`, `\(x^2\)` | inline |
+| `$$x^2$$`, `\[x^2\]`, on their own lines or inside a sentence | display |
+| `$5 and $10` | text |
+
+A single `$` follows Pandoc's rule: a character right after the opening `$`, one right before the
+closing `$`, and no digit right after it. A price stays a price. Code always wins: a `$` in
+backquotes or a fence is code.
+
+## While the reply streams
+
+A formula is drawn as it arrives. Half a formula — `\frac{1}{` — does not parse, so the last
+drawing that did stays on screen until the next one does, and nothing flashes red mid-stream. A
+single `$` is drawn only once it closes, since until then it could be a price. Once the reply is
+finished, a formula that still does not parse shows its TeX, quietly, with KaTeX's message as a
+tooltip.
+
+## What a model cannot do with it
+
+`trust` is always off, so a formula cannot carry a link (`\href`) or set a class or a style
+(`\htmlClass`); `maxSize` and `maxExpand` are capped, so it cannot draw a box over the chat or
+expand forever; and every formula gets a fresh set of `macros`, so a `\gdef` in one reply cannot
+reach the next. KaTeX's own options pass through `setupKatex({ katex: { … } })`; these are kept
+whatever they say.
+
+## Bring your own KaTeX
+
+`@aparte/plugin-katex/core` imports nothing from `katex`: hand it the instance, or a function that
+loads it.
+
+```ts
+import katex from 'katex';
+import { setupKatexWith } from '@aparte/plugin-katex/core';
+
+setupKatexWith(katex, { live: false });
+```
+
+`KatexOptions` takes `live` (`false` draws a formula once it has closed), `katex` and `maxLength`.
+Any object shaped like `KatexLike` will do. Both setups return a function that removes the renderer.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/diagrams/', title: 'Diagrams', line: 'Mermaid fences drawn as they stream.' },
+        { href: '/guides/markdown/', title: 'Markdown and code', line: 'The providers that recognise maths, and the rest of a reply.' },
+    ]}
+/>

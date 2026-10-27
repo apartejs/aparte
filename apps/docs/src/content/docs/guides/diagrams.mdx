@@ -1,0 +1,83 @@
+---
+title: Render diagrams with Mermaid
+description: Draw the ```mermaid fences a model writes as diagrams, while the reply streams, with @aparte/plugin-mermaid.
+sidebar:
+  order: 3.6
+  label: Diagrams
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+
+## Install and register
+
+```bash
+npm install @aparte/plugin-mermaid mermaid
+```
+
+```ts
+import { setupMermaid } from '@aparte/plugin-mermaid';
+
+setupMermaid();
+```
+
+Every ```` ```mermaid ```` fence in a reply is drawn by [Mermaid](https://mermaid.js.org) — with
+any Markdown provider, or none, because every fence in a streamed reply is already a block of its
+own. Mermaid is loaded on the first diagram, and a diagram is drawn only once it comes near the
+screen, so reopening a long conversation stays fast.
+
+## While the reply streams
+
+The diagram is drawn as its fence arrives, and redrawn at most every 300 ms — or as long as the
+last drawing took, if longer — keeping the last version that parsed. Until the first version
+parses, the source shows. Once the fence closes, a diagram that does not parse shows a short note
+and its source. The copy button on the block always copies the source.
+
+## An image, so nothing in it reaches the page
+
+Each diagram is an `<img>` of its SVG. A browser draws an image's SVG with no scripts and no access
+to the page, so neither a label a model wrote nor a style inside the diagram can act on the chat
+around it. Mermaid also runs with `securityLevel: 'strict'` and HTML labels off, and a diagram's
+own `%%{init}%%` cannot turn either back on.
+
+The cost: the text in a diagram cannot be selected, and it is set in the system fonts, since an
+image cannot load the page's.
+
+## Colours and words
+
+The diagram takes its colours from the chat's theme — `--aparte-bg`, `--aparte-text`,
+`--aparte-primary` and their neighbours — and is drawn again when the theme changes. Its alt text
+is the diagram's own `accTitle` or `accDescr`, else "Diagram". To translate the fallback and the
+error note:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.extendLocale({ diagramAlt: 'Diagramme', diagramError: 'Ce diagramme ne peut pas être dessiné.' });
+```
+
+## Bring your own Mermaid
+
+`@aparte/plugin-mermaid/core` imports nothing from `mermaid`: hand it the instance, or a function
+that loads it.
+
+```ts
+import mermaid from 'mermaid';
+import { setupMermaidWith } from '@aparte/plugin-mermaid/core';
+
+setupMermaidWith(mermaid, { progressive: false, mermaid: { flowchart: { curve: 'basis' } } });
+```
+
+`MermaidOptions` takes `progressive` (`false` draws a diagram once its fence has closed) and
+`mermaid`, Mermaid's own configuration under the keys the plugin keeps. Any object shaped like
+`MermaidLike` will do. Both setups return a function that removes the renderer.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/math/', title: 'Maths', line: 'Formulas drawn with KaTeX as they stream.' },
+        { href: '/components/code-block/', title: 'Code block', line: 'A fence as its own part of a reply, with its language and copy button.' },
+    ]}
+/>

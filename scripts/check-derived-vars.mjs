@@ -602,6 +602,7 @@ const CLASS_TOKEN_FLOOR = 380;
  */
 const CLASS_EXEMPT_FILES = new Map([
     ['packages/plugins/artifacts/src/preview-document.ts', "the sandboxed preview's srcdoc: a separate document, styled by the model's CSS"],
+    ['packages/plugins/katex/src/stylesheet-check.ts', "a probe of KaTeX's own stylesheet: it has to wear KaTeX's classes to test them"],
 ]);
 
 let classSites = 0;
