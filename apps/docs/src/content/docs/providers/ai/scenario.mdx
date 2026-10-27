@@ -48,6 +48,7 @@ or a list of `ScenarioStep`s:
 | `{ thinking }` | streams reasoning |
 | `{ tool, input?, id? }` | calls the tool of that name: the loop runs the handler you registered and calls the provider again with its result |
 | `{ error }` | fails the turn with that message; the steps after it do not run |
+| `{ sources, citations? }` | sends the [sources](/guides/citations/) the turn's text cites, and where — offsets into the text the turn has streamed |
 | `{ wait }` | pauses for that many milliseconds |
 | `{ usage }` | replaces fields of the usage reported at the end |
 

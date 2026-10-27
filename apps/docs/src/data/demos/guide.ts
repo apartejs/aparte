@@ -518,4 +518,38 @@ export const GUIDE_DEMOS: DemoEntry[] = [
   }, 60);
 </script>`,
     },
+    {
+        id: 'citations',
+        title: 'A reply that cites its sources',
+        plugins: ['markdown'],
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>
+
+<script>
+  // The text streams, then the provider's sources arrive: a chip at the end of each
+  // passage they back, a card on click, and the list under the reply.
+  const bubble = document.querySelector('aparte-chat-bubble');
+  const text = 'The sky is blue because air scatters short wavelengths more than long ones: **Rayleigh scattering**.\\n\\nSunsets look red for the same reason, through more air.';
+  bubble.setSegments([{ id: 's1', type: 'text', content: '' }]);
+  let i = 0;
+  const tick = setInterval(() => {
+    bubble.appendToSegment('s1', text.slice(i, i + 4));
+    i += 4;
+    if (i < text.length) return;
+    clearInterval(tick);
+    bubble.updateSegment('s1', {
+      isStreaming: false,
+      sources: [
+        { id: 'w', url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering', title: 'Rayleigh scattering — Wikipedia', snippet: 'Scattering of light by particles much smaller than its wavelength.' },
+        { id: 'n', url: 'https://spaceplace.nasa.gov/blue-sky/', title: 'Why is the sky blue? — NASA Space Place' },
+        { id: 'b', url: 'https://www.britannica.com/science/sunset', title: 'Sunset — Britannica' },
+      ],
+      citations: [
+        { end: text.indexOf('**.') + 3, sources: ['w', 'n'] },
+        { end: text.length, sources: ['b'] },
+      ],
+    });
+    bubble.removeAttribute('streaming');
+  }, 50);
+</script>`,
+    },
 ];

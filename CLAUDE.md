@@ -67,15 +67,17 @@ markdown/highlight micro-packages, an eval harness, voice.
 **Deferred, with the trigger that would start them** — each was reasoned through and
 put down on purpose, so a future session does not re-derive the answer from scratch:
 
-- **Citations.** Not a segment, and not markdown either. When a model writes
-  `[source](url)` it is markdown and the plugin already renders it; when a provider
-  attaches them (Anthropic's `citations` on a content block, an `url_citation`
-  annotation with character offsets) they are **annotations on a range of a text
-  segment** — a shape neither a block nor a link can carry. So the field would go on
-  `AparteTextSegment` (or in its `meta`), never in the type union. *Trigger: a provider
-  in this repo that actually returns them.* Today none does — `openai-compat` is
-  chat-completions, `ai-sdk` passes through, `transformers` is local — so it would be a
-  contract maintained for nobody (decision #7).
+- **Citations — DONE 2026-10-27.** Not a segment, and not markdown either: when a provider
+  attaches them (an `url_citation` annotation with character offsets, Perplexity's
+  `search_results`, the AI SDK's `source` parts) they are **annotations on a range of a
+  text segment**, a shape neither a block nor a link can carry. So they are two typed
+  fields on `AparteTextSegment` (`sources`, `citations`), never in the type union, carried
+  by one `sources` stream event (offsets into the model call's text, rebased onto the
+  segment by the adapter) and, for a non-streamed answer, a format adapter's
+  `parseSources`. The trigger came: `openai-compat` (OpenAI, OpenRouter, Perplexity) and
+  `ai-sdk` return them. The chip is placed by TEXT in the rendered DOM, not by provider
+  (`renderers/citations.ts`), which is why it holds under every Markdown provider; the card
+  is mounted beside the transcript because the bubble clips what it paints.
 - **A code-interpreter / shell plugin.** The thing every product calls "a terminal" is
   a **tool call**: the model emits a call whose arguments are code, and the client
   renders the *result*. So it is a tool plus a tool renderer, the shape

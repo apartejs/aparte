@@ -70,7 +70,16 @@ model is marked as streaming and calling tools. A cloud provider fetches nothing
 local one — `isLocal: true`, which the local-server presets set — lists its models with
 none. A `models` option gives the provider a list of its own, which the client reads for a model
 the fetched list does not have: a fetched entry with the same id wins, and the selector shows only
-the fetched list.
+the fetched list. An endpoint with no `GET /models` at all says so with `listsModels: false`, as the
+Perplexity preset does: `fetchModels` then serves `models` without asking.
+
+## Sources and citations
+
+A search model's sources reach the reply on their own: the `url_citation` annotations of OpenAI's
+search models and of OpenRouter's web search (an `:online` model, or `plugins: [{ id: 'web' }]` in
+`extraBody`), and Perplexity's `search_results` with the `[1]` markers in its text, streamed or not.
+Each becomes a chip at the end of the passage it backs and a line in the list under the reply — see
+[Sources and citations](/guides/citations/).
 
 ## Fields the OpenAI format does not have
 
