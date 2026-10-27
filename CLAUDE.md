@@ -140,7 +140,12 @@ put down on purpose, so a future session does not re-derive the answer from scra
 1. **Render hooks** return `HTMLElement | string` (generalized AvatarProvider pattern).
 2. **Bubble**: both paths — `SyncableBubble` (full replacement, exists) + fine-grained
    hooks (`renderBubbleShell`/`renderAttachment`/`renderSiblingNav`) in V0.1.
-3. **Action registries** (composer/bubble) **merged** — one registry, zone parameter.
+3. **One action registry, and it serves the bubble only.** The composer and bubble registries
+   were first merged behind a zone parameter; then the composer zone left (`d67148b3`): a
+   composer button is an `<aparte-composer-action>` element the consumer writes in markup, not
+   a registry entry. `AparteActionZone` is `'bubble'` alone, pinned by
+   `the-registry-has-one-zone.test.ts`. A plugin that adds a composer control ships an element
+   (as `@aparte/plugin-model-selector` does), never a registry entry.
 4. **Wrapper slot parity — reached, then simplified.** `empty-state`, `above-composer` and
    one `toolbar` exist on **all four** wrappers (props in React, named slots elsewhere). Two
    things were learned getting there. (a) The parity had been reached long before this line
