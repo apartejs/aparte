@@ -8,6 +8,7 @@ import { escapeHtml } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
 import { copyButtonMarkup, wireCopyButton, relabelCopyButton } from '../copy-button.js';
 import { streamHighlight } from '../highlight-stream.js';
+import { renderCodeLanguages, isDrawnLanguage } from '../code-languages.js';
 import type {
     AparteSegmentRenderer,
     AparteCodeSegment,
@@ -40,6 +41,31 @@ function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): voi
     }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
 }
 
+/** The fence's language: the first word of its info string (```` ```mermaid title ````). */
+const languageOf = (segment: AparteCodeSegment): string => (segment.language || '').trim().split(/\s+/)[0] ?? '';
+
+/**
+ * Draw a fence whose language a renderer draws (`registerCodeLanguageRenderer`) — a
+ * diagram rather than coloured code. The pane keeps a plain `<pre><code>` holding the
+ * source, written as it streams, and the engine draws beside it. A highlight that ran
+ * before the renderer was registered replaced that block, so it is put back.
+ */
+function drawSettledOrStreaming(element: HTMLElement, segment: AparteCodeSegment): void {
+    const wrapper = element.querySelector<HTMLElement>('.aparte-code-content-wrapper');
+    if (!wrapper) return;
+    generations.set(element, (generations.get(element) ?? 0) + 1);   // a highlight in flight must not land
+    wrapper.dataset.aparteSettled = '';
+    const language = languageOf(segment);
+    let code = Array.from(wrapper.querySelectorAll<HTMLElement>('pre > code'))
+        .find((c) => c.classList.contains(`language-${language}`));
+    if (!code) {
+        wrapper.innerHTML = `<pre><code class="language-${escapeHtml(language)}"></code></pre>`;
+        code = wrapper.querySelector<HTMLElement>('pre > code')!;
+    }
+    if (code.textContent !== segment.content) code.textContent = segment.content;
+    renderCodeLanguages(wrapper, { streaming: segment.isStreaming === true });
+}
+
 export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     type: 'code',
     render: (segment) => {
@@ -66,8 +92,9 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     setup: (element, segment) => {
         sources.set(element, segment.content);
+        if (isDrawnLanguage(languageOf(segment), element)) drawSettledOrStreaming(element, segment);
         // A fence still arriving is painted by `update`; one already whole is highlighted now.
-        if (segment.isStreaming !== true) highlightSettled(element, segment);
+        else if (segment.isStreaming !== true) highlightSettled(element, segment);
 
         const copyBtn = element.querySelector<HTMLElement>('.aparte-code-copy');
         // Read the map, not the segment this closure captured: `setup` runs once, on the
@@ -76,7 +103,9 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     update: (element, segment) => {
         sources.set(element, segment.content);
-        if (segment.isStreaming === true) {
+        if (isDrawnLanguage(languageOf(segment), element)) {
+            drawSettledOrStreaming(element, segment);
+        } else if (segment.isStreaming === true) {
             // Coloured WHILE it streams, so a fence is not grey until the stream ends.
             streamHighlight(element, '.aparte-code-content-wrapper', segment.content, segment.language || '', segment.id);
         } else {

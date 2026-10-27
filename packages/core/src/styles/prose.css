@@ -255,6 +255,11 @@
   white-space: normal;
 }
 
+/* In a code card the drawing takes the room the code had. */
+.aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
+  padding: var(--aparte-space-6);
+}
+
 /* A formula still arriving, before anything could be drawn: its TeX, quietly. */
 .aparte-code-pending.language-math {
   color: var(--aparte-text-muted);
