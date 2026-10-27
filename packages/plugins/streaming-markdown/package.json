@@ -33,7 +33,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "dependencies": {
-        "@paulrichez/streaming-markdown": "^0.3.0"
+        "@paulrichez/streaming-markdown": "^0.3.1"
     },
     "peerDependencies": {
         "@aparte/core": ">=0.27.4 <1.0.0"

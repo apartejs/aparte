@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { aparteGlobalConfig, renderCodeLanguages } from '@aparte/core';
 import { setupStreamingMarkdownProvider } from './index.js';
+import { MATH_CORPUS, type MathCase } from '../../marked/src/__tests__/math-corpus.js';
 
 /**
  * The streaming path writes DOM directly (bypassing the one-shot sanitizer), so
@@ -365,15 +366,14 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
     }
 
     it.each([
-        ['the closing $$ of a one-line formula', 'The formula:\n\n$$E = mc^2$$\n\nwhere E is the energy.'],
-        ['a $ before a word', 'Prices are in $USD for now.\n\nThe next paragraph.'],
-        ['two shell variables', 'Set $HOME and $PATH before you run it.'],
-        ['three single $', 'Prices: $a, $b and $c.'],
-        ['a reference in brackets', 'As shown in \\(1\\).'],
-        ['a $$ in the middle of a line', 'Line one\nLine two $$\nX\n$$'],
-    ])('never hands prose to the maths renderer: %s', (_what, text) => {
+        ['a one-line $$ formula and the prose after it', 'The formula:\n\n$$E = mc^2$$\n\nwhere E is the energy.', ['E = mc^2']],
+        ['a $ before a word', 'Prices are in $USD for now.\n\nThe next paragraph.', []],
+        ['two shell variables', 'Set $HOME and $PATH before you run it.', []],
+        ['three single $', 'Prices: $a, $b and $c.', []],
+        ['a reference in brackets', 'As shown in \\(1\\).', []],
+    ])('never hands prose to the maths renderer: %s', (_what, text, maths) => {
         aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
-        expect([...placeholdersSeen(text)]).toEqual([]);
+        expect([...placeholdersSeen(text)]).toEqual(maths);
     });
 
     it('draws an inline formula once its closer has come, not while it arrives', () => {
@@ -385,9 +385,58 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
         expect([...placeholdersSeen('The area $x^2$ grows.')]).toEqual(['x^2']);
     });
 
-    it('leaves the fork\'s own elements when no maths renderer is registered', () => {
-        const target = streamDrawn('The area $x^2$ grows.');
-        expect(target.querySelector('code.language-math')).toBeNull();
-        expect(target.querySelector('equation-inline')).not.toBeNull();
+    it('keeps the dollars as text when no maths renderer is registered', () => {
+        const target = streamDrawn('The area $x^2$ grows, at \\(y\\).');
+        expect(target.querySelector('code.language-math, equation-inline, equation-block')).toBeNull();
+        expect(target.textContent).toContain('The area $x^2$ grows');
+    });
+
+    it('writes a formula the reply ended in, or a reference in brackets, back as text', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        const cut = streamDrawn('Then:\n\n$$\nx +');
+        expect(cut.querySelector('code.language-math')).toBeNull();
+        expect(cut.textContent).toContain('x +');
+        const cited = streamDrawn('As \\[12\\] shows, and \\(3\\) too.');
+        expect(cited.querySelector('code.language-math')).toBeNull();
+        expect(cited.textContent).toContain('As [12] shows, and (3) too.');
+    });
+});
+
+describe('@aparte/plugin-streaming-markdown — the maths corpus plugin-marked reads', () => {
+    beforeEach(() => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        setupStreamingMarkdownProvider();
+    });
+    afterEach(() => aparteGlobalConfig.reset());
+
+    /** The formulas in `md`, streamed a character at a time and ended, as `[tex, display]`. */
+    function mathsOf(md: string): Array<[string, boolean]> {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        for (const ch of md) r.write(ch);
+        r.end();
+        return Array.from(target.querySelectorAll('code.language-math'))
+            .map((c) => [(c.textContent ?? '').trim(), c.classList.contains('math-display')]);
+    }
+
+    /**
+     * Where the parser reads otherwise, and why. With plugin-marked as the one-shot
+     * provider, the settled reply reads these as the corpus says; they show while the
+     * reply streams, or for good with this plugin alone.
+     */
+    const DIFFERS: Record<string, string> = {
+        '$$\na\n\nb\n$$': 'a display block is written as it arrives, so one a blank line ends with no closer stays a formula',
+        '$\\text{in $x$ units}$': 'the parser counts no braces, so the `$` inside `\\text{}` closes the formula',
+    };
+    const expected = (c: MathCase): Array<[string, boolean]> => c.maths.map(([tex, display]) => [tex.trim(), display]);
+
+    it.each(MATH_CORPUS.filter((c) => !(c.md in DIFFERS)).map((c) => [c.md, c] as const))('%j', (_md, c) => {
+        expect(mathsOf(c.md)).toEqual(expected(c));
+    });
+
+    it.each(Object.keys(DIFFERS))('still reads %j otherwise — drop it from the list once it does not', (md) => {
+        const c = MATH_CORPUS.find((x) => x.md === md);
+        expect(c, 'a case the corpus no longer has').toBeDefined();
+        expect(mathsOf(md)).not.toEqual(expected(c!));
     });
 });

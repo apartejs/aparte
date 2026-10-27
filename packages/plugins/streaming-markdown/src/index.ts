@@ -44,19 +44,13 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  */
 const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
 
-/** Whether a token opened in `parent` now starts a line: nothing before it, or a line break. */
-function startsLine(parent: Element): boolean {
-    const last = parent.lastChild;
-    return !last || last.nodeName === 'BR';
-}
-
 /**
- * Whether an inline formula's text reads as TeX by Pandoc's rule: no space just inside
- * either delimiter (`$5 and $` is two prices), and more than a number (`\(1\)` is a
- * reference in brackets, as `@aparte/plugin-marked` reads it).
+ * A formula that holds nothing but a number is a reference in brackets — `\[1\]`,
+ * `\(2\)` — as `@aparte/plugin-marked` reads it, so it is written back as one.
  */
-function isTex(text: string): boolean {
-    return /^\S(?:[\s\S]*\S)?$/.test(text) && !/^\d+(?:[.,]\d+)?$/.test(text);
+function asReference(text: string, display: boolean): string | null {
+    if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(text)) return null;
+    return display ? `[${text.trim()}]` : `(${text.trim()})`;
 }
 
 /**
@@ -111,48 +105,49 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
             }
         };
         /*
-         * A formula becomes the placeholder core's code-language engine draws — with a
-         * maths renderer registered (`@aparte/plugin-katex`) — the markup
-         * `@aparte/plugin-marked` writes. Only what the fork has plainly read as maths:
-         * its rules are looser than Pandoc's (a `$` before a letter opens a formula that no
-         * newline ends, and the closing `$$` of `$$x$$` opens a block), and a placeholder
-         * hides its text behind a drawing. So a display formula is drawn as it arrives
-         * when its `$$` starts a line, and an inline one once its closer has come and its
-         * TeX passes Pandoc's test. Anything else keeps the fork's own element, which
-         * reads as text, as it did before. Without a maths renderer nothing changes.
+         * Maths is read when a maths renderer is registered (`@aparte/plugin-katex`),
+         * decided once per reply; without one, `$` and `\(` stay text. A formula becomes
+         * the placeholder core's code-language engine draws — the markup
+         * `@aparte/plugin-marked` writes — marked open until its closer arrives. The parser
+         * writes one only once it is maths by Pandoc's rules, so a price never becomes one.
+         * One the reply ended in the middle of goes back to text, as the settled reply
+         * reads it.
          */
-        let ending = false;
+        const math = config.hasCodeLanguageRenderer('math');
         const originalAddToken = renderer.add_token;
         const originalEndToken = renderer.end_token;
         renderer.add_token = (data, type) => {
-            const parent = data.nodes[data.index]!;
-            if (type !== Token.Equation_Block || !config.hasCodeLanguageRenderer('math') || !startsLine(parent)) {
+            if (type !== Token.Equation_Block && type !== Token.Equation_Inline) {
                 originalAddToken(data, type);
                 return;
             }
-            // Inside its paragraph, as the fork writes it, so no <pre>: the class is what
+            // Inside its paragraph, as the parser writes it, so no <pre>: the class is what
             // tells the engine it is a display formula.
             const code = document.createElement('code');
-            code.className = 'language-math math-display';
+            const kind = type === Token.Equation_Block ? 'math-display' : 'math-inline';
+            code.className = `language-math ${kind}`;
             code.setAttribute(OPEN, '');
+            const parent = data.nodes[data.index]!;
             data.nodes[++data.index] = parent.appendChild(code);
         };
         renderer.end_token = (data) => {
             const node = data.nodes[data.index]!;
             originalEndToken(data);
-            if (node.tagName === 'CODE') node.removeAttribute(OPEN);
-            // Closed by its own closer, not by the end of the reply.
-            if (node.tagName === 'EQUATION-INLINE' && !ending && config.hasCodeLanguageRenderer('math') && isTex(String(node.textContent))) {
-                const code = document.createElement('code');
-                code.className = 'language-math math-inline';
-                code.textContent = node.textContent;
-                node.replaceWith(code);
-            }
+            if (!node.hasAttribute(OPEN)) return;
+            node.removeAttribute(OPEN);
+            const text = String(node.textContent);
+            const reference = asReference(text, node.classList.contains('math-display'));
+            if (reference !== null) node.replaceWith(reference);
         };
-        const p = parser(renderer);
+        const p = parser(renderer, { math });
         return {
             write: (chunk: string): void => { parser_write(p, chunk); },
-            end: (): void => { ending = true; parser_end(p); },
+            end: (): void => {
+                parser_end(p);
+                // The parser closes nothing at the end: a formula still open there never got
+                // its closer.
+                for (const code of target.querySelectorAll(`code[${OPEN}]`)) code.replaceWith(String(code.textContent));
+            },
         };
     });
 }

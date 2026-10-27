@@ -39,13 +39,12 @@ escape and `a*b*c` is emphasis. [`@aparte/plugin-marked`](/guides/markdown/), st
 to configure. To keep dollars as text whatever is registered, pass `math: false` to the marked
 provider.
 
-The two read maths while it streams with different rules. `@aparte/plugin-marked/streaming` draws
-a `$$`, `\[` or `\(` formula as it arrives, and a single `$` once it closes, by the rules in the
-table below. `@aparte/plugin-streaming-markdown` reads with its parser's own rules, which are
-looser, so it draws only what is plainly maths: a display formula whose `$$` starts a line, as it
-arrives, and an inline one once its closer has come. Anything else stays text until the reply
-settles, and the finished reply is drawn by the one-shot provider — marked, in the
-[recommended setup](/guides/markdown/) — by the rules below.
+Both read maths by the rules in the table below; they differ in when a formula appears while
+the reply streams. `@aparte/plugin-marked/streaming` draws a `$$`, `\[` or `\(` formula as it
+arrives, and a single `$` once it closes. `@aparte/plugin-streaming-markdown` draws a display
+formula opened by `$$` or `\[` on its own line as it arrives, and any other once its closer has
+come. The finished reply is drawn by the one-shot provider — marked, in the
+[recommended setup](/guides/markdown/).
 
 A provider of your own hands maths over by writing the markup remark-math already writes:
 `<code class="language-math math-inline">TeX</code>` inline, and
