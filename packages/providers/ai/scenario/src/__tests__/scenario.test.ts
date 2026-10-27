@@ -197,6 +197,9 @@ describe('scenarios mode', () => {
         expect(showcase['forecast']!.after).toBe('get_weather');
         expect(showcase['answered']!.after).toBe('ask_user');
         expect(defaultMatch(request(user('Give me a markdown table')), showcase)).toBe('table');
+        // Ahead of `code`, whose `when` would otherwise take "a maths example".
+        expect(defaultMatch(request(user('Show me a maths example')), showcase)).toBe('math');
+        expect(defaultMatch(request(user('Draw a flowchart')), showcase)).toBe('diagram');
         // The four-tool chain: "ship it" starts it, and each tool it calls is routed —
         // an unrouted one sends the result back through `release`'s own `when` and the
         // conversation loops until maxTurns.

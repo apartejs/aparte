@@ -19,7 +19,7 @@ import type { Scenario } from './index.js';
  */
 export const showcase: Record<string, Scenario> = {
     default: {
-        turn: 'Hi — I am a **scripted** model: no key, no network, the same answer every time.\n\nAsk me for a *haiku*, a *table*, some *code*, the *weather*, or to *ask you a question*.',
+        turn: 'Hi — I am a **scripted** model: no key, no network, the same answer every time.\n\nAsk me for a *haiku*, a *table*, some *code*, some *maths*, a *diagram*, the *weather*, or to *ask you a question*.',
     },
     haiku: {
         when: /haiku/i,
@@ -28,6 +28,18 @@ export const showcase: Record<string, Scenario> = {
     table: {
         when: /table/i,
         turn: 'Two ways to reach a model:\n\n| Transport | Where the key lives | Use it for |\n|---|---|---|\n| `AparteDirectTransport` | in the browser | prototypes, local models |\n| `AparteBackendTransport` | on your server | production |\n\nThe component does not change between the two.',
+    },
+    // Before `code`: "a maths example" is maths. Drawn by @aparte/plugin-katex when it is
+    // installed and the Markdown provider recognises maths; shown as TeX otherwise.
+    math: {
+        when: /math|equation|formula|latex|integral/i,
+        turn: 'Euler\'s identity ties five constants together: $e^{i\\pi} + 1 = 0$.\n\nThe area under $x^2$ from 0 to 1:\n\n$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\nAnd a price stays a price: it costs $5 and $10.',
+    },
+    // A fence of its own, so @aparte/plugin-mermaid draws it with any Markdown provider,
+    // or none; shown as code otherwise.
+    diagram: {
+        when: /diagram|flowchart|flow chart|mermaid/i,
+        turn: 'How a reply reaches the screen:\n\n```mermaid\nflowchart LR\n  accTitle: How a reply reaches the screen\n  A[Model] -->|tokens| B[Markdown provider]\n  B --> C{A code language?}\n  C -->|math| D[KaTeX]\n  C -->|mermaid| E[Mermaid]\n  C -->|anything else| F[Highlighter]\n```\n\nEach drawing goes beside its source, which is what copy and the model still read.',
     },
     code: {
         when: /code|example|snippet/i,
