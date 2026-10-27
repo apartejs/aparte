@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 96, statements: 96, functions: 96, branches: 87 },
+        'packages/core/src/renderers/**': { lines: 96, statements: 96, functions: 98, branches: 87 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
@@ -221,10 +221,10 @@ export default defineConfig({
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
-        'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 90 },
+        'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
-        'packages/plugins/mermaid/src/**': { lines: 96, statements: 96, functions: 90, branches: 75 },
+        'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 81 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
