@@ -100,6 +100,8 @@ export function createSourceCollector() {
                 if (sourceId === undefined) continue;
                 const from = num(c.startIndex);
                 const to = num(c.endIndex);
+                // An end at the part's very start (or before it) is no passage: the source stays, listed.
+                if (to !== undefined && to <= 0) continue;
                 const end = within(to ?? part.length);
                 const start = from !== undefined && within(from) < end ? within(from) : undefined;
                 const same = citations.find(x => x.start === start && x.end === end);

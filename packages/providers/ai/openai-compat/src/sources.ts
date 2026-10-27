@@ -27,15 +27,44 @@ const str = (value: unknown): string | undefined => (typeof value === 'string' &
 /** `[n]` as Perplexity writes it in the text: 1-based into its list of sources. */
 const MARKER = /\[(\d{1,3})\]/g;
 
-/** Where `text` holds code: fenced blocks, and backquote spans of any length. */
+/**
+ * Where `text` holds code, as CommonMark reads it: a fence runs to a closing fence of its
+ * character at least as long (or to the end), an indented line after a blank one is code,
+ * and a backquote span closes on the same run within its paragraph — `\`` opens nothing.
+ */
 function codeRanges(text: string): Array<[number, number]> {
     const ranges: Array<[number, number]> = [];
-    for (const m of text.matchAll(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))/gm)) {
-        ranges.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+    let at = 0;
+    let fence: { char: string; length: number; start: number } | null = null;
+    let indented = -1;
+    let blank = true;
+    for (const line of text.split('\n')) {
+        const next = at + line.length + 1;
+        if (fence) {
+            const close = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
+            if (close && close[1]![0] === fence.char && close[1]!.length >= fence.length) {
+                ranges.push([fence.start, next]);
+                fence = null;
+            }
+        } else {
+            const open = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+            const code = /^(?: {4}|\t)/.test(line) && line.trim() !== '' && (blank || indented >= 0);
+            if ((open || !code) && indented >= 0 && line.trim() !== '') {
+                ranges.push([indented, at]);
+                indented = -1;
+            }
+            if (open) fence = { char: open[1]![0]!, length: open[1]!.length, start: at };
+            else if (code && indented < 0) indented = at;
+        }
+        blank = line.trim() === '';
+        at = next;
     }
-    for (const m of text.matchAll(/(`+)[^`][\s\S]*?\1/g)) {
-        const at = m.index ?? 0;
-        if (!ranges.some(([a, b]) => at >= a && at < b)) ranges.push([at, at + m[0].length]);
+    if (fence) ranges.push([fence.start, text.length]);
+    if (indented >= 0) ranges.push([indented, text.length]);
+    const inside = (i: number): boolean => ranges.some(([from, to]) => i >= from && i < to);
+    for (const m of text.matchAll(/(?<![\\`])(`+)(?!`)((?:(?!\n[ \t]*\n)[\s\S])*?[^`])\1(?!`)/g)) {
+        const i = m.index ?? 0;
+        if (!inside(i)) ranges.push([i, i + m[0].length]);
     }
     return ranges;
 }
@@ -94,8 +123,8 @@ export function createSourceCollector() {
 
         /** The root-level `citations: string[]` and `search_results: [{ title, url, snippet? }]`. */
         addListed(citations: unknown, results: unknown): void {
-            if (Array.isArray(citations)) urlList = citations;
-            if (Array.isArray(results)) searchResults = results;
+            if (Array.isArray(citations) && citations.length) urlList = citations;
+            if (Array.isArray(results) && results.length) searchResults = results;
         },
 
         /**
@@ -112,7 +141,8 @@ export function createSourceCollector() {
             );
             for (const { start: from, end: to, id } of annotated) {
                 const end = within(to);
-                if (end === undefined) continue;
+                // An end at the very start (or before it, brought back) is no passage.
+                if (end === undefined || end <= 0) continue;
                 const s = within(from);
                 const start = s !== undefined && s < end ? s : undefined;
                 // Two annotations on one passage are one citation with two sources ("+1").

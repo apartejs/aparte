@@ -547,12 +547,12 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
 
         /** What a non-streamed answer cites: the same annotations and Perplexity fields a stream carries. */
         parseSources(json: unknown) {
-            const payload = json as { choices?: Array<{ message?: { content?: string; annotations?: unknown } }>; citations?: unknown; search_results?: unknown } | null;
+            const payload = json as { choices?: Array<{ message?: { content?: unknown; annotations?: unknown } }>; citations?: unknown; search_results?: unknown } | null;
             const message = payload?.choices?.[0]?.message;
             const cited = createSourceCollector();
             cited.addAnnotations(message?.annotations);
             cited.addListed(payload?.citations, payload?.search_results);
-            const event = cited.finish(message?.content || '');
+            const event = cited.finish(typeof message?.content === 'string' ? message.content : '');
             return event ? { sources: event.sources, ...(event.citations ? { citations: event.citations } : {}) } : undefined;
         },
     };
@@ -608,7 +608,12 @@ export function parseOpenAICompatStream(
      */
     let streamed = '';
     const cited = createSourceCollector();
+    // Once, at the first of a tool call and the end: a call the loop refuses, or one with no
+    // handler, ends the turn without reading on, and its sources would never arrive.
+    let sourcesSent = false;
     const flushSources = (controller: ReadableStreamDefaultController<AparteStreamEvent>): void => {
+        if (sourcesSent) return;
+        sourcesSent = true;
         const event = cited.finish(streamed);
         if (event) controller.enqueue(event);
     };
@@ -801,7 +806,10 @@ export function parseOpenAICompatStream(
                             // usage on every tool-call turn — i.e. most turns of an agent.
                             // Keep reading; the single `done` comes from `[DONE]` below, or
                             // from the end-of-stream fallback if the socket just closes.
-                            if (choice.finish_reason === 'tool_calls') flushToolCalls(controller, true);
+                            if (choice.finish_reason === 'tool_calls') {
+                                flushSources(controller);
+                                flushToolCalls(controller, true);
+                            }
                         } catch {
                             // Every line here is a complete, newline-terminated SSE
                             // line (see buffer split above), so a parse failure is an

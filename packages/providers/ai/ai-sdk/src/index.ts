@@ -270,10 +270,17 @@ export function fullStreamToAparteEvents(
     // natural end after the consumer has already walked away.
     let iterator: AsyncIterator<{ type: string } & Record<string, unknown>> | undefined;
     const cited = createSourceCollector();
+    let sourcesSent = false;
 
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
             iterator = fullStream[Symbol.asyncIterator]();
+            const sendSources = (): void => {
+                if (sourcesSent) return;
+                sourcesSent = true;
+                const sources = cited.finish();
+                if (sources) controller.enqueue(sources);
+            };
             try {
                 while (true) {
                     const { value: part, done } = await iterator.next();
@@ -297,6 +304,9 @@ export function fullStreamToAparteEvents(
                             controller.enqueue({ type: 'thinking', delta: part['text'] as string });
                             break;
                         case 'tool-call':
+                            // The sources first, as at the end: a call the loop refuses, or one
+                            // with no handler, ends the turn before the `finish` part is read.
+                            sendSources();
                             controller.enqueue({
                                 type: 'tool_use',
                                 id: part['toolCallId'] as string,
@@ -308,8 +318,7 @@ export function fullStreamToAparteEvents(
                             {
                                 // The sources first: their offsets are into the text, which is
                                 // complete now, and `done` ends the turn.
-                                const sources = cited.finish();
-                                if (sources) controller.enqueue(sources);
+                                sendSources();
                                 const finishReason = toAparteFinishReason(part['finishReason']);
                                 controller.enqueue({
                                     type: 'done',

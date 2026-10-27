@@ -186,7 +186,7 @@ describe('OpenRouter / OpenAI url_citation annotations', () => {
         expect(events.map(e => e.type)).toEqual(['text', 'sources', 'done']);
     });
 
-    it('a tool call turn still flushes its calls before the sources and the done', async () => {
+    it('sends the sources before the tool calls: a refused call ends the turn without reading on', async () => {
         const events = await collect(parseOpenAICompatStream(sse(
             chunk({ content: A }),
             chunk({ tool_calls: [{ index: 0, id: 'c1', function: { name: 'lookup', arguments: '{}' } }] }),
@@ -194,7 +194,16 @@ describe('OpenRouter / OpenAI url_citation annotations', () => {
             chunk({}, { finish_reason: 'tool_calls' }),
             '[DONE]',
         )));
-        expect(events.map(e => e.type)).toEqual(['text', 'tool_use', 'sources', 'done']);
+        expect(events.map(e => e.type)).toEqual(['text', 'sources', 'tool_use', 'done']);
+    });
+
+    it('drops a passage that ends at the very start, keeping its source listed', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            chunk({ content: A }),
+            chunk({ annotations: [citation(-10, -1, 'https://a.example/1', 'One'), citation(0, 0, 'https://a.example/2', 'Two')] }),
+            '[DONE]',
+        )));
+        expect(sourcesOf(events)[0]).toEqual({ type: 'sources', sources: [{ id: 's1', url: 'https://a.example/1', title: 'One' }, { id: 's2', url: 'https://a.example/2', title: 'Two' }] });
     });
 });
 
@@ -387,6 +396,32 @@ describe('the Perplexity preset', () => {
         const stream = parseOpenAICompatStream(sse(chunk({ content: text }), JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], citations: ['https://a.example/1'] }), '[DONE]'));
         const events = await collect(stream);
         expect(sourcesOf(events)[0]?.citations).toEqual([{ start: text.lastIndexOf('[1]'), end: text.lastIndexOf('[1]') + 3, sources: ['s1'], marker: true }]);
+    });
+
+    it.each([
+        ['an indented code block', 'Example [1]:\n\n    arr[2] = 0\n\nDone [3].', ['[1]', '[3]']],
+        ['a stray backquote, which opens nothing past its paragraph', 'It is 5` long [1].\n\nThe sky is blue [2].\n\nRun `npm i` [3].', ['[1]', '[2]', '[3]']],
+        ['an escaped backquote', 'A \\` mark [1], then `x[2]` [3].', ['[1]', '[3]']],
+        ['a closing fence longer than its opening one', '```\na[1]\n````\nAfter [2].', ['[2]']],
+    ])('reads code as CommonMark does: %s', async (_what, text, markers) => {
+        const urls = ['https://a.example/1', 'https://a.example/2', 'https://a.example/3'];
+        const stream = parseOpenAICompatStream(sse(chunk({ content: text }), JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], citations: urls }), '[DONE]'));
+        const cited = sourcesOf(await collect(stream))[0]?.citations ?? [];
+        expect(cited.map(c => text.slice(c.start, c.end))).toEqual(markers);
+    });
+
+    it('keeps a full list when a later chunk sends an empty one', async () => {
+        const stream = parseOpenAICompatStream(sse(
+            chunk({ content: 'Blue [1].' }, {}),
+            JSON.stringify({ choices: [{ delta: {} }], search_results: [{ title: 'Sky', url: 'https://a.example/1' }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], search_results: [] }),
+            '[DONE]',
+        ));
+        expect(sourcesOf(await collect(stream))[0]?.sources).toEqual([{ id: 's1', url: 'https://a.example/1', title: 'Sky' }]);
+    });
+
+    it('reads no markers in content that is not a string', () => {
+        expect(() => provider.parseSources!({ choices: [{ message: { content: [{ type: 'text', text: 'x' }] } }], search_results: [{ url: 'https://a.example/1' }] })).not.toThrow();
     });
 
     it('serves the models it declares, asking no GET /models', async () => {
