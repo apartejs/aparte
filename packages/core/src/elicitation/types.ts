@@ -152,10 +152,11 @@ export interface AparteElicitationRequest {
      * On `kind: 'approval'`, whether the person may answer in words instead of an option —
      * the "or tell it what to do instead" field, whose text comes back as the answer's
      * `instruction`. `false` leaves the options alone, for a decision that has to be one of
-     * them. The corner still declines: an unanswered approval is never a yes.
+     * them. The same name, and the same meaning, as a question's `allowOther`. The corner
+     * still declines: an unanswered approval is never a yes.
      * @default true
      */
-    freeText?: boolean;
+    allowOther?: boolean;
     /**
      * Aborts the request — the panel closes and the promise REJECTS with
      * {@link AparteElicitationAbortError}. Pass a tool handler's signal so a
