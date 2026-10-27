@@ -33,6 +33,7 @@ line is drawn as it arrives, any other once its closer has come; the rules are P
 ```ts
 import 'katex/dist/katex.min.css';
 import { setupKatex } from '@aparte/plugin-katex';
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 
 setupKatex();
 setupStreamingMarkdownProvider();
