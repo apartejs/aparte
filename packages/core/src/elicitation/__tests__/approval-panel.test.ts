@@ -126,7 +126,7 @@ describe('buildApprovalPanel', () => {
         expect(panel.el.querySelector('.aparte-approval-instruction')).toBeNull();
         expect(panel.isComplete()).toBe(false);
         expect(panel.getContent()).toEqual({ instruction: '' });
-        aparteGlobalConfig.setLocale({ approvalInstructionPlaceholder: 'Ou dites-lui quoi faire' });
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalInstructionPlaceholder: 'Ou dites-lui quoi faire' });
         expect(() => panel.relabel()).not.toThrow();
     });
 
