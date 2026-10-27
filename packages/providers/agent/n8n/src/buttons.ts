@@ -17,7 +17,7 @@ export const N8N_BUTTONS_TOOL = 'n8n_buttons';
 export interface N8nButtonsInput {
     text: string;
     buttons: { text: string; type: string }[];
-    /** n8n's "Block User Input": the turn waits for a button either way. */
+    /** n8n's "Block User Input": the answer has to be a button, with no words instead. */
     blockUserInput: boolean;
 }
 
@@ -56,6 +56,8 @@ export function setupN8nButtons(config: AparteConfig = aparteGlobalConfig): void
                 label: button.text,
                 tone: button.type === 'secondary' ? 'deny' : 'affirm',
             })),
+            // n8n's "Block User Input": a button, or nothing — no words instead.
+            freeText: !input.blockUserInput,
             signal,
             ...(context?.target ? { target: context.target } : {}),
         });

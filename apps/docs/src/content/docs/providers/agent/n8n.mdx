@@ -179,7 +179,9 @@ new AparteClient({
 ```
 
 The turn pauses on the buttons, which are asked at the composer with the labels the Chat node gave
-them; the one chosen goes back to n8n, and the workflow's next messages follow in the same turn. The
+them; the one chosen goes back to n8n, and the workflow's next messages follow in the same turn.
+Without *Block User Input*, the person may write instead, as in n8n's widget: n8n reads the words as
+a message and the Chat node goes on as not approved. With it, the answer has to be a button. The
 transcript keeps the answer as a quiet line. A button whose link leads off the n8n that sent it is
 not shown.
 
