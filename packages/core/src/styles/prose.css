@@ -255,9 +255,12 @@
   white-space: normal;
 }
 
-/* In a code card the drawing takes the room the code had. */
+/* In a code card the drawing takes the room the code had, on the page's own surface:
+   it is drawn in the page's colours, and a skin may paint the card's <pre> dark with a
+   selector no reset here should have to out-shout. */
 .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
   padding: var(--aparte-space-6);
+  background: var(--aparte-bg);
 }
 
 /* A source its renderer could not draw (a typo in a formula, a diagram that does not

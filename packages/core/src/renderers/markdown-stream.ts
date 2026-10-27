@@ -63,12 +63,13 @@ export type AparteMarkdownStreamHost = HTMLElement & {
  *   element from the same string, which threw away what was drawn on top of it (a
  *   highlighted fence, a formula) only to draw it again.
  *
- * `version` is the config's rendering version at the time, so a provider or sanitizer
- * changed since still gets its redraw. Keyed by the content element, because that is
+ * `config` and its rendering `version` at the time, so a provider or sanitizer changed
+ * since still gets its redraw — and so does the same element drawn under another config,
+ * whose count may well be the same number. Keyed by the content element, because that is
  * what the entry describes — the bubble's own content element can be rebuilt under the
  * same host — and weakly, so that removing the element removes the entry.
  */
-const settled = new WeakMap<Element, { content: string; version: number; writer: 'parser' | 'markdown' }>();
+const settled = new WeakMap<Element, { content: string; config: unknown; version: number; writer: 'parser' | 'markdown' }>();
 
 /** A probe with HTML in it, because escaping HTML is what the default renderer does. */
 const ONE_SHOT_PROBE = '<i>a</i>';
@@ -160,7 +161,7 @@ function writeMarkdown(
             // they are drawn again from the cache on the way out.
             unrenderCodeLanguages(contentEl);
             contentEl.innerHTML = cfg.sanitizeHtml(contentEl.innerHTML);
-            settled.set(contentEl, { content, version: renderingVersionOf(cfg), writer: 'parser' });
+            settled.set(contentEl, { content, config: cfg, version: renderingVersionOf(cfg), writer: 'parser' });
             return;
         }
         // Otherwise fall through: the one-shot provider re-renders for full fidelity.
@@ -172,13 +173,13 @@ function writeMarkdown(
             // what the one-shot render wrote is still current unless a provider or the
             // sanitizer changed since. Changed content falls through either way.
             if (last.writer === 'parser' && !hasOneShotMarkdownProvider()) return;
-            if (last.writer === 'markdown' && last.version === renderingVersionOf(cfg)) return;
+            if (last.writer === 'markdown' && last.config === cfg && last.version === renderingVersionOf(cfg)) return;
         }
     }
 
     contentEl.innerHTML = cfg.renderMarkdown(content);
     if (streaming) settled.delete(contentEl);
-    else settled.set(contentEl, { content, version: renderingVersionOf(cfg), writer: 'markdown' });
+    else settled.set(contentEl, { content, config: cfg, version: renderingVersionOf(cfg), writer: 'markdown' });
 }
 
 /**
@@ -216,8 +217,23 @@ export function highlightMarkdownFences(contentEl: Element): void {
             .then(html => {
                 // The provider returns a full `<pre>…</pre>`, so it replaces the
                 // block's own `<pre>` rather than filling it.
-                if (pre.isConnected || pre.parentElement) pre.outerHTML = html;
+                if (pre.isConnected || pre.parentElement) replaceHighlighted(pre, html);
             })
             .catch(() => { /* best-effort: a failed highlight degrades silently */ });
     }
+}
+
+/**
+ * Put a highlighter's whole-block answer in place of `pre`, marked as highlighted.
+ *
+ * The mark is what tells the next pass to leave it: a highlighter's `<pre>` usually drops
+ * the `language-*` class, so a block highlighted once and passed over again — a settled
+ * reply a framework re-syncs, which keeps its DOM now — was highlighted a second time as
+ * a language-less block, and lost its colours.
+ */
+export function replaceHighlighted(pre: Element, html: string): void {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    for (const code of Array.from(template.content.querySelectorAll('code'))) code.setAttribute('data-aparte-highlighted', '');
+    pre.replaceWith(template.content);
 }

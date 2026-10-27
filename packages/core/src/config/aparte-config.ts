@@ -614,6 +614,8 @@ export class AparteConfig {
      * @example aparteGlobalConfig.setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
+        // The same one again changes nothing, so it redraws nothing and tells no listener.
+        if (sanitizer === this._sanitizer) return;
         if (sanitizer === null) {
             // Passing null is a legitimate choice — an app that fully trusts its
             // own pipeline, or one swapping in DOMPurify at a different layer. But

@@ -31,7 +31,7 @@ interface DrawnSegment {
   tool: AparteToolRenderer | null;
   segment: AparteSegment;
 }
-import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
@@ -1719,7 +1719,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    */
   private _highlightContentCode(): void {
     if (!this._contentEl || !this._cfg.hasHighlightProvider()) return;
-    this._contentEl.querySelectorAll('pre > code').forEach((codeEl) => {
+    // Marked ones were highlighted already: the next pass over a kept DOM must leave them.
+    this._contentEl.querySelectorAll('pre > code:not([data-aparte-highlighted])').forEach((codeEl) => {
       const code = codeEl.textContent ?? '';
       if (!code.trim()) return;
       const match = codeEl.className.match(/language-([\w+#-]+)/i);
@@ -1727,11 +1728,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // Drawn by a code-language renderer: a whole-block highlight would replace the drawing.
       if (this._cfg.hasCodeLanguageRenderer(lang) || codeEl.closest('.aparte-code-drawing')) return;
       const pre = codeEl.parentElement;
+      codeEl.setAttribute('data-aparte-highlighted', '');
       Promise.resolve(this._cfg.highlightCode(code, lang)).then((html) => {
         const out = (html ?? '').trim();
         if (!out || !pre || !pre.isConnected) return;
         if (/^<pre[\s>]/i.test(out)) {
-          pre.outerHTML = out;                       // full block (Shiki)
+          replaceHighlighted(pre, out);              // full block (Shiki)
         } else {
           (codeEl as HTMLElement).innerHTML = out;   // inner tokens (Prism, hljs)
         }

@@ -21,6 +21,8 @@ import type {
 const sources = new WeakMap<Element, string>();
 /** Each whole-content highlight's turn: one resolving after a newer one must not land. */
 const generations = new WeakMap<Element, number>();
+/** What each pane was last highlighted from, so a settled block re-synced unchanged is left alone. */
+const highlighted = new WeakMap<Element, string>();
 
 /**
  * Highlight the whole content, once the segment has settled.
@@ -32,13 +34,21 @@ const generations = new WeakMap<Element, number>();
 function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): void {
     const wrapper = element.querySelector<HTMLElement>('.aparte-code-content-wrapper');
     if (!wrapper) return;
+    // A framework re-sends the finished segment on every render: the same content in the
+    // same language is the same highlight, already on screen.
+    const what = `${segment.language ?? ''}\u0001${segment.content}`;
+    if (highlighted.get(element) === what) return;
+    highlighted.set(element, what);
     const turn = (generations.get(element) ?? 0) + 1;
     generations.set(element, turn);
     wrapper.dataset.aparteSettled = '';
     void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
         if (generations.get(element) !== turn) return;
         wrapper.innerHTML = html;
-    }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
+    }).catch(() => {
+        // Best-effort: a failed highlight degrades silently, and the next settle tries again.
+        if (generations.get(element) === turn) highlighted.delete(element);
+    });
 }
 
 /** The fence's language: the first word of its info string (```` ```mermaid title ````). */
