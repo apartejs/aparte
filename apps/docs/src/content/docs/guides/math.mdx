@@ -74,10 +74,12 @@ tooltip.
 ## What a model cannot do with it
 
 `trust` is always off, so a formula cannot carry a link (`\href`) or set a class or a style
-(`\htmlClass`); `maxSize` and `maxExpand` are capped, so it cannot draw a giant box or expand
-forever; every formula is painted inside its own box, so `\smash`, `\raisebox` or a negative
-`\kern` cannot lay one over the chat around it; and every formula gets a fresh set of `macros`,
-so a `\gdef` in one reply cannot reach the next. KaTeX's own options pass through `setupKatex({ katex: { … } })`; these are kept
+(`\htmlClass`); `maxSize` and `maxExpand` are capped, so a size cannot pass 10em and a macro
+cannot expand forever; KaTeX does not cap a negative shift, so a formula taller than 100em —
+`\raisebox{-10000em}{x}`; a 30-row matrix is under 40 — shows as its TeX; every formula is painted
+inside its own box, so `\smash`, `\raisebox` or a negative `\kern` cannot lay one over the chat
+around it; and every formula gets a fresh set of `macros`, so a `\gdef` in one reply cannot reach
+the next. KaTeX's own options pass through `setupKatex({ katex: { … } })`; these are kept
 whatever they say.
 
 ## Bring your own KaTeX

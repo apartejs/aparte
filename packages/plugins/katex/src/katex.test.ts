@@ -78,6 +78,18 @@ describe('drawing maths with KaTeX', () => {
         expect(html).toContain('\\frac{1}{');
     });
 
+    it('shows as TeX a formula whose negative shift would make a line thousands of em tall', () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        setupKatexWith(katex);
+        // KaTeX caps a size, not a negative shift.
+        expect(renderer().render(ctx('\\raisebox{-10000em}{x}'))).toContain('aparte-code-error');
+        expect(renderer().render(ctx('\\rule[-10000em]{1em}{1em}', { display: true }))).toContain('aparte-code-error');
+        expect(renderer().render(ctx('\\raisebox{-10000em}{x}', { open: true }))).toBeNull();
+        // A tall formula a model really writes still draws.
+        const rows = Array.from({ length: 30 }, () => 'a \\\\').join(' ');
+        expect(renderer().render(ctx(`\\begin{pmatrix} ${rows} \\end{pmatrix}`, { display: true }))).toContain('katex-display');
+    });
+
     it('shows a formula past the length cap as TeX', () => {
         setupKatexWith(katex, { maxLength: 10 });
         expect(renderer().render(ctx('x + y + z + w + v'))).toContain('aparte-code-error');
@@ -138,6 +150,20 @@ describe('a formula still arriving', () => {
         const b = inPart(part());
         expect(renderer().render(a('a + 1'))).toContain('katex');
         expect(renderer().render(b('b + 1'))).toContain('katex');
+    });
+
+    it('keeps its pace in a reply with no segments, whose paragraph is written anew each token', () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        setupKatexWith(katex);
+        const content = document.createElement('div');
+        content.className = 'aparte-content';
+        document.body.appendChild(content);
+        const at = (source: string): AparteCodeLanguageContext => {
+            content.innerHTML = '<p>so <code class="language-math math-inline"></code></p>';
+            return ctx(source, { open: true, host: content.querySelector('code')! });
+        };
+        expect(renderer().render(at('x + 1'))).toContain('katex');
+        expect(renderer().render(at('x + 12'))).toBeInstanceOf(Promise);
     });
 
     it('waits for the closed formula when live drawing is off', () => {

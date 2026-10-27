@@ -29,6 +29,12 @@ export interface KatexOptions {
 
 /** How long a frame is, for the live redraw's pace. */
 const FRAME_MS = 16;
+/**
+ * The tallest line a formula may lay out, in em. KaTeX caps a size it is asked for
+ * (`maxSize`) but not a negative shift: `\raisebox{-10000em}{x}` makes a line 10000em
+ * tall, a bubble a few hundred thousand pixels high. A 30-row matrix is under 40em.
+ */
+const TALLEST_EM = 100;
 
 /**
  * Draw maths with a KaTeX you provide — the instance, or a function that loads it on the
@@ -79,8 +85,12 @@ function createKatexRenderer(
         timer: ReturnType<typeof setTimeout> | undefined;
     }
     const paces = new WeakMap<Element, Pace>();
-    /** The reply part a formula belongs to: its segment, which outlives a rebuilt block. */
-    const partOf = (host: HTMLElement): Element => host.closest('[data-segment-id]') ?? host.parentElement ?? host;
+    /**
+     * The reply part a formula belongs to, which outlives a rebuilt block: its segment, or
+     * the bubble's content when the reply has no segments — not the paragraph, which the
+     * Markdown provider writes anew on every token.
+     */
+    const partOf = (host: HTMLElement): Element => host.closest('[data-segment-id], .aparte-content') ?? host.parentElement ?? host;
 
     const ensure = (): KatexLike | Promise<KatexLike> => {
         if (katex) return katex;
@@ -116,6 +126,7 @@ function createKatexRenderer(
                 macros: { ...(user['macros'] as Record<string, string> | undefined) },
             });
             if (!checkedStyles) { checkedStyles = true; checkStyles(); }
+            if (tallestLine(html) > TALLEST_EM) return ctx.open ? null : failed(tex, 'This formula is too tall to draw.');
             return html;
         } catch (error) {
             // Half a formula does not parse; the last drawing stays until the next one does.
@@ -154,6 +165,13 @@ function createKatexRenderer(
             return k instanceof Promise ? k.then((loaded) => draw(loaded, ctx)) : draw(k, ctx);
         },
     };
+}
+
+/** The height of the tallest line KaTeX laid a formula out on: each line's strut, in em. */
+function tallestLine(html: string): number {
+    let tallest = 0;
+    for (const match of html.matchAll(/strut" style="height:([\d.]+)em/g)) tallest = Math.max(tallest, Number(match[1]));
+    return tallest;
 }
 
 function failed(tex: string, message: string): string {
