@@ -534,6 +534,9 @@ export class AparteConfig {
             );
         }
         this._sanitizer = sanitizer;
+        // What is on screen went through the previous sanitizer: draw it again.
+        bumpRenderingVersion(this);
+        this._notify();
     }
 
     /**

@@ -30,6 +30,7 @@
  *   the same content (a framework re-syncing the finished message) leaves it there.
  */
 import { contextConfig } from '../config/index.js';
+import { renderingVersionOf } from '../config/aparte-config.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml } from '../utils/escape.js';
 
@@ -48,19 +49,25 @@ export type AparteMarkdownStreamHost = HTMLElement & {
 };
 
 /**
- * The content an element was last settled on by keeping the parser's DOM.
+ * What an element was last settled on, and who wrote it.
  *
- * The parser is gone once it settles, but the settle is not the last non-streaming
- * update an element receives: a framework's reconcile re-sends `{ content,
- * isStreaming: false }` to the last message on every render. Without this, that
- * second settle found no parser and fell through to the one-shot default, turning
- * the kept DOM back into its raw source one render after the turn ended.
+ * The settle is not the last non-streaming update an element receives: a framework's
+ * reconcile re-sends `{ content, isStreaming: false }` to the last message on every
+ * render. Two things went wrong without this record:
  *
- * Keyed by the content element, because that is what the entry describes — the
- * bubble's own content element can be rebuilt under the same host — and weakly, so
- * that removing the element removes the entry, for the reason given above.
+ * - `parser` — the DOM was kept from the incremental parser, and the parser is gone.
+ *   The second settle found no parser and fell through to the one-shot default,
+ *   turning the kept DOM back into its raw source one render after the turn ended.
+ * - `markdown` — the one-shot render wrote it. Every re-sync rebuilt the whole
+ *   element from the same string, which threw away what was drawn on top of it (a
+ *   highlighted fence, a formula) only to draw it again.
+ *
+ * `version` is the config's rendering version at the time, so a provider or sanitizer
+ * changed since still gets its redraw. Keyed by the content element, because that is
+ * what the entry describes — the bubble's own content element can be rebuilt under the
+ * same host — and weakly, so that removing the element removes the entry.
  */
-const settledFromParser = new WeakMap<Element, string>();
+const settled = new WeakMap<Element, { content: string; version: number; writer: 'parser' | 'markdown' }>();
 
 /** A probe with HTML in it, because escaping HTML is what the default renderer does. */
 const ONE_SHOT_PROBE = '<i>a</i>';
@@ -96,10 +103,11 @@ export function writeStreamedMarkdown(
     content: string,
     streaming: boolean,
 ): void {
+    const cfg = contextConfig();
     if (streaming) {
+        settled.delete(contentEl);   // a stream writes over whatever was settled here
         // Lazily create an incremental renderer on the first streaming update.
         if (host._aparteSmd === undefined) {
-            settledFromParser.delete(contentEl);   // a new stream writes over the settled DOM
             const renderer = contextConfig().createStreamingMarkdownRenderer(contentEl as HTMLElement);
             if (renderer) {
                 contentEl.textContent = '';   // drop the skeleton — smd appends from scratch
@@ -135,20 +143,26 @@ export function writeStreamedMarkdown(
             // the complete string), so the render below would write the raw source over
             // rendered DOM. Keep what the parser wrote — through the sanitizer, which is
             // what makes writing DOM directly acceptable in the first place.
-            contentEl.innerHTML = contextConfig().sanitizeHtml(contentEl.innerHTML);
-            settledFromParser.set(contentEl, content);
+            contentEl.innerHTML = cfg.sanitizeHtml(contentEl.innerHTML);
+            settled.set(contentEl, { content, version: renderingVersionOf(cfg), writer: 'parser' });
             return;
         }
         // Otherwise fall through: the one-shot provider re-renders for full fidelity.
-    } else if (settledFromParser.get(contentEl) === content && !hasOneShotMarkdownProvider()) {
-        // Settled already, on this very content: what the parser wrote is still the
-        // best render available. Changed content, or a one-shot provider registered
-        // since, falls through — the kept DOM would be stale or second-best.
-        return;
+    } else {
+        const last = settled.get(contentEl);
+        if (last?.content === content) {
+            // Settled already, on this very content. What the parser wrote is still the
+            // best render available unless a one-shot provider has been registered since;
+            // what the one-shot render wrote is still current unless a provider or the
+            // sanitizer changed since. Changed content falls through either way.
+            if (last.writer === 'parser' && !hasOneShotMarkdownProvider()) return;
+            if (last.writer === 'markdown' && last.version === renderingVersionOf(cfg)) return;
+        }
     }
 
-    settledFromParser.delete(contentEl);
-    contentEl.innerHTML = contextConfig().renderMarkdown(content);
+    contentEl.innerHTML = cfg.renderMarkdown(content);
+    if (streaming) settled.delete(contentEl);
+    else settled.set(contentEl, { content, version: renderingVersionOf(cfg), writer: 'markdown' });
 }
 
 /**
