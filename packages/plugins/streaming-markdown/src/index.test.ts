@@ -315,7 +315,7 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
     afterEach(() => aparteGlobalConfig.reset());
 
     /** Stream `text` one character at a time, drawing after each, as the bubble does. */
-    function streamDrawn(text: string, after?: (target: HTMLElement) => void): HTMLElement {
+    function streamDrawn(text: string, after?: (target: HTMLElement) => void, each?: (target: HTMLElement) => void): HTMLElement {
         setupStreamingMarkdownProvider();
         const target = document.createElement('div');
         document.body.appendChild(target);
@@ -323,9 +323,12 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
         for (const ch of text) {
             r.write(ch);
             renderCodeLanguages(target, { streaming: true });
+            each?.(target);
         }
         after?.(target);
         r.end();
+        renderCodeLanguages(target);
+        each?.(target);
         return target;
     }
 
@@ -350,6 +353,36 @@ describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer reg
         });
         // The fork holds its last character back, to see what it opens.
         expect(mid).toEqual({ open: true, drawn: '\\frac{1}{3} + ' });
+    });
+
+    /** Every source a placeholder held at any point of the stream, and at its end. */
+    function placeholdersSeen(text: string): Set<string> {
+        const seen = new Set<string>();
+        streamDrawn(text, undefined, (target) => {
+            for (const code of target.querySelectorAll('code.language-math')) seen.add(code.textContent ?? '');
+        });
+        return seen;
+    }
+
+    it.each([
+        ['the closing $$ of a one-line formula', 'The formula:\n\n$$E = mc^2$$\n\nwhere E is the energy.'],
+        ['a $ before a word', 'Prices are in $USD for now.\n\nThe next paragraph.'],
+        ['two shell variables', 'Set $HOME and $PATH before you run it.'],
+        ['three single $', 'Prices: $a, $b and $c.'],
+        ['a reference in brackets', 'As shown in \\(1\\).'],
+        ['a $$ in the middle of a line', 'Line one\nLine two $$\nX\n$$'],
+    ])('never hands prose to the maths renderer: %s', (_what, text) => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        expect([...placeholdersSeen(text)]).toEqual([]);
+    });
+
+    it('draws an inline formula once its closer has come, not while it arrives', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        let mid: string | null | undefined;
+        const target = streamDrawn('The area $x^2', (t) => { mid = t.querySelector('code.language-math')?.textContent ?? null; });
+        expect(mid).toBeNull();
+        expect(target.querySelector('code.language-math')).toBeNull();
+        expect([...placeholdersSeen('The area $x^2$ grows.')]).toEqual(['x^2']);
     });
 
     it('leaves the fork\'s own elements when no maths renderer is registered', () => {

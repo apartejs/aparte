@@ -44,6 +44,21 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  */
 const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
 
+/** Whether a token opened in `parent` now starts a line: nothing before it, or a line break. */
+function startsLine(parent: Element): boolean {
+    const last = parent.lastChild;
+    return !last || last.nodeName === 'BR';
+}
+
+/**
+ * Whether an inline formula's text reads as TeX by Pandoc's rule: no space just inside
+ * either delimiter (`$5 and $` is two prices), and more than a number (`\(1\)` is a
+ * reference in brackets, as `@aparte/plugin-marked` reads it).
+ */
+function isTex(text: string): boolean {
+    return /^\S(?:[\s\S]*\S)?$/.test(text) && !/^\d+(?:[.,]\d+)?$/.test(text);
+}
+
 /**
  * Register `@paulrichez/streaming-markdown` as aparté's incremental (streaming) Markdown
  * renderer.
@@ -97,37 +112,47 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
         };
         /*
          * A formula becomes the placeholder core's code-language engine draws — with a
-         * maths renderer registered (`@aparte/plugin-katex`) — the same markup
-         * `@aparte/plugin-marked` writes, so the reply does not change at settle. It is
-         * marked open until its closer arrives, and drawn while it streams. Without a
-         * maths renderer the fork's own elements stay, as before.
+         * maths renderer registered (`@aparte/plugin-katex`) — the markup
+         * `@aparte/plugin-marked` writes. Only what the fork has plainly read as maths:
+         * its rules are looser than Pandoc's (a `$` before a letter opens a formula that no
+         * newline ends, and the closing `$$` of `$$x$$` opens a block), and a placeholder
+         * hides its text behind a drawing. So a display formula is drawn as it arrives
+         * when its `$$` starts a line, and an inline one once its closer has come and its
+         * TeX passes Pandoc's test. Anything else keeps the fork's own element, which
+         * reads as text, as it did before. Without a maths renderer nothing changes.
          */
+        let ending = false;
         const originalAddToken = renderer.add_token;
         const originalEndToken = renderer.end_token;
         renderer.add_token = (data, type) => {
-            const display = type === Token.Equation_Block;
-            if (!(display || type === Token.Equation_Inline) || !config.hasCodeLanguageRenderer('math')) {
+            const parent = data.nodes[data.index]!;
+            if (type !== Token.Equation_Block || !config.hasCodeLanguageRenderer('math') || !startsLine(parent)) {
                 originalAddToken(data, type);
                 return;
             }
-            // The fork writes a display formula inside its paragraph, so no <pre>: the
-            // class is what tells the engine it is one.
+            // Inside its paragraph, as the fork writes it, so no <pre>: the class is what
+            // tells the engine it is a display formula.
             const code = document.createElement('code');
-            const kind = display ? 'math-display' : 'math-inline';
-            code.className = `language-math ${kind}`;
+            code.className = 'language-math math-display';
             code.setAttribute(OPEN, '');
-            const parent = data.nodes[data.index]!;
             data.nodes[++data.index] = parent.appendChild(code);
         };
         renderer.end_token = (data) => {
-            const node = data.nodes[data.index];
-            if (node?.tagName === 'CODE') node.removeAttribute(OPEN);
+            const node = data.nodes[data.index]!;
             originalEndToken(data);
+            if (node.tagName === 'CODE') node.removeAttribute(OPEN);
+            // Closed by its own closer, not by the end of the reply.
+            if (node.tagName === 'EQUATION-INLINE' && !ending && config.hasCodeLanguageRenderer('math') && isTex(String(node.textContent))) {
+                const code = document.createElement('code');
+                code.className = 'language-math math-inline';
+                code.textContent = node.textContent;
+                node.replaceWith(code);
+            }
         };
         const p = parser(renderer);
         return {
             write: (chunk: string): void => { parser_write(p, chunk); },
-            end: (): void => { parser_end(p); },
+            end: (): void => { ending = true; parser_end(p); },
         };
     });
 }
