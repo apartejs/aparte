@@ -57,7 +57,7 @@ export function setupN8nButtons(config: AparteConfig = aparteGlobalConfig): void
                 tone: button.type === 'secondary' ? 'deny' : 'affirm',
             })),
             // n8n's "Block User Input": a button, or nothing — no words instead.
-            freeText: !input.blockUserInput,
+            allowOther: !input.blockUserInput,
             signal,
             ...(context?.target ? { target: context.target } : {}),
         });

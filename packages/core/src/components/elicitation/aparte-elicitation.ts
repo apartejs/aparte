@@ -477,7 +477,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 const approvalMode = (): AparteComposerPanelMode => (sendable() ? 'submit' : 'none');
                 const syncSubmit = (): void => composer.setPanelSubmitEnabled(sendable(), approvalMode());
                 const panel = runWithConfig(cfg, () =>
-                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details, request.freeText ?? true));
+                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details, request.allowOther ?? true));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
                 this._pending = {

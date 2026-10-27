@@ -61,7 +61,7 @@ export function buildApprovalPanel(
     options: readonly AparteApprovalOption[],
     onChange: () => void,
     details?: string,
-    freeText = true,
+    allowOther = true,
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
@@ -181,7 +181,7 @@ export function buildApprovalPanel(
      * its own — submitting written text is exactly the act that button already means.
      */
     // Left out when the request says the answer has to be one of the options.
-    const instruction = freeText ? el('textarea', 'aparte-approval-instruction') : null;
+    const instruction = allowOther ? el('textarea', 'aparte-approval-instruction') : null;
     if (instruction) {
         instruction.rows = 1;
         instruction.placeholder = cfg.t('approvalInstructionPlaceholder');
