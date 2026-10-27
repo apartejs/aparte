@@ -1,4 +1,4 @@
-import { Tokenizer, type MarkedExtension, type Tokens } from 'marked';
+import type { MarkedExtension, Tokenizer, Tokens } from 'marked';
 import { PAIRS, blankMath, closerAfter, dollarCloser, isEscapedBrackets, openEnd } from './scan.js';
 
 /**
@@ -59,12 +59,14 @@ export function markedMath(options: MarkedMathOptions = {}): MarkedExtension {
         // on a masked copy of the text; a formula left in it closes an italic opened before
         // it (`*the optimum $x^*$*`). Its `emStrongMask` hook cannot hide one: it receives a
         // copy where `\(` is already `++`, so the formulas are found on the real text here.
+        // marked's own tokenizer is reached through the instance's prototype, not imported:
+        // this module is the chunk both entries share, and it imports nothing from marked.
         tokenizer: {
             emStrong(src, maskedSrc, prevChar) {
-                return Tokenizer.prototype.emStrong.call(this, src, blankMath(src, maskedSrc), prevChar);
+                return (Object.getPrototypeOf(this) as Tokenizer).emStrong.call(this, src, blankMath(src, maskedSrc), prevChar);
             },
             del(src, maskedSrc, prevChar) {
-                return Tokenizer.prototype.del.call(this, src, blankMath(src, maskedSrc), prevChar);
+                return (Object.getPrototypeOf(this) as Tokenizer).del.call(this, src, blankMath(src, maskedSrc), prevChar);
             },
         },
         extensions: [
