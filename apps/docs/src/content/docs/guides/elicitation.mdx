@@ -165,7 +165,8 @@ if (answer.action === 'accept') {
 
 A `kind: 'approval'` request offers your options, each answered by its click, and resolves with
 the chosen option's `value` as `option` — or, when the person writes instead, with their
-`instruction`. Give an option that reaches further its own `value`, so your code knows to remember
+`instruction`. `freeText: false` takes that field away when the answer has to be one of the
+options. Give an option that reaches further its own `value`, so your code knows to remember
 it, and say that reach in its `description`, under the label. `details` is shown as plain text
 under an **Arguments** heading, never as markup. The
 [tool approval](/guides/tools/#require-approval-human-in-the-loop) is this request, with two

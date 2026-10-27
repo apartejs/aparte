@@ -61,6 +61,7 @@ export function buildApprovalPanel(
     options: readonly AparteApprovalOption[],
     onChange: () => void,
     details?: string,
+    freeText = true,
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
@@ -179,14 +180,17 @@ export function buildApprovalPanel(
      * text is the user's. It resolves through the COMPOSER's button rather than one of
      * its own — submitting written text is exactly the act that button already means.
      */
-    const instruction = el('textarea', 'aparte-approval-instruction');
-    instruction.rows = 1;
-    instruction.placeholder = cfg.t('approvalInstructionPlaceholder');
-    instruction.setAttribute('aria-label', cfg.t('approvalInstructionPlaceholder'));
-    instruction.addEventListener('input', onChange);
-    body.appendChild(instruction);
+    // Left out when the request says the answer has to be one of the options.
+    const instruction = freeText ? el('textarea', 'aparte-approval-instruction') : null;
+    if (instruction) {
+        instruction.rows = 1;
+        instruction.placeholder = cfg.t('approvalInstructionPlaceholder');
+        instruction.setAttribute('aria-label', cfg.t('approvalInstructionPlaceholder'));
+        instruction.addEventListener('input', onChange);
+        body.appendChild(instruction);
+    }
 
-    const typed = (): string => instruction.value.trim();
+    const typed = (): string => instruction?.value.trim() ?? '';
 
     return {
         el: panel,
@@ -202,8 +206,10 @@ export function buildApprovalPanel(
         relabel: () => {
             const now = contextConfig();
             const label = now.t('approvalInstructionPlaceholder');
-            instruction.placeholder = label;
-            instruction.setAttribute('aria-label', label);
+            if (instruction) {
+                instruction.placeholder = label;
+                instruction.setAttribute('aria-label', label);
+            }
             row.setAttribute('aria-label', now.t('approvalOptionsLabel'));
             // The question, which was the half I left behind the first time.
             if (ask) ask.textContent = askText();

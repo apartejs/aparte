@@ -26,7 +26,8 @@ describe('setupN8nButtons', () => {
         setupN8nButtons();
         const result = await aparteGlobalConfig.getToolHandler(N8N_BUTTONS_TOOL)!(call, new AbortController().signal);
 
-        expect(asked[0]).toMatchObject({ kind: 'approval', message: 'Shall I book a table for tonight?' });
+        // blockUserInput: the answer has to be a button.
+        expect(asked[0]).toMatchObject({ kind: 'approval', message: 'Shall I book a table for tonight?', freeText: false });
         expect(asked[0]!.options!.map((o) => [o.value, o.label, o.tone])).toEqual([['0', 'Book it', 'affirm'], ['1', 'No thanks', 'deny']]);
         expect(result).toEqual({ toolCallId: 'n8n-buttons-1', content: 'No thanks', structuredContent: { index: 1, text: 'No thanks' } });
     });

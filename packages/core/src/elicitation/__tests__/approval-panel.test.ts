@@ -121,6 +121,15 @@ describe('buildApprovalPanel', () => {
         expect(panel.getContent()).toEqual({ instruction: 'use --dry-run first' });
     });
 
+    it('offers no field for words when the decision has to be one of the options', () => {
+        const panel = buildApprovalPanel('Book a table?', OPTIONS, NOOP, undefined, false);
+        expect(panel.el.querySelector('.aparte-approval-instruction')).toBeNull();
+        expect(panel.isComplete()).toBe(false);
+        expect(panel.getContent()).toEqual({ instruction: '' });
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalInstructionPlaceholder: 'Ou dites-lui quoi faire' });
+        expect(() => panel.relabel()).not.toThrow();
+    });
+
     it('focuses the first option, not the text box', () => {
         const panel = buildApprovalPanel('?', OPTIONS, NOOP);
         document.body.appendChild(panel.el);

@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.27.3
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [0689e87](https://github.com/apartejs/aparte/commit/0689e87): An approval can now require one of its options: pass `freeText: false` to `requestUserInput` and the "Or tell it what to do instead" field is left out.
+
+  The corner still declines, since an unanswered approval is never a yes. The default is unchanged: the field is there unless a request says otherwise.
+  <sub>`@aparte/core`</sub>
+
+- [a329d19](https://github.com/apartejs/aparte/commit/a329d19): n8n's "Block User Input" is now honoured: a Chat node's buttons are asked without a field to write in when it is on.
+
+  Without it, the person may still write instead of choosing, which n8n reads as a message and takes as not approved, as with its own widget.
+  <sub>`@aparte/runner-n8n`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.27.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
