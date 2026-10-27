@@ -13,6 +13,7 @@ import type {
     AparteSegmentRenderer,
     AparteCodeSegment,
 } from '../../types/index.js';
+import type { AparteConfig } from '../../config/aparte-config.js';
 
 /**
  * The source each pane shows, for the copy button: the pane's text stops being the
@@ -21,8 +22,11 @@ import type {
 const sources = new WeakMap<Element, string>();
 /** Each whole-content highlight's turn: one resolving after a newer one must not land. */
 const generations = new WeakMap<Element, number>();
-/** What each pane was last highlighted from, so a settled block re-synced unchanged is left alone. */
-const highlighted = new WeakMap<Element, string>();
+/**
+ * What each pane was last highlighted from, and under which config, so a settled block
+ * re-synced unchanged is left alone — and one re-synced under another config is not.
+ */
+const highlighted = new WeakMap<Element, { what: string; config: AparteConfig }>();
 
 /**
  * Highlight the whole content, once the segment has settled.
@@ -37,16 +41,18 @@ function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): voi
     // A framework re-sends the finished segment on every render: the same content in the
     // same language is the same highlight, already on screen.
     const what = `${segment.language ?? ''}\u0001${segment.content}`;
-    if (highlighted.get(element) === what) return;
-    highlighted.set(element, what);
+    const config = contextConfig();
+    const last = highlighted.get(element);
+    if (last?.what === what && last.config === config) return;
+    highlighted.set(element, { what, config });
     const turn = (generations.get(element) ?? 0) + 1;
     generations.set(element, turn);
     wrapper.dataset.aparteSettled = '';
-    void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
+    void config.highlightCode(segment.content, segment.language || '', { fallback: false }).then(html => {
         if (generations.get(element) !== turn) return;
         wrapper.innerHTML = html;
     }).catch(() => {
-        // Best-effort: a failed highlight degrades silently, and the next settle tries again.
+        // Best-effort: a failed highlight keeps the plain block, and the next settle tries again.
         if (generations.get(element) === turn) highlighted.delete(element);
     });
 }

@@ -1729,15 +1729,20 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (this._cfg.hasCodeLanguageRenderer(lang) || codeEl.closest('.aparte-code-drawing')) return;
       const pre = codeEl.parentElement;
       codeEl.setAttribute('data-aparte-highlighted', '');
-      Promise.resolve(this._cfg.highlightCode(code, lang)).then((html) => {
+      Promise.resolve(this._cfg.highlightCode(code, lang, { fallback: false })).then((html) => {
         const out = (html ?? '').trim();
-        if (!out || !pre || !pre.isConnected) return;
+        // Still this bubble's block — a bubble taken out of the page for a moment keeps
+        // it, and must get its colours — and not one a later render replaced.
+        if (!out || !pre || !this._contentEl?.contains(pre)) return;
         if (/^<pre[\s>]/i.test(out)) {
           replaceHighlighted(pre, out);              // full block (Shiki)
         } else {
           (codeEl as HTMLElement).innerHTML = out;   // inner tokens (Prism, hljs)
         }
-      }).catch(() => { /* keep the plain block on failure */ });
+      }).catch(() => {
+        // The plain block stays, unmarked, so the next pass tries it again.
+        codeEl.removeAttribute('data-aparte-highlighted');
+      });
     });
   }
 

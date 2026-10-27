@@ -213,13 +213,14 @@ export function highlightMarkdownFences(contentEl: Element): void {
         if (isDrawnLanguage(lang, contentEl) || block.closest('.aparte-code-drawing')) continue;
         const source = block.textContent ?? '';
         block.setAttribute('data-aparte-highlighted', '');
-        void contextConfig().highlightCode(source, lang)
+        void contextConfig().highlightCode(source, lang, { fallback: false })
             .then(html => {
                 // The provider returns a full `<pre>…</pre>`, so it replaces the
                 // block's own `<pre>` rather than filling it.
                 if (pre.isConnected || pre.parentElement) replaceHighlighted(pre, html);
             })
-            .catch(() => { /* best-effort: a failed highlight degrades silently */ });
+            // A failed highlight keeps the plain block, unmarked, so the next pass tries again.
+            .catch(() => block.removeAttribute('data-aparte-highlighted'));
     }
 }
 

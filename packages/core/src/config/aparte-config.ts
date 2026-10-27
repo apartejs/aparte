@@ -1408,8 +1408,12 @@ export class AparteConfig {
      * Highlight code block
      * Fallback: Returns raw code wrapped in `<pre><code>`
      * Supports Promise if provider is async/streaming
+     *
+     * @param options.fallback `false` rejects when the highlight provider fails, instead of
+     *   answering the plain block: for a caller that keeps what it highlighted, so a
+     *   failure (a highlighter still loading its grammars) is tried again rather than kept.
      */
-    async highlightCode(code: string, lang: string): Promise<string> {
+    async highlightCode(code: string, lang: string, options: { fallback?: boolean } = {}): Promise<string> {
         if (this._highlightProvider) {
             try {
                 const result = this._highlightProvider(code, lang);
@@ -1418,6 +1422,7 @@ export class AparteConfig {
                 return this.sanitizeHtml(html);
             } catch (error) {
                 console.warn('[AparteConfig] Highlight provider failed, using fallback:', error);
+                if (options.fallback === false) throw error;
             }
         }
         return this._defaultHighlightRenderer(code);

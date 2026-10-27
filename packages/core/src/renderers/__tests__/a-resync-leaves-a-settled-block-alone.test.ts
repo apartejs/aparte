@@ -77,6 +77,73 @@ describe('a re-synced settled reply', () => {
     });
 });
 
+describe('what the verification of the audit found', () => {
+    function codePane(segment: AparteCodeSegment): HTMLElement {
+        const holder = document.createElement('div');
+        holder.innerHTML = codeRenderer.render(segment) as string;
+        const el = holder.firstElementChild as HTMLElement;
+        document.body.appendChild(el);
+        codeRenderer.setup?.(el, segment);
+        return el;
+    }
+    const segment: AparteCodeSegment = { id: 'c1', type: 'code', language: 'ts', content: 'const a = 1;', isStreaming: false };
+
+    it('highlights an unchanged code segment again under another config', async () => {
+        aparteGlobalConfig.setHighlightProvider((code) => `<pre data-by="global"><code>${code}</code></pre>`);
+        const chat = new AparteConfig();
+        chat.setHighlightProvider((code) => `<pre data-by="chat"><code>${code}</code></pre>`);
+        const el = codePane(segment);
+        await flush();
+        runWithConfig(chat, () => codeRenderer.update?.(el, { ...segment }));
+        await flush();
+        expect(el.querySelector('[data-by]')!.getAttribute('data-by')).toBe('chat');
+    });
+
+    it('tries a failed highlight again on the next re-sync, in a code segment and in a reply', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        let calls = 0;
+        aparteGlobalConfig.setMarkdownProvider(markdown);
+        aparteGlobalConfig.setHighlightProvider((code) => {
+            if (calls++ % 2 === 0) throw new Error('grammars still loading');
+            return `<pre class="shiki"><code>${code}</code></pre>`;
+        });
+        const el = codePane(segment);
+        await flush();
+        expect(el.querySelector('pre.shiki')).toBeNull();
+        codeRenderer.update?.(el, { ...segment });
+        await flush();
+        expect(el.querySelector('pre.shiki')).not.toBeNull();
+
+        const { host, contentEl } = mount();
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+        highlightMarkdownFences(contentEl);
+        await flush();
+        expect(contentEl.querySelector('pre.shiki')).toBeNull();
+        expect(contentEl.querySelector('code[data-aparte-highlighted]')).toBeNull();
+        writeStreamedMarkdown(host, contentEl, SRC, false);
+        highlightMarkdownFences(contentEl);
+        await flush();
+        expect(contentEl.querySelector('pre.shiki')).not.toBeNull();
+    });
+
+    it('highlights a reply whose bubble left the page while the highlight ran', async () => {
+        await import('../../components/bubble/aparte-chat-bubble.js');
+        aparteGlobalConfig.setMarkdownProvider(markdown);
+        aparteGlobalConfig.setHighlightProvider((code, lang) => `<pre class="shiki" data-lang="${lang}"><code>${code}</code></pre>`);
+        const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & { setContent(raw: string): void };
+        bubble.setAttribute('message-id', 'm1');
+        bubble.setAttribute('data-role', 'assistant');
+        document.body.appendChild(bubble);
+        bubble.setContent(SRC);
+        bubble.remove();   // a route away, a keep-alive cache
+        await flush();
+        document.body.appendChild(bubble);
+        bubble.setContent(SRC);
+        await flush();
+        expect(bubble.querySelector('pre.shiki')?.getAttribute('data-lang')).toBe('ts');
+    });
+});
+
 describe('setHtmlSanitizer', () => {
     it('changes nothing, and tells no one, when given the sanitizer it already has', () => {
         const mine = (html: string) => html;
