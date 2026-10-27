@@ -80,6 +80,9 @@ if (result.action === 'accept') {
 }
 ```
 
+`freeText: false` leaves the instruction field out, for a decision that has to be one of the
+options; the corner still declines, since an unanswered approval is never a yes.
+
 An `AparteApprovalOption` has a `value`, a `label`, an optional `description` (what choosing it
 commits to) and a `tone`, `affirm` or `deny`. A label can be a function, re-read when the
 language changes while the question is open.
