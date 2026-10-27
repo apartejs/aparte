@@ -44,6 +44,8 @@ export type {
     AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
+    AparteSource,
+    AparteCitation,
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteSegmentRenderer,

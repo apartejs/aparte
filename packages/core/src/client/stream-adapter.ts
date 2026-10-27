@@ -18,7 +18,7 @@
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
 import { segmentContentUpdate } from '../utils/segments.js';
 import type { AparteConfig } from '../config/aparte-config.js';
-import type { AparteSegment, AparteMessage, AparteStreamEvent } from '../types/index.js';
+import type { AparteSegment, AparteMessage, AparteStreamEvent, AparteSource, AparteCitation } from '../types/index.js';
 import type {
     AparteThinkingSegment,
     AparteToolCallSegment,
@@ -135,6 +135,49 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
+    // What this model call streamed — its text, its text segments in order, and the sources
+    // it cited — to place each citation in the segment it falls in (see `placeSources`).
+    let callText = '';
+    let callTexts = new Map<string, string>();
+    let callSources: AparteSource[] = [];
+    let callCitations: AparteCitation[] = [];
+    const noteText = (segment: AparteSegment): void => {
+        if (segment.type === 'text') callTexts.set(segment.id, segment.content);
+    };
+
+    /**
+     * Give each text segment the sources it cites. A provider's offsets are into the text the
+     * call streamed; the parser cut that text at fences and blocks, so each segment is found
+     * in it in order, and a citation goes to the segment its end falls in, rebased onto that
+     * segment's `content`. A source no placed citation names — the AI SDK's carry no
+     * position — joins the last segment's list, where it is shown without a chip.
+     */
+    const placeSources = (): void => {
+        if (callSources.length === 0 || callTexts.size === 0) return;
+        let cursor = 0;
+        const spans = [...callTexts].map(([id, content]) => {
+            const start = callText.indexOf(content, cursor);
+            if (start >= 0) cursor = start + content.length;
+            return { id, start, length: content.length, citations: [] as AparteCitation[] };
+        });
+        const placed = new Set<string>();
+        for (const citation of callCitations) {
+            const span = spans.find((s) => s.start >= 0 && citation.end >= s.start && citation.end <= s.start + s.length);
+            if (!span) continue;
+            const end = citation.end - span.start;
+            const start = citation.start === undefined ? undefined : Math.max(0, Math.min(end, citation.start - span.start));
+            span.citations.push({ ...citation, end, ...(start === undefined ? {} : { start }) });
+            for (const id of citation.sources) placed.add(id);
+        }
+        const last = spans[spans.length - 1]!;
+        for (const span of spans) {
+            const named = new Set(span.citations.flatMap((c) => c.sources));
+            const sources = callSources.filter((s) => named.has(s.id) || (span === last && !placed.has(s.id)));
+            if (sources.length === 0) continue;
+            target.updateSegment?.(span.id, { sources, citations: span.citations } as Partial<AparteSegment>);
+        }
+    };
+
     /**
      * The reasoning block has ended: the model moved on, to its answer or to a tool call.
      *
@@ -171,6 +214,10 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 settleThinking(false);
                 parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
                 streaming = new Set();
+                callText = '';
+                callTexts = new Map();
+                callSources = [];
+                callCitations = [];
                 thinkingId = null;
                 thinkingContent = '';
                 thinkingCollapsed = false;
@@ -204,8 +251,10 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'text-delta': {
                 // Collapse the thinking block when response text starts.
                 settleThinking(true);
+                callText += e.delta;
                 const result = parser.parse(e.delta);
                 for (const segment of result.segments) {
+                    noteText(segment);
                     if (!streaming.has(segment.id)) {
                         target.addSegment?.(segment);
                         streaming.add(segment.id);
@@ -215,6 +264,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 const active = parser.getState().activeSegment;
                 if (active) {
+                    noteText(active);
                     if (!streaming.has(active.id)) {
                         target.addSegment?.(active);
                         streaming.add(active.id);
@@ -232,9 +282,20 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'text-flush': {
                 const finals = parser.finalize();
                 for (const s of finals) {
+                    noteText(s);
                     if (!streaming.has(s.id)) target.addSegment?.(s);
                     else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
                 }
+                // The segments are final now: place again what came before them.
+                placeSources();
+                break;
+            }
+
+            case 'sources': {
+                const known = new Set(callSources.map((s) => s.id));
+                callSources = [...callSources, ...e.sources.filter((s) => !known.has(s.id))];
+                callCitations = [...callCitations, ...(e.citations ?? [])];
+                placeSources();
                 break;
             }
 

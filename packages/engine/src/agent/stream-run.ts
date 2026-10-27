@@ -483,6 +483,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continue;
                 }
 
+                if (event.type === 'sources') {
+                    // Offsets are the provider's, into this call's text — the adapter's
+                    // turn, since `turn-start` opens one per call. Passed on as they are.
+                    emitter({ type: 'sources', sources: event.sources, ...(event.citations ? { citations: event.citations } : {}) });
+                    continue;
+                }
+
                 if (event.type === 'done') {
                     if (event.usage) lastUsage = event.usage;
                     if (event.finishReason) lastFinishReason = event.finishReason;

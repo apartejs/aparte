@@ -61,6 +61,8 @@ export type {
     AparteSegmentDefaults,
     AparteSegmentTiming,
     AparteTextSegment,
+    AparteSource,
+    AparteCitation,
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteErrorSegment,

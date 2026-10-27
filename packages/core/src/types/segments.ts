@@ -120,6 +120,44 @@ export interface AparteSegmentTiming {
 export interface AparteTextSegment extends AparteSegmentBase {
     type: 'text';
     content: string;
+    /**
+     * The sources this text draws on — a web search's results, the documents it quotes.
+     * The bubble lists them under the reply; a {@link AparteCitation} places a chip in the text.
+     */
+    sources?: AparteSource[];
+    /** Where in `content` each source is cited: a chip at the end of the passage. */
+    citations?: AparteCitation[];
+}
+
+/** One source a reply draws on. Shown by its domain, its title in the card and the list. */
+export interface AparteSource {
+    /** Unique within the message; what a {@link AparteCitation} names. */
+    id: string;
+    /** Only `https:`, `http:` and the like are linked (the sanitizer's URL policy). */
+    url?: string;
+    title?: string;
+    /** A short excerpt, shown in the card. */
+    snippet?: string;
+}
+
+/**
+ * A passage of a text segment that cites sources: offsets into the segment's `content`,
+ * in UTF-16 code units (JavaScript string indices), `end` exclusive. The chip goes at the
+ * end of the passage — after its punctuation, never inside code, emphasis or a link.
+ *
+ * @example
+ * { end: 42, sources: ['s1', 's3'] }
+ */
+export interface AparteCitation {
+    start?: number;
+    end: number;
+    /** Ids of the {@link AparteSource}s, in the order the card pages through them. */
+    sources: string[];
+    /**
+     * `[start, end)` is a marker the model wrote for the citation (Perplexity's `[1]`): the
+     * chip takes its place on screen. The text itself is left as it was written.
+     */
+    marker?: boolean;
 }
 
 /**
