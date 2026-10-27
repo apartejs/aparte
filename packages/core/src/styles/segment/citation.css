@@ -1,0 +1,95 @@
+/* =========================================
+   Citations — the chip at the end of a cited passage, its card, the list of sources
+   =========================================
+   The chip wears the tag recipe (`display/tag.css`) as a button; what it adds is only
+   its own: a place in a line of text, a cursor, and no selection — a reader copying the
+   passage takes its words, not "wikipedia +2". The card wears the popover recipe and is
+   mounted beside the transcript (the bubble clips what it paints), so it is fixed.
+
+       <p>The sky is blue.<button class="aparte-citation aparte-tag aparte-tag--sm">wikipedia +2</button></p>
+       <div class="aparte-citation-card aparte-popover" role="dialog">…</div>
+       <details class="aparte-sources"><summary>3 sources</summary><ol>…</ol></details> */
+
+.aparte-citation {
+  margin-inline-start: var(--aparte-space-1);
+  vertical-align: baseline;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  font-size: var(--aparte-font-size-xs);
+  line-height: var(--aparte-line-height-tight);
+  color: var(--aparte-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.aparte-citation:hover,
+.aparte-citation[aria-expanded="true"] {
+  color: var(--aparte-text);
+  border-color: var(--aparte-primary);
+}
+
+.aparte-citation:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-citation-card {
+  position: fixed;
+  z-index: var(--aparte-z-dropdown);
+  gap: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  line-height: var(--aparte-line-height-snug);
+}
+
+.aparte-citation-card__pager {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-citation-card__title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--aparte-text);
+  overflow-wrap: anywhere;
+}
+
+.aparte-citation-card__domain,
+.aparte-citation-card__snippet {
+  margin: 0;
+  color: var(--aparte-text-muted);
+}
+
+.aparte-citation-card__domain {
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-sources {
+  margin-block-start: var(--aparte-space-2);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-sources__summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.aparte-sources__list {
+  margin: var(--aparte-space-2) 0 0;
+  padding-inline-start: var(--aparte-space-5);
+}
+
+.aparte-sources__item {
+  margin-block: var(--aparte-space-1);
+  overflow-wrap: anywhere;
+}
+
+.aparte-sources__domain {
+  font-size: var(--aparte-font-size-xs);
+}

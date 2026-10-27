@@ -50,6 +50,7 @@ import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
 import './styles/segment/text.css';
+import './styles/segment/citation.css';
 import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
@@ -241,7 +242,8 @@ export {
     defineMountedToolRenderer,
     defineMountedSegmentRenderer,
     toToolCallView,
-    renderCodeLanguages
+    renderCodeLanguages,
+    renderCitations
 } from './renderers/index.js';
 export type { AparteRenderCodeLanguagesOptions } from './renderers/index.js';
 

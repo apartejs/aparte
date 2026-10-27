@@ -34,6 +34,7 @@ import { renderingVersionOf } from '../config/aparte-config.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml } from '../utils/escape.js';
 import { renderCodeLanguages, unrenderCodeLanguages, isDrawnLanguage } from './code-languages.js';
+import { unrenderCitations } from './citations.js';
 
 /**
  * The element that carries the incremental state.
@@ -158,8 +159,10 @@ function writeMarkdown(
             // rendered DOM. Keep what the parser wrote — through the sanitizer, which is
             // what makes writing DOM directly acceptable in the first place. Drawings
             // come off first: the sanitizer would strip what they are made of, and
-            // they are drawn again from the cache on the way out.
+            // they are drawn again from the cache on the way out. So do citation chips:
+            // stripped of their button, their label would stay in the text.
             unrenderCodeLanguages(contentEl);
+            unrenderCitations(contentEl);
             contentEl.innerHTML = cfg.sanitizeHtml(contentEl.innerHTML);
             settled.set(contentEl, { content, config: cfg, version: renderingVersionOf(cfg), writer: 'parser' });
             return;

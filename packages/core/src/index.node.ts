@@ -196,6 +196,7 @@ export {
     defineMountedSegmentRenderer,
     toToolCallView,
     renderCodeLanguages,
+    renderCitations,
 } from './renderers/index.js';
 export type { AparteRenderCodeLanguagesOptions } from './renderers/index.js';
 

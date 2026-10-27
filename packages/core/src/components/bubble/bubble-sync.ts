@@ -77,6 +77,8 @@ export function populateBubbleFromMessage(
                 if ('content' in seg) {
                     const patch = { content: (seg as { content: unknown }).content } as Partial<AparteSegment>;
                     if (settled) (patch as { isStreaming?: boolean }).isStreaming = false;
+                    // Sources often arrive after the text: a re-sync carries them too.
+                    if (seg.type === 'text' && (seg.sources || seg.citations)) Object.assign(patch, { sources: seg.sources, citations: seg.citations });
                     bubble.updateSegment?.(seg.id, patch);
                 }
             }

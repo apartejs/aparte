@@ -363,6 +363,20 @@ export type AparteLocale = {
      * (default: "Stopped after {n} turns to avoid an endless loop.").
      */
     maxTurnsReached?: string;
+    /** Under a reply that cites sources, and in a chip's name: how many; `{n}` is the count (default: "{n} sources"). */
+    sourcesCount?: string;
+    /** The same for one source (default: "1 source"). */
+    sourcesOne?: string;
+    /** The card a citation chip opens (default: "Sources"). */
+    sourcesCard?: string;
+    /** The card's button to the previous source (default: "Previous source"). */
+    sourcePrevious?: string;
+    /** The card's button to the next source (default: "Next source"). */
+    sourceNext?: string;
+    /** Read out when the card turns a page; `{i}` and `{n}` (default: "Source {i} of {n}"). */
+    sourcePosition?: string;
+    /** After a source's link, for screen readers (default: "(opens in a new tab)"). */
+    opensInNewTab?: string;
     /**
      * `@aparte/plugin-ask-user`: the receipt's line when the person declined to answer
      * (default: "You declined to answer."). The model reads `ASK_USER_DECLINED`, its own
@@ -608,6 +622,13 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolNoApprover: "No one could approve it",
     toolTurnLimit: "Turn limit reached",
     maxTurnsReached: "Stopped after {n} turns to avoid an endless loop.",
+    sourcesCount: "{n} sources",
+    sourcesOne: "1 source",
+    sourcesCard: "Sources",
+    sourcePrevious: "Previous source",
+    sourceNext: "Next source",
+    sourcePosition: "Source {i} of {n}",
+    opensInNewTab: "(opens in a new tab)",
     questionDeclined: "You declined to answer.",
     artifactNotCreated: "Not created",
     thoughtFor: "Thought for {duration}",

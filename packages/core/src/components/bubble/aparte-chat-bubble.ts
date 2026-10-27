@@ -33,6 +33,7 @@ interface DrawnSegment {
 }
 import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
+import { relabelCitations, renderSourceList } from '../../renderers/citations.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
@@ -419,6 +420,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._relabelSegments();
     // A drawn formula or diagram re-reads what it takes from the config (a diagram's alt).
     runWithConfig(this._cfg, () => relabelCodeLanguages(this));
+    relabelCitations(this);
+    this._syncSources();
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
@@ -844,7 +847,17 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * side replaces its own slot and the two are independent from then on.
      */
     this._replaceSegments(segments);
+    this._syncSources();
     this._updateWaiting();
+  }
+
+  /** The reply's sources, listed under its segments: the text segments' own, once each. */
+  private _syncSources(): void {
+    const segmentsEl = this._segmentsEl;
+    const container = segmentsEl?.parentElement;
+    if (!segmentsEl || !container) return;
+    const sources = this._segments.flatMap((s) => (s.type === 'text' ? s.sources ?? [] : []));
+    renderSourceList(container, segmentsEl, sources, this._cfg);
   }
 
   /** A whole new list, from `setSegments` or `updateMessage({ segments })`: copied in, then drawn. */
@@ -893,6 +906,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
+      if ('sources' in updates) this._syncSources();
       this._syncCopyAction();
       // A call that settles is a step that ended: the dots may be due again.
       if ('status' in updates || 'isStreaming' in updates) this._updateWaiting();
