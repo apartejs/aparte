@@ -260,6 +260,15 @@
   padding: var(--aparte-space-6);
 }
 
+/* A source its renderer could not draw (a typo in a formula, a diagram that does not
+   parse): the source again, quietly, in the code face. Renderers emit the class. */
+.aparte-code-error {
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-code-inline-font-size);
+  white-space: pre-wrap;
+}
+
 /* A formula still arriving, before anything could be drawn: its TeX, quietly. */
 .aparte-code-pending.language-math {
   color: var(--aparte-text-muted);

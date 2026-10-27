@@ -157,7 +157,9 @@ export interface AparteCodeLanguageContext {
  * The markup `render` returns is **trusted**: it is inserted as it is, not through the
  * HTML sanitizer, which would strip exactly what a drawing is made of (SVG, MathML,
  * positioning styles). It has the standing of a segment renderer's output — code you
- * installed. Never echo the source into it unescaped.
+ * installed. Never echo the source into it unescaped. For a source it cannot draw, a
+ * renderer may answer with the source in an element of class `aparte-code-error`,
+ * which core styles as quiet code.
  */
 export interface AparteCodeLanguageRenderer {
     /** The languages this renderer draws, lower-case. The last registration for a language wins. */
