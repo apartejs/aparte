@@ -15,12 +15,17 @@
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/plugin-katex": "workspace:*",
+    "@aparte/plugin-mermaid": "workspace:*",
+    "@aparte/plugin-streaming-markdown": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/runner-ag-ui": "workspace:*",
     "@aparte/runner-n8n": "workspace:*",
     "@tanstack/ai": "^0.68.0",
     "shiki": "^4.0.0",
+    "katex": "^0.19.1",
+    "mermaid": "^11.17.2",
     "@shikijs/langs": "^4.0.0",
     "@shikijs/themes": "^4.0.0"
   }

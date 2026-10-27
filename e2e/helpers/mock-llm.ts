@@ -137,7 +137,11 @@ export type LlmScenario =
     | 'slow'
     | 'http-500'
     | 'malformed-sse'
-    | 'empty-stream';
+    | 'empty-stream'
+    | 'math'
+    | 'math-hostile'
+    | 'diagram'
+    | 'diagram-broken';
 
 export interface LlmMockOptions {
     /** Return an empty model list → nothing auto-selects, the gate stays shut. */
@@ -201,8 +205,48 @@ function eventsForScenario(scenario: LlmScenario): string[] {
     return body.split(TERM).filter(Boolean).map(frame => frame + TERM);
 }
 
+/**
+ * A tail of prose after a formula or a diagram: under `pace`, the reply is still
+ * streaming for a while once the formula has closed, so a spec can read the drawing
+ * BEFORE the turn ends — the promise is that maths is drawn while it arrives.
+ */
+const TAIL_CHUNKS = Array.from({ length: 24 }, (_, i) => (i === 0 ? '\n\nSome prose' : ` follows, part ${i}`));
+
 function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
+        case 'math':
+            return [
+                contentEvent('The area under '), contentEvent('$x^2$'), contentEvent(' from 0 to 1 is:\n\n'),
+                contentEvent('$$\n'), contentEvent('\\int_0^1 x^2'), contentEvent('\\,dx = \\frac{1}{3}\n'), contentEvent('$$\n\n'),
+                contentEvent('And a price stays a price: it costs $5 and $10.'),
+                ...TAIL_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        case 'math-hostile':
+            return [
+                contentEvent('A link $\\href{javascript:alert(1)}{click}$, a class $\\htmlClass{aparte-btn}{x}$, '),
+                contentEvent('a cover $\\smash{\\rlap{\\raisebox{-3em}{\\colorbox{red}{\\text{COVER}}}}}$ '),
+                contentEvent('and a tall line $\\raisebox{-10000em}{x}$. End.'),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        case 'diagram':
+            return [
+                contentEvent('Here is the flow:\n\n'), contentEvent('```mermaid\n'), contentEvent('flowchart TD\n'),
+                contentEvent('  accTitle: How a reply reaches the screen\n'), contentEvent('  A[Token] --> B[Parser]\n'),
+                contentEvent('  B --> C[Engine]\n'), contentEvent('  C --> D[Drawing]\n'), contentEvent('```\n'),
+                ...TAIL_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        case 'diagram-broken':
+            return [
+                contentEvent('```mermaid\n'), contentEvent('flowchart TD\n  A --> ((( not a node\n'), contentEvent('```\n'),
+                contentEvent('That one does not parse.'),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
         case 'long-thinking':
             return [
                 ...LONG_THINKING_LINES.map(thinkingEvent),

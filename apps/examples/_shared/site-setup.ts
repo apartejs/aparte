@@ -24,6 +24,10 @@ import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-com
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
 import { createN8nRunner, setupN8nButtons } from '@aparte/runner-n8n';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
+import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
+import { setupKatex } from '@aparte/plugin-katex';
+import { setupMermaid } from '@aparte/plugin-mermaid';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
@@ -109,7 +113,19 @@ async function run(): Promise<SiteSetup> {
 
     // 1. Renderers + Markdown rendering for assistant replies.
     registerDefaultRenderers();
-    setupMarkedProvider();
+    // Maths and diagrams, each loaded on its first formula or diagram. Registered before the
+    // Markdown provider, which recognises maths once a `math` renderer is there.
+    setupKatex();
+    setupMermaid();
+    // Which Markdown provider streams a reply (`?markdown=`): marked redrawing the reply
+    // (the default), marked's streaming entry, or the incremental streaming-markdown with
+    // marked for a finished reply — the three a site can choose, all drawing maths.
+    const markdown = new URLSearchParams(location.search).get('markdown');
+    if (markdown === 'marked-streaming') setupMarkedStreamingProvider();
+    else {
+        setupMarkedProvider();
+        if (markdown === 'smd') setupStreamingMarkdownProvider();
+    }
     // Syntax highlighting, through the plugin's `/core` entry: the grammars are chosen
     // here, so the bundle carries six of them and not the three hundred the convenience
     // entry pulls in. A language outside this list renders as plain text. Awaited before

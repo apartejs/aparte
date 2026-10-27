@@ -245,15 +245,24 @@ importers:
       '@aparte/plugin-compaction':
         specifier: workspace:*
         version: link:../../../packages/plugins/compaction
+      '@aparte/plugin-katex':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/katex
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
+      '@aparte/plugin-mermaid':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/mermaid
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../../packages/plugins/model-selector
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-streaming-markdown':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/streaming-markdown
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -275,6 +284,12 @@ importers:
       '@tanstack/ai':
         specifier: ^0.68.0
         version: 0.68.0(zod@4.6.6)
+      katex:
+        specifier: ^0.19.1
+        version: 0.19.1
+      mermaid:
+        specifier: ^11.17.2
+        version: 11.17.2
       shiki:
         specifier: ^4.0.0
         version: 4.3.1
