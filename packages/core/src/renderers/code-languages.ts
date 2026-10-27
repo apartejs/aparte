@@ -109,8 +109,13 @@ const hosts = new WeakMap<HTMLElement, HostState>();
 const drawingOwner = new WeakMap<HTMLElement, HTMLElement>();
 const caches = new WeakMap<AparteCodeLanguageRenderer, DrawingCache>();
 const inflight = new WeakMap<AparteCodeLanguageRenderer, Map<string, Promise<string | null>>>();
-/** Per root: the nodes each drawing was last built into, to move rather than rebuild. */
-const builtNodes = new WeakMap<Element, WeakMap<Drawn, { nodes: Node[]; owner: HTMLElement }>>();
+/**
+ * Per root: the drawing each result was last built into, to move its nodes rather than
+ * rebuild them. The drawing, not a list of its nodes: a renderer may change what it shows
+ * after the build (an image a CSP refuses, swapped for its source), and what moves is
+ * what is shown.
+ */
+const builtNodes = new WeakMap<Element, WeakMap<Drawn, { drawing: HTMLElement; owner: HTMLElement }>>();
 /** Per root: the last drawing for each open position, and the source being asked of it. */
 const lastGood = new WeakMap<Element, Map<string, Drawn & { source: string }>>();
 const asked = new WeakMap<Element, Map<string, string>>();
@@ -333,17 +338,17 @@ function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCo
         if (!built) { built = new WeakMap(); builtNodes.set(root, built); }
         const last = built.get(entry);
         const movable = last && last.owner !== code && !last.owner.isConnected && code.isConnected
-            && last.nodes.length > 0 && !last.nodes[0]!.isConnected;
+            && !last.drawing.isConnected && last.drawing.childNodes.length > 0;
         if (movable) {
             // The placeholder they came from is gone from the page: it drew them, it no
             // longer shows them, and if it ever comes back it draws again.
             hosts.delete(last.owner);
-            drawing.replaceChildren(...last.nodes);
+            drawing.replaceChildren(...last.drawing.childNodes);
         } else {
             drawing.innerHTML = entry.html;
             try { renderer.relabel?.(drawing, ctx); } catch (error) { warnOnce(renderer, error); }
         }
-        built.set(entry, { nodes: Array.from(drawing.childNodes), owner: code });
+        built.set(entry, { drawing, owner: code });
     }
     code.hidden = true;
     code.style.setProperty('display', 'none');

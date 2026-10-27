@@ -123,6 +123,20 @@ describe('drawing a settled source', () => {
         expect(el.querySelector('img')).toBe(img);
     });
 
+    it('moves what a drawing shows now, after its renderer changed it', () => {
+        // A page whose CSP refuses the image: the renderer swaps it for the source.
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], render: () => '<img alt="Diagram" src="data:image/svg+xml,x">' });
+        const el = root('<pre><code class="language-mermaid">A</code></pre>');
+        renderCodeLanguages(el);
+        const fallback = document.createElement('pre');
+        el.querySelector('img')!.replaceWith(fallback);
+
+        el.innerHTML = '<pre><code class="language-mermaid">A</code></pre>';
+        renderCodeLanguages(el);
+        expect(el.querySelector('img')).toBeNull();
+        expect(drawing(el)!.firstChild).toBe(fallback);
+    });
+
     it('shows the source when the renderer declines it or throws, and warns once', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: () => { throw new Error('bad'); } });
