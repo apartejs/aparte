@@ -2,10 +2,11 @@
  * What a maths-aware Markdown provider must make of each input: the formulas, in order,
  * with their TeX intact and whether each is display maths.
  *
- * One corpus for every provider aparté ships — marked one-shot, marked while it streams,
- * streaming-markdown — because a reply may stream through one and settle through
- * another (the docs do exactly that), and any disagreement between them shows as a
- * formula that flips at the end of the turn. Read the result from the rendered HTML:
+ * One corpus for marked one-shot and marked while it streams, because a reply may stream
+ * through one and settle through the other, and any disagreement between them shows as
+ * a formula that flips at the end of the turn. `@aparte/plugin-streaming-markdown` does
+ * not run it: its parser reads maths by rules of its own, so it draws only what it
+ * plainly reads as maths, and the settled reply follows these cases. Read the result from the rendered HTML:
  * every `code.language-math`, its text, and whether it carries `math-display`.
  */
 export interface MathCase {
@@ -62,9 +63,26 @@ export const MATH_CORPUS: readonly MathCase[] = [
     { md: '$$\na\n\nb\n$$', maths: [] },
     { md: 'A $$x$$ b', maths: [['x', true]] },
 
+    // Nor a block it does not run into: a `~~~` fence, a heading, an HTML block, a quote,
+    // a rule — and a list item after `$$ is the PID`, though not inside a display formula.
+    { md: 'Run this:\n$$ is the PID.\n~~~bash\necho $$\n~~~\n\nDone.', maths: [] },
+    { md: 'See:\n\\[ a\n~~~\ncode\n~~~\n\nNext.', maths: [] },
+    { md: '$$ is the PID\n# Title $$\n', maths: [] },
+    { md: '$$ pid\n<div>\necho $$\n</div>', maths: [] },
+    { md: '$$ x\n> echo $$\n', maths: [] },
+    { md: '$$ x\n***\n$$\n', maths: [] },
+    { md: '$$ is the PID\n- echo $$\n', maths: [] },
+    { md: '$$\na\n- b\n$$', maths: [['a\n- b', true]] },
+    // An HTML block is one CommonMark lets interrupt a paragraph, not any `<`: an inner product.
+    { md: '$$\n<x, y> = 0\n$$', maths: [['<x, y> = 0', true]] },
+
     // Emphasis around a formula closes outside it.
     { md: '*the optimum $x^*$ is unique*', maths: [['x^*', false]] },
     { md: '_the term $a_{n}$ grows_', maths: [['a_{n}', false]] },
+    { md: 'The *optimum \\(x^*\\) is unique*.', maths: [['x^*', false]] },
+    { md: '*see \\[x^*\\] here*', maths: [['x^*', true]] },
+    { md: '*where \\(\\alpha_i^*\\) is the dual*', maths: [['\\alpha_i^*', false]] },
+    { md: '~see $a~b$ here~', maths: [['a~b', false]] },
 
     // Escaped brackets are Markdown, not maths.
     { md: 'As shown in \\[1\\], and array\\[0\\].', maths: [] },

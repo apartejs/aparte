@@ -1,5 +1,5 @@
-import type { MarkedExtension, Tokens } from 'marked';
-import { PAIRS, blankMath, closerAfter, dollarCloser, openEnd } from './scan.js';
+import { Tokenizer, type MarkedExtension, type Tokens } from 'marked';
+import { PAIRS, blankMath, closerAfter, dollarCloser, isEscapedBrackets, openEnd } from './scan.js';
 
 /**
  * Maths in Markdown, recognised before Markdown can touch it.
@@ -16,13 +16,16 @@ import { PAIRS, blankMath, closerAfter, dollarCloser, openEnd } from './scan.js'
  * inside a paragraph), `\(…\)` and `$…$` inline. A single `$` follows Pandoc's rule, so
  * a price stays a price: the opening `$` has a character right after it, the closing one
  * a character right before it and no digit right after it — `$5 and $10` is text. A
- * backquote before the closer ends the attempt: code wins.
+ * backquote before the closer ends the attempt: code wins. So does a blank line, and a
+ * line opening a block TeX never starts a line with (a `~~~` fence, a heading, a quote,
+ * an HTML block, a rule; a list item after `$$ is the PID`).
  */
 
 export interface MarkedMathOptions {
     /**
      * Read a formula that has not closed yet as one still arriving, marked
-     * `data-aparte-open`, instead of as text. For the block a stream is still writing;
+     * `data-aparte-open`, instead of as text — while nothing it cannot run into has come
+     * after it, since then it can never close. For the block a stream is still writing;
      * never for finished text, where an unclosed `\(` is just a parenthesis.
      */
     live?: boolean;
@@ -46,26 +49,24 @@ function placeholder(token: MathToken, block: boolean): string {
 }
 
 /**
- * Whether a `\(…\)` or `\[…\]` is a Markdown escape rather than maths: in Markdown those
- * are how a reply writes literal brackets — a citation `\[1\]`, an index `array\[0\]`. So
- * a pair that follows a letter or a digit, or holds nothing but a number, is left to
- * Markdown. A `$$` pair is never an escape.
- */
-function isEscapedBrackets(open: string, text: string, before: string): boolean {
-    if (open === '$$') return false;
-    return /[\p{L}\p{N}]$/u.test(before) || /^\s*[\d.,]*\s*$/.test(text);
-}
-
-/**
  * The marked extension: maths as code-language placeholders. Internal: the providers in
  * this package install it when a `math` renderer is registered.
  */
 export function markedMath(options: MarkedMathOptions = {}): MarkedExtension {
     const live = options.live === true;
     return {
-        // marked looks ahead for the `*` or `_` closing an emphasis on a masked copy of the
-        // text; a formula left in it closes an italic opened before it (`*the optimum $x^*$*`).
-        hooks: { emStrongMask: (src: string) => blankMath(src, live) },
+        // marked looks ahead for the `*`, `_` or `~` closing an emphasis or a strikethrough
+        // on a masked copy of the text; a formula left in it closes an italic opened before
+        // it (`*the optimum $x^*$*`). Its `emStrongMask` hook cannot hide one: it receives a
+        // copy where `\(` is already `++`, so the formulas are found on the real text here.
+        tokenizer: {
+            emStrong(src, maskedSrc, prevChar) {
+                return Tokenizer.prototype.emStrong.call(this, src, blankMath(src, maskedSrc), prevChar);
+            },
+            del(src, maskedSrc, prevChar) {
+                return Tokenizer.prototype.del.call(this, src, blankMath(src, maskedSrc), prevChar);
+            },
+        },
         extensions: [
             {
                 name: 'aparteMathBlock',
@@ -84,11 +85,11 @@ export function markedMath(options: MarkedMathOptions = {}): MarkedExtension {
                     const from = head[0].length;
                     const end = closerAfter(src, from, pair.close);
                     if (end === -1) {
-                        if (!live) return undefined;
-                        // Still arriving, within its paragraph: a display formula cannot
-                        // span a blank line, so what follows one is not its.
-                        const stop = openEnd(src, from);
-                        return { type: 'aparteMathBlock', raw: src.slice(0, stop), text: src.slice(from, stop).trim(), display: true, open: true };
+                        // Still arriving only while it runs to the end of what has come:
+                        // past a blank line, a backquote or a block's line it can never
+                        // close, and it is text — the paragraph it begins, as at the end.
+                        if (!live || openEnd(src, from, pair.close) < src.length) return undefined;
+                        return { type: 'aparteMathBlock', raw: src, text: src.slice(from).trim(), display: true, open: true };
                     }
                     const text = src.slice(from, end).trim();
                     if (isEscapedBrackets(pair.open, text, '')) return undefined;
@@ -113,8 +114,8 @@ export function markedMath(options: MarkedMathOptions = {}): MarkedExtension {
                         const end = closerAfter(src, pair.open.length, pair.close);
                         if (end === -1) {
                             if (!live || pair.open !== '$$' && /[\p{L}\p{N}]$/u.test(tokens.at(-1)?.raw ?? '')) return undefined;
-                            const stop = openEnd(src, pair.open.length);
-                            return { type: 'aparteMathInline', raw: src.slice(0, stop), text: src.slice(pair.open.length, stop), display: pair.display, open: true };
+                            if (openEnd(src, pair.open.length, pair.close) < src.length) return undefined;
+                            return { type: 'aparteMathInline', raw: src, text: src.slice(pair.open.length), display: pair.display, open: true };
                         }
                         const text = src.slice(pair.open.length, end);
                         if (isEscapedBrackets(pair.open, text, tokens.at(-1)?.raw ?? '')) return undefined;
