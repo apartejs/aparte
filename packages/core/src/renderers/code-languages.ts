@@ -25,14 +25,17 @@
  * one-shot path rewrites every placeholder on every token, an incremental one replaces
  * its last block:
  *
- * - a closed source's drawing is cached by renderer and key, so a new placeholder for
- *   the same source is drawn synchronously, and the drawn nodes themselves are moved
- *   across when the old ones have left the document (a diagram's `<img>` is not decoded
- *   again);
+ * - a closed source's markup is cached by renderer and key, so a new placeholder for the
+ *   same source is drawn synchronously; and within one root, the nodes drawn last time
+ *   are moved across rather than built again (a diagram's `<img>` is not decoded again)
+ *   when the placeholder that held them has left the document;
  * - an open source keeps the last drawing made for its POSITION — language, block or
  *   inline, and rank among those — as long as the source still extends the one drawn:
  *   a streamed source only grows at its end, so a source that does not start with the
  *   drawn one is another formula, and shows as text until it is drawn.
+ *
+ * An answer that arrives later runs the engine again on its root — once per root per
+ * microtask, however many answers land together.
  */
 import { contextConfig } from '../config/index.js';
 import type {
@@ -60,10 +63,12 @@ export interface AparteRenderCodeLanguagesOptions {
     language?: string;
 }
 
-/** A drawing's markup, and the nodes last made from it, to move rather than rebuild. */
+/**
+ * A drawing's markup. Only markup: the module-level cache outlives every chat, and a
+ * node kept there would keep the removed chat it was drawn in.
+ */
 interface Drawn {
     html: string | null;
-    nodes: Node[] | null;
 }
 
 interface HostState {
@@ -87,7 +92,7 @@ class DrawingCache {
     set(key: string, html: string | null): Drawn {
         const old = this.entries.get(key);
         if (old) { this.size -= weight(key, old); this.entries.delete(key); }
-        const entry: Drawn = { html, nodes: null };
+        const entry: Drawn = { html };
         this.entries.set(key, entry);
         this.size += weight(key, entry);
         for (const [k, v] of this.entries) {
@@ -104,16 +109,22 @@ const hosts = new WeakMap<HTMLElement, HostState>();
 const drawingOwner = new WeakMap<HTMLElement, HTMLElement>();
 const caches = new WeakMap<AparteCodeLanguageRenderer, DrawingCache>();
 const inflight = new WeakMap<AparteCodeLanguageRenderer, Map<string, Promise<string | null>>>();
-/** Per root: the last drawing for each open position, and the source last asked of it. */
+/** Per root: the nodes each drawing was last built into, to move rather than rebuild. */
+const builtNodes = new WeakMap<Element, WeakMap<Drawn, { nodes: Node[]; owner: HTMLElement }>>();
+/** Per root: the last drawing for each open position, and the source being asked of it. */
 const lastGood = new WeakMap<Element, Map<string, Drawn & { source: string }>>();
 const asked = new WeakMap<Element, Map<string, string>>();
 const lastOptions = new WeakMap<Element, AparteRenderCodeLanguagesOptions>();
 const warned = new WeakSet<AparteCodeLanguageRenderer>();
-/** Lazy renderers: placeholders that came near the screen once, and where each one waits. */
-const seen = new WeakSet<HTMLElement>();
-const waitingRoot = new WeakMap<HTMLElement, Element>();
-/** One observer per scroll container, made by the `IntersectionObserver` in place when it was made. */
-const observers = new WeakMap<typeof IntersectionObserver, Map<Element | null, IntersectionObserver>>();
+/** Lazy renderers: boxes that came near the screen once, and the root each one waits in. */
+const seen = new WeakSet<Element>();
+const waitingRoot = new WeakMap<Element, Element>();
+/**
+ * One observer per scroll container — weakly, so a removed chat takes its observer with
+ * it — and one for the page, per `IntersectionObserver` constructor in place.
+ */
+const observers = new WeakMap<typeof IntersectionObserver, { page?: IntersectionObserver; byScroller: WeakMap<Element, IntersectionObserver> }>();
+const observed = new WeakMap<IntersectionObserver, number>();
 
 function cacheOf(renderer: AparteCodeLanguageRenderer): DrawingCache {
     let cache = caches.get(renderer);
@@ -167,9 +178,146 @@ function isThenable(value: unknown): value is Promise<string | null> {
     return typeof (value as { then?: unknown } | null)?.then === 'function';
 }
 
-/** Show `entry` beside `code`, moving its nodes across when they have left the document. */
-function fill(code: HTMLElement, entry: Drawn, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, key: string | null): void {
+/** The box the reader sees for a placeholder: its `<pre>`, or its drawing, or itself. */
+function boxOf(code: HTMLElement): Element {
+    return code.closest('pre') ?? hosts.get(code)?.drawing ?? code;
+}
+
+/** What grows when a placeholder is drawn: its `<pre>`, or the line of text it sits in. */
+function grownBoxOf(code: HTMLElement): Element {
+    return code.closest('pre') ?? code.parentElement ?? code;
+}
+
+// ── Running again, once per root per tick ─────────────────────────────────────
+
+const plainRuns = new Set<Element>();
+const refreshRuns = new Map<Element, AparteRenderCodeLanguagesOptions>();
+let flushing = false;
+
+/**
+ * Run the engine on `root` again soon: after a drawing arrived, or a placeholder came
+ * near the screen. Coalesced, so N answers landing together cost one pass, not N — and
+ * a pass cannot multiply them, since it queues nothing for a root already queued.
+ */
+function schedule(root: Element, refresh?: AparteRenderCodeLanguagesOptions): void {
+    if (refresh) refreshRuns.set(root, refresh);
+    else plainRuns.add(root);
+    if (flushing) return;
+    flushing = true;
+    queueMicrotask(() => {
+        flushing = false;
+        const plain = [...plainRuns];
+        const refreshes = [...refreshRuns];
+        plainRuns.clear();
+        refreshRuns.clear();
+        for (const root of plain) rerun(root);
+        for (const [root, options] of refreshes) if (root.isConnected) renderCodeLanguages(root, options);
+    });
+}
+
+/**
+ * Queue one run of `root` when `promise` resolves: once per root, however many passes see
+ * it still running. A plain run wins over a refresh of the same root: it does more.
+ */
+const waiters = new WeakMap<Promise<unknown>, Map<Element, AparteRenderCodeLanguagesOptions | undefined>>();
+function whenSettled(promise: Promise<unknown>, root: Element, refresh?: AparteRenderCodeLanguagesOptions): void {
+    let roots = waiters.get(promise);
+    if (!roots) {
+        const waiting = new Map<Element, AparteRenderCodeLanguagesOptions | undefined>();
+        waiters.set(promise, waiting);
+        roots = waiting;
+        void promise.then(
+            () => { for (const [r, options] of waiting) schedule(r, options); waiting.clear(); },
+            () => waiting.clear(),
+        );
+    }
+    if (!roots.has(root) || refresh === undefined) roots.set(root, refresh);
+}
+
+/** The scroll container a run is compensating, and where the reader's view starts in it. */
+let compensating: { scroller: HTMLElement | null; top: number } | null = null;
+
+function scrollerOf(el: Element): HTMLElement | null {
+    for (let node = el.parentElement; node; node = node.parentElement) {
+        const overflow = getComputedStyle(node).overflowY;
+        if (overflow === 'auto' || overflow === 'scroll') return node;
+    }
+    return null;
+}
+
+/**
+ * Run the engine on `root` again with the options it last ran with. A drawing that grows
+ * a box wholly above what the reader sees is compensated, box by box (see `fill`), so the
+ * text they are reading does not move: the transcript turns the browser's own scroll
+ * anchoring off.
+ */
+function rerun(root: Element): void {
+    if (!root.isConnected) return;
+    const scroller = scrollerOf(root);
+    const view = scroller ? scroller.getBoundingClientRect().top + (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) : 0;
+    compensating = { scroller, top: view };
+    try {
+        renderCodeLanguages(root, lastOptions.get(root) ?? {});
+    } finally {
+        compensating = null;
+    }
+}
+
+/**
+ * Hold a lazy renderer's placeholder until its box comes within a screen of what the
+ * reader sees. True when it is held; false when it may be drawn now.
+ */
+function deferred(code: HTMLElement, root: Element): boolean {
+    const target = boxOf(code);
+    if (seen.has(target) || typeof IntersectionObserver === 'undefined') return false;
+    const scroller = scrollerOf(target);
+    let set = observers.get(IntersectionObserver);
+    if (!set) { set = { byScroller: new WeakMap() }; observers.set(IntersectionObserver, set); }
+    let observer = scroller ? set.byScroller.get(scroller) : set.page;
+    if (!observer) {
+        const made: IntersectionObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                const box = entry.target;
+                if (box.isConnected && !entry.isIntersecting) continue;
+                made.unobserve(box);
+                const left = (observed.get(made) ?? 1) - 1;
+                observed.set(made, left);
+                if (left <= 0) {
+                    made.disconnect();
+                    if (scroller) set!.byScroller.delete(scroller);
+                    else if (set!.page === made) set!.page = undefined;
+                }
+                if (!box.isConnected) continue;
+                seen.add(box);
+                const waiting = waitingRoot.get(box);
+                if (waiting) schedule(waiting);
+            }
+        }, { root: scroller, rootMargin: '100% 0px' });
+        observer = made;
+        if (scroller) set.byScroller.set(scroller, made);
+        else set.page = made;
+    }
+    if (waitingRoot.get(target) !== root) {
+        waitingRoot.set(target, root);
+        observed.set(observer, (observed.get(observer) ?? 0) + 1);
+        observer.observe(target);
+    }
+    return true;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
+/**
+ * Show `entry` beside `code`. The nodes built for it in this root last time are moved
+ * across when the placeholder that held them has left the document and this one is in
+ * it — the case of a block rebuilt under the same root — and built again otherwise, so
+ * a drawing in a tree that is only detached for a moment is never emptied.
+ */
+function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, key: string | null): void {
     if (entry.html === null) { showSource(code, ctx.open); return; }
+    const box = compensating ? grownBoxOf(code) : null;
+    const before = box ? box.getBoundingClientRect() : null;
+
     const state = hosts.get(code);
     let drawing = state?.drawing;
     if (!drawing) {
@@ -181,16 +329,36 @@ function fill(code: HTMLElement, entry: Drawn, renderer: AparteCodeLanguageRende
         if (code.parentElement?.tagName === 'PRE') code.parentElement.setAttribute(DRAWN_ATTR, '');
     }
     if (state?.entry !== entry || drawing.childNodes.length === 0) {
-        const reusable = entry.nodes && entry.nodes.length > 0 && !entry.nodes[0]!.isConnected;
-        if (reusable) drawing.replaceChildren(...entry.nodes!);
-        else drawing.innerHTML = entry.html;
-        entry.nodes = Array.from(drawing.childNodes);
+        let built = builtNodes.get(root);
+        if (!built) { built = new WeakMap(); builtNodes.set(root, built); }
+        const last = built.get(entry);
+        const movable = last && last.owner !== code && !last.owner.isConnected && code.isConnected
+            && last.nodes.length > 0 && !last.nodes[0]!.isConnected;
+        if (movable) {
+            // The placeholder they came from is gone from the page: it drew them, it no
+            // longer shows them, and if it ever comes back it draws again.
+            hosts.delete(last.owner);
+            drawing.replaceChildren(...last.nodes);
+        } else {
+            drawing.innerHTML = entry.html;
+            try { renderer.relabel?.(drawing, ctx); } catch (error) { warnOnce(renderer, error); }
+        }
+        built.set(entry, { nodes: Array.from(drawing.childNodes), owner: code });
     }
     code.hidden = true;
     code.style.setProperty('display', 'none');
     code.classList.remove(PENDING_CLASS);
     hosts.set(code, { renderer, key, drawing, entry, ctx });
-    try { renderer.relabel?.(drawing, ctx); } catch (error) { warnOnce(renderer, error); }
+
+    if (box && before && compensating) {
+        // Growth only: the viewport reads a scroll position going DOWN that it did not
+        // write as the reader leaving the bottom.
+        const delta = box.getBoundingClientRect().height - before.height;
+        if (delta > 0 && before.bottom <= compensating.top) {
+            if (compensating.scroller) compensating.scroller.scrollTop += delta;
+            else window.scrollBy(0, delta);
+        }
+    }
 }
 
 /** Back to the source: no drawing beside it, and muted while it is still arriving. */
@@ -206,91 +374,20 @@ function showSource(code: HTMLElement, pending: boolean): void {
     code.classList.toggle(PENDING_CLASS, pending);
 }
 
-/** The element that scrolls `el`, or `null` for the page. */
-function scrollerOf(el: Element): HTMLElement | null {
-    for (let node = el.parentElement; node; node = node.parentElement) {
-        const overflow = getComputedStyle(node).overflowY;
-        if (overflow === 'auto' || overflow === 'scroll') return node;
-    }
-    return null;
-}
-
-/**
- * Run the engine on `root` again, after something it was waiting for arrived — a
- * drawing, or the placeholder coming near the screen — with the options it last ran
- * with. A root wholly above what the reader sees that grows is compensated, so the text
- * they are reading does not move: the transcript turns the browser's own scroll
- * anchoring off. Growth only: the viewport reads a scroll position going DOWN that it did
- * not write as the reader leaving the bottom.
- */
-function rerun(root: Element): void {
-    if (!root.isConnected) return;
-    const scroller = scrollerOf(root);
-    let above = false;
-    let height = 0;
-    if (scroller) {
-        const box = root.getBoundingClientRect();
-        above = box.bottom <= scroller.getBoundingClientRect().top;
-        height = box.height;
-    }
-    renderCodeLanguages(root, lastOptions.get(root) ?? {});
-    if (scroller && above) {
-        const delta = root.getBoundingClientRect().height - height;
-        if (delta > 0) scroller.scrollTop += delta;
-    }
-}
-
-/**
- * Hold a lazy renderer's placeholder until it comes within a screen of what the reader
- * sees. True when it is held; false when it may be drawn now (no observer in this
- * environment, or it came near before).
- */
-function deferred(code: HTMLElement, root: Element): boolean {
-    // What is watched is the box the reader sees: the `<pre>` around a block. The source
-    // itself is hidden as soon as anything is drawn beside it, and a hidden element never
-    // comes near the screen — the final drawing of a diagram would wait forever.
-    const target = code.closest('pre') ?? code;
-    if (seen.has(target) || typeof IntersectionObserver === 'undefined') return false;
-    const scroller = scrollerOf(target);
-    let byScroller = observers.get(IntersectionObserver);
-    if (!byScroller) { byScroller = new Map(); observers.set(IntersectionObserver, byScroller); }
-    let observer = byScroller.get(scroller);
-    if (!observer) {
-        observer = new IntersectionObserver((entries, obs) => {
-            for (const entry of entries) {
-                const target = entry.target as HTMLElement;
-                if (!target.isConnected) { obs.unobserve(target); continue; }
-                if (!entry.isIntersecting) continue;
-                obs.unobserve(target);
-                seen.add(target);
-                const waiting = waitingRoot.get(target);
-                if (waiting) rerun(waiting);
-            }
-        }, { root: scroller, rootMargin: '100% 0px' });
-        byScroller.set(scroller, observer);
-    }
-    waitingRoot.set(target, root);
-    observer.observe(target);
-    return true;
-}
-
-/**
- * @param again what to run once a drawing arrives: the engine on this root, in the mode
- *              it ran in — a refresh over a whole page must not come back as a plain run.
- */
-function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, pos: string, refresh: boolean, again: () => void): void {
+function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, pos: string, refresh: AparteRenderCodeLanguagesOptions | undefined): void {
     const key = keyOf(renderer, ctx);
-    const state = hosts.get(code);
-    if (state && state.renderer === renderer && state.key === key) return;
+    let state = hosts.get(code);
+    if (state && state.renderer === renderer && state.key === key && state.drawing.childNodes.length > 0) return;
     const cache = cacheOf(renderer);
     const hit = cache.get(key);
-    if (hit) { fill(code, hit, renderer, ctx, key); return; }
+    if (hit) { fill(root, code, hit, renderer, ctx, key); return; }
 
     // Until it is drawn: what is shown stays (a refresh), or the last drawing made for
     // this position while it streamed, if this source extends it.
     if (!state && !refresh) {
         const provisional = lastGood.get(root)?.get(pos);
-        if (provisional && ctx.source.startsWith(provisional.source)) fill(code, provisional, renderer, ctx, null);
+        if (provisional && ctx.source.startsWith(provisional.source)) fill(root, code, provisional, renderer, ctx, null);
+        state = hosts.get(code);
     }
     // Held until near the screen only when nothing is drawn yet: a reopened conversation.
     // A source drawn already — while it streamed, or before a refresh — is on screen, and
@@ -299,52 +396,62 @@ function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLangua
 
     const pending = inflightOf(renderer);
     const running = pending.get(key);
-    if (running) { void running.then(again, again); return; }
+    if (running) { whenSettled(running, root, refresh); return; }
     let result: string | null | Promise<string | null>;
     try { result = renderer.render(ctx); } catch (error) { warnOnce(renderer, error); result = null; }
-    if (!isThenable(result)) { fill(code, cache.set(key, result ?? null), renderer, ctx, key); return; }
+    if (!isThenable(result)) { fill(root, code, cache.set(key, result ?? null), renderer, ctx, key); return; }
     const settled = result.then((html) => {
         pending.delete(key);
         cache.set(key, html ?? null);
         return html;
     }, (error: unknown) => {
+        // Not cached: a failed load (offline, a chunk that did not arrive) is tried again
+        // on the next pass — nothing runs one now, or a renderer failing every time would
+        // be asked again forever.
         pending.delete(key);
         warnOnce(renderer, error);
-        cache.set(key, null);
-        return null;
+        throw error;
     });
     pending.set(key, settled);
-    void settled.then(again);
+    void settled.then(() => schedule(root, refresh), () => { /* the source stays shown */ });
 }
 
 function drawOpen(root: Element, code: HTMLElement, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, pos: string): void {
     const good = mapOf(lastGood, root);
     const previous = good.get(pos);
     if (previous && ctx.source.startsWith(previous.source)) {
-        if (hosts.get(code)?.entry !== previous) fill(code, previous, renderer, ctx, null);
+        if (hosts.get(code)?.entry !== previous) fill(root, code, previous, renderer, ctx, null);
     } else {
         showSource(code, true);
     }
 
+    // Asked once per source while it is being drawn. An answer of `null` — not now — is
+    // forgotten, so the next pass asks again: a renderer pacing itself, or still loading,
+    // gets its source back on the next token instead of never.
     const requests = mapOf(asked, root);
     if (requests.get(pos) === ctx.source) return;
     requests.set(pos, ctx.source);
+    const forget = (): void => { if (requests.get(pos) === ctx.source) requests.delete(pos); };
 
     const keep = (html: string | null | undefined): boolean => {
         if (html === null || html === undefined) return false;
         const current = good.get(pos);
         // A late answer for an older source must not replace a newer drawing.
         if (current && !ctx.source.startsWith(current.source)) return false;
-        good.set(pos, { source: ctx.source, html, nodes: null });
+        good.set(pos, { source: ctx.source, html });
         return true;
     };
     let result: string | null | Promise<string | null>;
     try { result = renderer.render(ctx); } catch { result = null; }   // a half-written source is expected to fail
     if (!isThenable(result)) {
-        if (keep(result)) fill(code, good.get(pos)!, renderer, ctx, null);
+        if (keep(result)) fill(root, code, good.get(pos)!, renderer, ctx, null);
+        else forget();
         return;
     }
-    result.then((html) => { if (keep(html)) rerun(root); }, () => { /* still arriving: the next source will be drawn */ });
+    result.then((html) => {
+        if (keep(html)) schedule(root);
+        else forget();
+    }, forget);
 }
 
 /**
@@ -368,7 +475,6 @@ export function renderCodeLanguages(root: Element, options: AparteRenderCodeLang
 
     const placeholders = Array.from(root.querySelectorAll<HTMLElement>('code[class*="language-"]'))
         .filter((code) => !code.closest(`.${DRAWING_CLASS}`));
-    const again = refresh ? () => renderCodeLanguages(root, options) : () => rerun(root);
     const ranks = new Map<string, number>();
     placeholders.forEach((code, index) => {
         const lang = languageOf(code);
@@ -390,7 +496,7 @@ export function renderCodeLanguages(root: Element, options: AparteRenderCodeLang
         const open = streaming && (isMarkedOpen(code) || index === placeholders.length - 1);
         const ctx: AparteCodeLanguageContext = { language: lang, source, display, open, host: code, config: cfg };
         if (open) drawOpen(root, code, renderer, ctx, pos);
-        else drawClosed(root, code, renderer, ctx, pos, refresh, again);
+        else drawClosed(root, code, renderer, ctx, pos, refresh ? options : undefined);
     });
 }
 

@@ -200,6 +200,90 @@ describe('a drawing that arrives later', () => {
     });
 });
 
+describe('what the audit found', () => {
+    it('costs one pass per answer, however many drawings are on the way', async () => {
+        // Each pass used to hang one more rerun on every render still running: N
+        // drawings resolving one after another cost 2^N passes.
+        const resolvers: Array<(html: string) => void> = [];
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], render: () => new Promise<string>((res) => { resolvers.push(res); }) });
+        const el = root(Array.from({ length: 10 }, (_, i) => `<pre><code class="language-mermaid">graph ${i}</code></pre>`).join(''));
+        const scan = vi.spyOn(el, 'querySelectorAll');
+        renderCodeLanguages(el);
+        for (const resolve of resolvers) { resolve('<i>d</i>'); await flush(); }
+        expect(el.querySelectorAll('.aparte-code-drawing')).toHaveLength(10);
+        expect(scan.mock.calls.length).toBeLessThanOrEqual(12);
+    });
+
+    it('does not keep a failed drawing: the next pass tries again', async () => {
+        let fail = true;
+        aparteGlobalConfig.registerCodeLanguageRenderer({
+            languages: ['math'],
+            render: ({ source }) => (fail ? Promise.reject(new Error('offline')) : `<b>${source}</b>`),
+        });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const el = root(inline('E=mc^2'));
+        renderCodeLanguages(el);
+        await flush();
+        expect(drawing(el)).toBeNull();
+        fail = false;
+        renderCodeLanguages(el);
+        expect(drawing(el)!.textContent).toBe('E=mc^2');
+    });
+
+    it('draws a repeated formula twice in a root not yet in the page', () => {
+        const { renderer } = fake();
+        aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
+        const el = document.createElement('div');
+        el.innerHTML = inline('x') + inline('x');
+        renderCodeLanguages(el);
+        expect(Array.from(el.querySelectorAll('.aparte-code-drawing')).map((d) => d.textContent)).toEqual(['x', 'x']);
+    });
+
+    it('draws again what a detached tree lent to another one, once it is back', () => {
+        const { renderer } = fake();
+        aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
+        const a = root(inline('E=mc^2'));
+        renderCodeLanguages(a);
+        a.remove();
+        const b = root(inline('E=mc^2'));
+        renderCodeLanguages(b);
+        document.body.appendChild(a);
+        renderCodeLanguages(a);
+        expect(drawing(a)!.textContent).toBe('E=mc^2');
+        expect(drawing(b)!.textContent).toBe('E=mc^2');
+    });
+
+    it('does not hold an inline formula for the observer once a provisional drawing shows', () => {
+        const observedBoxes: Element[] = [];
+        vi.stubGlobal('IntersectionObserver', class {
+            observe(el: Element) { observedBoxes.push(el); }
+            unobserve() { /* nothing to undo */ }
+            disconnect() { /* nothing to undo */ }
+        });
+        const { renderer, calls } = fake({ lazy: true });
+        aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
+        const el = root(inline('x+'));
+        renderCodeLanguages(el, { streaming: true });
+        el.innerHTML = inline('x+1');
+        renderCodeLanguages(el, { streaming: false });
+        expect(observedBoxes).toEqual([]);
+        expect(calls.map((c) => [c.source, c.open])).toEqual([['x+', true], ['x+1', false]]);
+        vi.unstubAllGlobals();
+    });
+
+    it('relabels nodes it builds, not nodes it only moves', () => {
+        const relabel = vi.fn();
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], render: () => '<img alt="">', relabel });
+        const el = root('<pre><code class="language-mermaid">A</code></pre>');
+        renderCodeLanguages(el);
+        for (let i = 0; i < 5; i++) {
+            el.innerHTML = '<pre><code class="language-mermaid">A</code></pre>';
+            renderCodeLanguages(el);
+        }
+        expect(relabel).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('a source still arriving', () => {
     it('treats the last placeholder as open while the content streams', () => {
         const { renderer, calls } = fake();
@@ -257,13 +341,27 @@ describe('a source still arriving', () => {
         expect(el.querySelector('code')!.classList.contains('aparte-code-pending')).toBe(true);
     });
 
-    it('does not ask again for a source it was already asked for', () => {
-        const { renderer, calls } = fake({ render: (ctx) => { calls.push(ctx); return null; } });
+    it('does not ask again for a source while its drawing is on the way', () => {
+        const { renderer, calls } = fake({ render: (ctx) => { calls.push(ctx); return new Promise<string>(() => {}); } });
         aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
         const el = root(inline('a'));
         renderCodeLanguages(el, { streaming: true });
         renderCodeLanguages(el, { streaming: true });
         expect(calls).toHaveLength(1);
+    });
+
+    it('asks again for a source it was told "not now" about', () => {
+        // A renderer pacing itself, or still loading, answers null: the formula must be
+        // drawn on a later pass, not left half-drawn until the reply settles.
+        let ready = false;
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: ({ source }) => (ready ? `<b>${source}</b>` : null) });
+        const el = root(inline('x = 1 + \frac{1}{2}') + '<p>and the prose keeps coming</p>');
+        renderCodeLanguages(el, { streaming: true });
+        renderCodeLanguages(el.querySelector('code')!.closest('div')!, { streaming: true });
+        expect(drawing(el)).toBeNull();
+        ready = true;
+        renderCodeLanguages(el, { streaming: true });
+        expect(drawing(el)!.textContent).toBe('x = 1 + \frac{1}{2}');
     });
 
     it('does not let a late answer for an older source replace a newer drawing', async () => {
@@ -314,7 +412,7 @@ describe('around the drawing', () => {
         expect(el.querySelector('img')!.alt).toBe('Diagramme');
     });
 
-    it('holds a lazy renderer until its placeholder comes near the screen', () => {
+    it('holds a lazy renderer until its placeholder comes near the screen', async () => {
         const observed: Element[] = [];
         let callback!: IntersectionObserverCallback;
         let instance!: IntersectionObserver;
@@ -332,6 +430,7 @@ describe('around the drawing', () => {
         expect(observed).toHaveLength(1);
 
         callback([{ target: observed[0]!, isIntersecting: true } as unknown as IntersectionObserverEntry], instance);
+        await flush();
         expect(calls).toHaveLength(1);
         expect(drawing(el)).not.toBeNull();
         vi.unstubAllGlobals();
@@ -386,9 +485,12 @@ describe('around the drawing', () => {
         scroller.appendChild(el);
         renderCodeLanguages(el);
 
-        // Wholly above what the reader sees, and 120px taller once drawn.
+        // The block is wholly above what the reader sees, and 120px taller once drawn —
+        // its root may well reach down into the view: what counts is the box that grew.
+        const pre = el.querySelector('pre')!;
         vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({ top: 500 } as DOMRect);
-        vi.spyOn(el, 'getBoundingClientRect').mockImplementation(() => ({ bottom: 100, height: el.querySelector('img') ? 160 : 40 } as DOMRect));
+        vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 900, height: 900 } as DOMRect);
+        vi.spyOn(pre, 'getBoundingClientRect').mockImplementation(() => ({ bottom: 100, height: pre.querySelector('img') ? 160 : 40 } as DOMRect));
         vi.spyOn(scroller, 'scrollTop', 'get').mockReturnValue(0);
         const set = vi.spyOn(scroller, 'scrollTop', 'set');
         resolve('<img>');
