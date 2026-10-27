@@ -1,6 +1,6 @@
 {
     "name": "@aparte/runner-ag-ui",
-    "version": "0.27.2",
+    "version": "0.27.3",
     "homepage": "https://apartejs.dev/providers/agent/ag-ui/",
     "description": "Render an AG-UI agent in aparté — Agno, LangGraph, Mastra, CrewAI, Pydantic AI, TanStack AI: the agent runs on its server, aparté draws the chat, its tool calls and its approvals.",
     "type": "module",
@@ -33,7 +33,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.27.2 <1.0.0"
+        "@aparte/core": ">=0.27.3 <1.0.0"
     },
     "devDependencies": {
         "@ag-ui/core": "^1.0.0",

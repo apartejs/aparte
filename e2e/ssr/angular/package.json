@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/ssr-angular",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "type": "module",
   "description": "An Angular SSR app with hydration and <aparte-chat> — a fixture of pnpm e2e:ssr.",
