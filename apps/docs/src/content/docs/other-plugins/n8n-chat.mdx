@@ -1,0 +1,70 @@
+---
+title: n8n chat widget
+description: "@aparte/n8n-chat — n8n's chat widget, drawn by aparté: createChat() takes @n8n/chat's options, response nodes and buttons included, from npm or a CDN."
+sidebar:
+  label: n8n chat widget
+  order: 2
+---
+
+[`@aparte/n8n-chat`](https://github.com/apartejs/n8n-chat) is n8n's chat widget, drawn by aparté.
+`createChat()` takes [`@n8n/chat`](https://www.npmjs.com/package/@n8n/chat)'s options and mounts the
+same widget on an n8n Chat Trigger — a button in the corner, or a chat that fills its target. A page
+that uses n8n's widget changes the import and keeps its call.
+
+## Install
+
+From a CDN, with no build step:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/n8n-chat@0.1.0/dist/style.css">
+<script type="module">
+  import { createChat } from 'https://cdn.jsdelivr.net/npm/@aparte/n8n-chat@0.1.0/dist/cdn/n8n-chat.js';
+
+  createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+</script>
+```
+
+Or from npm:
+
+```bash
+npm install @aparte/n8n-chat
+```
+
+{/* doc-check: skip the package lives in apartejs/n8n-chat, outside this workspace; compiled and tested there */}
+```ts
+import { createChat } from '@aparte/n8n-chat';
+import '@aparte/n8n-chat/style.css';
+
+createChat({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' });
+```
+
+## What it does
+
+- **Every option of `@n8n/chat` 1.43**, the same defaults, and the session kept in the same place,
+  so a visitor keeps their conversation across the switch.
+- **A workflow that answers through response nodes**: its Chat nodes' messages, their buttons and
+  their written questions, Block User Input included.
+- **A handle** to drive it from the page: `open`, `close`, `toggle`, `send`, `reset`,
+  `setDisabled`, `destroy`.
+- **Errors a visitor can read**, with the workflow's own words under them, and a console that says
+  what to change in n8n.
+- **Ten languages**, a page loading only the one it uses; keyboard and screen-reader access; AA
+  contrast; a dark scheme; a history without raw tool JSON.
+- **About 100 KB** of JavaScript with brotli on the first load, against about 465 KB. MIT.
+
+It wears n8n's look by default and reads n8n's `--chat--*` variables, so a page that themed n8n's
+widget keeps most of its theme. Its options, its handle, the workflow setup and a comparison with
+n8n's widget are in [its README](https://github.com/apartejs/n8n-chat#readme).
+
+## Built on
+
+The widget puts together aparté's `<aparte-chat>` inside an [`<aparte-launcher>`](/components/launcher/),
+the [n8n runner](/providers/agent/n8n/), the [locales](/guides/localization/), and the Markdown and
+highlighting plugins, at exact versions. To put an n8n workflow behind a chat you compose yourself — in React,
+Vue, Svelte or Angular, in your own look — use the runner directly.
+
+## Links
+
+- Repository and issues: [apartejs/n8n-chat](https://github.com/apartejs/n8n-chat)
+- npm: [`@aparte/n8n-chat`](https://www.npmjs.com/package/@aparte/n8n-chat)
+- The article: [n8n's chat widget: what people run into, and a replacement that takes the same call](/articles/n8n-chat-widget/)
