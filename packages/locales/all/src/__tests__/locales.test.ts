@@ -40,7 +40,7 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
  * loanword, not a missed translation. Anything else equal to the English default fails.
  */
 const SAME_AS_ENGLISH: Record<string, string[]> = {
-    fr: ['contextMessages', 'contextTotal', 'approvalArgsLabel', 'code', 'roleNameAssistant', 'conversationList', 'sidebarLabel'],
+    fr: ['contextMessages', 'contextTotal', 'sourcesCount', 'sourcesOne', 'sourcesCard', 'approvalArgsLabel', 'code', 'roleNameAssistant', 'conversationList', 'sidebarLabel'],
     es: ['elicitationNo', 'contextTotal', 'error'],
     'pt-BR': ['contextTotal'],
     de: ['contextTools', 'code', 'messageInfo'],
