@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/ssr-sveltekit",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "type": "module",
   "description": "A server-rendered SvelteKit page with AparteChat — a fixture of pnpm e2e:ssr.",

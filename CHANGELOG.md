@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.27.4
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [7db31fc](https://github.com/apartejs/aparte/commit/7db31fc): `freeText` on an approval request is renamed `allowOther`, the name a question's free-text option already has. Replace `freeText: false` with `allowOther: false`.
+
+  Published in 0.27.3 an hour before: one idea, "may the person answer in words", now has one name on both panels. Same default (`true`), same meaning; `setupN8nButtons` passes it for n8n's Block User Input.
+  <sub>`@aparte/core`, `@aparte/runner-n8n`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.27.3
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
