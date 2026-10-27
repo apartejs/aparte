@@ -66,19 +66,38 @@ function createKatexRenderer(
     let loading: Promise<KatexLike> | undefined;
     let checkedStyles = false;
     /**
-     * When a formula still arriving was last drawn, and how long that took. One for all:
-     * only the formula a reply is writing is open, and the next drawing waits a frame,
-     * or as long as the last one took if that was longer (a matrix is slow).
+     * The pace of a formula still arriving, per reply part: when it was last drawn, how
+     * long that took, and the latest source waiting for the next turn. The next drawing
+     * waits a frame, or as long as the last one took if that was longer (a matrix is
+     * slow) — and then it IS drawn: a source asked for inside the wait is answered once
+     * the wait is over, so the last token of a formula is never left undrawn.
      */
-    const pace = { at: -Infinity, took: 0 };
+    interface Pace {
+        at: number;
+        took: number;
+        waiting: { ctx: AparteCodeLanguageContext; answer: (html: string | null) => void } | null;
+        timer: ReturnType<typeof setTimeout> | undefined;
+    }
+    const paces = new WeakMap<Element, Pace>();
+    /** The reply part a formula belongs to: its segment, which outlives a rebuilt block. */
+    const partOf = (host: HTMLElement): Element => host.closest('[data-segment-id]') ?? host.parentElement ?? host;
 
     const ensure = (): KatexLike | Promise<KatexLike> => {
         if (katex) return katex;
+        if (loading) return loading;
         const got = load();
         if (!(got instanceof Promise)) return (katex = got);
         // Not poisoned: a failed load is tried again on the next formula.
         loading ??= got.then((k) => (katex = k), (error: unknown) => { loading = undefined; throw error; });
         return loading;
+    };
+
+    const drawPaced = (pace: Pace, k: KatexLike, ctx: AparteCodeLanguageContext): string | null => {
+        const started = performance.now();
+        const html = draw(k, ctx);
+        pace.at = started;
+        pace.took = performance.now() - started;
+        return html;
     };
 
     const draw = (k: KatexLike, ctx: AparteCodeLanguageContext): string | null => {
@@ -109,15 +128,27 @@ function createKatexRenderer(
         render(ctx: AparteCodeLanguageContext): string | null | Promise<string | null> {
             if (ctx.open) {
                 if (!live) return null;
-                // Not waited for: a formula still arriving is drawn again on its next token.
                 const loaded = ensure();
-                if (loaded instanceof Promise) { void loaded.catch(() => { /* retried on the next formula */ }); return null; }
-                const now = performance.now();
-                if (now - pace.at < Math.max(FRAME_MS, pace.took)) return null;
-                const html = draw(loaded, ctx);
-                pace.at = now;
-                pace.took = performance.now() - now;
-                return html;
+                // Still loading: answered once KaTeX is there, not left as TeX until a later token.
+                if (loaded instanceof Promise) return loaded.then((k) => draw(k, ctx), () => null);
+                const part = partOf(ctx.host);
+                let pace = paces.get(part);
+                if (!pace) { pace = { at: -Infinity, took: 0, waiting: null, timer: undefined }; paces.set(part, pace); }
+                const wait = pace.at + Math.max(FRAME_MS, pace.took) - performance.now();
+                if (wait <= 0 && !pace.waiting) return drawPaced(pace, loaded, ctx);
+                // Inside the wait: the latest source takes the next turn, the one it replaces
+                // is answered null (the engine asks again for anything still current).
+                const current = pace;
+                pace.waiting?.answer(null);
+                return new Promise<string | null>((answer) => {
+                    current.waiting = { ctx, answer };
+                    current.timer ??= setTimeout(() => {
+                        current.timer = undefined;
+                        const job = current.waiting;
+                        current.waiting = null;
+                        if (job) job.answer(drawPaced(current, loaded, job.ctx));
+                    }, Math.max(0, wait));
+                });
             }
             const k = ensure();
             return k instanceof Promise ? k.then((loaded) => draw(loaded, ctx)) : draw(k, ctx);

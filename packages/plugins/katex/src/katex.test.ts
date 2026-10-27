@@ -100,16 +100,44 @@ describe('a formula still arriving', () => {
         expect(renderer().render(ctx('\\frac{1}{', { open: true }))).toBeNull();
     });
 
-    it('draws it while it parses, at most once a frame', () => {
+    /** A formula inside one reply part, the way the engine hands it over. */
+    function inPart(part: HTMLElement): (source: string) => AparteCodeLanguageContext {
+        return (source) => {
+            const host = document.createElement('code');
+            part.replaceChildren(host);
+            return ctx(source, { open: true, host });
+        };
+    }
+    const part = (): HTMLElement => {
+        const el = document.createElement('div');
+        el.setAttribute('data-segment-id', 's1');
+        document.body.appendChild(el);
+        return el;
+    };
+
+    it('draws it while it parses, at most once a frame, and the last source always', async () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
-        let now = 1000;
-        vi.spyOn(performance, 'now').mockImplementation(() => now);
+        vi.useFakeTimers();
         setupKatexWith(katex);
-        expect(renderer().render(ctx('x + 1', { open: true }))).toContain('katex');
-        now += 5;
-        expect(renderer().render(ctx('x + 12', { open: true }))).toBeNull();
-        now += 20;
-        expect(renderer().render(ctx('x + 123', { open: true }))).toContain('katex');
+        const at = inPart(part());
+        expect(renderer().render(at('x + 1'))).toContain('katex');
+        // Inside the wait: the next turn draws the latest source — never nothing.
+        const superseded = renderer().render(at('x + 12'));
+        const latest = renderer().render(at('x + 123'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(await superseded).toBeNull();
+        expect(await latest).toContain('katex');
+        expect(await latest).toContain('123');
+        vi.useRealTimers();
+    });
+
+    it('paces each reply part on its own, so one stream cannot starve another', () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        setupKatexWith(katex);
+        const a = inPart(part());
+        const b = inPart(part());
+        expect(renderer().render(a('a + 1'))).toContain('katex');
+        expect(renderer().render(b('b + 1'))).toContain('katex');
     });
 
     it('waits for the closed formula when live drawing is off', () => {
@@ -139,11 +167,17 @@ describe('loading KaTeX', () => {
         expect(await renderer().render(ctx('a'))).toContain('katex');
     });
 
-    it('does not wait for it while a formula is still arriving', () => {
-        const load = vi.fn(() => new Promise<never>(() => {}));
+    it('draws a formula still arriving once KaTeX is there, and loads it once', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        let arrive!: (k: typeof katex) => void;
+        const load = vi.fn(() => new Promise<typeof katex>((res) => { arrive = res; }));
         setupKatexWith(load);
-        expect(renderer().render(ctx('x', { open: true }))).toBeNull();
+        const first = renderer().render(ctx('x^2', { open: true }));
+        const others = [1, 2, 3].map((n) => renderer().render(ctx(`y_${n}`)));
         expect(load).toHaveBeenCalledTimes(1);
+        arrive(katex);
+        expect(await first).toContain('katex');
+        for (const other of others) expect(await other).toContain('katex');
     });
 
     it('imports katex itself from the package entry', async () => {
