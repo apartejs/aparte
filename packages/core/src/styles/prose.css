@@ -243,6 +243,17 @@
   contain: paint;
 }
 
+/* An inline formula too: `\smash`, `\raisebox` or a negative `\kern` would otherwise lay
+   a box over the bubble around it, a tool row or a question card. Atomic, because paint
+   containment does nothing on an inline box; a formula longer than the line still wraps,
+   inside its own box. The margin lets a glyph's overhang (a math italic f) show. */
+.aparte-code-drawing:not([data-aparte-display]) {
+  display: inline-block;
+  max-inline-size: 100%;
+  contain: paint;
+  overflow-clip-margin: 0.2em;
+}
+
 .aparte-code-drawing img {
   max-inline-size: 100%;
   block-size: auto;
