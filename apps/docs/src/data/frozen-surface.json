@@ -429,6 +429,7 @@
       "registerDefaultRenderers",
       "registerSegmentRenderer",
       "releaseDeferredHydration",
+      "renderCodeLanguages",
       "requestUserInput",
       "resolveConfig",
       "revokeAttachmentUrls",

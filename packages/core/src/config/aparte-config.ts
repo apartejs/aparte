@@ -123,6 +123,61 @@ export interface AparteStreamingMarkdownRenderer {
  */
 export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStreamingMarkdownRenderer;
 
+/**
+ * What a {@link AparteCodeLanguageRenderer} is asked to draw: one block of source in a
+ * language it registered, as a Markdown provider or a code segment left it.
+ */
+export interface AparteCodeLanguageContext {
+    /** The language, lower-cased: `math`, `mermaid`, … */
+    readonly language: string;
+    /** The source, verbatim: the TeX, the diagram. */
+    readonly source: string;
+    /** A block (a fence, display maths) rather than inline (`$x$`). */
+    readonly display: boolean;
+    /**
+     * The source is still arriving. Draw what you can of it, or return `null` and the
+     * last drawing that this source extends stays on screen.
+     */
+    readonly open: boolean;
+    /** The element that carries the source. Read its computed style if you need to; leave it as it is. */
+    readonly host: HTMLElement;
+    /** The chat's config, for its locale and its other providers. */
+    readonly config: AparteConfig;
+}
+
+/**
+ * Draws the source of one language: KaTeX for `math`, Mermaid for `mermaid`.
+ *
+ * Register it with {@link AparteConfig.registerCodeLanguageRenderer}; it then draws that
+ * language wherever it appears — a fence in a reply, display or inline maths a Markdown
+ * provider recognised — whichever Markdown provider is installed. A provider marks the
+ * source with `<code class="language-…">`; core puts the drawing beside it and leaves
+ * the source untouched, so copying and the history the model reads still use it.
+ *
+ * The markup `render` returns is **trusted**: it is inserted as it is, not through the
+ * HTML sanitizer, which would strip exactly what a drawing is made of (SVG, MathML,
+ * positioning styles). It has the standing of a segment renderer's output — code you
+ * installed. Never echo the source into it unescaped.
+ */
+export interface AparteCodeLanguageRenderer {
+    /** The languages this renderer draws, lower-case. The last registration for a language wins. */
+    readonly languages: readonly string[];
+    /**
+     * The drawing, as markup. `null` leaves what is shown: the last drawing for an open
+     * source, the source itself otherwise. Throwing does the same, and warns once.
+     */
+    render(ctx: AparteCodeLanguageContext): string | null | Promise<string | null>;
+    /** Whatever else the drawing depends on (a theme, say), so a change draws it again. */
+    cacheKey?(ctx: AparteCodeLanguageContext): string;
+    /** Re-read text the drawing takes from the config (an image's alt) — attributes and text only. */
+    relabel?(drawing: HTMLElement, ctx: AparteCodeLanguageContext): void;
+    /**
+     * Draw only once the source comes near the screen. For an expensive renderer, so that
+     * reopening a long conversation does not draw every diagram in it at once.
+     */
+    readonly lazy?: boolean;
+}
+
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
 const NOOP = (): void => { /* deliberately empty */ };
 
@@ -234,6 +289,7 @@ export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
     private _highlightProvider?: AparteHighlightProvider;
+    private _codeLanguageRenderers = new Map<string, AparteCodeLanguageRenderer>();
     // HTML sanitizer applied to markdown/highlight PROVIDER output (untrusted,
     // LLM-authored) before it is injected via innerHTML. Default = built-in
     // zero-dep allowlist sanitizer; `null` disables it (trusted content only).
@@ -500,6 +556,43 @@ export class AparteConfig {
      */
     hasHighlightProvider(): boolean {
         return !!this._highlightProvider;
+    }
+
+    /**
+     * Draw a language — `math`, `mermaid` — wherever it appears in a reply, whichever
+     * Markdown provider produced it. Messages already on screen are drawn again.
+     *
+     * @returns a disposer that removes the renderer, if it is still the one registered.
+     * @example aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: ({ source }) => katex.renderToString(source) });
+     */
+    registerCodeLanguageRenderer(renderer: AparteCodeLanguageRenderer): () => void {
+        const languages = renderer.languages.map((l) => l.toLowerCase());
+        for (const language of languages) this._codeLanguageRenderers.set(language, renderer);
+        bumpRenderingVersion(this);
+        this._notify();
+        return () => {
+            let removed = false;
+            for (const language of languages) {
+                if (this._codeLanguageRenderers.get(language) !== renderer) continue;
+                this._codeLanguageRenderers.delete(language);
+                removed = true;
+            }
+            if (!removed) return;
+            bumpRenderingVersion(this);
+            this._notify();
+        };
+    }
+
+    /** The renderer registered for `language`, if any. */
+    getCodeLanguageRenderer(language: string): AparteCodeLanguageRenderer | undefined {
+        return this._codeLanguageRenderers.get(language.toLowerCase());
+    }
+
+    /** Whether a renderer is registered for `language`, or for any language when none is given. */
+    hasCodeLanguageRenderer(language?: string): boolean {
+        return language === undefined
+            ? this._codeLanguageRenderers.size > 0
+            : this._codeLanguageRenderers.has(language.toLowerCase());
     }
 
     /**
@@ -1907,7 +2000,7 @@ export class AparteConfig {
     /**
      * Put the configuration back to its defaults: the providers and the selected model,
      * the tools with their renderers and summaries, the renderers and render hooks, the
-     * Markdown and highlight providers, the sanitizer, the system prompt, the locale, icons,
+     * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
      * and their queue. Three things stay: the transport, the key sources added with
      * {@link AparteConfig.registerKeyProvider | registerKeyProvider()} (an `AparteClient`'s
@@ -1919,6 +2012,7 @@ export class AparteConfig {
         this._markdownProvider = undefined;
         this._streamingMarkdownProvider = undefined;
         this._highlightProvider = undefined;
+        this._codeLanguageRenderers.clear();
         this._systemPromptTemplate = undefined;
         this._systemPromptVarsProvider = undefined;
         this._statusRenderer = undefined;
