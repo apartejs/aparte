@@ -140,17 +140,22 @@ as a string or a promise of one.
 {/* doc-check: skip dompurify is the reader's install, not one of this repo's */}
 ```ts
 import DOMPurify from 'dompurify';
-import { aparteGlobalConfig } from '@aparte/core';
+import { aparteGlobalConfig, defaultSanitizer } from '@aparte/core';
 
-aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+aparteGlobalConfig.setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)));
 ```
 
 What marked and a highlighter return goes through the chat's HTML sanitizer before it reaches the
 page, and so does a streamed reply once it finishes, so the Markdown a model writes cannot run
 script. While a reply streams, a link or an image with an unsafe address is dropped, and a link to
-another site opens in a new tab. The built-in sanitizer needs no dependency;
-[`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer) swaps in one of yours, such as
-DOMPurify.
+another site opens in a new tab. The built-in sanitizer needs no dependency.
+
+To add DOMPurify, chain it in front of the built-in sanitizer, as above, rather than in its place.
+[`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer) replaces the sanitizer, and
+DOMPurify's defaults are written for any page, not for a chat: on their own they keep inline layout
+styles (a reply can cover the screen), core's `aparte-` classes (a reply can draw a button that looks
+like an approval), form controls and `id`s, and they leave a link to another site opening in the
+chat's own frame.
 
 ## Route the links a model writes
 

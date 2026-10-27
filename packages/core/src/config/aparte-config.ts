@@ -507,11 +507,16 @@ export class AparteConfig {
      * provider output before it is injected into the DOM. Defaults to a built-in
      * zero-dependency allowlist sanitizer.
      *
-     * @param sanitizer A sanitizer function (e.g. a DOMPurify wrapper) for
-     *   hardened coverage, or `null` to DISABLE sanitization. Disabling exposes
-     *   you to XSS from LLM-authored content — only do so for content you fully
-     *   trust and have already sanitized upstream. `null` prints a console warning, once.
-     * @example aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+     * The function you pass REPLACES the built-in one, chat rules included: no
+     * `aparte-` classes, no layout styles, no form controls, external links in a new
+     * tab. DOMPurify's defaults hold none of the four, so chain it in front of
+     * `defaultSanitizer` rather than in its place (the example below).
+     *
+     * @param sanitizer A sanitizer function, or `null` to DISABLE sanitization.
+     *   Disabling exposes you to XSS from LLM-authored content — only do so for
+     *   content you fully trust and have already sanitized upstream. `null` prints
+     *   a console warning, once.
+     * @example aparteGlobalConfig.setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
         if (sanitizer === null) {
@@ -525,7 +530,7 @@ export class AparteConfig {
             console.warn(
                 '[aparte] HTML sanitization is now DISABLED (setHtmlSanitizer(null)). '
                 + 'Model-authored HTML will be inserted verbatim. Pass a sanitizer '
-                + '(e.g. DOMPurify.sanitize) unless you sanitize upstream yourself.',
+                + '(defaultSanitizer, or DOMPurify chained before it) unless you sanitize upstream yourself.',
             );
         }
         this._sanitizer = sanitizer;
