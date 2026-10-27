@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import { AparteChatRequest, AparteChatResponse, AparteStreamEvent } from './chat.js';
+import { AparteChatRequest, AparteChatResponse, AparteStreamEvent, AparteStreamEventMap } from './chat.js';
 import type { AparteErrorCode } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,6 +251,8 @@ export interface AparteAIProviderFormat {
     parseStream(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
     /** Extract text from a non-streaming vendor JSON response. */
     parseText?(json: unknown): string;
+    /** The sources a non-streaming vendor JSON response cites — see `AparteFormatAdapter.parseSources`. */
+    parseSources?(json: unknown): AparteStreamEventMap['sources'] | undefined;
     /** Name a non-ok vendor response a status cannot (an overflowing prompt) — see `AparteFormatAdapter.classifyError`. */
     classifyError?(status: number, body: unknown): AparteErrorCode | undefined;
 }

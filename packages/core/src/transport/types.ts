@@ -12,7 +12,7 @@
  * A provider exposes EITHER the format-adapter surface OR a legacy monolithic
  * `chat()` (fetch + key + parse); the transports handle both.
  */
-import type { AparteChatRequest, AparteChatResponse, AparteStreamEvent } from '../types/chat.js';
+import type { AparteChatRequest, AparteChatResponse, AparteStreamEvent, AparteStreamEventMap } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 
@@ -41,6 +41,13 @@ export interface AparteFormatAdapter {
     parseStream(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
     /** Extract text from a non-streaming vendor JSON response. */
     parseText?(json: unknown): string;
+    /**
+     * The sources a non-streaming vendor JSON response cites, and where (offsets into the
+     * text `parseText` returns) — the `sources` event a stream would carry. With it, a
+     * non-streaming answer that cites anything resolves to a stream of its text, its
+     * sources and its end, instead of a bare string.
+     */
+    parseSources?(json: unknown): AparteStreamEventMap['sources'] | undefined;
     /**
      * Name the failure of a non-ok vendor response, for the ones a status cannot: a 400
      * whose body says the prompt overflowed the model's window is `USAGE_CONTEXT_EXCEEDED`,
@@ -145,13 +152,29 @@ export async function vendorError(
  * adapter has no `parseText`.
  */
 export async function parseNonStreamText(
-    provider: { parseText?: (json: unknown) => string },
+    provider: { parseText?: (json: unknown) => string; parseSources?: AparteFormatAdapter['parseSources'] },
     response: Response,
     providerId: string,
-): Promise<string> {
+): Promise<AparteChatResponse> {
     const json = await response.json();
     if (typeof provider.parseText !== 'function') {
         throw new Error(`Provider "${providerId}" cannot resolve a non-streaming response: parseText is not implemented.`);
     }
-    return provider.parseText(json);
+    return withSources(provider.parseText(json), provider.parseSources?.(json));
+}
+
+/**
+ * A whole answer: the bare text, or — when it cites sources — the stream a streaming answer
+ * would have been, so its sources reach the reply the same way.
+ */
+export function withSources(text: string, sources: AparteStreamEventMap['sources'] | undefined): AparteChatResponse {
+    if (!sources || sources.sources.length === 0) return text;
+    const events: AparteStreamEvent[] = [{ type: 'text', delta: text }, { type: 'sources', ...sources }, { type: 'done' }];
+    return new ReadableStream<AparteStreamEvent>({
+        pull(controller) {
+            const next = events.shift();
+            if (next) controller.enqueue(next);
+            else controller.close();
+        },
+    });
 }

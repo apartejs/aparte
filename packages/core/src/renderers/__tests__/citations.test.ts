@@ -130,6 +130,7 @@ describe('the card a chip opens', () => {
         expect(chip.getAttribute('aria-expanded')).toBe('true');
         expect(chip.getAttribute('aria-controls')).toBe(card.id);
         const link = card.querySelector<HTMLAnchorElement>('a.aparte-citation-card__title')!;
+        expect(document.activeElement).toBe(link);
         expect(link.href).toBe(SKY.url);
         expect(link.target).toBe('_blank');
         expect(link.rel).toBe('noopener noreferrer');

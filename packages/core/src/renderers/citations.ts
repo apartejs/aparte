@@ -284,7 +284,9 @@ function openCard(chip: HTMLElement): void {
     window.addEventListener('scroll', placeCard, true);
     window.addEventListener('resize', placeCard);
     el.addEventListener('focusout', onFocusOut);
-    (el.querySelector('a, button') as HTMLElement | null)?.focus();
+    // The source's link, else the first button that can act: on the first page "previous"
+    // is disabled, and focusing it would leave the focus nowhere.
+    (el.querySelector<HTMLElement>('a') ?? el.querySelector<HTMLElement>('button:not([disabled])'))?.focus();
 }
 
 function closeCard(returnFocus: boolean): void {
