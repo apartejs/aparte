@@ -77,6 +77,9 @@ export function setupMermaidWith(
         renderer.epoch++;
         renderCodeLanguages(document.body, { refresh: true, language: 'mermaid' });
         for (const root of shadows) {
+            // A widget taken off the page is let go, not drawn again: if it comes back,
+            // its next drawing hands its root over once more.
+            if (!root.host.isConnected) { shadows.delete(root); continue; }
             for (const child of Array.from(root.children)) renderCodeLanguages(child, { refresh: true, language: 'mermaid' });
         }
     };

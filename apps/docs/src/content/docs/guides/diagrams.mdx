@@ -76,6 +76,17 @@ setupMermaidWith(mermaid, { progressive: false, mermaid: { flowchart: { curve: '
 `mermaid`, Mermaid's own configuration under the keys the plugin keeps. Any object shaped like
 `MermaidLike` will do. Both setups return a function that removes the renderer.
 
+Mermaid keeps one configuration for the whole page, and the plugin calls `initialize` with its
+own before every diagram it draws. If your page also draws diagrams of its own with the same
+Mermaid, call `mermaid.initialize(yourConfig)` again before your own `render()` or `run()`:
+
+```ts
+import mermaid from 'mermaid';
+
+mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+await mermaid.run({ querySelector: '.my-diagrams' });
+```
+
 ## Next
 
 <Cards

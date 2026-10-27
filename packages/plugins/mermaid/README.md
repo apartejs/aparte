@@ -65,4 +65,8 @@ setupMermaidWith(mermaid);
 `setupMermaidWith` takes the instance, or a function returning a promise of it, and any object
 shaped like `MermaidLike` (`initialize`, `parse`, `render`). Both functions return a disposer.
 
+Mermaid keeps one configuration for the whole page, and the plugin calls `initialize` with its
+own before every diagram it draws. If your page also draws diagrams of its own with the same
+Mermaid, call `mermaid.initialize(yourConfig)` again before your own `render()` or `run()`.
+
 ESM only.

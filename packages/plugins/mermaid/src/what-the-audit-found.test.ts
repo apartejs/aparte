@@ -137,6 +137,25 @@ describe('a chat inside a shadow root', () => {
         chat.setAttribute('data-aparte-theme', 'dark');
         await vi.waitFor(() => expect(rendered).toHaveLength(2));
     });
+
+    it('lets a widget taken off the page go, rather than drawing it again', async () => {
+        const { mermaid, rendered } = fakeMermaid();
+        setupMermaidWith(mermaid);
+        const widget = document.createElement('div');
+        document.body.appendChild(widget);
+        const chat = document.createElement('div');
+        chat.innerHTML = '<pre><code class="language-mermaid">flowchart TD\n  A --> B</code></pre>';
+        widget.attachShadow({ mode: 'open' }).appendChild(chat);
+        renderCodeLanguages(chat);
+        await vi.waitFor(() => expect(rendered).toHaveLength(1));
+
+        widget.remove();
+        document.documentElement.setAttribute('data-aparte-theme', 'dark');
+        await new Promise((r) => setTimeout(r, 20));
+        document.documentElement.removeAttribute('data-aparte-theme');
+        await new Promise((r) => setTimeout(r, 20));
+        expect(rendered).toHaveLength(1);
+    });
 });
 
 describe('two diagrams arriving at once', () => {
