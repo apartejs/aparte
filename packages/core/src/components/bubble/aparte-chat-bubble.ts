@@ -863,7 +863,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /** A whole new list, from `setSegments` or `updateMessage({ segments })`: copied in, then drawn. */
   private _replaceSegments(segments: AparteSegment[]): void {
     const next = [...segments];
-    if (this._resyncKeepingCards(next)) return;
+    if (this._resyncKeepingCards(next)) { this._syncSources(); return; }
     this._segments = next;
     this._renderSegments();
   }
@@ -896,6 +896,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   addSegment(segment: AparteSegment): void {
     this._segments.push(segment);
     this._appendSegmentEl(segment);
+    if (segment.type === 'text' && segment.sources) this._syncSources();
     this._updateWaiting();
   }
 
@@ -951,6 +952,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._release(segmentId);
     const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
+    this._syncSources();
     this._updateWaiting();
     this._syncCopyAction();
   }
@@ -1789,6 +1791,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
     this._reflectError();
     this._syncCopyAction();
+    this._syncSources();
   }
 
   /**

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAparteChatHandler } from '../backend-handler.js';
 import { AparteBackendTransport } from '../backend-transport.js';
+import { parseNonStreamText } from '../types.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteChatRequest, AparteStreamEvent } from '../../types/index.js';
 
@@ -295,5 +296,15 @@ describe('AparteBackendTransport ⟷ createAparteChatHandler round-trip', () => 
         const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
         vi.spyOn(globalThis, 'fetch').mockImplementation((async () => res) as typeof fetch);
         expect(await new AparteBackendTransport({ endpoint: 'http://localhost/api/chat' }).chat(adapter(), { ...req, stream: false }, '', ctx)).toBe('Blue');
+    });
+
+    it('keeps the answer when reading its sources throws, on the server and in the browser', async () => {
+        const broken = { ...adapter(), parseSources: () => { throw new TypeError('bad annotations'); } } as AparteAIProvider;
+        const answer = () => new Response(JSON.stringify({ text: 'Blue' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: broken }, resolveKey: () => 'k', fetchImpl: vi.fn(async () => answer()) });
+        const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ text: 'Blue' });
+        expect(await parseNonStreamText(broken as never, answer(), 'mock')).toBe('Blue');
     });
 });

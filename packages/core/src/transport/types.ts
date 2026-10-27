@@ -160,7 +160,11 @@ export async function parseNonStreamText(
     if (typeof provider.parseText !== 'function') {
         throw new Error(`Provider "${providerId}" cannot resolve a non-streaming response: parseText is not implemented.`);
     }
-    return withSources(provider.parseText(json), provider.parseSources?.(json));
+    const text = provider.parseText(json);
+    // The answer stands without its sources: a reader of them that throws costs the list, not the reply.
+    let sources: AparteStreamEventMap['sources'] | undefined;
+    try { sources = provider.parseSources?.(json); } catch { sources = undefined; }
+    return withSources(text, sources);
 }
 
 /**

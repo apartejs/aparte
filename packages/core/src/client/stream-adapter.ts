@@ -135,14 +135,20 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let thinkingContent = '';
     let thinkingCollapsed = false;
 
-    // What this model call streamed — its text, its text segments in order, and the sources
-    // it cited — to place each citation in the segment it falls in (see `placeSources`).
+    // What this model call streamed — its text, the segments the parser cut it into, in
+    // order, and the sources it cited — to place each citation in the text segment it falls
+    // in (see `placeSources`).
     let callText = '';
-    let callTexts = new Map<string, string>();
+    let callTexts = new Map<string, { text: boolean; content: string }>();
     let callSources: AparteSource[] = [];
     let callCitations: AparteCitation[] = [];
+    // The segments given a list last time: a later placement that moves it takes it back.
+    let given = new Set<string>();
+    // Every segment with a body counts, a code block or a reasoning block as much as text:
+    // finding the next text segment from the end of the one before would search through it.
     const noteText = (segment: AparteSegment): void => {
-        if (segment.type === 'text') callTexts.set(segment.id, segment.content);
+        const content = (segment as { content?: unknown }).content;
+        if (typeof content === 'string') callTexts.set(segment.id, { text: segment.type === 'text', content });
     };
 
     /**
@@ -150,19 +156,22 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
      * call streamed; the parser cut that text at fences and blocks, so each segment is found
      * in it in order, and a citation goes to the segment its end falls in, rebased onto that
      * segment's `content`. A source no placed citation names — the AI SDK's carry no
-     * position — joins the last segment's list, where it is shown without a chip.
+     * position, and a passage in a code block gets no chip — joins the last text segment's
+     * list, where it is shown without a chip.
      */
     const placeSources = (): void => {
-        if (callSources.length === 0 || callTexts.size === 0) return;
+        if (callSources.length === 0) return;
         let cursor = 0;
-        const spans = [...callTexts].map(([id, content]) => {
+        const spans = [...callTexts].map(([id, { text, content }]) => {
             const start = callText.indexOf(content, cursor);
             if (start >= 0) cursor = start + content.length;
-            return { id, start, length: content.length, citations: [] as AparteCitation[] };
-        });
+            return { id, text, start, length: content.length, citations: [] as AparteCitation[] };
+        }).filter((s) => s.text);
+        if (spans.length === 0) return;
         const placed = new Set<string>();
         for (const citation of callCitations) {
-            const span = spans.find((s) => s.start >= 0 && citation.end >= s.start && citation.end <= s.start + s.length);
+            // An end exactly where a segment starts closes nothing in it.
+            const span = spans.find((s) => s.start >= 0 && citation.end > s.start && citation.end <= s.start + s.length);
             if (!span) continue;
             const end = citation.end - span.start;
             const start = citation.start === undefined ? undefined : Math.max(0, Math.min(end, citation.start - span.start));
@@ -170,12 +179,18 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             for (const id of citation.sources) placed.add(id);
         }
         const last = spans[spans.length - 1]!;
+        const now = new Set<string>();
         for (const span of spans) {
             const named = new Set(span.citations.flatMap((c) => c.sources));
             const sources = callSources.filter((s) => named.has(s.id) || (span === last && !placed.has(s.id)));
-            if (sources.length === 0) continue;
+            if (sources.length === 0) {
+                if (given.has(span.id)) target.updateSegment?.(span.id, { sources: undefined, citations: undefined } as Partial<AparteSegment>);
+                continue;
+            }
+            now.add(span.id);
             target.updateSegment?.(span.id, { sources, citations: span.citations } as Partial<AparteSegment>);
         }
+        given = now;
     };
 
     /**
@@ -216,8 +231,13 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 streaming = new Set();
                 callText = '';
                 callTexts = new Map();
-                callSources = [];
+                // Sources a call had no text segment to give to (it streamed only a code
+                // block, or only a tool call) wait for the reply's next text, listed without
+                // a chip: their offsets were into that call's text. Renamed, because the
+                // next call numbers its own sources from the same `s1`.
+                callSources = given.size === 0 ? callSources.map((s) => ({ ...s, id: `${s.id}~` })) : [];
                 callCitations = [];
+                given = new Set();
                 thinkingId = null;
                 thinkingContent = '';
                 thinkingCollapsed = false;
@@ -292,9 +312,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'sources': {
-                const known = new Set(callSources.map((s) => s.id));
-                callSources = [...callSources, ...e.sources.filter((s) => !known.has(s.id))];
-                callCitations = [...callCitations, ...(e.citations ?? [])];
+                // A source sent again is the same one, completed; a citation sent again is not a second one.
+                const byId = new Map(callSources.map((s) => [s.id, s]));
+                for (const s of Array.isArray(e.sources) ? e.sources : []) byId.set(s.id, { ...byId.get(s.id), ...s });
+                callSources = [...byId.values()];
+                const seen = new Set(callCitations.map((c) => JSON.stringify([c.start, c.end, c.marker, c.sources])));
+                for (const c of Array.isArray(e.citations) ? e.citations : []) {
+                    const key = JSON.stringify([c.start, c.end, c.marker, c.sources]);
+                    if (!seen.has(key)) { seen.add(key); callCitations.push(c); }
+                }
                 placeSources();
                 break;
             }

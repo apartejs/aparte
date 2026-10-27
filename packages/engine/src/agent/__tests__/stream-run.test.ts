@@ -107,6 +107,7 @@ describe('runStreamAgent — text & lifecycle', () => {
         // nothing at all.
         expect(rec.events).toEqual([
             { type: 'run-start' },
+            { type: 'turn-start' },
             { type: 'text-delta', delta: 'plain answer' },
             { type: 'text-flush' },
             { type: 'run-done', usage: undefined },
@@ -118,6 +119,7 @@ describe('runStreamAgent — text & lifecycle', () => {
         await runStreamAgent(baseOpts({ transportCall: async () => '```', emitter: rec.emitter }));
         expect(rec.events, 'the parser withholds "```" until it is flushed').toEqual([
             { type: 'run-start' },
+            { type: 'turn-start' },
             { type: 'text-delta', delta: '```' },
             { type: 'text-flush' },
             { type: 'run-done', usage: undefined },

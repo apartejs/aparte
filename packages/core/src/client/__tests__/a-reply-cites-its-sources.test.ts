@@ -87,4 +87,80 @@ describe('a reply that cites its sources', () => {
         expect(texts[0]!.sources).toBeUndefined();
         expect(texts[1]!.citations).toEqual([{ start: 7, end: 12, sources: ['s1'] }]);
     });
+
+    it('finds the text past a reasoning block or a code block that repeats it', () => {
+        const think = '<think>Draft: Paris is the capital of France. Check.</think>Paris is the capital of France.';
+        const [answer] = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: think },
+            { type: 'sources', sources: [SKY], citations: [{ end: think.length, sources: ['s1'] }] },
+            { type: 'text-flush' },
+        ]);
+        expect(answer!.citations).toEqual([{ end: 31, sources: ['s1'] }]);
+
+        const code = 'Run:\n```sh\nnpm test\n```\nnpm test';
+        const texts = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: code },
+            { type: 'sources', sources: [SKY, SEA], citations: [
+                { end: code.length, sources: ['s1'] },
+                // Ends inside the code body: no chip on the prose that repeats it.
+                { end: code.indexOf('test') + 4, sources: ['s2'] },
+                // Ends exactly where the code block starts: closes nothing in what follows.
+                { end: code.indexOf('```'), sources: ['s2'] },
+            ] },
+            { type: 'text-flush' },
+        ]);
+        const last = texts[texts.length - 1]!;
+        expect(last.content).toBe('npm test');
+        expect(last.citations).toEqual([{ end: 8, sources: ['s1'] }]);
+        expect(texts.flatMap((t) => t.citations ?? []).some((c) => c.sources.includes('s2') && c.end === 0)).toBe(false);
+    });
+
+    it('takes a list back from a segment a later placement moves it off, and counts a repeated event once', () => {
+        // A list-only source goes to the last text segment: "Intro." while it is, "Outro." once it comes.
+        const moved = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: 'Intro.' },
+            { type: 'sources', sources: [SKY] },
+            { type: 'text-delta', delta: '\n\n```js\nx\n```\n\nOutro.' },
+            { type: 'text-flush' },
+        ]);
+        expect(moved.map((t) => t.sources?.map((s) => s.id) ?? null)).toEqual([null, ['s1']]);
+
+        const texts = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: 'Intro.' },
+            { type: 'sources', sources: [SKY], citations: [{ end: 6, sources: ['s1'] }] },
+            { type: 'sources', sources: [{ id: 's1', url: SKY.url, title: 'Sky', snippet: 'Rayleigh.' }], citations: [{ end: 6, sources: ['s1'] }] },
+            { type: 'text-flush' },
+        ]);
+        expect(texts[0]!.citations).toEqual([{ end: 6, sources: ['s1'] }]);
+        expect(texts[0]!.sources![0]!.snippet).toBe('Rayleigh.');
+    });
+
+    it('keeps the sources of a call that wrote no text for the reply\'s next text', () => {
+        const texts = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: '```sh\nnpm test\n```' },
+            { type: 'sources', sources: [SKY], citations: [{ end: 10, sources: ['s1'] }] },
+            { type: 'text-flush' },
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: 'Done.' },
+            { type: 'sources', sources: [{ ...SEA, id: 's1' }] },
+            { type: 'text-flush' },
+        ]);
+        expect(texts.at(-1)!.sources!.map((s) => s.url).sort()).toEqual([SKY.url, SEA.url].sort());
+    });
+
+    it('reads a malformed event as no sources, and the run goes on', () => {
+        const texts = streamed([
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: 'Blue.' },
+            { type: 'sources', citations: [{ end: 5, sources: ['s1'] }] } as never,
+            { type: 'text-flush' },
+        ]);
+        expect(texts[0]!.content).toBe('Blue.');
+        expect(texts[0]!.sources).toBeUndefined();
+    });
 });
