@@ -13,6 +13,33 @@ import type {
     AparteCodeSegment,
 } from '../../types/index.js';
 
+/**
+ * The source each pane shows, for the copy button: the pane's text stops being the
+ * source as soon as something other than a highlighter draws into it.
+ */
+const sources = new WeakMap<Element, string>();
+/** Each whole-content highlight's turn: one resolving after a newer one must not land. */
+const generations = new WeakMap<Element, number>();
+
+/**
+ * Highlight the whole content, once the segment has settled.
+ *
+ * The pane is marked settled first, so a streaming highlight still in flight
+ * (`streamHighlight`) leaves it alone, and each call takes a turn, so two of these
+ * resolving out of order cannot put the older content back.
+ */
+function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): void {
+    const wrapper = element.querySelector<HTMLElement>('.aparte-code-content-wrapper');
+    if (!wrapper) return;
+    const turn = (generations.get(element) ?? 0) + 1;
+    generations.set(element, turn);
+    wrapper.dataset.aparteSettled = '';
+    void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
+        if (generations.get(element) !== turn) return;
+        wrapper.innerHTML = html;
+    }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
+}
+
 export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     type: 'code',
     render: (segment) => {
@@ -38,32 +65,23 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
         if (copyBtn) relabelCopyButton(copyBtn);
     },
     setup: (element, segment) => {
-        // Async highlight: replace plain <pre><code> with highlighted HTML once ready
-        const wrapper = element.querySelector('.aparte-code-content-wrapper');
-        if (wrapper) {
-            void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
-                wrapper.innerHTML = html;
-            }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
-        }
+        sources.set(element, segment.content);
+        // A fence still arriving is painted by `update`; one already whole is highlighted now.
+        if (segment.isStreaming !== true) highlightSettled(element, segment);
 
         const copyBtn = element.querySelector<HTMLElement>('.aparte-code-copy');
-        // Read the DOM, not the segment this closure captured: `setup` runs once, on the
-        // segment as it is at that moment — for a streamed fence, empty. `textContent`
-        // is the source either way: the highlighter wraps it in spans, which add no text.
-        if (copyBtn) wireCopyButton(copyBtn, () => element.querySelector('.aparte-code-content-wrapper')?.textContent ?? '');
+        // Read the map, not the segment this closure captured: `setup` runs once, on the
+        // segment as it is at that moment — for a streamed fence, empty.
+        if (copyBtn) wireCopyButton(copyBtn, () => sources.get(element) ?? '');
     },
     update: (element, segment) => {
-        if (segment.isStreaming) {
+        sources.set(element, segment.content);
+        if (segment.isStreaming === true) {
             // Coloured WHILE it streams, so a fence is not grey until the stream ends.
             streamHighlight(element, '.aparte-code-content-wrapper', segment.content, segment.language || '', segment.id);
         } else {
             // Streaming complete — run the highlight provider for polished output.
-            const wrapper = element.querySelector('.aparte-code-content-wrapper');
-            if (wrapper) {
-                void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
-                    wrapper.innerHTML = html;
-                }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
-            }
+            highlightSettled(element, segment);
         }
     },
     getStyles: () => ``
