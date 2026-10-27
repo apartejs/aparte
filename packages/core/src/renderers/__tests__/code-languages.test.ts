@@ -512,3 +512,75 @@ describe('around the drawing', () => {
         expect(set).toHaveBeenCalledWith(120);
     });
 });
+
+describe('what the verification of the audit found', () => {
+    const block = (lang: string, source: string) => `<pre><code class="language-${lang}">${source}</code></pre>`;
+
+    it('never empties a chat kept out of the page into another, on a refresh over the page', () => {
+        let theme = 'light';
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], cacheKey: () => theme, render: (ctx) => `<i>${theme}:${ctx.source}</i>` });
+        const kept = root(block('mermaid', 'A'));
+        renderCodeLanguages(kept);
+        theme = 'dark';
+        renderCodeLanguages(document.body, { refresh: true });
+        kept.remove();   // a tab kept alive out of the page
+
+        theme = 'light';
+        const other = root(block('mermaid', 'A'));
+        renderCodeLanguages(other);
+        theme = 'dark';
+        renderCodeLanguages(document.body, { refresh: true });
+
+        document.body.appendChild(kept);
+        expect(drawing(kept)!.textContent).toBe('dark:A');
+        expect(drawing(other)!.textContent).toBe('dark:A');
+    });
+
+    it('leaves one drawing to a placeholder that comes back after its nodes moved on', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer(fake().renderer);
+        const el = root('<p id="p1"><code class="language-math math-display">E</code></p>');
+        renderCodeLanguages(el);
+        const p1 = el.querySelector('#p1')!;
+        p1.remove();
+        el.insertAdjacentHTML('beforeend', '<p><code class="language-math math-display">E</code></p>');
+        renderCodeLanguages(el);
+
+        el.prepend(p1);
+        expect(p1.querySelector('code')!.hidden).toBe(false);
+        renderCodeLanguages(el);
+        expect(p1.querySelectorAll('.aparte-code-drawing')).toHaveLength(1);
+        unrenderCodeLanguages(el);
+        expect(el.querySelectorAll('.aparte-code-drawing')).toHaveLength(0);
+    });
+
+    it('draws a new formula that took a drawn one\'s place, and asks it once', () => {
+        const { renderer, calls } = fake();
+        aparteGlobalConfig.registerCodeLanguageRenderer(renderer);
+        const open = (tex: string) => `<p><code class="language-math math-inline" data-aparte-open>${tex}</code> and more</p>`;
+        const el = root(open('a'));
+        renderCodeLanguages(el, { streaming: true });
+        expect(drawing(el)!.textContent).toBe('a');
+
+        for (let i = 0; i < 10; i++) {
+            el.innerHTML = open('b');
+            renderCodeLanguages(el, { streaming: true });
+        }
+        expect(drawing(el)!.textContent).toBe('b');
+        expect(calls.filter((c) => c.source === 'b')).toHaveLength(1);
+    });
+
+    it('rebuilds a block with the drawing of its own key, after the drawing showed another', () => {
+        const skin = (ctx: AparteCodeLanguageContext) => (ctx.host.closest('.skin-b') ? 'b' : 'a');
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['x'], cacheKey: skin, render: (ctx) => `<i>${skin(ctx)}:${ctx.source}</i>` });
+        const el = root(block('x', 'S'));
+        renderCodeLanguages(el);
+        el.classList.add('skin-b');
+        renderCodeLanguages(el);
+        expect(drawing(el)!.textContent).toBe('b:S');
+
+        el.classList.remove('skin-b');
+        el.innerHTML = block('x', 'S');
+        renderCodeLanguages(el);
+        expect(drawing(el)!.textContent).toBe('a:S');
+    });
+});

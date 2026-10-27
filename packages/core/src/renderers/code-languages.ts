@@ -317,8 +317,13 @@ function deferred(code: HTMLElement, root: Element): boolean {
  * across when the placeholder that held them has left the document and this one is in
  * it — the case of a block rebuilt under the same root — and built again otherwise, so
  * a drawing in a tree that is only detached for a moment is never emptied.
+ *
+ * Never across a refresh (`move` false). A refresh runs over a whole page, so its root
+ * is shared by chats that have nothing to do with each other: a chat kept alive out of
+ * the page would be emptied into another, and the page root, which never goes away,
+ * would hold every removed chat it recorded.
  */
-function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, key: string | null): void {
+function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCodeLanguageRenderer, ctx: AparteCodeLanguageContext, key: string | null, move = true): void {
     if (entry.html === null) { showSource(code, ctx.open); return; }
     const box = compensating ? grownBoxOf(code) : null;
     const before = box ? box.getBoundingClientRect() : null;
@@ -334,21 +339,28 @@ function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCo
         if (code.parentElement?.tagName === 'PRE') code.parentElement.setAttribute(DRAWN_ATTR, '');
     }
     if (state?.entry !== entry || drawing.childNodes.length === 0) {
-        let built = builtNodes.get(root);
-        if (!built) { built = new WeakMap(); builtNodes.set(root, built); }
-        const last = built.get(entry);
+        let built = move ? builtNodes.get(root) : undefined;
+        if (move && !built) { built = new WeakMap(); builtNodes.set(root, built); }
+        const last = built?.get(entry);
         const movable = last && last.owner !== code && !last.owner.isConnected && code.isConnected
             && !last.drawing.isConnected && last.drawing.childNodes.length > 0;
         if (movable) {
-            // The placeholder they came from is gone from the page: it drew them, it no
-            // longer shows them, and if it ever comes back it draws again.
-            hosts.delete(last.owner);
+            // The placeholder they came from is gone from the page: it drew them, and if it
+            // ever comes back it shows its source until a pass draws it again — in one
+            // drawing, not beside the empty one it would otherwise keep.
             drawing.replaceChildren(...last.drawing.childNodes);
+            last.drawing.remove();
+            showSource(last.owner, false);
         } else {
             drawing.innerHTML = entry.html;
             try { renderer.relabel?.(drawing, ctx); } catch (error) { warnOnce(renderer, error); }
         }
-        built.set(entry, { drawing, owner: code });
+        if (built) {
+            // This drawing now shows another result: the one it showed must not send a
+            // later rebuild these nodes.
+            if (state && state.entry !== entry && built.get(state.entry)?.drawing === drawing) built.delete(state.entry);
+            built.set(entry, { drawing, owner: code });
+        }
     }
     code.hidden = true;
     code.style.setProperty('display', 'none');
@@ -385,7 +397,7 @@ function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLangua
     if (state && state.renderer === renderer && state.key === key && state.drawing.childNodes.length > 0) return;
     const cache = cacheOf(renderer);
     const hit = cache.get(key);
-    if (hit) { fill(root, code, hit, renderer, ctx, key); return; }
+    if (hit) { fill(root, code, hit, renderer, ctx, key, !refresh); return; }
 
     // Until it is drawn: what is shown stays (a refresh), or the last drawing made for
     // this position while it streamed, if this source extends it.
@@ -404,7 +416,7 @@ function drawClosed(root: Element, code: HTMLElement, renderer: AparteCodeLangua
     if (running) { whenSettled(running, root, refresh); return; }
     let result: string | null | Promise<string | null>;
     try { result = renderer.render(ctx); } catch (error) { warnOnce(renderer, error); result = null; }
-    if (!isThenable(result)) { fill(root, code, cache.set(key, result ?? null), renderer, ctx, key); return; }
+    if (!isThenable(result)) { fill(root, code, cache.set(key, result ?? null), renderer, ctx, key, !refresh); return; }
     const settled = result.then((html) => {
         pending.delete(key);
         cache.set(key, html ?? null);
@@ -427,12 +439,16 @@ function drawOpen(root: Element, code: HTMLElement, renderer: AparteCodeLanguage
     if (previous && ctx.source.startsWith(previous.source)) {
         if (hosts.get(code)?.entry !== previous) fill(root, code, previous, renderer, ctx, null);
     } else {
+        // Another formula holds this position now (the provider read the text again): the
+        // last drawing was not of it, so its own first answer must be kept.
+        good.delete(pos);
         showSource(code, true);
     }
 
     // Asked once per source while it is being drawn. An answer of `null` — not now — is
     // forgotten, so the next pass asks again: a renderer pacing itself, or still loading,
-    // gets its source back on the next token instead of never.
+    // gets its source back on the next token instead of never. An answer that came too
+    // late to be kept is not: asking again would only throw the same drawing away.
     const requests = mapOf(asked, root);
     if (requests.get(pos) === ctx.source) return;
     requests.set(pos, ctx.source);
@@ -450,12 +466,12 @@ function drawOpen(root: Element, code: HTMLElement, renderer: AparteCodeLanguage
     try { result = renderer.render(ctx); } catch { result = null; }   // a half-written source is expected to fail
     if (!isThenable(result)) {
         if (keep(result)) fill(root, code, good.get(pos)!, renderer, ctx, null);
-        else forget();
+        else if (result == null) forget();
         return;
     }
     result.then((html) => {
         if (keep(html)) schedule(root);
-        else forget();
+        else if (html == null) forget();
     }, forget);
 }
 
