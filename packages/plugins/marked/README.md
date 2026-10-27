@@ -45,5 +45,10 @@ either way:
 setupMarkedProvider({ math: false }); // leave dollars as text, whatever is registered
 ```
 
-A single `$` follows Pandoc's rule, so `$5 and $10` stays text. While a reply streams, a formula
-is drawn as it arrives.
+A single `$` follows Pandoc's rule, so `$5 and $10` stays text; a formula never crosses a blank
+line, code wins over it, and escaped brackets such as `\[1\]` stay brackets. While a reply streams,
+a formula is drawn as it arrives.
+
+With maths on, rendering runs on a marked instance of the plugin's own, so an extension you added
+to the global `marked` with `marked.use()` does not apply: pass your marked options to
+`setupMarkedProvider(options)` instead.

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig } from '@aparte/core';
-import { marked } from 'marked';
+import { Marked, marked } from 'marked';
 import { setupMarkedProvider } from './index.js';
 import { setupMarkedStreamingProvider } from './streaming.js';
 import { maskMath } from './scan.js';
@@ -141,6 +141,71 @@ describe('maths while it streams', () => {
     });
 });
 
+describe('what the audit found', () => {
+    /** A seeded generator, so a failing input is the same input on the next run. */
+    function* inputs(count: number): Generator<string> {
+        let seed = 7;
+        const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+        const alphabet = ['a', 'b', ' ', ' ', '\n', '\n\n', '*', '_', '`', '$', '$$', '\\', '(', ')', '[', ']', '#', '- ', '|', '1'];
+        for (let n = 0; n < count; n++) {
+            let s = '';
+            const length = 1 + Math.floor(next() * 24);
+            for (let i = 0; i < length; i++) s += alphabet[Math.floor(next() * alphabet.length)];
+            yield s;
+        }
+    }
+
+    it('leaves ordinary Markdown exactly as marked renders it, where nothing is maths', () => {
+        // The block `start` once cut a paragraph one character in, so text with no
+        // formula in it gained line breaks or split once a maths renderer was installed.
+        setupMarkedProvider({ breaks: true });
+        drawMaths();
+        const plain = new Marked({ breaks: true });
+        let compared = 0;
+        for (const md of inputs(3000)) {
+            const withMaths = aparteGlobalConfig.renderMarkdown(md);
+            if (withMaths.includes('language-math')) continue;
+            compared++;
+            expect(withMaths, JSON.stringify(md)).toBe(aparteGlobalConfig.sanitizeHtml(plain.parse(md, { async: false }) as string));
+        }
+        expect(compared).toBeGreaterThan(1500);
+    });
+
+    it('keeps a sentence whole around display maths, with breaks on', () => {
+        setupMarkedProvider({ breaks: true });
+        drawMaths();
+        const el = html(aparteGlobalConfig.renderMarkdown('I $$\\sum_i a_i$$ is the total.'));
+        expect(el.querySelectorAll('p')).toHaveLength(1);
+        expect(el.querySelector('br')).toBeNull();
+    });
+
+    it('closes an italic outside the formula it holds', () => {
+        setupMarkedProvider();
+        drawMaths();
+        const el = html(aparteGlobalConfig.renderMarkdown('*the optimum $x^*$ is unique*'));
+        expect(el.querySelector('em code.language-math')?.textContent).toBe('x^*');
+    });
+
+    it('does not let an unclosed $$ take the paragraphs after it while streaming', () => {
+        setupMarkedStreamingProvider();
+        drawMaths();
+        const target = document.createElement('div');
+        const renderer = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        renderer.write('Bash variables:\n$$ is the PID, $! the last job.\n\nSecond paragraph with *emphasis*.\n\nThird');
+        const open = target.querySelector('code.language-math');
+        expect(open?.textContent ?? '').not.toContain('Second paragraph');
+        expect(target.querySelector('em')?.textContent).toBe('emphasis');
+    });
+
+    it('draws no link while a single $ formula with a bracket is still open', () => {
+        setupMarkedStreamingProvider();
+        drawMaths();
+        streamCharByChar('Let $[a, b]$ be an interval.', (el) => {
+            expect(el.querySelector('a')).toBeNull();
+        });
+    });
+});
+
 describe('maskMath', () => {
     it('hides each formula and puts it back verbatim', () => {
         const src = 'a $x_1$ and \\[ y \\] and `$k$` and \\$5 and $5 and ``unclosed';
@@ -154,6 +219,6 @@ describe('maskMath', () => {
     it('leaves a $ alone across a blank line, and a marker it never made', () => {
         const { masked, unmask } = maskMath('$a\n\nb$');
         expect(masked).toBe('$a\n\nb$');
-        expect(unmask('7')).toBe('');
+        expect(unmask('\uE0007\uE001')).toBe('');
     });
 });

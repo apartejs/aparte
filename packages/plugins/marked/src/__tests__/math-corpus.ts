@@ -56,6 +56,23 @@ export const MATH_CORPUS: readonly MathCase[] = [
     { md: '```\n$$x$$\n```', maths: [] },
     { md: '`a` then $x$', maths: [['x', false]] },
 
+    // Code wins, and a formula never crosses a blank line (the audit's cases).
+    { md: '$$ is the PID of the shell.\n\nSo is this:\n\n```sh\necho $$\n```', maths: [] },
+    { md: 'In bash, $$ expands to the PID; run `echo $$` to see it.', maths: [] },
+    { md: '$$\na\n\nb\n$$', maths: [] },
+    { md: 'A $$x$$ b', maths: [['x', true]] },
+
+    // Emphasis around a formula closes outside it.
+    { md: '*the optimum $x^*$ is unique*', maths: [['x^*', false]] },
+    { md: '_the term $a_{n}$ grows_', maths: [['a_{n}', false]] },
+
+    // Escaped brackets are Markdown, not maths.
+    { md: 'As shown in \\[1\\], and array\\[0\\].', maths: [] },
+
+    // A `$` inside braces is TeX.
+    { md: '$\\text{in $x$ units}$', maths: [['\\text{in $x$ units}', false]] },
+    { md: 'Let $[a, b]$ be an interval.', maths: [['[a, b]', false]] },
+
     // Inside other blocks.
     { md: '- $x$\n- $y$', maths: [['x', false], ['y', false]] },
     { md: '> so $z$', maths: [['z', false]] },

@@ -34,6 +34,8 @@ function heal(raw: string, math: boolean): string {
     const text = raw.replace(BARE_OPENER, '$1');
     if (!math) return remend(text);
     const { masked, unmask } = maskMath(text);
+    // A single `$` still open may be a formula on its way (`$[a, b]` of an interval):
+    // completing its bracket into a link would draw a link that becomes maths a token later.
     return unmask(remend(masked, { katex: false }));
 }
 
