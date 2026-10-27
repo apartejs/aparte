@@ -1,5 +1,8 @@
 import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
-import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG } from '@paulrichez/streaming-markdown';
+import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
+
+/** What core's code-language engine reads as a formula still arriving. */
+const OPEN = 'data-aparte-open';
 
 /*
  * The external-link rule, copied — deliberately and minimally — from its OWNER,
@@ -91,6 +94,35 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
                     node.setAttribute('rel', 'noopener noreferrer');
                 }
             }
+        };
+        /*
+         * A formula becomes the placeholder core's code-language engine draws — with a
+         * maths renderer registered (`@aparte/plugin-katex`) — the same markup
+         * `@aparte/plugin-marked` writes, so the reply does not change at settle. It is
+         * marked open until its closer arrives, and drawn while it streams. Without a
+         * maths renderer the fork's own elements stay, as before.
+         */
+        const originalAddToken = renderer.add_token;
+        const originalEndToken = renderer.end_token;
+        renderer.add_token = (data, type) => {
+            const display = type === Token.Equation_Block;
+            if (!(display || type === Token.Equation_Inline) || !config.hasCodeLanguageRenderer('math')) {
+                originalAddToken(data, type);
+                return;
+            }
+            // The fork writes a display formula inside its paragraph, so no <pre>: the
+            // class is what tells the engine it is one.
+            const code = document.createElement('code');
+            const kind = display ? 'math-display' : 'math-inline';
+            code.className = `language-math ${kind}`;
+            code.setAttribute(OPEN, '');
+            const parent = data.nodes[data.index]!;
+            data.nodes[++data.index] = parent.appendChild(code);
+        };
+        renderer.end_token = (data) => {
+            const node = data.nodes[data.index];
+            if (node?.tagName === 'CODE') node.removeAttribute(OPEN);
+            originalEndToken(data);
         };
         const p = parser(renderer);
         return {

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { aparteGlobalConfig } from '@aparte/core';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { aparteGlobalConfig, renderCodeLanguages } from '@aparte/core';
 import { setupStreamingMarkdownProvider } from './index.js';
 
 /**
@@ -308,5 +308,53 @@ describe('@aparte/plugin-streaming-markdown — the maintained parser', () => {
     it('keeps a table inside its list item', () => {
         const target = stream(['- a\n  | b | c |\n  | - | - |\n  | d | e |']);
         expect(target.querySelector('li table')).not.toBeNull();
+    });
+});
+
+describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer registered', () => {
+    afterEach(() => aparteGlobalConfig.reset());
+
+    /** Stream `text` one character at a time, drawing after each, as the bubble does. */
+    function streamDrawn(text: string, after?: (target: HTMLElement) => void): HTMLElement {
+        setupStreamingMarkdownProvider();
+        const target = document.createElement('div');
+        document.body.appendChild(target);
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        for (const ch of text) {
+            r.write(ch);
+            renderCodeLanguages(target, { streaming: true });
+        }
+        after?.(target);
+        r.end();
+        return target;
+    }
+
+    it('writes each formula as the placeholder core draws, the way plugin-marked writes it', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        const target = streamDrawn('The area $x^2$ grows.\n\n$$\n\\frac{1}{3}\n$$\n');
+        const inline = target.querySelector('p code.language-math.math-inline')!;
+        expect(inline.textContent).toBe('x^2');
+        // In its own <pre> as a block of the document; the fork writes it inside a paragraph.
+        expect(target.querySelector('code.language-math.math-display')!.textContent).toContain('\\frac{1}{3}');
+        expect(target.querySelector('equation-inline, equation-block')).toBeNull();
+        expect(target.querySelector('[data-aparte-open]')).toBeNull();
+    });
+
+    it('draws a formula while it streams, marked open until its closer', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        let mid: { open: boolean; drawn: string | null } | undefined;
+        // Read before its closer has arrived: the drawing is there already.
+        streamDrawn('$$\n\\frac{1}{3} + x', (target) => {
+            const code = target.querySelector('code.language-math')!;
+            mid = { open: code.hasAttribute('data-aparte-open'), drawn: target.querySelector('.aparte-code-drawing b')?.textContent ?? null };
+        });
+        // The fork holds its last character back, to see what it opens.
+        expect(mid).toEqual({ open: true, drawn: '\\frac{1}{3} + ' });
+    });
+
+    it('leaves the fork\'s own elements when no maths renderer is registered', () => {
+        const target = streamDrawn('The area $x^2$ grows.');
+        expect(target.querySelector('code.language-math')).toBeNull();
+        expect(target.querySelector('equation-inline')).not.toBeNull();
     });
 });
