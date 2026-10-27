@@ -159,7 +159,9 @@ export default defineConfig({
             ...guides.models,
           ],
         },
-        // A product's widget, rebuilt from the pieces: what its users install instead.
+        // Packages built on aparté that live in their own repositories, on their own versions,
+        // pinned to exact aparté versions — the library's own consumers, listed for their users.
+        { label: 'Other plugins', collapsed: true, items: [{ autogenerate: { directory: 'other-plugins' } }] },
         { label: 'Help', items: guides.help },
         // The catalogue, by what a reader sees: Chat, Layout, Kit, one page per thing, read
         // from each page's own `catalog` block (scripts/lib/catalogue.mjs). Every element,
