@@ -338,8 +338,10 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   serious one — the rules were bare global selectors (`.error-message { }`), so importing
   the package restyled a host's own error messages. Inbound has already bitten us twice: a
   bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
-  `.segment` is Semantic UI's base class. One deliberate exception: `language-*` on a code
-  block stays unprefixed, because that is the name highlighters look for.
+  `.segment` is Semantic UI's base class. Two deliberate exceptions, both names other tools
+  read: `language-*` on a code block, which highlighters look for, and `math-inline` /
+  `math-display` on a maths placeholder, remark-math's names, which a Markdown provider writes
+  and the code-language engine reads.
 - **A component wears the recipe; it does not redraw it.** `aparte-btn`, `aparte-field`,
   `aparte-tag`, `aparte-checkbox`, `aparte-radio`, `aparte-icon` and the rest of the
   neutral layer own shape, spacing, states and focus. What a component adds is only what
