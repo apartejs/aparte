@@ -33,7 +33,11 @@ const BARE_OPENER = /(^|[ \t])[*_~`]+$/;
 function heal(raw: string, math: boolean): string {
     const text = raw.replace(BARE_OPENER, '$1');
     if (!math) return remend(text);
-    const { masked, unmask } = maskMath(text);
+    let { masked, unmask } = maskMath(text);
+    // A formula still arriving at the very end: a space or a lone `\` (half of `\)`) at its
+    // tail is left out of this frame, or the closer remend appends would follow it — no
+    // longer closing the emphasis around the formula, and drawn inside it.
+    if (/$/.test(masked) && /[\s\\]$/.test(text)) ({ masked, unmask } = maskMath(text.replace(/[\s\\]+$/, '')));
     // A single `$` still open may be a formula on its way (`$[a, b]` of an interval):
     // completing its bracket into a link would draw a link that becomes maths a token later.
     return unmask(remend(masked, { katex: false }));

@@ -213,7 +213,12 @@ describe('what the audit found', () => {
         // the emphasis scan, that `**` would close inside it and be drawn as TeX.
         setupMarkedStreamingProvider();
         drawMaths();
-        const cases: Array<[string, string]> = [['**Theorem: \\(f(x)=x^2', 'f(x)=x^2'], ['**Theorem $$f(x)', 'f(x)']];
+        // Also when the formula's last character so far is a space or half of `\)`: the
+        // closer would follow it and no longer close the bold.
+        const cases: Array<[string, string]> = [
+            ['**Theorem: \\(f(x)=x^2', 'f(x)=x^2'], ['**Theorem $$f(x)', 'f(x)'],
+            ['**Theorem: \\(f(x) ', 'f(x)'], ['**Theorem: \\(f(x)\\', 'f(x)'], ['**Theorem: $$f ', 'f'],
+        ];
         for (const [md, tex] of cases) {
             const target = document.createElement('div');
             const renderer = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
