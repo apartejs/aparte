@@ -33,6 +33,7 @@ import { contextConfig } from '../config/index.js';
 import { renderingVersionOf } from '../config/aparte-config.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml } from '../utils/escape.js';
+import { renderCodeLanguages, unrenderCodeLanguages, isDrawnLanguage } from './code-languages.js';
 
 /**
  * The element that carries the incremental state.
@@ -90,7 +91,9 @@ function hasOneShotMarkdownProvider(): boolean {
 }
 
 /**
- * Render `content` into `contentEl`, incrementally while streaming.
+ * Render `content` into `contentEl`, incrementally while streaming, then draw the code
+ * languages a renderer is registered for — maths, a diagram — on every path out, so a
+ * formula is drawn as soon as its provider has written it.
  *
  * @param host      the segment's root element, which holds the parser state
  * @param contentEl the element whose children are the rendered Markdown
@@ -98,6 +101,16 @@ function hasOneShotMarkdownProvider(): boolean {
  * @param streaming false on the settling update, which flushes and re-renders once
  */
 export function writeStreamedMarkdown(
+    host: AparteMarkdownStreamHost,
+    contentEl: Element,
+    content: string,
+    streaming: boolean,
+): void {
+    writeMarkdown(host, contentEl, content, streaming);
+    renderCodeLanguages(contentEl, { streaming });
+}
+
+function writeMarkdown(
     host: AparteMarkdownStreamHost,
     contentEl: Element,
     content: string,
@@ -142,7 +155,10 @@ export function writeStreamedMarkdown(
             // `renderMarkdown` can only escape here (the incremental provider failed on
             // the complete string), so the render below would write the raw source over
             // rendered DOM. Keep what the parser wrote — through the sanitizer, which is
-            // what makes writing DOM directly acceptable in the first place.
+            // what makes writing DOM directly acceptable in the first place. Drawings
+            // come off first: the sanitizer would strip what they are made of, and
+            // they are drawn again from the cache on the way out.
+            unrenderCodeLanguages(contentEl);
             contentEl.innerHTML = cfg.sanitizeHtml(contentEl.innerHTML);
             settled.set(contentEl, { content, version: renderingVersionOf(cfg), writer: 'parser' });
             return;
@@ -191,6 +207,9 @@ export function highlightMarkdownFences(contentEl: Element): void {
         // `language-ts` is what every Markdown renderer emits for ```ts.
         const lang = Array.from(block.classList)
             .find(c => c.startsWith('language-'))?.slice('language-'.length) ?? '';
+        // A language a renderer draws is not code to colour: the highlighter's whole-block
+        // answer would replace the `<pre>`, and the drawing beside the source with it.
+        if (isDrawnLanguage(lang, contentEl) || block.closest('.aparte-code-drawing')) continue;
         const source = block.textContent ?? '';
         block.setAttribute('data-aparte-highlighted', '');
         void contextConfig().highlightCode(source, lang)

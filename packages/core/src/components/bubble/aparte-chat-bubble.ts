@@ -32,6 +32,7 @@ interface DrawnSegment {
   segment: AparteSegment;
 }
 import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { relabelCodeLanguages } from '../../renderers/code-languages.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
@@ -416,6 +417,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // relabel there), then every segment still on its own renderer re-reads its text.
     this._redrawSegmentsWhoseRendererChanged();
     this._relabelSegments();
+    // A drawn formula or diagram re-reads what it takes from the config (a diagram's alt).
+    runWithConfig(this._cfg, () => relabelCodeLanguages(this));
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
@@ -1721,6 +1724,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (!code.trim()) return;
       const match = codeEl.className.match(/language-([\w+#-]+)/i);
       const lang = match?.[1] ?? '';
+      // Drawn by a code-language renderer: a whole-block highlight would replace the drawing.
+      if (this._cfg.hasCodeLanguageRenderer(lang) || codeEl.closest('.aparte-code-drawing')) return;
       const pre = codeEl.parentElement;
       Promise.resolve(this._cfg.highlightCode(code, lang)).then((html) => {
         const out = (html ?? '').trim();

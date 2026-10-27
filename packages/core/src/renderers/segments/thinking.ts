@@ -14,6 +14,7 @@ import {
     highlightMarkdownFences,
     type AparteMarkdownStreamHost,
 } from '../markdown-stream.js';
+import { renderCodeLanguages } from '../code-languages.js';
 import type {
     AparteSegmentRenderer,
     AparteThinkingSegment,
@@ -105,6 +106,11 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * still wins, exactly as in `render`, because that string is the app's.
      */
     relabel: (el, segment) => setLabel(el, segment),
+    /** A block restored from storage is drawn here: `update` only runs on one that changes. */
+    setup: (el, segment) => {
+        const contentEl = el.querySelector('.aparte-thinking-content');
+        if (contentEl) renderCodeLanguages(contentEl, { streaming: arriving(segment) });
+    },
     update: (el, segment) => {
         // The label follows the block: "Thinking" becomes its duration when it settles.
         setLabel(el, segment);

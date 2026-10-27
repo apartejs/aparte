@@ -222,3 +222,40 @@
   overflow-x: hidden;
   background: var(--aparte-code-bg);
 }
+
+/* A drawn code language: a formula, a diagram (`renderCodeLanguages`, fed by a plugin
+   such as `@aparte/plugin-katex`). The source stays in the DOM beside it, hidden. The
+   drawing is set in the reading font and on the page's own surface, not the code
+   card's: a skin that paints code dark would otherwise put a diagram drawn in the
+   page's colours on a dark block. */
+.aparte-code-drawing {
+  font-family: inherit;
+  white-space: normal;
+}
+
+.aparte-code-drawing[data-aparte-display] {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* It paints inside its own box, so a formula's `\llap` or `\rule` cannot reach the
+     chat around it. */
+  contain: paint;
+}
+
+.aparte-code-drawing img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+:is(.aparte-content, .aparte-segment-content, .aparte-thinking-content, .aparte-code-content-wrapper) pre[data-aparte-drawn] {
+  background: none;
+  padding: 0;
+  font: inherit;
+  white-space: normal;
+}
+
+/* A formula still arriving, before anything could be drawn: its TeX, quietly. */
+.aparte-code-pending.language-math {
+  color: var(--aparte-text-muted);
+}
