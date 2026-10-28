@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAparteChatHandler } from '../backend-handler.js';
 import { AparteBackendTransport } from '../backend-transport.js';
+import { parseNonStreamText } from '../types.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteChatRequest, AparteStreamEvent } from '../../types/index.js';
 
@@ -271,5 +272,39 @@ describe('AparteBackendTransport ⟷ createAparteChatHandler round-trip', () => 
         expect(JSON.parse(binit.body as string)).toEqual({ providerId: 'mock', request: req });
         expect(JSON.stringify(binit.headers ?? {})).not.toContain('sk-client');
         expect(JSON.stringify(binit.headers ?? {})).not.toContain('sk-server');
+    });
+
+    it('carries what a non-streamed answer cites across the network, as the stream a streamed one is', async () => {
+        const cited = { sources: [{ id: 's1', url: 'https://en.wikipedia.org/wiki/Sky' }], citations: [{ end: 4, sources: ['s1'] }] };
+        const withSources = { ...adapter(), parseSources: (j: unknown) => ((j as { cite?: boolean })?.cite ? cited : undefined) } as AparteAIProvider;
+        const vendor = vi.fn(async () => new Response(JSON.stringify({ text: 'Blue', cite: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: withSources }, resolveKey: () => 'k', fetchImpl: vendor });
+
+        const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
+        expect(await res.clone().json()).toEqual({ text: 'Blue', ...cited });
+
+        vi.spyOn(globalThis, 'fetch').mockImplementation((async () => res) as typeof fetch);
+        const result = await new AparteBackendTransport({ endpoint: 'http://localhost/api/chat' }).chat(withSources, { ...req, stream: false }, '', ctx);
+        expect(await collect(result as ReadableStream<AparteStreamEvent>)).toEqual([
+            { type: 'text', delta: 'Blue' }, { type: 'sources', ...cited }, { type: 'done' },
+        ]);
+    });
+
+    it('answers a non-streamed reply that cites nothing with its bare text, as before', async () => {
+        const vendor = vi.fn(async () => new Response(JSON.stringify({ text: 'Blue' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: { ...adapter(), parseSources: () => undefined } as AparteAIProvider }, resolveKey: () => 'k', fetchImpl: vendor });
+        const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
+        vi.spyOn(globalThis, 'fetch').mockImplementation((async () => res) as typeof fetch);
+        expect(await new AparteBackendTransport({ endpoint: 'http://localhost/api/chat' }).chat(adapter(), { ...req, stream: false }, '', ctx)).toBe('Blue');
+    });
+
+    it('keeps the answer when reading its sources throws, on the server and in the browser', async () => {
+        const broken = { ...adapter(), parseSources: () => { throw new TypeError('bad annotations'); } } as AparteAIProvider;
+        const answer = () => new Response(JSON.stringify({ text: 'Blue' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: broken }, resolveKey: () => 'k', fetchImpl: vi.fn(async () => answer()) });
+        const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ text: 'Blue' });
+        expect(await parseNonStreamText(broken as never, answer(), 'mock')).toBe('Blue');
     });
 });

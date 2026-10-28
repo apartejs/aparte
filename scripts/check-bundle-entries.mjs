@@ -78,14 +78,40 @@ const CONTRACTS = [
     },
     {
         file: 'packages/plugins/marked/dist/index.js',
-        allowed: ['@aparte/core', 'marked'],
+        allowed: ['@aparte/core', 'marked', './math.js'],
         why: 'the one-shot entry: remend belongs to `./streaming`, and a consumer who renders only '
             + 'finished replies must not have it in their graph',
     },
     {
         file: 'packages/plugins/marked/dist/streaming.js',
-        allowed: ['@aparte/core', 'marked', 'remend'],
+        allowed: ['@aparte/core', 'marked', 'remend', './math.js'],
         why: 'the streaming entry: completing unclosed Markdown with remend is the point',
+    },
+    {
+        file: 'packages/plugins/marked/dist/math.js',
+        allowed: [],
+        why: 'the maths tokenizer both entries share: it imports nothing, not even marked, whose '
+            + 'types alone it uses',
+    },
+    {
+        file: 'packages/plugins/katex/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the KaTeX you hand it: katex itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/katex/dist/index.js',
+        allowed: ['@aparte/core', 'katex', './core.js'],
+        why: 'the batteries-included entry: loading katex on the first formula is the point',
+    },
+    {
+        file: 'packages/plugins/mermaid/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the Mermaid you hand it: mermaid itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/mermaid/dist/index.js',
+        allowed: ['@aparte/core', 'mermaid', './core.js'],
+        why: 'the batteries-included entry: loading mermaid on the first diagram is the point',
     },
     {
         file: 'packages/providers/ai/transformers/dist/worker.js',

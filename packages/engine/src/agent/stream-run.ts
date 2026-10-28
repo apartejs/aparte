@@ -360,6 +360,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // inline loop does `parse()` AND `finalize()` on its whole-response
         // branch; this is the twin.
         if (typeof response === 'string') {
+            // A model call of its own, as the streamed one below: nothing of the call before
+            // it (its parser, the sources it cited) carries over.
+            emitter({ type: 'turn-start' });
             emitter({ type: 'text-delta', delta: response });
             emitter({ type: 'text-flush' });
             break;
@@ -480,6 +483,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 if (event.type === 'text') {
                     precedingText += event.delta;
                     emitter({ type: 'text-delta', delta: event.delta });
+                    continue;
+                }
+
+                if (event.type === 'sources') {
+                    // Offsets are the provider's, into this call's text — the adapter's
+                    // turn, since `turn-start` opens one per call. Passed on as they are.
+                    emitter({ type: 'sources', sources: event.sources, ...(event.citations ? { citations: event.citations } : {}) });
                     continue;
                 }
 

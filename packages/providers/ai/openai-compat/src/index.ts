@@ -34,6 +34,7 @@ import type {
     AparteFormatAdapter,
 } from '@aparte/core';
 import { AparteErrorCode, contentToText } from '@aparte/core';
+import { createSourceCollector } from './sources.js';
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,11 @@ export interface OpenAICompatProviderOptions {
      * `/models` fetch runs even without a key.
      */
     isLocal?: boolean;
+    /**
+     * `false` when the endpoint answers no `GET /models` (Perplexity): `fetchModels` then
+     * serves `models` instead of asking, rather than logging a failed request.
+     */
+    listsModels?: boolean;
     /**
      * Which local server this endpoint is, so `fetchModels` can read the context window
      * the server actually serves through that server's own API: LM Studio's
@@ -416,6 +422,7 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
         async fetchModels(config?: string | Record<string, string>): Promise<AparteAIModel[]> {
             const apiKey = typeof config === 'string' ? config : config?.['apiKey'];
             const endpoint = (typeof config === 'object' ? config?.['endpoint'] : null) || opts.baseURL;
+            if (opts.listsModels === false) return opts.models ?? [];
             if (!apiKey && !opts.isLocal) return [];
 
             try {
@@ -537,6 +544,17 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             }
             return (json as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || '';
         },
+
+        /** What a non-streamed answer cites: the same annotations and Perplexity fields a stream carries. */
+        parseSources(json: unknown) {
+            const payload = json as { choices?: Array<{ message?: { content?: unknown; annotations?: unknown } }>; citations?: unknown; search_results?: unknown } | null;
+            const message = payload?.choices?.[0]?.message;
+            const cited = createSourceCollector();
+            cited.addAnnotations(message?.annotations);
+            cited.addListed(payload?.citations, payload?.search_results);
+            const event = cited.finish(typeof message?.content === 'string' ? message.content : '');
+            return event ? { sources: event.sources, ...(event.citations ? { citations: event.citations } : {}) } : undefined;
+        },
     };
 }
 
@@ -551,6 +569,8 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
  * - `delta.content`            → text event
  * - `delta.reasoning_content`  → thinking event (Qwen3, DeepSeek R1, …)
  * - `delta.tool_calls`         → accumulate → tool_use on finish_reason='tool_calls'
+ * - `annotations` (url_citation) and Perplexity's `citations` / `search_results`
+ *                              → ONE `sources` event, just before `done` (see `sources.ts`)
  * - `finish_reason`           → `finishReason` on the `done`
  * - `{ error }` data line      → error event, and the stream ends there (no `done`)
  * - usage-only chunk + [DONE]  → done{usage}
@@ -581,6 +601,22 @@ export function parseOpenAICompatStream(
     /** The last non-null `finish_reason` seen, mapped; every `done` carries it. */
     let finishReason: AparteFinishReason | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    /**
+     * What the call has said so far, and what it cites. A citation's offsets are into the
+     * whole message text, so the `sources` event waits for the end of the stream, when the
+     * text is complete and the offsets can be checked against it.
+     */
+    let streamed = '';
+    const cited = createSourceCollector();
+    // Once, at the first of a tool call and the end: a call the loop refuses, or one with no
+    // handler, ends the turn without reading on, and its sources would never arrive.
+    let sourcesSent = false;
+    const flushSources = (controller: ReadableStreamDefaultController<AparteStreamEvent>): void => {
+        if (sourcesSent) return;
+        sourcesSent = true;
+        const event = cited.finish(streamed);
+        if (event) controller.enqueue(event);
+    };
 
     /*
      * Emit the accumulated calls and clear the map.
@@ -680,6 +716,7 @@ export function parseOpenAICompatStream(
                             // A turn that streamed tool-call deltas and ended on `stop`,
                             // `length` or a bare [DONE]: the calls are still the model's.
                             flushToolCalls(controller, false);
+                            flushSources(controller);
                             controller.enqueue({ type: 'done', usage: capturedUsage, ...(finishReason ? { finishReason } : {}) });
                             return;
                         }
@@ -695,6 +732,10 @@ export function parseOpenAICompatStream(
                                     cacheReadTokens: json.usage.prompt_tokens_details?.cached_tokens,
                                 };
                             }
+
+                            // Perplexity's list of sources rides on any chunk, usage-only ones
+                            // included, which is why it is read before the choice is.
+                            cited.addListed(json.citations, json.search_results);
 
                             // An error the server streamed AFTER a 200 (LM Studio on a context
                             // overflow, OpenAI and vLLM mid-stream). Without this the line was
@@ -714,11 +755,17 @@ export function parseOpenAICompatStream(
                             }
 
                             const delta = choice.delta;
+                            // Annotations: on the delta as OpenAI and OpenRouter stream them
+                            // (usually in a late chunk, after the text), or on a whole `message`
+                            // as some servers stream the non-streamed shape.
+                            cited.addAnnotations(delta?.annotations);
+                            cited.addAnnotations(choice.message?.annotations);
                             if (delta) {
                                 if (delta.reasoning_content) {
                                     controller.enqueue({ type: 'thinking', delta: delta.reasoning_content });
                                 }
                                 if (delta.content) {
+                                    streamed += delta.content;
                                     controller.enqueue({ type: 'text', delta: delta.content });
                                 }
                                 if (delta.tool_calls) {
@@ -759,7 +806,10 @@ export function parseOpenAICompatStream(
                             // usage on every tool-call turn — i.e. most turns of an agent.
                             // Keep reading; the single `done` comes from `[DONE]` below, or
                             // from the end-of-stream fallback if the socket just closes.
-                            if (choice.finish_reason === 'tool_calls') flushToolCalls(controller, true);
+                            if (choice.finish_reason === 'tool_calls') {
+                                flushSources(controller);
+                                flushToolCalls(controller, true);
+                            }
                         } catch {
                             // Every line here is a complete, newline-terminated SSE
                             // line (see buffer split above), so a parse failure is an
@@ -771,6 +821,7 @@ export function parseOpenAICompatStream(
                 }
                 // The socket closed without [DONE]: same rule, the calls are flushed first.
                 flushToolCalls(controller, false);
+                flushSources(controller);
                 controller.enqueue({ type: 'done', usage: capturedUsage, ...(finishReason ? { finishReason } : {}) });
             } catch (err: unknown) {
                 // AbortError surfaces here when the caller's signal fires mid-stream:

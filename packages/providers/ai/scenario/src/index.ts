@@ -3,7 +3,7 @@
  *
  * An `AparteAIProvider` that REPLAYS turns you wrote instead of calling a model: text at
  * a typing pace, thinking, tool calls (the real loop runs your handler and calls back
- * with the result), errors, pauses. No key, no network, no randomness.
+ * with the result), sources and citations, errors, pauses. No key, no network, no randomness.
  *
  * Three things in this repository had written it by hand before this package existed:
  * the e2e mock of the wire, the screenshot harness of the UI audit, and the docs frames
@@ -32,6 +32,8 @@ import type {
     AparteStreamEvent,
     AparteUsage,
     AparteFinishReason,
+    AparteSource,
+    AparteCitation,
 } from '@aparte/core';
 
 // ─── What a turn is made of ──────────────────────────────────────────────────
@@ -48,6 +50,13 @@ export type ScenarioStep =
     | { error: string }
     /** Pause, in milliseconds — a slow model, a long tool. */
     | { wait: number }
+    /**
+     * Cite sources at this point of the turn: the bubble lists them under the reply, and a citation puts a chip
+     * after the passage it supports. A citation's `start` / `end` are UTF-16 offsets into the text THIS turn has streamed
+     * (its `text` steps joined, `end` exclusive; thinking does not count), so the step goes after the text it cites.
+     * Source ids are unique within the turn and are what a citation names.
+     */
+    | { sources: AparteSource[]; citations?: AparteCitation[] }
     /** Override the usage reported at the end (merged over the estimate). */
     | { usage: Partial<AparteUsage> }
     /** How the turn ends, on its `done` event — `'length'` shows the "cut off" note under the reply. A turn that says nothing reports nothing, as a provider that does not know why it stopped does. */
@@ -223,6 +232,8 @@ export function playTurn(
                         controller.enqueue({ type: 'error', message: step.error });
                         controller.close();
                         return;
+                    } else if ('sources' in step) {
+                        controller.enqueue({ type: 'sources', sources: step.sources, ...(step.citations ? { citations: step.citations } : {}) });
                     } else if ('usage' in step) {
                         usage = { ...usage, ...step.usage };
                     } else if ('finishReason' in step) {

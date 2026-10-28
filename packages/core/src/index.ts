@@ -50,6 +50,7 @@ import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
 import './styles/segment/text.css';
+import './styles/segment/citation.css';
 import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
@@ -97,6 +98,8 @@ export type {
     AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
+    AparteSource,
+    AparteCitation,
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteSegmentRenderer,
@@ -238,8 +241,11 @@ export {
     overrideSegmentRenderer,
     defineMountedToolRenderer,
     defineMountedSegmentRenderer,
-    toToolCallView
+    toToolCallView,
+    renderCodeLanguages,
+    renderCitations
 } from './renderers/index.js';
+export type { AparteRenderCodeLanguagesOptions } from './renderers/index.js';
 
 // Export components
 export { AparteChat } from './components/index.js';
@@ -308,7 +314,7 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteCodeLanguageRenderer, AparteCodeLanguageContext, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client

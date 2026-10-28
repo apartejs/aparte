@@ -125,6 +125,23 @@ describe('steps', () => {
         expect(plain.at(-1)).not.toHaveProperty('finishReason');
     });
 
+    it('a sources step enqueues its event at that point of the turn, ahead of the done', async () => {
+        const sources = [{ id: 's1', url: 'https://en.wikipedia.org/wiki/Sky', title: 'Sky' }];
+        const citations = [{ start: 0, end: 7, sources: ['s1'] }];
+        const events = await drain(playTurn([
+            { thinking: 'hm' },
+            { text: 'Blue is' },
+            { sources, citations },
+            { text: ' common.' },
+            { sources: [{ id: 's2', title: 'A book' }] },
+        ], request(user('x')), 'instant'));
+        expect(events.map((e) => e.type)).toEqual(['thinking', 'text', 'sources', 'text', 'sources', 'done']);
+        expect(events[2]).toEqual({ type: 'sources', sources, citations });
+        // Without `citations`, the event carries none: the key is not there at all.
+        expect(events[4]).toEqual({ type: 'sources', sources: [{ id: 's2', title: 'A book' }] });
+        expect(events[4]).not.toHaveProperty('citations');
+    });
+
     it('an error step fails the turn: an error event, then the stream closes without done', async () => {
         const events = await drain(playTurn([{ text: 'so far so good' }, { error: 'boom' }, { text: 'never' }], request(user('x')), 'instant'));
         expect(events.map((e) => e.type)).toEqual(['text', 'error']);
@@ -197,6 +214,13 @@ describe('scenarios mode', () => {
         expect(showcase['forecast']!.after).toBe('get_weather');
         expect(showcase['answered']!.after).toBe('ask_user');
         expect(defaultMatch(request(user('Give me a markdown table')), showcase)).toBe('table');
+        // Ahead of `code`, whose `when` would otherwise take "a maths example".
+        expect(defaultMatch(request(user('Show me a maths example')), showcase)).toBe('math');
+        expect(defaultMatch(request(user('Draw a flowchart')), showcase)).toBe('diagram');
+        // Ahead of `code` too: "cite an example" is about sources, "the source code" is code.
+        expect(defaultMatch(request(user('Why is the sky blue?')), showcase)).toBe('citations');
+        expect(defaultMatch(request(user('Cite an example, with sources')), showcase)).toBe('citations');
+        expect(defaultMatch(request(user('Show me the source code')), showcase)).toBe('code');
         // The four-tool chain: "ship it" starts it, and each tool it calls is routed —
         // an unrouted one sends the result back through `release`'s own `when` and the
         // conversation loops until maxTurns.
@@ -205,6 +229,41 @@ describe('scenarios mode', () => {
         for (const tool of ['search_docs', 'read_file', 'write_file', 'run_command']) {
             expect(routed, `${tool} needs an \`after\` route`).toContain(tool);
         }
+    });
+});
+
+describe('the showcase answer with sources', () => {
+    type Sources = Extract<AparteStreamEvent, { type: 'sources' }>;
+
+    it('streams its text, then three sources and citations that land on the end of each passage', async () => {
+        const provider = createScenarioProvider({ scenarios: showcase, pacing: 'instant' });
+        const events = await reply(provider, request(user('Why is the sky blue?')));
+        expect(events.map((e) => e.type)).toEqual(['text', 'sources', 'done']);
+        const streamed = text(events);
+        const { sources, citations } = events[1] as Sources;
+
+        expect(sources).toHaveLength(3);
+        expect(new Set(sources.map((s) => s.id)).size, 'ids are unique within the reply').toBe(3);
+        for (const s of sources) {
+            expect(s.url).toMatch(/^https:\/\//);
+            expect(s.title).toBeTruthy();
+            expect(s.snippet).toBeTruthy();
+        }
+        expect(sources.map((s) => new URL(s.url!).hostname)).toEqual(['en.wikipedia.org', 'spaceplace.nasa.gov', 'www.britannica.com']);
+
+        // Each chip falls just after a full stop, ending a passage whose text it supports.
+        expect(citations).toHaveLength(3);
+        for (const c of citations!) {
+            expect(c.start).toBeLessThan(c.end);
+            expect(c.end).toBeLessThanOrEqual(streamed.length);
+            expect(streamed.slice(c.start, c.end)).toMatch(/\.$/);
+            for (const id of c.sources) expect(sources.map((s) => s.id)).toContain(id);
+        }
+        // One passage cites two sources (the "+1"), and the passages do not overlap.
+        expect(citations!.map((c) => c.sources.length)).toEqual([2, 1, 1]);
+        expect(citations![0]!.start).toBe(0);
+        expect(citations![1]!.start).toBeGreaterThanOrEqual(citations![0]!.end);
+        expect(citations![2]!.start).toBeGreaterThanOrEqual(citations![1]!.end);
     });
 });
 

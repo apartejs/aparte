@@ -1,7 +1,7 @@
 {
   "name": "@aparte-workspace/example-shared",
   "private": true,
-  "version": "0.0.21",
+  "version": "0.0.22",
   "type": "module",
   "description": "What the five chat-site examples share: the setup, the skin, the sample data. Imported by relative path; a package only so pnpm links its dependencies here.",
   "dependencies": {
@@ -15,12 +15,17 @@
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/plugin-katex": "workspace:*",
+    "@aparte/plugin-mermaid": "workspace:*",
+    "@aparte/plugin-streaming-markdown": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/runner-ag-ui": "workspace:*",
     "@aparte/runner-n8n": "workspace:*",
     "@tanstack/ai": "^0.68.0",
     "shiki": "^4.0.0",
+    "katex": "^0.19.1",
+    "mermaid": "^11.17.2",
     "@shikijs/langs": "^4.0.0",
     "@shikijs/themes": "^4.0.0"
   }

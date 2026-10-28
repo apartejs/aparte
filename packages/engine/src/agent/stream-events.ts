@@ -71,6 +71,25 @@ export interface StreamToolCall {
     input: Record<string, unknown>;
 }
 
+/** A source a reply draws on (mirrors core's `AparteSource`). */
+export interface StreamSource {
+    id: string;
+    url?: string;
+    title?: string;
+    snippet?: string;
+}
+
+/**
+ * Where a reply cites sources (mirrors core's `AparteCitation`): offsets into the text
+ * the model call streamed, UTF-16, `end` exclusive.
+ */
+export interface StreamCitation {
+    start?: number;
+    end: number;
+    sources: string[];
+    marker?: boolean;
+}
+
 /**
  * A structured stream event from the transport (mirrors `AparteStreamEvent`). The
  * `tool_use` variant spreads {@link StreamToolCall} exactly like core's does.
@@ -80,7 +99,8 @@ export type StreamChatEvent =
     | { type: 'thinking'; delta: string }
     | ({ type: 'tool_use' } & StreamToolCall)
     | { type: 'error'; message: string; code?: string }
-    | { type: 'done'; usage?: StreamUsage; finishReason?: StreamFinishReason };
+    | { type: 'done'; usage?: StreamUsage; finishReason?: StreamFinishReason }
+    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[] };
 
 /**
  * A tool declaration, structurally mirroring core's `AparteTool`.
@@ -345,6 +365,8 @@ export type StreamRunEvent =
     | { type: 'turn-start' }
     | { type: 'text-delta'; delta: string }
     | { type: 'text-flush' }
+    /** Offsets into the text this model call streamed: the text since its `turn-start`. */
+    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[] }
     | { type: 'thinking-delta'; delta: string }
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }

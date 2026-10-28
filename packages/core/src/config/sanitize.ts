@@ -11,8 +11,13 @@
  * parsed into an inert document (scripts never execute during
  * `DOMParser.parseFromString`), the tree is rebuilt keeping only known-safe tags
  * and attributes, then re-serialized. It is deliberately conservative and covers
- * the realistic threat model (LLM-emitted markup). For hardened, audited
- * coverage, register DOMPurify via `aparteGlobalConfig.setHtmlSanitizer`.
+ * the realistic threat model (LLM-emitted markup). For an audited parser on top
+ * of it, chain DOMPurify IN FRONT:
+ * `setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)))`.
+ * Registering DOMPurify alone replaces this one, and its defaults keep what a
+ * chat must refuse — measured on DOMPurify 3.4: inline layout styles, `aparte-`
+ * classes, `--aparte-*` properties, `<form>`/`<button>`, a password `<input>`,
+ * `id`, and an external link left to navigate the chat's own frame.
  */
 
 export type AparteSanitizer = (html: string) => string;

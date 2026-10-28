@@ -44,6 +44,8 @@ export type {
     AparteSegmentTypes,
     AparteSegmentType,
     AparteTextSegment,
+    AparteSource,
+    AparteCitation,
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteSegmentRenderer,
@@ -193,7 +195,10 @@ export {
     defineMountedToolRenderer,
     defineMountedSegmentRenderer,
     toToolCallView,
+    renderCodeLanguages,
+    renderCitations,
 } from './renderers/index.js';
+export type { AparteRenderCodeLanguagesOptions } from './renderers/index.js';
 
 // `populateBubbleFromMessage` is a plain helper — import it from its own module,
 // NOT the components barrel (which would pull in the HTMLElement classes).
@@ -259,6 +264,8 @@ export type {
     AparteMarkdownProvider,
     AparteStreamingMarkdownProvider,
     AparteStreamingMarkdownRenderer,
+    AparteCodeLanguageRenderer,
+    AparteCodeLanguageContext,
     AparteHighlightProvider,
     AparteSystemPromptVarsProvider,
     AparteLocale,

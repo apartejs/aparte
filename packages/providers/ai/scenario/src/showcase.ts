@@ -1,8 +1,24 @@
 import type { Scenario } from './index.js';
 
+// A short answer with its sources, for the chips and the card the bubble draws: three
+// sources, and one passage that cites two of them (the "+1"). The offsets are found in the
+// passages rather than counted by hand, so editing a sentence cannot leave a chip on the
+// wrong words. `end` is exclusive and falls after the full stop, where a chip belongs.
+const SKY = {
+    scattering: 'The sky is blue because of **Rayleigh scattering**: air molecules scatter the short wavelengths of sunlight far more than the long ones, so blue light reaches your eye from every part of the sky.',
+    violet: 'Violet is scattered even more, but the sun gives off less of it, the upper atmosphere absorbs some, and our eyes respond weakly to it, so the sky looks blue rather than violet.',
+    sunset: 'At sunrise and sunset the light crosses much more air, most of the blue is scattered out of the beam before it reaches you, and the reds and oranges are what is left.',
+};
+const SKY_TEXT = Object.values(SKY).join('\n\n');
+const skyRange = (passage: string): { start: number; end: number } => {
+    const start = SKY_TEXT.indexOf(passage);
+    return { start, end: start + passage.length };
+};
+
 /**
  * A ready-made set of scenarios that shows the whole surface of a chat: markdown, a
- * code block, reasoning, a tool round-trip, a typed question, an artifact, an error.
+ * code block, reasoning, a tool round-trip, a typed question, an answer with its sources,
+ * an artifact, an error.
  * It ships on its own entry point, so a consumer who writes their own scenarios
  * never pays for this one. The docs' live frames and a demo page register it as is:
  *
@@ -19,7 +35,7 @@ import type { Scenario } from './index.js';
  */
 export const showcase: Record<string, Scenario> = {
     default: {
-        turn: 'Hi — I am a **scripted** model: no key, no network, the same answer every time.\n\nAsk me for a *haiku*, a *table*, some *code*, the *weather*, or to *ask you a question*.',
+        turn: 'Hi — I am a **scripted** model: no key, no network, the same answer every time.\n\nAsk me for a *haiku*, a *table*, some *code*, some *maths*, a *diagram*, an answer with its *sources*, the *weather*, or to *ask you a question*.',
     },
     haiku: {
         when: /haiku/i,
@@ -28,6 +44,55 @@ export const showcase: Record<string, Scenario> = {
     table: {
         when: /table/i,
         turn: 'Two ways to reach a model:\n\n| Transport | Where the key lives | Use it for |\n|---|---|---|\n| `AparteDirectTransport` | in the browser | prototypes, local models |\n| `AparteBackendTransport` | on your server | production |\n\nThe component does not change between the two.',
+    },
+    // Before `code`: "a maths example" is maths. Drawn by @aparte/plugin-katex when it is
+    // installed and the Markdown provider recognises maths; shown as TeX otherwise.
+    math: {
+        when: /math|equation|formula|latex|integral/i,
+        turn: 'Euler\'s identity ties five constants together: $e^{i\\pi} + 1 = 0$.\n\nThe area under $x^2$ from 0 to 1:\n\n$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\nAnd a price stays a price: it costs $5 and $10.',
+    },
+    // A fence of its own, so @aparte/plugin-mermaid draws it with any Markdown provider,
+    // or none; shown as code otherwise.
+    diagram: {
+        when: /diagram|flowchart|flow chart|mermaid/i,
+        turn: 'How a reply reaches the screen:\n\n```mermaid\nflowchart LR\n  accTitle: How a reply reaches the screen\n  A[Model] -->|tokens| B[Markdown provider]\n  B --> C{A code language?}\n  C -->|math| D[KaTeX]\n  C -->|mermaid| E[Mermaid]\n  C -->|anything else| F[Highlighter]\n```\n\nEach drawing goes beside its source, which is what copy and the model still read.',
+    },
+    // Before `code` and `artifact`: "cite an example" and "sources for this document" are
+    // about sources. The text streams first and the sources follow it, as a provider sends them.
+    citations: {
+        // "sources", never "source": "show me the source code" belongs to `code`.
+        when: /\bsources\b|\bcit(?:e|es|ation|ations)\b|why is the sky|sky blue|rayleigh/i,
+        turn: [
+            { text: SKY_TEXT },
+            {
+                sources: [
+                    {
+                        id: 's1',
+                        url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering',
+                        title: 'Rayleigh scattering',
+                        snippet: 'Light scattered by particles much smaller than its wavelength: the shorter the wavelength, the stronger the scattering.',
+                    },
+                    {
+                        id: 's2',
+                        url: 'https://spaceplace.nasa.gov/blue-sky/en/',
+                        title: 'Why is the sky blue?',
+                        snippet: 'Gases in the air send sunlight in every direction, and the short blue waves are sent about the most.',
+                    },
+                    {
+                        id: 's3',
+                        url: 'https://www.britannica.com/story/why-is-the-sky-blue',
+                        title: 'Why is the sky blue?',
+                        snippet: 'Violet scatters even more, but the sun gives off less of it and the eye is less sensitive to it.',
+                    },
+                ],
+                citations: [
+                    // Two sources on one passage: the chip reads "+1".
+                    { ...skyRange(SKY.scattering), sources: ['s1', 's2'] },
+                    { ...skyRange(SKY.violet), sources: ['s3'] },
+                    { ...skyRange(SKY.sunset), sources: ['s2'] },
+                ],
+            },
+        ],
     },
     code: {
         when: /code|example|snippet/i,

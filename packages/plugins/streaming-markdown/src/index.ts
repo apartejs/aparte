@@ -1,5 +1,8 @@
 import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
-import { parser, parser_write, parser_end, default_renderer, HREF, SRC, LANG } from '@paulrichez/streaming-markdown';
+import { parser, parser_write, parser_end, default_renderer, Attr, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
+
+/** What core's code-language engine reads as a formula still arriving. */
+const OPEN = 'data-aparte-open';
 
 /*
  * The external-link rule, copied — deliberately and minimally — from its OWNER,
@@ -42,6 +45,15 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
 const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
 
 /**
+ * A formula that holds nothing but a number is a reference in brackets — `\[1\]`,
+ * `\(2\)` — as `@aparte/plugin-marked` reads it, so it is written back as one.
+ */
+function asReference(text: string, display: boolean): string | null {
+    if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(text)) return null;
+    return display ? `[${text.trim()}]` : `(${text.trim()})`;
+}
+
+/**
  * Register `@paulrichez/streaming-markdown` as aparté's incremental (streaming) Markdown
  * renderer.
  *
@@ -71,6 +83,13 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
         const renderer = default_renderer(target);
         const originalSetAttr = renderer.set_attr;
         renderer.set_attr = (data, type, value) => {
+            if (type === Attr.Unclosed) {
+                // A display block a blank line or a block's line ended before its closer
+                // came: it was not maths after all, and reads as text, opener included.
+                const node = data.nodes[data.index]!;
+                node.replaceWith(`${value === '\\[' ? '[' : value}\n${node.textContent}`);
+                return;
+            }
             if (type === HREF && !isSafeUrl(value, 'a')) return;
             if (type === SRC && !isSafeUrl(value, 'img')) return;
             if (type === LANG) {
@@ -92,10 +111,50 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
                 }
             }
         };
-        const p = parser(renderer);
+        /*
+         * Maths is read when a maths renderer is registered (`@aparte/plugin-katex`),
+         * decided once per reply; without one, `$` and `\(` stay text. A formula becomes
+         * the placeholder core's code-language engine draws — the markup
+         * `@aparte/plugin-marked` writes — marked open until its closer arrives. The parser
+         * writes one only once it is maths by Pandoc's rules, so a price never becomes one.
+         * One the reply ended in the middle of goes back to text, as the settled reply
+         * reads it.
+         */
+        const math = config.hasCodeLanguageRenderer('math');
+        const originalAddToken = renderer.add_token;
+        const originalEndToken = renderer.end_token;
+        renderer.add_token = (data, type) => {
+            if (type !== Token.Equation_Block && type !== Token.Equation_Inline) {
+                originalAddToken(data, type);
+                return;
+            }
+            // Inside its paragraph, as the parser writes it, so no <pre>: the class is what
+            // tells the engine it is a display formula.
+            const code = document.createElement('code');
+            const kind = type === Token.Equation_Block ? 'math-display' : 'math-inline';
+            code.className = `language-math ${kind}`;
+            code.setAttribute(OPEN, '');
+            const parent = data.nodes[data.index]!;
+            data.nodes[++data.index] = parent.appendChild(code);
+        };
+        renderer.end_token = (data) => {
+            const node = data.nodes[data.index]!;
+            originalEndToken(data);
+            if (!node.hasAttribute(OPEN)) return;
+            node.removeAttribute(OPEN);
+            const text = String(node.textContent);
+            const reference = asReference(text, node.classList.contains('math-display'));
+            if (reference !== null) node.replaceWith(reference);
+        };
+        const p = parser(renderer, { math });
         return {
             write: (chunk: string): void => { parser_write(p, chunk); },
-            end: (): void => { parser_end(p); },
+            end: (): void => {
+                parser_end(p);
+                // The parser closes nothing at the end: a formula still open there never got
+                // its closer.
+                for (const code of target.querySelectorAll(`code[${OPEN}]`)) code.replaceWith(String(code.textContent));
+            },
         };
     });
 }

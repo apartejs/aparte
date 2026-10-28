@@ -67,15 +67,17 @@ markdown/highlight micro-packages, an eval harness, voice.
 **Deferred, with the trigger that would start them** — each was reasoned through and
 put down on purpose, so a future session does not re-derive the answer from scratch:
 
-- **Citations.** Not a segment, and not markdown either. When a model writes
-  `[source](url)` it is markdown and the plugin already renders it; when a provider
-  attaches them (Anthropic's `citations` on a content block, an `url_citation`
-  annotation with character offsets) they are **annotations on a range of a text
-  segment** — a shape neither a block nor a link can carry. So the field would go on
-  `AparteTextSegment` (or in its `meta`), never in the type union. *Trigger: a provider
-  in this repo that actually returns them.* Today none does — `openai-compat` is
-  chat-completions, `ai-sdk` passes through, `transformers` is local — so it would be a
-  contract maintained for nobody (decision #7).
+- **Citations — DONE 2026-10-27.** Not a segment, and not markdown either: when a provider
+  attaches them (an `url_citation` annotation with character offsets, Perplexity's
+  `search_results`, the AI SDK's `source` parts) they are **annotations on a range of a
+  text segment**, a shape neither a block nor a link can carry. So they are two typed
+  fields on `AparteTextSegment` (`sources`, `citations`), never in the type union, carried
+  by one `sources` stream event (offsets into the model call's text, rebased onto the
+  segment by the adapter) and, for a non-streamed answer, a format adapter's
+  `parseSources`. The trigger came: `openai-compat` (OpenAI, OpenRouter, Perplexity) and
+  `ai-sdk` return them. The chip is placed by TEXT in the rendered DOM, not by provider
+  (`renderers/citations.ts`), which is why it holds under every Markdown provider; the card
+  is mounted beside the transcript because the bubble clips what it paints.
 - **A code-interpreter / shell plugin.** The thing every product calls "a terminal" is
   a **tool call**: the model emits a call whose arguments are code, and the client
   renders the *result*. So it is a tool plus a tool renderer, the shape
@@ -140,7 +142,12 @@ put down on purpose, so a future session does not re-derive the answer from scra
 1. **Render hooks** return `HTMLElement | string` (generalized AvatarProvider pattern).
 2. **Bubble**: both paths — `SyncableBubble` (full replacement, exists) + fine-grained
    hooks (`renderBubbleShell`/`renderAttachment`/`renderSiblingNav`) in V0.1.
-3. **Action registries** (composer/bubble) **merged** — one registry, zone parameter.
+3. **One action registry, and it serves the bubble only.** The composer and bubble registries
+   were first merged behind a zone parameter; then the composer zone left (`d67148b3`): a
+   composer button is an `<aparte-composer-action>` element the consumer writes in markup, not
+   a registry entry. `AparteActionZone` is `'bubble'` alone, pinned by
+   `the-registry-has-one-zone.test.ts`. A plugin that adds a composer control ships an element
+   (as `@aparte/plugin-model-selector` does), never a registry entry.
 4. **Wrapper slot parity — reached, then simplified.** `empty-state`, `above-composer` and
    one `toolbar` exist on **all four** wrappers (props in React, named slots elsewhere). Two
    things were learned getting there. (a) The parity had been reached long before this line
@@ -333,8 +340,10 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   serious one — the rules were bare global selectors (`.error-message { }`), so importing
   the package restyled a host's own error messages. Inbound has already bitten us twice: a
   bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
-  `.segment` is Semantic UI's base class. One deliberate exception: `language-*` on a code
-  block stays unprefixed, because that is the name highlighters look for.
+  `.segment` is Semantic UI's base class. Two deliberate exceptions, both names other tools
+  read: `language-*` on a code block, which highlighters look for, and `math-inline` /
+  `math-display` on a maths placeholder, remark-math's names, which a Markdown provider writes
+  and the code-language engine reads.
 - **A component wears the recipe; it does not redraw it.** `aparte-btn`, `aparte-field`,
   `aparte-tag`, `aparte-checkbox`, `aparte-radio`, `aparte-icon` and the rest of the
   neutral layer own shape, spacing, states and focus. What a component adds is only what

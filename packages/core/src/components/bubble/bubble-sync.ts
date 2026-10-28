@@ -77,6 +77,10 @@ export function populateBubbleFromMessage(
                 if ('content' in seg) {
                     const patch = { content: (seg as { content: unknown }).content } as Partial<AparteSegment>;
                     if (settled) (patch as { isStreaming?: boolean }).isStreaming = false;
+                    // Sources often arrive after the text: a re-sync carries them too, and
+                    // takes back those the segment no longer has.
+                    const had = existing.find((s) => s.id === seg.id) as { sources?: unknown; citations?: unknown } | undefined;
+                    if (seg.type === 'text' && (seg.sources || seg.citations || had?.sources || had?.citations)) Object.assign(patch, { sources: seg.sources, citations: seg.citations });
                     bubble.updateSegment?.(seg.id, patch);
                 }
             }

@@ -123,6 +123,63 @@ export interface AparteStreamingMarkdownRenderer {
  */
 export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStreamingMarkdownRenderer;
 
+/**
+ * What a {@link AparteCodeLanguageRenderer} is asked to draw: one block of source in a
+ * language it registered, as a Markdown provider or a code segment left it.
+ */
+export interface AparteCodeLanguageContext {
+    /** The language, lower-cased: `math`, `mermaid`, … */
+    readonly language: string;
+    /** The source, verbatim: the TeX, the diagram. */
+    readonly source: string;
+    /** A block (a fence, display maths) rather than inline (`$x$`). */
+    readonly display: boolean;
+    /**
+     * The source is still arriving. Draw what you can of it, or return `null` and the
+     * last drawing that this source extends stays on screen.
+     */
+    readonly open: boolean;
+    /** The element that carries the source. Read its computed style if you need to; leave it as it is. */
+    readonly host: HTMLElement;
+    /** The chat's config, for its locale and its other providers. */
+    readonly config: AparteConfig;
+}
+
+/**
+ * Draws the source of one language: KaTeX for `math`, Mermaid for `mermaid`.
+ *
+ * Register it with {@link AparteConfig.registerCodeLanguageRenderer}; it then draws that
+ * language wherever it appears — a fence in a reply, display or inline maths a Markdown
+ * provider recognised — whichever Markdown provider is installed. A provider marks the
+ * source with `<code class="language-…">`; core puts the drawing beside it and leaves
+ * the source untouched, so copying and the history the model reads still use it.
+ *
+ * The markup `render` returns is **trusted**: it is inserted as it is, not through the
+ * HTML sanitizer, which would strip exactly what a drawing is made of (SVG, MathML,
+ * positioning styles). It has the standing of a segment renderer's output — code you
+ * installed. Never echo the source into it unescaped. For a source it cannot draw, a
+ * renderer may answer with the source in an element of class `aparte-code-error`,
+ * which core styles as quiet code.
+ */
+export interface AparteCodeLanguageRenderer {
+    /** The languages this renderer draws, lower-case. The last registration for a language wins. */
+    readonly languages: readonly string[];
+    /**
+     * The drawing, as markup. `null` leaves what is shown: the last drawing for an open
+     * source, the source itself otherwise. Throwing does the same, and warns once.
+     */
+    render(ctx: AparteCodeLanguageContext): string | null | Promise<string | null>;
+    /** Whatever else the drawing depends on (a theme, say), so a change draws it again. */
+    cacheKey?(ctx: AparteCodeLanguageContext): string;
+    /** Re-read text the drawing takes from the config (an image's alt) — attributes and text only. */
+    relabel?(drawing: HTMLElement, ctx: AparteCodeLanguageContext): void;
+    /**
+     * Draw only once the source comes near the screen. For an expensive renderer, so that
+     * reopening a long conversation does not draw every diagram in it at once.
+     */
+    readonly lazy?: boolean;
+}
+
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
 const NOOP = (): void => { /* deliberately empty */ };
 
@@ -234,6 +291,7 @@ export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
     private _highlightProvider?: AparteHighlightProvider;
+    private _codeLanguageRenderers = new Map<string, AparteCodeLanguageRenderer>();
     // HTML sanitizer applied to markdown/highlight PROVIDER output (untrusted,
     // LLM-authored) before it is injected via innerHTML. Default = built-in
     // zero-dep allowlist sanitizer; `null` disables it (trusted content only).
@@ -503,17 +561,61 @@ export class AparteConfig {
     }
 
     /**
+     * Draw a language — `math`, `mermaid` — wherever it appears in a reply, whichever
+     * Markdown provider produced it. Messages already on screen are drawn again.
+     *
+     * @returns a disposer that removes the renderer, if it is still the one registered.
+     * @example aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: ({ source }) => katex.renderToString(source) });
+     */
+    registerCodeLanguageRenderer(renderer: AparteCodeLanguageRenderer): () => void {
+        const languages = renderer.languages.map((l) => l.toLowerCase());
+        for (const language of languages) this._codeLanguageRenderers.set(language, renderer);
+        bumpRenderingVersion(this);
+        this._notify();
+        return () => {
+            let removed = false;
+            for (const language of languages) {
+                if (this._codeLanguageRenderers.get(language) !== renderer) continue;
+                this._codeLanguageRenderers.delete(language);
+                removed = true;
+            }
+            if (!removed) return;
+            bumpRenderingVersion(this);
+            this._notify();
+        };
+    }
+
+    /** The renderer registered for `language`, if any. */
+    getCodeLanguageRenderer(language: string): AparteCodeLanguageRenderer | undefined {
+        return this._codeLanguageRenderers.get(language.toLowerCase());
+    }
+
+    /** Whether a renderer is registered for `language`, or for any language when none is given. */
+    hasCodeLanguageRenderer(language?: string): boolean {
+        return language === undefined
+            ? this._codeLanguageRenderers.size > 0
+            : this._codeLanguageRenderers.has(language.toLowerCase());
+    }
+
+    /**
      * Replace or disable the HTML sanitizer applied to markdown/highlight
      * provider output before it is injected into the DOM. Defaults to a built-in
      * zero-dependency allowlist sanitizer.
      *
-     * @param sanitizer A sanitizer function (e.g. a DOMPurify wrapper) for
-     *   hardened coverage, or `null` to DISABLE sanitization. Disabling exposes
-     *   you to XSS from LLM-authored content — only do so for content you fully
-     *   trust and have already sanitized upstream. `null` prints a console warning, once.
-     * @example aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+     * The function you pass REPLACES the built-in one, chat rules included: no
+     * `aparte-` classes, no layout styles, no form controls, external links in a new
+     * tab. DOMPurify's defaults hold none of the four, so chain it in front of
+     * `defaultSanitizer` rather than in its place (the example below).
+     *
+     * @param sanitizer A sanitizer function, or `null` to DISABLE sanitization.
+     *   Disabling exposes you to XSS from LLM-authored content — only do so for
+     *   content you fully trust and have already sanitized upstream. `null` prints
+     *   a console warning, once.
+     * @example aparteGlobalConfig.setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
+        // The same one again changes nothing, so it redraws nothing and tells no listener.
+        if (sanitizer === this._sanitizer) return;
         if (sanitizer === null) {
             // Passing null is a legitimate choice — an app that fully trusts its
             // own pipeline, or one swapping in DOMPurify at a different layer. But
@@ -525,10 +627,13 @@ export class AparteConfig {
             console.warn(
                 '[aparte] HTML sanitization is now DISABLED (setHtmlSanitizer(null)). '
                 + 'Model-authored HTML will be inserted verbatim. Pass a sanitizer '
-                + '(e.g. DOMPurify.sanitize) unless you sanitize upstream yourself.',
+                + '(defaultSanitizer, or DOMPurify chained before it) unless you sanitize upstream yourself.',
             );
         }
         this._sanitizer = sanitizer;
+        // What is on screen went through the previous sanitizer: draw it again.
+        bumpRenderingVersion(this);
+        this._notify();
     }
 
     /**
@@ -1303,8 +1408,12 @@ export class AparteConfig {
      * Highlight code block
      * Fallback: Returns raw code wrapped in `<pre><code>`
      * Supports Promise if provider is async/streaming
+     *
+     * @param options.fallback `false` rejects when the highlight provider fails, instead of
+     *   answering the plain block: for a caller that keeps what it highlighted, so a
+     *   failure (a highlighter still loading its grammars) is tried again rather than kept.
      */
-    async highlightCode(code: string, lang: string): Promise<string> {
+    async highlightCode(code: string, lang: string, options: { fallback?: boolean } = {}): Promise<string> {
         if (this._highlightProvider) {
             try {
                 const result = this._highlightProvider(code, lang);
@@ -1313,6 +1422,7 @@ export class AparteConfig {
                 return this.sanitizeHtml(html);
             } catch (error) {
                 console.warn('[AparteConfig] Highlight provider failed, using fallback:', error);
+                if (options.fallback === false) throw error;
             }
         }
         return this._defaultHighlightRenderer(code);
@@ -1899,7 +2009,7 @@ export class AparteConfig {
     /**
      * Put the configuration back to its defaults: the providers and the selected model,
      * the tools with their renderers and summaries, the renderers and render hooks, the
-     * Markdown and highlight providers, the sanitizer, the system prompt, the locale, icons,
+     * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
      * and their queue. Three things stay: the transport, the key sources added with
      * {@link AparteConfig.registerKeyProvider | registerKeyProvider()} (an `AparteClient`'s
@@ -1911,6 +2021,7 @@ export class AparteConfig {
         this._markdownProvider = undefined;
         this._streamingMarkdownProvider = undefined;
         this._highlightProvider = undefined;
+        this._codeLanguageRenderers.clear();
         this._systemPromptTemplate = undefined;
         this._systemPromptVarsProvider = undefined;
         this._statusRenderer = undefined;

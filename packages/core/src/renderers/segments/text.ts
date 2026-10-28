@@ -8,6 +8,8 @@
 import { escapeHtml } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
 import { writeStreamedMarkdown, highlightMarkdownFences, type AparteMarkdownStreamHost } from '../markdown-stream.js';
+import { renderCodeLanguages } from '../code-languages.js';
+import { renderCitations } from '../citations.js';
 import type {
     AparteSegmentRenderer,
     AparteTextSegment,
@@ -33,7 +35,10 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
         const contentEl = el.querySelector('.aparte-segment-content');
         // Only a segment marked streaming is still being written: one with no flag at all —
         // `setSegments`, an `appendMessage` with segments — is finished, and is highlighted.
-        if (contentEl && segment.isStreaming !== true) highlightMarkdownFences(contentEl);
+        if (!contentEl) return;
+        renderCodeLanguages(contentEl, { streaming: segment.isStreaming === true });
+        if (segment.isStreaming !== true) highlightMarkdownFences(contentEl);
+        renderCitations(contentEl as HTMLElement, segment);
     },
     update: (el, segment) => {
         const contentEl = el.querySelector('.aparte-segment-content');
@@ -45,6 +50,8 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
             segment.isStreaming !== false,
         );
         if (segment.isStreaming === false) highlightMarkdownFences(contentEl);
+        // Every write: the text a chip sat in may have been written anew.
+        renderCitations(contentEl as HTMLElement, segment);
     },
     getStyles: () => ``
 };

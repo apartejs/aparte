@@ -49,9 +49,40 @@ A tool step calls the tool you registered on the config; the real loop runs its 
 and calls the provider again with the result, which `after` answers. `pacing:
 { chunk, delay }` sets the typing speed; `pacing: 'instant'` gives a test the whole
 reply at once. `showcase` is a ready-made set covering markdown, code, reasoning, a
-tool round-trip, a typed question (`ask_user`), an artifact (a card once
-`@aparte/plugin-artifacts` is set up, prose otherwise) and an error; it is imported
+tool round-trip, a typed question (`ask_user`), an answer with its sources, an artifact (a
+card once `@aparte/plugin-artifacts` is set up, prose otherwise) and an error; it is imported
 from `@aparte/provider-scenario/showcase`, its own entry point, so your own scenarios
 do not pay for it.
+
+## Sources and citations
+
+A `sources` step lists the sources a reply draws on, and its `citations` say where in the text
+each one is cited. Put it after the text it cites: a citation's `start` and `end` are UTF-16
+offsets into the text the turn has streamed so far (its `text` steps joined, `end` exclusive),
+and a chip goes at the end of the passage. Source ids are unique within the turn, and a citation
+names them.
+
+```ts
+const first = 'The sky is blue because air scatters short wavelengths.';
+const second = ' Sunsets are red for the opposite reason.';
+
+createScenarioProvider({
+  turns: [[
+    { text: first + second },
+    {
+      sources: [
+        { id: 'a', url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering', title: 'Rayleigh scattering', snippet: 'Scattering by particles smaller than the wavelength.' },
+        { id: 'b', url: 'https://www.nasa.gov/', title: 'NASA' },
+      ],
+      // One passage citing two sources shows as "+1". `end` is exclusive.
+      citations: [{ start: 0, end: first.length, sources: ['a', 'b'] }],
+    },
+  ]],
+});
+```
+
+Compute the offsets from the strings (`text.indexOf(passage)`) rather than counting by hand, so
+an edit to a sentence cannot leave a chip on the wrong words. Ask the `showcase` for *"why is
+the sky blue?"* or *"with sources"* to see a three-source answer.
 
 Full guide: [apartejs.dev/providers/ai/scenario](https://apartejs.dev/providers/ai/scenario/).

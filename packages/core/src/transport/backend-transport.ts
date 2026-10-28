@@ -1,7 +1,7 @@
-import type { AparteChatRequest, AparteChatResponse } from '../types/chat.js';
+import type { AparteChatRequest, AparteChatResponse, AparteStreamEventMap } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteTransport, AparteTransportContext } from './types.js';
-import { vendorError } from './types.js';
+import { vendorError, withSources } from './types.js';
 import { parseAparteEventStream } from '../parsers/index.js';
 
 export interface BackendTransportOptions {
@@ -83,7 +83,9 @@ export class AparteBackendTransport implements AparteTransport {
         if (request.stream === false) {
             const json = await response.json();
             const text = (json as { text?: unknown })?.text;
-            return typeof text === 'string' ? text : (typeof json === 'string' ? json : JSON.stringify(json));
+            if (typeof text !== 'string') return typeof json === 'string' ? json : JSON.stringify(json);
+            const { sources, citations } = json as Partial<AparteStreamEventMap['sources']>;
+            return withSources(text, Array.isArray(sources) ? { sources, ...(Array.isArray(citations) ? { citations } : {}) } : undefined);
         }
         if (!response.body) {
             throw new Error('Backend returned no response body for a streaming request.');

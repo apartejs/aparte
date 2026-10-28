@@ -172,6 +172,42 @@ describe('the settling update', () => {
         expect(contentEl.querySelector('.one-shot')).not.toBeNull();
     });
 
+    it('leaves a settled one-shot render in place when the same content is settled again', () => {
+        // The re-sync again, under a one-shot provider: it rebuilt the whole element
+        // from the same string on every framework render, throwing away whatever had
+        // been drawn on top of it — a highlighted fence, a formula — to draw it again.
+        installOneShotProvider();
+        const contentEl = streamThenSettle(SRC);
+        const strong = contentEl.querySelector('strong');
+
+        const host = contentEl.parentElement as AparteMarkdownStreamHost;
+        for (let i = 0; i < 3; i++) writeStreamedMarkdown(host, contentEl, SRC, false);
+
+        expect(contentEl.querySelector('strong')).toBe(strong);
+    });
+
+    it('renders a settled one-shot segment again once a provider changes', () => {
+        installOneShotProvider();
+        const contentEl = streamThenSettle(SRC);
+        const strong = contentEl.querySelector('strong');
+
+        aparteGlobalConfig.setHighlightProvider((code) => `<pre><code>${code}</code></pre>`);
+        writeStreamedMarkdown(contentEl.parentElement as AparteMarkdownStreamHost, contentEl, SRC, false);
+
+        expect(contentEl.querySelector('strong')).not.toBe(strong);
+        expect(contentEl.querySelector('strong')?.textContent).toBe('world');
+    });
+
+    it('renders a settled one-shot segment again once the sanitizer changes', () => {
+        installOneShotProvider();
+        const contentEl = streamThenSettle(SRC);
+
+        aparteGlobalConfig.setHtmlSanitizer((html) => html.replace(/<strong>/g, '<strong class="swept">'));
+        writeStreamedMarkdown(contentEl.parentElement as AparteMarkdownStreamHost, contentEl, SRC, false);
+
+        expect(contentEl.querySelector('strong.swept')).not.toBeNull();
+    });
+
     it('escapes the raw Markdown when neither provider is registered', () => {
         const contentEl = streamThenSettle('a < b\n**bold**');
 

@@ -65,6 +65,47 @@ server.
 `LLAMACPP` (`http://localhost:8080/v1`) and `VLLM` (`http://localhost:8000/v1`) are presets
 like the others: local, key optional.
 
+## Sources and citations
+
+A reply that cites its sources arrives with them: the provider ends the turn with one
+`sources` event, just before `done`, and aparté lists the sources under the reply and puts a
+chip where each is cited. Nothing to configure — an endpoint that sends no citations leaves
+the stream exactly as it was.
+
+```ts
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+import { aparteGlobalConfig } from '@aparte/core';
+
+// Perplexity's Sonar models search the web and cite what they read.
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.PERPLEXITY));
+// OpenRouter's `:online` models and the OpenAI search models cite through annotations.
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+```
+
+Two shapes are read:
+
+- **`url_citation` annotations** (OpenAI, OpenRouter) on `delta.annotations`, or on
+  `message.annotations` for a server that streams the whole message shape. They carry the
+  offsets of the passage they support, which become the citation's `start` / `end`; an
+  offset past the end of the text is brought back into it.
+- **Perplexity's `citations` and `search_results`**, at the root of a chunk, with no
+  offsets: the text carries `[1]`, `[2]`, so each marker found in the text becomes a
+  citation (`marker: true`, the chip takes the marker's place) on that source. A marker that
+  names no source is left as text.
+
+The same page cited twice is one source (de-duplicated by URL), and two sources on one
+passage are one citation, which the bubble shows as "+1". A URL is passed on as the endpoint
+sent it: core's renderer links only the schemes its sanitizer allows, so a `javascript:` URL
+is shown as text, never as a link.
+
+The `PERPLEXITY` preset declares its models (`sonar`, `sonar-pro`, `sonar-reasoning-pro`,
+`sonar-deep-research`) because Perplexity has no `GET /models` to ask; pass your own `models`
+to change the list.
+
+A non-streamed answer (`stream: false`) is read the same way, by `parseSources`: when it
+cites anything, it resolves to the stream a streamed answer is — its text, its sources, its
+end — through the direct transport and through your backend alike.
+
 ## Errors and finish reason
 
 A server that answers `200` and then streams `data: {"error": {...}}` (LM Studio on a

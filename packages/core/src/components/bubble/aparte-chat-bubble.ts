@@ -31,7 +31,9 @@ interface DrawnSegment {
   tool: AparteToolRenderer | null;
   segment: AparteSegment;
 }
-import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { relabelCodeLanguages } from '../../renderers/code-languages.js';
+import { relabelCitations, renderSourceList } from '../../renderers/citations.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
@@ -416,6 +418,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // relabel there), then every segment still on its own renderer re-reads its text.
     this._redrawSegmentsWhoseRendererChanged();
     this._relabelSegments();
+    // A drawn formula or diagram re-reads what it takes from the config (a diagram's alt).
+    runWithConfig(this._cfg, () => relabelCodeLanguages(this));
+    relabelCitations(this);
+    this._syncSources();
     // The clock, too. A tag change is a formatting change, so the timestamp has to
     // be re-rendered or the language switches around a 12-hour time that stays.
     this._updateTimestamp(this.getAttribute('timestamp'));
@@ -841,13 +847,23 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * side replaces its own slot and the two are independent from then on.
      */
     this._replaceSegments(segments);
+    this._syncSources();
     this._updateWaiting();
+  }
+
+  /** The reply's sources, listed under its segments: the text segments' own, once each. */
+  private _syncSources(): void {
+    const segmentsEl = this._segmentsEl;
+    const container = segmentsEl?.parentElement;
+    if (!segmentsEl || !container) return;
+    const sources = this._segments.flatMap((s) => (s.type === 'text' ? s.sources ?? [] : []));
+    renderSourceList(container, segmentsEl, sources, this._cfg);
   }
 
   /** A whole new list, from `setSegments` or `updateMessage({ segments })`: copied in, then drawn. */
   private _replaceSegments(segments: AparteSegment[]): void {
     const next = [...segments];
-    if (this._resyncKeepingCards(next)) return;
+    if (this._resyncKeepingCards(next)) { this._syncSources(); return; }
     this._segments = next;
     this._renderSegments();
   }
@@ -880,6 +896,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   addSegment(segment: AparteSegment): void {
     this._segments.push(segment);
     this._appendSegmentEl(segment);
+    if (segment.type === 'text' && segment.sources) this._syncSources();
     this._updateWaiting();
   }
 
@@ -890,6 +907,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
+      if ('sources' in updates) this._syncSources();
       this._syncCopyAction();
       // A call that settles is a step that ended: the dots may be due again.
       if ('status' in updates || 'isStreaming' in updates) this._updateWaiting();
@@ -934,6 +952,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._release(segmentId);
     const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
+    this._syncSources();
     this._updateWaiting();
     this._syncCopyAction();
   }
@@ -1716,21 +1735,30 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    */
   private _highlightContentCode(): void {
     if (!this._contentEl || !this._cfg.hasHighlightProvider()) return;
-    this._contentEl.querySelectorAll('pre > code').forEach((codeEl) => {
+    // Marked ones were highlighted already: the next pass over a kept DOM must leave them.
+    this._contentEl.querySelectorAll('pre > code:not([data-aparte-highlighted])').forEach((codeEl) => {
       const code = codeEl.textContent ?? '';
       if (!code.trim()) return;
       const match = codeEl.className.match(/language-([\w+#-]+)/i);
       const lang = match?.[1] ?? '';
+      // Drawn by a code-language renderer: a whole-block highlight would replace the drawing.
+      if (this._cfg.hasCodeLanguageRenderer(lang) || codeEl.closest('.aparte-code-drawing')) return;
       const pre = codeEl.parentElement;
-      Promise.resolve(this._cfg.highlightCode(code, lang)).then((html) => {
+      codeEl.setAttribute('data-aparte-highlighted', '');
+      Promise.resolve(this._cfg.highlightCode(code, lang, { fallback: false })).then((html) => {
         const out = (html ?? '').trim();
-        if (!out || !pre || !pre.isConnected) return;
+        // Still this bubble's block — a bubble taken out of the page for a moment keeps
+        // it, and must get its colours — and not one a later render replaced.
+        if (!out || !pre || !this._contentEl?.contains(pre)) return;
         if (/^<pre[\s>]/i.test(out)) {
-          pre.outerHTML = out;                       // full block (Shiki)
+          replaceHighlighted(pre, out);              // full block (Shiki)
         } else {
           (codeEl as HTMLElement).innerHTML = out;   // inner tokens (Prism, hljs)
         }
-      }).catch(() => { /* keep the plain block on failure */ });
+      }).catch(() => {
+        // The plain block stays, unmarked, so the next pass tries it again.
+        codeEl.removeAttribute('data-aparte-highlighted');
+      });
     });
   }
 
@@ -1763,6 +1791,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
     this._reflectError();
     this._syncCopyAction();
+    this._syncSources();
   }
 
   /**

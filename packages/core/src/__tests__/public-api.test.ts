@@ -109,6 +109,8 @@ describe('@aparte/core public API', () => {
             "registerDefaultRenderers",
             "registerSegmentRenderer",
             "releaseDeferredHydration",
+            "renderCitations",
+            "renderCodeLanguages",
             "requestUserInput",
             "resolveConfig",
             "revokeAttachmentUrls",

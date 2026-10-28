@@ -182,7 +182,15 @@ export function createAparteChatHandler(
             } catch {
                 return jsonError(502, 'The vendor answered with an error.');
             }
-            return new Response(JSON.stringify({ text }), {
+            // What it cites rides beside the text, for the transport to put back on the reply.
+            // The answer stands without them: a reader of sources that throws costs the list, not the reply.
+            let cited: ReturnType<NonNullable<typeof adapter.parseSources>>;
+            try {
+                cited = typeof adapter.parseSources === 'function' ? adapter.parseSources(json) : undefined;
+            } catch {
+                cited = undefined;
+            }
+            return new Response(JSON.stringify(cited ? { text, ...cited } : { text }), {
                 headers: { 'Content-Type': 'application/json' },
             });
         }

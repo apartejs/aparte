@@ -1,5 +1,48 @@
 # @aparte/core
 
+## 0.28.0
+
+### Minor Changes
+
+- 5839913: A reply now shows the sources it cites: a chip at the end of each cited passage, a card it opens, and the list of sources under the reply. Providers send them with a new `sources` stream event; a text segment carries them in two new fields, `sources` and `citations`.
+
+  A chip shows the source's domain, and `+2` when two more back the same passage; it sits after the passage's punctuation, after the bold, link or code the passage ends in, and takes the place of a `[1]` marker the model wrote. A passage that cannot be found again gets no chip, only its place in the list. It is a button whose label is drawn from `data-label`, so copying the passage copies its words only: its card, shown in the top layer, shows the title as a link, the domain and an excerpt, pages through several sources, and closes on Escape or Tab back to the chip. The bubble lists the reply's sources under its segments, in a closed `<details>`. Nothing changes for a reply that cites nothing, and the sources are never sent back to the model.
+
+  The `sources` event's offsets are into the text the model call streamed; the stream adapter rebases each citation onto the text segment it falls in. The engine now emits `turn-start` before a non-streamed string answer too, as it does before a streamed call, so nothing of the call before it carries over. A non-streamed answer carries them too: a format adapter's optional `parseSources(json)`, and the backend handler adds `sources` and `citations` to its JSON. A chip is placed by text in the rendered Markdown, so the same under every Markdown provider; `renderCitations(contentEl, segment)` places them for a renderer of one's own. Seven locale keys (`sourcesCount`, `sourcesOne`, `sourcesCard`, `sourcePrevious`, `sourceNext`, `sourcePosition`, `opensInNewTab`), translated in the nine `@aparte/locales` bundles. No favicon is fetched.
+
+- 5b3ed37: Register a renderer for a code language with `config.registerCodeLanguageRenderer({ languages, render })`, and that language is drawn wherever it appears in a reply, under any Markdown provider: this is the seam `@aparte/plugin-katex` and `@aparte/plugin-mermaid` use.
+
+  A Markdown provider marks a source with `<code class="language-X">` (inside a `<pre>` for a block; `math-display` / `math-inline` for maths) and core matches it to the renderer registered for X. Every fence in a streamed reply is already a code segment, so a ` ```mermaid ` block is drawn with no Markdown provider at all; maths needs a provider that recognises it. `renderCodeLanguages(root)` runs the same engine over an element of your own.
+
+  The drawing goes beside the source and never inside it, so copying, the history the model reads and an incremental provider still writing tokens all keep the source. While a reply streams, a source is drawn as it arrives and the last drawing stays while the next one cannot be made yet; once settled, everything is drawn in full, and drawings are cached, so a framework re-render or a rebuilt block costs nothing. What a renderer returns is inserted as it is, not through the HTML sanitizer, which would strip what a drawing is made of: it has the standing of a segment renderer's output. A renderer marked `lazy` draws only once its source comes near the screen, so reopening a long conversation does not draw every diagram in it at once.
+
+- 6ccaf41: `config.highlightCode(code, lang, { fallback: false })` now rejects when the highlight provider fails, instead of answering the plain block; without the option nothing changes.
+
+  Core's own highlight passes use it. A settled block is no longer highlighted again when a framework re-syncs it, which made a failure permanent: a highlighter that failed once (Shiki still loading its grammars) left the block plain, and marked as done, for good. A failed block now stays plain and unmarked, and the next pass tries it again. Two cases that also kept a block plain are fixed: a code segment re-synced under another config (a wrapper attaches the chat's config after the first draw) is highlighted again with that config's highlighter, and a reply whose bubble left the page while its highlight ran gets its colours when it comes back.
+
+### Patch Changes
+
+- 5d531f2: A finished reply is no longer re-rendered or re-highlighted on every framework render, and `setHtmlSanitizer` now redraws what is already on screen.
+
+  A framework host re-sends `{ content, isStreaming: false }` to the last message on every render. Under a one-shot Markdown provider each of those rebuilt the whole element from the same string, throwing away what had been drawn on top of it, a highlighted fence for one, only to draw it again; and a code block was highlighted again from the same source. The settle now remembers what it wrote, under which config, and leaves an identical render in place; a code block re-sent unchanged keeps its highlight; and a block a highlighter has replaced is marked, so a later pass does not highlight it a second time as a block with no language. Changed content, another config, or a provider changed since, still redraws.
+
+  Changing the sanitizer used to apply only to what was rendered afterwards. It now counts as a rendering change, like setting a Markdown or highlight provider: messages already drawn go through the new one, and the config's listeners are told, synchronously. Passing the sanitizer already set changes nothing and tells no one.
+
+- 2f1ae3e: A fenced code block still arriving now carries `isStreaming: true`, so it is coloured line by line as it streams; a custom `code` renderer sees the flag too.
+
+  The parser marked a registered block as streaming but never a fence, and the code renderer read the missing flag as finished: the whole-content highlight ran again on every token, and the progressive path built for a streaming fence never ran. With the flag set, two highlight passes can be in flight at once, so the settled one now takes precedence over a streaming one that lands late, and of two settled highlights the newer wins.
+
+  The copy button on a code block copies the block's source, rather than the text the pane happens to show.
+
+- 85c68c4: If you replaced the sanitizer with `DOMPurify.sanitize`, chain it in front of the built-in one instead: `setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)))`.
+
+  The Markdown guide and the `setHtmlSanitizer` example used to show DOMPurify on its own, as the hardened option. `setHtmlSanitizer` replaces the built-in sanitizer, though, and DOMPurify's defaults are written for any page rather than for a chat. Measured on DOMPurify 3.4.17, they keep seven of nine things the built-in one refuses in a model's HTML: inline layout styles (a full-screen overlay), core's `aparte-` classes (a forged approval button), `--aparte-*` properties (the theme repainted from inside a reply), `<form>` and `<button>`, a password `<input>`, `id` (DOM clobbering), and an external link left to navigate the chat's own frame. Chained in front of `defaultSanitizer`, all nine are refused again.
+
+  No behaviour changes in core: `defaultSanitizer` was already exported. The documentation changes, and so does the warning `setHtmlSanitizer(null)` prints.
+
+- Updated dependencies [5839913]
+  - @aparte/engine@0.28.0
+
 ## 0.27.4
 
 ### Patch Changes

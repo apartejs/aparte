@@ -1,3 +1,6 @@
+/* KaTeX's own sheet: without it a formula shows twice (its HTML and its MathML). */
+@import 'katex/dist/katex.min.css';
+
 /* The chat site's own rules, shared by the five examples — what the skin does not
    say: the welcome's fold, the shell's height, the person in the footer, the
    lightbox, the settings dialog's stacking. Load AFTER core's sheets and the skin. */

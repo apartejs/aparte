@@ -182,7 +182,7 @@ export default defineConfig({
         // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
-        'packages/core/src/renderers/**': { lines: 96, statements: 96, functions: 96, branches: 87 },
+        'packages/core/src/renderers/**': { lines: 96, statements: 96, functions: 98, branches: 87 },
 
         // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
         //
@@ -220,7 +220,11 @@ export default defineConfig({
         'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
+        // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
+        'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
+        'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 81 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
@@ -229,7 +233,7 @@ export default defineConfig({
         'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
         // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.
         'packages/providers/agent/n8n/src/**': { lines: 99, statements: 99, functions: 99, branches: 97 },
-        'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 92, branches: 86 },
+        'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 95, branches: 90 },
         'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 91 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
         // Measured 78.04 by the full run after the worker moved to a stable path (its new

@@ -3,7 +3,7 @@
  */
 
 import type { AparteTool, AparteToolCall } from './tools.js';
-import type { AparteSegment } from './segments.js';
+import type { AparteSegment, AparteSource, AparteCitation } from './segments.js';
 import type { AparteErrorCode } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -214,6 +214,12 @@ export interface AparteStreamEventMap {
      */
     error:    { message: string; code?: AparteErrorCode }
     tool_use: AparteToolCall
+    /**
+     * The sources the reply draws on, and where it cites them: offsets into the text this
+     * model call has streamed so far (every `text` delta, joined). Sent once, or as they
+     * arrive; a later event adds to the earlier ones.
+     */
+    sources:  { sources: AparteSource[]; citations?: AparteCitation[] }
 }
 
 /** Discriminated union derived from AparteStreamEventMap — stays in sync automatically. */

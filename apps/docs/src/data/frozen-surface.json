@@ -429,6 +429,8 @@
       "registerDefaultRenderers",
       "registerSegmentRenderer",
       "releaseDeferredHydration",
+      "renderCitations",
+      "renderCodeLanguages",
       "requestUserInput",
       "resolveConfig",
       "revokeAttachmentUrls",
@@ -503,8 +505,16 @@
       "splitHistoryBudget",
       "transcriptForSummary"
     ],
+    "@aparte/plugin-katex": [
+      "setupKatex",
+      "setupKatexWith"
+    ],
     "@aparte/plugin-marked": [
       "setupMarkedProvider"
+    ],
+    "@aparte/plugin-mermaid": [
+      "setupMermaid",
+      "setupMermaidWith"
     ],
     "@aparte/plugin-model-selector": [
       "AparteModelSelector"
@@ -681,6 +691,7 @@
     "newChat",
     "nextResponse",
     "openArtifact",
+    "opensInNewTab",
     "pinConversation",
     "preview",
     "previewPending",
@@ -704,6 +715,12 @@
     "selectSearchPlaceholder",
     "sendButton",
     "sidebarLabel",
+    "sourceNext",
+    "sourcePosition",
+    "sourcePrevious",
+    "sourcesCard",
+    "sourcesCount",
+    "sourcesOne",
     "splitHandleLabel",
     "stopButton",
     "submitButton",

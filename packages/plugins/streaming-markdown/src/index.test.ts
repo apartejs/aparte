@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { aparteGlobalConfig } from '@aparte/core';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { aparteGlobalConfig, renderCodeLanguages } from '@aparte/core';
 import { setupStreamingMarkdownProvider } from './index.js';
+import { MATH_CORPUS, type MathCase } from '../../marked/src/__tests__/math-corpus.js';
 
 /**
  * The streaming path writes DOM directly (bypassing the one-shot sanitizer), so
@@ -308,5 +309,125 @@ describe('@aparte/plugin-streaming-markdown — the maintained parser', () => {
     it('keeps a table inside its list item', () => {
         const target = stream(['- a\n  | b | c |\n  | - | - |\n  | d | e |']);
         expect(target.querySelector('li table')).not.toBeNull();
+    });
+});
+
+describe('@aparte/plugin-streaming-markdown — maths, with a maths renderer registered', () => {
+    afterEach(() => aparteGlobalConfig.reset());
+
+    /** Stream `text` one character at a time, drawing after each, as the bubble does. */
+    function streamDrawn(text: string, after?: (target: HTMLElement) => void, each?: (target: HTMLElement) => void): HTMLElement {
+        setupStreamingMarkdownProvider();
+        const target = document.createElement('div');
+        document.body.appendChild(target);
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        for (const ch of text) {
+            r.write(ch);
+            renderCodeLanguages(target, { streaming: true });
+            each?.(target);
+        }
+        after?.(target);
+        r.end();
+        renderCodeLanguages(target);
+        each?.(target);
+        return target;
+    }
+
+    it('writes each formula as the placeholder core draws, the way plugin-marked writes it', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        const target = streamDrawn('The area $x^2$ grows.\n\n$$\n\\frac{1}{3}\n$$\n');
+        const inline = target.querySelector('p code.language-math.math-inline')!;
+        expect(inline.textContent).toBe('x^2');
+        // In its own <pre> as a block of the document; the fork writes it inside a paragraph.
+        expect(target.querySelector('code.language-math.math-display')!.textContent).toContain('\\frac{1}{3}');
+        expect(target.querySelector('equation-inline, equation-block')).toBeNull();
+        expect(target.querySelector('[data-aparte-open]')).toBeNull();
+    });
+
+    it('draws a formula while it streams, marked open until its closer', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        let mid: { open: boolean; drawn: string | null } | undefined;
+        // Read before its closer has arrived: the drawing is there already.
+        streamDrawn('$$\n\\frac{1}{3} + x', (target) => {
+            const code = target.querySelector('code.language-math')!;
+            mid = { open: code.hasAttribute('data-aparte-open'), drawn: target.querySelector('.aparte-code-drawing b')?.textContent ?? null };
+        });
+        // The fork holds its last character back, to see what it opens.
+        expect(mid).toEqual({ open: true, drawn: '\\frac{1}{3} + ' });
+    });
+
+    /** Every source a placeholder held at any point of the stream, and at its end. */
+    function placeholdersSeen(text: string): Set<string> {
+        const seen = new Set<string>();
+        streamDrawn(text, undefined, (target) => {
+            for (const code of target.querySelectorAll('code.language-math')) seen.add(code.textContent ?? '');
+        });
+        return seen;
+    }
+
+    it.each([
+        ['a one-line $$ formula and the prose after it', 'The formula:\n\n$$E = mc^2$$\n\nwhere E is the energy.', ['E = mc^2']],
+        ['a $ before a word', 'Prices are in $USD for now.\n\nThe next paragraph.', []],
+        ['two shell variables', 'Set $HOME and $PATH before you run it.', []],
+        ['three single $', 'Prices: $a, $b and $c.', []],
+        ['a reference in brackets', 'As shown in \\(1\\).', []],
+    ])('never hands prose to the maths renderer: %s', (_what, text, maths) => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        expect([...placeholdersSeen(text)]).toEqual(maths);
+    });
+
+    it('draws an inline formula once its closer has come, not while it arrives', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        let mid: string | null | undefined;
+        const target = streamDrawn('The area $x^2', (t) => { mid = t.querySelector('code.language-math')?.textContent ?? null; });
+        expect(mid).toBeNull();
+        expect(target.querySelector('code.language-math')).toBeNull();
+        expect([...placeholdersSeen('The area $x^2$ grows.')]).toEqual(['x^2']);
+    });
+
+    it('keeps the dollars as text when no maths renderer is registered', () => {
+        const target = streamDrawn('The area $x^2$ grows, at \\(y\\).');
+        expect(target.querySelector('code.language-math, equation-inline, equation-block')).toBeNull();
+        expect(target.textContent).toContain('The area $x^2$ grows');
+    });
+
+    it('writes a formula the reply ended in, or a reference in brackets, back as text', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        const cut = streamDrawn('Then:\n\n$$\nx +');
+        expect(cut.querySelector('code.language-math')).toBeNull();
+        expect(cut.textContent).toContain('x +');
+        // A display block a blank line ends before its closer: text, its opener with it.
+        for (const [md, text] of [['$$\na\n\nb', '$$'], ['\\[\na\n\nb', '[']] as const) {
+            const ended = streamDrawn(md);
+            expect(ended.querySelector('code.language-math')).toBeNull();
+            expect(ended.textContent).toContain(`${text}\na`);
+        }
+        const cited = streamDrawn('As \\[12\\] shows, and \\(3\\) too.');
+        expect(cited.querySelector('code.language-math')).toBeNull();
+        expect(cited.textContent).toContain('As [12] shows, and (3) too.');
+    });
+});
+
+describe('@aparte/plugin-streaming-markdown — the maths corpus plugin-marked reads', () => {
+    beforeEach(() => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['math'], render: (c) => `<b>${c.source}</b>` });
+        setupStreamingMarkdownProvider();
+    });
+    afterEach(() => aparteGlobalConfig.reset());
+
+    /** The formulas in `md`, streamed a character at a time and ended, as `[tex, display]`. */
+    function mathsOf(md: string): Array<[string, boolean]> {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        for (const ch of md) r.write(ch);
+        r.end();
+        return Array.from(target.querySelectorAll('code.language-math'))
+            .map((c) => [(c.textContent ?? '').trim(), c.classList.contains('math-display')]);
+    }
+
+    const expected = (c: MathCase): Array<[string, boolean]> => c.maths.map(([tex, display]) => [tex.trim(), display]);
+
+    it.each(MATH_CORPUS.map((c) => [c.md, c] as const))('%j', (_md, c) => {
+        expect(mathsOf(c.md)).toEqual(expected(c));
     });
 });

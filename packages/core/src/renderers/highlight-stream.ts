@@ -73,6 +73,8 @@ export function streamHighlight(
     const pane = element.querySelector<HTMLElement>(paneSelector);
     if (!pane) return;
 
+    // Streaming again: a settle mark left by an earlier pass no longer applies.
+    delete pane.dataset.aparteSettled;
     const tail = pane.querySelector<HTMLElement>('[data-aparte-tail]');
     const hlLen = highlightedLen(pane);
 
@@ -101,6 +103,9 @@ export function streamHighlight(
     void contextConfig(element).highlightCode(content.slice(0, cut), lang).then(html => {
         const live = element.querySelector<HTMLElement>(paneSelector);
         if (!live) return;
+        // The segment settled while this was in flight: the settle pass owns the
+        // pane now, and this partial highlight would roll the finished block back.
+        if (live.dataset.aparteSettled !== undefined) return;
         // Monotonic. Two highlights can be in flight; the older one carries the
         // SHORTER prefix, and letting it land would visibly rewind the pane.
         if (cut <= highlightedLen(live)) return;

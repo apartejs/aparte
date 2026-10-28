@@ -1,6 +1,11 @@
 import { aparteGlobalConfig, type AparteConfig, type AparteStreamingMarkdownRenderer } from '@aparte/core';
-import { Marked, marked, type MarkedExtension } from 'marked';
+import { Marked, marked } from 'marked';
 import remend from 'remend';
+import { markedMath } from './math.js';
+import { maskMath } from './scan.js';
+import type { MarkedProviderOptions } from './index.js';
+
+export type { MarkedProviderOptions } from './index.js';
 
 /*
  * What remend writes where a link or an image has no destination yet. Not a URL
@@ -18,9 +23,24 @@ const PENDING = 'streamdown:';
  */
 const BARE_OPENER = /(^|[ \t])[*_~`]+$/;
 
-/** The block being written, completed so that marked reads it as it will end. */
-function heal(raw: string): string {
-    return remend(raw.replace(BARE_OPENER, '$1'));
+/**
+ * The block being written, completed so that marked reads it as it will end.
+ *
+ * With maths on, the formulas are hidden from remend first: it reads TeX as Markdown,
+ * so it "completed" `\[ a+b` into a link and the `_` of `x_1` into emphasis. A formula
+ * still open is the parser's to handle, as one arriving.
+ */
+function heal(raw: string, math: boolean): string {
+    const text = raw.replace(BARE_OPENER, '$1');
+    if (!math) return remend(text);
+    let { masked, unmask } = maskMath(text);
+    // A formula still arriving at the very end: a space or a lone `\` (half of `\)`) at its
+    // tail is left out of this frame, or the closer remend appends would follow it — no
+    // longer closing the emphasis around the formula, and drawn inside it.
+    if (/$/.test(masked) && /[\s\\]$/.test(text)) ({ masked, unmask } = maskMath(text.replace(/[\s\\]+$/, '')));
+    // A single `$` still open may be a formula on its way (`$[a, b]` of an interval):
+    // completing its bracket into a link would draw a link that becomes maths a token later.
+    return unmask(remend(masked, { katex: false }));
 }
 
 /** One top-level Markdown block as it was last drawn. */
@@ -46,12 +66,21 @@ function blockNodes(html: string, healed: boolean, config: AparteConfig): ChildN
     return Array.from(template.content.childNodes);
 }
 
-function createRenderer(target: HTMLElement, parser: Marked, config: AparteConfig): AparteStreamingMarkdownRenderer {
+/** The parsers one streamed reply uses: one for the blocks it has finished, one for the block it is writing. */
+interface ReplyParsers {
+    finished: Marked;
+    arriving: Marked;
+    math: boolean;
+}
+
+function createRenderer(target: HTMLElement, parsers: ReplyParsers, config: AparteConfig): AparteStreamingMarkdownRenderer {
     let source = '';
     let drawn: DrawnBlock[] = [];
 
     const draw = (healLast: boolean): void => {
-        const blocks = parser.lexer(source);
+        // The arriving parser splits the blocks: it reads an unclosed `$$` as one block
+        // running to the end, as an unclosed fence is.
+        const blocks = (healLast ? parsers.arriving : parsers.finished).lexer(source);
         // The first block whose source moved; everything before it keeps its DOM.
         let from = 0;
         while (from < blocks.length && from < drawn.length) {
@@ -65,7 +94,9 @@ function createRenderer(target: HTMLElement, parser: Marked, config: AparteConfi
         for (let i = from; i < blocks.length; i++) {
             const raw = blocks[i]!.raw;
             const healed = healLast && i === blocks.length - 1;
-            const html = parser.parse(healed ? heal(raw) : raw, { async: false }) as string;
+            const html = healed
+                ? parsers.arriving.parse(heal(raw, parsers.math), { async: false }) as string
+                : parsers.finished.parse(raw, { async: false }) as string;
             const nodes = blockNodes(html, healed, config);
             target.append(...nodes);
             next.push({ raw, healed, nodes });
@@ -102,17 +133,38 @@ function createRenderer(target: HTMLElement, parser: Marked, config: AparteConfi
  *
  * Call once at application startup.
  *
+ * Maths is recognised as soon as a `math` renderer is registered (`@aparte/plugin-katex`),
+ * and a formula is drawn while it arrives: the parser reads an unclosed `$$`, `\[` or
+ * `\(` in the block being written as a formula still arriving. A single `$` is read
+ * only once it closes — until then it could be a price.
+ *
  * @param options Optional marked extension(s), as for `setupMarkedProvider`: applied
- *   to a private marked instance, to the streaming and the finished render alike.
+ *   to a private marked instance, to the streaming and the finished render alike; and `math`.
  * @param config The config to register on. Defaults to the global one.
  *
  * @example
  * import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
  * setupMarkedStreamingProvider({ gfm: true });
  */
-export function setupMarkedStreamingProvider(options?: MarkedExtension, config: AparteConfig = aparteGlobalConfig): void {
-    // Private instance when options are given, for the reason `setupMarkedProvider` gives.
-    const parser = options ? new Marked(options) : marked;
-    config.setMarkdownProvider((raw) => parser.parse(raw, { async: false }) as string);
-    config.setStreamingMarkdownProvider((target) => createRenderer(target, parser as Marked, config));
+export function setupMarkedStreamingProvider(options?: MarkedProviderOptions, config: AparteConfig = aparteGlobalConfig): void {
+    // A private instance when options are given, for the reason `setupMarkedProvider`
+    // gives; the parsers that recognise maths are made on first use.
+    const { math, ...extension } = options ?? {};
+    const scoped = options !== undefined && (math === undefined || Object.keys(extension).length > 0);
+    const plain = scoped ? new Marked(extension) : marked;
+    let finished: Marked | undefined;
+    let arriving: Marked | undefined;
+    const mathOn = (): boolean => math ?? config.hasCodeLanguageRenderer('math');
+    const withMath = (): Marked => (finished ??= new Marked(extension, markedMath()));
+    const arrivingMath = (): Marked => (arriving ??= new Marked(extension, markedMath({ live: true })));
+
+    config.setMarkdownProvider((raw) => (mathOn() ? withMath() : plain).parse(raw, { async: false }) as string);
+    // Decided once per reply, so a renderer registered mid-stream does not switch the
+    // parser under blocks already drawn; the settle draws the reply again anyway.
+    config.setStreamingMarkdownProvider((target) => {
+        const on = mathOn();
+        return createRenderer(target, on
+            ? { finished: withMath(), arriving: arrivingMath(), math: true }
+            : { finished: plain as Marked, arriving: plain as Marked, math: false }, config);
+    });
 }

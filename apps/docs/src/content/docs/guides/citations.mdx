@@ -1,0 +1,132 @@
+---
+title: Sources and citations
+description: Show the sources a reply draws on — a chip at the end of each cited passage, a card, and the list under the reply — from OpenAI, OpenRouter, Perplexity, the AI SDK or your own provider.
+sidebar:
+  order: 3.7
+  label: Citations
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="citations" caption="The sources arrive after the text: a chip at the end of each passage, a card on click, the list under the reply." />
+
+A model that searches the web returns its sources beside the text. aparté shows them the way
+people already read them:
+
+- **a chip** at the end of the passage a source backs — its domain, and `+2` when two more back
+  the same passage. It sits after the passage's punctuation, after the bold, link or code the
+  passage ends in, and after a code block rather than inside it;
+- **a card** the chip opens, on a click, a tap or <kbd>Enter</kbd>: the source's title as a link,
+  its domain and an excerpt, and a `‹ 1/3 ›` pager when there are several. <kbd>Escape</kbd>, or
+  <kbd>Tab</kbd> past its last control, closes it and gives the focus back to the chip;
+- **the list** under the reply: a closed "3 sources", every source once, each a link.
+
+Nothing is drawn for a reply that cites nothing. No favicon is fetched: an icon service would
+learn which sites your replies cite, so a source is shown by its domain, as text.
+
+## Where the sources come from
+
+The providers that receive citations read them on their own:
+
+- **`@aparte/provider-openai-compat`** reads the `url_citation` annotations OpenAI's search models
+  and OpenRouter's web search return (`openai/gpt-4o:online`, or `plugins: [{ id: 'web' }]` in
+  `extraBody`), and Perplexity's `search_results` with the `[1]` markers in its text — the chip takes
+  the marker's place. A `perplexity` preset is included.
+- **`@aparte/provider-ai-sdk`** passes on the AI SDK's `source` parts, and the `citations` of a
+  text part when your `ai` version has them.
+
+```ts
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+// Perplexity's Sonar models search the web and cite what they read.
+const perplexity = createOpenAICompatProvider(presets.PERPLEXITY);
+```
+
+A source with no position — the AI SDK's are message-level — goes in the list only. aparté never
+guesses where a chip should go.
+
+## From a provider of your own
+
+A provider sends one more stream event, after the text it cites: the sources, and where in that
+text each passage ends. Offsets are into the text the model call has streamed — every `text`
+delta, joined — in JavaScript string indices, `end` exclusive.
+
+```ts
+import type { AparteStreamEvent } from '@aparte/core';
+
+const events: AparteStreamEvent[] = [
+    { type: 'text', delta: 'The sky is blue.' },
+    {
+        type: 'sources',
+        sources: [{ id: 's1', url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering', title: 'Rayleigh scattering' }],
+        citations: [{ end: 16, sources: ['s1'] }],
+    },
+    { type: 'done' },
+];
+```
+
+Core places each citation in the text segment it falls in — a reply is cut into segments at its
+code blocks — and rebases its offsets there. A non-streamed answer carries them too: a format
+adapter's `parseSources(json)` returns the same event, and the answer resolves to a stream.
+
+## On a segment
+
+Without a provider at all — a backend that answers whole messages, a restored conversation — set
+the two fields on a text segment. They are saved with it, and never sent back to the model.
+
+```ts
+import type { AparteTextSegment } from '@aparte/core';
+
+const segment: AparteTextSegment = {
+    id: 't1',
+    type: 'text',
+    content: 'The sky is blue[1].',
+    sources: [{ id: 's1', url: 'https://en.wikipedia.org/wiki/Rayleigh_scattering', title: 'Rayleigh scattering' }],
+    // `marker`: the text [15, 18) is the model's own "[1]" — the chip takes its place.
+    citations: [{ start: 15, end: 18, sources: ['s1'], marker: true }],
+};
+```
+
+| Field | On | What it says |
+|---|---|---|
+| `sources` | `AparteTextSegment` | `{ id, url?, title?, snippet? }` — `url` is linked only when it is an absolute `http(s)` address the sanitizer's URL policy allows |
+| `citations` | `AparteTextSegment` | `{ start?, end, sources, marker? }` — `sources` are ids, in the order the card pages through them |
+
+## How a chip finds its place
+
+The offsets say where a passage ends in the segment's Markdown; the screen shows that Markdown
+rendered, by whichever provider you installed. So the chip is placed by text: the letters and
+digits up to the passage's end are found again in the rendered reply, at the same occurrence, and
+the chip goes after them. That is why it works the same under marked, its streaming entry and
+`@aparte/plugin-streaming-markdown`, and through lists, entities, maths and code. A passage that
+cannot be found again gets no chip: its source stays in the list.
+
+A renderer of your own for text segments places them with the same function, after writing its
+Markdown:
+
+```ts
+import { renderCitations, type AparteTextSegment } from '@aparte/core';
+
+function drawText(contentEl: HTMLElement, segment: AparteTextSegment): void {
+    // … write the segment's Markdown into contentEl, then:
+    renderCitations(contentEl, segment);
+}
+```
+
+## Styling
+
+Core is light DOM: the chip is `.aparte-citation` (it wears the tag recipe), the card
+`.aparte-citation-card` (the popover recipe), the list `.aparte-sources`. To show the sources
+without the list, `.aparte-sources { display: none }`. The words — "3 sources", "Previous
+source", "(opens in a new tab)" — are locale keys, translated in `@aparte/locales`.
+
+<Cards
+    cards={[
+        { href: '/guides/markdown/', title: 'Markdown and code', line: 'The providers that render the text a chip sits in.' },
+        { href: '/providers/ai/openai-compat/', title: 'OpenAI-compatible endpoints', line: 'OpenRouter, OpenAI, Perplexity and the rest.' },
+        { href: '/guides/math/', title: 'Maths', line: 'Formulas drawn as they stream, and cited like any passage.' },
+    ]}
+/>

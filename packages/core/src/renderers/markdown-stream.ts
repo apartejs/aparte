@@ -30,8 +30,11 @@
  *   the same content (a framework re-syncing the finished message) leaves it there.
  */
 import { contextConfig } from '../config/index.js';
+import { renderingVersionOf } from '../config/aparte-config.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml } from '../utils/escape.js';
+import { renderCodeLanguages, unrenderCodeLanguages, isDrawnLanguage } from './code-languages.js';
+import { unrenderCitations } from './citations.js';
 
 /**
  * The element that carries the incremental state.
@@ -48,19 +51,26 @@ export type AparteMarkdownStreamHost = HTMLElement & {
 };
 
 /**
- * The content an element was last settled on by keeping the parser's DOM.
+ * What an element was last settled on, and who wrote it.
  *
- * The parser is gone once it settles, but the settle is not the last non-streaming
- * update an element receives: a framework's reconcile re-sends `{ content,
- * isStreaming: false }` to the last message on every render. Without this, that
- * second settle found no parser and fell through to the one-shot default, turning
- * the kept DOM back into its raw source one render after the turn ended.
+ * The settle is not the last non-streaming update an element receives: a framework's
+ * reconcile re-sends `{ content, isStreaming: false }` to the last message on every
+ * render. Two things went wrong without this record:
  *
- * Keyed by the content element, because that is what the entry describes — the
- * bubble's own content element can be rebuilt under the same host — and weakly, so
- * that removing the element removes the entry, for the reason given above.
+ * - `parser` — the DOM was kept from the incremental parser, and the parser is gone.
+ *   The second settle found no parser and fell through to the one-shot default,
+ *   turning the kept DOM back into its raw source one render after the turn ended.
+ * - `markdown` — the one-shot render wrote it. Every re-sync rebuilt the whole
+ *   element from the same string, which threw away what was drawn on top of it (a
+ *   highlighted fence, a formula) only to draw it again.
+ *
+ * `config` and its rendering `version` at the time, so a provider or sanitizer changed
+ * since still gets its redraw — and so does the same element drawn under another config,
+ * whose count may well be the same number. Keyed by the content element, because that is
+ * what the entry describes — the bubble's own content element can be rebuilt under the
+ * same host — and weakly, so that removing the element removes the entry.
  */
-const settledFromParser = new WeakMap<Element, string>();
+const settled = new WeakMap<Element, { content: string; config: unknown; version: number; writer: 'parser' | 'markdown' }>();
 
 /** A probe with HTML in it, because escaping HTML is what the default renderer does. */
 const ONE_SHOT_PROBE = '<i>a</i>';
@@ -83,7 +93,9 @@ function hasOneShotMarkdownProvider(): boolean {
 }
 
 /**
- * Render `content` into `contentEl`, incrementally while streaming.
+ * Render `content` into `contentEl`, incrementally while streaming, then draw the code
+ * languages a renderer is registered for — maths, a diagram — on every path out, so a
+ * formula is drawn as soon as its provider has written it.
  *
  * @param host      the segment's root element, which holds the parser state
  * @param contentEl the element whose children are the rendered Markdown
@@ -96,10 +108,21 @@ export function writeStreamedMarkdown(
     content: string,
     streaming: boolean,
 ): void {
+    writeMarkdown(host, contentEl, content, streaming);
+    renderCodeLanguages(contentEl, { streaming });
+}
+
+function writeMarkdown(
+    host: AparteMarkdownStreamHost,
+    contentEl: Element,
+    content: string,
+    streaming: boolean,
+): void {
+    const cfg = contextConfig();
     if (streaming) {
+        settled.delete(contentEl);   // a stream writes over whatever was settled here
         // Lazily create an incremental renderer on the first streaming update.
         if (host._aparteSmd === undefined) {
-            settledFromParser.delete(contentEl);   // a new stream writes over the settled DOM
             const renderer = contextConfig().createStreamingMarkdownRenderer(contentEl as HTMLElement);
             if (renderer) {
                 contentEl.textContent = '';   // drop the skeleton — smd appends from scratch
@@ -134,21 +157,32 @@ export function writeStreamedMarkdown(
             // `renderMarkdown` can only escape here (the incremental provider failed on
             // the complete string), so the render below would write the raw source over
             // rendered DOM. Keep what the parser wrote — through the sanitizer, which is
-            // what makes writing DOM directly acceptable in the first place.
-            contentEl.innerHTML = contextConfig().sanitizeHtml(contentEl.innerHTML);
-            settledFromParser.set(contentEl, content);
+            // what makes writing DOM directly acceptable in the first place. Drawings
+            // come off first: the sanitizer would strip what they are made of, and
+            // they are drawn again from the cache on the way out. So do citation chips:
+            // stripped of their button, their label would stay in the text.
+            unrenderCodeLanguages(contentEl);
+            unrenderCitations(contentEl);
+            contentEl.innerHTML = cfg.sanitizeHtml(contentEl.innerHTML);
+            settled.set(contentEl, { content, config: cfg, version: renderingVersionOf(cfg), writer: 'parser' });
             return;
         }
         // Otherwise fall through: the one-shot provider re-renders for full fidelity.
-    } else if (settledFromParser.get(contentEl) === content && !hasOneShotMarkdownProvider()) {
-        // Settled already, on this very content: what the parser wrote is still the
-        // best render available. Changed content, or a one-shot provider registered
-        // since, falls through — the kept DOM would be stale or second-best.
-        return;
+    } else {
+        const last = settled.get(contentEl);
+        if (last?.content === content) {
+            // Settled already, on this very content. What the parser wrote is still the
+            // best render available unless a one-shot provider has been registered since;
+            // what the one-shot render wrote is still current unless a provider or the
+            // sanitizer changed since. Changed content falls through either way.
+            if (last.writer === 'parser' && !hasOneShotMarkdownProvider()) return;
+            if (last.writer === 'markdown' && last.config === cfg && last.version === renderingVersionOf(cfg)) return;
+        }
     }
 
-    settledFromParser.delete(contentEl);
-    contentEl.innerHTML = contextConfig().renderMarkdown(content);
+    contentEl.innerHTML = cfg.renderMarkdown(content);
+    if (streaming) settled.delete(contentEl);
+    else settled.set(contentEl, { content, config: cfg, version: renderingVersionOf(cfg), writer: 'markdown' });
 }
 
 /**
@@ -177,14 +211,33 @@ export function highlightMarkdownFences(contentEl: Element): void {
         // `language-ts` is what every Markdown renderer emits for ```ts.
         const lang = Array.from(block.classList)
             .find(c => c.startsWith('language-'))?.slice('language-'.length) ?? '';
+        // A language a renderer draws is not code to colour: the highlighter's whole-block
+        // answer would replace the `<pre>`, and the drawing beside the source with it.
+        if (isDrawnLanguage(lang, contentEl) || block.closest('.aparte-code-drawing')) continue;
         const source = block.textContent ?? '';
         block.setAttribute('data-aparte-highlighted', '');
-        void contextConfig().highlightCode(source, lang)
+        void contextConfig().highlightCode(source, lang, { fallback: false })
             .then(html => {
                 // The provider returns a full `<pre>…</pre>`, so it replaces the
                 // block's own `<pre>` rather than filling it.
-                if (pre.isConnected || pre.parentElement) pre.outerHTML = html;
+                if (pre.isConnected || pre.parentElement) replaceHighlighted(pre, html);
             })
-            .catch(() => { /* best-effort: a failed highlight degrades silently */ });
+            // A failed highlight keeps the plain block, unmarked, so the next pass tries again.
+            .catch(() => block.removeAttribute('data-aparte-highlighted'));
     }
+}
+
+/**
+ * Put a highlighter's whole-block answer in place of `pre`, marked as highlighted.
+ *
+ * The mark is what tells the next pass to leave it: a highlighter's `<pre>` usually drops
+ * the `language-*` class, so a block highlighted once and passed over again — a settled
+ * reply a framework re-syncs, which keeps its DOM now — was highlighted a second time as
+ * a language-less block, and lost its colours.
+ */
+export function replaceHighlighted(pre: Element, html: string): void {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    for (const code of Array.from(template.content.querySelectorAll('code'))) code.setAttribute('data-aparte-highlighted', '');
+    pre.replaceWith(template.content);
 }

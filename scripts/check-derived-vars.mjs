@@ -602,6 +602,7 @@ const CLASS_TOKEN_FLOOR = 380;
  */
 const CLASS_EXEMPT_FILES = new Map([
     ['packages/plugins/artifacts/src/preview-document.ts', "the sandboxed preview's srcdoc: a separate document, styled by the model's CSS"],
+    ['packages/plugins/katex/src/stylesheet-check.ts', "a probe of KaTeX's own stylesheet: it has to wear KaTeX's classes to test them"],
 ]);
 
 let classSites = 0;
@@ -631,7 +632,10 @@ let classTokens = 0;
                 if (!token) continue;
                 classTokens++;
                 emittedClasses.add(token);
-                if (token.startsWith('aparte-') || token.startsWith('language-')) continue;
+                // `language-*` is the name highlighters look for; `math-inline` and
+                // `math-display` are the maths placeholder's, remark-math's names, which a
+                // provider writes and the code-language engine reads (guides/markdown.mdx).
+                if (token.startsWith('aparte-') || token.startsWith('language-') || token === 'math-inline' || token === 'math-display') continue;
                 if (!badClasses.has(token)) badClasses.set(token, new Set());
                 badClasses.get(token).add(file);
             }

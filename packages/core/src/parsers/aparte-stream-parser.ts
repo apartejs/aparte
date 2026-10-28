@@ -384,6 +384,10 @@ export class AparteStreamParser {
         this._state.mode = 'code';
         this._state.codeLanguage = language;
         this._state.activeSegment = this._createCodeSegment(language, '');
+        // Open until `_closed` says otherwise, as a registered block is (`_startBlock`).
+        // Without it the code renderer read `undefined` as finished and re-ran the full
+        // highlight on every token, so its streaming path never ran.
+        (this._state.activeSegment as AparteSegment).isStreaming = true;
 
         return { segment: null, remaining: buffer.slice(firstNewline + 1) };
     }

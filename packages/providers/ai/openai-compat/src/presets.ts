@@ -62,6 +62,28 @@ const OPENROUTER: OpenAICompatProviderOptions = {
     },
 };
 
+// Perplexity's Sonar models answer from a web search and cite what they read: the sources
+// arrive as `citations` / `search_results` on the chunk and the text carries `[1]`, `[2]`
+// markers, which this adapter turns into a `sources` event. There is no `GET /models` to
+// ask, so the list is declared here and both `getModels()` and `fetchModels()` serve it.
+// The icon is generic line art (a magnifier), not their mark.
+const PERPLEXITY: OpenAICompatProviderOptions = {
+    id: 'perplexity',
+    baseURL: 'https://api.perplexity.ai',
+    name: 'Perplexity',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
+    color: '#20808d',
+    description: 'Sonar models that search the web and cite their sources',
+    helpUrl: 'https://www.perplexity.ai/settings/api',
+    listsModels: false,
+    models: [
+        { id: 'sonar', name: 'Sonar', capabilities: ['streaming'] },
+        { id: 'sonar-pro', name: 'Sonar Pro', capabilities: ['streaming'] },
+        { id: 'sonar-reasoning-pro', name: 'Sonar Reasoning Pro', capabilities: ['streaming'] },
+        { id: 'sonar-deep-research', name: 'Sonar Deep Research', capabilities: ['streaming'] },
+    ],
+};
+
 const LMSTUDIO: OpenAICompatProviderOptions = {
     id: 'lmstudio',
     baseURL: 'http://localhost:1234/v1',
@@ -121,4 +143,4 @@ const VLLM: OpenAICompatProviderOptions = {
 };
 
 /** Vendor presets for {@link createOpenAICompatProvider}. Pure data. */
-export const presets = { OPENAI, MISTRAL, ZAI, OPENROUTER, LMSTUDIO, OLLAMA, LLAMACPP, VLLM } as const;
+export const presets = { OPENAI, MISTRAL, ZAI, OPENROUTER, PERPLEXITY, LMSTUDIO, OLLAMA, LLAMACPP, VLLM } as const;
