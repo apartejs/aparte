@@ -69,6 +69,20 @@ describe('a clamp in our own window', () => {
         expect(vp._isAutoScrollEnabled, 'a clamp on a shorter transcript read as the reader going up').toBe(true);
     });
 
+    it('is not a gesture when the content got SHORTER, however long after the mutation the event comes', () => {
+        // Measured on CI react-webkit, send-glide, twice in three runs of one shard: the
+        // glide landed at the bottom (666 of 666), then the settling reply dipped (1201 ->
+        // 1068 at the event) and WebKit clamped on the way down to 419. The event came
+        // 104 ms after the last mutation the viewport saw — past the 100 ms settle shadow —
+        // and 224 ms after our own pin. Read as the reader going up, the follow stayed off
+        // and the view stopped 409px short for good.
+        geometry(666, 1201, 535);
+        vp._ownScrollAt = performance.now() - 224;
+        vp._lastMutationAt = performance.now() - 104;
+        geometry(419, 1068, 535);
+        expect(vp._isAutoScrollEnabled, 'a clamp on a shorter transcript read as the reader going up').toBe(true);
+    });
+
     it('still reads a jump as the reader when the content did not get shorter', () => {
         geometry(665, 1199, 534);
         vp._ownScrollAt = performance.now();
