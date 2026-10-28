@@ -2083,12 +2083,19 @@ export class AparteChatViewport extends HTMLElement {
         // almost every jump into history never rendered, whose bubbles leave their 320px
         // fallback as they come into view. The scroll rail stops the follow before it jumps
         // (`setAutoScroll(false)`); a host's own jump, or find-in-page, does not.
+        //
+        // Within a second of our scroll, as that says — not within the settle's few frames
+        // of a mutation, which is where the code had put it. Measured on CI react-webkit,
+        // twice in three runs of one shard: a glide landed at the bottom, the settling reply
+        // dipped (1201 -> 1068 at the event) and WebKit clamped 666 -> 419; the event came
+        // 104 ms after the last mutation seen, past the 100 ms shadow, and the view stopped
+        // 409px short for good.
         const shrank = height < this._lastScrollHeight - 1;
-        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && (drop <= this._settleBoundPx || shrank);
+        const afterMutation = now - this._lastMutationAt < this._settleShadowMs && drop <= this._settleBoundPx;
         const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs
             && !this._pointerHeld
-            && (drop <= churn + 2 || afterMutation);
+            && (drop <= churn + 2 || shrank || afterMutation);
         const readerWentUp = drop > 1 && !settlingOurs;
         // The same decrease, asked of the reader's HAND rather than of its size. The
         // generosity below is for layout drift; a gesture we can see is not drift, however
