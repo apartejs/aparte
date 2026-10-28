@@ -483,9 +483,9 @@ jobs:
       # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        # DIAG (throwaway branch, never merged): the whole WebKit suite twice, no retry — send-glide
-        # among its real neighbours, where it failed — so a stuck transcript prints its trail.
-        run: pnpm --filter @aparte-workspace/e2e exec playwright test --project=react-webkit --project=vanilla-webkit --repeat-each=2 --retries=0 --reporter=line --shard=${{ matrix.shard }}/3
+        # DIAG (throwaway branch, never merged): the normal shards, no retry — the composition
+        # send-glide failed in twice at 409px — so a stuck transcript prints its trail.
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --retries=0 --reporter=line --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
