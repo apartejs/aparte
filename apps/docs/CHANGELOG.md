@@ -1,5 +1,14 @@
 # @aparte-workspace/docs
 
+## 0.0.50
+
+### Patch Changes
+
+- Updated dependencies [63a5a01]
+  - @aparte/core@0.28.1
+  - @aparte/locales@0.28.1
+  - @aparte/plugin-shiki@0.28.1
+
 ## 0.0.49
 
 ### Patch Changes

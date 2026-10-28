@@ -4,6 +4,29 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.28.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [63a5a01](https://github.com/apartejs/aparte/commit/63a5a01): A transcript that got shorter just after the chat scrolled itself no longer switches auto-follow off; the view no longer stops short of the bottom at the end of a reply on a slow WebKit.
+
+  The viewport reads a `scrollTop` decrease on a shorter transcript, within a second of its own scroll and with no reader input, as the engine clamping to a smaller maximum — the rule its own comment states. The code only applied it within 100 ms of a transcript mutation it had observed. Measured on CI WebKit: a settling reply dipped (1201 → 1068 px at the event), WebKit clamped 666 → 419, and the scroll event came 104 ms after the last mutation — so it was read as the reader going up, and the view stayed 409 px short for good. A jump with no shrink behind it, a reader's hand, a held pointer and a jump outside that second still disarm as before.
+  <sub>`@aparte/core`</sub>
+
+- [d7f8fe0](https://github.com/apartejs/aparte/commit/d7f8fe0): An LM Studio server that cannot be reached no longer gets a second request to its older `/api/v0/models` API when the context window is read.
+
+  The fallback is for a server that answers without the v1 REST API (an HTTP error); a request that got no answer at all — the server is down, or the page is being left — now ends the probe with no window, as any other failed probe does. In WebKit the second request, sent while a page was being left, surfaced as a page error.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+- [9a2ce96](https://github.com/apartejs/aparte/commit/9a2ce96): A diagram still arriving now shows a placeholder box instead of its source, then draws each node as soon as its line is complete; it no longer flashes an empty image.
+
+  Before, a fence streamed its Mermaid source as text, then the header alone (`flowchart LR`, an `accTitle`) drew an empty 16×16 image in its place, and nothing changed until the whole of a half-written line parsed: characters, then a blank, then the diagram. Now its first frame is the skeleton recipe, each later frame draws the source up to its last complete line, and a frame whose drawing would paint nothing keeps what is shown. A closed fence is drawn as before; `progressive: false` still waits for it.
+  <sub>`@aparte/plugin-mermaid`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.28.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
