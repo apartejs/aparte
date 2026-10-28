@@ -43,20 +43,21 @@ const EXEMPT = new Map([
 const gate = JSON.parse(readFileSync('package.json', 'utf8')).scripts.gate;
 const steps = gate.split('&&').map(s => s.trim()).filter(Boolean);
 
-const ci = readdirSync(WORKFLOWS)
+const files = readdirSync(WORKFLOWS)
     .filter(f => f.endsWith('.yml') || f.endsWith('.yaml'))
-    .map(f => readFileSync(join(WORKFLOWS, f), 'utf8'))
-    .join('\n');
+    .map(f => ({ name: f, text: readFileSync(join(WORKFLOWS, f), 'utf8') }));
+const ci = files.map(f => f.text).join('\n');
 
 /**
  * Only the `run:` lines count. A step named in a comment is exactly the failure
  * mode this guard was written for — the seven missing steps appeared under
  * `.github/` solely inside a comment about them going missing.
  */
-const runLines = ci.split('\n')
+const runLinesOf = (text) => text.split('\n')
     .map(l => l.trim())
     .filter(l => l.startsWith('run:') || l.startsWith('- run:'))
     .join('\n');
+const runLines = runLinesOf(ci);
 
 const missing = steps.filter(step => !EXEMPT.has(step) && !runLines.includes(step));
 
@@ -76,26 +77,34 @@ const missing = steps.filter(step => !EXEMPT.has(step) && !runLines.includes(ste
  *
  * Deliberately blunt. A legitimate job-level `if:` will trip this, and then the right move
  * is to say why HERE rather than to loosen the pattern — the same bargain EXEMPT makes.
+ *
+ * Said here, then: a workflow that runs no gate step silences none. `release.yml` publishes
+ * only after a green `ci` on a push to main, and its job-level `if:` IS that condition;
+ * `release-notes.yml` runs on a tag. Only the workflows a gate step appears in are scanned —
+ * so moving a gate step into one of those brings it under the rule with it.
  */
-const lines = ci.split('\n');
 const silenced = [];
-for (const [i, line] of lines.entries()) {
-    const trimmed = line.trim();
-    if (/^#/.test(trimmed)) continue;
-    if (/^continue-on-error\s*:\s*true/.test(trimmed) || /^-?\s*continue-on-error\s*:\s*true/.test(trimmed)) {
-        silenced.push({ line: i + 1, text: trimmed, why: 'a failing step would not fail the job' });
-        continue;
-    }
-    // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
-    // (six or more, since a step is a list item inside `steps:`).
-    if (/^ {4}if\s*:/.test(line)) {
-        silenced.push({ line: i + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
+for (const file of files) {
+    const runs = runLinesOf(file.text);
+    if (!steps.some(step => runs.includes(step))) continue;
+    for (const [i, line] of file.text.split('\n').entries()) {
+        const trimmed = line.trim();
+        if (/^#/.test(trimmed)) continue;
+        if (/^continue-on-error\s*:\s*true/.test(trimmed) || /^-?\s*continue-on-error\s*:\s*true/.test(trimmed)) {
+            silenced.push({ file: file.name, line: i + 1, text: trimmed, why: 'a failing step would not fail the job' });
+            continue;
+        }
+        // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
+        // (six or more, since a step is a list item inside `steps:`).
+        if (/^ {4}if\s*:/.test(line)) {
+            silenced.push({ file: file.name, line: i + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
+        }
     }
 }
 
 if (silenced.length) {
     console.error('\n[gate-in-ci] a workflow can be silenced without any step going missing:\n');
-    for (const s of silenced) console.error(`  .github/workflows (line ${s.line}): ${s.text}\n    ${s.why}`);
+    for (const s of silenced) console.error(`  .github/workflows/${s.file} (line ${s.line}): ${s.text}\n    ${s.why}`);
     console.error(
         '\nThis guard checks that a gate step APPEARS in a `run:`. It cannot tell whether the\n'
         + 'job around it executes — `if: false` on a job leaves every step present and dead,\n'
