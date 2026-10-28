@@ -29,6 +29,8 @@ interface Instruments {
     writes: { t: number; seq: number; kind: 'instant' | 'smooth' | 'scrollTo-instant'; top: number; from: number; max: number; left: number }[];
     curve: { t: number; top: number; max: number }[];
     ends: { t: number; top: number; max: number }[];
+    /** Every scroll event, read after the component's own handler: whether the follow is still armed, and the clocks its rule reads. */
+    scrolls: { t: number; top: number; height: number; armed: boolean; sinceOwn: number; sinceMutation: number; sinceInput: number }[];
 }
 
 declare global {
@@ -45,7 +47,7 @@ async function arm(page: Page): Promise<void> {
         const s = (document.querySelector('.aparte-viewport-container')
             ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
         const t0 = performance.now();
-        const inst: Instruments & { stop(): void } = { writes: [], curve: [], ends: [], stop() { running = false; } };
+        const inst: Instruments & { stop(): void } = { writes: [], curve: [], ends: [], scrolls: [], stop() { running = false; } };
         let running = true;
         let seq = 0;
 
@@ -70,6 +72,18 @@ async function arm(page: Page): Promise<void> {
             nativeScrollTo(o);
         };
         s.addEventListener('scrollend', () => inst.ends.push({ t: performance.now() - t0, top: (desc.get as () => number).call(s), max: s.scrollHeight - s.clientHeight }));
+        // Added after the component's own listener, so it reads the flag that listener left.
+        const clocks = vp as unknown as { _isAutoScrollEnabled?: boolean; _ownScrollAt?: number; _lastMutationAt?: number; _readerInputAt?: number };
+        s.addEventListener('scroll', () => {
+            const now = performance.now();
+            inst.scrolls.push({
+                t: Math.round(now - t0), top: Math.round((desc.get as () => number).call(s)), height: s.scrollHeight,
+                armed: !!clocks._isAutoScrollEnabled,
+                sinceOwn: Math.round(now - (clocks._ownScrollAt ?? -Infinity)),
+                sinceMutation: Math.round(now - (clocks._lastMutationAt ?? -Infinity)),
+                sinceInput: Math.round(now - (clocks._readerInputAt ?? -Infinity)),
+            });
+        }, { passive: true });
 
         // The curve.
         const tick = (): void => {
@@ -85,7 +99,7 @@ async function read(page: Page): Promise<Instruments> {
     return page.evaluate(() => {
         const g = window.__glide!;
         g.stop();
-        return { writes: g.writes, curve: g.curve, ends: g.ends };
+        return { writes: g.writes, curve: g.curve, ends: g.ends, scrolls: g.scrolls };
     });
 }
 
@@ -110,7 +124,7 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
     await expect(chat.streaming()).toHaveCount(0, { timeout: 15_000 });
     // Let the settle window close so a late instant write would be recorded too.
     await page.waitForTimeout(600);
-    const { writes, curve, ends } = await read(page);
+    const { writes, curve, ends, scrolls } = await read(page);
 
     const smooth = writes.filter((w) => w.kind === 'smooth');
     expect(smooth.length, `the send glides (writes: ${JSON.stringify(writes.slice(0, 12))})`).toBeGreaterThanOrEqual(1);
@@ -158,14 +172,23 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
     });
 
     // And it arrives — read live, so a view that is still landing is waited for, and one
-    // that stopped short (the follow disarmed under it) still fails.
+    // that stopped short (the follow disarmed under it) still fails. Short, it says which
+    // scroll event left the follow disarmed, and what the component's clocks read there.
+    const disarm = scrolls.findIndex((e) => !e.armed);
+    const trail = JSON.stringify({
+        disarmedAt: disarm < 0 ? null : scrolls.slice(Math.max(0, disarm - 6), disarm + 3),
+        lastScrolls: scrolls.slice(-6),
+        writesAfterGlide: writes.filter((w) => w.seq >= smooth[0]!.seq).slice(0, 20),
+        ends: ends.slice(0, 8),
+        curveTail: curve.slice(-8),
+    });
     await expect.poll(
         () => page.evaluate(() => {
             const s = (document.querySelector('.aparte-viewport-container')
                 ?? document.querySelector('aparte-chat-viewport')) as HTMLElement;
             return s.scrollHeight - s.clientHeight - s.scrollTop;
         }),
-        { message: `the transcript ends at the bottom (the recorded curve ended at ${curve.at(-1)!.max - curve.at(-1)!.top}px)` },
+        { message: `the transcript ends at the bottom (the recorded curve ended at ${curve.at(-1)!.max - curve.at(-1)!.top}px): ${trail}` },
     ).toBeLessThanOrEqual(2);
     expect(errors, 'no runtime errors while probing').toEqual([]);
 });
