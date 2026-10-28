@@ -4,6 +4,112 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.28.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [5839913](https://github.com/apartejs/aparte/commit/5839913): A reply now shows the sources it cites: a chip at the end of each cited passage, a card it opens, and the list of sources under the reply. Providers send them with a new `sources` stream event; a text segment carries them in two new fields, `sources` and `citations`.
+
+  A chip shows the source's domain, and `+2` when two more back the same passage; it sits after the passage's punctuation, after the bold, link or code the passage ends in, and takes the place of a `[1]` marker the model wrote. A passage that cannot be found again gets no chip, only its place in the list. It is a button whose label is drawn from `data-label`, so copying the passage copies its words only: its card, shown in the top layer, shows the title as a link, the domain and an excerpt, pages through several sources, and closes on Escape or Tab back to the chip. The bubble lists the reply's sources under its segments, in a closed `<details>`. Nothing changes for a reply that cites nothing, and the sources are never sent back to the model.
+
+  The `sources` event's offsets are into the text the model call streamed; the stream adapter rebases each citation onto the text segment it falls in. The engine now emits `turn-start` before a non-streamed string answer too, as it does before a streamed call, so nothing of the call before it carries over. A non-streamed answer carries them too: a format adapter's optional `parseSources(json)`, and the backend handler adds `sources` and `citations` to its JSON. A chip is placed by text in the rendered Markdown, so the same under every Markdown provider; `renderCitations(contentEl, segment)` places them for a renderer of one's own. Seven locale keys (`sourcesCount`, `sourcesOne`, `sourcesCard`, `sourcePrevious`, `sourceNext`, `sourcePosition`, `opensInNewTab`), translated in the nine `@aparte/locales` bundles. No favicon is fetched.
+  <sub>`@aparte/core`, `@aparte/engine`, `@aparte/locales`</sub>
+
+- [5b3ed37](https://github.com/apartejs/aparte/commit/5b3ed37): Register a renderer for a code language with `config.registerCodeLanguageRenderer({ languages, render })`, and that language is drawn wherever it appears in a reply, under any Markdown provider: this is the seam `@aparte/plugin-katex` and `@aparte/plugin-mermaid` use.
+
+  A Markdown provider marks a source with `<code class="language-X">` (inside a `<pre>` for a block; `math-display` / `math-inline` for maths) and core matches it to the renderer registered for X. Every fence in a streamed reply is already a code segment, so a ` ```mermaid ` block is drawn with no Markdown provider at all; maths needs a provider that recognises it. `renderCodeLanguages(root)` runs the same engine over an element of your own.
+
+  The drawing goes beside the source and never inside it, so copying, the history the model reads and an incremental provider still writing tokens all keep the source. While a reply streams, a source is drawn as it arrives and the last drawing stays while the next one cannot be made yet; once settled, everything is drawn in full, and drawings are cached, so a framework re-render or a rebuilt block costs nothing. What a renderer returns is inserted as it is, not through the HTML sanitizer, which would strip what a drawing is made of: it has the standing of a segment renderer's output. A renderer marked `lazy` draws only once its source comes near the screen, so reopening a long conversation does not draw every diagram in it at once.
+  <sub>`@aparte/core`</sub>
+
+- [6ccaf41](https://github.com/apartejs/aparte/commit/6ccaf41): `config.highlightCode(code, lang, { fallback: false })` now rejects when the highlight provider fails, instead of answering the plain block; without the option nothing changes.
+
+  Core's own highlight passes use it. A settled block is no longer highlighted again when a framework re-syncs it, which made a failure permanent: a highlighter that failed once (Shiki still loading its grammars) left the block plain, and marked as done, for good. A failed block now stays plain and unmarked, and the next pass tries it again. Two cases that also kept a block plain are fixed: a code segment re-synced under another config (a wrapper attaches the chat's config after the first draw) is highlighted again with that config's highlighter, and a reply whose bubble left the page while its highlight ran gets its colours when it comes back.
+  <sub>`@aparte/core`</sub>
+
+- [c9120ab](https://github.com/apartejs/aparte/commit/c9120ab): A reply from a model that reports its sources now lists them under the reply, and from `ai` 7.0.138 a citation puts a chip after the passage it supports.
+
+  Nothing to change in your code. The bridge reads `source` parts from `fullStream` (`url` → `{ id, url, title }`, `document` → `{ id, title }`, the filename when there is no title) and ends the turn with one `sources` event just before `done`; the same URL reported twice is one source. A model that reports none leaves the stream as it was.
+
+  From `ai` 7.0.138 a `text-end` part may carry `citations`, with offsets relative to that text part. The bridge rebases them onto the text of the whole call, so the chip lands after the right sentence; a citation with no offsets supports its whole text part, and its `citedText` becomes the source's snippet. The field is read without being typed, so the installed `ai` (`^7`) builds and runs the same with or without it.
+
+  A non-streamed request (`stream: false`) whose answer cites sources now returns the stream `[text, sources, done]` instead of a bare string, which cannot carry them; an answer that cites nothing still returns the string.
+  <sub>`@aparte/provider-ai-sdk`</sub>
+
+- [c9120ab](https://github.com/apartejs/aparte/commit/c9120ab): A reply from an endpoint that cites its sources now shows them: OpenAI and OpenRouter annotations and Perplexity's source list reach the bubble, and there is a `PERPLEXITY` preset.
+
+  Nothing to change in your code. The stream parser reads `url_citation` annotations (on `delta.annotations`, or `message.annotations` for a server that streams the whole message shape) and Perplexity's root-level `citations` / `search_results`, and ends the turn with one `sources` event just before `done`. An endpoint that sends neither leaves the stream as it was.
+
+  The offsets of an annotation are into the whole message text, so the event waits for the end of the stream and an offset past the end of the text is brought back into it. Perplexity sends no offsets and writes `[1]`, `[2]` into the text: each marker that names a source becomes a citation that the chip replaces, and a marker that names none stays text. The same URL cited for two passages is one source, two sources on one passage are one citation, and a URL is passed on as the endpoint sent it (core's renderer refuses a `javascript:` link, not the provider).
+
+  `presets.PERPLEXITY` points at `https://api.perplexity.ai` and declares the Sonar models; with the new `listsModels: false`, `fetchModels` serves them without asking a `GET /models` Perplexity does not have. A `[1]` inside code is not taken for a marker. A non-streamed answer (`stream: false`) is read too, through the adapter's new `parseSources`.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+- [c552926](https://github.com/apartejs/aparte/commit/c552926): The showcase answers two more requests: ask it for maths, or for a diagram.
+
+  `math` replies with inline and display formulas and a sentence of prices that must stay text; `diagram` replies with a ` ```mermaid ` flowchart. With `@aparte/plugin-katex` and `@aparte/plugin-mermaid` installed they are drawn; without, they show as TeX and as code. Both come before `code`, whose `when` would otherwise take "a maths example".
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [c9120ab](https://github.com/apartejs/aparte/commit/c9120ab): A scenario turn can now carry sources and citations: a new `{ sources, citations? }` step, and a showcase answer that uses it ("why is the sky blue?", or ask for "sources").
+
+  `sources` lists the sources a reply draws on and `citations` places each one in the text, so a demo or a test can show the chips and the source card without a model that searches. The step goes after the text it cites: a citation's `start` and `end` are UTF-16 offsets into the text the turn has streamed so far (its `text` steps joined, `end` exclusive). Source ids are unique within the turn.
+
+  The showcase gains a `citations` scenario: three paragraphs on Rayleigh scattering citing three sources (en.wikipedia.org, nasa.gov, britannica.com), one passage citing two of them so the chip shows "+1". It is placed before `code`, so "cite an example" reaches it while "show me the source code" still reaches `code`; its offsets are found in the passages rather than counted. The showcase's default message now lists it among the things to ask for.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [8c4cd8f](https://github.com/apartejs/aparte/commit/8c4cd8f): New package: `@aparte/plugin-katex` draws the maths a model writes with KaTeX. Call `setupKatex()` and import `katex/dist/katex.min.css`.
+
+  Every `$…$`, `$$…$$`, `\(…\)` and `\[…\]` a Markdown provider recognises is drawn as a formula, while the reply streams: `@aparte/plugin-marked` and `@aparte/plugin-streaming-markdown` recognise maths on their own once it is registered. A formula still arriving keeps the last drawing that parsed, so nothing flashes red mid-stream; a finished one that does not parse shows its TeX, quietly. KaTeX is loaded on the first formula, and `@aparte/plugin-katex/core` takes a KaTeX you hand it (`setupKatexWith`). Whatever the options say, `trust` stays off, sizes and macro expansion are capped, and each formula gets its own macros.
+  <sub>`@aparte/plugin-katex`</sub>
+
+- [d2b6972](https://github.com/apartejs/aparte/commit/d2b6972): Install a maths renderer (`@aparte/plugin-katex`) and marked hands it every formula, `$…$`, `$$…$$`, `\(…\)` and `\[…\]`, instead of reading the TeX as Markdown; with none registered, nothing changes.
+
+  marked read TeX as Markdown: `\,` and `\\` were escapes to it, and `a*b*c` or `x_1 + y_2` became emphasis. Maths is now claimed by the tokenizer first and written as the placeholder a code-language renderer draws. It turns on by itself when a `math` renderer is registered on the config, so there is nothing to configure; `math: true` or `math: false` in the options forces it. A single `$` follows Pandoc's rule, so a price stays a price: `$5 and $10` is text.
+
+  A formula never crosses a blank line or a line that opens a block TeX does not start a line with (a fence, a heading, a quote, a rule, an HTML block; a list item after `$$ is the PID`), code wins over it (a `$$` in a fence or a code span stays code), emphasis and strikethrough around a formula close outside it, `\(x^*\)` included, and escaped brackets such as `\[1\]` stay brackets. With maths on, rendering runs on a marked instance of the plugin's own: an extension added to the global `marked` with `marked.use()` no longer applies, so pass marked options to `setupMarkedProvider(options)`.
+
+  While a reply streams, a formula is drawn as it arrives: an unclosed `$$`, `\[` or `\(` in the block being written is read as one still arriving. A single `$` is read only once it closes, since until then it could be a price. And `remend`, which completes the block being written, no longer sees the TeX: it used to turn `\[ a+b` into a link.
+  <sub>`@aparte/plugin-marked`</sub>
+
+- [8c4cd8f](https://github.com/apartejs/aparte/commit/8c4cd8f): New package: `@aparte/plugin-mermaid` draws the ` ```mermaid ` fences a model writes as diagrams. Call `setupMermaid()`.
+
+  It works with any Markdown provider, or none: every fence in a streamed reply is already a block of its own. The diagram is redrawn as its fence arrives, at most every 300 ms, keeping the last version that parsed; once the fence closes, one that does not parse shows a note and its source. Each diagram is an `<img>` of its SVG, so no script or style a model wrote into it can reach the page, and Mermaid runs with `securityLevel: 'strict'` and HTML labels off, which a diagram's own `%%{init}%%` cannot change. Colours follow the chat's theme. Mermaid is loaded on the first diagram, a diagram is drawn only once it comes near the screen, and `@aparte/plugin-mermaid/core` takes a Mermaid you hand it (`setupMermaidWith`).
+  <sub>`@aparte/plugin-mermaid`</sub>
+
+- [722c161](https://github.com/apartejs/aparte/commit/722c161): With a maths renderer registered (`@aparte/plugin-katex`), streamed formulas are now drawn; with none registered, `$` and `\(` now stay in the text instead of disappearing.
+
+  The plugin now depends on `@paulrichez/streaming-markdown` 0.3.2, which reads maths by Pandoc's rules — `$5 and $10` is two prices, a formula ends at a blank line or a line that opens a block, and a one-line `$$x$$` no longer opens a block that swallows the rest of the reply — and takes a `{ math }` option. The plugin turns maths on when a `math` renderer is registered, decided once per reply.
+
+  Each formula is written as `<code class="language-math math-inline">` or `math-display`, the placeholder `@aparte/plugin-marked` writes and core's code-language engine draws, marked `data-aparte-open` until its closer arrives. A display formula opened by `$$` or `\[` on its own line is drawn as it arrives; any other once its closer has come. A display block that a blank line ends before its closer, and a formula the reply ended in the middle of, go back to text, and one that holds only a number (`\[1\]`, a reference) is written back in its brackets, as plugin-marked reads it. Without a maths renderer the parser reads no maths at all: 0.3.0 wrote `$x$` as an `<equation-inline>` element and dropped its dollars.
+  <sub>`@aparte/plugin-streaming-markdown`</sub>
+
+### Patch Changes
+
+- [5d531f2](https://github.com/apartejs/aparte/commit/5d531f2): A finished reply is no longer re-rendered or re-highlighted on every framework render, and `setHtmlSanitizer` now redraws what is already on screen.
+
+  A framework host re-sends `{ content, isStreaming: false }` to the last message on every render. Under a one-shot Markdown provider each of those rebuilt the whole element from the same string, throwing away what had been drawn on top of it, a highlighted fence for one, only to draw it again; and a code block was highlighted again from the same source. The settle now remembers what it wrote, under which config, and leaves an identical render in place; a code block re-sent unchanged keeps its highlight; and a block a highlighter has replaced is marked, so a later pass does not highlight it a second time as a block with no language. Changed content, another config, or a provider changed since, still redraws.
+
+  Changing the sanitizer used to apply only to what was rendered afterwards. It now counts as a rendering change, like setting a Markdown or highlight provider: messages already drawn go through the new one, and the config's listeners are told, synchronously. Passing the sanitizer already set changes nothing and tells no one.
+  <sub>`@aparte/core`</sub>
+
+- [2f1ae3e](https://github.com/apartejs/aparte/commit/2f1ae3e): A fenced code block still arriving now carries `isStreaming: true`, so it is coloured line by line as it streams; a custom `code` renderer sees the flag too.
+
+  The parser marked a registered block as streaming but never a fence, and the code renderer read the missing flag as finished: the whole-content highlight ran again on every token, and the progressive path built for a streaming fence never ran. With the flag set, two highlight passes can be in flight at once, so the settled one now takes precedence over a streaming one that lands late, and of two settled highlights the newer wins.
+
+  The copy button on a code block copies the block's source, rather than the text the pane happens to show.
+  <sub>`@aparte/core`</sub>
+
+- [85c68c4](https://github.com/apartejs/aparte/commit/85c68c4): If you replaced the sanitizer with `DOMPurify.sanitize`, chain it in front of the built-in one instead: `setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitize(html)))`.
+
+  The Markdown guide and the `setHtmlSanitizer` example used to show DOMPurify on its own, as the hardened option. `setHtmlSanitizer` replaces the built-in sanitizer, though, and DOMPurify's defaults are written for any page rather than for a chat. Measured on DOMPurify 3.4.17, they keep seven of nine things the built-in one refuses in a model's HTML: inline layout styles (a full-screen overlay), core's `aparte-` classes (a forged approval button), `--aparte-*` properties (the theme repainted from inside a reply), `<form>` and `<button>`, a password `<input>`, `id` (DOM clobbering), and an external link left to navigate the chat's own frame. Chained in front of `defaultSanitizer`, all nine are refused again.
+
+  No behaviour changes in core: `defaultSanitizer` was already exported. The documentation changes, and so does the warning `setHtmlSanitizer(null)` prints.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/docs-mcp`.</sub>
+
 ## 0.27.4
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

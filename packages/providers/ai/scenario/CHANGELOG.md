@@ -1,5 +1,19 @@
 # @aparte/provider-scenario
 
+## 0.28.0
+
+### Minor Changes
+
+- c552926: The showcase answers two more requests: ask it for maths, or for a diagram.
+
+  `math` replies with inline and display formulas and a sentence of prices that must stay text; `diagram` replies with a ` ```mermaid ` flowchart. With `@aparte/plugin-katex` and `@aparte/plugin-mermaid` installed they are drawn; without, they show as TeX and as code. Both come before `code`, whose `when` would otherwise take "a maths example".
+
+- c9120ab: A scenario turn can now carry sources and citations: a new `{ sources, citations? }` step, and a showcase answer that uses it ("why is the sky blue?", or ask for "sources").
+
+  `sources` lists the sources a reply draws on and `citations` places each one in the text, so a demo or a test can show the chips and the source card without a model that searches. The step goes after the text it cites: a citation's `start` and `end` are UTF-16 offsets into the text the turn has streamed so far (its `text` steps joined, `end` exclusive). Source ids are unique within the turn.
+
+  The showcase gains a `citations` scenario: three paragraphs on Rayleigh scattering citing three sources (en.wikipedia.org, nasa.gov, britannica.com), one passage citing two of them so the chip shows "+1". It is placed before `code`, so "cite an example" reaches it while "show me the source code" still reaches `code`; its offsets are found in the passages rather than counted. The showcase's default message now lists it among the things to ask for.
+
 ## 0.27.4
 
 ## 0.27.3

@@ -1,5 +1,32 @@
 # @aparte-workspace/playground-react
 
+## 0.0.49
+
+### Patch Changes
+
+- Updated dependencies [5d531f2]
+- Updated dependencies [2f1ae3e]
+- Updated dependencies [85c68c4]
+- Updated dependencies [5839913]
+- Updated dependencies [5b3ed37]
+- Updated dependencies [6ccaf41]
+- Updated dependencies [d2b6972]
+- Updated dependencies [c9120ab]
+- Updated dependencies [c552926]
+- Updated dependencies [c9120ab]
+  - @aparte/core@0.28.0
+  - @aparte/engine@0.28.0
+  - @aparte/plugin-marked@0.28.0
+  - @aparte/provider-openai-compat@0.28.0
+  - @aparte/provider-scenario@0.28.0
+  - @aparte/plugin-approval@0.28.0
+  - @aparte/plugin-artifacts@0.28.0
+  - @aparte/plugin-ask-user@0.28.0
+  - @aparte/plugin-compaction@0.28.0
+  - @aparte/plugin-model-selector@0.28.0
+  - @aparte/plugin-shiki@0.28.0
+  - @aparte/react@0.28.0
+
 ## 0.0.48
 
 ### Patch Changes
