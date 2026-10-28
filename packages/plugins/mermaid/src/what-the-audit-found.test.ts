@@ -166,14 +166,15 @@ describe('two diagrams arriving at once', () => {
         const a = inPart('a');
         const b = inPart('b');
         await vi.runAllTimersAsync();
-        void renderer().render(ctx('flowchart TD\n  X', a, { open: true }));
+        renderer().render(ctx('flowchart TD\n', a, { open: true }));
+        void renderer().render(ctx('flowchart TD\n  X\n', a, { open: true }));
         await vi.advanceTimersByTimeAsync(10);
-        const streaming = renderer().render(ctx('flowchart TD\n  X --> Y', a, { open: true }));
+        const streaming = renderer().render(ctx('flowchart TD\n  X --> Y\n', a, { open: true }));
         // A closed diagram with the same first line, in another part, drawn meanwhile.
         await renderer().render(ctx('flowchart TD\n  A --> B', b));
         await vi.advanceTimersByTimeAsync(400);
         expect(await streaming).toContain('aparte-diagram');
-        expect(rendered).toContain('flowchart TD\n  X --> Y');
+        expect(rendered).toContain('flowchart TD\n  X --> Y\n');
     });
 
     it('drops the waiting frame of the diagram that just closed', async () => {
@@ -182,26 +183,27 @@ describe('two diagrams arriving at once', () => {
         setupMermaidWith(mermaid);
         const a = inPart('a');
         await vi.runAllTimersAsync();
-        void renderer().render(ctx('flowchart TD\n  X', a, { open: true }));
+        renderer().render(ctx('flowchart TD\n', a, { open: true }));
+        void renderer().render(ctx('flowchart TD\n  X\n', a, { open: true }));
         await vi.advanceTimersByTimeAsync(10);
-        const waiting = renderer().render(ctx('flowchart TD\n  X --> Y', a, { open: true }));
+        const waiting = renderer().render(ctx('flowchart TD\n  X --> Y\n', a, { open: true }));
         const closed = renderer().render(ctx('flowchart TD\n  X --> Y\n', a));
         await vi.advanceTimersByTimeAsync(400);
         expect(await waiting).toBeNull();
         expect(await closed).toContain('aparte-diagram');
-        expect(rendered).toEqual(['flowchart TD\n  X', 'flowchart TD\n  X --> Y\n']);
+        expect(rendered).toEqual(['flowchart TD\n  X\n', 'flowchart TD\n  X --> Y\n']);
     });
 
-    it('keeps its pace while the first line is still arriving', async () => {
+    it('asks Mermaid nothing while the first line is still arriving', async () => {
         vi.useFakeTimers();
         const { mermaid, rendered } = fakeMermaid();
         setupMermaidWith(mermaid);
         const a = inPart('a');
         await vi.runAllTimersAsync();
-        void renderer().render(ctx('flow', a, { open: true }));
-        await vi.advanceTimersByTimeAsync(10);
+        renderer().render(ctx('flow', a, { open: true }));
         void renderer().render(ctx('flowchart', a, { open: true }));
-        await vi.advanceTimersByTimeAsync(100);
-        expect(rendered).toEqual(['flow']);
+        void renderer().render(ctx('flowchart T', a, { open: true }));
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(rendered).toEqual([]);
     });
 });

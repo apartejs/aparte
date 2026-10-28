@@ -175,6 +175,19 @@ describe('context window', () => {
         expect(models.map(m => [m.id, m.contextWindow])).toEqual([['loaded-one', 4096], ['cold-one', undefined]]);
     });
 
+    it('LM Studio: asks no older API when the newer request got no answer at all', async () => {
+        const asked: string[] = [];
+        vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            asked.push(url);
+            if (url === 'http://localhost:1234/v1/models') return jsonResponse({ data: [{ id: 'loaded-one' }] });
+            throw new TypeError('Load failed');
+        });
+        const models = await createOpenAICompatProvider(presets.LMSTUDIO).fetchModels!({});
+        expect(models.map(m => [m.id, m.contextWindow])).toEqual([['loaded-one', undefined]]);
+        expect(asked).not.toContain('http://localhost:1234/api/v0/models');
+    });
+
     it('Ollama: /api/ps context_length of the loaded runner, matched with or without :latest', async () => {
         route({
             'http://localhost:11434/v1/models': { data: [{ id: 'llama3.2:latest' }, { id: 'qwen3:8b' }, { id: 'idle:1b' }] },

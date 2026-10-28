@@ -224,7 +224,7 @@ export default defineConfig({
         'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
-        'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 81 },
+        'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 83 },
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },

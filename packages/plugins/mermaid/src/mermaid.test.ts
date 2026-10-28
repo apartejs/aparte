@@ -131,16 +131,25 @@ describe('drawing a diagram', () => {
 });
 
 describe('a diagram still arriving', () => {
-    it('draws only the latest source while a drawing waits its turn', async () => {
+    it('shows a quiet box on its first frame, in place of its source', () => {
+        const { mermaid, rendered } = fakeMermaid();
+        setupMermaidWith(mermaid);
+        expect(renderer().render(ctx('flowchart TD\n  A', { open: true }))).toContain('aparte-skeleton');
+        expect(rendered).toEqual([]);
+    });
+
+    it('draws its whole lines only, the latest while a drawing waits its turn', async () => {
         vi.useFakeTimers();
         const { mermaid, rendered } = fakeMermaid();
         setupMermaidWith(mermaid);
-        const first = renderer().render(ctx('flowchart TD\n  A', { open: true }));
-        const second = renderer().render(ctx('flowchart TD\n  A --> B', { open: true }));
+        renderer().render(ctx('flowchart TD\n', { open: true }));
+        const first = renderer().render(ctx('flowchart TD\n  A --> B\n  C', { open: true }));
+        const second = renderer().render(ctx('flowchart TD\n  A --> B\n  C --> D\n  E[Hal', { open: true }));
         await vi.runAllTimersAsync();
         expect(await first).toBeNull();
         expect(await second).toContain('aparte-diagram');
-        expect(rendered).toEqual(['flowchart TD\n  A --> B']);
+        // `E[Hal` is a line still being written: each node appears once its line has ended.
+        expect(rendered).toEqual(['flowchart TD\n  A --> B\n  C --> D\n']);
     });
 
     it('keeps its pace: the next drawing waits at least 300 ms', async () => {
@@ -148,10 +157,11 @@ describe('a diagram still arriving', () => {
         const { mermaid, rendered } = fakeMermaid();
         setupMermaidWith(mermaid);
         await vi.runAllTimersAsync();
-        void renderer().render(ctx('flowchart TD\n  A', { open: true }));
+        renderer().render(ctx('flowchart TD\n', { open: true }));
+        void renderer().render(ctx('flowchart TD\n  A\n', { open: true }));
         await vi.advanceTimersByTimeAsync(10);
         expect(rendered).toHaveLength(1);
-        void renderer().render(ctx('flowchart TD\n  A --> B', { open: true }));
+        void renderer().render(ctx('flowchart TD\n  A --> B\n', { open: true }));
         await vi.advanceTimersByTimeAsync(100);
         expect(rendered).toHaveLength(1);
         await vi.advanceTimersByTimeAsync(300);
@@ -162,10 +172,22 @@ describe('a diagram still arriving', () => {
         vi.useFakeTimers();
         const { mermaid, rendered } = fakeMermaid();
         setupMermaidWith(mermaid);
-        const answer = renderer().render(ctx('flowchart TD\n  A --> BAD', { open: true }));
+        renderer().render(ctx('flowchart TD\n', { open: true }));
+        const answer = renderer().render(ctx('flowchart TD\n  A --> BAD\n', { open: true }));
         await vi.runAllTimersAsync();
         expect(await answer).toBeNull();
         expect(rendered).toEqual([]);
+    });
+
+    it('keeps what is shown rather than an empty drawing, which a closed diagram may still be', async () => {
+        vi.useFakeTimers();
+        const { mermaid } = fakeMermaid('<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 16 16"><defs><marker><path d="M0 0"/></marker></defs><g></g></svg>');
+        setupMermaidWith(mermaid);
+        renderer().render(ctx('flowchart LR\n', { open: true }));
+        const arriving = renderer().render(ctx('flowchart LR\n  accTitle: A title\n', { open: true }));
+        await vi.runAllTimersAsync();
+        expect(await arriving).toBeNull();
+        expect(await renderer().render(ctx('flowchart LR\n  accTitle: A title'))).toContain('aparte-diagram');
     });
 
     it('waits for the closed fence when progressive drawing is off', () => {

@@ -34,6 +34,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const SYSTEM_FONTS = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 /** The least time between two drawings of a diagram still arriving. */
 const PROGRESSIVE_MS = 300;
+/**
+ * What a diagram still arriving shows before it has a node to draw: a quiet box, not its
+ * source scrolling by, and not the empty image Mermaid draws for a header alone.
+ */
+const PENDING = '<span class="aparte-skeleton aparte-skeleton--rect" aria-hidden="true"></span>';
 
 /*
  * One render at a time on the whole page, whichever chat asks: Mermaid is one object,
@@ -111,6 +116,8 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
         timer: ReturnType<typeof setTimeout> | undefined;
         at: number;
         took: number;
+        /** The source of the diagram this part has started showing, or `null` before its first frame. */
+        started: string | null;
     }
     const arriving = new WeakMap<Element, Arriving>();
     const watched = new WeakSet<HTMLImageElement>();
@@ -119,7 +126,7 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
         const part = host.closest('[data-segment-id]') ?? host.closest('pre')?.parentElement ?? host.parentElement ?? host;
         let state = arriving.get(part);
         if (!state) {
-            state = { waiting: null, running: false, timer: undefined, at: 0, took: 0 };
+            state = { waiting: null, running: false, timer: undefined, at: 0, took: 0, started: null };
             arriving.set(part, state);
         }
         return state;
@@ -150,15 +157,21 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
         return instance;
     };
 
-    /** Draw `ctx.source` as an image; `null` when it does not parse. */
+    /**
+     * Draw `ctx.source` as an image; `null` when it does not parse. A diagram still arriving
+     * is drawn up to its last complete line: a line half written (`A[Mod`) does not parse, and
+     * drawing only whole statements is what makes each node appear as its line ends.
+     */
     const draw = (ctx: AparteCodeLanguageContext): Promise<string | null> => serial(async () => {
+        const source = ctx.open ? ctx.source.slice(0, ctx.source.lastIndexOf('\n') + 1) : ctx.source;
+        if (!source.trim()) return null;
         const m = await mermaidOf();
         m.initialize(mermaidConfig(user, ctx.host));
-        if (!(await m.parse(ctx.source, { suppressErrors: true }))) return null;
+        if (!(await m.parse(source, { suppressErrors: true }))) return null;
         const id = `${ID_PREFIX}-${++ids}`;
         try {
-            const { svg, diagramType } = await m.render(id, ctx.source);
-            return image(svg, diagramType);
+            const { svg, diagramType } = await m.render(id, source);
+            return image(svg, diagramType, ctx.open);
         } finally {
             // Mermaid leaves its scratch and error nodes in <body> when a render fails.
             document.getElementById(id)?.remove();
@@ -186,6 +199,7 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
                 if (waiting && ctx.source.startsWith(waiting.ctx.source)) {
                     waiting.answer(null);
                     state.waiting = null;
+                    state.started = null;
                 }
                 return draw(ctx).then(
                     (html) => html ?? failed(ctx),
@@ -196,6 +210,13 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
             waiting?.answer(null);
             state.waiting = null;
             if (!progressive) return null;
+            // A diagram's first frame: the box it will be drawn in, at once, in place of
+            // its source. The frames after it draw what has arrived, and a frame that
+            // draws nothing keeps what is shown.
+            if (state.started === null || !ctx.source.startsWith(state.started)) {
+                state.started = ctx.source;
+                return PENDING;
+            }
             return new Promise<string | null>((answer) => {
                 state.waiting = { ctx, answer };
                 schedule(state);
@@ -249,7 +270,7 @@ function mermaidConfig(user: Record<string, unknown>, host: HTMLElement): Record
  * parser refuses — and a French label, `Étape 1 : début`, then never drew. Anything
  * the parser had to put beside the `<svg>` means it was not one clean SVG.
  */
-function image(svg: string, diagramType?: string): string | null {
+function image(svg: string, diagramType?: string, arriving = false): string | null {
     const template = document.createElement('template');
     template.innerHTML = svg.trim();
     const root = template.content.firstElementChild;
@@ -259,12 +280,23 @@ function image(svg: string, diagramType?: string): string | null {
     const width = Math.ceil(box[2] ?? 0);
     const height = Math.ceil(box[3] ?? 0);
     if (!(width > 0 && height > 0)) return null;
+    // A diagram still arriving with nothing to draw yet — a header, a title — comes out as
+    // an empty box: shown, it would replace what is on screen with nothing.
+    if (arriving && !drawsSomething(root)) return null;
     root.setAttribute('width', String(width));
     root.setAttribute('height', String(height));
     root.removeAttribute('style');
     const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(root))}`;
     const type = diagramType ? ` data-diagram-type="${escapeHtml(diagramType)}"` : '';
     return `<img class="aparte-diagram" src="${escapeAttr(src)}" width="${escapeAttr(String(width))}" height="${escapeAttr(String(height))}" alt=""${type} decoding="async" draggable="false">`;
+}
+
+/** Whether an SVG paints anything beyond its definitions: a header alone draws no shape. */
+function drawsSomething(root: Element): boolean {
+    for (const el of Array.from(root.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line, text, image, use'))) {
+        if (!el.closest('defs, marker, symbol, clipPath, mask, pattern')) return true;
+    }
+    return false;
 }
 
 /** The note and the source, for a diagram that does not parse. Its text is set by `relabel`. */
