@@ -268,9 +268,12 @@ function asJsonList(v: unknown): Json[] {
     return Array.isArray(v) ? v.map(asJson) : [];
 }
 
+/** The server answered, with an error status: unlike a request that never got an answer. */
+class HttpError extends Error {}
+
 async function getJSON(url: string, headers: Record<string, string>): Promise<Json> {
     const response = await fetch(url, { headers });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new HttpError(`HTTP ${response.status}`);
     return asJson(await response.json());
 }
 
@@ -299,7 +302,11 @@ async function probeWindows(
         let data: Json | undefined;
         try {
             data = await getJSON(`${origin}/api/v1/models`, headers);
-        } catch {
+        } catch (error) {
+            // Only a server that answered without the v1 API has the older one to ask: a
+            // request that never got an answer (the server is down, the page is being left)
+            // would only send a second one after it.
+            if (!(error instanceof HttpError)) throw error;
             // Before the v1 REST API (and still beside it), `/api/v0/models` lists each
             // model with the window it was loaded at: `loaded_context_length` on a
             // `state: "loaded"` entry, read live on LM Studio 0.4.26.

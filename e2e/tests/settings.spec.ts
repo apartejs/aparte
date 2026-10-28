@@ -15,10 +15,25 @@
  * harness capturing URLs, which it does not do yet.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Request } from '@playwright/test';
 import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+
+/**
+ * Resolves once the page has had nothing in flight for half a second. `networkidle` cannot say
+ * it: once reached it stays reached, so it returned at once while the context-window probe the
+ * settings page starts late was still out.
+ */
+function quietNetwork(page: Page): () => Promise<void> {
+    const inFlight = new Set<Request>();
+    let last = Date.now();
+    page.on('request', (r) => { inFlight.add(r); last = Date.now(); });
+    const done = (r: Request) => { inFlight.delete(r); last = Date.now(); };
+    page.on('requestfinished', done);
+    page.on('requestfailed', done);
+    return () => expect.poll(() => inFlight.size === 0 && Date.now() - last > 500, { timeout: 10_000 }).toBe(true);
+}
 
 /** Distinctive enough that finding it in the request body proves it came from the form. */
 const PROMPT = 'You are the aparte e2e settings fixture. Answer in exactly one word.';
@@ -73,14 +88,15 @@ test('the settings form is not on the chat page', async ({ page }) => {
 test('a system prompt typed in the settings reaches the next request', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page);
+    const settled = quietNetwork(page);
 
     await page.goto('/?view=settings');
     await page.getByLabel('System prompt').fill(PROMPT);
-    // Let the settings page finish what it started (the model list, its lazy modules) before
-    // leaving it: WebKit reports the requests a navigation cancels as page errors of the
-    // document being left — "…/v1/models due to access control checks", "Importing a module
-    // script failed" — which are the test's doing, not the app's.
-    await page.waitForLoadState('networkidle');
+    // Let the settings page finish what it started (the model list, the context-window probe,
+    // its lazy modules) before leaving it: WebKit reports the requests a navigation cancels as
+    // page errors of the document being left — "…/v1/models due to access control checks",
+    // "Importing a module script failed" — which are the test's doing, not the app's.
+    await settled();
 
     // Back to the chat: the value survives the navigation because it is persisted,
     // which is also what makes it apply on a cold load.
