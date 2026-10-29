@@ -56,6 +56,11 @@ for (const file of pages) {
 const isRedirectStub = (file) =>
     /<meta\s+http-equiv="refresh"/i.test(readFileSync(file, 'utf8'));
 const redirects = new Set(pages.filter(isRedirectStub).map(routeOf));
+/** Where each redirect page sends its reader: its canonical link, as a route. */
+const movedTo = new Map(pages.filter(isRedirectStub).map((file) => [
+    routeOf(file),
+    (readFileSync(file, 'utf8').match(/<link rel="canonical" href="([^"]+)"/)?.[1] ?? '').replace(/^https?:\/\/[^/]+/, ''),
+]));
 
 const broken = [];
 let checked = 0;
@@ -167,7 +172,9 @@ const configSrc = ['apps/docs/astro.config.mjs', 'apps/docs/src/data/llms-sets.m
 const citedRoutes = new Set();
 const citedPrefixes = new Set();
 for (const m of configSrc.matchAll(/'(\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)'/g)) citedRoutes.add(m[1]);
-for (const m of configSrc.matchAll(/[\s(](\/[a-z0-9-]+\/)[.,\s)]/g)) citedRoutes.add(m[1]);
+// Any depth, and an anchor after it: this read only one segment (`/compare/`), so the
+// preamble's `/plugins/approval/`, `/guides/math/` or `/guides/tools/#…` were never checked.
+for (const m of configSrc.matchAll(/[\s(](\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)(?:#[a-z0-9-]+)?[.,\s)]/g)) citedRoutes.add(m[1]);
 const pathArrays = [...configSrc.matchAll(/paths:\s*\[([^\]]*)\]/g)];
 for (const [, body] of pathArrays) {
     for (const m of body.matchAll(/'([a-z0-9-]+(?:\/[a-z0-9-]+)*?)(\/\*\*)?'/g)) {
@@ -183,9 +190,16 @@ if (pathArrays.length === 0) {
 }
 const missingCited = [...citedRoutes].filter((r) => !idsByRoute.has(r) && !redirects.has(r)).sort();
 const emptyPrefixes = [...citedPrefixes].filter((p) => ![...idsByRoute.keys()].some((r) => r.startsWith(p))).sort();
-if (missingCited.length || emptyPrefixes.length) {
+// A moved address answers 200 with a page that only redirects, in JavaScript and a meta
+// refresh — fine for an old link from elsewhere, which is why the walk accepts it. The
+// site's own config is not an old link: the llms.txt preamble is read by crawlers that run
+// no script, so citing a moved address told them "Moved to…" in place of the page (three
+// /plugins/ routes, found by the 2026-10-28 audit). It cites the destination instead.
+const movedCited = [...citedRoutes].filter((r) => redirects.has(r)).sort();
+if (missingCited.length || emptyPrefixes.length || movedCited.length) {
     console.error('\n[doc-links] the site\'s own config cites what the build does not contain:\n');
     for (const r of missingCited) console.error(`  ${r} — cited in the site config, no built page`);
+    for (const r of movedCited) console.error(`  ${r} — cited in the site config, a moved address: cite ${movedTo.get(r) || 'where it moved'}`);
     for (const p of emptyPrefixes) console.error(`  ${p}** — a customSets glob that matches nothing`);
     console.error('\nA route named in the llms preamble or the sidebar is a promise to a reader\nthe link walk cannot see. Build the page, or stop citing it.\n');
     process.exit(1);
