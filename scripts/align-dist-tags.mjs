@@ -21,7 +21,7 @@
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { publishable } from './publishable.mjs';
+import { lower, publishable } from './publishable.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dry = process.argv.includes('--dry');
@@ -73,6 +73,13 @@ for (const pkg of packages) {
     }
     for (const tag of TAGS) {
         if (current[tag] === pkg.version) {
+            already++;
+            continue;
+        }
+        // Never down: a tag already on a newer version belongs to a release after this one
+        // (two overlapping, unfinished releases), and moving it would serve older bits.
+        if (current[tag] && lower(pkg.version, current[tag])) {
+            console.log(`  ${tag}: ${current[tag]} kept, newer than ${pkg.version}  ${pkg.name}`);
             already++;
             continue;
         }
