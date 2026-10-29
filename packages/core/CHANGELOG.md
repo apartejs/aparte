@@ -1,5 +1,14 @@
 # @aparte/core
 
+## 0.28.3
+
+### Patch Changes
+
+- Nothing to change in your code: this version carries what 0.28.2 announced, which never reached npm.
+
+  0.28.2's release stopped at its build step in CI, before anything was published, so the version after 0.28.1 on npm is this one. Its changes are 0.28.2's: each package's npm page links to its docs page.
+  - @aparte/engine@0.28.3
+
 ## 0.28.2
 
 ### Patch Changes
