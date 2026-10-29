@@ -83,7 +83,9 @@ const missing = steps.filter(step => !EXEMPT.has(step) && !runLines.includes(ste
  * `if:` IS their purpose — and `release-notes.yml` runs on a tag. So the rule is read per
  * job: a job is scanned when a gate step appears in its own `run:` lines, or when such a job
  * `needs` it, directly or through others — an `if: false` there would skip the gate job
- * behind it.
+ * behind it. An EXEMPT step does not count: this guard does not vouch for it in any job, so
+ * a job running one guards nothing here — `release` runs `pnpm build` to publish (0.28.3),
+ * which is not the gate's build.
  */
 const silenced = [];
 for (const file of files) {
@@ -112,7 +114,7 @@ for (const file of files) {
         for (const need of byName.get(name).needs) scan(need);
     };
     for (const job of jobs) {
-        if (steps.some(step => runLinesOf(job.body.join('\n')).includes(step))) scan(job.name);
+        if (steps.some(step => !EXEMPT.has(step) && runLinesOf(job.body.join('\n')).includes(step))) scan(job.name);
     }
     for (const { name, start, body } of jobs) {
         if (!scanned.has(name)) continue;
