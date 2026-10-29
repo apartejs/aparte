@@ -1,7 +1,7 @@
 {
     "name": "@aparte/plugin-compaction",
     "version": "0.28.1",
-    "homepage": "https://apartejs.dev/plugins/compaction/",
+    "homepage": "https://apartejs.dev/guides/long-conversations/",
     "publishConfig": {
         "access": "public"
     },
