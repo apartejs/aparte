@@ -632,9 +632,14 @@ jobs:
         if: steps.pending.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
 
+      # Through nx, as the `ci` job builds: a package's `build` script alone skips the `gen`
+      # target nx runs before it, and on a fresh checkout core's `src/generated/` does not
+      # exist yet — 0.28.2's release stopped here, its tsc unable to find it. The exclusion
+      # leaves exactly the published packages (the docs site, the examples and e2e are all
+      # `@aparte-workspace/*`).
       - name: Build the packages
         if: steps.pending.outputs.publish == 'true'
-        run: pnpm -r --filter "./packages/**" run build
+        run: pnpm build --exclude '@aparte-workspace/*'
 
       # changesets publishes only what npm lacks, so this finishes a partial publish too.
       - name: Publish

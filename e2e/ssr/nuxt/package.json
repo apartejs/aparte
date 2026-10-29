@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/ssr-nuxt",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": true,
   "type": "module",
   "description": "A Nuxt page with AparteChat, rendered on the server — a fixture of pnpm e2e:ssr.",

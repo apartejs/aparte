@@ -1,5 +1,7 @@
 # @aparte/docs-mcp
 
+## 0.28.3
+
 ## 0.28.2
 
 ### Patch Changes

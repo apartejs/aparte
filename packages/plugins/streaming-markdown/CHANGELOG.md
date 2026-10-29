@@ -1,5 +1,7 @@
 # @aparte/plugin-streaming-markdown
 
+## 0.28.3
+
 ## 0.28.2
 
 ### Patch Changes

@@ -34,7 +34,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lower, publishable } from './publishable.mjs';
+import { lower, majorRefusal, offMajor, publishable } from './publishable.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -79,6 +79,8 @@ const versionCommit = versionAt(before) === version
 
 let packages = publishable(root);
 if (packages.length === 0) fail('no publishable package found under packages/: the walk went blind.');
+const off = offMajor(packages);
+if (off.length) fail(majorRefusal(off));
 if (versionCommit && versionCommit !== head) {
     packages = packages.filter((pkg) => {
         try { git('cat-file', '-e', `${versionCommit}:${pkg.dir}/package.json`); return true; } catch { return false; }
