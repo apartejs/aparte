@@ -1,7 +1,7 @@
 {
     "name": "@aparte/plugin-artifacts",
     "version": "0.28.1",
-    "homepage": "https://apartejs.dev/plugins/artifacts/",
+    "homepage": "https://apartejs.dev/components/artifact/",
     "publishConfig": {
         "access": "public"
     },

@@ -1,7 +1,7 @@
 {
     "name": "@aparte/plugin-titler",
     "version": "0.28.1",
-    "homepage": "https://apartejs.dev/plugins/titler/",
+    "homepage": "https://apartejs.dev/guides/titles/",
     "description": "Auto-title conversations with an aparte-titler model — 3 to 6 words of the first message, in the browser, no API call.",
     "type": "module",
     "sideEffects": false,

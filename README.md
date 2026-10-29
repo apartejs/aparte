@@ -52,8 +52,8 @@ with assistant-ui, AI Elements, Deep Chat and Loquix.
   the OpenAI-compatible family, the Vercel AI SDK (25+ vendors), and in-browser
   Transformers.js.
 - **Yours to restyle.** Theme everything through CSS variables (no forking), swap
-  icons and render hooks, and localise the UI strings (English built-in, French
-  shipped).
+  icons and render hooks, and localise the UI strings (English built-in, nine more
+  languages in `@aparte/locales`).
 - **A library, not an app.** No routing, settings, or persistence baked in, and
   backend-agnostic — it's a chat surface you compose, not a product you inherit.
 
@@ -148,6 +148,8 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
 | `@aparte/plugin-katex` · `-mermaid` | Maths and diagrams, drawn while the reply streams |
 | `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
+| `@aparte/plugin-artifacts` | A `create_artifact` tool the model calls, and the card that shows its result: the code, and a live preview |
+| `@aparte/plugin-titler` | A title for every conversation, from a small model that runs in the browser |
 | `@aparte/locales` | The UI strings in nine languages — French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified); English is core's built-in default |
 
 ## Documentation
@@ -167,9 +169,10 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 ## Status
 
-Beta, built in the open. The core, engine, four wrappers, providers, plugins and
-six runnable examples are **on npm**, green across the unit suite and a browser
-E2E suite (Chromium, WebKit and Firefox, accessibility gated with axe-core). The
+Beta, built in the open. The core, engine, four wrappers, providers and plugins are
+**on npm**, and the runnable examples in [`apps/examples`](./apps/examples) — vanilla,
+React, Vue, Svelte 4 and 5, Angular — drive a browser E2E suite (Chromium, WebKit and
+Firefox, accessibility gated with axe-core) on top of the unit suite. The
 declared surface is frozen; what is still open before the first stable release is
 on the [roadmap](https://apartejs.dev/roadmap/).
 
