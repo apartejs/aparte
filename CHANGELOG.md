@@ -4,6 +4,17 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.28.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [2d108c1](https://github.com/apartejs/aparte/commit/2d108c1): The npm page of each of these packages now links to its docs page; nine of them pointed at `/plugins/…` addresses that only redirect since the docs moved, and `docs-mcp` pointed at the site's home.
+  <sub>`@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/docs-mcp`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-katex`, `@aparte/plugin-mermaid`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`.</sub>
+
 ## 0.28.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

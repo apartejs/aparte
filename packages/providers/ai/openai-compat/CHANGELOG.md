@@ -1,5 +1,7 @@
 # @aparte/provider-openai-compat
 
+## 0.28.2
+
 ## 0.28.1
 
 ### Patch Changes
