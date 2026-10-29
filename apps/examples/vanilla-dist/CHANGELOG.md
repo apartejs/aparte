@@ -1,5 +1,11 @@
 # @aparte-workspace/demo-vanilla
 
+## 0.0.51
+
+### Patch Changes
+
+- @aparte/core@0.28.2
+
 ## 0.0.50
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @aparte/plugin-marked
 
+## 0.28.2
+
+### Patch Changes
+
+- 2d108c1: The npm page of each of these packages now links to its docs page; nine of them pointed at `/plugins/…` addresses that only redirect since the docs moved, and `docs-mcp` pointed at the site's home.
+
 ## 0.28.1
 
 ## 0.28.0
