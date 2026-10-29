@@ -18,6 +18,9 @@
  * shipped a defect only a POSIX build could expose.
  */
 import { execFileSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { majorRefusal, offMajor, publishable } from './publishable.mjs';
 
 // stderr piped, not inherited: a missing `origin/<branch>` is an expected answer
 // here, and letting git print `fatal:` on top of our own message reads like a
@@ -121,6 +124,10 @@ try {
         + '    gate run that `release` no longer does itself.',
     );
 }
+
+// No new major by accident (see `ALLOWED_MAJOR` in `./publishable.mjs`).
+const off = offMajor(publishable(resolve(dirname(fileURLToPath(import.meta.url)), '..')));
+if (off.length) problems.push(majorRefusal(off));
 
 if (problems.length) {
     console.error('\n[prerelease] refusing to publish:\n');

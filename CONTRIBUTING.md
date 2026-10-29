@@ -265,6 +265,11 @@ The flow:
    > The version commit is made by hand on purpose: the organisation forbids GitHub Actions
    > from opening pull requests, so a workflow cannot open the "Version Packages" PR.
    > Publishing is automated (step 2); proposing the version is not.
+   > **A new major is refused.** `pnpm version-packages` ends with `scripts/check-major.mjs`,
+   > which stops on any version off major 0, and the release refuses it again before
+   > publishing. The v1 release raises `ALLOWED_MAJOR` in `scripts/publishable.mjs` on
+   > purpose, in its own version PR.
+   >
    > **Check the version anyway.** Every release up to 0.5.0-alpha.0 had to have its number
    > corrected by hand (~46 files), because `changeset version` proposed `1.0.0` for any
    > feature release. That is fixed — the three causes, all measured rather than inferred,
