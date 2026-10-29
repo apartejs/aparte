@@ -11,20 +11,15 @@ name: release-notes
 # committed with the version bump. No install step: the extractor is dependency-free
 # and the runner already has Node.
 #
-# Two ways in: a `v*` tag a maintainer pushes, and `release.yml` calling it with the tag
-# it just pushed — a tag pushed with a workflow's own token triggers no workflow.
+# The work is `scripts/create-release.mjs`, which `ci.yml`'s release job also runs: a tag
+# pushed with a workflow's own token triggers no workflow, so this one only sees the tags a
+# maintainer pushes by hand.
 on:
   push:
     tags: [ 'v*' ]
-  workflow_call:
-    inputs:
-      tag:
-        description: The release tag, `v<version>`.
-        required: true
-        type: string
 
 concurrency:
-  group: release-notes-${{ inputs.tag || github.ref_name }}
+  group: release-notes-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -33,53 +28,11 @@ jobs:
     permissions:
       contents: write        # create the Release
     env:
-      TAG: ${{ inputs.tag || github.ref_name }}
+      TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-
-      - name: Extract the section for this tag
-        run: |
-          version="${TAG#v}"
-          node scripts/gen-root-changelog.mjs --section "$version" > "$RUNNER_TEMP/notes.md"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-          # The Releases API refuses a body over 125000 characters with an HTTP 422,
-          # which is how the 0.8.0 Release failed to exist: its section was 416 KB,
-          # because the aggregate repeated every shared changeset once per package in
-          # the lockstep group. That is fixed at the source (see `buildSection` in
-          # gen-root-changelog.mjs, now grouped by change), and this is the belt: a
-          # release that grows past the ceiling anyway gets a truncated body and a
-          # link, never a missing Release. Truncation happens on a line boundary so
-          # the body cannot end mid-fence.
-          limit=120000
-          size=$(wc -c < "$RUNNER_TEMP/notes.md")
-          echo "notes: $size characters, $(wc -l < "$RUNNER_TEMP/notes.md") lines"
-          if [ "$size" -gt "$limit" ]; then
-            echo "::warning::release notes are $size characters (>$limit) — truncating"
-            head -c "$limit" "$RUNNER_TEMP/notes.md" | sed '$d' > "$RUNNER_TEMP/notes.trunc"
-            {
-              echo
-              echo "---"
-              echo
-              echo "_These notes were truncated at ${limit} characters (the GitHub Releases limit"
-              echo "is 125000). The full section is in [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${TAG}/CHANGELOG.md)._"
-            } >> "$RUNNER_TEMP/notes.trunc"
-            mv "$RUNNER_TEMP/notes.trunc" "$RUNNER_TEMP/notes.md"
-          fi
-        id: notes
 
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Anything with a hyphen in its version is a prerelease (-alpha.N, -rc.N):
-          # mark it as such so it never shows up as "Latest" on the repo home.
-          prerelease=''
-          case "${{ steps.notes.outputs.version }}" in *-*) prerelease='--prerelease' ;; esac
-          gh release create "$TAG" \
-            --title "aparté ${{ steps.notes.outputs.version }}" \
-            --notes-file "$RUNNER_TEMP/notes.md" \
-            --verify-tag \
-            $prerelease
+        run: node scripts/create-release.mjs

@@ -9,20 +9,18 @@ on:
   pull_request:
     branches: [ main, next ]
 
-# A superseded push cancels its in-flight run instead of queuing — on `main` too.
+# A superseded push cancels its in-flight run — on a pull request and on `next`, not on
+# `main`, where every commit gets its own run, keyed by its SHA.
 #
-# `main` used to be keyed by the unique SHA so every commit got its own verified
-# run. That reads well and costs badly: merging three PRs inside two minutes (a
-# fix, then the version PR, then the release) started three full runs — ci +
-# node-floor + e2e, about fifteen minutes of runner each — for one state anyone
-# would actually look at. The tail run verifies the tree the earlier ones were
-# heading towards anyway.
-#
-# The trade is explicit: an intermediate `main` commit can now go unverified if a
-# newer one lands while it runs. Acceptable here because releases arrive in
-# bursts and `pnpm release` runs the whole gate locally before publishing.
+# `main` was keyed by the branch for a while, so that three PRs merged inside two
+# minutes started one full run instead of three, and an intermediate commit could go
+# unverified. That was acceptable while `pnpm release` ran the whole gate locally before
+# publishing. It no longer holds: the `release` job below publishes from the run of the
+# version commit, and a version commit whose run a later merge cancelled would not be
+# released — or, worse, its version would be found unpublished by a later commit's run.
+# A public repository's runner minutes are free; the cost is a queue during a burst.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -552,3 +550,137 @@ jobs:
           name: playwright-report-ssr
           path: e2e/playwright-report-ssr/
           retention-days: 7
+
+  # ── The release ─────────────────────────────────────────────────────────────────────
+  # A push to main whose every check passed publishes the version it carries, if that push
+  # changed the version and anything of it is missing — what `pnpm release` did from a
+  # maintainer's machine. Here, on this run's own commit, so npm's provenance names the
+  # commit that was built, and re-running a failed release is re-running these jobs.
+  # Written out rather than as a reusable workflow: GitHub checks a called workflow's
+  # permissions before any `if:`, and on a fork's or Dependabot's pull request, where the
+  # token is read-only, a nested `id-token: write` would stop the whole run from starting.
+  #
+  # `release-check` asks `scripts/release-pending.mjs` what is left, with a read-only
+  # token; every other push stops there. `release` asks again under the release lock and
+  # runs only the missing steps, so a run that failed halfway is finished by re-running it.
+  #
+  # Needs the repository secret NPM_TOKEN: an npm granular access token with read and
+  # write on the whole @aparte scope, allowed to bypass two-factor authentication. When it
+  # expires, the publish step says so; update the secret and re-run the failed jobs.
+  release-check:
+    needs: [ci, node-floor, scope, e2e, e2e-ssr]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.pending.outputs.release }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: What is left to release?
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/release-pending.mjs
+
+  release:
+    needs: release-check
+    if: needs.release-check.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    # Two version commits close together release one after the other, never at once.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write        # push the tags, create the Release
+      id-token: write        # sign the provenance of what is published
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          # The write token is handed to the steps that push, not left in git's config for
+          # the install and the build to find.
+          persist-credentials: false
+
+      # Again, now that this job holds the release lock: another version commit may have
+      # been released while this one waited for it.
+      - name: What is left to release?
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/release-pending.mjs
+
+      - name: Install pnpm
+        if: steps.pending.outputs.publish == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - name: Use Node.js
+        if: steps.pending.outputs.publish == 'true' || steps.pending.outputs.align == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: ${{ steps.pending.outputs.publish == 'true' && 'pnpm' || '' }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        if: steps.pending.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the packages
+        if: steps.pending.outputs.publish == 'true'
+        run: pnpm -r --filter "./packages/**" run build
+
+      # changesets publishes only what npm lacks, so this finishes a partial publish too.
+      - name: Publish
+        if: steps.pending.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::The NPM_TOKEN repository secret is not set: nothing was published."
+            exit 1
+          fi
+          if ! npm whoami > /dev/null 2>&1; then
+            echo "::error::npm refused NPM_TOKEN (expired or revoked?): nothing was published. Update the secret, then re-run the failed jobs."
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          pnpm changeset publish --tag beta
+
+      - name: Align the dist-tags
+        if: steps.pending.outputs.publish == 'true' || steps.pending.outputs.align == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: node scripts/align-dist-tags.mjs
+
+      # Every package tag first, the release tag last: it is the mark that the release is
+      # whole. Tags pushed with this job's token trigger no workflow, so the Release is
+      # created below rather than by release-notes.yml's tag trigger.
+      - name: Tag the release
+        if: steps.pending.outputs.tags == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pending.outputs.tag }}
+        run: |
+          gh auth setup-git
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node scripts/tag-release.mjs --packages
+          refs=$(git tag --points-at HEAD | grep '^@aparte/' | sed 's|^|refs/tags/|' || true)
+          if [ -n "$refs" ]; then git push origin $refs; fi
+          git push origin "refs/tags/$TAG"
+
+      - name: Create the GitHub Release
+        if: steps.pending.outputs.notes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pending.outputs.tag }}
+        run: node scripts/create-release.mjs

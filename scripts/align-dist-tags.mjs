@@ -18,10 +18,10 @@
  * Usage (part of `pnpm release`):
  *   node scripts/align-dist-tags.mjs [--dry]
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lower, publishable } from './publishable.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dry = process.argv.includes('--dry');
@@ -45,28 +45,7 @@ const npm = (args) => execSync(`npm ${args.join(' ')}`, { encoding: 'utf8', stdi
  */
 const TAGS = ['beta', 'latest'];
 
-/** Every publishable package in the workspace, at its current version. */
-function publishable() {
-    const roots = ['packages'];
-    const found = [];
-    const walk = (dir, depth) => {
-        if (depth > 3) return;
-        for (const entry of readdirSync(dir)) {
-            if (entry === 'node_modules' || entry === 'dist') continue;
-            const full = join(dir, entry);
-            const manifest = join(full, 'package.json');
-            if (existsSync(manifest)) {
-                const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
-                if (pkg.name && !pkg.private && pkg.version) found.push(pkg);
-            }
-            try { walk(full, depth + 1); } catch { /* not a directory */ }
-        }
-    };
-    for (const r of roots) walk(join(root, r), 0);
-    return found;
-}
-
-const packages = publishable();
+const packages = publishable(root);
 if (packages.length === 0) {
     console.error('[align-dist-tags] FAIL: found no publishable package.');
     process.exit(1);
@@ -94,6 +73,13 @@ for (const pkg of packages) {
     }
     for (const tag of TAGS) {
         if (current[tag] === pkg.version) {
+            already++;
+            continue;
+        }
+        // Never down: a tag already on a newer version belongs to a release after this one
+        // (two overlapping, unfinished releases), and moving it would serve older bits.
+        if (current[tag] && lower(pkg.version, current[tag])) {
+            console.log(`  ${tag}: ${current[tag]} kept, newer than ${pkg.version}  ${pkg.name}`);
             already++;
             continue;
         }

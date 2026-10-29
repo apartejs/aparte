@@ -78,26 +78,56 @@ const missing = steps.filter(step => !EXEMPT.has(step) && !runLines.includes(ste
  * Deliberately blunt. A legitimate job-level `if:` will trip this, and then the right move
  * is to say why HERE rather than to loosen the pattern — the same bargain EXEMPT makes.
  *
- * Said here, then: a workflow that runs no gate step silences none. `release.yml` publishes
- * only after a green `ci` on a push to main, and its job-level `if:` IS that condition;
- * `release-notes.yml` runs on a tag. Only the workflows a gate step appears in are scanned —
- * so moving a gate step into one of those brings it under the rule with it.
+ * Said here, then: a job that runs no gate step silences none. `ci.yml`'s `release-check`
+ * runs only on a push to main and `release` only when something is left to publish — their
+ * `if:` IS their purpose — and `release-notes.yml` runs on a tag. So the rule is read per
+ * job: a job is scanned when a gate step appears in its own `run:` lines, or when such a job
+ * `needs` it, directly or through others — an `if: false` there would skip the gate job
+ * behind it.
  */
 const silenced = [];
 for (const file of files) {
-    const runs = runLinesOf(file.text);
-    if (!steps.some(step => runs.includes(step))) continue;
-    for (const [i, line] of file.text.split('\n').entries()) {
-        const trimmed = line.trim();
-        if (/^#/.test(trimmed)) continue;
-        if (/^continue-on-error\s*:\s*true/.test(trimmed) || /^-?\s*continue-on-error\s*:\s*true/.test(trimmed)) {
-            silenced.push({ file: file.name, line: i + 1, text: trimmed, why: 'a failing step would not fail the job' });
-            continue;
+    const lines = file.text.split('\n');
+    // A job starts at a two-space key under `jobs:` and runs to the next one.
+    const jobsAt = lines.findIndex(line => /^jobs\s*:/.test(line));
+    const starts = lines.map((line, i) => (i > jobsAt && jobsAt >= 0 && /^ {2}[\w-]+\s*:\s*$/.test(line) ? i : -1)).filter(i => i >= 0);
+    const jobs = starts.map((start, k) => {
+        const body = lines.slice(start, starts[k + 1] ?? lines.length);
+        // `needs: x`, `needs: [x, y]`, or a `needs:` list of `- x` lines.
+        const at = body.findIndex(line => /^ {4}needs\s*:/.test(line));
+        let needs = [];
+        if (at >= 0) {
+            const inline = body[at].replace(/^ {4}needs\s*:\s*/, '').replace(/#.*/, '').trim();
+            needs = inline
+                ? inline.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()).filter(Boolean)
+                : body.slice(at + 1).filter(line => /^ {6}-\s*[\w-]+/.test(line)).map(line => line.trim().slice(1).trim());
         }
-        // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
-        // (six or more, since a step is a list item inside `steps:`).
-        if (/^ {4}if\s*:/.test(line)) {
-            silenced.push({ file: file.name, line: i + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
+        return { name: lines[start].trim().replace(/\s*:\s*$/, ''), start, body, needs };
+    });
+    const byName = new Map(jobs.map(job => [job.name, job]));
+    const scanned = new Set();
+    const scan = name => {
+        if (scanned.has(name) || !byName.has(name)) return;
+        scanned.add(name);
+        for (const need of byName.get(name).needs) scan(need);
+    };
+    for (const job of jobs) {
+        if (steps.some(step => runLinesOf(job.body.join('\n')).includes(step))) scan(job.name);
+    }
+    for (const { name, start, body } of jobs) {
+        if (!scanned.has(name)) continue;
+        for (const [j, line] of body.entries()) {
+            const trimmed = line.trim();
+            if (/^#/.test(trimmed)) continue;
+            if (/^-?\s*continue-on-error\s*:\s*true/.test(trimmed)) {
+                silenced.push({ file: file.name, line: start + j + 1, text: trimmed, why: 'a failing step would not fail the job' });
+                continue;
+            }
+            // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
+            // (six or more, since a step is a list item inside `steps:`).
+            if (/^ {4}if\s*:/.test(line)) {
+                silenced.push({ file: file.name, line: start + j + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
+            }
         }
     }
 }

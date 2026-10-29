@@ -1,7 +1,8 @@
 # Contributing to aparte
 
-Thanks for your interest! aparte is in active bootstrap — the surface changes fast. This guide
-covers how work lands.
+Thanks for your interest! aparte is in beta: the declared surface is frozen since 0.17.0
+(see [Stability](https://apartejs.dev/reference/stability/)), and it moves only with a notice
+release. This guide covers how work lands.
 
 ## Principles
 
@@ -86,8 +87,9 @@ looking at the words.
   `main` — see below), and it **refuses a direct push to `main`**
 
 Feature work goes on a branch and lands through a PR, so CI gates it before it reaches
-`main`. The release flow is the one legitimate exception:
-`APARTE_ALLOW_MAIN_PUSH=1 git push --follow-tags origin main`.
+`main`. The release goes through a PR too: `main`'s ruleset refuses any direct push, with no
+bypass, so `APARTE_ALLOW_MAIN_PUSH=1` — which only lets the local hook through — no longer
+reaches anywhere.
 
 `--no-verify` is not a workflow. If a hook fails, the code is wrong, not the hook.
 
@@ -125,9 +127,10 @@ it. The cache key covers each project's own files, its dependencies' files, and 
 invalidates everything, deliberately.
 
 > **Maintainers:** the client-side hook is a courtesy, not a guarantee — `main` must also
-> carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the `ci`,
-> `node-floor`, `scope` and `e2e` checks (the four jobs of `ci.yml` — count them there,
-> not here), block force-pushes and deletions.
+> carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the checks
+> `ci.yml` runs on a pull request — `ci`, `node-floor`, `scope`, the `e2e (N)` shards and
+> `e2e-ssr` today; count them in the file, not here (`release` runs on `main` only and is
+> not one of them) — and block force-pushes and deletions.
 
 A **Version PR skips the browser suite**, and only that: `e2e` stays a required check, so
 the job still runs and still reports — a skipped job never reports at all, and main's
@@ -259,9 +262,9 @@ The flow:
    > (fix PR, version PR, `main`) become two. The one hazard is two release-carrying PRs
    > open at once — both would claim the same version — so version the branch only when it
    > is next in line.
-   > A `release.yml` workflow used to attempt this on every push to `main` and failed every
-   > time: the organisation forbids GitHub Actions from opening pull requests. It was removed
-   > on 2026-08-28 rather than left red on every commit, where a real failure would hide.
+   > The version commit is made by hand on purpose: the organisation forbids GitHub Actions
+   > from opening pull requests, so a workflow cannot open the "Version Packages" PR.
+   > Publishing is automated (step 2); proposing the version is not.
    > **Check the version anyway.** Every release up to 0.5.0-alpha.0 had to have its number
    > corrected by hand (~46 files), because `changeset version` proposed `1.0.0` for any
    > feature release. That is fixed — the three causes, all measured rather than inferred,
@@ -284,16 +287,29 @@ The flow:
    >    channel lives in the npm dist-tag and in the README instead of in the number.
    >
    > Leaving pre mode also restored `changeset publish --tag <channel>` (`alpha` then, `beta` since 0.17.0), which pre mode refuses.
-2. **Merge it.** From there **`.github/workflows/release.yml` does steps 3 to 5 itself**: once
-   `ci` is green on `main` for the merge commit, and only if `@aparte/core`'s version is not
-   on npm yet, it builds the packages, runs `changeset publish --tag beta` with npm provenance,
-   `align-dist-tags`, `tag-release`, pushes the umbrella tag alone then the package tags, and
-   calls `release-notes.yml` for the Release (a tag pushed with a workflow's token triggers no
-   workflow). It needs the repository secret **`NPM_TOKEN`** — an npm granular access token
-   with read and write on the `@aparte` packages, allowed to bypass 2FA. Without it, or with
-   an expired one, the run fails before publishing anything and its error says which; then
-   run steps 3 to 5 by hand, as below. The two paths meet without harm: whichever publishes
-   first, the other finds the version on npm and stops.
+2. **Merge it.** From there **steps 3 to 5 happen on their own**: the last two jobs of
+   `ci.yml`, `release-check` and `release`, run on the merge commit once every check passed.
+   `scripts/release-pending.mjs` asks npm and GitHub what is still missing for that version,
+   and each step runs only if it is:
+   - packages not on npm: it builds them, runs `changeset publish --tag beta` with npm
+     provenance, then `align-dist-tags`;
+   - `beta`/`latest` behind: `align-dist-tags`, which never moves a tag down;
+   - a tag missing: `tag-release --packages`, the package tags pushed first and the umbrella
+     tag last;
+   - no Release: `scripts/create-release.mjs`, the script `release-notes.yml` runs (a tag
+     pushed with a workflow's token triggers no workflow).
+
+   A failed release is finished by re-running that ci run's failed jobs — an expired token
+   too, once the secret is updated. Only the push that changed the version publishes it: a
+   later commit that finds it unfinished only warns, naming the commit whose run it belongs
+   to, and a version below the `beta` npm serves is refused. On `main`, every
+   commit gets its own ci run, so a merge right after the version commit cannot cancel its
+   release. It needs the repository secret **`NPM_TOKEN`** — an npm granular access token
+   with read and write on the whole `@aparte` scope, allowed to bypass 2FA. Without it, or
+   with an expired one, the run fails before publishing anything and its error says which.
+   When CI cannot release at all, run steps 3 to 5 by hand, as below: `prerelease-checks`
+   judges the checks of the run, not its release jobs. The two paths meet without harm: whichever
+   finishes a step first, the other finds it done.
 3. **`pnpm release`** locally — `prerelease-checks` first, then it builds every package,
    `changeset publish` (npm + one git tag per package), **`scripts/align-dist-tags.mjs`**,
    then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
