@@ -15,7 +15,7 @@
  *
  * `--packages` also creates every missing `@aparte/<pkg>@<version>` tag, as `changeset
  * publish` would have: it tags only what it published in that run, so a release finished
- * by a rerun (`release.yml`) would otherwise lose the tags of the packages that went out
+ * by a rerun (`ci.yml`'s `release` job) would otherwise lose the tags of the packages that went out
  * the first time.
  */
 import { readFileSync } from 'node:fs';

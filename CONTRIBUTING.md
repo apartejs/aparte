@@ -287,26 +287,28 @@ The flow:
    >    channel lives in the npm dist-tag and in the README instead of in the number.
    >
    > Leaving pre mode also restored `changeset publish --tag <channel>` (`alpha` then, `beta` since 0.17.0), which pre mode refuses.
-2. **Merge it.** From there **steps 3 to 5 happen on their own**: the last job of `ci.yml`,
-   `release`, runs on the merge commit once every check passed and calls
-   `.github/workflows/release.yml`. `scripts/release-pending.mjs` asks npm and GitHub what
-   is still missing for that version, and each step runs only if it is:
+2. **Merge it.** From there **steps 3 to 5 happen on their own**: the last two jobs of
+   `ci.yml`, `release-check` and `release`, run on the merge commit once every check passed.
+   `scripts/release-pending.mjs` asks npm and GitHub what is still missing for that version,
+   and each step runs only if it is:
    - packages not on npm: it builds them, runs `changeset publish --tag beta` with npm
      provenance, then `align-dist-tags`;
    - `beta`/`latest` behind: `align-dist-tags`, which never moves a tag down;
    - a tag missing: `tag-release --packages`, the package tags pushed first and the umbrella
      tag last;
-   - no Release: `release-notes.yml` (a tag pushed with a workflow's token triggers no
-     workflow).
+   - no Release: `scripts/create-release.mjs`, the script `release-notes.yml` runs (a tag
+     pushed with a workflow's token triggers no workflow).
 
-   A failed release is finished by re-running that ci run's `release` job. Only the version
-   commit publishes its version: a later commit that finds it unfinished fails, naming the
-   commit to re-run, and a version below the `beta` npm serves is refused. On `main`, every
+   A failed release is finished by re-running that ci run's failed jobs — an expired token
+   too, once the secret is updated. Only the push that changed the version publishes it: a
+   later commit that finds it unfinished only warns, naming the commit whose run it belongs
+   to, and a version below the `beta` npm serves is refused. On `main`, every
    commit gets its own ci run, so a merge right after the version commit cannot cancel its
    release. It needs the repository secret **`NPM_TOKEN`** — an npm granular access token
    with read and write on the whole `@aparte` scope, allowed to bypass 2FA. Without it, or
-   with an expired one, the run fails before publishing anything and its error says which;
-   then run steps 3 to 5 by hand, as below. The two paths meet without harm: whichever
+   with an expired one, the run fails before publishing anything and its error says which.
+   When CI cannot release at all, run steps 3 to 5 by hand, as below: `prerelease-checks`
+   judges the checks of the run, not its release jobs. The two paths meet without harm: whichever
    finishes a step first, the other finds it done.
 3. **`pnpm release`** locally — `prerelease-checks` first, then it builds every package,
    `changeset publish` (npm + one git tag per package), **`scripts/align-dist-tags.mjs`**,

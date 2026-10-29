@@ -71,20 +71,32 @@ try {
  * could expose — a path split on a hardcoded backslash that blanked a whole reference
  * page — and no number of Windows gate runs would ever have seen it.
  *
- * Only the `ci` workflow counts. `release-notes` runs on the tag, after this; and a
- * `release` workflow that failed on every push to main (the org forbids Actions from
- * opening the Version PR) was removed on 2026-08-28 — a guard demanding every workflow
- * be green would still be wrong the day another one is added.
+ * Only the `ci` workflow counts — `release-notes` runs on the tag, after this — and in it,
+ * only the checks. Its `release-check` and `release` jobs are the automated release this
+ * script is the fallback for: when they failed (an expired token, a registry outage), the
+ * run is red although every check passed, and judging the whole run would block the one
+ * path left.
  */
 const CI_WORKFLOW = 'ci';
 try {
     const sha = git('rev-parse', 'HEAD');
     const raw = execFileSync(
         'gh',
-        ['run', 'list', '--commit', sha, '--json', 'name,status,conclusion', '--limit', '20'],
+        ['run', 'list', '--commit', sha, '--json', 'name,databaseId', '--limit', '20'],
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
     );
-    const runs = JSON.parse(raw).filter((r) => r.name === CI_WORKFLOW);
+    const runs = JSON.parse(raw).filter((r) => r.name === CI_WORKFLOW).map((r) => {
+        const { jobs } = JSON.parse(execFileSync(
+            'gh',
+            ['run', 'view', String(r.databaseId), '--json', 'jobs'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+        ));
+        const checks = jobs.filter((job) => !/^release(-check)?$/.test(job.name));
+        return {
+            status: checks.every((job) => job.status === 'completed') ? 'completed' : 'in_progress',
+            conclusion: checks.find((job) => !['success', 'skipped'].includes(job.conclusion))?.conclusion ?? 'success',
+        };
+    });
     if (runs.length === 0) {
         problems.push(
             `no \`${CI_WORKFLOW}\` run for ${sha.slice(0, 7)} — CI has not judged this commit.\n`
@@ -96,7 +108,7 @@ try {
         const bad = runs.filter((r) => r.conclusion !== 'success').map((r) => r.conclusion).join(', ');
         problems.push(
             `the \`${CI_WORKFLOW}\` run for ${sha.slice(0, 7)} concluded \`${bad}\`.\n`
-            + '    Fifteen packages are about to be published from it. Fix it first.',
+            + '    Every package is about to be published from it. Fix it first.',
         );
     }
 } catch (error) {
