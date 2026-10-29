@@ -144,6 +144,11 @@ function parseSection(body) {
             flush();
             // Dependency bumps: the bullet AND the indented package line under it.
             if (/^-\s+Updated dependencies/.test(line)) { entry = null; continue; }
+            // …and a bare `- @aparte/x@1.2.3` at the top level, which is how changesets
+            // writes a package with nothing of its own but a bumped dependency — core when
+            // only engine moved (0.16.4, 0.17.3, 0.21.0, 0.22.0, 0.24.0, 0.28.2), which the
+            // root file then listed as a change of core's.
+            if (/^-\s+@aparte\/[\w-]+@\d\S*\s*$/.test(line)) { entry = null; continue; }
             entry = [line];
             continue;
         }

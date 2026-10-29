@@ -107,6 +107,19 @@ describe('gen-root-changelog — end to end on a temp tree', () => {
             JSON.stringify({ name: '@aparte/private-one', version: '9.9.9', private: true }),
             'utf8',
         );
+        // Nothing of its own but a bumped dependency: changesets writes the bump as a
+        // TOP-LEVEL bullet, not under "Updated dependencies" (core in 0.28.2).
+        mkdirSync(join(tree, 'packages/wrappers/w'), { recursive: true });
+        writeFileSync(
+            join(tree, 'packages/wrappers/w/package.json'),
+            JSON.stringify({ name: '@aparte/wrapper-w', version: '9.9.9' }),
+            'utf8',
+        );
+        writeFileSync(
+            join(tree, 'packages/wrappers/w/CHANGELOG.md'),
+            '# @aparte/wrapper-w\n\n## 9.9.9\n\n### Patch Changes\n\n- @aparte/engine@9.9.9\n',
+            'utf8',
+        );
     });
 
     afterAll(() => {
@@ -120,6 +133,13 @@ describe('gen-root-changelog — end to end on a temp tree', () => {
         expect(out).toContain('@aparte/tool-y');
         // The control: the family that was already covered still lands.
         expect(out).toContain('The core change.');
+    });
+
+    it('reads a lone dependency bump as version-only, not as a change', () => {
+        run(join(tree, 'scripts', 'gen-root-changelog.mjs'), []);
+        const out = readFileSync(join(tree, 'CHANGELOG.md'), 'utf8');
+        expect(out).not.toMatch(/^- @aparte\/engine@/m);
+        expect(out).toMatch(/Version-only bumps[^\n]*`@aparte\/wrapper-w`/);
     });
 
     it('leaves private packages out', () => {
