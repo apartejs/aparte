@@ -284,16 +284,18 @@ The flow:
    >    channel lives in the npm dist-tag and in the README instead of in the number.
    >
    > Leaving pre mode also restored `changeset publish --tag <channel>` (`alpha` then, `beta` since 0.17.0), which pre mode refuses.
-2. **Merge it.** From there **`.github/workflows/release.yml` does steps 3 to 5 itself**: once
-   `ci` is green on `main` for the merge commit, and only if `@aparte/core`'s version is not
-   on npm yet, it builds the packages, runs `changeset publish --tag beta` with npm provenance,
-   `align-dist-tags`, `tag-release`, pushes the umbrella tag alone then the package tags, and
-   calls `release-notes.yml` for the Release (a tag pushed with a workflow's token triggers no
-   workflow). It needs the repository secret **`NPM_TOKEN`** — an npm granular access token
-   with read and write on the `@aparte` packages, allowed to bypass 2FA. Without it, or with
-   an expired one, the run fails before publishing anything and its error says which; then
-   run steps 3 to 5 by hand, as below. The two paths meet without harm: whichever publishes
-   first, the other finds the version on npm and stops.
+2. **Merge it.** From there **`.github/workflows/release.yml` does steps 3 to 5 itself**, once
+   `ci` is green on `main` for the merge commit — and only for main's tip, so an older green
+   run never publishes. `scripts/release-pending.mjs` asks what is still missing, and each
+   step runs only if it is: packages not on npm (it builds them, runs `changeset publish
+   --tag beta` with npm provenance and `align-dist-tags`), the umbrella tag not on GitHub
+   (`tag-release`, pushed alone, then the package tags), the Release not created (it calls
+   `release-notes.yml`: a tag pushed with a workflow's token triggers no workflow). So a run
+   that failed halfway is finished by re-running it. It needs the repository secret
+   **`NPM_TOKEN`** — an npm granular access token with read and write on the whole `@aparte`
+   scope, allowed to bypass 2FA. Without it, or with an expired one, the run fails before
+   publishing anything and its error says which; then run steps 3 to 5 by hand, as below.
+   The two paths meet without harm: whichever finishes a step first, the other finds it done.
 3. **`pnpm release`** locally — `prerelease-checks` first, then it builds every package,
    `changeset publish` (npm + one git tag per package), **`scripts/align-dist-tags.mjs`**,
    then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.

@@ -73,13 +73,20 @@ jobs:
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Through the environment, not interpolated into the script: it comes from a tag name.
+          VERSION: ${{ steps.notes.outputs.version }}
         run: |
           # Anything with a hyphen in its version is a prerelease (-alpha.N, -rc.N):
           # mark it as such so it never shows up as "Latest" on the repo home.
+          # Made already — by the tag trigger, while release.yml was deciding to make it.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "The Release $TAG exists already."
+            exit 0
+          fi
           prerelease=''
-          case "${{ steps.notes.outputs.version }}" in *-*) prerelease='--prerelease' ;; esac
+          case "$VERSION" in *-*) prerelease='--prerelease' ;; esac
           gh release create "$TAG" \
-            --title "aparté ${{ steps.notes.outputs.version }}" \
+            --title "aparté $VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             --verify-tag \
             $prerelease

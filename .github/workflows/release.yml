@@ -1,17 +1,21 @@
 name: release
 
-# Publishes the version main carries once main's CI is green on that commit — what
+# Publishes the version main carries once main's CI is green on its version commit — what
 # `pnpm release` did from a maintainer's machine, without waiting for someone to say the
 # run is green. The version commit is made as before (`pnpm version-packages`, in the PR);
 # merging it is the trigger.
 #
-# Most runs stop at the first step: a commit that is not a version commit carries a
-# version npm already has. The manual path (CONTRIBUTING → Releasing) still works and
-# meets this one without harm: whichever publishes first, the other finds the version on
-# npm and does nothing.
+# `check` asks `scripts/release-pending.mjs` what is still missing for that version, with a
+# read-only token. Every other merge stops there. `publish` then runs only the missing
+# steps, so a run that failed halfway is finished by re-running it; the script also refuses
+# to release from a commit that is not the version commit, or below the beta npm serves,
+# and says why. Only `publish` holds write and OIDC tokens.
+#
+# The manual path (CONTRIBUTING → Releasing) still works and meets this one without harm:
+# whichever finishes a step first, the other finds it done.
 #
 # Needs the repository secret NPM_TOKEN: an npm granular access token with read and write
-# on the @aparte packages, allowed to bypass two-factor authentication (CI cannot type a
+# on the whole @aparte scope, allowed to bypass two-factor authentication (CI cannot type a
 # code). When it expires, the publish step says so in its error.
 on:
   workflow_run:
@@ -24,61 +28,82 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  check:
     # A green run of a push to main only: never a pull request's, never a red one.
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # push the tags
-      id-token: write        # sign the provenance of what is published
+      contents: read
     outputs:
-      release: ${{ steps.version.outputs.release }}
-      tag: ${{ steps.version.outputs.tag }}
+      release: ${{ steps.pending.outputs.release }}
+      publish: ${{ steps.pending.outputs.publish }}
+      align: ${{ steps.pending.outputs.align }}
+      tags: ${{ steps.pending.outputs.tags }}
+      notes: ${{ steps.pending.outputs.notes }}
+      provenance: ${{ steps.pending.outputs.provenance }}
+      tag: ${{ steps.pending.outputs.tag }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           # The commit CI judged, not whatever main has moved to since.
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Is this version on npm yet?
-        id: version
+      - name: What is left to release?
+        id: pending
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('./packages/core/package.json').version")
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-          if npm view "@aparte/core@$version" version > /dev/null 2>&1; then
-            echo "@aparte/core@$version is on npm already: nothing to release."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "@aparte/core@$version is not on npm: releasing it."
-            echo "release=true" >> "$GITHUB_OUTPUT"
+          if [ ! -f scripts/release-pending.mjs ]; then
+            echo "This commit predates the release workflow: nothing to do."
+            exit 0
           fi
+          node scripts/release-pending.mjs
+
+  publish:
+    needs: check
+    if: needs.check.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push the tags
+      id-token: write        # sign the provenance of what is published
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          # The write token is handed to the tag step alone, not left in git's config for
+          # the install and the build to find.
+          persist-credentials: false
 
       - name: Install pnpm
-        if: steps.version.outputs.release == 'true'
+        if: needs.check.outputs.publish == 'true'
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
       - name: Use Node.js
-        if: steps.version.outputs.release == 'true'
+        if: needs.check.outputs.publish == 'true' || needs.check.outputs.align == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
-          cache: 'pnpm'
+          cache: ${{ needs.check.outputs.publish == 'true' && 'pnpm' || '' }}
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        if: steps.version.outputs.release == 'true'
+        if: needs.check.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build the packages
-        if: steps.version.outputs.release == 'true'
+        if: needs.check.outputs.publish == 'true'
         run: pnpm -r --filter "./packages/**" run build
 
-      - name: Publish, align the dist-tags, tag the release
-        if: steps.version.outputs.release == 'true'
+      # changesets publishes only what npm lacks, so this finishes a partial publish too.
+      - name: Publish
+        if: needs.check.outputs.publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
+          NPM_CONFIG_PROVENANCE: ${{ needs.check.outputs.provenance }}
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then
             echo "::error::The NPM_TOKEN repository secret is not set: nothing was published."
@@ -91,23 +116,34 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           pnpm changeset publish --tag beta
-          node scripts/align-dist-tags.mjs
-          node scripts/tag-release.mjs
 
-      # The release tag alone, then the packages' — GitHub drops a tag-push event past
-      # three tags in one push. A tag pushed with this job's token triggers no workflow,
-      # so the Release is made by the job below, not by release-notes' tag trigger.
-      - name: Push the tags
-        if: steps.version.outputs.release == 'true'
+      - name: Align the dist-tags
+        if: needs.check.outputs.publish == 'true' || needs.check.outputs.align == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: node scripts/align-dist-tags.mjs
+
+      # Every package tag first, the release tag last: it is the mark that the release is
+      # whole. Tags pushed with this job's token trigger no workflow, so the Release is made
+      # by the job below, not by release-notes' tag trigger.
+      - name: Tag the release
+        if: needs.check.outputs.tags == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
-          git push origin "refs/tags/${{ steps.version.outputs.tag }}"
-          git push origin $(git tag --points-at HEAD | grep '^@aparte/' | sed 's|^|refs/tags/|')
+          gh auth setup-git
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node scripts/tag-release.mjs --packages
+          git push origin $(git tag --list "@aparte/*@${TAG#v}" | sed 's|^|refs/tags/|')
+          git push origin "refs/tags/$TAG"
 
   notes:
-    needs: publish
-    if: needs.publish.outputs.release == 'true'
+    needs: [check, publish]
+    if: needs.check.outputs.notes == 'true' && needs.publish.result == 'success'
     permissions:
       contents: write
     uses: ./.github/workflows/release-notes.yml
     with:
-      tag: ${{ needs.publish.outputs.tag }}
+      tag: ${{ needs.check.outputs.tag }}
