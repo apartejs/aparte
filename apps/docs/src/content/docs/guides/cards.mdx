@@ -411,7 +411,7 @@ once, with its latest value. Return nothing to leave the card as it is. Every ch
 What `onChange` returns is kept for as long as the page lives: a turn ending, the conversation
 saved, left and opened again all draw the card as the person left it, in every framework. A
 page reloaded draws it from the tool's result again, since that is what the conversation
-stores. A new result for the same call starts over from it.
+stores. A new result for the same call is drawn as it is; switched back to the first (a branch), the card is as the person left it.
 
 A card of your own draws the same controls with the kit's `segmented` (a row of choices,
 `SegmentedOptions`), `toggle` (a switch, `ToggleOptions`) and `slider` (`SliderOptions` — the

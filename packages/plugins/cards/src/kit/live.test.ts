@@ -64,7 +64,7 @@ describe('a live card', () => {
         expect(card.querySelector('[role="switch"]')!.getAttribute('aria-checked')).toBe('true');
     });
 
-    it('keeps what onChange gave when core draws the same segment again, and drops it for a new result', async () => {
+    it('keeps what onChange gave when core draws the same segment again, draws a new result as it is, and keeps the first for when it comes back', async () => {
         stop = lightCard.setup({ onChange: async ({ name, value }, data) => ({ ...data, [name]: value }) });
         const card = draw({ name: 'Lamp', on: false, level: 40 });
         card.querySelector<HTMLButtonElement>('[role="switch"]')!.click();
@@ -76,10 +76,12 @@ describe('a live card', () => {
         expect(again.querySelector('.name')!.textContent).toBe('Lamp on 40');
         expect(again.querySelector('[role="switch"]')!.getAttribute('aria-checked')).toBe('true');
 
-        // The segment sent again with a new result is a new card.
+        // The segment sent again with a new result is drawn as it is…
         const fresh = draw({ name: 'Lamp', on: false, level: 70 });
         expect(fresh.querySelector('.name')!.textContent).toBe('Lamp off 70');
-        expect(draw({ name: 'Lamp', on: false, level: 40 }).querySelector('.name')!.textContent).toBe('Lamp off 40');
+        // …and does not erase what the first one kept: an id is not unique across conversations,
+        // and a branch switched back shows the first result again, as the person left it.
+        expect(draw({ name: 'Lamp', on: false, level: 40 }).querySelector('.name')!.textContent).toBe('Lamp on 40');
     });
 
     it('keeps a tool card\'s onChange data through a redraw of the same call', async () => {

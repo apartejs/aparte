@@ -499,18 +499,18 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
      * from. Core draws a segment again from the message — when a turn ends, when the
      * conversation is saved, when a Markdown provider arrives late — and only a framework
      * component's drawing survives that; without this, a card would go back to its first
-     * data at the next save. A new result for the segment is a new card: what was kept
-     * for the old one is dropped.
+     * data at the next save. A new result for the segment is drawn as it is; the old one,
+     * shown again (a branch switched back), comes back as the person left it.
      */
     const kept = new WeakMap<CardSetupOptions<D, V>, Map<string, { from: string; data: D; variant: V }>>();
 
     function recall(options: CardSetupOptions<D, V>, key: string, from: string): { data: D; variant: V } | undefined {
-        const byKey = kept.get(options);
-        const entry = byKey?.get(key);
-        if (!entry) return undefined;
-        if (from && entry.from === from) return entry;
-        byKey!.delete(key);
-        return undefined;
+        // A different result is not used, and not forgotten either: a segment id is not unique
+        // across conversations (a model may number its calls the same way every time), and a
+        // branch switched away and back shows the first result again — the card the person
+        // left is the one they come back to. KEPT_MAX bounds what is kept.
+        const entry = kept.get(options)?.get(key);
+        return entry && from && entry.from === from ? entry : undefined;
     }
 
     function remember(options: CardSetupOptions<D, V>, key: string, from: string, data: D, variant: V): void {
