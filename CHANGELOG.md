@@ -4,6 +4,21 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.29.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [df050ad](https://github.com/apartejs/aparte/commit/df050ad): A card written as a ` ```card-<name> ` block is drawn on its own, without the code card's header, language label and copy button around it.
+
+  Core: a code-language renderer can say `bare: true` — its drawing then stands for the whole fenced block, and the code card around it goes. Diagrams, charts and maths keep their card and the copy of their source. `setupCardFences()` sets it.
+
+  A link in the person's own bubble (an email or a URL they typed) now takes the bubble's text colour, underlined: it was drawn in the link colour, which on a bubble filled with the primary was the bubble's own colour.
+  <sub>`@aparte/core`, `@aparte/plugin-cards`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.29.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

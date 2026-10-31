@@ -1,6 +1,6 @@
 {
   "name": "@aparte/angular",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "homepage": "https://apartejs.dev/frameworks/angular/",
   "description": "Angular wrapper for aparté (Angular 19.2 to 21, zone or zoneless) — an ergonomic <aparte-chat> component plus services over the framework-agnostic web components.",
   "type": "module",
@@ -39,7 +39,7 @@
   "peerDependencies": {
     "@angular/common": "^19.2.0 || ^20.0.0 || ^21.0.0",
     "@angular/core": "^19.2.0 || ^20.0.0 || ^21.0.0",
-    "@aparte/core": ">=0.29.1 <1.0.0",
+    "@aparte/core": ">=0.29.2 <1.0.0",
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
