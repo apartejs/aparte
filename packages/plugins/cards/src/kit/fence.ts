@@ -121,6 +121,8 @@ export function setupCardFences(options: CardFenceOptions = {}): () => void {
     const names = new Set([...SHIPPED, ...cardsSetUp(config), ...Object.keys(options.load ?? {})]);
     const renderer = {
         languages: [...names].map((name) => `${CARD_FENCE_PREFIX}${name}`),
+        // A card is not code to its reader: no code card around it, no copy button.
+        bare: true,
         render: ({ language, source, open }: { language: string; source: string; open: boolean }): string => {
             // A card arrives whole: until the fence closes, a quiet box where it will be.
             if (open) return '<span class="aparte-skeleton aparte-skeleton--rect aparte-rich-card__fence-wait" aria-hidden="true"></span>';

@@ -133,6 +133,9 @@ aparte-chat-bubble {
    Unset, the role's token leaves the ink unset and the words keep the content colour. */
 .aparte-message[data-role="user"] {
   --aparte-message-ink: var(--aparte-message-content-text-user);
+  /* A link the person typed (an email, a URL): their bubble is filled, often with the very
+     colour links are drawn in, so it takes the bubble's ink and stays a link by its underline. */
+  --aparte-message-link: currentColor;
 }
 
 .aparte-message[data-role="assistant"] {

@@ -60,6 +60,12 @@ function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): voi
 /** The fence's language: the first word of its info string (```` ```mermaid title ````). */
 const languageOf = (segment: AparteCodeSegment): string => (segment.language || '').trim().split(/\s+/)[0] ?? '';
 
+/** A fence whose renderer asks for no code card (`bare`) wears none: the drawing is the block. */
+function markBare(element: HTMLElement, segment: AparteCodeSegment): void {
+    const language = languageOf(segment);
+    element.toggleAttribute('data-aparte-bare', !!language && contextConfig(element).getCodeLanguageRenderer(language)?.bare === true);
+}
+
 /**
  * Draw a fence whose language a renderer draws (`registerCodeLanguageRenderer`) — a
  * diagram rather than coloured code. The pane keeps a plain `<pre><code>` holding the
@@ -108,6 +114,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     setup: (element, segment) => {
         sources.set(element, segment.content);
+        markBare(element, segment);
         if (isDrawnLanguage(languageOf(segment), element)) drawSettledOrStreaming(element, segment);
         // A fence still arriving is painted by `update`; one already whole is highlighted now.
         else if (segment.isStreaming !== true) highlightSettled(element, segment);
@@ -119,6 +126,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     update: (element, segment) => {
         sources.set(element, segment.content);
+        markBare(element, segment);
         if (isDrawnLanguage(languageOf(segment), element)) {
             drawSettledOrStreaming(element, segment);
         } else if (segment.isStreaming === true) {

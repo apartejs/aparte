@@ -178,6 +178,13 @@ export interface AparteCodeLanguageRenderer {
      * reopening a long conversation does not draw every diagram in it at once.
      */
     readonly lazy?: boolean;
+    /**
+     * The drawing stands for the whole block: a fenced block of this language loses the
+     * code card around it (its header, language and copy button) once drawn. For what is
+     * not code to a reader — a rich card — where a diagram keeps its card and the copy of
+     * its source.
+     */
+    readonly bare?: boolean;
 }
 
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
