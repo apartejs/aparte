@@ -1,0 +1,57 @@
+---
+title: Score card
+description: A match, or a scoreboard of them, in any sport — the two teams face to face, the clock, the score by period and the match's events.
+sidebar:
+  label: Score
+catalog:
+  group: cards
+  order: 9
+  demos: [card-score, card-score-compact, card-score-detail, card-score-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-score" />
+
+The two teams face to face, the score between them, and where the match stands: scheduled with
+its kick-off in the reader's time, live with its clock, at half time, or finished with its winner.
+A team without a logo gets its monogram on its colour, in a text colour chosen to read on it.
+
+## Variants
+
+### A scoreboard
+
+<Variant id="card-score-compact" />
+
+One row per match, any mix of sports and states. Several matches are always rows.
+
+### Detail
+
+<Variant id="card-score-detail" />
+
+The score by period and the match's events, each on its team's side: goals, penalties, cards,
+substitutions.
+
+### While the call runs
+
+<Variant id="card-score-running" />
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupScoreCard } from '@aparte/plugin-cards/score';
+
+setupScoreCard({ tool: 'get_match', map: (result) => result.response, variant: 'detail' });
+```
+
+`readMatches` takes API-Football, football-data.org, ESPN and TheSportsDB as they come. The
+fields are in [the guide](/guides/cards/#matches--score).
+
+## Related
+
+- [Stats card](/components/stats-card/) — a season's figures.
+- [Cards guide](/guides/cards/) — every card, and a card of your own.

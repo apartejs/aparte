@@ -1,0 +1,68 @@
+---
+title: Charts
+description: The charts a model writes in an echarts or chartjs fence, and a tool's result, drawn with ECharts or Chart.js in the chat's colours while the reply streams.
+catalog:
+  group: cards
+  order: 12
+  demos: [chart-echarts, chart-chartjs, chart-echarts-more, charts-streaming]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="chart-echarts" />
+
+A model already knows how to configure a chart in ECharts or Chart.js. Let it write the library's
+own config in a fenced block, or have a tool return it, and the chart is drawn in the reply: in the
+chat's colours, recoloured when the theme switches, with a hidden table of its numbers for a
+screen reader. Two plugins, one per library: pick the one your app uses.
+
+## Variants
+
+### Chart.js
+
+<Variant id="chart-chartjs" />
+
+A ```` ```chartjs ```` fence holds Chart.js's own `{ type, data, options }`, drawn on a canvas.
+
+### More chart types
+
+<Variant id="chart-echarts-more" />
+
+ECharts draws in SVG, crisp at any zoom, and knows many more types: a donut, candlesticks, and
+maps, heatmaps, sankeys and gauges.
+
+### While the reply streams
+
+<Variant id="charts-streaming" />
+
+A chart is drawn from the part of its JSON that has arrived, at most every 300 ms, so the bars
+appear as the model writes their numbers; each frame updates the same chart.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-echarts echarts
+# or
+npm install @aparte/plugin-chartjs chart.js
+```
+
+```ts
+import { setupECharts } from '@aparte/plugin-echarts';
+import { setupChartjs } from '@aparte/plugin-chartjs';
+
+setupECharts();
+setupChartjs({
+  tool: 'get_revenue',
+  map: (result) => ({ type: 'bar', data: { labels: result.months, datasets: [{ label: 'Revenue', data: result.values }] } }),
+});
+```
+
+With a `tool`, the tool's result is drawn in place of its row. The library loads on the first
+chart, and a config from a model is read as untrusted data: nothing in it becomes HTML and no
+request leaves the page. All of it is in [the charts guide](/guides/charts/).
+
+## Related
+
+- [Stats card](/components/stats-card/) — a few figures with sparklines, without a chart library.
+- [Stock card](/components/stock-card/) — a price and its chart.
+- [Code block](/components/code-block/) — every other fence.

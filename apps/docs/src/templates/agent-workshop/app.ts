@@ -1,11 +1,12 @@
 /**
- * The Agent workshop's behaviour: Markdown and highlighting, the four tools and the artifact tool,
- * the approval modes, a scripted model behind the real client, the workspace panel, and the three
+ * The Agent workshop's behaviour: Markdown and highlighting, the four tools, the plan and the
+ * artifact tool, the approval modes, a scripted model behind the real client, the workspace panel, and the three
  * modes (src/templates/runtime.ts).
  */
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport, type AparteMessage, type AparteSegment } from '@aparte/core';
 import { setupApproval } from '@aparte/plugin-approval';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
@@ -20,7 +21,7 @@ import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { followTheme, reducedMotion, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
 import { initialFiles } from './repo';
 import { PLAY_QUESTION, route, SCENARIOS, SEED_STEPS, SUGGESTIONS } from './scenario';
-import { createToolbox, statusOf, summaryOf, TOOLS, type ToolName } from './tools';
+import { createToolbox, PLAN_TOOL, planReceipt, statusOf, summaryOf, TOOLS, type ToolName } from './tools';
 import { createWorkspace } from './workspace';
 
 type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void };
@@ -69,10 +70,16 @@ async function main(): Promise<void> {
         });
     }
 
+    // The agent's task list: update_plan returns where the plan stands, and the plan card draws
+    // the list from the call's input, a new card at each update.
+    aparteGlobalConfig.registerTool(PLAN_TOOL, async (call) => ({ toolCallId: call.id, content: planReceipt(call.input) }));
+    setupPlanCard({ tool: PLAN_TOOL.name, map: (_result, input) => input });
+
     // Which of these tools read, write or execute: the mode decides which of them ask first,
-    // and Plan refuses the last two with a reason the model reads.
+    // and Plan refuses the last two with a reason the model reads. The plan changes no file, so
+    // it is read with the reads: it runs in every mode, without asking.
     const approval = setupApproval({
-        classify: { read: ['read_file', 'search'], write: ['write_file'], exec: ['run_command'] },
+        classify: { read: ['read_file', 'search', PLAN_TOOL.name], write: ['write_file'], exec: ['run_command'] },
         mode: 'ask',
     });
 
@@ -126,9 +133,9 @@ function seedConversation(toolbox: ReturnType<typeof createToolbox>): AparteMess
         if ('thinking' in step) return { id, type: 'thinking', isStreaming: false, label: 'Thinking', content: step.thinking };
         if ('text' in step) return { id, type: 'text', content: step.text };
         const toolCall = { id: `t${i}`, name: step.tool, input: step.input };
-        return step.rejected
-            ? { id, type: 'tool_call', status: 'rejected', toolCall, result: `The user rejected this tool call and said: ${step.rejected}` }
-            : { id, type: 'tool_call', status: 'resolved', toolCall, result: toolbox[step.tool](step.input) };
+        if (step.rejected) return { id, type: 'tool_call', status: 'rejected', toolCall, result: `The user rejected this tool call and said: ${step.rejected}` };
+        const result = step.tool === PLAN_TOOL.name ? planReceipt(step.input) : toolbox[step.tool](step.input);
+        return { id, type: 'tool_call', status: 'resolved', toolCall, result };
     });
     const at = Date.parse('2026-10-16T10:12:00');
     return [

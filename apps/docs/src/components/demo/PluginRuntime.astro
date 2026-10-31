@@ -16,6 +16,8 @@
 import ApprovalPlugin from './plugins/ApprovalPlugin.astro';
 import ArtifactsPlugin from './plugins/ArtifactsPlugin.astro';
 import AskUserPlugin from './plugins/AskUserPlugin.astro';
+import CardsPlugin from './plugins/CardsPlugin.astro';
+import ChartsPlugin from './plugins/ChartsPlugin.astro';
 import CompactionPlugin from './plugins/CompactionPlugin.astro';
 import DiagramsPlugin from './plugins/DiagramsPlugin.astro';
 import MathPlugin from './plugins/MathPlugin.astro';
@@ -35,6 +37,8 @@ const has = (name: DemoPlugin) => plugins.includes(name);
 {has('markdown') && <MarkdownRuntime />}
 {has('math') && <MathPlugin />}
 {has('diagrams') && <DiagramsPlugin />}
+{has('charts') && <ChartsPlugin />}
+{has('cards') && <CardsPlugin />}
 {has('ask-user') && <AskUserPlugin />}
 {has('approval') && <ApprovalPlugin />}
 {has('model-selector') && <ModelSelectorPlugin />}

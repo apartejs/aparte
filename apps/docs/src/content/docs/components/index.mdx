@@ -1,6 +1,6 @@
 ---
 title: 'Chatbot UI Components'
-description: 'Every component for an AI chat and its agents — the conversation, the layout around it, and a kit for the rest of the app — each shown live.'
+description: 'Every component for an AI chat and its agents — the conversation, cards for what its tools return, the layout around it, and a kit for the rest of the app — each shown live.'
 sidebar:
   order: 0
   label: Overview
@@ -12,9 +12,9 @@ import CatalogueGrid from '../../../components/catalog/CatalogueGrid.astro';
 <CatalogueCount />
 
 Each one is shown running below, and each page has its variants, its code and its API. The chat's
-pieces are custom elements and segments: they work in plain HTML and in every framework. The kit
-is plain CSS classes for the controls your own page puts around the chat, themed by the same
-variables.
+pieces are custom elements and segments: they work in plain HTML and in every framework. The cards
+are plugins that draw a tool's result in place of its row. The kit is plain CSS classes for the
+controls your own page puts around the chat, themed by the same variables.
 
 ## Chat
 
@@ -22,6 +22,13 @@ The conversation and everything in it: messages, replies, tools, questions, appr
 composer.
 
 <CatalogueGrid group="chat" />
+
+## Cards
+
+What a tool returns, drawn for a person to read: the weather, products, places, figures, orders,
+quotes, plans, scores, pictures, links and charts. Each is an opt-in plugin, in variants.
+
+<CatalogueGrid group="cards" />
 
 ## Layout
 

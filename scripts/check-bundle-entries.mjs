@@ -28,6 +28,11 @@ import { dirname, resolve } from 'node:path';
  * because a chunk this guard cannot open is a chunk it cannot vouch for.
  */
 function bareSpecifiersTransitively(entry) {
+    return walkEntry(entry).bare;
+}
+
+/** The walk itself: the bare specifiers found, and every file it opened on the way. */
+function walkEntry(entry) {
     const seen = new Set();
     const bare = new Set();
     const queue = [entry];
@@ -42,7 +47,7 @@ function bareSpecifiersTransitively(entry) {
             else bare.add(`${spec} (unresolved from ${file})`);
         }
     }
-    return [...bare];
+    return { bare: [...bare], files: seen };
 }
 
 /** entry file → the bare specifiers it may import, and why that matters. */
@@ -114,6 +119,110 @@ const CONTRACTS = [
         why: 'the batteries-included entry: loading mermaid on the first diagram is the point',
     },
     {
+        file: 'packages/plugins/cards/dist/index.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'the kit: core alone, so a card of your own costs nothing else',
+    },
+    {
+        file: 'packages/plugins/cards/dist/weather.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card (isolated), and no third party (FIRST_PARTY_ONLY below)',
+    },
+    {
+        file: 'packages/plugins/cards/dist/items.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/product.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/place.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/stats.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/order.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/stock.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/plan.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/score.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/media.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/cards/dist/link.js',
+        allowed: ['@aparte/core'],
+        bareOnly: true,
+        isolated: true,
+        why: 'one card, its kit chunks and core: no card pulls another card or a third party',
+    },
+    {
+        file: 'packages/plugins/echarts/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the ECharts you hand it: echarts itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/echarts/dist/index.js',
+        allowed: ['@aparte/core', 'echarts', './core.js'],
+        why: 'the batteries-included entry: loading echarts on the first chart is the point',
+    },
+    {
+        file: 'packages/plugins/chartjs/dist/core.js',
+        allowed: ['@aparte/core'],
+        why: 'the entry that takes the Chart.js you hand it: chart.js itself must not be pulled in',
+    },
+    {
+        file: 'packages/plugins/chartjs/dist/index.js',
+        allowed: ['@aparte/core', 'chart.js/auto', './core.js'],
+        why: 'the batteries-included entry: loading chart.js/auto on the first chart is the point',
+    },
+    {
         file: 'packages/providers/ai/transformers/dist/worker.js',
         bareOnly: true,
         allowed: ['@huggingface/transformers'],
@@ -138,7 +247,7 @@ function specifiers(file) {
 }
 
 const problems = [];
-for (const { file, allowed, why, bareOnly } of CONTRACTS) {
+for (const { file, allowed, why, bareOnly, isolated } of CONTRACTS) {
     if (!existsSync(file)) {
         problems.push(`${file} is missing — run \`pnpm build\` first.`);
         continue;
@@ -159,6 +268,15 @@ for (const { file, allowed, why, bareOnly } of CONTRACTS) {
     // the flag off, so their listing stays exact.
     const extra = (bareOnly ? bareSpecifiersTransitively(file) : specifiers(file))
         .filter(s => !allowed.includes(s));
+    // `isolated`: an entry that must not pull in another entry of its package — one card
+    // imported is one card shipped. Shared chunks (the kit) are fine; a sibling entry is not.
+    if (isolated) {
+        const opened = walkEntry(file).files;
+        const siblings = CONTRACTS.filter((c) => c.isolated && c.file !== file && dirname(c.file) === dirname(file));
+        for (const sibling of siblings) {
+            if (opened.has(resolve(sibling.file))) problems.push(`${file} reaches ${sibling.file}: importing one entry would ship the other too.\n    why    : ${why}`);
+        }
+    }
     if (extra.length) {
         problems.push(
             `${file} imports ${extra.map(s => `\`${s}\``).join(', ')}, which is not in its contract.\n`
@@ -183,6 +301,20 @@ for (const { file, allowed, why, bareOnly } of CONTRACTS) {
  * The agent loop is engine's and core drives it, so core installs engine — first-party,
  * versioned with it, zero third-party code. Anything else stays forbidden.
  */
+/**
+ * Packages that may depend on aparté's own packages and nothing else. The cards' bundle
+ * externalises only `@aparte/core`, so a third-party import would be inlined and the scan
+ * above would never see it as a bare specifier: the manifest is where it would show.
+ */
+const FIRST_PARTY_ONLY = ['packages/plugins/cards/package.json'];
+for (const manifest of FIRST_PARTY_ONLY) {
+    const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+    for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+        const names = Object.keys(pkg[field] ?? {}).filter((n) => !n.startsWith('@aparte/'));
+        if (names.length) problems.push(`${manifest} declares ${field}: ${names.join(', ')}.\n    why    : each card is drawn with the kit and core alone; a library it needs belongs in its own plugin.`);
+    }
+}
+
 const ZERO_DEP_PACKAGES = ['packages/core/package.json'];
 const FIRST_PARTY_ALLOWED = new Set(['@aparte/engine']);
 for (const manifest of ZERO_DEP_PACKAGES) {

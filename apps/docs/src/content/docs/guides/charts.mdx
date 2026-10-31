@@ -1,0 +1,153 @@
+---
+title: Draw charts with ECharts or Chart.js
+description: Draw the ```echarts and ```chartjs fences a model writes, and a tool's result, as charts while the reply streams, with @aparte/plugin-echarts or @aparte/plugin-chartjs.
+sidebar:
+  order: 3.65
+  label: Charts
+guide:
+  group: look
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="charts-streaming" caption="An ECharts fence, then a Chart.js one, drawn as they stream." />
+
+Two plugins, one for each library a model already knows: pick the one your app uses, or the one
+whose charts you prefer. Each draws its library's own config — nothing new for a model to learn —
+from a fenced block in a reply, or from a tool's result in place of its row.
+
+| | `@aparte/plugin-echarts` | `@aparte/plugin-chartjs` |
+| --- | --- | --- |
+| Library | [Apache ECharts](https://echarts.apache.org) 6 | [Chart.js](https://www.chartjs.org) 4 |
+| Fence | ```` ```echarts ```` (or `echart`) | ```` ```chartjs ```` (or `chart.js`) |
+| Body | an ECharts `option` | a Chart.js `{ type, data, options }` |
+| Drawn as | SVG: crisp at any zoom, real text | a canvas |
+| Strong at | many chart types: maps, heatmaps, candlesticks, sankeys, gauges | the common ones, small and quick |
+
+## Install and register
+
+```bash
+npm install @aparte/plugin-echarts echarts
+# or
+npm install @aparte/plugin-chartjs chart.js
+```
+
+```ts
+import { setupECharts } from '@aparte/plugin-echarts';
+import { setupChartjs } from '@aparte/plugin-chartjs';
+
+setupECharts();
+setupChartjs();
+```
+
+The library is loaded on the first chart, not before, and a chart is drawn only once it comes
+near the screen, so reopening a long conversation stays fast. Every fence in a reply is a block
+of its own, so either plugin works with any Markdown provider, or none.
+
+## While the reply streams
+
+A chart is drawn from the part of its JSON that has arrived — its last whole value, brackets
+closed — at most every 300 ms, so the bars appear as the model writes their numbers. Each frame
+updates the same chart. Once the fence closes, a body that is not a chart shows a short note and
+its source; the copy button on the block always copies the source.
+
+## A tool's result
+
+Name the tools whose result is a chart, and it is drawn in place of the tool's row: its
+`structuredContent`, else its text read as JSON. A tool that returns its own data takes a `map`,
+the result and the call's input in, a config out:
+
+```ts
+import { setupChartjs } from '@aparte/plugin-chartjs';
+
+setupChartjs({
+  tool: 'get_revenue',
+  map: (result, input) => ({
+    type: 'line',
+    data: { labels: result.months, datasets: [{ label: String(input.metric), data: result.values }] },
+  }),
+});
+```
+
+While the tool runs, a quiet box stands where the chart will be. A call waiting for approval,
+refused, stopped or failed is one line that says so.
+
+## The chat's colours
+
+A chart wears the chat's tokens — `--aparte-text`, `--aparte-text-muted`, `--aparte-border`,
+`--aparte-surface-1`, `--aparte-font-family` — and its series start with `--aparte-primary`, then
+hues chosen to stay apart for colour-blind readers. A light/dark switch recolours the chart in
+place. Anything the config sets itself wins.
+
+## What a model's config cannot do
+
+The config comes from a model or a tool, so it is read as untrusted data before it is drawn:
+nothing in it becomes HTML, no request leaves the page, no code can arrive — JSON carries no
+function — and no size in it can freeze the tab.
+
+- **ECharts** (`sanitizeEChartsOption`): tooltips are drawn as text (`renderMode: 'richText'`);
+  the toolbox's download and data view, pictures, links, a CSS `url()` however it is spelled
+  (escapes included) and anything beyond a font name in a font are taken out; a colour key
+  takes colour syntax only; a dataset filter's regular expression (`reg`) is dropped. A fence
+  that is JSON with nothing to draw shows the note.
+- **Chart.js** (`readChartConfig`): the config's own `plugins` list is dropped, and so is any
+  string where Chart.js would call a function (tooltip and legend callbacks), and a looping
+  animation. A chart carries 5000 points, labels and datasets at most (`maxPoints`), and a
+  scale a hundred ticks.
+
+Each package's README lists every rule.
+
+## Screen readers
+
+A chart is a `figure` named by its title, else "Chart", with a visually hidden table of its
+numbers when the config says plainly what they are — bounded at 10 000 cells, and saying so when
+it lists only part of them. Under reduced motion nothing in a chart moves. Its words follow the
+chat's language, ten built in, and can be set with `extendLocale()`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.extendLocale({
+  echartsChart: 'Graphique',
+  chartjsChart: 'Graphique',
+  echartsTableCut: 'Seule une partie des données est listée.',
+  chartjsTableCut: 'Seule une partie des données est listée.',
+});
+```
+
+## Bring your own library
+
+Each package has a `/core` entry that imports nothing from its library: hand it a build with only
+the charts you use.
+
+```ts
+import * as echarts from 'echarts/core';
+import { BarChart, LineChart } from 'echarts/charts';
+import { AriaComponent, GridComponent, TitleComponent, TooltipComponent } from 'echarts/components';
+import { SVGRenderer } from 'echarts/renderers';
+import { setupEChartsWith } from '@aparte/plugin-echarts/core';
+
+echarts.use([BarChart, LineChart, AriaComponent, GridComponent, TitleComponent, TooltipComponent, SVGRenderer]);
+setupEChartsWith(echarts);
+```
+
+```ts
+import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
+import { setupChartjsWith } from '@aparte/plugin-chartjs/core';
+
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+setupChartjsWith(Chart);
+```
+
+A chart of a type your build lacks shows the note. Every setup function returns a function that
+removes the renderers and releases the charts it drew.
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/guides/cards/', title: 'Cards', line: "A tool's result as a rich card: weather, products, quotes and their charts." },
+        { href: '/guides/diagrams/', title: 'Diagrams', line: 'Mermaid fences drawn as they stream.' },
+    ]}
+/>

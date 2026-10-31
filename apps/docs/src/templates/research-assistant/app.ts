@@ -24,6 +24,7 @@ import {
 } from '@aparte/core';
 import { moonIcon, sunIcon } from '@aparte/core/icons';
 import { artifactFromToolCall, artifactHandler, createArtifactTool, setupArtifacts } from '@aparte/plugin-artifacts';
+import { setupECharts } from '@aparte/plugin-echarts';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
@@ -46,6 +47,8 @@ followTheme();
 aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 setupMarkedProvider();
 setupStreamingMarkdownProvider();
+// The report's chart is an ```echarts fence (report.ts); ECharts itself loads with the first chart.
+setupECharts();
 
 /** An element of Template.astro's markup, which this file cannot run without. */
 function part<T extends Element>(selector: string): T {

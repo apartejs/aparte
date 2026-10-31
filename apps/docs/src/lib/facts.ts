@@ -31,6 +31,7 @@ const catalogue = readCatalogue(fileURLToPath(at('apps/docs/src/content/docs/com
 export const COMPONENTS = {
     total: catalogue.length,
     chat: catalogue.filter((entry) => entry.group === 'chat').length,
+    cards: catalogue.filter((entry) => entry.group === 'cards').length,
     layout: catalogue.filter((entry) => entry.group === 'layout').length,
     kit: catalogue.filter((entry) => entry.group === 'kit').length,
 };

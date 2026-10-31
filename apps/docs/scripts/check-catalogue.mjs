@@ -111,7 +111,7 @@ if (problems.length) {
 
 const n = countCatalogue(entries);
 console.log(
-    `[check-catalogue] OK: ${n.total} catalogue page(s) (chat ${n.chat}, layout ${n.layout}, kit ${n.kit}); ` +
+    `[check-catalogue] OK: ${n.total} catalogue page(s) (chat ${n.chat}, cards ${n.cards}, layout ${n.layout}, kit ${n.kit}); ` +
         `${elements.length} elements, ${segments.length} segment types, ${families.length} kit families all documented` +
         (legacy ? ` (${legacy} still by their old generated page)` : '') +
         '.',

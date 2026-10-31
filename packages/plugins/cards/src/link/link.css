@@ -1,0 +1,488 @@
+/* =========================================
+   The link card — @aparte/plugin-cards/link
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     card      the page's picture on top (16:9), its site line (icon, name, author, date,
+               kind), the title on two lines, the description on three. The whole card is
+               the link. Several links are stacked rows, as in `compact`.
+     compact   one row: the site's mark with its kind in the corner, the title, the site and
+               the date, the picture as a small square at the end.
+     quote     the block chat apps draw under an unfurled link: a coloured rule down its
+               side, the site, the title, the description, the author and date, the picture
+               beside it when there is room, under it when there is not.
+   Every colour is a core token or a `--aparte-link-preview-*` one here: six hues a site's initial
+   and a quote's rule are drawn in (picked from the host, so one site keeps its colour), and
+   the accent a page's own `theme-color` replaces. The block is `aparte-link-preview`, not
+   `aparte-link`: that name is core's text-link recipe, and wearing it would repaint every
+   card as one underlined link.
+   */
+
+.aparte-link-card {
+  --aparte-link-preview-hue-0: #2f6fdf;
+  --aparte-link-preview-hue-1: #d6336c;
+  --aparte-link-preview-hue-2: #2f9e44;
+  --aparte-link-preview-hue-3: #e8710a;
+  --aparte-link-preview-hue-4: #7048e8;
+  --aparte-link-preview-hue-5: #0c9488;
+  --aparte-link-preview-media-ratio: 16 / 9;
+  --aparte-link-preview-thumb-size: 3.25rem;
+  --aparte-link-preview-rule-width: 4px;
+}
+
+.aparte-link-card[data-variant="card"]:has(> .aparte-link-preview--card) { --aparte-rich-card-max-inline-size: 22rem; }
+.aparte-link-card[data-variant="quote"] { --aparte-rich-card-max-inline-size: 30rem; }
+
+/* A quote draws its own block, so the card around it steps back. */
+.aparte-link-card[data-variant="quote"]:is([data-state="ready"], [data-state="loading"]) {
+  overflow: visible;
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Each tint reads its hue once; everything inside says `--aparte-link-preview-hue`. */
+.aparte-link-card [data-hue="0"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-0); }
+.aparte-link-card [data-hue="1"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-1); }
+.aparte-link-card [data-hue="2"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-2); }
+.aparte-link-card [data-hue="3"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-3); }
+.aparte-link-card [data-hue="4"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-4); }
+.aparte-link-card [data-hue="5"] { --aparte-link-preview-hue: var(--aparte-link-preview-hue-5); }
+
+/* ── What every variant shares ───────────────────────────────────────── */
+
+.aparte-link-preview {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  color: var(--aparte-text);
+}
+
+.aparte-link-preview__dot {
+  flex: none;
+  color: var(--aparte-text-muted);
+  opacity: 0.7;
+}
+
+.aparte-link-preview__title {
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.aparte-link-preview__anchor {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--aparte-radius-xs);
+}
+
+/* The title's link covers its whole card, row or block: one target, one name. The ring is
+   then drawn around the target, inset, because the card clips what passes its edge. */
+.aparte-link-preview__anchor::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+.aparte-link-preview__anchor:focus-visible { outline: none; }
+
+.aparte-link-preview__anchor:focus-visible::after {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(var(--aparte-focus-outline-width) * -1);
+}
+
+.aparte-link-preview:hover .aparte-link-preview__anchor {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.aparte-link-preview__description {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* The site line: its mark, its name, who wrote it, when — and the kind of page at the end. */
+.aparte-link-preview__site {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-link-preview__site-text,
+.aparte-link-preview__meta,
+.aparte-link-preview__byline {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.aparte-link-preview__site-name {
+  overflow: hidden;
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-medium);
+  text-overflow: ellipsis;
+}
+
+.aparte-link-preview__author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aparte-link-preview__date { flex: none; }
+
+/* ── The site's mark: its icon over its initial on a tint ────────────── */
+
+.aparte-link-preview__icon {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--aparte-radius-sm);
+  background: color-mix(in oklab, var(--aparte-link-preview-hue) 16%, var(--aparte-surface-1));
+  /* The hue, pulled toward the text: readable on the tint in either theme. */
+  color: color-mix(in oklab, var(--aparte-link-preview-hue) 72%, var(--aparte-text));
+  font-weight: var(--aparte-font-weight-bold, 700);
+  line-height: 1;
+}
+
+.aparte-link-preview__icon--sm {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  font-size: 0.625rem;
+}
+
+.aparte-link-preview__icon--lg {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--aparte-radius-md);
+  font-size: var(--aparte-font-size-base);
+}
+
+/* An icon of its own sits on the card's ground, not on the tint; the initial stays behind it. */
+.aparte-link-preview__icon[data-favicon] {
+  background: var(--aparte-surface-1);
+  box-shadow: inset 0 0 0 var(--aparte-border-width) var(--aparte-border);
+}
+
+.aparte-link-preview__favicon {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  background: var(--aparte-surface-1);
+}
+
+.aparte-link-preview__icon--lg > .aparte-link-preview__favicon { padding: 0.4rem; }
+
+/* ── The kind of page ────────────────────────────────────────────────── */
+
+.aparte-link-preview__type {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  margin-inline-start: auto;
+  padding: var(--aparte-space-1) var(--aparte-space-3) var(--aparte-space-1) var(--aparte-space-2);
+  border-radius: var(--aparte-radius-full);
+  background: color-mix(in oklab, var(--aparte-text) 6%, transparent);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: 1.3;
+}
+
+.aparte-link-preview__type-glyph { --aparte-rich-card-glyph-size: 0.85rem; }
+
+/* ── card ────────────────────────────────────────────────────────────── */
+
+.aparte-link-preview--card {
+  flex-direction: column;
+  transition: background-color var(--aparte-duration-fast, 0.12s) ease;
+}
+
+.aparte-link-preview__media {
+  position: relative;
+  aspect-ratio: var(--aparte-link-preview-media-ratio);
+  overflow: hidden;
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  background: var(--aparte-surface-2);
+}
+
+.aparte-link-preview__img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--aparte-duration-slower, 0.3s) ease;
+}
+
+.aparte-link-preview--card:hover .aparte-link-preview__media > .aparte-link-preview__img { transform: scale(1.03); }
+
+/* A video page: the play disc over its picture. */
+.aparte-link-preview__play {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  display: grid;
+  place-items: center;
+  inline-size: 3.25rem;
+  block-size: 3.25rem;
+  border-radius: var(--aparte-radius-full);
+  background: rgb(0 0 0 / 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25) inset, 0 6px 20px -6px rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(6px);
+  translate: -50% -50%;
+  transition: background-color var(--aparte-duration-base, 0.15s) ease;
+}
+
+.aparte-link-preview__play:dir(rtl) { translate: 50% -50%; }
+.aparte-link-preview__play-glyph { --aparte-rich-card-glyph-size: 1.4rem; margin-inline-start: 0.15rem; }
+.aparte-link-preview__play:dir(rtl) .aparte-link-preview__play-glyph { margin-inline: 0 0.15rem; transform: scaleX(-1); }
+.aparte-link-preview--card:hover .aparte-link-preview__play { background: var(--aparte-primary); }
+
+.aparte-link-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-link-preview--card .aparte-link-preview__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.aparte-link-preview--card:hover { background: color-mix(in oklab, var(--aparte-text) 2.5%, transparent); }
+
+/* ── compact: rows ───────────────────────────────────────────────────── */
+
+.aparte-link-preview--row {
+  align-items: center;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  transition: background-color var(--aparte-duration-fast, 0.12s) ease;
+}
+
+.aparte-link-preview--row:hover { background: color-mix(in oklab, var(--aparte-text) 4%, transparent); }
+
+.aparte-link-preview__mark {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+
+/* The kind of page, as a small disc on the mark's corner. */
+.aparte-link-preview__corner {
+  position: absolute;
+  inset-block-end: -0.3rem;
+  inset-inline-end: -0.3rem;
+  display: grid;
+  place-items: center;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-1);
+  box-shadow: 0 0 0 var(--aparte-border-width) var(--aparte-border);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-link-preview__corner-glyph { --aparte-rich-card-glyph-size: 0.7rem; }
+
+.aparte-link-preview__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-link-preview--row .aparte-link-preview__title {
+  overflow: hidden;
+  font-size: var(--aparte-font-size-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-link-preview--row .aparte-link-preview__meta {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-link-preview--row .aparte-link-preview__site-name {
+  color: inherit;
+  font-weight: var(--aparte-font-weight-normal);
+}
+
+.aparte-link-preview__thumb {
+  flex: none;
+  inline-size: var(--aparte-link-preview-thumb-size);
+  block-size: var(--aparte-link-preview-thumb-size);
+  overflow: hidden;
+  border-radius: var(--aparte-radius-md);
+  background: var(--aparte-surface-2);
+  box-shadow: inset 0 0 0 var(--aparte-border-width) var(--aparte-border);
+}
+
+.aparte-link-preview__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-link-preview__list > li + li { border-block-start: var(--aparte-border-width) solid var(--aparte-border); }
+
+.aparte-link-preview__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-4);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-link-preview__heading-glyph {
+  --aparte-rich-card-glyph-size: 1rem;
+  color: var(--aparte-text-muted);
+}
+
+.aparte-link-preview__heading-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── quote: the unfurled block ───────────────────────────────────────── */
+
+.aparte-link-preview--quote {
+  /* The page's own colour when it gives one, else its host's hue. */
+  --aparte-link-preview-accent-default: var(--aparte-link-preview-hue, var(--aparte-primary));
+  container-type: inline-size;
+  flex-direction: column;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-inline-start: var(--aparte-link-preview-rule-width) solid var(--aparte-link-preview-accent, var(--aparte-link-preview-accent-default));
+  border-radius: var(--aparte-radius-md);
+  background: color-mix(in oklab, var(--aparte-link-preview-accent, var(--aparte-link-preview-accent-default)) 4%, var(--aparte-surface-1));
+  transition: background-color var(--aparte-duration-fast, 0.12s) ease;
+}
+
+.aparte-link-preview--quote:hover {
+  background: color-mix(in oklab, var(--aparte-link-preview-accent, var(--aparte-link-preview-accent-default)) 8%, var(--aparte-surface-1));
+}
+
+.aparte-link-preview__quote-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-link-preview--quote .aparte-link-preview__site { margin-block-end: var(--aparte-space-1); }
+
+/* The title is a link: core's link colour, the one every link in the chat is written in. */
+.aparte-link-preview--quote .aparte-link-preview__title {
+  color: var(--aparte-link-color, var(--aparte-primary-ink, var(--aparte-text)));
+}
+
+.aparte-link-preview--quote .aparte-link-preview__description { -webkit-line-clamp: 4; }
+
+.aparte-link-preview__byline {
+  margin-block-start: var(--aparte-space-1);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+/* Narrow: the picture under the words, wide. */
+.aparte-link-preview__quote-media {
+  overflow: hidden;
+  aspect-ratio: var(--aparte-link-preview-media-ratio);
+  border-radius: var(--aparte-radius-md);
+  background: var(--aparte-surface-2);
+}
+
+/* With room: the picture beside the words, a square — the shape of a link's thumbnail. */
+@container (min-width: 24rem) {
+  .aparte-link-preview--quote:has(> .aparte-link-preview__quote-media) {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .aparte-link-preview__quote-media {
+    flex: none;
+    inline-size: 6.5rem;
+    aspect-ratio: 1;
+  }
+}
+
+.aparte-link-preview__stack {
+  display: grid;
+  gap: var(--aparte-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-media {
+  block-size: auto;
+  border-radius: 0;
+}
+
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  border-radius: var(--aparte-radius-sm);
+}
+
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-mark {
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--aparte-radius-md);
+}
+
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-site { inline-size: 40%; }
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-title { inline-size: 75%; block-size: 1rem; }
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-line { inline-size: 92%; }
+.aparte-link-card[data-state="loading"] .aparte-link-preview__sk-line--short { inline-size: 60%; }
+
+/* ── Small screens, and stillness ────────────────────────────────────── */
+
+@media (max-width: 380px) {
+  .aparte-link-preview__body { padding: var(--aparte-space-4) var(--aparte-space-5) var(--aparte-space-5); }
+  .aparte-link-preview--row { gap: var(--aparte-space-4); padding: var(--aparte-space-4) var(--aparte-space-5); }
+  .aparte-link-preview--quote { padding: var(--aparte-space-4) var(--aparte-space-5) var(--aparte-space-5); }
+  .aparte-link-card { --aparte-link-preview-thumb-size: 2.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-link-preview--card:hover .aparte-link-preview__media > .aparte-link-preview__img { transform: none; }
+}

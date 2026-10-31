@@ -493,6 +493,129 @@
       "receiptRows",
       "setupAskUser"
     ],
+    "@aparte/plugin-cards": [
+      "CARD_SEGMENT_TYPE",
+      "carousel",
+      "currencyCode",
+      "defineCard",
+      "el",
+      "formatDay",
+      "formatHour",
+      "formatNumber",
+      "formatPercent",
+      "formatPrice",
+      "formatUnit",
+      "formatWhen",
+      "glyph",
+      "intlTag",
+      "languageOf",
+      "num",
+      "rating",
+      "safeUrl",
+      "segmented",
+      "slider",
+      "sparkline",
+      "sparklinePath",
+      "str",
+      "toDate",
+      "toggle",
+      "webUrl",
+      "word"
+    ],
+    "@aparte/plugin-cards/weather": [
+      "WEATHER_CONDITIONS",
+      "conditionFromOpenWeather",
+      "conditionFromText",
+      "conditionFromWmo",
+      "fromOpenMeteo",
+      "readWeather",
+      "setupWeatherCard",
+      "weatherCard"
+    ],
+    "@aparte/plugin-cards/items": [
+      "ITEMS_MAX",
+      "itemsCard",
+      "readItems",
+      "setupItemsCard"
+    ],
+    "@aparte/plugin-cards/product": [
+      "discountOf",
+      "productCard",
+      "readProducts",
+      "setupProductCard"
+    ],
+    "@aparte/plugin-cards/place": [
+      "directionsUrl",
+      "isOpenAt",
+      "phoneUrl",
+      "placeCard",
+      "placeStatus",
+      "readHours",
+      "readPlaces",
+      "readTime",
+      "setupPlaceCard"
+    ],
+    "@aparte/plugin-cards/stats": [
+      "humanizeKey",
+      "readStats",
+      "setupStatsCard",
+      "statChange",
+      "statValue",
+      "statsCard"
+    ],
+    "@aparte/plugin-cards/order": [
+      "nightsOf",
+      "orderCard",
+      "readOrder",
+      "readWhen",
+      "setupOrderCard"
+    ],
+    "@aparte/plugin-cards/stock": [
+      "baselineOf",
+      "digitsOf",
+      "directionOf",
+      "readQuotes",
+      "setupStockCard",
+      "stockCard"
+    ],
+    "@aparte/plugin-cards/plan": [
+      "PLAN_STEPS_SHOWN",
+      "durationText",
+      "planCard",
+      "planProgress",
+      "readPlan",
+      "readStatus",
+      "setupPlanCard"
+    ],
+    "@aparte/plugin-cards/score": [
+      "inkOn",
+      "monogram",
+      "readMatches",
+      "scoreCard",
+      "setupScoreCard",
+      "teamColor"
+    ],
+    "@aparte/plugin-cards/media": [
+      "formatDuration",
+      "mediaCard",
+      "readDuration",
+      "readMedia",
+      "setupMediaCard"
+    ],
+    "@aparte/plugin-cards/link": [
+      "linkCard",
+      "readLinks",
+      "setupLinkCard"
+    ],
+    "@aparte/plugin-chartjs": [
+      "CHARTJS_LANGUAGES",
+      "SERIES_HUES",
+      "readChartConfig",
+      "seriesPalette",
+      "setupChartjs",
+      "setupChartjsWith",
+      "themeChartjsConfig"
+    ],
     "@aparte/plugin-compaction": [
       "DEFAULT_COMPACTION_CONFIG",
       "DEFAULT_COMPACTION_PROMPT",
@@ -504,6 +627,14 @@
       "setupCompaction",
       "splitHistoryBudget",
       "transcriptForSummary"
+    ],
+    "@aparte/plugin-echarts": [
+      "ECHARTS_SERIES_HUES",
+      "echartsPalette",
+      "echartsTheme",
+      "sanitizeEChartsOption",
+      "setupECharts",
+      "setupEChartsWith"
     ],
     "@aparte/plugin-katex": [
       "setupKatex",

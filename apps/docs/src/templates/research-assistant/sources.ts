@@ -86,7 +86,7 @@ export function sourceAt(url: string): Source | undefined {
     return SOURCES.find((source) => source.url === url);
 }
 
-/** A URL as a result card prints it: the host, without the scheme. */
+/** A URL as the read_page row names it: the host, without the scheme. */
 export function domainOf(url: string): string {
     try {
         return new URL(url).hostname;

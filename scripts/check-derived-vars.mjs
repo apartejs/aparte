@@ -589,8 +589,10 @@ if (cssPropDeclared.size < CSSPROP_FLOOR) {
  * `language-*` is the one deliberate exception, and it is not ours: it is the name
  * highlighters look for on a `<code>`.
  */
-const CLASS_SITE_FLOOR = 250;
-const CLASS_TOKEN_FLOOR = 380;
+const CLASS_SITE_FLOOR = 1020;
+const CLASS_TOKEN_FLOOR = 1320;
+/** The `el(tag, { class })` form alone: the cards' only one, so its own floor (measured 2026-10-31). */
+const EL_CLASS_FLOOR = 600;
 
 /**
  * Files whose class attributes are NOT core's DOM.
@@ -606,6 +608,7 @@ const CLASS_EXEMPT_FILES = new Map([
 ]);
 
 let classSites = 0;
+let elClassSites = 0;
 let classTokens = 0;
 {
     const badClasses = new Map();
@@ -627,11 +630,18 @@ let classTokens = 0;
         const record = (raw) => {
             classSites++;
             // `${…}` chunks are computed and unknowable here; the literal tokens around
-            // them are what this rule is about.
-            for (const token of raw.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
-                if (!token) continue;
+            // them are what this rule is about. The orphan rule below reads those literal
+            // pieces (`aparte-tool-` from `aparte-tool-${part}`), so they are kept for it.
+            for (const piece of raw.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (piece) emittedClasses.add(piece);
+            // The prefix rule reads whole names: a computed chunk glued to a name stays part
+            // of it (`aparte-${name}-card` is one prefixed class, not `aparte-` and `-card`).
+            // Only a name that is ALL computed (`${cls}`) is unknowable here and left alone: one
+            // that starts computed and goes on in letters (`${x}-value`) still names an
+            // unprefixed tail, and was caught before the glued reading existed.
+            for (const glued of raw.replace(/\$\{[^}]*\}/g, '\u0000').split(/\s+/)) {
+                if (!glued || glued.split('\u0000').join('') === '') continue;
+                const token = glued.split('\u0000').join('X');
                 classTokens++;
-                emittedClasses.add(token);
                 // `language-*` is the name highlighters look for; `math-inline` and
                 // `math-display` are the maths placeholder's, remark-math's names, which a
                 // provider writes and the code-language engine reads (guides/markdown.mdx).
@@ -648,6 +658,15 @@ let classTokens = 0;
         }
         for (const m of text.matchAll(/\.className\s*=\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
         for (const m of text.matchAll(/setAttribute\(\s*['"]class['"]\s*,\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
+        // `el(tag, { class: '…' })`, the DOM helper every card of `@aparte/plugin-cards`
+        // draws with: the four forms above never saw it, so an unprefixed class in a card
+        // passed in silence (reported by the agent that built the score card).
+        // What it does not read, named so nobody trusts it for them: a class passed to a helper
+        // as an argument (`block('x')`), a quoted key (`'class': 'x'`), a conditional value
+        // (`class: on ? 'a' : 'b'`), a string holding an escaped quote. It also reads a type
+        // literal `{ class: 'x' }` as an emitted class. Its own floor below (EL_CLASS_FLOOR)
+        // is what notices the day it stops matching at all.
+        for (const m of text.matchAll(/[{,]\s*class:\s*(['"`])((?:\$\{[^}]*\}|(?!\1)[^\\])*)\1/g)) { elClassSites++; record(m[2]); }
         // The shared copy button (`renderers/copy-button.ts`) takes its component's own
         // class as an argument: that literal is an emitted class like any other.
         for (const m of text.matchAll(/copyButtonMarkup\(\s*['"`]([^'"`]*)['"`]\s*\)/g)) record(m[1]);
@@ -659,6 +678,12 @@ let classTokens = 0;
             + '      Core is LIGHT DOM: an unprefixed rule is a global rule, so it restyles the\n'
             + "      host's own markup and the host's own rules restyle ours. Prefix it, or — if\n"
             + '      the markup genuinely is not core\'s DOM — name the file in CLASS_EXEMPT_FILES.',
+        );
+    }
+    if (elClassSites < EL_CLASS_FLOOR) {
+        problems.push(
+            `[classes] read only ${elClassSites} el(tag, { class }) sites (floor ${EL_CLASS_FLOOR}): the matcher\n`
+            + "      for the cards' DOM helper stopped matching, and the rest of the corpus hides it.",
         );
     }
     if (classSites < CLASS_SITE_FLOOR || classTokens < CLASS_TOKEN_FLOOR) {
@@ -926,5 +951,5 @@ console.log(
     + `the literal palette stays on \`${LITERAL_SELECTORS.join(', ')}\`; `
     + `${atRuleExempt.length} responsive exemption(s); ${refs} var() refs, single-owner `
     + `and each one declared or written from JS; ${classTokens} class tokens over `
-    + `${classSites} sites, all prefixed; ${proseNames} token names in prose, all real.`,
+    + `${classSites} sites (${elClassSites} of them \`el()\`), all prefixed; ${proseNames} token names in prose, all real.`,
 );

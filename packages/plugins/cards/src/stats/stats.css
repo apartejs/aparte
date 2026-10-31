@@ -1,0 +1,489 @@
+/* =========================================
+   The stats card — @aparte/plugin-cards/stats
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     tiles  a tile per figure — label, big number, the change as a pill, a sparkline —
+            in a grid of two or three columns that drops to one on a narrow card.
+     list   a fact sheet: the label at the start of each row, the value at its end.
+     hero   the first figure large over a wide chart, the others small in a band under it.
+   A change is green when it went the way `good` says, red when not, neutral otherwise —
+   always with its arrow and its sign, so the colour is never the only one saying it.
+   Every colour is a theme token or derived from one, so light and dark follow the chat.
+   */
+
+.aparte-stats-card {
+  --aparte-stats-pad: var(--aparte-space-6);
+  --aparte-stats-good: var(--aparte-success);
+  --aparte-stats-good-ink: var(--aparte-success-ink);
+  --aparte-stats-bad: var(--aparte-error);
+  --aparte-stats-bad-ink: var(--aparte-error-ink);
+  --aparte-stats-neutral: var(--aparte-text-muted);
+  --aparte-stats-neutral-ink: var(--aparte-text-muted);
+  /* A figure with no change to judge it by: its line takes the theme's accent. */
+  --aparte-stats-accent: var(--aparte-primary);
+  --aparte-stats-tile-bg: color-mix(in oklab, var(--aparte-text) 3.5%, var(--aparte-surface-1));
+  --aparte-stats-tile-border: color-mix(in oklab, var(--aparte-border) 75%, transparent);
+  --aparte-stats-tile-hover-border: color-mix(in oklab, var(--aparte-text) 18%, var(--aparte-border));
+  --aparte-stats-band-bg: color-mix(in oklab, var(--aparte-text) 3%, var(--aparte-surface-1));
+  --aparte-stats-value-size: calc(1.75rem * var(--aparte-font-scale));
+  --aparte-stats-hero-value-size: calc(2.75rem * var(--aparte-font-scale));
+}
+
+/* ── Widths: each variant asks for its own; the bubble's limit caps them all ── */
+
+.aparte-stats-card[data-variant="tiles"] { --aparte-rich-card-max-inline-size: 28rem; }
+.aparte-stats-card[data-variant="tiles"]:has(.aparte-stats__tiles[data-columns="1"]) { --aparte-rich-card-max-inline-size: 18rem; }
+.aparte-stats-card[data-variant="tiles"]:has(.aparte-stats__tiles[data-columns="3"]) { --aparte-rich-card-max-inline-size: 36rem; }
+.aparte-stats-card[data-variant="list"] { --aparte-rich-card-max-inline-size: 26rem; }
+.aparte-stats-card[data-variant="hero"] { --aparte-rich-card-max-inline-size: 30rem; }
+
+/* ── Heading and footer ──────────────────────────────────────────────── */
+
+.aparte-stats__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  padding: var(--aparte-stats-pad) var(--aparte-stats-pad) 0;
+  min-inline-size: 0;
+}
+
+.aparte-stats__title {
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text);
+  overflow-wrap: anywhere;
+}
+
+.aparte-stats__subtitle {
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.aparte-stats__body {
+  /* The grid inside reads the body's width, not the window's: a card in a narrow bubble
+     on a wide screen still drops to fewer columns. */
+  container: aparte-stats / inline-size;
+  padding: var(--aparte-space-5) var(--aparte-stats-pad) var(--aparte-stats-pad);
+  min-inline-size: 0;
+}
+
+.aparte-stats__body:first-child { padding-block-start: var(--aparte-stats-pad); }
+
+.aparte-stats__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aparte-space-1) var(--aparte-space-4);
+  padding: var(--aparte-space-3) var(--aparte-stats-pad);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-stats__footnote { overflow-wrap: anywhere; }
+.aparte-stats__updated { margin-inline-start: auto; white-space: nowrap; }
+
+/* ── A figure, whatever its shape ────────────────────────────────────── */
+
+.aparte-stats__stat {
+  --aparte-rich-card-spark: var(--aparte-stats-accent);
+  min-inline-size: 0;
+}
+
+.aparte-stats__stat[data-tone="good"] { --aparte-rich-card-spark: var(--aparte-stats-good); }
+.aparte-stats__stat[data-tone="bad"] { --aparte-rich-card-spark: var(--aparte-stats-bad); }
+.aparte-stats__stat[data-tone="neutral"] { --aparte-rich-card-spark: var(--aparte-stats-neutral); }
+
+.aparte-stats__label {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: 1.3;
+}
+
+.aparte-stats__label-text { min-inline-size: 0; overflow-wrap: anywhere; }
+
+/* The glyph sits on a soft chip of the accent, like an app's own KPI icons. */
+.aparte-stats__icon {
+  --aparte-rich-card-glyph-size: 1.5rem;
+  box-sizing: border-box;
+  padding: 0.3rem;
+  border-radius: var(--aparte-radius-md);
+  background: color-mix(in oklab, var(--aparte-stats-accent) 13%, transparent);
+  color: var(--aparte-stats-accent);
+}
+
+.aparte-stats__value {
+  margin: 0;
+  min-inline-size: 0;
+  color: var(--aparte-text);
+  font-size: var(--aparte-stats-value-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+/* A word, not a number: a size that does not shout. */
+.aparte-stats__value[data-format="text"] { letter-spacing: normal; }
+
+.aparte-stats__hint {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-normal);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* ── The change: a pill (arrow, signed number), then what it compares with ── */
+
+.aparte-stats__change {
+  --aparte-stats-tone: var(--aparte-stats-neutral);
+  --aparte-stats-tone-ink: var(--aparte-stats-neutral-ink);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-1) var(--aparte-space-2);
+  min-inline-size: 0;
+  font-size: var(--aparte-font-size-xs);
+  line-height: 1.3;
+}
+
+.aparte-stats__change[data-tone="good"] {
+  --aparte-stats-tone: var(--aparte-stats-good);
+  --aparte-stats-tone-ink: var(--aparte-stats-good-ink);
+}
+
+.aparte-stats__change[data-tone="bad"] {
+  --aparte-stats-tone: var(--aparte-stats-bad);
+  --aparte-stats-tone-ink: var(--aparte-stats-bad-ink);
+}
+
+.aparte-stats__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.15em 0.55em;
+  border-radius: var(--aparte-radius-full);
+  background: color-mix(in oklab, var(--aparte-stats-tone) 14%, transparent);
+  color: var(--aparte-stats-tone-ink);
+  font-weight: var(--aparte-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aparte-stats__arrow {
+  font-size: 0.72em;
+  line-height: 1;
+}
+
+/* Good or bad, as a shape: a check on a filled dot, an exclamation on a ring — told apart
+   without the colour. */
+.aparte-stats__verdict {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.15em;
+  block-size: 1.15em;
+  border-radius: 50%;
+  font-size: 0.78em;
+  font-weight: var(--aparte-font-weight-bold);
+  line-height: 1;
+}
+
+.aparte-stats__change[data-tone="good"] .aparte-stats__verdict {
+  background: var(--aparte-stats-tone-ink);
+  color: var(--aparte-surface-1);
+}
+
+.aparte-stats__change[data-tone="bad"] .aparte-stats__verdict {
+  box-shadow: inset 0 0 0 1.5px var(--aparte-stats-tone-ink);
+}
+
+.aparte-stats__change-label {
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── The sparkline ───────────────────────────────────────────────────── */
+
+.aparte-stats__spark { min-inline-size: 0; }
+
+/* The line draws itself in once, from where time starts. */
+.aparte-stats__sparkline {
+  animation: aparte-stats-reveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes aparte-stats-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* ── tiles ───────────────────────────────────────────────────────────── */
+
+.aparte-stats__tiles {
+  --aparte-stats-columns: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--aparte-stats-columns), minmax(0, 1fr));
+  gap: var(--aparte-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-stats__tiles[data-columns="1"] { --aparte-stats-columns: 1; }
+.aparte-stats__tiles[data-columns="3"] {
+  --aparte-stats-columns: 3;
+  --aparte-stats-value-size: calc(1.5rem * var(--aparte-font-scale));
+}
+
+.aparte-stats__tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  padding: var(--aparte-space-4);
+  border: var(--aparte-border-width) solid var(--aparte-stats-tile-border);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-stats-tile-bg);
+  transition: border-color var(--aparte-duration-fast, 120ms) ease;
+}
+
+.aparte-stats__tile:hover { border-color: var(--aparte-stats-tile-hover-border); }
+
+.aparte-stats__tile > .aparte-stats__value { margin-block-start: var(--aparte-space-1); }
+
+/* Under the hint, at the tile's foot: a row of tiles keeps its charts on one line. */
+.aparte-stats__tile > .aparte-stats__spark {
+  block-size: 2.25rem;
+  margin-block-start: auto;
+  padding-block-start: var(--aparte-space-2);
+}
+
+/* One figure alone: the card is its tile, no panel inside the panel. */
+.aparte-stats__tiles[data-columns="1"] > .aparte-stats__tile {
+  --aparte-stats-value-size: calc(2.25rem * var(--aparte-font-scale));
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.aparte-stats__tiles[data-columns="1"] > .aparte-stats__tile > .aparte-stats__spark { block-size: 3rem; }
+
+@container aparte-stats (max-width: 30rem) {
+  .aparte-stats__tiles[data-columns="3"] {
+    --aparte-stats-columns: 2;
+    --aparte-stats-value-size: calc(1.75rem * var(--aparte-font-scale));
+  }
+}
+
+/* A phone-wide card: one tile per line, each with the whole width for its number. */
+@container aparte-stats (max-width: 19.5rem) {
+  .aparte-stats__tiles,
+  .aparte-stats__tiles[data-columns="3"] { --aparte-stats-columns: 1; }
+}
+
+/* ── list ────────────────────────────────────────────────────────────── */
+
+.aparte-stats__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.aparte-stats__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-3) var(--aparte-space-2);
+  margin-inline: calc(var(--aparte-space-2) * -1);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: 0;
+  transition: background-color var(--aparte-duration-fast, 120ms) ease;
+}
+
+.aparte-stats__row:last-child { border-block-end: 0; }
+.aparte-stats__row:first-child { padding-block-start: 0; }
+.aparte-stats__row:last-child:not(:first-child) { padding-block-end: 0; }
+
+.aparte-stats__list > .aparte-stats__row:hover {
+  background: linear-gradient(to right, transparent, color-mix(in oklab, var(--aparte-text) 3%, transparent) 30%, color-mix(in oklab, var(--aparte-text) 3%, transparent) 70%, transparent);
+}
+
+/* The label and its hint stacked, the glyph beside both. */
+.aparte-stats__row > .aparte-stats__label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--aparte-space-3);
+  row-gap: 0.1rem;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-normal);
+}
+
+.aparte-stats__row > .aparte-stats__label:not(:has(> .aparte-stats__icon)) { grid-template-columns: minmax(0, 1fr); }
+.aparte-stats__row > .aparte-stats__label > .aparte-stats__icon { grid-row: span 2; }
+.aparte-stats__row > .aparte-stats__label > .aparte-stats__label-text,
+.aparte-stats__row > .aparte-stats__label > .aparte-stats__hint { grid-column: -2 / -1; }
+
+.aparte-stats__row-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--aparte-space-1) var(--aparte-space-3);
+  margin: 0;
+  text-align: end;
+}
+
+.aparte-stats__row-value > .aparte-stats__value {
+  font-size: var(--aparte-font-size-base);
+  letter-spacing: normal;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.aparte-stats__row-value > .aparte-stats__value[data-format="text"] { white-space: normal; }
+
+.aparte-stats__row-value > .aparte-stats__spark {
+  inline-size: 3.5rem;
+  block-size: 1.25rem;
+}
+
+.aparte-stats__row-value > .aparte-stats__change { justify-content: flex-end; }
+
+@container aparte-stats (max-width: 19.5rem) {
+  .aparte-stats__row-value > .aparte-stats__spark { display: none; }
+}
+
+/* ── hero ────────────────────────────────────────────────────────────── */
+
+.aparte-stats__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-stats__hero-figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-2) var(--aparte-space-4);
+  min-inline-size: 0;
+}
+
+.aparte-stats__hero .aparte-stats__value {
+  font-size: var(--aparte-stats-hero-value-size);
+  font-weight: var(--aparte-font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.aparte-stats__hero .aparte-stats__change { font-size: var(--aparte-font-size-sm); }
+.aparte-stats__hero .aparte-stats__hint { font-size: var(--aparte-font-size-sm); }
+
+/* The chart runs to the card's edges, its area fading into the band below. */
+.aparte-stats__hero > .aparte-stats__spark {
+  block-size: 5rem;
+  margin-block-start: var(--aparte-space-3);
+  margin-inline: calc(var(--aparte-stats-pad) * -1);
+}
+
+.aparte-stats__hero:last-child > .aparte-stats__spark { margin-block-end: calc(var(--aparte-stats-pad) * -1); }
+
+.aparte-stats__hero .aparte-rich-card__sparkline-area { opacity: 0.18; }
+
+.aparte-stats__minis {
+  --aparte-stats-columns: 3;
+  display: grid;
+  grid-template-columns: repeat(var(--aparte-stats-columns), minmax(0, 1fr));
+  gap: var(--aparte-space-4) var(--aparte-space-5);
+  margin: 0 calc(var(--aparte-stats-pad) * -1) calc(var(--aparte-stats-pad) * -1);
+  padding: var(--aparte-space-5) var(--aparte-stats-pad);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  background: var(--aparte-stats-band-bg);
+}
+
+.aparte-stats__minis[data-count="1"] { --aparte-stats-columns: 1; }
+.aparte-stats__minis[data-count="2"],
+.aparte-stats__minis[data-count="4"] { --aparte-stats-columns: 2; }
+
+.aparte-stats__mini {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-stats__mini > .aparte-stats__label {
+  font-size: var(--aparte-font-size-xs);
+  --aparte-rich-card-glyph-size: 1.25rem;
+}
+
+.aparte-stats__mini > .aparte-stats__label > .aparte-stats__icon { padding: 0.2rem; }
+
+.aparte-stats__mini > .aparte-stats__value {
+  font-size: var(--aparte-font-size-lg);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.aparte-stats__mini-change { margin: 0; }
+
+.aparte-stats__mini-change .aparte-stats__pill {
+  padding: 0;
+  background: none;
+}
+
+@container aparte-stats (max-width: 19.5rem) {
+  .aparte-stats__minis,
+  .aparte-stats__minis[data-count] { --aparte-stats-columns: 2; }
+  .aparte-stats__minis[data-count="1"] { --aparte-stats-columns: 1; }
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-title { inline-size: 9rem; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-label { inline-size: 5rem; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-big {
+  inline-size: 6.5rem;
+  block-size: 2rem;
+  border-radius: var(--aparte-radius-md);
+}
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-pill {
+  inline-size: 3.5rem;
+  block-size: 1.1rem;
+  border-radius: var(--aparte-radius-full);
+}
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-value { inline-size: 3.5rem; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__row .aparte-stats__sk-label { inline-size: 8rem; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__row .aparte-stats__sk-value { justify-self: end; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__hero .aparte-stats__sk-big { inline-size: 9rem; block-size: 2.75rem; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__sk-chart {
+  inline-size: 100%;
+  block-size: 4rem;
+  margin-block: var(--aparte-space-3) var(--aparte-space-5);
+  border-radius: var(--aparte-radius-md);
+}
+.aparte-stats-card[data-state="loading"] .aparte-stats__minis { margin-block-start: 0; }
+.aparte-stats-card[data-state="loading"] .aparte-stats__mini .aparte-stats__sk-label { inline-size: 70%; }
+.aparte-stats-card[data-state="loading"] .aparte-skeleton--text + .aparte-skeleton--text { margin-block-start: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-stats__sparkline { animation: none; }
+}
+
+@media (max-width: 380px) {
+  .aparte-stats-card { --aparte-stats-pad: var(--aparte-space-5); }
+}

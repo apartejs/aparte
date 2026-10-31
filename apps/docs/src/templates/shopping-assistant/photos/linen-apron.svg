@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="A sage green linen apron with a front pocket">
+  <defs>
+    <linearGradient id="linen" x1="0" x2="1">
+      <stop offset="0" stop-color="#a9bda4"/>
+      <stop offset="1" stop-color="#7f977a"/>
+    </linearGradient>
+    <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse">
+      <path d="M0 3h6" stroke="#fff" stroke-opacity="0.1" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <ellipse cx="120" cy="220" rx="70" ry="6" fill="#000" opacity="0.12"/>
+  <path d="M98 50c-4-34 48-34 44 0" fill="none" stroke="#6f8a6b" stroke-width="4"/>
+  <path d="M60 116c-16 4-26 14-32 26" fill="none" stroke="#6f8a6b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M180 116c16 4 26 14 32 26" fill="none" stroke="#6f8a6b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M94 48h52l2 46c18 4 30 10 34 18l-10 98c0 4-3 6-7 6H75c-4 0-7-2-7-6l-10-98c4-8 16-14 34-18z" fill="url(#linen)"/>
+  <path d="M94 48h52l2 46c18 4 30 10 34 18l-10 98c0 4-3 6-7 6H75c-4 0-7-2-7-6l-10-98c4-8 16-14 34-18z" fill="url(#weave)"/>
+  <rect x="92" y="134" width="56" height="40" rx="5" fill="#768f71"/>
+  <rect x="96" y="138" width="48" height="32" rx="3" fill="none" stroke="#e8efe5" stroke-opacity="0.7" stroke-width="1.4" stroke-dasharray="4 3"/>
+  <path d="M120 134v40" stroke="#5f775b" stroke-width="1.6"/>
+  <path d="M100 56v34" stroke="#fff" stroke-opacity="0.3" stroke-width="4" stroke-linecap="round"/>
+</svg>

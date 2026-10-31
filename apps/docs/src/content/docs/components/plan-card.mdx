@@ -1,0 +1,69 @@
+---
+title: Plan card
+description: The plan an agent updates while it works — each step's status, its time, what failed — as a checklist, a timeline or one line.
+sidebar:
+  label: Plan
+catalog:
+  group: cards
+  order: 8
+  demos: [card-plan, card-plan-timeline, card-plan-compact, card-plan-live, card-plan-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-plan" />
+
+An agent that works through several steps sends its plan again each time a step moves. The card
+draws every version into the same element, and a status change moves no row: the title, its
+bold form, the wording a step wears while it runs ("Writing the notes") and the time slot are all
+reserved from the first draw.
+
+## Variants
+
+### Timeline
+
+<Variant id="card-plan-timeline" />
+
+Each step on a rail with its time; a failed step keeps its detail. `timed: true` reserves the
+time slots before the first step has one.
+
+### Compact
+
+<Variant id="card-plan-compact" />
+
+One line, for a plan that runs in a small space.
+
+### Updated while the agent works
+
+<Variant id="card-plan-live" />
+
+A todo tool's input is the list itself, and its result is only "ok": `map` reads the input. Here
+the same call is sent again every second and a half, the way an agent sends it.
+
+### While the call runs
+
+<Variant id="card-plan-running" />
+
+When the call's input is already the plan, the card draws it at once rather than a skeleton.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+
+setupPlanCard({ tool: 'update_plan' });
+// A tool whose input is the list and whose result is only "ok" reads its input instead:
+setupPlanCard({ tool: 'write_todos', map: (_result, input) => input });
+```
+
+`readPlan` reads a list of steps or of strings, a Markdown checklist, and the todo lists agents
+already write. The statuses and fields are in [the guide](/guides/cards/#an-agents-plan--plan).
+
+## Related
+
+- [Tool call](/components/tool/) — the row of each call the plan describes.
+- [Status line](/components/status-line/) — one line of what your app is doing now.

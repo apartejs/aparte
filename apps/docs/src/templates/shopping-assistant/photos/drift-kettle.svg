@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="A cream enamel stovetop kettle with a wooden handle">
+  <defs>
+    <linearGradient id="enamel" x1="0" x2="1">
+      <stop offset="0" stop-color="#fbf6ec"/>
+      <stop offset="0.45" stop-color="#f1e8d8"/>
+      <stop offset="1" stop-color="#d9ccb5"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" x2="1">
+      <stop offset="0" stop-color="#c08a5c"/>
+      <stop offset="1" stop-color="#8a5a37"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="120" cy="212" rx="80" ry="7" fill="#000" opacity="0.13"/>
+  <path d="M76 128c-2-64 90-64 88 0" fill="none" stroke="url(#wood)" stroke-width="10" stroke-linecap="round"/>
+  <rect x="70" y="120" width="12" height="16" rx="4" fill="#2d2a26"/>
+  <rect x="158" y="120" width="12" height="16" rx="4" fill="#2d2a26"/>
+  <path d="M64 166 28 136c-2-2-1-6 2-6h4l40 22z" fill="url(#enamel)"/>
+  <path d="M28 136c-3-2-2-7 2-7h5l-2 8z" fill="#2d2a26"/>
+  <path d="M54 196c-4 0-6-4-5-8 8-48 34-80 71-80s63 32 71 80c1 4-1 8-5 8z" fill="url(#enamel)"/>
+  <path d="M70 168c6-26 18-42 32-50" fill="none" stroke="#fff" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round"/>
+  <rect x="50" y="188" width="140" height="11" rx="5.5" fill="#2d2a26"/>
+  <ellipse cx="120" cy="109" rx="28" ry="7" fill="#efe5d3" stroke="#2d2a26" stroke-width="2.5"/>
+  <circle cx="120" cy="98" r="7.5" fill="#2d2a26"/>
+</svg>

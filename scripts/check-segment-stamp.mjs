@@ -39,6 +39,20 @@ const ROOTS = ['packages'];
 const STAMP_HOME = 'packages/core/src/utils/segments.ts';
 
 /**
+ * Lines that write a `startedAt` that is not a segment's, each with what it is. The names
+ * are distinctive, not unique: a domain can have a start time of its own. An exemption names
+ * the LINE, not the file: a real segment stamp added beside it is still caught.
+ */
+const OTHER_TIMESTAMPS = [
+    {
+        file: 'packages/plugins/cards/src/plan/index.ts',
+        line: /^\s*const startedAt = toDate\(pick\(r, START_KEYS\)\)/,
+        why: "a plan step's own start time, read from a tool's result into the card's data; never a segment",
+    },
+];
+const otherTimestamp = (rel, line) => OTHER_TIMESTAMPS.some((o) => o.file === rel && o.line.test(line));
+
+/**
  * Files allowed to grow or shrink a segment array.
  *
  * The two OWNERS stamp on the way in. The bubble holds a rendered VIEW of a list it
@@ -130,7 +144,7 @@ for (const root of ROOTS) {
 
             if (TIMESTAMP_WRITE.test(line)) {
                 seen++;
-                if (rel !== STAMP_HOME) {
+                if (rel !== STAMP_HOME && !otherTimestamp(rel, line)) {
                     offenders.push(`[timestamp] ${where}`);
                 }
             }

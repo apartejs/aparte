@@ -1,0 +1,60 @@
+---
+title: Media card
+description: Pictures, videos and sounds a tool returns — one large, a gallery as a mosaic, or a row of thumbnails, every picture opening in a lightbox.
+sidebar:
+  label: Media
+catalog:
+  group: cards
+  order: 10
+  demos: [card-media, card-media-gallery, card-media-strip, card-media-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-media" />
+
+What an image model draws, or a photo search finds. A picture opens in a lightbox; a video plays
+in the browser's own `<video>` and a sound in its `<audio>`; a YouTube or Vimeo page is a picture
+that links to it, so no player script and no request your app did not make. `width` and `height`
+keep the space before the picture loads, so nothing jumps when it does.
+
+## Variants
+
+### Gallery
+
+<Variant id="card-media-gallery" />
+
+A mosaic.
+
+### Strip
+
+<Variant id="card-media-strip" />
+
+A row of thumbnails with their titles.
+
+### While the call runs
+
+<Variant id="card-media-running" />
+
+The prompt or the query, while the pictures are made or found.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupMediaCard } from '@aparte/plugin-cards/media';
+
+setupMediaCard({ tool: 'generate_image' }); // an image model's { data: [{ url }] } as it is
+setupMediaCard({ tool: 'search_photos', map: (result) => result.results, variant: 'gallery' });
+```
+
+A medium's address must be `http(s)` or a path on your own site. The fields, and the readers for
+Unsplash, Pexels and image models, are in [the guide](/guides/cards/#pictures-videos-sounds--media).
+
+## Related
+
+- [Items card](/components/items-card/) — pictures with a title and a link.
+- [Attachments](/components/attachments/) — the files a person sends.

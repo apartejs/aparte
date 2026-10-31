@@ -519,6 +519,88 @@ export const GUIDE_DEMOS: DemoEntry[] = [
 </script>`,
     },
     {
+        id: 'charts-streaming',
+        title: 'Two charts drawn while their fences stream',
+        plugins: ['markdown', 'charts'],
+        html: `<aparte-chat-bubble message-id="a1" data-role="assistant" streaming></aparte-chat-bubble>
+
+<script>
+  // An echarts fence and a chartjs fence: each library's own config, as JSON, drawn as it arrives.
+  const bubble = document.querySelector('aparte-chat-bubble');
+  const echarts = JSON.stringify({
+    title: { text: 'Revenue by quarter (k€)' }, tooltip: { trigger: 'axis' }, legend: {},
+    xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'] }, yAxis: { type: 'value' },
+    series: [{ name: '2025', type: 'bar', data: [120, 132, 101, 134] }, { name: '2026', type: 'bar', data: [140, 162, 151, 190] }],
+  }, null, 2);
+  const chartjs = JSON.stringify({
+    type: 'line',
+    data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      datasets: [{ label: 'Visitors', data: [820, 932, 901, 934, 1290, 1330, 1320], fill: true, tension: 0.35 }] },
+    options: { plugins: { title: { display: true, text: 'This week' } } },
+  }, null, 2);
+  bubble.setSegments([
+    { id: 's1', type: 'code', language: 'echarts', content: '', isStreaming: true },
+    { id: 's2', type: 'code', language: 'chartjs', content: '', isStreaming: true },
+  ]);
+  const stream = (id, source, done) => {
+    let i = 0;
+    const tick = setInterval(() => {
+      bubble.appendToSegment(id, source.slice(i, i + 12));
+      i += 12;
+      if (i >= source.length) {
+        clearInterval(tick);
+        bubble.updateSegment(id, { isStreaming: false });
+        done?.();
+      }
+    }, 50);
+  };
+  stream('s1', echarts, () => stream('s2', chartjs, () => bubble.removeAttribute('streaming')));
+</script>`,
+    },
+    {
+        id: 'cards-weather',
+        title: 'A weather tool drawn as a card, in three variants',
+        plugins: ['cards'],
+        html: `<aparte-chat-viewport style="height: 30rem"></aparte-chat-viewport>
+
+<script>
+  // In an app: import { setupWeatherCard } from '@aparte/plugin-cards/weather';
+  const { setupWeatherCard } = window.apartePlugins.cards.weather;
+
+  // Your tool keeps its own fields; map says which is which. The variant follows the data.
+  setupWeatherCard({
+    tool: 'get_weather',
+    map: (r) => ({ location: r.city, condition: r.sky, temperature: r.temp, feelsLike: r.feels,
+      high: r.max, low: r.min, humidity: r.humidity, wind: r.wind, precipitation: r.rain,
+      hourly: r.hours, daily: r.days }),
+    variant: (data) => (data.daily.length > 2 ? 'forecast' : data.hourly.length ? 'hero' : 'compact'),
+  });
+
+  const hour = (n) => new Date(Date.now() + n * 3600000);
+  const day = (n) => new Date(Date.now() + n * 86400000);
+  const call = (id, result) => ({
+    id, type: 'tool_call', status: 'resolved',
+    toolCall: { id: 'c-' + id, name: 'get_weather', input: { city: result.city } },
+    structuredResult: result,
+  });
+
+  const viewport = document.querySelector('aparte-chat-viewport');
+  viewport.appendMessage({ id: 'u1', role: 'user', content: 'Weather in Lille?', timestamp: Date.now() });
+  viewport.appendMessage({ id: 'a1', role: 'assistant', timestamp: Date.now(), segments: [call('s1', {
+    city: 'Lille', sky: 'partly-cloudy', temp: 11, feels: 9, max: 14, min: 7, humidity: 78,
+    wind: { speed: 18, direction: 240 }, rain: 40,
+    hours: [11, 12, 13, 14, 13, 12, 10, 9].map((t, i) => ({ time: hour(i), temperature: t, condition: i > 4 ? 'rain' : 'partly-cloudy', precipitation: i > 4 ? 60 : 10 })),
+  })] });
+  viewport.appendMessage({ id: 'u2', role: 'user', content: 'And Tokyo this week? Paris right now?', timestamp: Date.now() });
+  viewport.appendMessage({ id: 'a2', role: 'assistant', timestamp: Date.now(), segments: [
+    call('s2', { city: 'Tokyo', sky: 'rain', temp: 17, max: 19, min: 13,
+      days: [[19, 13, 'rain', 80], [22, 14, 'partly-cloudy', 10], [24, 16, 'clear', 0], [21, 15, 'cloudy', 20], [18, 12, 'thunder', 70]]
+        .map(([high, low, condition, precipitation], i) => ({ date: day(i), high, low, condition, precipitation })) }),
+    call('s3', { city: 'Paris', sky: 'clear', temp: 6, max: 13, min: 4 }),
+  ] });
+</script>`,
+    },
+    {
         id: 'citations',
         title: 'A reply that cites its sources',
         plugins: ['markdown'],

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <pattern id="wood" width="640" height="40" patternUnits="userSpaceOnUse">
+      <rect width="640" height="40" fill="#a8744f"/>
+      <rect y="38" width="640" height="2" fill="#86583a"/>
+      <path d="M40 14 Q120 8 200 16 M300 24 Q400 18 520 26" stroke="#94613f" stroke-width="2" fill="none"/>
+    </pattern>
+    <radialGradient id="plate" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0.7" stop-color="#fbf8f2"/>
+      <stop offset="1" stop-color="#ddd6c8"/>
+    </radialGradient>
+    <linearGradient id="fish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9b8a0"/>
+      <stop offset="1" stop-color="#8f7b62"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#wood)"/>
+  <rect x="40" y="40" width="250" height="320" rx="10" fill="#f1e9da" opacity="0.92"/>
+  <g stroke="#c8553d" stroke-width="3" opacity="0.6">
+    <path d="M40 80 H290 M40 320 H290"/>
+  </g>
+  <circle cx="380" cy="200" r="140" fill="url(#plate)"/>
+  <circle cx="380" cy="200" r="104" fill="none" stroke="#e8e1d3" stroke-width="3"/>
+  <g transform="rotate(-14 380 200)">
+    <path d="M270 200 C310 150 420 150 460 200 C420 250 310 250 270 200Z" fill="url(#fish)"/>
+    <path d="M460 200 L506 168 L496 200 L506 232Z" fill="#8f7b62"/>
+    <circle cx="292" cy="194" r="5" fill="#2b2b2b"/>
+    <g stroke="#4a3426" stroke-width="5" stroke-linecap="round" opacity="0.7">
+      <path d="M330 168 L316 232 M366 164 L352 236 M402 166 L388 234 M436 176 L424 226"/>
+    </g>
+  </g>
+  <g>
+    <circle cx="290" cy="300" r="28" fill="#f6d55c"/>
+    <circle cx="290" cy="300" r="22" fill="#fbe78f"/>
+    <path d="M290 278 V322 M268 300 H312 M274 284 L306 316 M306 284 L274 316" stroke="#f6d55c" stroke-width="2"/>
+  </g>
+  <g fill="#5b8c4e">
+    <ellipse cx="440" cy="300" rx="16" ry="8" transform="rotate(30 440 300)"/>
+    <ellipse cx="458" cy="290" rx="14" ry="7" transform="rotate(-20 458 290)"/>
+  </g>
+  <circle cx="560" cy="80" r="46" fill="#ece4d4" opacity="0.6"/>
+  <circle cx="560" cy="80" r="36" fill="#7a1f2b"/>
+  <circle cx="548" cy="70" r="10" fill="#a33a48" opacity="0.6"/>
+  <g fill="#d9cfbd">
+    <rect x="94" y="110" width="12" height="190" rx="6"/>
+    <rect x="130" y="110" width="12" height="190" rx="6"/>
+  </g>
+  <path d="M94 110 V160 M100 110 V160 M106 110 V160" stroke="#c3b8a3" stroke-width="2"/>
+</svg>

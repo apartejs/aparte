@@ -1,0 +1,69 @@
+---
+title: Order card
+description: What was bought or booked, what it cost and where it stands — a receipt, one row, or the confirmation of a booking.
+sidebar:
+  label: Order
+catalog:
+  group: cards
+  order: 6
+  demos: [card-order, card-order-compact, card-order-confirmation, card-order-running, card-order-approval]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-order" />
+
+The whole record, as a receipt: the lines, the totals (worked out when the tool leaves them out,
+and a tool's own total always wins), the payment, the delivery with its estimate and a Track
+button, and the address. Its status is a word in the chat's language.
+
+## Variants
+
+### Compact
+
+<Variant id="card-order-compact" />
+
+One row, for a list of past orders.
+
+### A booking confirmed
+
+<Variant id="card-order-confirmation" />
+
+`kind: 'booking'` with the `confirmation` variant: the moment it is placed. A hotel's
+`"2026-11-14"` is a day, not midnight, and the card counts the nights between two of them.
+
+### While the call runs
+
+<Variant id="card-order-running" />
+
+The order number the call names is shown, not shimmered: it is already known.
+
+### Waiting for a person
+
+<Variant id="card-order-approval" />
+
+An order is the kind of call that waits for a yes. While it waits, and once it is refused, the
+card is one line that says so: a card drawn from a call that did not run would show a purchase
+that did not happen. The decision itself is asked by the [approval](/components/approval/) panel.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupOrderCard } from '@aparte/plugin-cards/order';
+
+setupOrderCard({ tool: 'get_order' });
+setupOrderCard({ tool: 'book_room', map: (result) => ({ ...result, kind: 'booking' }), variant: 'confirmation' });
+```
+
+`readOrder` already takes a Shopify or WooCommerce order and a Stripe Checkout session (say
+`minorUnits: true` for amounts in cents). The fields are in
+[the guide](/guides/cards/#orders-and-bookings--order).
+
+## Related
+
+- [Approval](/components/approval/) — the question an order waits on.
+- [Product card](/components/product-card/) — the products before they are bought.

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.15" r="0.75">
+      <stop offset="0" stop-color="#f6c77a"/>
+      <stop offset="0.45" stop-color="#9a5b34"/>
+      <stop offset="1" stop-color="#3a2216"/>
+    </radialGradient>
+    <linearGradient id="barrel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9c5f35"/>
+      <stop offset="0.5" stop-color="#7a4527"/>
+      <stop offset="1" stop-color="#4f2c19"/>
+    </linearGradient>
+    <radialGradient id="end" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#b9774a"/>
+      <stop offset="1" stop-color="#6a3a20"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#glow)"/>
+  <path d="M0 400 V120 Q320 -40 640 120 V400Z" fill="none" stroke="#2c1a10" stroke-width="22" opacity="0.5"/>
+  <g stroke="#5a3520" stroke-width="2" opacity="0.5" fill="none">
+    <path d="M40 140 Q320 10 600 140"/>
+    <path d="M70 170 Q320 50 570 170"/>
+  </g>
+  <path d="M310 40 V70" stroke="#2c1a10" stroke-width="3"/>
+  <circle cx="310" cy="80" r="12" fill="#ffe2a3"/>
+  <circle cx="310" cy="80" r="26" fill="#ffe2a3" opacity="0.25"/>
+  <rect y="356" width="640" height="44" fill="#2c1a10"/>
+  <g>
+    <g transform="translate(20 236)">
+      <rect x="40" y="0" width="150" height="120" rx="28" fill="url(#barrel)"/>
+      <ellipse cx="40" cy="60" rx="34" ry="60" fill="url(#end)"/>
+      <path d="M80 4 V116 M150 4 V116" stroke="#3a2216" stroke-width="6"/>
+      <circle cx="40" cy="60" r="7" fill="#3a2216"/>
+    </g>
+    <g transform="translate(230 236)">
+      <rect x="40" y="0" width="150" height="120" rx="28" fill="url(#barrel)"/>
+      <ellipse cx="40" cy="60" rx="34" ry="60" fill="url(#end)"/>
+      <path d="M80 4 V116 M150 4 V116" stroke="#3a2216" stroke-width="6"/>
+      <circle cx="40" cy="60" r="7" fill="#3a2216"/>
+    </g>
+    <g transform="translate(440 236)">
+      <rect x="40" y="0" width="150" height="120" rx="28" fill="url(#barrel)"/>
+      <ellipse cx="40" cy="60" rx="34" ry="60" fill="url(#end)"/>
+      <path d="M80 4 V116 M150 4 V116" stroke="#3a2216" stroke-width="6"/>
+      <circle cx="40" cy="60" r="7" fill="#3a2216"/>
+    </g>
+    <g transform="translate(126 128)">
+      <rect x="40" y="0" width="150" height="110" rx="26" fill="url(#barrel)"/>
+      <ellipse cx="40" cy="55" rx="32" ry="55" fill="url(#end)"/>
+      <path d="M80 4 V106 M150 4 V106" stroke="#3a2216" stroke-width="6"/>
+    </g>
+    <g transform="translate(336 128)">
+      <rect x="40" y="0" width="150" height="110" rx="26" fill="url(#barrel)"/>
+      <ellipse cx="40" cy="55" rx="32" ry="55" fill="url(#end)"/>
+      <path d="M80 4 V106 M150 4 V106" stroke="#3a2216" stroke-width="6"/>
+    </g>
+  </g>
+  <g transform="translate(560 300)">
+    <path d="M-10 0 H10 L6 -34 Q0 -50 -6 -34Z" fill="#f3e6d2" opacity="0.9"/>
+    <path d="M-7 -12 H7 L5 -30 Q0 -40 -5 -30Z" fill="#8c1c2c"/>
+    <rect x="-1.5" y="0" width="3" height="24" fill="#f3e6d2" opacity="0.9"/>
+    <rect x="-10" y="22" width="20" height="4" rx="2" fill="#f3e6d2" opacity="0.9"/>
+  </g>
+</svg>

@@ -1,0 +1,684 @@
+/* =========================================
+   The place card — @aparte/plugin-cards/place
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     card      a tile: the photo with its category, the name, the rating, whether it is
+               open, the address, three buttons. Several scroll sideways as tiles.
+     compact   one row: a thumbnail, the name and the distance, the rating, the status.
+               Several are stacked rows in one card.
+     detail    one place in full: the tile's head, the buttons, the ways in (address,
+               phone, site), the week's hours with today marked, the tags.
+   Every colour comes from core's tokens, or from a `--aparte-place-*` token here: the
+   three status inks and one hue per kind of place, which tint the placeholder and the
+   marker. A theme repaints the card by setting them.
+   */
+
+.aparte-place-card {
+  /* What "open", "closes soon" and "closed" are written in: the derived inks, which are
+     readable as text on either ground. */
+  --aparte-place-open: var(--aparte-success-ink);
+  --aparte-place-soon: var(--aparte-warning-ink);
+  --aparte-place-closed: var(--aparte-error-ink);
+  --aparte-place-media-ratio: 16 / 9;
+  --aparte-place-detail-ratio: 2 / 1;
+  --aparte-place-thumb-size: 3.5rem;
+  --aparte-place-on-hue: #ffffff;
+
+  /* One hue per kind of place: the marker on the placeholder, the badge's glyph. */
+  --aparte-place-kind-restaurant: #e8710a;
+  --aparte-place-kind-cafe: #a0612b;
+  --aparte-place-kind-bar: #9c3fd1;
+  --aparte-place-kind-hotel: #2f6fdf;
+  --aparte-place-kind-shop: #d6336c;
+  --aparte-place-kind-museum: #5b5bd6;
+  --aparte-place-kind-park: #2f9e44;
+  --aparte-place-kind-gym: #e03131;
+  --aparte-place-kind-pharmacy: #0c9488;
+  --aparte-place-kind-place: var(--aparte-primary);
+}
+
+/* A tile reads its kind's hue once; everything inside it says `--aparte-place-hue`. */
+.aparte-place { --aparte-place-hue: var(--aparte-place-kind-place); }
+.aparte-place[data-kind="restaurant"] { --aparte-place-hue: var(--aparte-place-kind-restaurant); }
+.aparte-place[data-kind="cafe"] { --aparte-place-hue: var(--aparte-place-kind-cafe); }
+.aparte-place[data-kind="bar"] { --aparte-place-hue: var(--aparte-place-kind-bar); }
+.aparte-place[data-kind="hotel"] { --aparte-place-hue: var(--aparte-place-kind-hotel); }
+.aparte-place[data-kind="shop"] { --aparte-place-hue: var(--aparte-place-kind-shop); }
+.aparte-place[data-kind="museum"] { --aparte-place-hue: var(--aparte-place-kind-museum); }
+.aparte-place[data-kind="park"] { --aparte-place-hue: var(--aparte-place-kind-park); }
+.aparte-place[data-kind="gym"] { --aparte-place-hue: var(--aparte-place-kind-gym); }
+.aparte-place[data-kind="pharmacy"] { --aparte-place-hue: var(--aparte-place-kind-pharmacy); }
+
+/* A single tile is narrower than the card's default: it is a photo and five lines. */
+.aparte-place-card[data-variant="card"] { --aparte-rich-card-max-inline-size: 22rem; }
+
+/* ── The place ───────────────────────────────────────────────────────── */
+
+.aparte-place {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  color: var(--aparte-text);
+}
+
+.aparte-place__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  padding: var(--aparte-space-6) var(--aparte-space-7) var(--aparte-space-7);
+}
+
+.aparte-place__name {
+  overflow: hidden;
+  font-size: var(--aparte-font-size-lg);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-place__link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--aparte-radius-xs);
+}
+
+.aparte-place__link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.aparte-place__link:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+/* A tile, a row and a lone card are one target: the name's link covers the whole of it,
+   and its buttons sit above that cover. The ring is then drawn around the target, inset,
+   because the card clips what passes its edge. */
+.aparte-place--tile .aparte-place__name .aparte-place__link::after,
+.aparte-place__row .aparte-place__name .aparte-place__link::after,
+.aparte-place-card[data-variant="card"] > .aparte-place .aparte-place__name .aparte-place__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.aparte-place--tile .aparte-place__name .aparte-place__link:focus-visible,
+.aparte-place__row .aparte-place__name .aparte-place__link:focus-visible,
+.aparte-place-card[data-variant="card"] > .aparte-place .aparte-place__name .aparte-place__link:focus-visible {
+  outline: none;
+}
+
+.aparte-place--tile .aparte-place__name .aparte-place__link:focus-visible::after,
+.aparte-place__row .aparte-place__name .aparte-place__link:focus-visible::after,
+.aparte-place-card[data-variant="card"] > .aparte-place .aparte-place__name .aparte-place__link:focus-visible::after {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(var(--aparte-focus-outline-width) * -1);
+}
+
+.aparte-place--tile:hover .aparte-place__name .aparte-place__link,
+.aparte-place__row:hover .aparte-place__name .aparte-place__link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.aparte-place__dot {
+  flex: none;
+  color: var(--aparte-text-muted);
+  opacity: 0.7;
+}
+
+.aparte-place__score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-place__price {
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.aparte-place__price-on {
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-medium);
+}
+
+.aparte-place__price-off { opacity: 0.35; }
+
+.aparte-place__category {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Open, closes soon, closed ───────────────────────────────────────── */
+
+.aparte-place__status {
+  --aparte-place-status: var(--aparte-place-open);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--aparte-space-2);
+  margin: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-place__status[data-status="soon"] { --aparte-place-status: var(--aparte-place-soon); }
+.aparte-place__status[data-status="closed"] { --aparte-place-status: var(--aparte-place-closed); }
+
+.aparte-place__status-dot {
+  position: relative;
+  flex: none;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  margin-inline-end: var(--aparte-space-1);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-place-status);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--aparte-place-status) 20%, transparent);
+}
+
+/* An open place breathes: a ring leaves the dot every few seconds. Still under reduced motion. */
+.aparte-place__status[data-status="open"] .aparte-place__status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--aparte-place-status);
+  animation: aparte-place-pulse 2.6s ease-out infinite;
+}
+
+.aparte-place__state {
+  color: var(--aparte-place-status);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+@keyframes aparte-place-pulse {
+  0% { opacity: 0.55; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(2.6); }
+}
+
+/* ── Address and the lines with a glyph ──────────────────────────────── */
+
+.aparte-place__address {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  white-space: nowrap;
+}
+
+.aparte-place__address-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aparte-place__distance {
+  flex: none;
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-medium);
+  white-space: nowrap;
+}
+
+.aparte-place__line-glyph {
+  --aparte-rich-card-glyph-size: 1rem;
+  color: var(--aparte-text-muted);
+}
+
+/* ── The photo, or its placeholder ───────────────────────────────────── */
+
+.aparte-place__media {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--aparte-surface-2);
+}
+
+.aparte-place__media--wide { aspect-ratio: var(--aparte-place-media-ratio); }
+
+.aparte-place__img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--aparte-duration-slower, 0.3s) ease;
+}
+
+.aparte-place--tile:hover .aparte-place__img,
+.aparte-place-card[data-variant="card"] > .aparte-place:hover .aparte-place__img {
+  transform: scale(1.04);
+}
+
+/* No photo: a soft map in the kind's hue — two avenues, a grid of streets, a glow — and
+   the kind's marker standing on it. Decoration, drawn by the sheet: no map tile is fetched. */
+.aparte-place__placeholder {
+  --aparte-place-street: color-mix(in oklab, var(--aparte-surface-1) 72%, transparent);
+  --aparte-place-avenue: color-mix(in oklab, var(--aparte-surface-1) 92%, transparent);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in oklab, var(--aparte-place-hue) 24%, transparent) 0 14%, transparent 48%),
+    linear-gradient(118deg, transparent 0 36%, var(--aparte-place-avenue) 36% 39.5%, transparent 39.5%),
+    linear-gradient(22deg, transparent 0 63%, var(--aparte-place-avenue) 63% 65.5%, transparent 65.5%),
+    repeating-linear-gradient(118deg, transparent 0 22px, var(--aparte-place-street) 22px 24px),
+    repeating-linear-gradient(28deg, transparent 0 31px, var(--aparte-place-street) 31px 33px),
+    color-mix(in oklab, var(--aparte-place-hue) 13%, var(--aparte-surface-2));
+}
+
+/* The marker's shadow on the ground. */
+.aparte-place__placeholder::after {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(50% + 1.45rem);
+  inset-inline-start: 50%;
+  inline-size: 1.4rem;
+  block-size: 0.4rem;
+  margin-inline-start: -0.7rem;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.22);
+  filter: blur(2px);
+}
+
+/* A drop pin: a square with three round corners, turned so the sharp one points down. */
+.aparte-place__marker {
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  margin-block-end: 0.9rem;
+  border-radius: 50% 50% 50% 0;
+  background: var(--aparte-place-hue);
+  color: var(--aparte-place-on-hue);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--aparte-surface-1) 85%, transparent),
+    0 8px 16px -6px color-mix(in oklab, var(--aparte-place-hue) 70%, black);
+  transform: rotate(-45deg);
+}
+
+.aparte-place__marker-glyph {
+  --aparte-rich-card-glyph-size: 1.3rem;
+  transform: rotate(45deg);
+}
+
+.aparte-place__media--thumb {
+  inline-size: var(--aparte-place-thumb-size);
+  block-size: var(--aparte-place-thumb-size);
+  border-radius: var(--aparte-radius-lg);
+}
+
+/* In a thumbnail the placeholder is only the kind's glyph on its tint. */
+.aparte-place__media--thumb .aparte-place__placeholder {
+  background: color-mix(in oklab, var(--aparte-place-hue) 15%, var(--aparte-surface-1));
+}
+
+.aparte-place__media--thumb .aparte-place__placeholder::after { content: none; }
+
+.aparte-place__media--thumb .aparte-place__marker {
+  inline-size: auto;
+  block-size: auto;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--aparte-place-hue);
+  transform: none;
+}
+
+.aparte-place__media--thumb .aparte-place__marker-glyph {
+  --aparte-rich-card-glyph-size: 1.5rem;
+  transform: none;
+}
+
+/* The category, over the photo: a frosted chip, which reads on any picture. */
+.aparte-place__badge {
+  position: absolute;
+  inset-block-start: var(--aparte-space-5);
+  inset-inline-start: var(--aparte-space-5);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  max-inline-size: calc(100% - var(--aparte-space-5) * 2);
+  padding-block: var(--aparte-space-2);
+  padding-inline: var(--aparte-space-3) var(--aparte-space-4);
+  border-radius: var(--aparte-radius-full);
+  background: color-mix(in oklab, var(--aparte-surface-1) 86%, transparent);
+  backdrop-filter: blur(8px) saturate(1.4);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.14);
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: 1.2;
+}
+
+.aparte-place__badge-glyph {
+  --aparte-rich-card-glyph-size: 0.95rem;
+  color: var(--aparte-place-hue);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+
+.aparte-place__actions {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-3);
+  margin-block-start: var(--aparte-space-5);
+}
+
+.aparte-place__action {
+  gap: var(--aparte-space-2);
+}
+
+/* ── Several, side by side ───────────────────────────────────────────── */
+
+/* Tiles in a row carry their own frame, so the card around them steps back. */
+.aparte-place-card:has(> .aparte-place__collection) {
+  --aparte-rich-card-max-inline-size: 40rem;
+  overflow: visible;
+  border-color: transparent;
+  background: transparent;
+}
+
+.aparte-place__collection {
+  display: grid;
+  gap: var(--aparte-space-4);
+  min-inline-size: 0;
+}
+
+.aparte-place__collection .aparte-rich-card__carousel {
+  --aparte-rich-card-slide-size: min(15rem, 80%);
+}
+
+.aparte-place__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-place__heading-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-place__collection > .aparte-place__heading { padding-inline: var(--aparte-space-2); }
+
+.aparte-place--tile {
+  block-size: 100%;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-xl);
+  background: var(--aparte-surface-1);
+  transition:
+    border-color var(--aparte-duration-base, 0.15s) ease,
+    box-shadow var(--aparte-duration-base, 0.15s) ease;
+}
+
+.aparte-place--tile:hover {
+  border-color: color-mix(in oklab, var(--aparte-text) 20%, var(--aparte-border));
+  box-shadow: 0 10px 24px -16px rgb(0 0 0 / 0.5);
+}
+
+.aparte-place--tile .aparte-place__body {
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-place--tile .aparte-place__name { font-size: var(--aparte-font-size-base); }
+
+/* The buttons sit on the tile's floor, so a row of tiles lines them up. */
+.aparte-place--tile .aparte-place__actions { margin-block-start: auto; padding-block-start: var(--aparte-space-5); }
+
+/* ── Compact: rows ───────────────────────────────────────────────────── */
+
+.aparte-place__row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-5) var(--aparte-space-6);
+  transition: background-color var(--aparte-duration-fast, 0.12s) ease;
+}
+
+.aparte-place__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-place__row-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+}
+
+.aparte-place__row .aparte-place__name {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: var(--aparte-font-size-base);
+}
+
+.aparte-place__row .aparte-place__distance {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-place__row .aparte-place__score,
+.aparte-place__row .aparte-place__status { font-size: var(--aparte-font-size-xs); }
+
+.aparte-place__row .aparte-place__score { flex-wrap: nowrap; overflow: hidden; }
+
+.aparte-place__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-place__list > li + li { border-block-start: var(--aparte-border-width) solid var(--aparte-border); }
+
+.aparte-place__list > .aparte-place__row:hover,
+.aparte-place-card[data-variant="compact"] > .aparte-place__row:hover {
+  background: color-mix(in oklab, var(--aparte-text) 4%, transparent);
+}
+
+.aparte-place-card[data-variant="compact"] > .aparte-place__heading {
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-3);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+/* ── Detail ──────────────────────────────────────────────────────────── */
+
+.aparte-place--detail .aparte-place__media--wide { aspect-ratio: var(--aparte-place-detail-ratio); }
+
+.aparte-place--detail .aparte-place__body {
+  gap: var(--aparte-space-7);
+  padding: var(--aparte-space-7) var(--aparte-space-8) var(--aparte-space-8);
+}
+
+.aparte-place__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-place--detail .aparte-place__name {
+  font-size: var(--aparte-font-size-xl);
+  white-space: normal;
+}
+
+.aparte-place--detail .aparte-place__score,
+.aparte-place--detail .aparte-place__status { font-size: var(--aparte-font-size-md); }
+
+.aparte-place--detail .aparte-place__actions { margin: 0; }
+
+.aparte-place__info {
+  display: grid;
+  gap: var(--aparte-space-5);
+  margin: 0;
+  padding: var(--aparte-space-6) 0 0;
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  list-style: none;
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-place__info > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aparte-space-4);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.aparte-place__info .aparte-place__line-glyph { margin-block-start: 0.1em; }
+.aparte-place__info .aparte-place__address-text { white-space: normal; }
+.aparte-place__info .aparte-place__link { color: var(--aparte-primary-ink, var(--aparte-text)); }
+
+.aparte-place__hours {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-place__hours-title {
+  padding-block: var(--aparte-space-6) var(--aparte-space-3);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-align: start;
+}
+
+.aparte-place__hours-title .aparte-place__line-glyph {
+  margin-inline-end: var(--aparte-space-3);
+  vertical-align: -0.15em;
+}
+
+.aparte-place__hours th,
+.aparte-place__hours td {
+  padding-block: var(--aparte-space-2);
+  vertical-align: top;
+}
+
+.aparte-place__hours th {
+  padding-inline: var(--aparte-space-3) var(--aparte-space-6);
+  color: var(--aparte-text-muted);
+  font-weight: var(--aparte-font-weight-normal);
+  text-align: start;
+  white-space: nowrap;
+}
+
+/* `Intl` writes "lundi" for the middle of a sentence; a row's label starts with a capital. */
+.aparte-place__hours th::first-letter { text-transform: uppercase; }
+
+.aparte-place__hours td {
+  padding-inline-end: var(--aparte-space-3);
+  text-align: end;
+}
+
+.aparte-place__hours tr[data-closed] td { color: var(--aparte-place-closed); }
+
+/* Today: the first row, on a band of the accent, in full ink. */
+.aparte-place__hours tr[aria-current] > * {
+  background: color-mix(in oklab, var(--aparte-primary) 10%, transparent);
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-place__hours tr[aria-current] > :first-child {
+  border-start-start-radius: var(--aparte-radius-md);
+  border-end-start-radius: var(--aparte-radius-md);
+}
+
+.aparte-place__hours tr[aria-current] > :last-child {
+  border-start-end-radius: var(--aparte-radius-md);
+  border-end-end-radius: var(--aparte-radius-md);
+}
+
+.aparte-place__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-media {
+  block-size: auto;
+  border-radius: 0;
+}
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-thumb {
+  flex: none;
+  block-size: var(--aparte-place-thumb-size);
+  border-radius: var(--aparte-radius-lg);
+}
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-name { inline-size: 60%; block-size: 1.1rem; }
+.aparte-place-card[data-state="loading"] .aparte-place__sk-line { inline-size: 80%; }
+.aparte-place-card[data-state="loading"] .aparte-place__sk-line--short { inline-size: 50%; }
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-actions {
+  display: flex;
+  gap: var(--aparte-space-3);
+  margin-block-start: var(--aparte-space-5);
+}
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-btn {
+  inline-size: 6rem;
+  block-size: 2rem;
+  border-radius: var(--aparte-radius-full);
+}
+
+.aparte-place-card[data-state="loading"] .aparte-place__sk-hours {
+  display: grid;
+  gap: var(--aparte-space-3);
+  margin-block-start: var(--aparte-space-5);
+}
+
+/* ── Small screens, and stillness ────────────────────────────────────── */
+
+@media (max-width: 380px) {
+  .aparte-place__body { padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6); }
+  .aparte-place--detail .aparte-place__body { padding: var(--aparte-space-6); }
+  .aparte-place__actions > .aparte-place__action:not(.aparte-btn--icon) { flex: 1 1 auto; justify-content: center; }
+  .aparte-place__collection .aparte-rich-card__carousel { --aparte-rich-card-slide-size: 84%; }
+  .aparte-place__hours th { padding-inline-end: var(--aparte-space-4); }
+  .aparte-place-card { --aparte-place-thumb-size: 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-place--tile:hover .aparte-place__img,
+  .aparte-place-card[data-variant="card"] > .aparte-place:hover .aparte-place__img { transform: none; }
+  .aparte-place__status-dot::after { content: none; }
+}

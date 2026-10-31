@@ -244,7 +244,10 @@ function workspacePaths() {
         // Subpath entries a page may import (e.g. @aparte/plugin-shiki/core).
         for (const sub of Object.keys(pkg.exports ?? {})) {
             if (sub === '.' || !sub.startsWith('./') || sub.endsWith('.css')) continue;
-            const file = join('..', root, `dist/${sub.slice(2)}.d.ts`).split(sep).join('/');
+            // The entry's own `types` when it declares one (plugin-cards puts each card's at
+            // `dist/<card>/index.d.ts`), else the file beside its JS.
+            const declared = pkg.exports[sub]?.types;
+            const file = join('..', root, declared ?? `dist/${sub.slice(2)}.d.ts`).split(sep).join('/');
             paths[`${pkg.name}/${sub.slice(2)}`] = [file];
         }
     }
@@ -258,6 +261,13 @@ function workspacePaths() {
         shiki: ['../packages/plugins/shiki/node_modules/shiki'],
         katex: ['../packages/plugins/katex/node_modules/katex'],
         mermaid: ['../packages/plugins/mermaid/node_modules/mermaid'],
+        echarts: ['../packages/plugins/echarts/node_modules/echarts'],
+        'echarts/core': ['../packages/plugins/echarts/node_modules/echarts/core.d.ts'],
+        'echarts/charts': ['../packages/plugins/echarts/node_modules/echarts/charts.d.ts'],
+        'echarts/components': ['../packages/plugins/echarts/node_modules/echarts/components.d.ts'],
+        'echarts/renderers': ['../packages/plugins/echarts/node_modules/echarts/renderers.d.ts'],
+        'chart.js': ['../packages/plugins/chartjs/node_modules/chart.js'],
+        'chart.js/auto': ['../packages/plugins/chartjs/node_modules/chart.js/auto/auto.d.ts'],
         // Subpath exports need the concrete declaration file: a `paths` mapping does
         // not consult the target package's own `exports` map.
         'shiki/core': ['../packages/plugins/shiki/node_modules/shiki/dist/core.d.mts'],

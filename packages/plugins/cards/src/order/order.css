@@ -1,0 +1,834 @@
+/* =========================================
+   The order card — @aparte/plugin-cards/order
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     receipt       the whole record, in bands: the header (kind, name, date, status),
+                   the booking's dates, the lines, the totals under a rule, then the
+                   facts — payment, delivery, address — and the order's page.
+     compact       one row: the kind, the name over "3 items · €129.90", the pill, a
+                   chevron when it opens a page. Several in a list stay one line each.
+     confirmation  the moment it is placed: a seal drawn on, a headline, the number,
+                   the facts that matter as tiles, what to do next.
+   Every colour is a theme token or derived from one, so light and dark follow the chat.
+   */
+
+.aparte-order-card {
+  --aparte-order-kind-size: 2.25rem;
+  --aparte-order-thumb-size: 2.75rem;
+  --aparte-order-kind-bg: color-mix(in oklab, var(--aparte-primary) 14%, var(--aparte-surface-1));
+  --aparte-order-kind-ink: var(--aparte-primary-ink);
+  --aparte-order-rule: var(--aparte-border);
+  --aparte-order-soft-rule: color-mix(in oklab, var(--aparte-border) 60%, transparent);
+  --aparte-order-tile-bg: color-mix(in oklab, var(--aparte-surface-2) 55%, var(--aparte-surface-1));
+  /* A product photo is shot on white: the thumbnail's plate is near-white in both
+     schemes, and the photo is multiplied into it (the product card's rule). */
+  --aparte-order-thumb-bg: color-mix(in oklab, var(--aparte-text) 5%, #fff);
+  --aparte-order-placeholder: var(--aparte-surface-2);
+  --aparte-order-placeholder-ink: color-mix(in oklab, var(--aparte-text) 32%, transparent);
+  --aparte-order-saving: var(--aparte-success-ink);
+  --aparte-order-seal-size: 4.5rem;
+}
+
+/* ── Widths: each variant asks for its own; the bubble's limit caps them all ── */
+
+.aparte-order-card[data-variant="receipt"] { --aparte-rich-card-max-inline-size: 26rem; }
+.aparte-order-card[data-variant="compact"] { --aparte-rich-card-max-inline-size: 26rem; }
+.aparte-order-card[data-variant="confirmation"] { --aparte-rich-card-max-inline-size: 24rem; }
+
+/* On the drawn card only: a one-line state shrinks to its words, and a size container
+   cannot. */
+.aparte-order-card[data-state="ready"] {
+  container: aparte-order / inline-size;
+}
+
+/* ── The header ──────────────────────────────────────────────────────── */
+
+.aparte-order__head {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-5) var(--aparte-rich-card-padding);
+}
+
+/* The kind's glyph on a tile of the accent: the bag of an order, the calendar of a booking. */
+.aparte-order__kind {
+  --aparte-rich-card-glyph-size: var(--aparte-order-kind-size);
+  box-sizing: border-box;
+  padding: calc(var(--aparte-order-kind-size) * 0.22);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-order-kind-bg);
+  color: var(--aparte-order-kind-ink);
+}
+
+.aparte-order__heading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-order__title {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.aparte-order__date {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+/* The pill: the badge recipe, with a dot in its tone before the word. */
+.aparte-order__status {
+  flex: none;
+  gap: var(--aparte-space-2);
+  margin-inline-start: auto;
+}
+
+.aparte-order__status-dot {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-badge-intent, currentColor);
+}
+
+/* ── Bands ───────────────────────────────────────────────────────────── */
+
+.aparte-order__section {
+  margin: 0;
+  padding: var(--aparte-space-5) var(--aparte-rich-card-padding);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-order-rule);
+}
+
+/* ── The lines ───────────────────────────────────────────────────────── */
+
+.aparte-order__items { padding-block: var(--aparte-space-2); }
+
+/* One grid for the list, each line a subgrid of it: the quantities line up in one column
+   and the totals in another, whatever the names' lengths. A browser without subgrid keeps
+   the first declaration and lays each line out alone — the totals still end-aligned. */
+.aparte-order__lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: var(--aparte-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-order__lines[data-thumbs] {
+  grid-template-columns: var(--aparte-order-thumb-size) minmax(0, 1fr) auto auto;
+}
+
+.aparte-order__line {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: var(--aparte-space-4);
+  padding-block: var(--aparte-space-3);
+}
+
+[data-thumbs] > .aparte-order__line {
+  grid-template-columns: var(--aparte-order-thumb-size) minmax(0, 1fr) auto auto;
+  grid-template-columns: subgrid;
+}
+
+.aparte-order__line + .aparte-order__line {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-order-soft-rule);
+}
+
+.aparte-order__qty { grid-column: -3 / -2; }
+.aparte-order__line-total { grid-column: -2 / -1; }
+
+.aparte-order__thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: var(--aparte-order-thumb-size);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-order-soft-rule);
+  border-radius: var(--aparte-radius-md);
+  background: var(--aparte-order-thumb-bg);
+  isolation: isolate;
+}
+
+.aparte-order__thumb[data-empty] { background: var(--aparte-order-placeholder); }
+
+.aparte-order__thumb-glyph {
+  grid-area: 1 / 1;
+  --aparte-rich-card-glyph-size: 45%;
+  color: var(--aparte-order-placeholder-ink);
+}
+
+.aparte-order__thumb:not([data-empty]) .aparte-order__thumb-glyph { visibility: hidden; }
+
+.aparte-order__image {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 6%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.aparte-order__image[hidden] { display: none; }
+
+.aparte-order__line-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-order__line-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.aparte-order__line-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-order__line-meta > * + *::before,
+.aparte-order__row-part + .aparte-order__row-part::before {
+  content: "·";
+  margin-inline-end: var(--aparte-space-2);
+}
+
+.aparte-order__qty {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  white-space: nowrap;
+}
+
+.aparte-order__line-total {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-medium);
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* "and 4 more": a summary that reads as a link, the chevron turning as it opens. */
+.aparte-order__more > .aparte-order__lines {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-order-soft-rule);
+}
+
+.aparte-order__more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  margin-block: var(--aparte-space-1) var(--aparte-space-2);
+  padding: var(--aparte-space-1) var(--aparte-space-2);
+  margin-inline-start: calc(var(--aparte-space-2) * -1);
+  border-radius: var(--aparte-radius-sm);
+  color: var(--aparte-primary-ink);
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-medium);
+  list-style: none;
+  cursor: pointer;
+  transition: background-color var(--aparte-duration-fast) ease;
+  --aparte-rich-card-glyph-size: 0.875rem;
+}
+
+.aparte-order__more-toggle::-webkit-details-marker { display: none; }
+.aparte-order__more-toggle:hover { background: var(--aparte-surface-2); }
+
+.aparte-order__more-toggle:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-order__more-chevron { transition: rotate var(--aparte-duration-base) ease; }
+.aparte-order__more-chevron:dir(rtl) { transform: scaleX(-1); }
+.aparte-order__more[open] .aparte-order__more-chevron { rotate: 90deg; }
+/* Mirrored first, then turned: a quarter turn the other way also ends pointing down. */
+.aparte-order__more[open] .aparte-order__more-chevron:dir(rtl) { rotate: -90deg; }
+
+.aparte-order__dropped {
+  padding-block: var(--aparte-space-2) var(--aparte-space-3);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+/* ── The totals ──────────────────────────────────────────────────────── */
+
+.aparte-order__totals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  background: var(--aparte-order-tile-bg);
+}
+
+.aparte-order__sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-order__sum-label {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-order__sum-value {
+  margin: 0;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.aparte-order__sum--discount .aparte-order__sum-value,
+.aparte-order__sum--free .aparte-order__sum-value {
+  color: var(--aparte-order-saving);
+  font-weight: var(--aparte-font-weight-medium);
+}
+
+.aparte-order__sum--total {
+  align-items: center;
+  margin-block-start: var(--aparte-space-2);
+  padding-block-start: var(--aparte-space-4);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-order-rule);
+}
+
+.aparte-order__sum--total .aparte-order__sum-label {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-order__sum--total .aparte-order__sum-value {
+  font-size: var(--aparte-font-size-xl);
+  font-weight: var(--aparte-font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+/* A total alone needs no rule above it. */
+.aparte-order__sum--total:first-child {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+/* ── The facts: payment, delivery, address, the tool's own ───────────── */
+
+.aparte-order__infos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-order__info {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--aparte-space-1) var(--aparte-space-4);
+}
+
+.aparte-order__info-label {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  line-height: 1.45;
+  --aparte-rich-card-glyph-size: 1rem;
+}
+
+.aparte-order__info-glyph { opacity: 0.85; }
+
+.aparte-order__info-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aparte-space-2) var(--aparte-space-3);
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.aparte-order__multiline { white-space: pre-line; }
+
+.aparte-order__delivery-text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.aparte-order__estimate { font-weight: var(--aparte-font-weight-medium); }
+
+.aparte-order__carrier {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-order__track { flex: none; }
+
+/* On a narrow card a fact's label goes over its value rather than squeeze it. */
+@container aparte-order (max-width: 22rem) {
+  .aparte-order__info { grid-template-columns: minmax(0, 1fr); }
+}
+
+.aparte-order__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--aparte-space-4) var(--aparte-rich-card-padding);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-order-rule);
+}
+
+/* ── The booking: its dates as calendar leaves, then where and for whom ─ */
+
+.aparte-order__leaf {
+  display: inline-flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  inline-size: 3.5rem;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-order-rule);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-surface-1);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--aparte-text) 8%, transparent);
+  line-height: 1.1;
+  text-align: center;
+}
+
+.aparte-order__leaf-month {
+  align-self: stretch;
+  padding-block: var(--aparte-space-1);
+  background: var(--aparte-order-kind-bg);
+  color: var(--aparte-order-kind-ink);
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.aparte-order__leaf-day {
+  padding-block-start: var(--aparte-space-2);
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-xl);
+  font-weight: var(--aparte-font-weight-bold);
+}
+
+.aparte-order__leaf-weekday {
+  padding-block: var(--aparte-space-1) var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-2xs);
+}
+
+.aparte-order__day {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-5);
+}
+
+.aparte-order__day-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-order__day-name {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-order__day-hours {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-order__stay {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--aparte-space-3);
+}
+
+.aparte-order__stay-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--aparte-space-2);
+}
+
+.aparte-order__stay-time {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-order__stay-span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  --aparte-rich-card-glyph-size: 1.25rem;
+}
+
+.aparte-order__stay-arrow:dir(rtl) { transform: scaleX(-1); }
+
+.aparte-order__nights {
+  padding: var(--aparte-space-1) var(--aparte-space-3);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-medium);
+  white-space: nowrap;
+}
+
+.aparte-order__places {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  margin: 0;
+}
+
+.aparte-order__day + .aparte-order__places,
+.aparte-order__stay + .aparte-order__places {
+  margin-block-start: var(--aparte-space-5);
+}
+
+.aparte-order__place {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aparte-space-3);
+}
+
+.aparte-order__place-label {
+  display: inline-flex;
+  flex: none;
+  color: var(--aparte-text-muted);
+  --aparte-rich-card-glyph-size: 1.125rem;
+}
+
+.aparte-order__place-value {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* ── compact: one row ────────────────────────────────────────────────── */
+
+.aparte-order__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--aparte-space-4);
+  padding: var(--aparte-space-4) var(--aparte-space-5);
+  transition: background-color var(--aparte-duration-fast) ease;
+  --aparte-order-kind-size: 2rem;
+}
+
+.aparte-order__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-order__row .aparte-order__title {
+  overflow: hidden;
+  font-size: var(--aparte-font-size-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-order__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-order__row-part { white-space: nowrap; }
+.aparte-order__row-part + .aparte-order__row-part { margin-inline-start: var(--aparte-space-2); }
+
+.aparte-order__row .aparte-order__status { margin-inline-start: 0; }
+
+.aparte-order__link {
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+}
+
+/* The title's link covers the row: one link, read once. */
+.aparte-order__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.aparte-order__row[data-linked]:hover { background: var(--aparte-surface-2); }
+
+.aparte-order__row[data-linked]:hover .aparte-order__link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+/* The row reaches the card's clipped edges: its ring is drawn inside. */
+.aparte-order__row:has(.aparte-order__link:focus-visible) {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(var(--aparte-focus-outline-width) * -1);
+}
+
+.aparte-order__chevron {
+  color: var(--aparte-text-muted);
+  transition: translate var(--aparte-duration-base) ease;
+  --aparte-rich-card-glyph-size: 1rem;
+}
+
+.aparte-order__chevron:dir(rtl) { transform: scaleX(-1); }
+.aparte-order__row[data-linked]:hover .aparte-order__chevron { translate: 2px 0; }
+.aparte-order__row[data-linked]:hover .aparte-order__chevron:dir(rtl) { translate: -2px 0; }
+
+/* ── confirmation: the seal, the headline, the tiles ─────────────────── */
+
+.aparte-order__confirm {
+  --aparte-order-tone: var(--aparte-success);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  padding: var(--aparte-space-8) var(--aparte-rich-card-padding) var(--aparte-space-6);
+  background: radial-gradient(
+    120% 70% at 50% 0%,
+    color-mix(in oklab, var(--aparte-order-tone) 13%, transparent) 0%,
+    transparent 70%
+  );
+  text-align: center;
+}
+
+.aparte-order__confirm[data-tone="info"] { --aparte-order-tone: var(--aparte-info); }
+.aparte-order__confirm[data-tone="danger"] { --aparte-order-tone: var(--aparte-error); }
+.aparte-order__confirm[data-tone="neutral"] { --aparte-order-tone: var(--aparte-neutral); }
+
+.aparte-order__seal {
+  display: inline-flex;
+  inline-size: var(--aparte-order-seal-size);
+  block-size: var(--aparte-order-seal-size);
+  margin-block-end: var(--aparte-space-3);
+}
+
+.aparte-order__seal > svg {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+/* Each part rests in its final state; the animations only say where it came from, so
+   with motion turned off (the kit stops every animation) the seal is simply there. */
+.aparte-order__seal-halo {
+  fill: color-mix(in oklab, var(--aparte-order-tone) 16%, transparent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: aparte-order-halo 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.aparte-order__seal-disc {
+  fill: var(--aparte-order-tone);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: aparte-order-pop 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.3) backwards;
+}
+
+/* The mark in the card's own surface: light on the disc in a light theme, dark in a dark one. */
+.aparte-order__seal-mark {
+  fill: none;
+  stroke: var(--aparte-surface-1);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: aparte-order-draw 0.4s 0.25s ease-out backwards;
+}
+
+@keyframes aparte-order-pop {
+  from { opacity: 0; transform: scale(0.4); }
+}
+
+@keyframes aparte-order-halo {
+  from { opacity: 0; transform: scale(0.55); }
+}
+
+@keyframes aparte-order-draw {
+  from { stroke-dashoffset: 1; }
+}
+
+.aparte-order__headline {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-xl);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.aparte-order__ref {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.aparte-order__confirm > .aparte-order__status { margin: var(--aparte-space-1) 0 0; }
+
+.aparte-order__keyfacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--aparte-space-3);
+  align-self: stretch;
+  margin: var(--aparte-space-5) 0 0;
+  text-align: start;
+}
+
+.aparte-order__keyfact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+  padding: var(--aparte-space-4);
+  border: var(--aparte-border-width) solid var(--aparte-order-soft-rule);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-order-tile-bg);
+}
+
+.aparte-order__keyfact-label {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-medium);
+}
+
+.aparte-order__keyfact-value {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  margin: 0;
+}
+
+.aparte-order__keyfact-text {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.aparte-order__keyfact--total .aparte-order__keyfact-text {
+  font-size: var(--aparte-font-size-lg);
+  font-weight: var(--aparte-font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.aparte-order__keyfact-note {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-order__confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-3);
+  align-self: stretch;
+  margin-block-start: var(--aparte-space-5);
+}
+
+.aparte-order__confirm-actions > .aparte-rich-card__action {
+  flex: 1 1 8rem;
+  justify-content: center;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-title { inline-size: 8rem; block-size: 1rem; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-date { inline-size: 6rem; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-meta { inline-size: 9rem; }
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-pill {
+  flex: none;
+  inline-size: 4.5rem;
+  block-size: 1.25rem;
+  border-radius: var(--aparte-radius-full);
+}
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-thumb {
+  inline-size: var(--aparte-order-thumb-size);
+  block-size: var(--aparte-order-thumb-size);
+}
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-line--short { inline-size: 55%; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-price { inline-size: 3.5rem; margin: 0; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-label { inline-size: 5rem; }
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-seal {
+  inline-size: var(--aparte-order-seal-size);
+  block-size: var(--aparte-order-seal-size);
+  margin-block-end: var(--aparte-space-3);
+}
+
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-headline { inline-size: 11rem; block-size: 1.375rem; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-ref { inline-size: 6rem; margin: 0; }
+.aparte-order-card[data-state="loading"] .aparte-skeleton.aparte-order__sk-fact { block-size: 4rem; border-radius: var(--aparte-radius-lg); }
+
+.aparte-order__line > .aparte-order__sk-price { grid-column: -2 / -1; justify-self: end; }
+.aparte-order__line--skeleton + .aparte-order__line--skeleton { border-block-start: 0; }
+
+/* ── Small screens, motion ───────────────────────────────────────────── */
+
+@media (max-width: 380px) {
+  .aparte-order-card {
+    --aparte-order-thumb-size: 2.5rem;
+    --aparte-order-kind-size: 2rem;
+    --aparte-rich-card-padding: var(--aparte-space-5);
+  }
+
+  .aparte-order__row { column-gap: var(--aparte-space-3); padding-inline: var(--aparte-space-4); }
+  .aparte-order__keyfacts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .aparte-order__leaf { inline-size: 3.125rem; }
+}
+
+/* The kit stops every animation and transition under reduced motion; the chevron's nudge
+   on hover is an end state, not a transition, so it is taken out here. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-order__row[data-linked]:hover .aparte-order__chevron,
+  .aparte-order__row[data-linked]:hover .aparte-order__chevron:dir(rtl) { translate: none; }
+
+  .aparte-order__seal-halo,
+  .aparte-order__seal-disc,
+  .aparte-order__seal-mark { animation: none; }
+}

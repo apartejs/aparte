@@ -1,0 +1,613 @@
+/* =========================================
+   The weather card — @aparte/plugin-cards/weather
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     hero      the sky behind the temperature, the stats, the next hours
+     compact   one line on the card's surface, the sky as an edge
+     forecast  a header on the sky, then the days, each with its range
+   Every colour is a `--aparte-weather-*` token: the glyphs' parts, the eleven skies by
+   day and by night. A theme repaints the weather by setting them.
+   */
+
+/* Declared with no weight: core adds a renderer's sheet AFTER the app's CSS, so at equal
+   weight an app's own `.aparte-weather-card { --aparte-weather-sky-clear: … }` would lose. */
+:where(.aparte-weather-card) {
+  /* The glyphs on the card's own surface. */
+  --aparte-weather-sun: #fbbf24;
+  --aparte-weather-sun-rays: #f59e0b;
+  --aparte-weather-moon: #c9ad5f;
+  --aparte-weather-star: #fde68a;
+  --aparte-weather-cloud: #c7d0dc;
+  --aparte-weather-cloud-back: #dfe5ed;
+  --aparte-weather-cloud-dark: #8794a7;
+  --aparte-weather-rain: #3b82f6;
+  --aparte-weather-snow: #6aa9ec;
+  --aparte-weather-bolt: #f5b80b;
+  --aparte-weather-fog: #98a3b3;
+  --aparte-weather-wind: #7f93ad;
+
+  /* The skies, by day. */
+  --aparte-weather-sky-clear: linear-gradient(160deg, #2a78dc 0%, #4fa7f0 55%, #7cc6f7 100%);
+  --aparte-weather-sky-partly-cloudy: linear-gradient(160deg, #3a7acb 0%, #6aa3dd 60%, #9cc4ea 100%);
+  --aparte-weather-sky-cloudy: linear-gradient(160deg, #56657a 0%, #75849a 60%, #8d9bb0 100%);
+  --aparte-weather-sky-fog: linear-gradient(160deg, #636e7d 0%, #808a98 60%, #9aa3af 100%);
+  --aparte-weather-sky-drizzle: linear-gradient(160deg, #4a6079 0%, #6a7f98 60%, #8396ac 100%);
+  --aparte-weather-sky-rain: linear-gradient(160deg, #364860 0%, #55687f 60%, #6c7f95 100%);
+  --aparte-weather-sky-heavy-rain: linear-gradient(160deg, #2a374b 0%, #445367 60%, #5a697d 100%);
+  --aparte-weather-sky-sleet: linear-gradient(160deg, #495b71 0%, #6a7f96 60%, #8ea2b8 100%);
+  --aparte-weather-sky-snow: linear-gradient(160deg, #557495 0%, #7e9cbd 60%, #a5bfd8 100%);
+  --aparte-weather-sky-thunder: linear-gradient(160deg, #26223c 0%, #3d375a 60%, #554d74 100%);
+  --aparte-weather-sky-wind: linear-gradient(160deg, #46719a 0%, #6b93b9 60%, #93b4d2 100%);
+
+  /* And by night. */
+  --aparte-weather-night-clear: linear-gradient(160deg, #081127 0%, #16224a 55%, #2b3a70 100%);
+  --aparte-weather-night-partly-cloudy: linear-gradient(160deg, #0f1834 0%, #1f2b52 60%, #38466f 100%);
+  --aparte-weather-night-cloudy: linear-gradient(160deg, #191f2b 0%, #2a3241 60%, #3c4556 100%);
+  --aparte-weather-night-fog: linear-gradient(160deg, #1f242d 0%, #333a45 60%, #484f5b 100%);
+  --aparte-weather-night-drizzle: linear-gradient(160deg, #18212f 0%, #2a3647 60%, #3c4a5e 100%);
+  --aparte-weather-night-rain: linear-gradient(160deg, #131b28 0%, #24303f 60%, #344255 100%);
+  --aparte-weather-night-heavy-rain: linear-gradient(160deg, #0e141f 0%, #1c2533 60%, #2b3647 100%);
+  --aparte-weather-night-sleet: linear-gradient(160deg, #1a2433 0%, #2d3a4d 60%, #425267 100%);
+  --aparte-weather-night-snow: linear-gradient(160deg, #1f2c42 0%, #33476a 60%, #4d6386 100%);
+  --aparte-weather-night-thunder: linear-gradient(160deg, #110e23 0%, #221d3d 60%, #352e55 100%);
+  --aparte-weather-night-wind: linear-gradient(160deg, #142236 0%, #243a58 60%, #395271 100%);
+
+  /* Text on a sky. */
+  --aparte-weather-on-sky: #ffffff;
+  --aparte-weather-on-sky-muted: rgb(255 255 255 / 0.8);
+  --aparte-weather-tile: rgb(255 255 255 / 0.14);
+  --aparte-weather-tile-border: rgb(255 255 255 / 0.18);
+}
+
+/* The glyphs drawn over a sky: white clouds, pale rain. */
+.aparte-weather-card[data-variant="hero"][data-state="ready"],
+.aparte-weather__forecast-head {
+  --aparte-weather-cloud: #ffffff;
+  --aparte-weather-moon: #f1e9c8;
+  --aparte-weather-cloud-back: rgb(255 255 255 / 0.62);
+  --aparte-weather-cloud-dark: #d3dae4;
+  --aparte-weather-rain: #bfdbfe;
+  --aparte-weather-snow: #ffffff;
+  --aparte-weather-fog: rgb(255 255 255 / 0.85);
+  --aparte-weather-wind: rgb(255 255 255 / 0.92);
+  --aparte-rich-card-spark: rgb(255 255 255 / 0.95);
+}
+
+/* ── The sky ─────────────────────────────────────────────────────────── */
+
+.aparte-weather__sky {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--aparte-weather-sky-partly-cloudy);
+}
+
+.aparte-weather__sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 100% 0%, rgb(255 255 255 / 0.22), transparent 60%);
+  pointer-events: none;
+}
+
+.aparte-weather__sky[data-condition="clear"]::after {
+  background: radial-gradient(90% 70% at 92% 4%, rgb(255 223 130 / 0.45), transparent 62%);
+}
+
+.aparte-weather__sky[data-night]::after {
+  background:
+    radial-gradient(1.5px 1.5px at 18% 22%, rgb(255 255 255 / 0.8), transparent 100%),
+    radial-gradient(1px 1px at 34% 12%, rgb(255 255 255 / 0.7), transparent 100%),
+    radial-gradient(1.2px 1.2px at 62% 30%, rgb(255 255 255 / 0.6), transparent 100%),
+    radial-gradient(1px 1px at 78% 16%, rgb(255 255 255 / 0.7), transparent 100%),
+    radial-gradient(1.4px 1.4px at 48% 8%, rgb(255 255 255 / 0.5), transparent 100%);
+}
+
+.aparte-weather__sky[data-condition="clear"], .aparte-weather__accent[data-condition="clear"] { background: var(--aparte-weather-sky-clear); }
+.aparte-weather__sky[data-condition="partly-cloudy"], .aparte-weather__accent[data-condition="partly-cloudy"] { background: var(--aparte-weather-sky-partly-cloudy); }
+.aparte-weather__sky[data-condition="cloudy"], .aparte-weather__accent[data-condition="cloudy"] { background: var(--aparte-weather-sky-cloudy); }
+.aparte-weather__sky[data-condition="fog"], .aparte-weather__accent[data-condition="fog"] { background: var(--aparte-weather-sky-fog); }
+.aparte-weather__sky[data-condition="drizzle"], .aparte-weather__accent[data-condition="drizzle"] { background: var(--aparte-weather-sky-drizzle); }
+.aparte-weather__sky[data-condition="rain"], .aparte-weather__accent[data-condition="rain"] { background: var(--aparte-weather-sky-rain); }
+.aparte-weather__sky[data-condition="heavy-rain"], .aparte-weather__accent[data-condition="heavy-rain"] { background: var(--aparte-weather-sky-heavy-rain); }
+.aparte-weather__sky[data-condition="sleet"], .aparte-weather__accent[data-condition="sleet"] { background: var(--aparte-weather-sky-sleet); }
+.aparte-weather__sky[data-condition="snow"], .aparte-weather__accent[data-condition="snow"] { background: var(--aparte-weather-sky-snow); }
+.aparte-weather__sky[data-condition="thunder"], .aparte-weather__accent[data-condition="thunder"] { background: var(--aparte-weather-sky-thunder); }
+.aparte-weather__sky[data-condition="wind"], .aparte-weather__accent[data-condition="wind"] { background: var(--aparte-weather-sky-wind); }
+
+.aparte-weather__sky[data-night][data-condition="clear"], .aparte-weather__accent[data-night][data-condition="clear"] { background: var(--aparte-weather-night-clear); }
+.aparte-weather__sky[data-night][data-condition="partly-cloudy"], .aparte-weather__accent[data-night][data-condition="partly-cloudy"] { background: var(--aparte-weather-night-partly-cloudy); }
+.aparte-weather__sky[data-night][data-condition="cloudy"], .aparte-weather__accent[data-night][data-condition="cloudy"] { background: var(--aparte-weather-night-cloudy); }
+.aparte-weather__sky[data-night][data-condition="fog"], .aparte-weather__accent[data-night][data-condition="fog"] { background: var(--aparte-weather-night-fog); }
+.aparte-weather__sky[data-night][data-condition="drizzle"], .aparte-weather__accent[data-night][data-condition="drizzle"] { background: var(--aparte-weather-night-drizzle); }
+.aparte-weather__sky[data-night][data-condition="rain"], .aparte-weather__accent[data-night][data-condition="rain"] { background: var(--aparte-weather-night-rain); }
+.aparte-weather__sky[data-night][data-condition="heavy-rain"], .aparte-weather__accent[data-night][data-condition="heavy-rain"] { background: var(--aparte-weather-night-heavy-rain); }
+.aparte-weather__sky[data-night][data-condition="sleet"], .aparte-weather__accent[data-night][data-condition="sleet"] { background: var(--aparte-weather-night-sleet); }
+.aparte-weather__sky[data-night][data-condition="snow"], .aparte-weather__accent[data-night][data-condition="snow"] { background: var(--aparte-weather-night-snow); }
+.aparte-weather__sky[data-night][data-condition="thunder"], .aparte-weather__accent[data-night][data-condition="thunder"] { background: var(--aparte-weather-night-thunder); }
+.aparte-weather__sky[data-night][data-condition="wind"], .aparte-weather__accent[data-night][data-condition="wind"] { background: var(--aparte-weather-night-wind); }
+
+/* ── Hero ────────────────────────────────────────────────────────────── */
+
+.aparte-weather-card[data-variant="hero"][data-state="ready"] {
+  color: var(--aparte-weather-on-sky);
+  border-color: rgb(0 0 0 / 0.06);
+  background: transparent;
+  box-shadow: 0 10px 30px -18px rgb(15 23 42 / 0.55);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
+}
+
+/* The card narrows on its own width, not the window's: a widget on a wide screen is as
+   narrow as a phone. On a drawn card (or its skeleton) only — a one-line state shrinks to
+   its words, and a size container cannot. */
+.aparte-weather-card:is([data-state="ready"], [data-state="loading"]) {
+  container: aparte-weather / inline-size;
+}
+
+.aparte-weather__body {
+  display: grid;
+  gap: var(--aparte-space-6);
+  padding: var(--aparte-space-7) var(--aparte-space-8) var(--aparte-space-7);
+}
+
+.aparte-weather__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-weather__place {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-weather__location {
+  font-size: var(--aparte-font-size-lg);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-weather__when {
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-weather-on-sky-muted);
+}
+
+.aparte-weather-card[data-variant="hero"] .aparte-weather__icon {
+  --aparte-rich-card-glyph-size: 4.5rem;
+  margin-block: calc(var(--aparte-space-2) * -1) calc(var(--aparte-space-6) * -1);
+  margin-inline-end: calc(var(--aparte-space-2) * -1);
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.18));
+}
+
+.aparte-weather__now {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-7);
+}
+
+.aparte-weather-card[data-variant="hero"] .aparte-weather__temp {
+  font-size: calc(3.75rem * var(--aparte-font-scale));
+  font-weight: 300;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+}
+
+.aparte-weather__now-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-weather__summary {
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-medium);
+}
+
+.aparte-weather__line {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--aparte-space-5);
+  row-gap: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-weather-on-sky-muted);
+}
+
+.aparte-weather__range {
+  display: inline-flex;
+  gap: var(--aparte-space-4);
+  white-space: nowrap;
+}
+
+.aparte-weather__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: var(--aparte-space-3);
+  margin: 0;
+}
+
+.aparte-weather__stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  border: var(--aparte-border-width) solid var(--aparte-weather-tile-border);
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-weather-tile);
+  backdrop-filter: blur(6px);
+}
+
+.aparte-weather__stat-label {
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--aparte-weather-on-sky-muted);
+}
+
+.aparte-weather__stat-value {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  margin: 0;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.aparte-weather__wind-arrow {
+  display: inline-block;
+  font-size: var(--aparte-font-size-sm);
+  transform: rotate(var(--aparte-weather-wind-angle, 0deg));
+}
+
+/* Buttons on the sky: glass, not the surface's. */
+.aparte-weather-card[data-variant="hero"][data-state="ready"] .aparte-rich-card__actions {
+  padding-inline: var(--aparte-space-8);
+  border-block-start-color: var(--aparte-weather-tile-border);
+  background: rgb(0 0 0 / 0.1);
+}
+
+.aparte-weather-card[data-variant="hero"][data-state="ready"] .aparte-rich-card__action {
+  border-color: var(--aparte-weather-tile-border);
+  background: var(--aparte-weather-tile);
+  color: var(--aparte-weather-on-sky);
+  text-shadow: none;
+}
+
+.aparte-weather-card[data-variant="hero"][data-state="ready"] .aparte-rich-card__action:hover {
+  background: rgb(255 255 255 / 0.24);
+}
+
+/* The next hours: a row of columns, the temperature's curve drawn above them. */
+.aparte-weather__hourly {
+  --aparte-weather-hours: 8;
+  display: grid;
+  gap: var(--aparte-space-1);
+  padding-block-start: var(--aparte-space-5);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-weather-tile-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.aparte-weather__curve {
+  block-size: 1.75rem;
+  /* The curve's points sit over the middle of each column. */
+  padding-inline: calc(50% / var(--aparte-weather-hours));
+  min-inline-size: calc(var(--aparte-weather-hours) * 2.75rem);
+  box-sizing: border-box;
+}
+
+.aparte-weather__hours {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(2.75rem, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-weather__hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--aparte-space-2);
+}
+
+.aparte-weather__hour-time {
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-weather-on-sky-muted);
+  white-space: nowrap;
+}
+
+.aparte-weather__hour-temp {
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-weather__hour-rain {
+  margin-block: calc(var(--aparte-space-2) * -1);
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: #cfe5ff;
+}
+
+.aparte-weather__mini {
+  --aparte-rich-card-glyph-size: 1.6rem;
+}
+
+/* A small drawing stands still: only the big glyph moves. */
+.aparte-weather__mini svg * {
+  animation: none !important;
+}
+
+/* ── Compact ─────────────────────────────────────────────────────────── */
+
+.aparte-weather-card[data-variant="compact"] {
+  max-inline-size: 22rem;
+}
+
+.aparte-weather__accent {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 4px;
+}
+
+.aparte-weather__compact {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-4) var(--aparte-space-6) var(--aparte-space-4) calc(var(--aparte-space-6) + 4px);
+}
+
+.aparte-weather__compact .aparte-weather__icon {
+  --aparte-rich-card-glyph-size: 2.4rem;
+}
+
+.aparte-weather__compact .aparte-weather__temp {
+  font-size: var(--aparte-font-size-2xl);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.aparte-weather__compact-text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.aparte-weather__compact .aparte-weather__location {
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-weather__compact .aparte-weather__summary {
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-normal);
+  color: var(--aparte-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-weather__compact .aparte-weather__range {
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  text-align: end;
+}
+
+.aparte-weather__compact .aparte-weather__hi {
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+/* ── Forecast ────────────────────────────────────────────────────────── */
+
+.aparte-weather__forecast-head {
+  position: relative;
+  isolation: isolate;
+  color: var(--aparte-weather-on-sky);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
+}
+
+.aparte-weather__forecast-head .aparte-weather__compact {
+  padding: var(--aparte-space-6) var(--aparte-space-7);
+}
+
+.aparte-weather__forecast-head .aparte-weather__icon {
+  --aparte-rich-card-glyph-size: 3.25rem;
+}
+
+.aparte-weather__forecast-head .aparte-weather__temp {
+  font-size: calc(2.25rem * var(--aparte-font-scale));
+  font-weight: 300;
+}
+
+.aparte-weather__forecast-head .aparte-weather__summary,
+.aparte-weather__forecast-head .aparte-weather__range {
+  color: var(--aparte-weather-on-sky-muted);
+}
+
+.aparte-weather__forecast-head .aparte-weather__hi {
+  color: var(--aparte-weather-on-sky);
+}
+
+.aparte-weather__days {
+  margin: 0;
+  padding: var(--aparte-space-2) var(--aparte-space-7) var(--aparte-space-4);
+  list-style: none;
+}
+
+.aparte-weather__day {
+  display: grid;
+  grid-template-columns: minmax(3.25rem, auto) 1.75rem 2.25rem 2.25rem minmax(3rem, 1fr) 2.25rem;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding-block: var(--aparte-space-3);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-weather__day + .aparte-weather__day {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-weather__day-name {
+  font-weight: var(--aparte-font-weight-medium);
+  white-space: nowrap;
+}
+
+.aparte-weather__day-rain {
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-weather-rain);
+}
+
+.aparte-weather__day-low {
+  color: var(--aparte-text-muted);
+  text-align: end;
+}
+
+.aparte-weather__day-high {
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-weather__bar {
+  position: relative;
+  block-size: 6px;
+  border-radius: var(--aparte-radius-full);
+  background: color-mix(in oklab, var(--aparte-text) 10%, transparent);
+}
+
+.aparte-weather__bar-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--aparte-weather-bar-start, 0%);
+  inset-inline-end: calc(100% - var(--aparte-weather-bar-end, 100%));
+  border-radius: inherit;
+  background: linear-gradient(to right, var(--aparte-weather-bar-cold), var(--aparte-weather-bar-warm));
+}
+
+.aparte-weather__bar-fill:dir(rtl) {
+  background: linear-gradient(to left, var(--aparte-weather-bar-cold), var(--aparte-weather-bar-warm));
+}
+
+.aparte-weather__bar-now {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--aparte-weather-bar-at, 0%) - 5px);
+  inline-size: 10px;
+  block-size: 10px;
+  border: 2px solid var(--aparte-surface-1);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-text);
+  transform: translateY(-50%);
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-place { inline-size: 7rem; }
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-icon { inline-size: 3.5rem; block-size: 3.5rem; flex: none; }
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-temp { inline-size: 5.5rem; block-size: 3.25rem; border-radius: var(--aparte-radius-lg); }
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-summary { inline-size: 8rem; }
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--aparte-space-3);
+}
+.aparte-weather-card[data-state="loading"] .aparte-weather__sk-stat { block-size: 3rem; border-radius: var(--aparte-radius-lg); }
+.aparte-weather-card[data-state="loading"] .aparte-weather__compact .aparte-weather__sk-icon { inline-size: 2.6rem; block-size: 2.6rem; }
+.aparte-weather-card[data-state="loading"] .aparte-weather__compact .aparte-weather__sk-temp { inline-size: 3rem; block-size: 1.75rem; }
+
+/* ── The glyphs ──────────────────────────────────────────────────────── */
+
+.aparte-wx .aparte-wx-sun { fill: var(--aparte-weather-sun); }
+.aparte-wx .aparte-wx-rays {
+  fill: none;
+  stroke: var(--aparte-weather-sun-rays);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 32px 32px;
+  /* Core's turn: its sheet is on every page a chat is on. */
+  animation: aparte-spin 60s linear infinite;
+}
+.aparte-wx .aparte-wx-moon { fill: var(--aparte-weather-moon); }
+.aparte-wx .aparte-wx-star { fill: var(--aparte-weather-star); animation: aparte-weather-twinkle 3.2s ease-in-out infinite; }
+.aparte-wx .aparte-wx-star + .aparte-wx-star { animation-delay: -1.6s; }
+.aparte-wx .aparte-wx-cloud { fill: var(--aparte-weather-cloud); }
+.aparte-wx .aparte-wx-cloud-back { fill: var(--aparte-weather-cloud-back); }
+.aparte-wx .aparte-wx-cloud--dark { fill: var(--aparte-weather-cloud-dark); }
+.aparte-wx .aparte-wx-drift { animation: aparte-weather-drift 7s ease-in-out infinite alternate; }
+.aparte-wx .aparte-wx-drop {
+  fill: none;
+  stroke: var(--aparte-weather-rain);
+  stroke-width: 3;
+  stroke-linecap: round;
+  animation: aparte-weather-fall 1.3s ease-in infinite;
+  animation-delay: calc(var(--i, 0) * -0.45s);
+}
+.aparte-wx .aparte-wx-drip {
+  fill: var(--aparte-weather-rain);
+  animation: aparte-weather-fall 1.6s ease-in infinite;
+  animation-delay: calc(var(--i, 0) * -0.4s);
+}
+.aparte-wx .aparte-wx-flake path {
+  fill: none;
+  stroke: var(--aparte-weather-snow);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  animation: aparte-weather-snowfall 3.4s linear infinite;
+}
+.aparte-wx .aparte-wx-flake:nth-child(2) path { animation-delay: -1.1s; }
+.aparte-wx .aparte-wx-flake:nth-child(3) path { animation-delay: -2.2s; }
+.aparte-wx .aparte-wx-bolt { fill: var(--aparte-weather-bolt); animation: aparte-weather-flash 4.5s linear infinite; }
+.aparte-wx .aparte-wx-fog, .aparte-wx .aparte-wx-wind {
+  fill: none;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+.aparte-wx .aparte-wx-fog { stroke: var(--aparte-weather-fog); }
+.aparte-wx .aparte-wx-fog-g { animation: aparte-weather-drift 6s ease-in-out infinite alternate; }
+.aparte-wx .aparte-wx-wind { stroke: var(--aparte-weather-wind); stroke-width: 3.6; animation: aparte-weather-gust 3.2s ease-in-out infinite alternate; }
+.aparte-wx .aparte-wx-wind:nth-child(2) { animation-delay: -1.1s; }
+.aparte-wx .aparte-wx-wind:nth-child(3) { animation-delay: -2.2s; }
+
+@keyframes aparte-weather-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes aparte-weather-drift { from { transform: translateX(-1.5px); } to { transform: translateX(1.5px); } }
+@keyframes aparte-weather-fall {
+  0% { transform: translateY(-3px); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(6px); opacity: 0; }
+}
+@keyframes aparte-weather-snowfall {
+  0% { transform: translate(0, -3px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(2px, 6px); opacity: 0; }
+}
+@keyframes aparte-weather-flash {
+  0%, 86%, 100% { opacity: 1; }
+  88% { opacity: 0.25; }
+  90% { opacity: 1; }
+  92% { opacity: 0.4; }
+}
+@keyframes aparte-weather-gust {
+  from { transform: translateX(-2px); }
+  to { transform: translateX(2.5px); }
+}
+
+@container aparte-weather (max-width: 22rem) {
+  .aparte-weather__body { padding: var(--aparte-space-6); }
+  .aparte-weather-card[data-variant="hero"] .aparte-weather__temp { font-size: calc(3rem * var(--aparte-font-scale)); }
+  .aparte-weather__days { padding-inline: var(--aparte-space-5); }
+  .aparte-weather__day { grid-template-columns: minmax(2.75rem, auto) 1.5rem 2rem 2rem minmax(2rem, 1fr) 2rem; }
+}

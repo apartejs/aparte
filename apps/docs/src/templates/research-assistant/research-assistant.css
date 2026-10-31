@@ -1,17 +1,12 @@
 /*
  * The Research assistant's look. The library's parts are themed through their --aparte-* knobs
  * on the root; the rest of this sheet lays out what the template draws itself: the report
- * pane, the source cards, the report receipt and the chart. Every colour is a library token,
- * so both themes follow.
+ * pane and the report receipt. Every colour is a library token, so both themes follow.
  */
 .research {
     --aparte-font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
     --aparte-split-min: 20rem;
     --aparte-split-max: 64%;
-    /* The chart's ink: one series, one hue, a recessive grid. */
-    --research-chart-bar: var(--aparte-primary);
-    --research-chart-grid: var(--aparte-border);
-    --research-chart-ink: var(--aparte-text-muted);
     height: 100%;
 }
 
@@ -61,7 +56,7 @@
     max-inline-size: 18rem;
 }
 
-/* ─── Tool rows of a research run ─────────────────────────────────────────── */
+/* ─── The report receipt in the transcript ────────────────────────────────── */
 
 .research-tool {
     margin-block: var(--aparte-space-2);
@@ -82,95 +77,6 @@
     flex: none;
     inline-size: var(--aparte-icon-size);
     block-size: var(--aparte-icon-size);
-}
-
-.research-tool__query {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--aparte-text);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.research-tool__meta::before {
-    content: "·";
-    margin-inline-end: var(--aparte-space-2);
-}
-
-.research-tool__meta {
-    flex: none;
-}
-
-/* Search results: cards that wrap to the bubble's width, so none is cut off. */
-.research-search__results {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-    gap: var(--aparte-space-2);
-    margin: var(--aparte-space-2) 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.research-source {
-    position: relative;
-    min-width: 0;
-    gap: var(--aparte-space-1);
-    padding: var(--aparte-space-3);
-}
-
-.research-source:hover {
-    background: var(--aparte-surface-hover);
-}
-
-.research-source:focus-within {
-    outline: 2px solid var(--aparte-border-focus);
-    outline-offset: -2px;
-}
-
-.research-source__site {
-    display: flex;
-    align-items: center;
-    gap: var(--aparte-space-2);
-    min-width: 0;
-    overflow: hidden;
-    color: var(--aparte-text-muted);
-    font-size: var(--aparte-font-size-xs);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.research-source__title {
-    display: -webkit-box;
-    overflow: hidden;
-    color: var(--aparte-text);
-    font-size: var(--aparte-font-size-sm);
-    font-weight: var(--aparte-font-weight-medium);
-    line-height: var(--aparte-line-height-snug);
-    text-decoration: none;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-}
-
-/* The whole card is the link's target; the focus ring is drawn on the card above. */
-.research-source__title::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-}
-
-.research-source__title:focus-visible {
-    outline: none;
-}
-
-.research-source__snippet {
-    display: -webkit-box;
-    margin: 0;
-    overflow: hidden;
-    color: var(--aparte-text-muted);
-    font-size: var(--aparte-font-size-xs);
-    line-height: var(--aparte-line-height-normal);
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
 }
 
 /* The report receipt: what was written, and the way back to it. */
@@ -317,54 +223,6 @@
 .research-pane__empty-title {
     color: var(--aparte-text);
     font-weight: var(--aparte-font-weight-semibold);
-}
-
-/* ─── The chart ───────────────────────────────────────────────────────────── */
-
-.research-chart {
-    margin: var(--aparte-space-4) 0 var(--aparte-space-2);
-}
-
-.research-chart__svg {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
-    overflow: visible;
-}
-
-.research-chart__bar {
-    fill: var(--research-chart-bar);
-}
-
-.research-chart__bar:hover {
-    fill: color-mix(in srgb, var(--research-chart-bar) 78%, var(--aparte-text));
-}
-
-.research-chart__grid {
-    stroke: var(--research-chart-grid);
-    stroke-width: 1;
-}
-
-.research-chart__base {
-    stroke: var(--research-chart-ink);
-    stroke-width: 1;
-}
-
-.research-chart__axis {
-    fill: var(--research-chart-ink);
-    font-size: 11px;
-}
-
-.research-chart__value {
-    fill: var(--aparte-text);
-    font-size: 11px;
-    font-weight: var(--aparte-font-weight-semibold);
-}
-
-.research-chart__caption {
-    margin-block-start: var(--aparte-space-2);
-    color: var(--aparte-text-muted);
-    font-size: var(--aparte-font-size-xs);
 }
 
 @media (max-width: 48rem) {

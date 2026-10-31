@@ -1,0 +1,60 @@
+---
+title: Link card
+description: A web page previewed — its picture, its site, its title and description, the whole card one link — as a card, a row or a quote.
+sidebar:
+  label: Link
+catalog:
+  group: cards
+  order: 11
+  demos: [card-link, card-link-compact, card-link-quote, card-link-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-link" />
+
+A page a tool unfurled or a search found, the way chat apps preview a shared link. Its badge says
+what it is — an article, a video, a repository, a product — read from the page when the data does
+not say. The card fetches nothing: a site without its own icon in the data gets its initial on a
+tinted square.
+
+## Variants
+
+### Compact
+
+<Variant id="card-link-compact" />
+
+One row per page, for search results.
+
+### Quote
+
+<Variant id="card-link-quote" />
+
+The block chat apps draw under a shared link, its side rule in the page's `themeColor`.
+
+### While the call runs
+
+<Variant id="card-link-running" />
+
+The address's host, before the page is read.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupLinkCard } from '@aparte/plugin-cards/link';
+
+setupLinkCard({ tool: 'unfurl' }); // one page's Open Graph, as it is
+setupLinkCard({ tool: 'web_search', map: (result) => result.items, variant: 'compact' });
+```
+
+`readLinks` reads Open Graph and the results of the usual search APIs. The fields are in
+[the guide](/guides/cards/#web-pages--link).
+
+## Related
+
+- [Citations](/guides/citations/) — sources cited inside a reply's text.
+- [Items card](/components/items-card/) — results that are not web pages.
