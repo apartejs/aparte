@@ -91,8 +91,12 @@ const missing = [];
 const misaligned = [];
 for (const pkg of packages) {
     const name = pkg.name.replace('/', '%2F');
-    if (!(await json(`https://registry.npmjs.org/${name}/${pkg.version}`))) missing.push(`${pkg.name}@${pkg.version}`);
-    const tags = (await json(`https://registry.npmjs.org/-/package/${name}/dist-tags`)) ?? {};
+    const published = (await json(`https://registry.npmjs.org/${name}`)) !== null;
+    if (!published || !(await json(`https://registry.npmjs.org/${name}/${pkg.version}`))) missing.push(`${pkg.name}@${pkg.version}`);
+    // A package npm has never seen has no dist-tags to read — the registry answers that
+    // endpoint 401, not 404, for an unknown scoped name (0.29.0's three new plugins stopped
+    // the release here). It is published below, and its tags aligned after that.
+    const tags = published ? (await json(`https://registry.npmjs.org/-/package/${name}/dist-tags`)) ?? {} : {};
     if (['beta', 'latest'].some((t) => !tags[t] || lower(tags[t], pkg.version))) misaligned.push(pkg.name);
 }
 
