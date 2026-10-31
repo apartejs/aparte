@@ -1,5 +1,7 @@
 # @aparte/plugin-echarts
 
+## 0.29.3
+
 ## 0.29.2
 
 ## 0.29.1

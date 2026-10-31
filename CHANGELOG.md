@@ -4,6 +4,22 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.29.3
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [89e03ee](https://github.com/apartejs/aparte/commit/89e03ee): A card of your own (`defineCard`) is drawn from its ` ```card-<name> ` block even when it is set up after `setupCardFences()`, and a block can pick the card's layout with `"variant"` in its JSON.
+
+  - plugin-cards: `setupCardFences()` hears of each card set up on its config from then on and draws its blocks too; before, only the cards known when it started were, and a card defined later showed its source.
+  - plugin-cards: `"variant": "<name>"` in a block's JSON picks that layout when it is one of the card's; any other value is the card's data as before.
+  - plugin-cards: a product alone in its answer is drawn with a landscape picture, and with a low band when it has none. The square frame, the width of a chat column, made the card taller than the chat's view, and empty when the product had no picture. In a row of products the tiles stay square.
+  - core, plugin-cards: a message with padding and a card with its border no longer run past their column. Both took `max-width: 100%` and counted padding or border outside it, so a bubble clipped their right edge.
+  <sub>`@aparte/core`, `@aparte/plugin-cards`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.29.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
