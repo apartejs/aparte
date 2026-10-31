@@ -201,6 +201,19 @@ interface Entry {
 
 /** Per config, each card's setups, the newest last: the newest draws the card's segments. */
 const registries = new WeakMap<AparteConfig, Map<string, Entry[]>>();
+
+/**
+ * Draw a `card` segment with the card set up under `card` on `config`, or `null` when none
+ * is. Internal to the kit (the fences draw through it); not exported from the package.
+ */
+export function drawCardSegment(config: AparteConfig, segment: AparteCardSegment): HTMLElement | null {
+    return registries.get(config)?.get(segment.card)?.at(-1)?.draw(segment) ?? null;
+}
+
+/** The names of the cards set up on `config`. Internal to the kit. */
+export function cardsSetUp(config: AparteConfig): string[] {
+    return [...(registries.get(config)?.keys() ?? [])];
+}
 const bindings = new WeakMap<Element, Array<{ attr?: string; compute: () => string }>>();
 
 /**

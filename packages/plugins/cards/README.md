@@ -132,6 +132,9 @@ keys and the usual search APIs; the card fetches nothing.
 What every card is made with, for a card of your own that behaves like ours (three sources,
 states, variants, language switch, buttons):
 
+- `setupCardFences(options)` (`CardFenceOptions`, `CARD_FENCE_PREFIX`): draws a ```` ```card-weather ````
+  block of JSON in an answer as its card, for backends that send only text; `load` fetches each
+  card the first time a block names it.
 - `defineCard(definition)` and `CARD_SEGMENT_TYPE`; types `CardDefinition`, `CardSetupOptions`,
   `CardContext`, `CardAction`, `CardActionEventDetail`, `CardChangeEventDetail`, `AparteCardSegment`.
 - Controls, drawn only when the card has an `onChange`: `segmented` (`SegmentedOptions`), `toggle`
