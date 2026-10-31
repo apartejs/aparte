@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/ssr-next",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "private": true,
   "description": "A Next App Router page with AparteChat, rendered on the server — a fixture of pnpm e2e:ssr.",
   "scripts": {

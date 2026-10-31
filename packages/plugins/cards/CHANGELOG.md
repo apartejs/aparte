@@ -1,5 +1,13 @@
 # @aparte/plugin-cards
 
+## 0.29.1
+
+### Patch Changes
+
+- Add `setupCardFences()`: a ` ```card-weather ` code block of JSON in an answer is drawn as the weather card (every card has its `card-<name>` language).
+
+  For backends that send only text and keep their tool calls to themselves — a workflow engine, a server that streams its answer, a model with no tools. `load` maps a card's name to its entry (`() => import('@aparte/plugin-cards/weather')`), fetched the first time a block names it. While the block streams a placeholder holds its place; a block whose JSON does not parse, or whose card the page cannot draw, shows its source. Works with any Markdown provider, or none.
+
 ## 0.29.0
 
 ### Minor Changes
