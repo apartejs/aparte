@@ -112,7 +112,7 @@
 .aparte-content a,
 .aparte-segment-content a,
 .aparte-thinking-content a {
-  color: var(--aparte-primary-ink);
+  color: var(--aparte-message-link, var(--aparte-primary-ink));
   text-decoration: underline;
 }
 
@@ -272,6 +272,12 @@
 .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
   padding: var(--aparte-space-6);
   background: var(--aparte-bg);
+}
+
+/* …unless the drawing stands for the whole block (`bare`): then there is no card to fill. */
+.aparte-segment-code[data-aparte-bare] .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
+  padding: 0;
+  background: none;
 }
 
 /* A source its renderer could not draw (a typo in a formula, a diagram that does not

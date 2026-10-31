@@ -14,6 +14,18 @@
   border: var(--aparte-border-width) solid var(--aparte-code-border);
 }
 
+/* A language whose drawing stands for the block (`bare`): no card around it, no header.
+   Its drawing loses the code card's surface too (prose.css). */
+.aparte-segment-code[data-aparte-bare] {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.aparte-segment-code[data-aparte-bare] > .aparte-code-header {
+  display: none;
+}
+
 /* The callout is `.aparte-alert--danger`. What stays is what a callout IN A
    TRANSCRIPT needs: the rhythm between messages, and a wider rail than a standalone
    alert because a failed turn should be findable when you scroll past it. */
