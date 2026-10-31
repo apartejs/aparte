@@ -4,6 +4,31 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.29.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [324d2ba](https://github.com/apartejs/aparte/commit/324d2ba): New package: `@aparte/plugin-cards` draws a tool's result as a rich card instead of a row. Import one card's entry and call its setup, e.g. `setupWeatherCard({ tool: 'get_weather', map })`.
+
+  Eleven cards, each its own entry so an app ships only the ones it imports: `weather`, `items` (articles and search results), `product`, `place`, `stats` (key figures), `order` (orders and bookings), `stock` (a quote with its line or candlestick chart), `plan` (an agent's task list, updated in place), `score` (matches), `media` (pictures, videos, sounds, with a lightbox) and `link` (a page preview). Each has three or four variants, chosen by name or by a function of the data, and a reader that already takes the shapes the usual APIs return (Open-Meteo, Shopify, Stripe, Google Places, Yahoo Finance, API-Football, Open Graph…); `map` turns your tool's own fields into the card's. While the call runs the card shows its skeleton; a call refused, stopped or failed is one line that says so, never a card. Every card is also a `card` segment (`weatherCard.segment(data)`) with a fallback sentence for a text-only reader, and its words come in the ten languages of `@aparte/locales`, rewritten in place on a language switch.
+
+  A card can answer back: with an `onChange`, the stock card draws range buttons over its chart, and what `onChange` returns is drawn in place — the same element, the focus kept. Changes run one at a time, each from the data the one before left, and what they returned is kept while the page lives: a turn ending, the conversation saved or reopened, in every framework, draws the card as the person left it. A button the app declares (`actions`) can open a link, send a message or only report; a button read from a tool's result can only be a web link or an `id`, never text sent as the person. Setting a card up twice stacks: the newer setup draws, and removing the older one leaves it in place. The root entry is the kit the cards are made with (`defineCard`, `segmented`, `toggle`, `slider`, `carousel`, `sparkline`, the `Intl` formatters), for a card of your own that behaves the same way.
+  <sub>`@aparte/plugin-cards`</sub>
+
+- [324d2ba](https://github.com/apartejs/aparte/commit/324d2ba): New package: `@aparte/plugin-chartjs` draws the ` ```chartjs ` fences a model writes, and a tool's result, as Chart.js charts. Call `setupChartjs()`; pass `tool` (and `map`) to draw a tool's result in place of its row.
+
+  The fence's body is Chart.js' own `{ type, data, options }` as JSON (` ```chart.js ` works too), drawn while it streams. Each chart gets the chat's look in its own config — `Chart.defaults` is never touched — and is recoloured on a light/dark switch. It is a `figure` with a hidden table of its numbers. A config from a model carries no code: its own `plugins` list is dropped, and so are strings where Chart.js would call a function and looping animations; its size is bounded — points, labels and datasets by `maxPoints` (5000 by default), a scale to a hundred ticks, the hidden table to 10 000 cells (`readChartConfig` is the reader). `chart.js/auto` is loaded on the first chart, and `@aparte/plugin-chartjs/core` takes a `Chart` you registered yourself (`setupChartjsWith`).
+  <sub>`@aparte/plugin-chartjs`</sub>
+
+- [324d2ba](https://github.com/apartejs/aparte/commit/324d2ba): New package: `@aparte/plugin-echarts` draws the ` ```echarts ` fences a model writes, and a tool's result, as Apache ECharts charts. Call `setupECharts()`; pass `tool` (and `map`) to draw a tool's result in place of its row.
+
+  The fence's body is ECharts' own `option` as JSON, drawn while it streams from the part that has arrived, at most every 300 ms. The chart wears the chat's tokens as an ECharts theme, recoloured in place on a light/dark switch, with series colours that stay apart for colour-blind readers. It is drawn as SVG, as a `figure` with ECharts' own description and a hidden table of its numbers. A model's option cannot write HTML, load a picture, open a link or download a file: tooltips are forced to rich text; images, links, `saveAsImage`, `dataView`, a CSS `url()` however it is spelled and a dataset filter's regular expression are taken out; a colour key takes colour syntax only (`sanitizeEChartsOption`). ECharts is loaded on the first chart, and `@aparte/plugin-echarts/core` takes an ECharts build you hand it (`setupEChartsWith`).
+  <sub>`@aparte/plugin-echarts`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.28.3
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
