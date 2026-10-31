@@ -71,6 +71,33 @@ describe('card fences', () => {
         expect(unknown.querySelector('.aparte-code-error')!.textContent).toBe('{"location":"Lille"}');
     });
 
+    it('draws a card of the app own, set up after the fences', async () => {
+        const late = defineCard<Note, 'a'>({
+            name: 'late', variants: ['a'], styles: '', icon: '<svg></svg>',
+            normalize: (raw: any) => (raw && typeof raw.text === 'string' ? { text: raw.text } : null),
+            render: (n) => [el('span', { class: 'text', text: n.text })],
+            skeleton: () => [], label: () => 'Late', fallback: (n) => n.text,
+        });
+        stops.push(setupCardFences());
+        expect(aparteGlobalConfig.hasCodeLanguageRenderer('card-late')).toBe(false);
+        stops.push(late.setup());
+        expect(aparteGlobalConfig.hasCodeLanguageRenderer('card-late')).toBe(true);
+        const host = await mount(render('card-late', '{"text":"late"}'));
+        expect(host.querySelector('.text')!.textContent).toBe('late');
+    });
+
+    it('takes the layout from "variant" in the block, when it names one of the card', async () => {
+        const two = defineCard<Note, 'a' | 'b'>({
+            name: 'twin', variants: ['a', 'b'], styles: '', icon: '<svg></svg>',
+            normalize: (raw: any) => (raw && typeof raw.text === 'string' ? { text: raw.text } : null),
+            render: (n, ctx) => [el('span', { class: 'text', text: `${n.text}:${ctx.variant}` })],
+            skeleton: () => [], label: () => 'Twin', fallback: (n) => n.text,
+        });
+        stops.push(two.setup(), setupCardFences());
+        const host = await mount(render('card-twin', '{"text":"x","variant":"b"}') + render('card-twin', '{"text":"y","variant":"nope"}'));
+        expect([...host.querySelectorAll('.text')].map((t) => t.textContent)).toEqual(['x:b', 'y:a']);
+    });
+
     it('stops: the languages are no longer drawn', () => {
         setupCardFences()();
         expect(aparteGlobalConfig.hasCodeLanguageRenderer('card-weather')).toBe(false);

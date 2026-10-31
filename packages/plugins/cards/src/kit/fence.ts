@@ -16,7 +16,7 @@
  * by `load`, the first time its type appears.
  */
 import { aparteGlobalConfig, escapeAttr, resolveConfig, type AparteConfig } from '@aparte/core';
-import { cardsSetUp, drawCardSegment } from './define.js';
+import { cardsSetUp, drawCardSegment, onCardSetUp } from './define.js';
 
 /** The language prefix: ```card-weather draws the weather card. */
 export const CARD_FENCE_PREFIX = 'card-';
@@ -91,7 +91,10 @@ async function drawFence(el: HTMLElement): Promise<void> {
         showSource();
         return;
     }
-    const segment = { id: idOf(card, source), type: 'card' as const, card, data };
+    // `"variant"` in the block picks the card's layout, when it names one of them.
+    const variant = data && typeof data === 'object' && typeof (data as { variant?: unknown }).variant === 'string'
+        ? (data as { variant: string }).variant : undefined;
+    const segment = { id: idOf(card, source), type: 'card' as const, card, data, ...(variant ? { variant } : {}) };
     let drawn = drawCardSegment(config, segment);
     if (!drawn && await fetchCard(config, card) && el.isConnected) drawn = drawCardSegment(config, segment);
     if (drawn) el.replaceChildren(drawn);
@@ -130,9 +133,15 @@ export function setupCardFences(options: CardFenceOptions = {}): () => void {
             return `<${TAG} data-card="${escapeAttr(card)}" data-source="${escapeAttr(source)}"></${TAG}>`;
         },
     };
-    const stop = config.registerCodeLanguageRenderer(renderer);
+    const stops = [config.registerCodeLanguageRenderer(renderer)];
+    // A card of the app's own, set up after this: its blocks are drawn too, from then on.
+    stops.push(onCardSetUp(config, (name) => {
+        if (names.has(name)) return;
+        names.add(name);
+        stops.push(config.registerCodeLanguageRenderer({ ...renderer, languages: [`${CARD_FENCE_PREFIX}${name}`] }));
+    }));
     return () => {
-        stop();
+        for (const stop of stops.splice(0)) stop();
         loaders.delete(config);
     };
 }

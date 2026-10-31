@@ -376,6 +376,17 @@
 .aparte-product--tile .aparte-product__actions { padding-inline: var(--aparte-space-2); }
 .aparte-product--tile .aparte-product__action { flex: 1 1 auto; justify-content: center; }
 
+/* A tile alone, the one product of an answer: a square photo the width of a chat column is
+   taller than the chat's view, and without a photo the square held nothing. A landscape frame,
+   and a low band when there is no picture; in a row of tiles they stay square and level. */
+.aparte-product--tile:not(:is(.aparte-product__collection, .aparte-product__more) .aparte-product--tile) .aparte-product__media {
+  aspect-ratio: 4 / 3;
+}
+
+.aparte-product--tile:not(:is(.aparte-product__collection, .aparte-product__more) .aparte-product--tile) .aparte-product__media[data-empty] {
+  aspect-ratio: 3 / 1;
+}
+
 .aparte-product__collection .aparte-product--tile,
 .aparte-product__more .aparte-product--tile {
   border: var(--aparte-border-width) solid var(--aparte-border);
@@ -508,6 +519,11 @@
 .aparte-product--detail .aparte-product__media,
 .aparte-product--detail .aparte-product__sk-media {
   aspect-ratio: 4 / 3;
+}
+
+/* No picture: a low band for the glyph, not a frame the size of a photo that is not there. */
+.aparte-product--detail .aparte-product__media[data-empty] {
+  aspect-ratio: 3 / 1;
 }
 
 .aparte-product__media-link {

@@ -16,6 +16,9 @@
      nothing. The card asks for its size and the bubble's own limit caps it. */
   inline-size: var(--aparte-rich-card-max-inline-size);
   max-inline-size: 100%;
+  /* Its border inside that 100%: counted outside, the card ran 2px past a narrow column and
+     whatever clipped the column cut its right edge. */
+  box-sizing: border-box;
   margin-block: var(--aparte-space-3);
   font-family: var(--aparte-font-family);
   font-variant-numeric: tabular-nums;
