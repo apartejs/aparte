@@ -12,6 +12,8 @@
  * three sources, states, variants, language switch and actions.
  */
 export { defineCard, CARD_SEGMENT_TYPE } from './kit/define.js';
+export { setupCardFences, CARD_FENCE_PREFIX } from './kit/fence.js';
+export type { CardFenceOptions } from './kit/fence.js';
 export type {
     AparteCardSegment,
     CardAction,

@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.29.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- Add `setupCardFences()`: a ` ```card-weather ` code block of JSON in an answer is drawn as the weather card (every card has its `card-<name>` language).
+
+  For backends that send only text and keep their tool calls to themselves — a workflow engine, a server that streams its answer, a model with no tools. `load` maps a card's name to its entry (`() => import('@aparte/plugin-cards/weather')`), fetched the first time a block names it. While the block streams a placeholder holds its place; a block whose JSON does not parse, or whose card the page cannot draw, shows its source. Works with any Markdown provider, or none.
+  <sub>`@aparte/plugin-cards`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.29.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

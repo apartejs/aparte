@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-marked",
-    "version": "0.29.0",
+    "version": "0.29.1",
     "homepage": "https://apartejs.dev/guides/markdown/",
     "description": "Markdown rendering for aparté via marked — register it as the one-shot Markdown provider.",
     "type": "module",
@@ -42,7 +42,7 @@
         "remend": "^1.4.0"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.29.0 <1.0.0",
+        "@aparte/core": ">=0.29.1 <1.0.0",
         "marked": "^18.0.0"
     },
     "devDependencies": {

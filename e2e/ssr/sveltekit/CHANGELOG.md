@@ -1,5 +1,13 @@
 # @aparte-workspace/ssr-sveltekit
 
+## 0.0.13
+
+### Patch Changes
+
+- @aparte/core@0.29.1
+- @aparte/provider-scenario@0.29.1
+- @aparte/svelte@0.29.1
+
 ## 0.0.12
 
 ### Patch Changes

@@ -494,6 +494,7 @@
       "setupAskUser"
     ],
     "@aparte/plugin-cards": [
+      "CARD_FENCE_PREFIX",
       "CARD_SEGMENT_TYPE",
       "carousel",
       "currencyCode",
@@ -513,6 +514,7 @@
       "rating",
       "safeUrl",
       "segmented",
+      "setupCardFences",
       "slider",
       "sparkline",
       "sparklinePath",

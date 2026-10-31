@@ -467,6 +467,40 @@ Every card's entry exports its definition the same way — `itemsCard`, `product
 The segment's type is `card`, not `custom`: your app's own `custom` renderer stays yours. A
 `card` segment naming a card the page did not set up shows its `fallback`.
 
+## A card written in the answer
+
+Some backends send only text: a workflow engine that runs its tools itself, a server that streams
+its answer and nothing else, a model with no tools. Their answer can still carry a card, as a code
+block whose language names the card and whose body is its fields:
+
+````md
+The weather in Lille:
+
+```card-weather
+{ "location": "Lille", "temperature": 11, "condition": "rain" }
+```
+````
+
+`setupCardFences()` draws those blocks as their cards. Each card is fetched the first time a block
+names it, so a page that never receives one downloads none:
+
+```ts
+import { setupCardFences } from '@aparte/plugin-cards';
+
+setupCardFences({
+  load: {
+    weather: () => import('@aparte/plugin-cards/weather'),
+    stock: () => import('@aparte/plugin-cards/stock'),
+  },
+});
+```
+
+A card already set up on the page needs no `load` entry. While the block streams, a placeholder
+holds its place; once it closes, the card is drawn. A block whose JSON does not parse, or that
+names a card the page cannot draw, shows its source. A chat without this plugin shows the block as
+code, so put a sentence before it. It works with any Markdown provider, or none, like the
+[charts](/guides/charts/).
+
 ## Words and languages
 
 A card's words come in the ten languages of `@aparte/locales`, picked by the locale's `tag`;
