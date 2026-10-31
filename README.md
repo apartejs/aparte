@@ -147,6 +147,8 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/docs-mcp` | The docs as an MCP server — `npx @aparte/docs-mcp` lets your coding agent search and read them |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
 | `@aparte/plugin-katex` · `-mermaid` | Maths and diagrams, drawn while the reply streams |
+| `@aparte/plugin-echarts` · `-chartjs` | Charts from a fenced block or a tool's result, on the library you already use |
+| `@aparte/plugin-cards` | A tool's result drawn as a rich card — weather, products, places… — in variants, from your tool's own fields |
 | `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
 | `@aparte/plugin-artifacts` | A `create_artifact` tool the model calls, and the card that shows its result: the code, and a live preview |
 | `@aparte/plugin-titler` | A title for every conversation, from a small model that runs in the browser |

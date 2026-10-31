@@ -4,13 +4,13 @@
  * on the page would change.
  *
  * web_search returns its results twice: as prose for the model, and as `structuredContent`
- * for the source cards that renderers.ts draws in the transcript.
+ * for the link card renderers.ts plugs in, which draws them in the transcript.
  */
 import type { AparteTool, AparteToolHandler } from '@aparte/core';
 import { reducedMotion } from '../runtime';
 import { search, sourceAt, type Source } from './sources';
 
-/** What web_search hands the source cards. */
+/** What web_search hands the link card. */
 export interface SearchResult {
     query: string;
     results: Pick<Source, 'title' | 'url' | 'snippet'>[];
@@ -28,7 +28,7 @@ export const readPageTool: AparteTool = {
     inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
 };
 
-/** The result web_search gives for a query: the cards' data. */
+/** The result web_search gives for a query: the card's data. */
 export function searchResult(query: string): SearchResult {
     return { query, results: search(query).map(({ title, url, snippet }) => ({ title, url, snippet })) };
 }

@@ -1,0 +1,105 @@
+---
+/**
+ * The Travel concierge template: Saltroad, an invented travel app, on a traveller's upcoming
+ * trip. The trip panel (the destination, the stay, the places saved) sits beside the chat, which
+ * is the main surface: a hand-composed <aparte-chat> whose tools are drawn as cards by
+ * @aparte/plugin-cards. The markup is the library's elements and the kit's recipes; the behaviour
+ * is app.ts.
+ */
+import { BRAND, CONCIERGE, MARK_SVG, TRAVELLER } from './brand';
+import riverside from './pictures/riverside.svg?url&no-inline';
+import { STARTERS } from './starters';
+import { DESTINATION } from './trip';
+import './travel-concierge.css';
+
+const suggestions = JSON.stringify(STARTERS);
+---
+
+<div class="travel-concierge">
+    <header class="tc-top">
+        <a class="tc-logo" href="#tc-trip">
+            <span class="tc-logo__mark"><Fragment set:html={MARK_SVG} /></span>
+            {BRAND}
+        </a>
+        <nav class="tc-nav" aria-label={BRAND}>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#tc-trip" aria-current="page">Trips</a>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="https://example.com/explore">Explore</a>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#tc-saved">
+                Saved <span class="aparte-badge aparte-badge--primary aparte-badge--sm" data-tc="saved-count" hidden>0</span>
+            </a>
+        </nav>
+        <span class="aparte-avatar aparte-avatar--sm tc-top__me" title={TRAVELLER.name}>{TRAVELLER.initials}</span>
+    </header>
+
+    <div class="tc-body">
+        <aside class="tc-trip" id="tc-trip" aria-label="Your trip">
+            <figure class="tc-hero">
+                <img class="tc-hero__img" src={riverside} alt="" width="640" height="400" />
+                <figcaption class="tc-hero__text">
+                    <!-- Dated in the browser, from today (trip.ts): a date written here at build time would go stale. -->
+                    <span class="tc-hero__eyebrow" data-tc="countdown"><span class="aparte-skeleton aparte-skeleton--text tc-hero__sk"></span></span>
+                    <h2 class="tc-hero__city">{DESTINATION.city}</h2>
+                    <p class="tc-hero__dates" data-tc="dates">{DESTINATION.country}</p>
+                </figcaption>
+            </figure>
+
+            <section class="tc-section" aria-labelledby="tc-stay-title">
+                <h3 class="tc-section__title" id="tc-stay-title">Stay</h3>
+                <div data-tc="stay">
+                    <div class="tc-empty">
+                        <p class="tc-empty__text">Nothing booked yet.</p>
+                        <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-tc="find-stay">Find a stay</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tc-section" id="tc-saved" aria-labelledby="tc-saved-title">
+                <h3 class="tc-section__title" id="tc-saved-title">
+                    Saved places <span class="aparte-badge aparte-badge--neutral aparte-badge--sm" data-tc="saved-count" hidden>0</span>
+                </h3>
+                <ul class="tc-saved" data-tc="saved"></ul>
+                <p class="tc-empty__text" data-tc="saved-empty">Places you save from the chat land here.</p>
+            </section>
+        </aside>
+
+        <main class="tc-main">
+            <header class="tc-concierge">
+                <span class="aparte-avatar"><span class="tc-face"><Fragment set:html={MARK_SVG} /></span></span>
+                <div class="tc-concierge__who">
+                    <h2 class="tc-concierge__name">{CONCIERGE}</h2>
+                    <p class="tc-concierge__status">
+                        <span class="aparte-badge aparte-badge--success aparte-badge--dot" aria-hidden="true"></span>
+                        Your {BRAND} concierge for {DESTINATION.city}
+                    </p>
+                </div>
+            </header>
+
+            <!-- What the app did after a card's button: shown a moment, read out through the live region below. -->
+            <div class="tc-notice aparte-alert aparte-alert--success" data-tc="notice" aria-hidden="true" hidden>
+                <span class="aparte-alert__icon"><aparte-icon name="check"></aparte-icon></span>
+                <div class="aparte-alert__body"><p class="aparte-alert__message" data-tc="notice-text"></p></div>
+            </div>
+            <p class="aparte-sr-only" role="status" data-tc="announce"></p>
+
+            <aparte-chat class="tc-chat">
+                <aparte-chat-viewport></aparte-chat-viewport>
+                <aparte-composer placeholder={`Ask ${CONCIERGE} about your trip`}>
+                    <!-- The starters stay as follow-ups; app.ts takes each away once it is asked. -->
+                    <aparte-suggestions suggestions={suggestions}></aparte-suggestions>
+                    <!-- Where the booking's approval is asked: above the input. -->
+                    <aparte-elicitation></aparte-elicitation>
+                    <div class="aparte-composer-shell">
+                        <div class="aparte-composer-row">
+                            <aparte-composer-input></aparte-composer-input>
+                            <aparte-composer-send></aparte-composer-send>
+                        </div>
+                    </div>
+                </aparte-composer>
+            </aparte-chat>
+        </main>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>

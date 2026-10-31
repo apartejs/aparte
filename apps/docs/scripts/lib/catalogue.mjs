@@ -5,7 +5,7 @@
  * frontmatter says what it is:
  *
  *   catalog:
- *     group: chat            # chat | layout | kit
+ *     group: chat            # chat | cards | layout | kit
  *     order: 3               # position inside the group
  *     claims:                # what the page documents, so nothing is documented twice or never
  *       elements: [aparte-composer, aparte-composer-input, …]
@@ -15,8 +15,8 @@
  *     demos: [composer-minimal, composer-attachments]
  *
  * Everything that needs the catalogue's shape OUTSIDE Astro reads it here, from the files: the
- * Components sidebar in astro.config.mjs, the component count stamped into the READMEs and
- * llms.txt, and the check that every element, segment and kit family has a page. One source,
+ * Components sidebar in astro.config.mjs, the component count the site prints (src/lib/facts.ts),
+ * and the check that every element, segment and kit family has a page. One source,
  * and it is the pages — the same rule the generators follow for what they generate.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -29,9 +29,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 /** Where the hand-written catalogue pages live (flat files; the group folders are generated). */
 export const COMPONENTS_DIR = resolve(here, '../../src/content/docs/components');
 
-/** The three groups, in reading order: the chat first, the generic kit last. */
+/**
+ * The four groups, in reading order: the chat first, then the cards a tool's result is drawn as
+ * (plugins, beside the chat they appear in), the layout around it, and the generic kit last.
+ */
 export const GROUPS = [
     { id: 'chat', label: 'Chat' },
+    { id: 'cards', label: 'Cards' },
     { id: 'layout', label: 'Layout' },
     { id: 'kit', label: 'Kit' },
 ];

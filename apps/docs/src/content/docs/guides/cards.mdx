@@ -1,0 +1,539 @@
+---
+title: Show a tool's result as a card
+description: Draw what a tool returns as a rich card — the weather first — in variants, from your tool's own fields, with @aparte/plugin-cards.
+sidebar:
+  order: 3.7
+  label: Cards
+guide:
+  group: look
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="cards-weather" caption="One tool, one card, three variants chosen from the data." />
+
+A tool's call is drawn as a row: its name, its input, its output. For a tool whose result a
+person reads — the weather, a product, a place — a card says it better.
+`@aparte/plugin-cards` draws that card where the row would be, while the call runs and once it
+has returned, and your tool keeps its own fields.
+
+## Install and plug a card in
+
+```bash
+npm install @aparte/plugin-cards
+```
+
+```ts
+import { setupWeatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard({
+  tool: 'get_weather',
+  map: (result) => ({
+    location: result.city,
+    condition: result.sky,
+    temperature: result.temp_c,
+    high: result.max,
+    low: result.min,
+  }),
+});
+```
+
+Each card has its own entry, so an app ships only the cards it imports. `tool` names the tool
+(a string or a `RegExp`, or several in an array); `map` turns the tool's result into the card's
+fields. The result `map` receives is the tool's `structuredContent` when it returned one, else
+its text read as JSON, else the text. Return `null` when there is nothing to draw: the card then
+says it is not available, and the console says why once.
+
+## Variants
+
+A variant is the same card laid out another way. Pass one name, or a function that picks one
+from the data:
+
+```ts
+setupWeatherCard({
+  tool: 'get_weather',
+  map: (result) => result,
+  variant: (data) => (data.daily.length > 2 ? 'forecast' : data.hourly.length ? 'hero' : 'compact'),
+});
+```
+
+| variant | what it shows |
+| --- | --- |
+| `hero` (default) | The sky behind the temperature, the range and the feel, wind, humidity and rain, then the next hours under the temperature's curve. |
+| `compact` | One line: the glyph, the temperature, the place and the sky, the range. |
+| `forecast` | The current weather on its sky, then the days ahead, each with its range on a scale shared by all of them. |
+
+The variant is written on the card as `data-variant`, so your stylesheet can address one
+variant without registering a second card.
+
+## The weather card's fields
+
+Only `temperature` (or `daily`) is needed; every other field adds a line when it is there.
+
+| field | |
+| --- | --- |
+| `location` | The place's name. |
+| `condition` | One of `clear`, `partly-cloudy`, `cloudy`, `fog`, `drizzle`, `rain`, `heavy-rain`, `sleet`, `snow`, `thunder`, `wind` — or a description, read in English or French. |
+| `summary` | Your tool's own words for the sky; otherwise the condition's name, in the chat's language. |
+| `temperature`, `feelsLike`, `high`, `low` | Numbers, in `unit` (`C` by default, or `F`). |
+| `humidity`, `precipitation` | Percentages (`40` or `0.4`). |
+| `wind` | A speed in km/h, or `{ speed, unit, direction }` — `unit` is `km/h`, `mph`, `m/s` or `kn`, `direction` in degrees. |
+| `night` | Draw the night sky and the moon. |
+| `time` | When it was measured. |
+| `hourly` | `[{ time, temperature, condition?, precipitation? }]`, eight shown. |
+| `daily` | `[{ date, high, low, condition?, precipitation? }]`, seven shown. |
+
+Three readers turn the codes of the usual APIs into a condition: `conditionFromWmo` (Open-Meteo's
+`weather_code`), `conditionFromOpenWeather` (OpenWeather's condition id) and `conditionFromText`.
+`fromOpenMeteo` reads a whole Open-Meteo forecast response, so a tool that calls it can hand
+its answer over as it is:
+
+```ts
+import { setupWeatherCard, fromOpenMeteo } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard({
+  tool: 'get_weather',
+  map: (result) => fromOpenMeteo(result.forecast, { location: result.city }),
+});
+```
+
+`readWeather` is the card's own reading of its fields, for a test of your `map`.
+
+## The other cards
+
+Every card is plugged in the same way: its own entry, `tool`, `map`, `variant`, `actions`.
+
+### Articles and results — `items`
+
+Anything with a title, and often a picture: search results, articles, recommendations. One item
+or a list of them (ten at most), as a `carousel` (default), a `list` or a `grid`:
+
+```ts
+import { setupItemsCard } from '@aparte/plugin-cards/items';
+
+interface Hit { title: string; site: string; snippet: string; thumbnail: string; url: string }
+
+setupItemsCard({
+  tool: 'search_docs',
+  map: (result: { query: string; hits: Hit[] }) => ({
+    title: `Results for "${result.query}"`,
+    items: result.hits.map((hit) => ({
+      title: hit.title,
+      subtitle: hit.site,
+      description: hit.snippet,
+      image: hit.thumbnail,
+      url: hit.url,
+      actions: [{ label: 'Summarise', id: 'summarise' }],
+    })),
+  }),
+});
+
+// A button read from a tool's result never sends text as the person: it carries an `id`,
+// and your app decides what it does.
+document.addEventListener('aparte-card-action', (event) => {
+  const { action, data } = event.detail;
+  if (action.id === 'summarise') sendToChat(`Summarise ${(data as { url: string }).url}`);
+});
+
+declare function sendToChat(text: string): void;
+```
+
+An item reads `title`, `subtitle`, `description`, `image` (a string, or `{ src, alt }`), `badge`,
+`meta` (up to three short lines), `url` (the whole tile opens it) and `actions` (two at most, each
+a web link or an `id`: what a button sends as the person is never read from a tool's result,
+since a page the tool read could choose it).
+
+### Products — `product`
+
+A price and the one it replaces (the discount is worked out, never read from text), a rating, the
+stock, the merchant, the options. One product or several, as `card` tiles (default), `compact` rows
+or a `detail` sheet:
+
+```ts
+import { setupProductCard } from '@aparte/plugin-cards/product';
+
+setupProductCard({
+  tool: 'search_products',
+  variant: (data) => (data.products.length === 1 ? 'detail' : 'card'),
+});
+```
+
+Its reader takes the shapes shops already return — schema.org `Product`/`Offer`, Shopify, Google
+Shopping results — and prices written as text (`"1.299,00 €"`), so `map` is often not needed.
+`discountOf(product)` gives the discount it shows.
+
+### Places — `place`
+
+A restaurant, a shop, a museum: rating, price level, distance, and whether it is open now — worked
+out from its hours at the moment it is drawn, across midnight, in the place's own time zone when
+it gives one. Directions, Call and Website buttons appear on each place when the data allows
+them, beside your own `actions` (`builtIns: false` leaves them out):
+
+```ts
+import { setupPlaceCard } from '@aparte/plugin-cards/place';
+
+setupPlaceCard({ tool: 'find_places', currencySymbol: '€' });
+```
+
+`card` tiles (default), `compact` rows, and a `detail` sheet with the week's hours, today first.
+Its reader takes both generations of Google Places and Yelp. The hours logic is exported too:
+`readHours`, `readTime`, `placeStatus`, `isOpenAt`, `directionsUrl` and `phoneUrl`.
+
+### Key figures — `stats`
+
+A few numbers that answer a question: revenue, orders, conversion. `tiles` (default) is a grid of
+figures, each with its change and a sparkline; `list` is a fact sheet, one row per figure; `hero`
+draws the first figure large over a wide chart and the others beneath it:
+
+```ts
+import { setupStatsCard } from '@aparte/plugin-cards/stats';
+
+setupStatsCard({
+  tool: 'get_sales_summary',
+  map: (result) => ({
+    title: 'Sales this week',
+    items: [
+      { label: 'Revenue', value: result.revenue, currency: 'EUR', change: 0.12, good: 'up', trend: result.daily },
+      { label: 'Returns', value: result.returns, change: '+3%', good: 'down' },
+    ],
+  }),
+});
+```
+
+A figure (`StatInput`) needs `label` and `value`. `format` is `number`, `percent`, `currency`,
+`compact`, `duration` or `text` (`StatFormat`); `change` is a percentage — a number up to 1 is a
+ratio, `0.12` reads +12 %, so write `"1%"` for one per cent — or, with `changeFormat: 'absolute'`,
+in the figure's unit. `good` says which way is good and colours the change; without it the change
+stays neutral. `icon` names one of the card's glyphs (`StatIcon`). A plain record —
+`{ Revenue: 12000, Orders: 340 }` — is read as label → value pairs, its keys made readable by
+`humanizeKey`. `readStats` turns a `StatsInput` into the `StatsData` it draws (`Stat` per figure),
+and `statValue` and `statChange` write a figure the way the card does. The variant names are
+`StatsVariant`.
+
+### Orders and bookings — `order`
+
+What was bought or booked, what it cost, where it stands. `receipt` (default) is the whole record,
+lines, totals, payment and delivery; `compact` is one row, for a list of past orders;
+`confirmation` is the moment it is placed:
+
+```ts
+import { setupOrderCard } from '@aparte/plugin-cards/order';
+
+setupOrderCard({ tool: 'get_order', variant: 'receipt' });
+setupOrderCard({ tool: 'book_room', map: (r) => ({ ...r, kind: 'booking' }), variant: 'confirmation' });
+```
+
+`readOrder` already takes a Shopify or WooCommerce order and a Stripe Checkout session — Stripe
+counts in cents, so say `minorUnits: true`; the card does not guess. An `OrderInput` has a `kind`
+(`OrderKind`: `order` or `booking`), a `status` (`OrderStatus`, or your own word), `items`
+(`OrderLineInput`: `title`, `quantity`, `price`, `total`…), the totals — the subtotal and the
+total are worked out when missing, and a tool's own total always wins — `payment`, `delivery`
+(an estimate, a carrier, a tracking link), `facts` of your own, a `headline` for the confirmation when the status's sentence is not what
+happened ("Return started"), and, for a booking, `booking`
+with its `start`, `end`, `location` and `guests`. A date (`OrderDateInput`) is an ISO string,
+an epoch or a `Date`; `readWhen` reads one into an `OrderWhen`, which knows that a hotel's
+`"2026-11-07"` is a day, not midnight, and `nightsOf` counts the nights between two of them.
+The card draws an `OrderData` of `OrderLine`s and `OrderFact`s; its variants are `OrderVariant`.
+
+### Market quotes — `stock`
+
+A stock, an index, a crypto-currency, a currency pair. `chart` (default) is the quote at length,
+its chart against the previous close; `compact` is one row per quote with its sparkline;
+`ticker` is a strip of quotes that scrolls sideways; `candles` is the `chart` card with
+candlesticks in place of the line:
+
+```ts
+import { setupStockCard } from '@aparte/plugin-cards/stock';
+
+setupStockCard({ tool: 'get_quote', variant: 'candles' });
+```
+
+A quote (`QuoteInput`) needs a `symbol`; the price, the change, the day's figures, `series` for
+the line (`ChartPoint`s or plain numbers) and `candles` for the candlesticks (`Candle`s) each add
+their part, and `marketState` (`MarketState`) says whether the market is open. Several quotes
+(`QuotesInput`) are drawn as rows, whichever variant was asked: a watchlist is read by comparing
+lines. `readQuotes` takes Yahoo Finance, Alpha Vantage, Finnhub, CoinGecko and Binance as they
+come, into the `StockData` it draws. `directionOf` says which way a quote moved, `baselineOf` what
+its chart is measured against — the previous close for a day, where the series starts for
+anything longer — and `digitsOf` how many decimals its price wears. Its variants are
+`StockVariant`; a range is a `StockRange` — the next section shows the buttons that change it.
+
+### An agent's plan — `plan`
+
+The card an agent updates while it works: the same call sent again with new statuses, drawn into
+the same card. A status change moves no row: the title, its bold form, the `activeForm` wording a
+todo list gives a running step ("Running the tests") and the duration slot are all reserved. Say
+`timed: true` when your steps will gain times later, so their slot is there from the first draw;
+a `detail` an update brings adds its line. `checklist` (default) has "3 of 7 done" and a bar over
+one row per step; `timeline` puts each step on a rail with its time; `compact` is one line, for a
+plan that runs in a small space:
+
+```ts
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+
+setupPlanCard({ tool: 'update_plan' });
+// A tool whose input is the list and whose result is only "ok" reads its input instead:
+setupPlanCard({ tool: 'TodoWrite', map: (_result, input) => input });
+```
+
+`readPlan` reads a list of steps, a list of strings, a Markdown checklist (`- [x] Write the tests`)
+and the todo lists agents already write — Claude Code's and OpenAI's, Codex's plan, LangGraph's
+plan-and-execute state (its `past_steps` results are not shown: map them to `detail` to show
+them). A `PlanInput` is a list of steps or `{ title, goal, steps, timed }`; a step
+(`PlanStepInput`) has a `title`, a `status` (`PlanStatus`: `pending`, `in-progress`, `done`,
+`failed`, `skipped`, `blocked`, or the usual words for them, which `readStatus` reads), a `detail`,
+its times and one level of `substeps`. `planProgress` counts how far a `PlanData` has got (a
+`PlanProgress`), `durationText` writes a step's duration, and the card shows `PLAN_STEPS_SHOWN`
+steps at most (`PlanStep`s, its variants `PlanVariant`).
+
+### Matches — `score`
+
+A match, or a scoreboard of them, in any sport. `card` (default) puts the two teams face to face
+with the score between them; `compact` is one row per match; `detail` adds the score by period and
+the match's events, each on its team's side:
+
+```ts
+import { setupScoreCard } from '@aparte/plugin-cards/score';
+
+setupScoreCard({ tool: 'get_match', map: (result) => result.response, variant: 'detail' });
+```
+
+`readMatches` takes API-Football, football-data.org, ESPN and TheSportsDB as they come. A
+`MatchInput` needs its `home` and `away` teams (`TeamInput`: a `name`, and a `shortName`, a
+`logo`, a `color`, a `record`…); its `status` (`MatchStatus`, or a feed's own code), `clock`,
+`startTime`, `competition`, `venue`, `sport` (`Sport`), `periods` (`MatchPeriodInput`) and
+`events` (`MatchEventInput`: a `minute`, a `team` — a `MatchSide` — a `type` from
+`MatchEventType`, a `player`) each add their part. Several matches (`ScoreInput`) are always
+rows. `ScoreCardOptions` adds `now`, the time "Today" is worked out from. The card draws a
+`ScoreData` of `Match`es, `Team`s, `MatchPeriod`s and `MatchEvent`s; a team without a logo gets
+its `monogram` on its colour (`teamColor` reads one, `inkOn` picks the text that reads on it).
+Its variants are `ScoreVariant`.
+
+### Pictures, videos, sounds — `media`
+
+One medium large (`single`, the default), a gallery as a mosaic (`gallery`), or a row of
+thumbnails (`strip`). Every picture opens in a lightbox:
+
+```ts
+import { setupMediaCard } from '@aparte/plugin-cards/media';
+
+setupMediaCard({ tool: 'generate_image' }); // an image model's { data: [{ url }] } as it is
+setupMediaCard({ tool: 'search_photos', map: (result) => result.results, variant: 'gallery' });
+```
+
+A video plays in the browser's own `<video>`, a sound in its `<audio>`, and a YouTube or Vimeo
+page is a picture that links to it: no player script, no request your app did not make. A
+`MediumInput` needs a `src` (`http(s)`); `kind` (`MediaKind`: `image`, `video` or `audio`) is
+read from the address when it is missing, and `width` with `height` keep the space before the
+picture loads. `readMedia` reads a `MediaData` of `Medium`s from Unsplash, Pexels and image
+models as they answer; `readDuration` reads a length (`"3:42"`, `"PT3M42S"`) and
+`formatDuration` writes one. Its options are `MediaCardOptions`, its variants `MediaVariant`.
+
+### Web pages — `link`
+
+A page, previewed: its picture, its site, its title, its description, the whole card one link.
+`card` (default), `compact` (one row) or `quote` (the block chat apps draw under a shared link):
+
+```ts
+import { setupLinkCard } from '@aparte/plugin-cards/link';
+
+setupLinkCard({ tool: 'unfurl' }); // one page's Open Graph, as it is
+setupLinkCard({ tool: 'web_search', map: (result) => result.items, variant: 'compact' });
+```
+
+The card fetches nothing — no favicon service, no page: a site without its own icon in the data
+gets its initial on a tinted square. A `LinkInput` needs a `url`; `readLinks` reads Open Graph and
+Twitter keys and the results of Google's Custom Search, SerpAPI, Brave, Tavily and Exa into a
+`LinkData` of `Link`s. A link's badge is its `LinkType` (`article`, `video`, `repo`, `product`,
+`website`), read from the page when the data does not say. Its options are `LinkCardOptions`, its
+variants `LinkVariant`.
+
+## While the call runs, and when it does not
+
+While the tool runs, the card shows its skeleton with what the call's input already says — the
+city before the forecast. Each card knows the usual input fields for its kind of tool (the
+weather card reads `city`, `location`, `place`, `q` or `query`); `mapInput` reads yours when it
+names them otherwise. Once the result lands, the same element is filled in place.
+
+A call waiting for a person's approval, refused, stopped or failed is not drawn as a card: it is
+one line that says so. A result from a call that did not run is never shown as if it had.
+
+## Buttons
+
+`actions` puts up to three buttons under a card. Each opens a link (http, https, mailto or tel
+only), sends a message through the chat's composer, or is only reported:
+
+```ts
+import { setupWeatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard({
+  tool: 'get_weather',
+  actions: (data) => [
+    { label: 'Hourly forecast', send: `Hourly forecast for ${data.location}`, primary: true },
+    { label: 'Open the full forecast', url: `https://example.com/weather/${encodeURIComponent(data.location ?? '')}` },
+  ],
+});
+
+document.addEventListener('aparte-card-action', (event) => {
+  const { card, action, data } = event.detail;
+  // Cancel it to do something else instead of the link or the message.
+});
+```
+
+## Cards that change in place
+
+A card can carry controls: the stock card's range buttons over its chart, a switch, a slider.
+They are drawn only when your app answers them, through `onChange`. It receives the control's
+name and value with the data the card shows, and returns the card's new fields; the card is
+drawn again in place — the same element, the focus kept on the control that was pressed:
+
+```ts
+import { setupStockCard } from '@aparte/plugin-cards/stock';
+
+setupStockCard({
+  tool: 'get_quote',
+  map: (result) => ({ ...result, ranges: ['1D', '5D', '1M', '6M', '1Y'] }),
+  onChange: async ({ name, value }, data) => {
+    const [quote] = data.quotes;
+    if (name !== 'range' || !quote) return;
+    const chart = await fetch(`/api/chart?symbol=${quote.symbol}&range=${value}`).then((r) => r.json());
+    return { ...quote, range: value, series: chart.series, candles: chart.candles };
+  },
+});
+```
+
+While `onChange` runs the card is marked busy (`aria-busy`). Changes run one at a time, in
+order, each handed the data the one before left; a control moved again before its turn asks
+once, with its latest value. Return nothing to leave the card as it is. Every change also fires
+`aparte-card-change` on the card, its detail a `CardChangeEventDetail` (`card`, `name`,
+`value`, `data`); cancel it to stop `onChange`.
+
+What `onChange` returns is kept for as long as the page lives: a turn ending, the conversation
+saved, left and opened again all draw the card as the person left it, in every framework. A
+page reloaded draws it from the tool's result again, since that is what the conversation
+stores. A new result for the same call starts over from it.
+
+A card of your own draws the same controls with the kit's `segmented` (a row of choices,
+`SegmentedOptions`), `toggle` (a switch, `ToggleOptions`) and `slider` (`SliderOptions` — the
+change is reported once the slider is let go, not on every pixel). Each returns `null` when
+nothing answers it, so a card without an `onChange` draws no control that would do nothing:
+
+```ts
+import { defineCard, el, toggle, slider } from '@aparte/plugin-cards';
+
+interface Light { name: string; on: boolean; level: number }
+
+const lightCard = defineCard<Light, 'card'>({
+  name: 'light',
+  variants: ['card'],
+  styles: '',
+  icon: '<svg viewBox="0 0 24 24"></svg>',
+  normalize: (raw: any) => raw,
+  render: (light, ctx) => [
+    el('strong', { text: light.name }),
+    toggle(ctx, { name: 'on', checked: light.on, label: () => light.name }),
+    slider(ctx, { name: 'level', value: light.level, label: () => 'Brightness', format: (v) => `${v} %` }),
+  ].filter((node): node is HTMLElement => node !== null),
+  skeleton: () => [],
+  label: (light) => light?.name ?? 'Light',
+  fallback: (light) => `${light.name}: ${light.on ? 'on' : 'off'}`,
+});
+
+lightCard.setup({
+  tool: 'get_light',
+  onChange: async ({ name, value }, light) => ({ ...light, [name]: value }),
+});
+```
+
+## A card without a tool
+
+A server, a runner or your own code can add a card as a segment. Each card builds it, with the
+sentence a text-only reader gets — the history a model reads back, a build without the card.
+The page still sets the card up, with no `tool`: that is what draws its segments.
+
+```ts
+import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard();
+
+const viewport = document.querySelector('aparte-chat-viewport')!;
+viewport.addSegment('a1', weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
+// { type: 'card', card: 'weather', data: {…}, fallback: 'Lille: 11°C, Rain' }
+```
+
+Every card's entry exports its definition the same way — `itemsCard`, `productCard`, `placeCard`,
+`statsCard`, `orderCard`, `stockCard`, `planCard`, `scoreCard`, `mediaCard`, `linkCard`.
+
+The segment's type is `card`, not `custom`: your app's own `custom` renderer stays yours. A
+`card` segment naming a card the page did not set up shows its `fallback`.
+
+## Words and languages
+
+A card's words come in the ten languages of `@aparte/locales`, picked by the locale's `tag`;
+numbers, days and hours are written by `Intl` in the same language. A key of your locale wins
+over the package's word:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.extendLocale({ cardsWeatherWind: 'Gusts' });
+```
+
+A language switch rewrites a card's words in place. The weather card's keys are
+`cardsWeatherTitle`, `cardsWeatherIn`, `cardsWeatherFeelsLike`, `cardsWeatherHigh`,
+`cardsWeatherLow`, `cardsWeatherWind`, `cardsWeatherHumidity`, `cardsWeatherRain`,
+`cardsWeatherNow`, `cardsWeatherForecast` and `cardsWeather_<condition>`; every card shares
+`cardsUnavailable`, `cardsWaiting`, `cardsRefused`, `cardsLoading`, `cardsPrevious`,
+`cardsNext`, `cardsSlide`, `cardsRating` and `cardsReviews`.
+
+## Colours
+
+A card wears the chat's tokens, light and dark. The weather card adds its own:
+`--aparte-weather-sky-<condition>` and `--aparte-weather-night-<condition>` for the eleven skies,
+and `--aparte-weather-sun`, `-moon`, `-cloud`, `-rain`, `-snow`, `-bolt`, `-fog` and `-wind` for
+the glyphs' parts:
+
+```css
+.aparte-weather-card {
+  --aparte-weather-sky-clear: linear-gradient(160deg, #0f766e, #2dd4bf);
+}
+```
+
+The glyphs move gently — rays, rain, snow — and stand still when the system asks for reduced
+motion.
+
+## A card of your own
+
+The package's root entry is the kit every card is made with. `defineCard` gives a card of yours
+the same three sources, states, variants, language switch and buttons:
+
+```ts
+import { defineCard, el, formatPrice, type CardContext } from '@aparte/plugin-cards';
+
+interface Quote { symbol: string; price: number; currency: string }
+
+const quoteCard = defineCard<Quote, 'compact'>({
+  name: 'quote',
+  variants: ['compact'],
+  styles: '.aparte-quote-card { padding: 1rem }',
+  icon: '<svg viewBox="0 0 24 24"></svg>',
+  normalize: (raw: any) => (raw && typeof raw.price === 'number' ? raw : null),
+  render: (quote, ctx: CardContext) => {
+    const price = el('strong');
+    ctx.bind(price, () => formatPrice(ctx.config, quote.price, quote.currency));
+    return [el('span', { text: quote.symbol }), price];
+  },
+  skeleton: () => [el('span', { class: 'aparte-skeleton aparte-skeleton--text' })],
+  label: (quote) => quote?.symbol ?? 'Quote',
+  fallback: (quote) => `${quote.symbol} ${quote.price}`,
+});
+
+quoteCard.setup({ tool: 'get_quote' });
+```
+
+Draw with `el()` and text, never with markup built from the data: a tool's result is untrusted.
+Text that depends on the language goes through `ctx.bind` or `ctx.word`, so a switch rewrites it
+in place. The kit also has `carousel`, `rating`, `sparkline`, `glyph`, `safeUrl`, `num`, `str`,
+`word`, `languageOf`, `intlTag`, `formatNumber`, `formatPercent`, `formatPrice`, `currencyCode`,
+`formatUnit`, `formatDay`, `formatHour`, `formatWhen`, `toDate`, `sparklinePath` and
+`CARD_SEGMENT_TYPE`.

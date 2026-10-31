@@ -40,9 +40,10 @@ export const READS = [OPERATOR_REPORT.url, TRIP_DATA.url, LEDGER_ARTICLE.url, ME
 export const REPORT_TITLE = 'Merrow Wheels: the first year';
 
 /**
- * The report, as the model writes it: Markdown, with the chart's data in a fenced `chart` block
- * that the report pane draws (report.ts). A model writes data well and SVG badly, and the
- * library's sanitiser refuses SVG in model output anyway.
+ * The report, as the model writes it: Markdown, with its chart as an ECharts option in an
+ * `echarts` fence, which @aparte/plugin-echarts draws in the report pane (report.ts). A model
+ * writes a chart library's config well and SVG badly, and the library's sanitiser refuses SVG in
+ * model output anyway.
  */
 export const REPORT = `# ${REPORT_TITLE}
 
@@ -54,8 +55,20 @@ Merrow Wheels logged **412,000 trips** in its first twelve months, about 1,130 a
 
 ## Trips per month
 
-\`\`\`chart
-{"unit": "k", "caption": "Thousands of trips, April 2025 – March 2026", "labels": ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"], "values": [24.1, 33.8, 42.4, 47.1, 46.8, 49.6, 41.3, 29.9, 21.3, 17.9, 22.6, 35.2]}
+\`\`\`echarts
+{
+  "title": { "text": "Thousands of trips, April 2025 – March 2026" },
+  "tooltip": { "trigger": "axis" },
+  "grid": { "top": 84 },
+  "xAxis": { "type": "category", "data": ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"] },
+  "yAxis": { "type": "value" },
+  "series": [{
+    "type": "bar",
+    "name": "Trips (thousands)",
+    "data": [24.1, 33.8, 42.4, 47.1, 46.8, 49.6, 41.3, 29.9, 21.3, 17.9, 22.6, 35.2],
+    "markPoint": { "data": [{ "type": "max", "name": "Peak" }, { "type": "min", "name": "Low" }] }
+  }]
+}
 \`\`\`
 
 ## Key figures

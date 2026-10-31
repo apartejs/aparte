@@ -1,0 +1,74 @@
+---
+title: Weather card
+description: A weather tool's result drawn as the sky it describes — the temperature, the range, wind and rain, the next hours or the days ahead.
+sidebar:
+  label: Weather
+catalog:
+  group: cards
+  order: 1
+  demos: [card-weather, card-weather-compact, card-weather-forecast, card-weather-night, card-weather-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-weather" />
+
+A tool that answers "what's the weather" returns numbers; a person wants to see the sky. The card
+draws it where the tool's row would be: the condition on its own sky, the temperature, the day's
+range, the feel, wind, humidity and rain, then the next eight hours under the temperature's curve.
+Only `temperature` (or `daily`) is needed; every other field adds its line when it is there.
+
+## Variants
+
+### Compact
+
+<Variant id="card-weather-compact" />
+
+One line: the glyph, the temperature, the place and the sky, the range.
+
+### Forecast
+
+<Variant id="card-weather-forecast" />
+
+The current weather on its sky, then the days ahead, each with its range on a scale shared by
+all of them, so a cold day reads as one at a glance.
+
+### At night
+
+<Variant id="card-weather-night" />
+
+`night: true` draws the night sky and the moon. Each of the eleven conditions has a day sky and a
+night sky, and its glyph moves gently unless the system asks for reduced motion.
+
+### While the call runs
+
+<Variant id="card-weather-running" />
+
+The skeleton shows what the call's input already says: the city, before the forecast. A call that
+waits for approval, or was refused, is one line that says so, never a card
+([states](/guides/cards/#while-the-call-runs-and-when-it-does-not)).
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupWeatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard({
+  tool: 'get_weather',
+  map: (result) => ({ location: result.city, condition: result.sky, temperature: result.temp_c }),
+  variant: (data) => (data.daily.length > 2 ? 'forecast' : 'hero'),
+});
+```
+
+`map` turns your tool's own fields into the card's; `fromOpenMeteo` reads an Open-Meteo response
+as it comes. The fields, the condition readers and the colours are in
+[the guide](/guides/cards/#the-weather-cards-fields).
+
+## Related
+
+- [Cards guide](/guides/cards/) — every card, buttons, live controls, a card of your own.
+- [Tool call](/components/tool/) — the row a card replaces.

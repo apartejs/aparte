@@ -118,6 +118,14 @@ const LOOP = [
     { title: 'Keep the loop on your server', line: 'A turn that waits for a person survives a reload and picks up where it stopped.', href: '/guides/server-loop/' },
 ];
 
+const RICH = [
+    { title: 'Cards for your tools', line: 'Weather, products, places, orders, quotes, plans, scores: eleven cards drawn from your tool’s own fields.', href: '/components/#cards' },
+    { title: 'Cards that answer back', line: 'A range button, a switch, a slider: your app answers, and the card is redrawn in place.', href: '/guides/cards/#cards-that-change-in-place' },
+    { title: 'Formulas', line: 'LaTeX drawn by KaTeX as it streams; a price stays a price.', href: '/guides/math/' },
+    { title: 'Diagrams', line: 'Mermaid flowcharts and sequences, redrawn as their source arrives.', href: '/guides/diagrams/' },
+    { title: 'Charts', line: 'An ECharts or Chart.js config, from a fence or a tool, in the chat’s colours.', href: '/guides/charts/' },
+];
+
 const PROOF = [
     { figure: String(CORE_THIRD_PARTY_DEPS), label: 'third-party dependencies', line: 'in @aparte/core. Markdown, highlighting and the rest are plugins you add.' },
     TESTS
@@ -221,6 +229,28 @@ const PROOF = [
             </header>
             <ComponentCarousel only={MOSAIC} label="Chat components" />
             <a class="home-more" href="/components/">All {COMPONENTS.total} components <span class="home-icon" set:html={arrowRightIcon} /></a>
+        </section>
+
+        <section class="home-band" aria-labelledby="rich">
+            <header class="home-band__head">
+                <h2 id="rich">More than text in a reply</h2>
+                <p>A tool's result as a card, a formula, a diagram, a chart: each drawn while the reply streams, each a plugin you add.</p>
+            </header>
+            <div class="home-split">
+                <ul class="home-points">
+                    {
+                        RICH.map((point) => (
+                            <li>
+                                <a href={point.href}>{point.title}</a>
+                                <p>{point.line}</p>
+                            </li>
+                        ))
+                    }
+                </ul>
+                <div class="home-split__demo">
+                    <Variant id="home-rich" widths={false} />
+                </div>
+            </div>
         </section>
 
         <section class="home-band" aria-labelledby="loop">

@@ -11,7 +11,7 @@ import { changelogsLoader } from 'starlight-changelogs/loader';
  */
 const catalog = z
   .object({
-    group: z.enum(['chat', 'layout', 'kit']),
+    group: z.enum(['chat', 'cards', 'layout', 'kit']),
     order: z.number().int().nonnegative(),
     claims: z
       .object({

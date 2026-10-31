@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="A glass electric kettle, half full, on a black base">
+  <defs>
+    <linearGradient id="glass" x1="0" x2="1">
+      <stop offset="0" stop-color="#e8f3f8" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#d4e7ef" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#b9d3df" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#9fd0ea"/>
+      <stop offset="1" stop-color="#6aaed6"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="122" cy="213" rx="80" ry="7" fill="#000" opacity="0.13"/>
+  <path d="M164 104h20a12 12 0 0 1 12 12v44a12 12 0 0 1-12 12h-20" fill="none" stroke="#25272b" stroke-width="10" stroke-linecap="round"/>
+  <path d="M74 112 52 98c-3-2-2-6 2-6h10l16 10z" fill="#d4e7ef" stroke="#9fb8c6" stroke-width="2"/>
+  <path d="M80 96c1-6 6-10 12-10h56c6 0 11 4 12 10l14 92c0 2-2 4-4 4H70c-2 0-4-2-4-4z" fill="url(#glass)" stroke="#9fb8c6" stroke-width="2.5"/>
+  <path d="M75 132h90l8.5 56H66.5z" fill="url(#water)" opacity="0.8"/>
+  <circle cx="104" cy="168" r="3" fill="#fff" opacity="0.8"/>
+  <circle cx="132" cy="156" r="2.2" fill="#fff" opacity="0.8"/>
+  <circle cx="118" cy="146" r="1.6" fill="#fff" opacity="0.8"/>
+  <path d="M90 102 80 172" stroke="#fff" stroke-opacity="0.8" stroke-width="4" stroke-linecap="round"/>
+  <rect x="86" y="78" width="68" height="11" rx="5.5" fill="#c4cbd2"/>
+  <rect x="112" y="66" width="16" height="14" rx="6" fill="#25272b"/>
+  <rect x="56" y="190" width="128" height="18" rx="9" fill="#25272b"/>
+  <circle cx="120" cy="199" r="3" fill="#7dd3fc"/>
+</svg>

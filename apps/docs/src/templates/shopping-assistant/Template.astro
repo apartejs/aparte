@@ -1,0 +1,160 @@
+---
+/**
+ * The Shopping assistant template: the website of Pinecrate, an invented kitchen shop, with its
+ * assistant in the corner. The header (search, cart) and the storefront are kit recipes; the
+ * assistant is an <aparte-launcher> around a card of the shop's own, holding an <aparte-chat>
+ * whose tools answer as cards from @aparte/plugin-cards — products, an order, a return. On a
+ * phone the launcher's card becomes a sheet over the shop. The behaviour is app.ts.
+ */
+import { searchIcon } from '@aparte/core/icons';
+import { ASSISTANT_NAME, BAG_SVG, MARK_SVG, SHOP_NAME } from './brand';
+import { CATALOG, findItem } from './catalog';
+import './shopping-assistant.css';
+
+const euros = new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const reviews = new Intl.NumberFormat('en');
+// The hero's still life: three of the products, on the shop's table.
+const hero = ['ember-kettle', 'cone-dripper', 'fold-mugs'].map((id) => findItem(id)!);
+---
+
+<div class="shopping-assistant">
+    <header class="sa-header">
+        <a class="sa-logo" href="#sa-top">
+            <span class="sa-logo__mark" set:html={MARK_SVG} />
+            {SHOP_NAME}
+        </a>
+        <nav class="sa-nav" aria-label="Departments">
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sa-bestsellers">Coffee &amp; tea</a>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sa-bestsellers">Kitchen</a>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sa-bestsellers">Table</a>
+            <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="#sa-bestsellers">Gifts</a>
+        </nav>
+        <form class="sa-search aparte-field-group" role="search">
+            <input class="aparte-field aparte-field--sm" type="search" name="q" placeholder={`Search, or ask ${ASSISTANT_NAME}`} aria-label={`Search the shop, or ask ${ASSISTANT_NAME}`} autocomplete="off" />
+            <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--ghost" type="submit" aria-label="Search" set:html={searchIcon} />
+        </form>
+        <div class="sa-header__actions">
+            <button class="aparte-btn aparte-btn--surface aparte-btn--sm sa-cart-button" type="button" popovertarget="sa-cart" aria-label="Cart" data-sa-cart-button>
+                <span class="sa-cart-button__icon" set:html={BAG_SVG} />
+                <span class="sa-cart-button__label">Cart</span>
+                <span class="aparte-badge aparte-badge--primary aparte-badge--solid aparte-badge--sm sa-cart-count" data-sa-cart-count hidden>0</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="sa-front" id="sa-top">
+            <section class="sa-hero" aria-labelledby="sa-hero-title">
+                <div class="sa-hero__text">
+                    <span class="aparte-badge aparte-badge--success aparte-badge--soft">Free delivery over €40</span>
+                    <h2 class="sa-hero__title" id="sa-hero-title">Slow mornings, made well.</h2>
+                    <p class="sa-hero__lede">Kettles, drippers and stoneware for the first cup of the day. Not sure which? {ASSISTANT_NAME} knows the whole shop.</p>
+                    <div class="sa-hero__actions">
+                        <a class="aparte-btn aparte-btn--primary aparte-btn--solid" href="#sa-bestsellers">Shop coffee &amp; tea</a>
+                        <button class="aparte-btn aparte-btn--surface" type="button" data-sa-ask>Ask {ASSISTANT_NAME}</button>
+                    </div>
+                </div>
+                <div class="sa-hero__art" aria-hidden="true">
+                    {hero.map((item) => <img class="sa-hero__photo" src={item.photo} alt="" />)}
+                </div>
+            </section>
+
+            <section class="sa-section" id="sa-bestsellers" aria-labelledby="sa-bestsellers-title">
+                <h2 class="sa-section__title" id="sa-bestsellers-title">Bestsellers this week</h2>
+                <ul class="sa-grid">
+                    {
+                        CATALOG.map((item) => (
+                            <li class="aparte-card sa-tile">
+                                <div class="sa-tile__media">
+                                    <img src={item.photo} alt="" loading="lazy" />
+                                    {item.label && <span class="aparte-badge aparte-badge--sm sa-tile__label">{item.label}</span>}
+                                </div>
+                                <div class="aparte-card__body sa-tile__body">
+                                    <h3 class="sa-tile__name">
+                                        <a href={`https://example.com/products/${item.id}`}>{item.name}</a>
+                                    </h3>
+                                    <p class="sa-tile__rating">
+                                        <span class="sa-tile__star" aria-hidden="true">★</span> {item.stars}
+                                        <span class="sa-tile__muted">({reviews.format(item.reviews)} reviews)</span>
+                                    </p>
+                                    <p class="sa-tile__price">
+                                        {euros.format(item.price)}
+                                        {item.listPrice && (
+                                            <del class="sa-tile__was">
+                                                <span class="aparte-sr-only">Was </span>
+                                                {euros.format(item.listPrice)}
+                                            </del>
+                                        )}
+                                    </p>
+                                    <button class="aparte-btn aparte-btn--sm aparte-btn--surface sa-tile__add" type="button" data-sa-add={item.id}>
+                                        {item.stock === 'preorder' ? 'Pre-order' : 'Add to cart'}
+                                    </button>
+                                </div>
+                            </li>
+                        ))
+                    }
+                </ul>
+            </section>
+
+            <footer class="sa-footer">
+                <span>© 2026 {SHOP_NAME}</span>
+                <a href="https://example.com/delivery">Delivery</a>
+                <a href="https://example.com/returns">30-day returns</a>
+                <a href="https://example.com/privacy">Privacy</a>
+            </footer>
+    </main>
+
+    <aparte-launcher class="sa-widget" label={`Ask ${ASSISTANT_NAME}`} open>
+        <section class="sa-assistant aparte-card" aria-labelledby="sa-assistant-title">
+                <header class="aparte-card__header sa-assistant__header">
+                    <span class="aparte-avatar" aria-hidden="true"><span class="sa-face" set:html={MARK_SVG} /></span>
+                    <div class="sa-assistant__who">
+                        <h2 class="sa-assistant__title" id="sa-assistant-title">{ASSISTANT_NAME}</h2>
+                        <p class="sa-assistant__status">
+                            <span class="aparte-badge aparte-badge--success aparte-badge--dot" aria-hidden="true"></span>
+                            {SHOP_NAME}’s shopping assistant
+                        </p>
+                    </div>
+                    <button class="aparte-btn aparte-btn--icon aparte-btn--ghost" type="button" aria-label={`Close ${ASSISTANT_NAME}`} data-aparte-launcher-close>
+                        <aparte-icon name="close"></aparte-icon>
+                    </button>
+                </header>
+                <aparte-chat class="sa-chat">
+                    <aparte-chat-viewport></aparte-chat-viewport>
+                    <aparte-elicitation></aparte-elicitation>
+                    <aparte-composer placeholder={`Ask ${ASSISTANT_NAME} about a product or an order`}>
+                        <aparte-suggestions></aparte-suggestions>
+                        <div class="aparte-composer-shell">
+                            <div class="aparte-composer-row">
+                                <aparte-composer-input></aparte-composer-input>
+                                <aparte-composer-send></aparte-composer-send>
+                            </div>
+                        </div>
+                    </aparte-composer>
+                </aparte-chat>
+        </section>
+    </aparte-launcher>
+
+    <div class="aparte-popover sa-cart" id="sa-cart" popover aria-label="Your cart">
+        <p class="sa-cart__title">Your cart</p>
+        <ul class="sa-cart__lines" data-sa-cart-lines></ul>
+        <p class="sa-cart__empty" data-sa-cart-empty hidden>Your cart is empty.</p>
+        <div class="sa-cart__total">
+            <span>Subtotal</span>
+            <span data-sa-cart-total></span>
+        </div>
+        <a class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--block" href="https://example.com/checkout">Checkout</a>
+    </div>
+
+    <div class="sa-toast" data-sa-toast role="status">
+        <div class="aparte-alert aparte-alert--success sa-toast__alert">
+            <div class="aparte-alert__body">
+                <p class="aparte-alert__message" data-sa-toast-text></p>
+            </div>
+            <button class="aparte-btn aparte-btn--sm aparte-btn--ghost" type="button" data-sa-toast-view hidden>View cart</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    import './app';
+</script>

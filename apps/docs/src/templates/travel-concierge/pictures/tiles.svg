@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <pattern id="tile" width="64" height="64" patternUnits="userSpaceOnUse">
+      <rect width="64" height="64" fill="#f4f1ea"/>
+      <rect width="64" height="64" fill="none" stroke="#c9d3df" stroke-width="2"/>
+      <circle cx="32" cy="32" r="9" fill="#2b5c9e"/>
+      <circle cx="32" cy="32" r="4" fill="#f4f1ea"/>
+      <path d="M32 6 Q40 20 32 23 Q24 20 32 6Z M32 58 Q40 44 32 41 Q24 44 32 58Z M6 32 Q20 24 23 32 Q20 40 6 32Z M58 32 Q44 24 41 32 Q44 40 58 32Z" fill="#2b5c9e"/>
+      <path d="M0 0 Q10 2 12 12 Q2 10 0 0Z M64 0 Q54 2 52 12 Q62 10 64 0Z M0 64 Q10 62 12 52 Q2 54 0 64Z M64 64 Q54 62 52 52 Q62 54 64 64Z" fill="#5b8bc9"/>
+    </pattern>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3c5160"/>
+      <stop offset="1" stop-color="#1f2c35"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#tile)"/>
+  <g>
+    <path d="M250 400 V170 A70 70 0 0 1 390 170 V400Z" fill="#f4efe1"/>
+    <path d="M266 400 V176 A54 54 0 0 1 374 176 V400Z" fill="url(#glass)"/>
+    <path d="M320 122 V400 M266 250 H374" stroke="#f4efe1" stroke-width="6"/>
+    <path d="M286 186 Q300 150 320 146" stroke="#ffffff" stroke-width="5" fill="none" opacity="0.25" stroke-linecap="round"/>
+    <rect x="236" y="384" width="168" height="16" fill="#d8cdb8"/>
+    <g fill="#4f8a5b">
+      <ellipse cx="262" cy="378" rx="26" ry="14"/>
+      <ellipse cx="380" cy="378" rx="26" ry="14"/>
+    </g>
+    <g fill="#d64545">
+      <circle cx="254" cy="370" r="5"/>
+      <circle cx="270" cy="366" r="5"/>
+      <circle cx="388" cy="368" r="5"/>
+    </g>
+  </g>
+</svg>

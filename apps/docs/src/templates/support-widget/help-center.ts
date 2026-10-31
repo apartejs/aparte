@@ -1,13 +1,13 @@
 /**
  * The help center the assistant searches: a handful of Kilnhouse articles, the
- * `search_help_center` tool the model calls, and the renderer that draws its result as
- * article cards instead of the default tool row.
+ * `search_help_center` tool the model calls, and @aparte/plugin-cards' items card, which draws
+ * its result as article rows instead of the default tool row.
  *
  * In a real widget the handler would query your help center's search API; everything
- * else here (the tool's shape, the structured result, the renderer) stays as it is.
+ * else here (the tool's shape, the structured result, the card) stays as it is.
  */
 import { aparteGlobalConfig } from '@aparte/core';
-import type { AparteToolCallSegment } from '@aparte/core';
+import { setupItemsCard } from '@aparte/plugin-cards/items';
 
 export interface HelpArticle {
     id: string;
@@ -20,7 +20,7 @@ export interface HelpArticle {
     keywords: string[];
 }
 
-/** What the tool hands the renderer, beside the text the model reads. */
+/** What the tool hands the card, beside the text the model reads. */
 export interface HelpSearchResult {
     query: string;
     articles: HelpArticle[];
@@ -118,7 +118,7 @@ export function describeSearch(result: HelpSearchResult): string {
         : 'No article matches.';
 }
 
-/** Register the tool and its renderer on the global config. */
+/** Register the tool and its card on the global config. */
 export function setupHelpCenter(): void {
     aparteGlobalConfig.registerTool(
         {
@@ -131,65 +131,19 @@ export function setupHelpCenter(): void {
             return { toolCallId: call.id, content: describeSearch(result), structuredContent: result };
         },
     );
-    // An element, not an HTML string: the query is the model's words, so nothing here goes
-    // through innerHTML. `update` redraws the same root when the result lands.
-    aparteGlobalConfig.registerToolRenderer(SEARCH_TOOL, {
-        render(segment) {
-            const root = document.createElement('div');
-            root.className = 'sw-search';
-            drawSearch(root, segment);
-            return root;
-        },
-        update: drawSearch,
+    // The articles as @aparte/plugin-cards' items card, one row each: the title, the summary,
+    // the section and the reading time; the whole row opens the article.
+    setupItemsCard({
+        tool: SEARCH_TOOL,
+        map: (result: HelpSearchResult) => ({
+            title: 'From the Help Center',
+            items: result.articles.map((article) => ({
+                title: article.title,
+                description: article.summary,
+                meta: [article.section, `${article.minutes} min read`],
+                url: article.url,
+            })),
+        }),
+        variant: 'list',
     });
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
-    const node = document.createElement(tag);
-    node.className = className;
-    if (text !== undefined) node.textContent = text;
-    return node;
-}
-
-function drawSearch(root: HTMLElement, segment: AparteToolCallSegment): void {
-    const result = segment.structuredResult as HelpSearchResult | undefined;
-    if (segment.status === 'pending') {
-        const line = el('p', 'sw-search__lead');
-        const spinner = el('span', 'aparte-spinner aparte-spinner--sm');
-        spinner.setAttribute('aria-hidden', 'true');
-        line.append(spinner, 'Searching the help center…');
-        root.replaceChildren(line);
-        return;
-    }
-    if (!result?.articles.length) {
-        root.replaceChildren(el('p', 'sw-search__lead', segment.status === 'resolved' ? 'No help article matched.' : 'The help center could not be searched.'));
-        return;
-    }
-    const list = el('ul', 'sw-articles');
-    for (const [index, article] of result.articles.entries()) {
-        const link = el('a', 'aparte-card sw-article');
-        link.href = article.url;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        const body = el('span', 'aparte-card__body sw-article__body');
-        const meta = el('span', 'sw-article__meta');
-        meta.append(el('span', 'aparte-tag aparte-tag--sm', article.section), `${article.minutes} min read`);
-        // The link is named by the title and says it opens a new tab; the summary describes it.
-        const id = `${segment.id}-article-${index}`;
-        const title = el('span', 'sw-article__title', article.title);
-        const summary = el('span', 'sw-article__summary', article.summary);
-        const newTab = el('span', 'aparte-sr-only', '(opens in a new tab)');
-        title.id = `${id}-title`;
-        summary.id = `${id}-summary`;
-        newTab.id = `${id}-new-tab`;
-        link.setAttribute('aria-labelledby', `${title.id} ${newTab.id}`);
-        link.setAttribute('aria-describedby', summary.id);
-        body.append(title, summary, meta, newTab);
-        link.append(body);
-        const item = el('li', 'sw-articles__item');
-        item.append(link);
-        list.append(item);
-    }
-    const count = result.articles.length;
-    root.replaceChildren(el('p', 'sw-search__lead', `${count} article${count === 1 ? '' : 's'} from the Help Center`), list);
 }

@@ -9,9 +9,10 @@
  * explain rather than to fix.
  */
 import { contentToText, type AparteChatRequest } from '@aparte/core';
+import type { PlanStatus } from '@aparte/plugin-cards/plan';
 import type { Scenario, ScenarioStep, ScenarioTurn } from '@aparte/provider-scenario';
 import { initialFiles } from './repo';
-import type { ToolName } from './tools';
+import { PLAN_TOOL, type PlanStep, type ToolName } from './tools';
 import { unifiedDiff } from './workspace';
 
 /** What the landing's showcase types, and the first suggestion. */
@@ -26,6 +27,7 @@ export const SUGGESTIONS = [
 
 const FIX = /#42|1\.5h|decimal|\bfix\b/i;
 const EXPLAIN = /how does|explain|walk me/i;
+const APPLY = /apply it|go ahead/i;
 
 const FIX_EDIT = { path: 'src/parse.ts', find: 'parseInt(amount, 10)', replace: 'Number(amount)' };
 const PARSER_TESTS = 'pnpm test tests/parse.test.ts';
@@ -35,6 +37,32 @@ const PATCH = (() => {
     const before = initialFiles().get(FIX_EDIT.path)!;
     return unifiedDiff(FIX_EDIT.path, before, before.replace(FIX_EDIT.find, FIX_EDIT.replace)).text;
 })();
+
+/** The fix's task list: each step as an instruction, and as the work while it runs. */
+const FIX_STEPS = [
+    ['Find where parse() reads the amount', 'Finding where parse() reads the amount'],
+    ['Reproduce the bug with the parser’s tests', 'Reproducing the bug with the parser’s tests'],
+    ['Keep the fraction of a decimal amount', 'Keeping the fraction of a decimal amount'],
+    ['Run the parser’s tests again', 'Running the parser’s tests again'],
+] as const;
+
+/** An update_plan call: the fix's steps, each where it stands now (pending when not given). */
+function plan(...statuses: PlanStatus[]): { tool: typeof PLAN_TOOL.name; input: Record<string, unknown> } {
+    const steps: PlanStep[] = FIX_STEPS.map(([title, activeForm], i) => ({ title, activeForm, status: statuses[i] ?? 'pending' }));
+    return { tool: PLAN_TOOL.name, input: { title: 'Fix #42', steps } };
+}
+
+/**
+ * The tests pass after the fix: the plan's last update, then the patch. Reached from the fix run,
+ * or from "apply it" after a Plan-mode answer, which never reproduced the bug.
+ */
+function verified(reproduced: boolean): ScenarioTurn {
+    return [
+        { text: 'All 6 tests pass.' },
+        plan('done', reproduced ? 'done' : 'skipped', 'done', 'done'),
+        { tool: 'create_artifact', input: { mimeType: 'application/vnd.ant.diff', title: 'fix-42.patch', content: PATCH } },
+    ];
+}
 
 /**
  * A reply that also reports how big its request was. A coding agent sends its tool definitions
@@ -52,10 +80,18 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
         'That is outside what this demo agent is scripted for. I work in **spanwise**, the repository beside this chat: I can search and read it, edit its files and run its tests, and I ask before I write or run anything. Try one of the suggestions.',
 
     // ── Fix issue #42 ────────────────────────────────────────────────────────
+    // The plan first, the way a coding agent writes its task list before it starts; it updates
+    // the list as the steps finish (`diagnosed`, `verified`).
     fix: {
         when: FIX,
         turn: [
-            { thinking: 'A decimal amount loses its fraction, so the amount is probably read with an integer parse. Find where parse() turns it into a number.' },
+            { thinking: 'A decimal amount loses its fraction, so the amount is probably read with an integer parse. Find where parse() turns it into a number, reproduce, fix, test again.' },
+            plan('in-progress'),
+        ],
+    },
+    locate: {
+        after: PLAN_TOOL.name,
+        turn: [
             { text: 'Let me find where `parse` turns the amount into a number.' },
             { tool: 'search', input: { query: 'parseInt', path: 'src' } },
         ],
@@ -71,17 +107,14 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
     diagnosed: {
         after: 'run_command',
         turn: [
-            { text: 'Reproduced: *reads decimal amounts* fails with `expected 3600000 to be 5400000`, one hour instead of ninety minutes. `Number` keeps the fraction:' },
+            { text: 'Reproduced: *reads decimal amounts* fails with `expected 3600000 to be 5400000`, one hour instead of ninety minutes. `Number` keeps the fraction.' },
+            plan('done', 'done', 'in-progress'),
             { tool: 'write_file', input: FIX_EDIT },
         ],
     },
     rerun: { after: 'write_file', turn: [{ tool: 'run_command', input: { command: PARSER_TESTS } }] },
-    verified: {
-        turn: [
-            { text: 'All 6 tests pass. Here is the patch:' },
-            { tool: 'create_artifact', input: { mimeType: 'application/vnd.ant.diff', title: 'fix-42.patch', content: PATCH } },
-        ],
-    },
+    verified: { turn: verified(true) },
+    verifiedApplied: { turn: verified(false) },
     wrapped: {
         after: 'create_artifact',
         turn: reply(
@@ -91,7 +124,7 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
     },
 
     // ── After a plan, or a refusal ───────────────────────────────────────────
-    apply: { when: /apply it|go ahead/i, turn: [{ text: 'Applying it.' }, { tool: 'write_file', input: FIX_EDIT }] },
+    apply: { when: APPLY, turn: [{ text: 'Applying it.' }, { tool: 'write_file', input: FIX_EDIT }] },
     planned: {
         turn: reply('In **Plan** mode I can read but not run or change anything, so nothing has moved. The plan:\n\n1. In `src/parse.ts`, line 15, read the amount with `Number(amount)` instead of `parseInt(amount, 10)`, which drops the fraction.\n2. Run `pnpm test tests/parse.test.ts`: *reads decimal amounts* should pass with the other five.\n\nSwitch the mode to **Ask** and tell me to *apply it*.', 9400),
     },
@@ -147,7 +180,7 @@ export function route(request: AparteChatRequest): string | undefined {
     if (name === 'read_file' && EXPLAIN.test(asked)) return 'explained';
     if (name === 'run_command') {
         const failing = /\d+ failed/.test(result);
-        if (turn.some((m) => m.toolCalls?.some((call) => call.name === 'write_file'))) return 'verified';
+        if (turn.some((m) => m.toolCalls?.some((call) => call.name === 'write_file'))) return APPLY.test(asked) ? 'verifiedApplied' : 'verified';
         if (!failing) return /Tests\s+6 passed/.test(result) ? 'greenParser' : 'green';
         if (!FIX.test(asked)) return 'failingSuite';
     }
@@ -158,19 +191,21 @@ export function route(request: AparteChatRequest): string | undefined {
 export type SeedStep =
     | { text: string }
     | { thinking: string }
-    | { tool: ToolName; input: Record<string, unknown>; rejected?: string };
+    | { tool: ToolName | typeof PLAN_TOOL.name; input: Record<string, unknown>; rejected?: string };
 
 /**
- * The tile's frozen moment, mid-task: the agent found the bug, was told to run only the parser's
- * tests, reproduced the failure and wrote the fix (approved). The tools run for real against the
- * workspace (app.ts), so the panel shows what they did.
+ * The tile's frozen moment, mid-task: the agent wrote its plan, found the bug, was told to run
+ * only the parser's tests, reproduced the failure, moved its plan on and wrote the fix (approved).
+ * The tools run for real against the workspace (app.ts), so the panel shows what they did.
  */
 export const SEED_STEPS: SeedStep[] = [
+    plan('in-progress'),
     { tool: 'search', input: { query: 'parseInt', path: 'src' } },
     { tool: 'read_file', input: { path: 'src/parse.ts' } },
     { text: '`parseInt` stops at the decimal point: `1.5` becomes `1`.' },
     { tool: 'run_command', input: { command: 'pnpm test' }, rejected: 'Just the parser’s tests for now.' },
     { tool: 'run_command', input: { command: PARSER_TESTS } },
-    { text: 'Reproduced. `Number` keeps the fraction:' },
+    { text: 'Reproduced. `Number` keeps the fraction.' },
+    plan('done', 'done', 'in-progress'),
     { tool: 'write_file', input: FIX_EDIT },
 ];

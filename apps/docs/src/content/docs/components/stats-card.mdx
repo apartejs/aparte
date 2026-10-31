@@ -1,0 +1,66 @@
+---
+title: Stats card
+description: A few figures that answer a question — revenue, orders, conversion — each with its change, coloured by which way is good, and a sparkline.
+sidebar:
+  label: Stats
+catalog:
+  group: cards
+  order: 5
+  demos: [card-stats, card-stats-list, card-stats-hero, card-stats-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-stats" />
+
+The figures a reporting tool returns, written in the chat's language: sums in their currency,
+percentages, compact counts, durations. A change says which way it went; `good` says which way is
+good, so a rise in returns reads red and a rise in revenue green, and a screen reader hears which.
+Without `good`, a change stays neutral.
+
+## Variants
+
+### List
+
+<Variant id="card-stats-list" />
+
+A fact sheet, one row per figure.
+
+### One figure first
+
+<Variant id="card-stats-hero" />
+
+`hero` draws the first figure large over a wide chart, and the others beneath it.
+
+### While the call runs
+
+<Variant id="card-stats-running" />
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupStatsCard } from '@aparte/plugin-cards/stats';
+
+setupStatsCard({
+  tool: 'get_sales_summary',
+  map: (result) => ({
+    title: 'Sales this week',
+    items: [
+      { label: 'Revenue', value: result.revenue, currency: 'EUR', change: result.revenueChange, good: 'up', trend: result.daily },
+      { label: 'Returns', value: result.returns, change: result.returnsChange, good: 'down' },
+    ],
+  }),
+});
+```
+
+A change up to 1 is a ratio (`0.12` reads +12 %). Formats, units and icons are in
+[the guide](/guides/cards/#key-figures--stats).
+
+## Related
+
+- [Charts](/components/charts/) — when the answer is a chart rather than a few figures.
+- [Stock card](/components/stock-card/) — a price and its chart.

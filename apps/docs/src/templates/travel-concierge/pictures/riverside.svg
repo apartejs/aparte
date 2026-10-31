@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3b38a"/>
+      <stop offset="0.55" stop-color="#f6d8bb"/>
+      <stop offset="1" stop-color="#d6e6e6"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d7d8f"/>
+      <stop offset="1" stop-color="#1c4656"/>
+    </linearGradient>
+    <pattern id="win" width="12" height="18" patternUnits="userSpaceOnUse">
+      <rect x="3" y="4" width="6" height="9" rx="1" fill="#2f3a40" opacity="0.55"/>
+    </pattern>
+    <clipPath id="facades">
+      <rect x="0" y="196" width="40" height="104"/>
+      <rect x="40" y="176" width="34" height="124"/>
+      <rect x="74" y="200" width="42" height="100"/>
+      <rect x="116" y="170" width="36" height="130"/>
+      <rect x="152" y="190" width="44" height="110"/>
+      <rect x="196" y="168" width="34" height="132"/>
+      <rect x="230" y="186" width="40" height="114"/>
+      <rect x="270" y="174" width="36" height="126"/>
+      <rect x="306" y="196" width="42" height="104"/>
+      <rect x="348" y="180" width="38" height="120"/>
+      <rect x="386" y="200" width="40" height="100"/>
+    </clipPath>
+  </defs>
+  <rect width="640" height="400" fill="url(#sky)"/>
+  <circle cx="510" cy="92" r="36" fill="#fde7c2"/>
+  <path d="M0 178 C90 120 190 118 280 140 S470 150 640 128 V300 H0Z" fill="#c79f7c"/>
+  <g fill="#b0876a">
+    <rect x="168" y="96" width="46" height="48"/>
+    <rect x="162" y="82" width="14" height="32"/>
+    <rect x="206" y="82" width="14" height="32"/>
+    <path d="M162 82 L169 70 L176 82Z M206 82 L213 70 L220 82Z"/>
+  </g>
+  <g>
+    <rect x="0" y="196" width="40" height="104" fill="#e07a5f"/>
+    <rect x="40" y="176" width="34" height="124" fill="#f2cc8f"/>
+    <rect x="74" y="200" width="42" height="100" fill="#81b29a"/>
+    <rect x="116" y="170" width="36" height="130" fill="#f4efe1"/>
+    <rect x="152" y="190" width="44" height="110" fill="#d9764e"/>
+    <rect x="196" y="168" width="34" height="132" fill="#e9c46a"/>
+    <rect x="230" y="186" width="40" height="114" fill="#6d9dc5"/>
+    <rect x="270" y="174" width="36" height="126" fill="#f4efe1"/>
+    <rect x="306" y="196" width="42" height="104" fill="#c8553d"/>
+    <rect x="348" y="180" width="38" height="120" fill="#f2cc8f"/>
+    <rect x="386" y="200" width="40" height="100" fill="#81b29a"/>
+    <rect x="0" y="150" width="426" height="150" fill="url(#win)" clip-path="url(#facades)"/>
+  </g>
+  <g fill="#8c4a3a">
+    <path d="M0 196 L20 184 L40 196Z M40 176 L57 164 L74 176Z M74 200 L95 188 L116 200Z M116 170 L134 158 L152 170Z M152 190 L174 178 L196 190Z M196 168 L213 156 L230 168Z M230 186 L250 174 L270 186Z M270 174 L288 162 L306 174Z M306 196 L327 184 L348 196Z M348 180 L367 168 L386 180Z M386 200 L406 188 L426 200Z"/>
+  </g>
+  <g fill="none" stroke="#3b3b3d" stroke-linecap="round">
+    <path d="M456 300 C490 156 596 156 632 300" stroke-width="9"/>
+    <path d="M446 170 H640" stroke-width="7"/>
+    <path d="M476 170 V226 M504 170 V196 M532 170 V184 M560 170 V184 M588 170 V196 M614 170 V224" stroke-width="3"/>
+  </g>
+  <rect y="296" width="640" height="104" fill="url(#river)"/>
+  <rect y="294" width="640" height="6" fill="#9a8a78"/>
+  <g stroke="#bfe0e6" stroke-width="2" stroke-linecap="round" opacity="0.5">
+    <path d="M40 330 H110 M160 352 H260 M320 326 H380 M420 360 H520 M560 338 H620 M90 380 H170"/>
+  </g>
+  <g>
+    <path d="M180 352 Q230 372 290 352 L282 344 H188Z" fill="#5a3b2a"/>
+    <rect x="232" y="308" width="4" height="40" fill="#5a3b2a"/>
+    <path d="M236 310 L268 318 L236 342Z" fill="#f4efe1"/>
+  </g>
+</svg>

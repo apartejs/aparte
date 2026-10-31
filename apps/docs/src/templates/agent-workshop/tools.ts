@@ -1,12 +1,14 @@
 /**
  * The agent's four tools: what the model is told about them (`TOOLS`), and what they do to the
  * workspace (`createToolbox`). app.ts registers them with the client; the tile (`?thumb`) runs
- * the same toolbox directly to reach its frozen state, so both show the same results.
+ * the same toolbox directly to reach its frozen state, so both show the same results. Beside
+ * them, `update_plan` (`PLAN_TOOL`): the agent's task list, which touches no file.
  *
  * The names are this app's. The library cannot know that `run_command` executes and `search`
  * reads, which is why app.ts sorts them for the approval plugin.
  */
 import type { AparteTool } from '@aparte/core';
+import type { PlanStatus } from '@aparte/plugin-cards/plan';
 import { runTests } from './repo';
 import type { Workspace } from './workspace';
 
@@ -46,6 +48,48 @@ export const TOOLS: (AparteTool & { name: ToolName })[] = [
 ];
 
 type Input = Record<string, unknown>;
+
+/** One step of the agent's task list, as update_plan takes it. */
+export interface PlanStep {
+    title: string;
+    /** The wording while the step runs ("Running the tests"). */
+    activeForm: string;
+    status: PlanStatus;
+}
+
+/**
+ * The agent's task list, the way coding agents keep one: the whole list sent again each time a
+ * step starts or finishes. @aparte/plugin-cards' plan card draws it from the call's input (app.ts).
+ */
+export const PLAN_TOOL: AparteTool & { name: 'update_plan' } = {
+    name: 'update_plan',
+    description: 'Write your task list for the work in progress, or update it: send the whole list each time a step starts or finishes.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            title: field('What the plan is for.'),
+            steps: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        title: field('The step, as an instruction.'),
+                        activeForm: field('The step while it runs, as an -ing phrase.'),
+                        status: { type: 'string', enum: ['pending', 'in-progress', 'done', 'skipped'] },
+                    },
+                    required: ['title', 'status'],
+                },
+            },
+        },
+        required: ['steps'],
+    },
+};
+
+/** What update_plan returns: where the plan stands, which is all the model needs back. */
+export function planReceipt(input: Input): string {
+    const steps = Array.isArray(input['steps']) ? (input['steps'] as Partial<PlanStep>[]) : [];
+    return `Plan updated: ${steps.filter((step) => step.status === 'done').length} of ${steps.length} done.`;
+}
 
 /** What each tool does, given the workspace it works on. Each returns what the model reads. */
 export function createToolbox(workspace: Workspace): Record<ToolName, (input: Input) => string> {

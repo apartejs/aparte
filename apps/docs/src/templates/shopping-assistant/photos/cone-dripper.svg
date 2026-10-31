@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="A white ceramic pour-over cone dripper">
+  <defs>
+    <linearGradient id="porcelain" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#f1efea"/>
+      <stop offset="1" stop-color="#d9d5cc"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="120" cy="196" rx="70" ry="7" fill="#000" opacity="0.13"/>
+  <path d="M168 92h10a16 16 0 0 1 0 32h-18" fill="none" stroke="#dcd8cf" stroke-width="9"/>
+  <path d="M62 72h116l-34 86H96z" fill="url(#porcelain)"/>
+  <g stroke="#cfcac0" stroke-width="2" stroke-linecap="round">
+    <path d="M86 84 104 150"/><path d="M106 84l6 66"/><path d="M134 84l-6 66"/><path d="M154 84l-18 66"/>
+  </g>
+  <path d="M74 80 98 150" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  <ellipse cx="120" cy="72" rx="58" ry="9" fill="#f6f4ef" stroke="#d6d2c9" stroke-width="2"/>
+  <ellipse cx="120" cy="73" rx="49" ry="5.5" fill="#6b4a33"/>
+  <rect x="98" y="156" width="44" height="14" rx="3" fill="#ebe8e1"/>
+  <ellipse cx="120" cy="176" rx="54" ry="10" fill="url(#porcelain)" stroke="#d6d2c9" stroke-width="2"/>
+  <ellipse cx="120" cy="174" rx="18" ry="3.5" fill="#d6d2c9"/>
+</svg>

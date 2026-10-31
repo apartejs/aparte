@@ -1,0 +1,77 @@
+---
+title: Stock card
+description: A quote with its chart against the previous close, range buttons your app answers, candlesticks, a watchlist or a ticker.
+sidebar:
+  label: Stock
+catalog:
+  group: cards
+  order: 7
+  demos: [card-stock, card-stock-candles, card-stock-compact, card-stock-ticker, card-stock-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-stock" caption="Press a range: the demo answers it, and the card is redrawn in place." />
+
+A stock, an index, a crypto-currency or a currency pair: the price, the change in the currency
+and in percent, the chart split at the previous close, the day's figures and whether the market is
+open. The range buttons over the chart are drawn only because this card has an `onChange` that
+answers them; a press redraws the same element, the focus kept on the button.
+
+## Variants
+
+### Candlesticks
+
+<Variant id="card-stock-candles" />
+
+The `chart` card with candlesticks in place of the line, from `candles`.
+
+### A watchlist
+
+<Variant id="card-stock-compact" />
+
+One row per quote with its sparkline. Several quotes are drawn as rows whichever variant was
+asked: a watchlist is read by comparing lines.
+
+### A ticker
+
+<Variant id="card-stock-ticker" />
+
+A strip of quotes that scrolls sideways.
+
+### While the call runs
+
+<Variant id="card-stock-running" />
+
+The symbols the call asked for, before their prices are in.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupStockCard } from '@aparte/plugin-cards/stock';
+
+setupStockCard({
+  tool: 'get_quote',
+  map: (result) => ({ ...result, ranges: ['1D', '5D', '1M', '6M', '1Y'] }),
+  onChange: async ({ name, value }, data) => {
+    const [quote] = data.quotes;
+    if (name !== 'range' || !quote) return;
+    const chart = await fetch(`/api/chart?symbol=${quote.symbol}&range=${String(value)}`).then((r) => r.json());
+    return { ...quote, range: value, series: chart.series };
+  },
+});
+```
+
+`readQuotes` takes Yahoo Finance, Alpha Vantage, Finnhub, CoinGecko and Binance as they come. How
+changes queue, what `onChange` returns and how long it is kept:
+[cards that change in place](/guides/cards/#cards-that-change-in-place); the fields:
+[the guide](/guides/cards/#market-quotes--stock).
+
+## Related
+
+- [Stats card](/components/stats-card/) — figures with sparklines.
+- [Charts](/components/charts/) — any chart a model or a tool writes.

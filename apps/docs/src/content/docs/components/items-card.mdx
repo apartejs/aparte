@@ -1,0 +1,69 @@
+---
+title: Items card
+description: Anything with a title and often a picture — search results, articles, recipes, listings — as a carousel, a list or a grid.
+sidebar:
+  label: Items
+catalog:
+  group: cards
+  order: 2
+  demos: [card-items, card-items-list, card-items-grid, card-items-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-items" />
+
+The generic card: one item or up to ten, each a title with a picture, a badge over its corner, a
+few lines of detail and up to three short facts. The whole tile opens its `url` in a new tab. One
+item, in any variant, is one card at full width.
+
+## Variants
+
+### List
+
+<Variant id="card-items-list" />
+
+Rows, a thumbnail at the start: for results a person scans rather than browses.
+
+### Grid
+
+<Variant id="card-items-grid" />
+
+Two columns of tiles.
+
+### While the call runs
+
+<Variant id="card-items-running" />
+
+The skeleton keeps the place of the tiles, under what the search was for.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupItemsCard } from '@aparte/plugin-cards/items';
+
+setupItemsCard({
+  tool: 'search_recipes',
+  map: (result) => ({
+    title: result.heading,
+    items: result.hits.map((hit: { name: string; site: string; photo: string; link: string }) => ({
+      title: hit.name,
+      subtitle: hit.site,
+      image: hit.photo,
+      url: hit.link,
+    })),
+  }),
+});
+```
+
+An item's fields, and its buttons (an `id` your app answers, never a message sent from a tool's
+result), are in [the guide](/guides/cards/#articles-and-results--items).
+
+## Related
+
+- [Link card](/components/link-card/) — a web page previewed, with its site.
+- [Product card](/components/product-card/) — when the items have a price.

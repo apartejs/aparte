@@ -163,7 +163,7 @@ export default defineConfig({
         // pinned to exact aparté versions — the library's own consumers, listed for their users.
         { label: 'Other plugins', collapsed: true, items: [{ autogenerate: { directory: 'other-plugins' } }] },
         { label: 'Help', items: guides.help },
-        // The catalogue, by what a reader sees: Chat, Layout, Kit, one page per thing, read
+        // The catalogue, by what a reader sees: Chat, Cards, Layout, Kit, one page per thing, read
         // from each page's own `catalog` block (scripts/lib/catalogue.mjs). Every element,
         // segment type and kit family now has its page there.
         ...catalogueSidebar(),
@@ -284,7 +284,14 @@ export default defineConfig({
             + 'and Mermaid diagrams through `@aparte/plugin-mermaid` (/guides/diagrams/), both while '
             + 'they stream, under any Markdown provider; and the sources it cites, as a chip after '
             + 'each cited passage, a card and a list (/guides/citations/), from a provider\'s '
-            + '`sources` stream event or two fields on a text segment.',
+            + '`sources` stream event or two fields on a text segment. Charts come from '
+            + '`@aparte/plugin-echarts` or `@aparte/plugin-chartjs` (/guides/charts/), from a fenced '
+            + 'block or a tool\'s result.',
+            'A tool\'s result can be drawn as a rich card with `@aparte/plugin-cards` (/guides/cards/): '
+            + 'weather, items, products, places, key figures, orders, market quotes, an agent\'s plan, '
+            + 'matches, media and link previews, one entry per card, each reading the tool\'s own '
+            + 'fields through `map`. `onChange` makes a card answer its own controls (the stock '
+            + 'card\'s range buttons), redrawn in place; `defineCard` builds a card of your own.',
             'Running the agent loop on your own server, next to your tools, is built in: '
             + '`createAparteAgentHandler` on the server and `createAgentStreamRunner` in the page, '
             + 'with tool approvals that cross the network and survive a reload, and browser tools '

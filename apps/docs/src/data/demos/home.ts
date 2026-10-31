@@ -25,6 +25,79 @@ const chat = `<aparte-chat style="height: 28rem">
 
 export const HOME_DEMOS: DemoEntry[] = [
     {
+        id: 'home-rich',
+        title: 'A reply with a card, a formula and a chart',
+        plugins: ['markdown', 'math', 'charts', 'cards'],
+        html: `<aparte-chat-viewport style="height: 36rem"></aparte-chat-viewport>
+
+<script>
+  // In an app: import { setupStockCard } from '@aparte/plugin-cards/stock';
+  const { setupStockCard } = window.apartePlugins.cards.stock;
+
+  // A made-up price walk: the same curve every time a range is asked for, ending at the price,
+  // spread over a span that grows with the range. The day's figures are read off the 1D curve.
+  const POINTS = { '1D': 78, '5D': 60, '1M': 44, '1Y': 52 };
+  const SPAN = { '1D': 3.6, '5D': 8, '1M': 16, '1Y': 42 };
+  const PRICE = 184.6;
+  const seriesFor = (range) => {
+    const seed = range.charCodeAt(0) + range.length * 3;
+    let v = 0;
+    const walk = Array.from({ length: POINTS[range] }, (_, i) => (v += Math.sin(i * 0.7 + seed) * 1.6 + Math.cos(i * 0.23 + seed * 2) + 0.12));
+    const last = walk[walk.length - 1];
+    const scale = SPAN[range] / (Math.max(...walk) - Math.min(...walk));
+    return walk.map((x) => Math.round((PRICE - (last - x) * scale) * 100) / 100);
+  };
+  const day = seriesFor('1D');
+  const quote = (range) => ({
+    symbol: 'ACME', name: 'Acme Corp.', exchange: 'NASDAQ', currency: 'USD',
+    price: PRICE, change: 2.35, changePercent: 1.29, previousClose: 182.25,
+    open: day[0], high: Math.max(...day), low: Math.min(...day), volume: 48200000, marketState: 'open',
+    range, ranges: ['1D', '5D', '1M', '1Y'], series: seriesFor(range),
+  });
+
+  // The range buttons are drawn because something answers them: a press redraws the card in place.
+  setupStockCard({
+    tool: 'get_quote',
+    onChange: ({ name, value }) => (name === 'range' ? quote(value) : undefined),
+  });
+
+  const viewport = document.querySelector('aparte-chat-viewport');
+  viewport.appendMessage({ id: 'u1', role: 'user', content: 'How is ACME doing, and what does a year of it mean per month?', timestamp: Date.now() });
+  viewport.appendMessage({ id: 'a1', role: 'assistant', timestamp: Date.now(), status: 'streaming', segments: [
+    { id: 's1', type: 'tool_call', status: 'pending', toolCall: { id: 'c1', name: 'get_quote', input: { symbol: 'ACME' } } },
+  ] });
+
+  const text = 'Up **1.3%** today. Over the year it gained 22.5%, which compounds to $(1.225)^{1/12} - 1 = 0.017$ a month. Its revenue, by quarter:';
+  const chart = JSON.stringify({
+    title: { text: 'Revenue by quarter ($bn)' }, tooltip: { trigger: 'axis' }, legend: {},
+    xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'] }, yAxis: { type: 'value' },
+    series: [{ name: '2025', type: 'bar', data: [12.1, 13.4, 12.8, 15.2] }, { name: '2026', type: 'bar', data: [14.0, 15.9, 15.1, 17.6] }],
+  }, null, 2);
+  const stream = (id, source, step, done) => {
+    let i = 0;
+    const tick = setInterval(() => {
+      i += step;
+      viewport.updateSegment('a1', id, { content: source.slice(0, i) });
+      if (i >= source.length) {
+        clearInterval(tick);
+        viewport.updateSegment('a1', id, { isStreaming: false });
+        done();
+      }
+    }, 40);
+  };
+
+  // The call runs, its card fills in place, then the words and the chart stream under it.
+  setTimeout(() => {
+    viewport.updateSegment('a1', 's1', { status: 'resolved', structuredResult: quote('1D') });
+    viewport.addSegment('a1', { id: 's2', type: 'text', content: '', isStreaming: true });
+    stream('s2', text, 3, () => {
+      viewport.addSegment('a1', { id: 's3', type: 'code', language: 'echarts', content: '', isStreaming: true });
+      stream('s3', chart, 14, () => viewport.updateMessage('a1', { status: 'completed' }));
+    });
+  }, 1200);
+</script>`,
+    },
+    {
         id: 'home-skin-default',
         title: 'The chat as it ships',
         html: `<!-- Nothing set: the palette, the shapes and the glyphs core ships, light or dark with the page. -->

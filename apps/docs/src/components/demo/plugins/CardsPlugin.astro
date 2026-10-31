@@ -1,0 +1,24 @@
+---
+/**
+ * `@aparte/plugin-cards` for a demo frame: each card's module on `window.apartePlugins.cards`,
+ * and the demo calls its `setup…Card()` itself — which tool, which map, which variant is what
+ * a demo shows.
+ */
+---
+
+<script>
+    import * as weather from '@aparte/plugin-cards/weather';
+    import * as items from '@aparte/plugin-cards/items';
+    import * as product from '@aparte/plugin-cards/product';
+    import * as place from '@aparte/plugin-cards/place';
+    import * as stats from '@aparte/plugin-cards/stats';
+    import * as order from '@aparte/plugin-cards/order';
+    import * as stock from '@aparte/plugin-cards/stock';
+    import * as plan from '@aparte/plugin-cards/plan';
+    import * as score from '@aparte/plugin-cards/score';
+    import * as media from '@aparte/plugin-cards/media';
+    import * as link from '@aparte/plugin-cards/link';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).cards = { weather, items, product, place, stats, order, stock, plan, score, media, link };
+</script>

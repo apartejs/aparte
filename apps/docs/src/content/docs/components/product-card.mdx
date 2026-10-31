@@ -1,0 +1,60 @@
+---
+title: Product card
+description: Products with their price and the one it replaces, rating, stock, merchant and options — as tiles, rows or one product in detail.
+sidebar:
+  label: Product
+catalog:
+  group: cards
+  order: 3
+  demos: [card-product, card-product-compact, card-product-detail, card-product-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-product" />
+
+A shopping tool's answer as a shop would show it: the photo, the price in the chat's language and
+the product's currency, the price it replaces with the discount worked out (never read from
+text), the rating, whether it is in stock, the merchant and the delivery.
+
+## Variants
+
+### Compact
+
+<Variant id="card-product-compact" />
+
+One row per product: for a comparison, or a list longer than three.
+
+### Detail
+
+<Variant id="card-product-detail" />
+
+One product at length: its options as chips and its description.
+
+### While the call runs
+
+<Variant id="card-product-running" />
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupProductCard } from '@aparte/plugin-cards/product';
+
+setupProductCard({
+  tool: 'search_products',
+  variant: (data) => (data.products.length === 1 ? 'detail' : 'card'),
+});
+```
+
+Its reader takes the shapes shops already return — schema.org `Product`, Shopify, Google Shopping
+— and prices written as text (`"1.299,00 €"`), so `map` is often not needed. The fields are in
+[the guide](/guides/cards/#products--product).
+
+## Related
+
+- [Order card](/components/order-card/) — the same products once bought.
+- [Items card](/components/items-card/) — anything with a title and a picture.

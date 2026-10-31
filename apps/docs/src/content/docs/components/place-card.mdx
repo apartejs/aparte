@@ -1,0 +1,59 @@
+---
+title: Place card
+description: Restaurants, shops, museums — rating, price level, distance, and whether a place is open now, worked out from its hours.
+sidebar:
+  label: Place
+catalog:
+  group: cards
+  order: 4
+  demos: [card-place, card-place-compact, card-place-detail, card-place-running]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+
+<Variant id="card-place" />
+
+A place as a person decides on it: its photo and kind, its rating and price level, how far it is,
+and whether it is open — worked out from its hours at the moment the card is drawn, across
+midnight, on the place's own clock when the data gives its offset. Open the frame at another time
+of day and the line changes.
+
+## Variants
+
+### Compact
+
+<Variant id="card-place-compact" />
+
+One row per place.
+
+### Detail
+
+<Variant id="card-place-detail" />
+
+One place with the week's hours, today first, and Directions and Website buttons when the data
+allows them (Call too, with a phone number).
+
+### While the call runs
+
+<Variant id="card-place-running" />
+
+## Usage
+
+```bash
+npm install @aparte/plugin-cards @aparte/core
+```
+
+```ts
+import { setupPlaceCard } from '@aparte/plugin-cards/place';
+
+setupPlaceCard({ tool: 'find_places', currencySymbol: '€' });
+```
+
+A price level is a tier, not an amount: `currencySymbol` is the sign it is drawn with (`$` by
+default). The reader takes both generations of Google Places and Yelp; the fields and the hours
+helpers are in [the guide](/guides/cards/#places--place).
+
+## Related
+
+- [Order card](/components/order-card/) — a table or a room, once booked.
+- [Weather card](/components/weather-card/) — the other card a trip asks for.
