@@ -59,6 +59,22 @@ const BARRELS = [
     { pkg: '@aparte/plugin-katex/core', types: 'packages/plugins/katex/dist/core.d.ts', readme: 'packages/plugins/katex/README.md' },
     { pkg: '@aparte/plugin-mermaid', types: 'packages/plugins/mermaid/dist/index.d.ts', readme: 'packages/plugins/mermaid/README.md' },
     { pkg: '@aparte/plugin-mermaid/core', types: 'packages/plugins/mermaid/dist/core.d.ts', readme: 'packages/plugins/mermaid/README.md' },
+    { pkg: '@aparte/plugin-cards', types: 'packages/plugins/cards/dist/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/weather', types: 'packages/plugins/cards/dist/weather/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/items', types: 'packages/plugins/cards/dist/items/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/product', types: 'packages/plugins/cards/dist/product/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/place', types: 'packages/plugins/cards/dist/place/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/stats', types: 'packages/plugins/cards/dist/stats/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/order', types: 'packages/plugins/cards/dist/order/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/stock', types: 'packages/plugins/cards/dist/stock/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/plan', types: 'packages/plugins/cards/dist/plan/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/score', types: 'packages/plugins/cards/dist/score/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/media', types: 'packages/plugins/cards/dist/media/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-cards/link', types: 'packages/plugins/cards/dist/link/index.d.ts', readme: 'packages/plugins/cards/README.md' },
+    { pkg: '@aparte/plugin-echarts', types: 'packages/plugins/echarts/dist/index.d.ts', readme: 'packages/plugins/echarts/README.md' },
+    { pkg: '@aparte/plugin-echarts/core', types: 'packages/plugins/echarts/dist/core.d.ts', readme: 'packages/plugins/echarts/README.md' },
+    { pkg: '@aparte/plugin-chartjs', types: 'packages/plugins/chartjs/dist/index.d.ts', readme: 'packages/plugins/chartjs/README.md' },
+    { pkg: '@aparte/plugin-chartjs/core', types: 'packages/plugins/chartjs/dist/core.d.ts', readme: 'packages/plugins/chartjs/README.md' },
     { pkg: '@aparte/plugin-streaming-markdown', types: 'packages/plugins/streaming-markdown/dist/index.d.ts', readme: 'packages/plugins/streaming-markdown/README.md' },
     { pkg: '@aparte/plugin-model-selector', types: 'packages/plugins/model-selector/dist/index.d.ts', readme: 'packages/plugins/model-selector/README.md' },
     { pkg: '@aparte/plugin-ask-user', types: 'packages/plugins/ask-user/dist/index.d.ts', readme: 'packages/plugins/ask-user/README.md' },
@@ -146,6 +162,22 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/plugin-katex/core', 0],
     ['@aparte/plugin-mermaid', 0],
     ['@aparte/plugin-mermaid/core', 0],
+    ['@aparte/plugin-cards', 0],
+    ['@aparte/plugin-cards/weather', 0],
+    ['@aparte/plugin-cards/items', 0],
+    ['@aparte/plugin-cards/product', 0],
+    ['@aparte/plugin-cards/place', 0],
+    ['@aparte/plugin-cards/stats', 0],
+    ['@aparte/plugin-cards/order', 0],
+    ['@aparte/plugin-cards/stock', 0],
+    ['@aparte/plugin-cards/plan', 0],
+    ['@aparte/plugin-cards/score', 0],
+    ['@aparte/plugin-cards/media', 0],
+    ['@aparte/plugin-cards/link', 0],
+    ['@aparte/plugin-echarts', 0],
+    ['@aparte/plugin-echarts/core', 0],
+    ['@aparte/plugin-chartjs', 0],
+    ['@aparte/plugin-chartjs/core', 0],
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
     ['@aparte/plugin-ask-user', 6],
@@ -205,7 +237,7 @@ const MAX_SLACK = 3;
  *
  * Measured 345 when this was written; the floor is that minus ~3%.
  */
-const SEEN_FLOOR = 335;
+const SEEN_FLOOR = 800;
 
 /**
  * Names a `.d.ts` re-exports, from every export form TypeScript emits —

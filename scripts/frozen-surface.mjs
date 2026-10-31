@@ -183,6 +183,16 @@ const NOT_FROZEN = new Map([
     ['@aparte/docs-mcp', 'a Node CLI that serves the docs to an agent, not part of the library surface'],
 ]);
 
+/**
+ * Packages whose subpath entries are their API, so they freeze like a main entry. A subpath
+ * is not frozen as a rule — `/icons`, `/core` are alternate doors to what the main entry
+ * says — but `@aparte/plugin-cards` puts every card behind its own entry (`/weather`,
+ * `/stock`…) and its main entry holds only the kit: freezing that alone would lock the small
+ * helpers and leave `setupWeatherCard` free to be renamed without a notice. The stability
+ * page names this exception.
+ */
+const SUBPATH_API = new Set(['@aparte/plugin-cards']);
+
 /** Every package npm publishes, minus the ones the page declares unfrozen. Mirrored from `check-published-readmes.mjs`. */
 function publishable(dir = at('packages'), depth = 0, out = []) {
     if (depth > 3) return out;
@@ -266,6 +276,15 @@ function readExports() {
         const names = new Set();
         for (const b of barrels) for (const n of valueExports(b)) names.add(n);
         out[pkg.name] = sorted(names);
+        // A package whose API IS its subpaths: each entry frozen under its own name.
+        if (SUBPATH_API.has(pkg.name)) {
+            for (const [sub, node] of Object.entries(pkg.exports ?? {})) {
+                if (sub === '.' || !sub.startsWith('./') || sub.endsWith('.css')) continue;
+                const subNames = new Set();
+                for (const b of barrelsOf(dir, { exports: { '.': node } })) for (const n of valueExports(b)) subNames.add(n);
+                if (subNames.size) out[`${pkg.name}/${sub.slice(2)}`] = sorted(subNames);
+            }
+        }
     }
     const total = Object.values(out).reduce((s, v) => s + v.length, 0);
     if (total < EXPORT_FLOOR) {

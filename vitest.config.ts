@@ -105,12 +105,12 @@ export default defineConfig({
         // exercises the whole surface rather than a sample.
         // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
         // its least-covered; measured 84.09% after. The ratchet asked for it.
-        functions: 91,
+        functions: 93,
         // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
         // 87 -> 89 with the providers lot (2026-10-21): 90.06% measured.
-        branches: 89,
+        branches: 91,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and
@@ -219,7 +219,13 @@ export default defineConfig({
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
+        // plugin-cards (2026-10-31): measured 99.07 / 94.87 / 98.84 over the kit and eleven cards.
+        'packages/plugins/cards/src/**': { lines: 98, statements: 98, functions: 98, branches: 94 },
+        // plugin-chartjs (2026-10-31): measured 100 / 94.92 / 97.40 on a stand-in Chart.js (jsdom draws nothing).
+        'packages/plugins/chartjs/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
+        // plugin-echarts (2026-10-31): measured 99.74 / 95.27 / 97.37 on a stand-in ECharts.
+        'packages/plugins/echarts/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
         'packages/plugins/katex/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
