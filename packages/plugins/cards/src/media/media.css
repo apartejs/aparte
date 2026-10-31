@@ -1,0 +1,792 @@
+/* =========================================
+   The media card — @aparte/plugin-cards/media
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     single    one medium, large: an image at its own shape within a height (a button that
+               opens the lightbox), a video in the browser's player, a sound under a header
+               with its cover and a waveform, a YouTube page as a poster that links out.
+               One medium is drawn this way whatever the variant.
+     gallery   a mosaic: two to six tiles, the first larger from three, "+n" on the last
+               when there are more. Several media in `single` are drawn this way too.
+     strip     square thumbnails that scroll sideways.
+   Every tile opens the lightbox: a native <dialog> wearing core's `.aparte-dialog`, its
+   picture on a dark stage.
+   Every colour is a core token or a `--aparte-media-*` one here. The stage is black in
+   either theme — what a photo is looked at on — and so is the scrim over a picture: they
+   sit on images, not on the page's ground.
+   */
+
+.aparte-media-card {
+  /* The tallest a picture is drawn on the card. */
+  --aparte-media-max-block: 22rem;
+  /* The seams of the mosaic. */
+  --aparte-media-gap: 2px;
+  /* The tint of a placeholder, a cover without a picture, the waveform. */
+  --aparte-media-tint: var(--aparte-primary);
+  --aparte-media-stage: #0b0b0d;
+  --aparte-media-on-stage: #ffffff;
+  --aparte-media-scrim: rgb(0 0 0 / 0.55);
+  --aparte-media-lightbox-block: min(72dvh, 44rem);
+}
+
+.aparte-media-card:has(> .aparte-media--single) { --aparte-rich-card-max-inline-size: 24rem; }
+.aparte-media-card:has(> .aparte-media--strip) { --aparte-rich-card-max-inline-size: 30rem; }
+
+.aparte-media {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--aparte-text);
+}
+
+/* ── What stands behind a picture ────────────────────────────────────── */
+
+.aparte-media__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in oklab, var(--aparte-media-tint) 14%, transparent), transparent 60%),
+    color-mix(in oklab, var(--aparte-media-tint) 8%, var(--aparte-surface-2));
+  color: color-mix(in oklab, var(--aparte-media-tint) 55%, var(--aparte-text-muted));
+}
+
+.aparte-media__placeholder-glyph { --aparte-rich-card-glyph-size: 1.75rem; opacity: 0.85; }
+
+.aparte-media__img {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+/* ── One image, at its own shape ─────────────────────────────────────── */
+
+.aparte-media--single {
+  display: flex;
+  flex-direction: column;
+  padding: var(--aparte-space-4) var(--aparte-space-4) var(--aparte-space-5);
+}
+
+.aparte-media__frame {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 0;
+  border-radius: var(--aparte-radius-lg);
+  background: var(--aparte-surface-2);
+  color: inherit;
+  font: inherit;
+}
+
+/* Nothing known of its shape: the picture sets the frame's size, within the card and the height. */
+.aparte-media__frame[data-kind="image"] {
+  align-self: center;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  cursor: zoom-in;
+}
+
+.aparte-media__frame[data-kind="image"] > .aparte-media__img {
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: 100%;
+  max-block-size: var(--aparte-media-max-block);
+}
+
+/* Its shape known: the frame is drawn at it from the start — as wide as the card allows,
+   narrower when the height would pass the limit — and the picture fills it. */
+.aparte-media__frame[data-kind="image"][data-sized] {
+  inline-size: min(100%, calc(var(--aparte-media-max-block) * var(--aparte-media-ratio-n)));
+  aspect-ratio: var(--aparte-media-ratio);
+}
+
+.aparte-media__frame[data-kind="image"][data-sized] > .aparte-media__img {
+  inline-size: 100%;
+  block-size: 100%;
+  max-block-size: none;
+  object-fit: cover;
+}
+
+/* Loading with no shape known, or failed: a box of a reasonable size around the placeholder. */
+.aparte-media__frame[data-kind="image"]:not([data-sized]):is([data-loading], [data-broken]) {
+  inline-size: 100%;
+  min-block-size: 10rem;
+}
+
+.aparte-media__frame[data-kind="image"] > .aparte-media__img {
+  transition: transform var(--aparte-duration-slower, 0.3s) ease, filter var(--aparte-duration-slower, 0.3s) ease;
+}
+
+.aparte-media__frame[data-kind="image"]:hover > .aparte-media__img { transform: scale(1.025); }
+
+.aparte-media__frame:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+/* "See it larger": a frosted disc in the corner, shown on hover and focus. */
+.aparte-media__zoom {
+  --aparte-rich-card-glyph-size: 2rem;
+  position: absolute;
+  inset-block-start: var(--aparte-space-4);
+  inset-inline-end: var(--aparte-space-4);
+  z-index: 2;
+  padding: 0.4rem;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-media-scrim);
+  color: var(--aparte-media-on-stage);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--aparte-duration-base, 0.15s) ease;
+}
+
+.aparte-media__frame:hover > .aparte-media__zoom,
+.aparte-media__frame:focus-visible > .aparte-media__zoom { opacity: 1; }
+
+.aparte-media__frame[data-broken] > .aparte-media__zoom { display: none; }
+
+/* ── A video ─────────────────────────────────────────────────────────── */
+
+.aparte-media__frame--video,
+.aparte-media__external,
+.aparte-media__lb-video {
+  aspect-ratio: var(--aparte-media-ratio, 16 / 9);
+  max-block-size: var(--aparte-media-max-block);
+  background: var(--aparte-media-stage);
+}
+
+.aparte-media__video {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  background: var(--aparte-media-stage);
+}
+
+/* A page that plays it elsewhere: its poster, a disc with the triangle, the site, the length. */
+.aparte-media__external {
+  color: var(--aparte-media-on-stage);
+  text-decoration: none;
+}
+
+.aparte-media__external > .aparte-media__img {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--aparte-duration-slower, 0.3s) ease;
+}
+
+.aparte-media__external:hover > .aparte-media__img { transform: scale(1.03); }
+
+.aparte-media__external:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-media__play {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-media-scrim);
+  color: var(--aparte-media-on-stage);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25) inset, 0 6px 20px -6px rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(6px);
+  translate: -50% -50%;
+  transition: background-color var(--aparte-duration-base, 0.15s) ease, scale var(--aparte-duration-base, 0.15s) ease;
+}
+
+/* `translate` is physical: in a right-to-left page the start edge is the right one. */
+.aparte-media__play:dir(rtl) { translate: 50% -50%; }
+
+.aparte-media__play-glyph { --aparte-rich-card-glyph-size: 1.5rem; margin-inline-start: 0.15rem; }
+.aparte-media__play:dir(rtl) .aparte-media__play-glyph { margin-inline: 0 0.15rem; transform: scaleX(-1); }
+
+.aparte-media__play--sm { inline-size: 2.5rem; block-size: 2.5rem; }
+.aparte-media__play--sm .aparte-media__play-glyph { --aparte-rich-card-glyph-size: 1.1rem; }
+
+.aparte-media__external:hover .aparte-media__play,
+.aparte-media__tile:hover .aparte-media__play {
+  background: var(--aparte-primary);
+  scale: 1.08;
+}
+
+.aparte-media__site,
+.aparte-media__duration {
+  position: absolute;
+  inset-block-end: var(--aparte-space-4);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  padding: var(--aparte-space-1) var(--aparte-space-3);
+  border-radius: var(--aparte-radius-sm);
+  background: var(--aparte-media-scrim);
+  color: var(--aparte-media-on-stage);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.aparte-media__site { inset-inline-start: var(--aparte-space-4); }
+.aparte-media__duration { inset-inline-end: var(--aparte-space-4); }
+.aparte-media__site-glyph { --aparte-rich-card-glyph-size: 0.8rem; }
+
+/* ── A sound ─────────────────────────────────────────────────────────── */
+
+.aparte-media__audio {
+  display: grid;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-3) var(--aparte-space-2) 0;
+}
+
+.aparte-media__audio-head {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-5);
+  min-inline-size: 0;
+}
+
+.aparte-media__cover {
+  position: relative;
+  flex: none;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  overflow: hidden;
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: 0 4px 14px -8px color-mix(in oklab, var(--aparte-media-tint) 70%, black);
+}
+
+.aparte-media__cover > .aparte-media__img {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.aparte-media__cover > .aparte-media__placeholder {
+  background: linear-gradient(135deg, color-mix(in oklab, var(--aparte-media-tint) 30%, var(--aparte-surface-1)), color-mix(in oklab, var(--aparte-media-tint) 10%, var(--aparte-surface-2)));
+}
+
+.aparte-media__audio-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+}
+
+.aparte-media__audio-title,
+.aparte-media__audio-credit {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-media__audio-title {
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-media__audio-credit,
+.aparte-media__audio-length {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-media__audio-length { flex: none; }
+
+/* A waveform that is only decoration: bars cut by a mask, their tops following a fixed
+   envelope cut by a polygon. It shows no real level, so it says nothing to a reader. */
+.aparte-media__wave {
+  display: block;
+  block-size: 2.25rem;
+  background: linear-gradient(90deg,
+    var(--aparte-media-tint) 0%,
+    color-mix(in oklab, var(--aparte-media-tint) 70%, transparent) 50%,
+    color-mix(in oklab, var(--aparte-media-tint) 28%, transparent) 50%,
+    color-mix(in oklab, var(--aparte-media-tint) 28%, transparent) 100%);
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px);
+  clip-path: polygon(
+    0% 35%, 5% 22.5%, 10% 30%, 15% 10%, 20% 20%, 25% 2.5%, 30% 15%, 35% 27.5%, 40% 7.5%, 45% 25%, 50% 12.5%,
+    55% 32.5%, 60% 5%, 65% 20%, 70% 30%, 75% 15%, 80% 25%, 85% 10%, 90% 27.5%, 95% 35%, 100% 37.5%,
+    100% 62.5%, 95% 65%, 90% 72.5%, 85% 90%, 80% 75%, 75% 85%, 70% 70%, 65% 80%, 60% 95%, 55% 67.5%,
+    50% 87.5%, 45% 75%, 40% 92.5%, 35% 72.5%, 30% 85%, 25% 97.5%, 20% 80%, 15% 90%, 10% 70%, 5% 77.5%, 0% 65%);
+}
+
+/* While it plays, the colour sweeps across the bars. */
+.aparte-media__audio[data-playing] .aparte-media__wave {
+  animation: aparte-media-wave 2.4s linear infinite;
+}
+
+@keyframes aparte-media-wave {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+.aparte-media__player {
+  display: block;
+  inline-size: 100%;
+  block-size: 2.5rem;
+}
+
+/* ── Under a medium ──────────────────────────────────────────────────── */
+
+.aparte-media__figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+  padding: var(--aparte-space-4) var(--aparte-space-2) 0;
+}
+
+.aparte-media__title {
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.aparte-media__caption {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.aparte-media__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-2) var(--aparte-space-5);
+  margin-block-start: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-media__credit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-media__source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  border-radius: var(--aparte-radius-xs);
+  color: var(--aparte-primary-ink, var(--aparte-text));
+  font-weight: var(--aparte-font-weight-medium);
+  text-decoration: none;
+}
+
+.aparte-media__source:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.aparte-media__source:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-media__line-glyph { --aparte-rich-card-glyph-size: 0.95rem; }
+.aparte-media__source .aparte-media__line-glyph { --aparte-rich-card-glyph-size: 0.8rem; }
+
+/* ── Tiles: the mosaic's and the strip's ─────────────────────────────── */
+
+.aparte-media__tile {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--aparte-surface-2);
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.aparte-media__tile > .aparte-media__img {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--aparte-duration-slower, 0.3s) ease, filter var(--aparte-duration-slower, 0.3s) ease;
+}
+
+.aparte-media__tile:hover > .aparte-media__img {
+  transform: scale(1.05);
+  filter: brightness(1.05);
+}
+
+/* The focus ring is drawn inside the tile, over the picture: tiles touch each other and the
+   card's edge, so a ring outside would be cut. Two rings, so it reads on any picture. */
+.aparte-media__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.aparte-media__tile:focus-visible { outline: none; }
+
+.aparte-media__tile:focus-visible::after {
+  box-shadow:
+    inset 0 0 0 var(--aparte-focus-outline-width) var(--aparte-border-focus),
+    inset 0 0 0 calc(var(--aparte-focus-outline-width) * 2) var(--aparte-surface-1);
+}
+
+.aparte-media__tile[data-kind="audio"] { cursor: pointer; }
+
+.aparte-media__tile-title {
+  position: absolute;
+  inset-inline: var(--aparte-space-3);
+  inset-block-end: var(--aparte-space-3);
+  z-index: 2;
+  overflow: hidden;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-media__tile .aparte-media__duration {
+  inset-block-end: var(--aparte-space-3);
+  inset-inline-end: var(--aparte-space-3);
+}
+
+/* "+3": how many more the lightbox holds, over the last tile. */
+.aparte-media__more {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: var(--aparte-media-scrim);
+  color: var(--aparte-media-on-stage);
+  font-size: var(--aparte-font-size-2xl);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.01em;
+  backdrop-filter: blur(1.5px);
+  transition: background-color var(--aparte-duration-base, 0.15s) ease;
+}
+
+.aparte-media__tile:hover > .aparte-media__more { background: rgb(0 0 0 / 0.42); }
+
+/* ── Gallery: the mosaic ─────────────────────────────────────────────── */
+
+.aparte-media--gallery {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A six-column grid laid out per count, so every count fills its box with no hole:
+     2  two squares
+     3  a large square, two small ones stacked beside it
+     4  a wide one over three
+     5  two over three
+     6  a large square, two beside it, three under it */
+.aparte-media__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--aparte-media-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  aspect-ratio: 3 / 2;
+}
+
+.aparte-media__grid > * {
+  display: flex;
+  grid-column: span 2;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.aparte-media__grid > * > .aparte-media__tile { flex: 1; }
+
+.aparte-media__grid[data-count="2"] { grid-template-rows: minmax(0, 1fr); aspect-ratio: 2 / 1; }
+.aparte-media__grid[data-count="2"] > * { grid-column: span 3; }
+
+.aparte-media__grid[data-count="3"] { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.aparte-media__grid[data-count="3"] > :first-child { grid-column: span 4; grid-row: span 2; }
+
+.aparte-media__grid[data-count="4"] { grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); aspect-ratio: 4 / 3; }
+.aparte-media__grid[data-count="4"] > :first-child { grid-column: span 6; }
+
+.aparte-media__grid[data-count="5"] { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.aparte-media__grid[data-count="5"] > :nth-child(-n + 2) { grid-column: span 3; }
+
+.aparte-media__grid[data-count="6"] { grid-template-rows: repeat(3, minmax(0, 1fr)); aspect-ratio: 1; }
+.aparte-media__grid[data-count="6"] > :first-child { grid-column: span 4; grid-row: span 2; }
+
+/* The collection's line: under the mosaic, over the strip. */
+.aparte-media__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-media--gallery > .aparte-media__heading { padding: var(--aparte-space-4) var(--aparte-space-6) var(--aparte-space-5); }
+
+.aparte-media__heading-title {
+  overflow: hidden;
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-media__heading-title + .aparte-media__count::before {
+  content: "·";
+  margin-inline-end: var(--aparte-space-3);
+}
+
+.aparte-media__count { flex: none; }
+
+/* ── Strip: square thumbnails in the kit's carousel ──────────────────── */
+
+.aparte-media--strip {
+  display: grid;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-media--strip .aparte-rich-card__carousel {
+  --aparte-rich-card-slide-size: 7rem;
+  --aparte-rich-card-slide-gap: var(--aparte-space-4);
+}
+
+.aparte-media__thumb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  min-inline-size: 0;
+}
+
+.aparte-media__thumb > .aparte-media__tile {
+  block-size: auto;
+  aspect-ratio: 1;
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: 0 0 0 var(--aparte-border-width) color-mix(in oklab, var(--aparte-text) 8%, transparent);
+  transition: translate var(--aparte-duration-base, 0.15s) ease, box-shadow var(--aparte-duration-base, 0.15s) ease;
+}
+
+.aparte-media__thumb > .aparte-media__tile:hover {
+  translate: 0 -2px;
+  box-shadow: 0 10px 20px -14px rgb(0 0 0 / 0.55);
+}
+
+.aparte-media__thumb-title {
+  overflow: hidden;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── The lightbox ────────────────────────────────────────────────────── */
+
+/* Two classes: it must win over the recipe's `--lg` whatever order the sheets land in. */
+.aparte-dialog.aparte-media__lightbox { --aparte-dialog-width: 56rem; }
+
+.aparte-media__lb-head { padding-block-end: var(--aparte-space-4); }
+
+.aparte-media__lb-heading {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--aparte-space-4);
+  min-inline-size: 0;
+}
+
+.aparte-media__lb-title {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-media__lb-counter {
+  flex: none;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The stage: the picture on black, as large as the window lets it be. */
+.aparte-media__lb-body {
+  position: relative;
+  display: grid;
+  min-block-size: 12rem;
+  background: var(--aparte-media-stage);
+}
+
+.aparte-media__lb-stage {
+  display: grid;
+  place-items: center;
+  min-inline-size: 0;
+  max-block-size: var(--aparte-media-lightbox-block);
+}
+
+.aparte-media__lb-picture {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  min-block-size: 12rem;
+}
+
+.aparte-media__lb-picture > .aparte-media__placeholder {
+  background: none;
+  color: rgb(255 255 255 / 0.4);
+}
+
+.aparte-media__lb-picture:not([data-loading], [data-broken]) > .aparte-media__placeholder { display: none; }
+
+.aparte-media__lb-img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: 100%;
+  max-block-size: var(--aparte-media-lightbox-block);
+  object-fit: contain;
+}
+
+.aparte-media__lb-video {
+  inline-size: 100%;
+  max-block-size: var(--aparte-media-lightbox-block);
+}
+
+.aparte-media__lb-stage > .aparte-media__external {
+  inline-size: 100%;
+  max-block-size: var(--aparte-media-lightbox-block);
+  border-radius: 0;
+}
+
+.aparte-media__lb-stage > .aparte-media__audio {
+  inline-size: min(100% - var(--aparte-space-8) * 2, 28rem);
+  margin: var(--aparte-space-8);
+  padding: var(--aparte-space-6);
+  border-radius: var(--aparte-radius-xl);
+  background: var(--aparte-surface-1);
+}
+
+.aparte-media__lb-nav {
+  position: absolute;
+  inset-block-start: 50%;
+  z-index: 2;
+  translate: 0 -50%;
+  box-shadow: 0 2px 12px -2px rgb(0 0 0 / 0.45);
+}
+
+.aparte-media__lb-nav--prev { inset-inline-start: var(--aparte-space-5); }
+.aparte-media__lb-nav--next { inset-inline-end: var(--aparte-space-5); }
+.aparte-media__lb-nav:dir(rtl) { transform: scaleX(-1); }
+
+/* At either end the button stays where it is, and stays focusable — a disabled button
+   would drop the keyboard's focus out of the dialog — but says it leads nowhere. */
+.aparte-media__lb-nav[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.aparte-media__lb-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-media__lb-caption[hidden] { display: none; }
+
+.aparte-media__lb-caption > .aparte-media__caption { -webkit-line-clamp: 6; }
+
+/* ── Loading ─────────────────────────────────────────────────────────── */
+
+.aparte-media-card[data-state="loading"] .aparte-media__sk-frame {
+  block-size: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--aparte-radius-lg);
+}
+
+.aparte-media-card[data-state="loading"] .aparte-media__sk-cell {
+  block-size: auto;
+  border-radius: 0;
+}
+
+.aparte-media-card[data-state="loading"] .aparte-media__sk-line { inline-size: 60%; }
+.aparte-media-card[data-state="loading"] .aparte-media__sk-line--short { inline-size: 35%; }
+
+.aparte-media__sk-row {
+  display: flex;
+  gap: var(--aparte-space-4);
+  overflow: hidden;
+}
+
+.aparte-media-card[data-state="loading"] .aparte-media__sk-thumb {
+  flex: none;
+  inline-size: 7rem;
+  block-size: 7rem;
+  border-radius: var(--aparte-radius-lg);
+}
+
+/* ── Small screens, and stillness ────────────────────────────────────── */
+
+@media (max-width: 380px) {
+  .aparte-media-card { --aparte-media-max-block: 18rem; }
+  .aparte-media--single { padding: var(--aparte-space-3) var(--aparte-space-3) var(--aparte-space-4); }
+  .aparte-media--strip { padding: var(--aparte-space-4) var(--aparte-space-5) var(--aparte-space-5); }
+  .aparte-media--strip .aparte-rich-card__carousel { --aparte-rich-card-slide-size: 6rem; }
+  .aparte-media__play { inline-size: 3rem; block-size: 3rem; }
+  .aparte-media__lb-nav--prev { inset-inline-start: var(--aparte-space-3); }
+  .aparte-media__lb-nav--next { inset-inline-end: var(--aparte-space-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-media__frame:hover > .aparte-media__img,
+  .aparte-media__tile:hover > .aparte-media__img,
+  .aparte-media__external:hover > .aparte-media__img { transform: none; }
+  .aparte-media__thumb > .aparte-media__tile:hover { translate: none; }
+  .aparte-media__external:hover .aparte-media__play,
+  .aparte-media__tile:hover .aparte-media__play { scale: none; }
+  .aparte-media__audio[data-playing] .aparte-media__wave { animation: none; }
+}

@@ -1,0 +1,465 @@
+/* =========================================
+   The items card — @aparte/plugin-cards/items
+   =========================================
+   Three variants of one card, chosen by `data-variant` on its root:
+     carousel  tiles in a row that scrolls sideways (the kit's carousel)
+     grid      the same tiles, two columns, one when the card is narrow
+     list      rows inside one card: a square thumbnail, the text, one button
+   One item, in the carousel or the grid, is one tile at the card's full width.
+
+   In the carousel and the grid each tile is its own card, so the root lays them out and
+   draws no frame of its own — a boxed row of boxes reads as a form. The list keeps the
+   frame: its rows are parts of one card, divided by hairlines.
+   */
+
+.aparte-items-card {
+  /* The picture's box in a tile; a single item's is wider. */
+  --aparte-items-media-ratio: 4 / 3;
+  /* A tile's width in the carousel (the kit's slide size reads it). */
+  --aparte-items-tile-size: 13.5rem;
+  /* The thumbnail's side in a list row. */
+  --aparte-items-thumb-size: 4.5rem;
+  --aparte-items-tile-radius: var(--aparte-radius-lg);
+  /* Behind a missing picture: a wash of the accent on the surface, in either theme. */
+  --aparte-items-placeholder: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--aparte-primary) 16%, var(--aparte-surface-2)) 0%,
+    var(--aparte-surface-2) 55%,
+    color-mix(in oklab, var(--aparte-text) 6%, var(--aparte-surface-2)) 100%
+  );
+  --aparte-items-placeholder-ink: color-mix(in oklab, var(--aparte-text) 32%, transparent);
+  --aparte-items-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 20px -14px rgb(0 0 0 / 0.35);
+  --aparte-items-shadow-hover: 0 2px 4px rgb(0 0 0 / 0.06), 0 14px 28px -14px rgb(0 0 0 / 0.42);
+}
+
+.aparte-items-card[data-variant="carousel"] { --aparte-rich-card-max-inline-size: 34rem; }
+.aparte-items-card[data-variant="grid"] { --aparte-rich-card-max-inline-size: 30rem; }
+.aparte-items-card[data-variant="list"] { --aparte-rich-card-max-inline-size: 28rem; }
+
+/* One item is one card, as wide as a card reads well — not as wide as a row of tiles. */
+.aparte-items-card:not([data-variant="list"]):has(> .aparte-items[data-count="1"]) {
+  --aparte-rich-card-max-inline-size: 22rem;
+  --aparte-items-media-ratio: 16 / 9;
+}
+
+/* Tiles are cards: the root only lays them out. */
+.aparte-items-card:not([data-variant="list"])[data-state="ready"],
+.aparte-items-card:not([data-variant="list"])[data-state="loading"] {
+  overflow: visible;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+}
+
+.aparte-items-card:not([data-variant="list"]) > .aparte-rich-card__actions {
+  padding-inline: 0;
+  padding-block-end: 0;
+  border-block-start: 0;
+  background: transparent;
+}
+
+.aparte-items {
+  container: aparte-items / inline-size;
+}
+
+/* ── The card's title ─────────────────────────────────────────────────── */
+
+.aparte-items__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aparte-space-4);
+  padding-block-end: var(--aparte-space-4);
+}
+
+.aparte-items-card[data-variant="list"] .aparte-items__header {
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-3);
+}
+
+.aparte-items__heading {
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-items__count {
+  flex: none;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+/* ── One item ─────────────────────────────────────────────────────────── */
+
+.aparte-items__item {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.aparte-items__tile {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-items-tile-radius);
+  background: var(--aparte-surface-1);
+  color: var(--aparte-text);
+  box-shadow: var(--aparte-items-shadow);
+  transition:
+    transform var(--aparte-duration-slow) var(--aparte-ease),
+    box-shadow var(--aparte-duration-slow) var(--aparte-ease),
+    border-color var(--aparte-duration-slow) var(--aparte-ease);
+}
+
+/* The picture: a fixed box, so a slow or missing image moves nothing below it. */
+.aparte-items__media {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  aspect-ratio: var(--aparte-items-media-ratio);
+  overflow: hidden;
+  background: var(--aparte-items-placeholder);
+  color: var(--aparte-items-placeholder-ink);
+  --aparte-rich-card-glyph-size: 2rem;
+}
+
+/* The glyph only where there is no picture: not through a transparent PNG, nor while
+   a slow one arrives. */
+.aparte-items__media:not([data-empty]) .aparte-items__placeholder { visibility: hidden; }
+
+.aparte-items__image {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+/* The badge over the picture's corner: the solid badge recipe, lifted off the photo. */
+.aparte-items__media .aparte-items__badge {
+  position: absolute;
+  inset-block-start: var(--aparte-space-4);
+  inset-inline-start: var(--aparte-space-4);
+  max-inline-size: calc(100% - var(--aparte-space-8));
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.22);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-items__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  min-inline-size: 0;
+  padding: var(--aparte-space-5) var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-items__title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-base);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.aparte-items__subtitle {
+  overflow: hidden;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-items__description {
+  display: -webkit-box;
+  margin: var(--aparte-space-1) 0 0;
+  overflow: hidden;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* The details sit at the foot of the text, so they line up across tiles of one row.
+   The first line is the one a person scans for — a price, a date — so it reads first. */
+.aparte-items__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: auto 0 0;
+  padding: var(--aparte-space-3) 0 0;
+  list-style: none;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-items__meta > li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparte-items__meta > li:first-child {
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+/* The buttons sit above the stretched link, so a click on one is the button's. */
+.aparte-items__actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-3);
+  padding: 0 var(--aparte-space-6) var(--aparte-space-6);
+}
+
+.aparte-items__tile .aparte-items__action {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* ── The link: the title's, stretched over the whole item ───────────── */
+
+.aparte-items__link {
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+}
+
+.aparte-items__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.aparte-items__tile .aparte-items__link::after { border-radius: calc(var(--aparte-items-tile-radius) - var(--aparte-border-width)); }
+
+/* The focus ring goes round the whole item it opens, drawn inside its edge so neither
+   the tile's corners nor the carousel's scroller can clip it. */
+.aparte-items__link:focus-visible::after {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(var(--aparte-focus-outline-width) * -1);
+}
+
+.aparte-items__item[data-link] .aparte-items__link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+@media (hover: hover) {
+  .aparte-items__tile[data-link]:hover {
+    border-color: color-mix(in oklab, var(--aparte-text) 16%, var(--aparte-border));
+    box-shadow: var(--aparte-items-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .aparte-items__tile[data-link]:hover .aparte-items__image { transform: scale(1.04); }
+
+  .aparte-items__item[data-link]:hover .aparte-items__link {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+    text-underline-offset: 0.18em;
+  }
+}
+
+/* ── Carousel ─────────────────────────────────────────────────────────── */
+
+.aparte-items .aparte-rich-card__carousel {
+  --aparte-rich-card-slide-size: var(--aparte-items-tile-size);
+}
+
+/* A deeper shadow than the kit's room below the tiles allows. */
+.aparte-items .aparte-rich-card__track {
+  --aparte-rich-card-track-inset-end: var(--aparte-space-8);
+}
+
+/* ── Grid ─────────────────────────────────────────────────────────────── */
+
+.aparte-items__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-items__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aparte-space-5);
+}
+
+.aparte-items__grid > .aparte-items__entry {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.aparte-items__grid > .aparte-items__entry > .aparte-items__tile { flex: 1; }
+
+@container aparte-items (max-width: 420px) {
+  .aparte-items__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── List ─────────────────────────────────────────────────────────────── */
+
+.aparte-items__rows > .aparte-items__entry + .aparte-items__entry {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-items-card[data-variant="list"] .aparte-items__header + .aparte-items__rows {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-items__row {
+  display: grid;
+  grid-template-columns: var(--aparte-items-thumb-size) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aparte-space-5);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  transition: background-color var(--aparte-duration-base) var(--aparte-ease);
+}
+
+/* No item of the list has a picture: no thumbnail column. */
+.aparte-items__row[data-bare] { grid-template-columns: minmax(0, 1fr) auto; }
+
+.aparte-items__row .aparte-items__media {
+  --aparte-items-media-ratio: 1;
+  --aparte-rich-card-glyph-size: 1.5rem;
+  border-radius: var(--aparte-radius-md);
+}
+
+/* A hairline round the thumbnail, so a white product shot does not melt into the card. */
+.aparte-items__row .aparte-items__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 var(--aparte-border-width) color-mix(in oklab, var(--aparte-text) 8%, transparent);
+  pointer-events: none;
+}
+
+.aparte-items__row .aparte-items__body {
+  gap: 2px;
+  padding: 0;
+}
+
+.aparte-items__title-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aparte-space-3);
+  min-inline-size: 0;
+}
+
+.aparte-items__title-line .aparte-items__badge { flex: none; }
+
+.aparte-items__row .aparte-items__title {
+  font-size: var(--aparte-font-size-md);
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.aparte-items__row .aparte-items__description {
+  margin-block-start: 0;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* In a row the details run on one line, a dot between them. */
+.aparte-items__row .aparte-items__meta {
+  flex-flow: row wrap;
+  column-gap: 0;
+  padding-block-start: var(--aparte-space-1);
+}
+
+.aparte-items__row .aparte-items__meta > li:first-child { font-size: var(--aparte-font-size-xs); }
+
+.aparte-items__row .aparte-items__meta > li + li::before {
+  content: "·";
+  margin-inline: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-items__row .aparte-items__actions { padding: 0; }
+
+@media (hover: hover) {
+  .aparte-items__row[data-link]:hover { background: var(--aparte-surface-2); }
+}
+
+/* A narrow card: the button goes under the text rather than squeezing it. */
+@container aparte-items (max-width: 360px) {
+  .aparte-items__row {
+    grid-template-columns: var(--aparte-items-thumb-size) minmax(0, 1fr);
+    align-items: start;
+  }
+  .aparte-items__row .aparte-items__actions { grid-column: 2; }
+  .aparte-items__row,
+  .aparte-items-card[data-variant="list"] .aparte-items__header { padding-inline: var(--aparte-space-5); }
+}
+
+/* ── Skeleton ─────────────────────────────────────────────────────────── */
+
+.aparte-items__skeleton--carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--aparte-items-tile-size);
+  gap: var(--aparte-space-4);
+  overflow: hidden;
+}
+
+.aparte-items__skeleton--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aparte-space-5);
+}
+
+.aparte-items__skeleton--list > .aparte-items__row + .aparte-items__row {
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-items__skeleton .aparte-items__tile { box-shadow: none; }
+
+.aparte-items .aparte-items__sk-media {
+  block-size: auto;
+  inline-size: 100%;
+  aspect-ratio: var(--aparte-items-media-ratio);
+  border-radius: 0;
+}
+
+.aparte-items .aparte-items__row .aparte-items__sk-media {
+  aspect-ratio: 1;
+  border-radius: var(--aparte-radius-md);
+}
+
+.aparte-items .aparte-items__sk-title { inline-size: 85%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-items__tile[data-link]:hover,
+  .aparte-items__tile[data-link]:hover .aparte-items__image { transform: none; }
+}
+
+@media (max-width: 380px) {
+  .aparte-items-card { --aparte-items-tile-size: 12rem; }
+  .aparte-items__body { padding: var(--aparte-space-4) var(--aparte-space-5) var(--aparte-space-5); }
+  .aparte-items__actions { padding: 0 var(--aparte-space-5) var(--aparte-space-5); }
+}

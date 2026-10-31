@@ -1,0 +1,140 @@
+{
+    "name": "@aparte/plugin-cards",
+    "version": "0.28.3",
+    "homepage": "https://apartejs.dev/guides/cards/",
+    "publishConfig": {
+        "access": "public"
+    },
+    "description": "Rich cards for aparté — a tool's result drawn as a card (weather, products, places, figures, orders, stocks, scores, plans, media, links), with variants and live controls, from any source.",
+    "type": "module",
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./weather": {
+            "@aparte-workspace/source": "./src/weather/index.ts",
+            "types": "./dist/weather/index.d.ts",
+            "import": "./dist/weather.js",
+            "default": "./dist/weather.js"
+        },
+        "./items": {
+            "@aparte-workspace/source": "./src/items/index.ts",
+            "types": "./dist/items/index.d.ts",
+            "import": "./dist/items.js",
+            "default": "./dist/items.js"
+        },
+        "./product": {
+            "@aparte-workspace/source": "./src/product/index.ts",
+            "types": "./dist/product/index.d.ts",
+            "import": "./dist/product.js",
+            "default": "./dist/product.js"
+        },
+        "./place": {
+            "@aparte-workspace/source": "./src/place/index.ts",
+            "types": "./dist/place/index.d.ts",
+            "import": "./dist/place.js",
+            "default": "./dist/place.js"
+        },
+        "./stats": {
+            "@aparte-workspace/source": "./src/stats/index.ts",
+            "types": "./dist/stats/index.d.ts",
+            "import": "./dist/stats.js",
+            "default": "./dist/stats.js"
+        },
+        "./order": {
+            "@aparte-workspace/source": "./src/order/index.ts",
+            "types": "./dist/order/index.d.ts",
+            "import": "./dist/order.js",
+            "default": "./dist/order.js"
+        },
+        "./stock": {
+            "@aparte-workspace/source": "./src/stock/index.ts",
+            "types": "./dist/stock/index.d.ts",
+            "import": "./dist/stock.js",
+            "default": "./dist/stock.js"
+        },
+        "./plan": {
+            "@aparte-workspace/source": "./src/plan/index.ts",
+            "types": "./dist/plan/index.d.ts",
+            "import": "./dist/plan.js",
+            "default": "./dist/plan.js"
+        },
+        "./score": {
+            "@aparte-workspace/source": "./src/score/index.ts",
+            "types": "./dist/score/index.d.ts",
+            "import": "./dist/score.js",
+            "default": "./dist/score.js"
+        },
+        "./media": {
+            "@aparte-workspace/source": "./src/media/index.ts",
+            "types": "./dist/media/index.d.ts",
+            "import": "./dist/media.js",
+            "default": "./dist/media.js"
+        },
+        "./link": {
+            "@aparte-workspace/source": "./src/link/index.ts",
+            "types": "./dist/link/index.d.ts",
+            "import": "./dist/link.js",
+            "default": "./dist/link.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && node ../../../scripts/stamp-dist.mjs",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@aparte/core": ">=0.28.3 <1.0.0"
+    },
+    "devDependencies": {
+        "@aparte/core": "workspace:*",
+        "typescript": "~5.7.0",
+        "vite": "^6.0.0"
+    },
+    "keywords": [
+        "aparte",
+        "plugin",
+        "cards",
+        "generative-ui",
+        "tool-ui",
+        "weather",
+        "web-components",
+        "carousel",
+        "product",
+        "places",
+        "kpi",
+        "receipt",
+        "stock",
+        "todo",
+        "sports",
+        "gallery",
+        "link-preview"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apartejs/aparte.git",
+        "directory": "packages/plugins/cards"
+    },
+    "bugs": {
+        "url": "https://github.com/apartejs/aparte/issues"
+    }
+}

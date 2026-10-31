@@ -1,0 +1,37 @@
+/* A Chart.js chart in a reply: the bubble's width up to a reading measure, at a set
+   height (`setupChartjs({ height })`, else 18rem) — or at the config's own aspect ratio,
+   when it asks for one. The canvas is sized by the plugin from its frame, so the frame
+   alone carries the size and the canvas is its only child (what Chart.js measures). */
+.aparte-chartjs {
+  display: block;
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: var(--aparte-chartjs-max-width, 40rem);
+  margin-block: var(--aparte-space-2);
+}
+
+.aparte-chartjs__frame {
+  position: relative;
+  inline-size: 100%;
+  block-size: var(--aparte-chartjs-height, 18rem);
+}
+
+.aparte-chartjs[data-aparte-chartjs-ratio] .aparte-chartjs__frame {
+  block-size: auto;
+}
+
+.aparte-chartjs__canvas {
+  display: block;
+}
+
+/* While the chart is on its way: a quiet box the size the chart will be. */
+.aparte-chartjs__frame > .aparte-skeleton {
+  display: block;
+  block-size: 100%;
+}
+
+/* A tool whose chart cannot be shown: one quiet line, where the chart would have been. */
+.aparte-chartjs-note {
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
