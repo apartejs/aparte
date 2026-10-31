@@ -270,6 +270,10 @@ const APPROVAL = /approval\.spec\.ts/;
 // declaration, its context, and the unmount. Every framework app with such a declaration —
 // not svelte4, whose component API has none (it is in `@aparte/svelte/runes`).
 const FRAMEWORK_TOOL_UI = /framework-tool-ui\.spec\.ts/;
+// A live card of `@aparte/plugin-cards` (`?plugin-card=stock`): what its `onChange` returned must
+// outlive what each framework does to a message on screen — a save, a follow-up turn, the
+// conversation reopened. On every example: the framework is the variable.
+const PLUGIN_CARDS = /plugin-cards\.spec\.ts/;
 // A compaction end to end: the plugin every example sets up, a small window, the separator
 // drawn by the bubble, the request read off the mock. A DEEP suite — the plugin and the
 // separator are the same everywhere — on the two apps where the bubble is drawn by core and
@@ -302,21 +306,21 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI] :
+    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP] :
-    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI];
+    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS] :
+    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

@@ -27,6 +27,7 @@
     "katex": "^0.19.1",
     "mermaid": "^11.17.2",
     "@shikijs/langs": "^4.0.0",
-    "@shikijs/themes": "^4.0.0"
+    "@shikijs/themes": "^4.0.0",
+    "@aparte/plugin-cards": "workspace:*"
   }
 }

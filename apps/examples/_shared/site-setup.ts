@@ -28,6 +28,7 @@ import { setupMarkedStreamingProvider } from '@aparte/plugin-marked/streaming';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { setupKatex } from '@aparte/plugin-katex';
 import { setupMermaid } from '@aparte/plugin-mermaid';
+import { setupPluginCard } from './plugin-card';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
@@ -263,6 +264,8 @@ async function run(): Promise<SiteSetup> {
     const tense = (running: string, done: string, name: string) => (segment: AparteToolCallSegment): string =>
         segment.status === 'pending' ? running : segment.status === 'resolved' ? done : name;
     aparteGlobalConfig.registerToolDisplay('get_weather', { label: tense('Checking the weather…', 'Checked the weather', 'Weather'), icon: 'globe', summary: (s) => arg(s, 'city') });
+    // `?plugin-card`: the same call drawn by `@aparte/plugin-cards` (see `plugin-card.ts`).
+    setupPluginCard();
     aparteGlobalConfig.registerToolDisplay('search_docs', { label: tense('Searching the docs…', 'Searched the docs', 'Search docs'), icon: 'search', summary: (s) => arg(s, 'query') });
     aparteGlobalConfig.registerToolDisplay('read_file', { label: tense('Reading a file…', 'Read a file', 'Read file'), icon: 'file', summary: (s) => arg(s, 'path') });
     aparteGlobalConfig.registerToolDisplay('write_file', { label: tense('Writing a file…', 'Wrote a file', 'Write file'), icon: 'edit', summary: (s) => arg(s, 'path') });
