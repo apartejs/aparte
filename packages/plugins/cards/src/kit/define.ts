@@ -334,8 +334,9 @@ const homes = new WeakMap<Element, HTMLElement>();
 function drawnAgain(gone: HTMLElement, id: string, from: string): HTMLElement | undefined {
     const card = gone.getAttribute('data-card');
     if (!card || typeof document === 'undefined') return undefined;
-    const selector = `.aparte-rich-card[data-card="${cssEscape(card)}"][data-segment-id="${cssEscape(id)}"]`;
-    return [...document.querySelectorAll<HTMLElement>(selector)].find((el) => el.isConnected && drawnFrom.get(el) === from);
+    const found = [...document.querySelectorAll(`.aparte-rich-card[data-card="${cssEscape(card)}"][data-segment-id="${cssEscape(id)}"]`)]
+        .find((el) => el.isConnected && drawnFrom.get(el) === from);
+    return found instanceof HTMLElement ? found : undefined;
 }
 
 /** Per drawn card, how many times core gave it a new result: a change started before is dropped. */
