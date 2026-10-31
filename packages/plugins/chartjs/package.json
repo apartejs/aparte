@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-chartjs",
-    "version": "0.29.2",
+    "version": "0.29.3",
     "homepage": "https://apartejs.dev/guides/charts/",
     "description": "Charts for aparté via Chart.js — a Chart.js config a model writes, or a tool returns, drawn as it streams.",
     "type": "module",
@@ -39,7 +39,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.29.2 <1.0.0",
+        "@aparte/core": ">=0.29.3 <1.0.0",
         "chart.js": ">=4.4.0 <5.0.0"
     },
     "devDependencies": {

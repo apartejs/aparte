@@ -121,6 +121,10 @@ aparte-chat-bubble {
 .aparte-message-content {
   border-radius: var(--aparte-message-content-radius);
   max-width: 100%;
+  /* The padding a theme gives it counts inside that 100%: outside, a padded message ran past
+     its column and the bubble clipped its right edge — unseen in wrapped text, plain on a
+     card that fills the width. */
+  box-sizing: border-box;
 }
 
 /* AI-chat convention (not messaging): the USER message is a subtle bubble that

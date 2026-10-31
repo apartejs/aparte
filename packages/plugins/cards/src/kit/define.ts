@@ -144,6 +144,7 @@ export interface CardDefinition<D, V extends string = string> {
     name: string;
     /** Its layouts; the first is the default. */
     variants: readonly V[];
+
     /** Its stylesheet. The kit's own is added in front of it. */
     styles: string;
     /** The card's data from what it is given — `null` when there is nothing it can draw. */
@@ -213,6 +214,17 @@ export function drawCardSegment(config: AparteConfig, segment: AparteCardSegment
 /** The names of the cards set up on `config`. Internal to the kit. */
 export function cardsSetUp(config: AparteConfig): string[] {
     return [...(registries.get(config)?.keys() ?? [])];
+}
+
+/** Who hears of a card set up on a config — the fences, which draw its language from then on. */
+const setUpListeners = new WeakMap<AparteConfig, Set<(name: string) => void>>();
+
+/** Hear of each card set up on `config` from now on. Internal to the kit. */
+export function onCardSetUp(config: AparteConfig, listener: (name: string) => void): () => void {
+    const set = setUpListeners.get(config) ?? new Set();
+    setUpListeners.set(config, set);
+    set.add(listener);
+    return () => set.delete(listener);
 }
 const bindings = new WeakMap<Element, Array<{ attr?: string; compute: () => string }>>();
 
@@ -314,6 +326,18 @@ function patch(element: HTMLElement, next: HTMLElement): void {
 
 /** A drawing that was moved into an element already on the page, and that element. */
 const homes = new WeakMap<Element, HTMLElement>();
+
+/**
+ * The card now on screen for a segment whose element left the page: the same card, the same
+ * segment id, drawn from the same result (two conversations may give a segment the same id).
+ */
+function drawnAgain(gone: HTMLElement, id: string, from: string): HTMLElement | undefined {
+    const card = gone.getAttribute('data-card');
+    if (!card || typeof document === 'undefined') return undefined;
+    const found = [...document.querySelectorAll(`.aparte-rich-card[data-card="${cssEscape(card)}"][data-segment-id="${cssEscape(id)}"]`)]
+        .find((el) => el.isConnected && drawnFrom.get(el) === from);
+    return found instanceof HTMLElement ? found : undefined;
+}
 
 /** Per drawn card, how many times core gave it a new result: a change started before is dropped. */
 const changeTurns = new WeakMap<Element, number>();
@@ -606,7 +630,11 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
                 queue.data = fresh;
                 queue.variant = chooseVariant(options, fresh, queue.variant as V);
                 remember(options, `${source}:${id}`, from, fresh, queue.variant as V);
-                patch(element, drawData(options, config, fresh, queue.variant as V, id, source, from));
+                // The conversation was left and opened again while onChange ran: the card on
+                // screen is a new drawing of the same result, made before this answer was kept.
+                // It is the one that shows it; the element this change began on is gone.
+                const shown = element.isConnected ? element : drawnAgain(element, id, from);
+                if (shown) patch(shown, drawData(options, config, fresh, queue.variant as V, id, source, from));
                 if (queue.pending.size > 0) busy(element, true);
             }
         } finally {
@@ -656,6 +684,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         const stack = registry.get(definition.name) ?? [];
         stack.push(entry);
         registry.set(definition.name, stack);
+        for (const listener of setUpListeners.get(config) ?? []) listener(definition.name);
         // One override per setup, stacked like the tool's. Each registration injects the sheets
         // as they are now — a card whose module loaded after the first setup brings its own —
         // and draws again the `card` segments already on screen, so one drawn as its fallback

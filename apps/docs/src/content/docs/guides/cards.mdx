@@ -495,7 +495,10 @@ setupCardFences({
 });
 ```
 
-A card already set up on the page needs no `load` entry. While the block streams, a placeholder
+A card already set up on the page needs no `load` entry, and that includes a card of your own
+(`defineCard`), set up before or after `setupCardFences()`: its block is `card-<its name>`. A
+`"variant"` in the JSON picks the card's layout when it names one of them
+(`{ "variant": "compact", … }`). While the block streams, a placeholder
 holds its place; once it closes, the card is drawn. A block whose JSON does not parse, or that
 names a card the page cannot draw, shows its source. A chat without this plugin shows the block as
 code, so put a sentence before it. It works with any Markdown provider, or none, like the

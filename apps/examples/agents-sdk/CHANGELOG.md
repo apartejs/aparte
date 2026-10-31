@@ -1,5 +1,13 @@
 # @aparte-workspace/example-agents-sdk
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [89e03ee]
+  - @aparte/core@0.29.3
+  - @aparte/runner-ag-ui@0.29.3
+
 ## 0.0.12
 
 ### Patch Changes
