@@ -10,6 +10,7 @@
   - plugin-cards: `"variant": "<name>"` in a block's JSON picks that layout when it is one of the card's; any other value is the card's data as before.
   - plugin-cards: a product alone in its answer is drawn with a landscape picture, and with a low band when it has none. The square frame, the width of a chat column, made the card taller than the chat's view, and empty when the product had no picture. In a row of products the tiles stay square.
   - core, plugin-cards: a message with padding and a card with its border no longer run past their column. Both took `max-width: 100%` and counted padding or border outside it, so a bubble clipped their right edge.
+  - plugin-cards: a change a live card was still waiting on when the conversation was left and opened again lands on the card now shown. It was drawn on the element the person had left, and the card they came back to kept the old value until the next redraw.
 
 ## 0.29.2
 

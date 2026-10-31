@@ -84,6 +84,24 @@ describe('a live card', () => {
         expect(draw({ name: 'Lamp', on: false, level: 40 }).querySelector('.name')!.textContent).toBe('Lamp on 40');
     });
 
+    it('draws a change that lands after the conversation was left and opened again on the card now shown', async () => {
+        let answer!: (data: unknown) => void;
+        stop = lightCard.setup({ onChange: ({ name, value }, data) => new Promise((resolve) => { answer = () => resolve({ ...data, [name]: value }); }) });
+        const card = draw({ name: 'Lamp', on: false, level: 40 });
+        card.querySelector<HTMLButtonElement>('[data-card-key="range:1M"]')!.click();
+        await flush();
+        // The person leaves the conversation and comes back before the app has answered.
+        card.remove();
+        const back = draw({ name: 'Lamp', on: false, level: 40 });
+        expect(back.querySelector('[data-card-key="range:1M"]')!.getAttribute('aria-pressed')).toBe('false');
+        answer(undefined);
+        await flush();
+        expect(back.querySelector('[data-card-key="range:1M"]')!.getAttribute('aria-pressed')).toBe('true');
+        // And a third drawing of it, later, shows it too: the answer was kept.
+        back.remove();
+        expect(draw({ name: 'Lamp', on: false, level: 40 }).querySelector('[data-card-key="range:1M"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
     it('keeps a tool card\'s onChange data through a redraw of the same call', async () => {
         stop = lightCard.setup({ tool: 'get_light', onChange: async ({ name, value }, data) => ({ ...data, [name]: value }) });
         const renderer = aparteGlobalConfig.getToolRenderer('get_light')!;

@@ -327,6 +327,17 @@ function patch(element: HTMLElement, next: HTMLElement): void {
 /** A drawing that was moved into an element already on the page, and that element. */
 const homes = new WeakMap<Element, HTMLElement>();
 
+/**
+ * The card now on screen for a segment whose element left the page: the same card, the same
+ * segment id, drawn from the same result (two conversations may give a segment the same id).
+ */
+function drawnAgain(gone: HTMLElement, id: string, from: string): HTMLElement | undefined {
+    const card = gone.getAttribute('data-card');
+    if (!card || typeof document === 'undefined') return undefined;
+    const selector = `.aparte-rich-card[data-card="${cssEscape(card)}"][data-segment-id="${cssEscape(id)}"]`;
+    return [...document.querySelectorAll<HTMLElement>(selector)].find((el) => el.isConnected && drawnFrom.get(el) === from);
+}
+
 /** Per drawn card, how many times core gave it a new result: a change started before is dropped. */
 const changeTurns = new WeakMap<Element, number>();
 
@@ -618,7 +629,11 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
                 queue.data = fresh;
                 queue.variant = chooseVariant(options, fresh, queue.variant as V);
                 remember(options, `${source}:${id}`, from, fresh, queue.variant as V);
-                patch(element, drawData(options, config, fresh, queue.variant as V, id, source, from));
+                // The conversation was left and opened again while onChange ran: the card on
+                // screen is a new drawing of the same result, made before this answer was kept.
+                // It is the one that shows it; the element this change began on is gone.
+                const shown = element.isConnected ? element : drawnAgain(element, id, from);
+                if (shown) patch(shown, drawData(options, config, fresh, queue.variant as V, id, source, from));
                 if (queue.pending.size > 0) busy(element, true);
             }
         } finally {
