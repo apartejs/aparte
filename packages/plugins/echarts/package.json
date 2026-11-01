@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-echarts",
-    "version": "0.29.3",
+    "version": "0.29.4",
     "homepage": "https://apartejs.dev/guides/charts/",
     "description": "Charts for aparté via Apache ECharts — an ECharts option a model writes, or a tool returns, drawn as it streams.",
     "type": "module",
@@ -39,7 +39,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.29.3 <1.0.0",
+        "@aparte/core": ">=0.29.4 <1.0.0",
         "echarts": ">=6.0.0 <7.0.0"
     },
     "devDependencies": {
