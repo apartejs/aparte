@@ -62,7 +62,7 @@ export interface AparteChatProps {
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
      * surface spans the whole column, the scrollbar runs edge to edge, and the
      * composer floats over it. Core measures the floating stack and keeps content,
-     * spacer and the scroll button clear of it. Read when the viewport mounts.
+     * spacer and the scroll button clear of it. It can change after mount.
      */
     overlayComposer?: boolean;
     /**

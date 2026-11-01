@@ -25,7 +25,7 @@ export interface AparteChatProps {
     centerWhenEmpty?: boolean;
     /** A wait of your own: skeleton turns, no empty state, composer disabled. */
     loading?: boolean;
-    /** Overlay the composer on the transcript. Read when the viewport mounts. */
+    /** Overlay the composer on the transcript. It can change after mount. */
     overlayComposer?: boolean;
     /** The file picker and the chips strip in the default composer. Off by default: your loop must read `files`. */
     attachments?: boolean;

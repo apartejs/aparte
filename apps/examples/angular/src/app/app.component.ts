@@ -19,8 +19,7 @@ import { FRAMEWORK_CARD } from '../../../_shared/framework-card';
 const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
 // ?view=overlay (this example's name) or ?layout=page (the vanilla example's) —
-// the overlay-composer anatomy, read once: the mode is wired when the viewport
-// mounts, so a later change of the URL would not be picked up anyway.
+// the overlay-composer anatomy.
 function resolveOverlayComposer(): boolean {
     const params = new URLSearchParams(window.location.search);
     return params.get('view') === 'overlay' || params.get('layout') === 'page';

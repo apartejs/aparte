@@ -93,8 +93,8 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
  *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
  *   composer's top. The viewport measures the stack and publishes
- *   `--aparte-bottom-inset`; content, spacer and the scroll button clear it. Read when
- *   the viewport wires its observers — set it in the initial markup. Also honoured on a
+ *   `--aparte-bottom-inset`; content, spacer and the scroll button clear it. Followed by
+ *   the viewport: it can be set or removed after the chat mounts. Also honoured on a
  *   wrapper's `[data-aparte-chat]` root.
  * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
  *   element composes none of its own children, because the framework owns them. Read once at

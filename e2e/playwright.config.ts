@@ -320,7 +320,10 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
     k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS] :
-    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS];
+    // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
+    // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
+    // set it before the element is inserted, so only Angular proves the viewport follows it.
+    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

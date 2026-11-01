@@ -344,7 +344,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * composer floats over it. Bound on the INNER `.aparte-chat-container` — that
      * div is this wrapper's shell (the viewport is its child, not the host's), and
      * core's recipe and the viewport's measurement both key on the attribute
-     * there. Read when the viewport mounts.
+     * there. It can change after mount: the viewport follows the attribute.
      */
     readonly overlayComposer = input(false, { transform: booleanAttribute });
 

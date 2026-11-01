@@ -76,7 +76,7 @@
   });
 
   // `?view=overlay` (this example's name) or `?layout=page` (the vanilla example's)
-  // — the overlay-composer anatomy, read once: the mode is wired when the viewport mounts.
+  // — the overlay-composer anatomy.
   const params = new URLSearchParams(window.location.search);
   const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
 
