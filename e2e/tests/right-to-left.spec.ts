@@ -67,15 +67,21 @@ test('code reads left to right in a right-to-left page', async ({ page }) => {
     expect(await textSide(page, 'aparte-chat-bubble .aparte-segment-code code')).toBe('left');
 });
 
-test('a formula is drawn left to right in a right-to-left page', async ({ page }) => {
+test('an Arabic reply opening with a formula and code stays right to left, its formula and code left to right', async ({ page }) => {
     await rightToLeft(page);
-    await installLlmMock(page, { scenario: 'math' });
+    await installLlmMock(page, { scenario: 'rtl-mixed' });
     const chat = new ChatPage(page);
     await page.goto('/');
-    await chat.send(ARABIC);
-    const drawing = page.locator('.aparte-code-drawing[data-aparte-display]').first();
-    await expect(drawing).toBeVisible({ timeout: 15_000 });
-    expect(await drawing.evaluate((el) => getComputedStyle(el).direction)).toBe('ltr');
+    await chat.sendAndSettle(ARABIC, { expect: 'هذا كل شيء' });
+
+    const dirOf = (locator: ReturnType<Page['locator']>) => locator.evaluate((el) => getComputedStyle(el).direction);
+    // The message: its first letters are a formula's (and its hidden source), then `npm` —
+    // none of which may decide the direction of an Arabic reply.
+    await expect.poll(() => dirOf(chat.lastReply.locator('.aparte-segment-content').first())).toBe('rtl');
+    const display = chat.lastReply.locator('.aparte-code-drawing[data-aparte-display]').first();
+    await expect(display).toBeVisible({ timeout: 15_000 });
+    expect(await dirOf(display)).toBe('ltr');
+    expect(await dirOf(chat.lastReply.locator('code', { hasText: 'npm install' }).first())).toBe('ltr');
 });
 
 test('the version arrows point to the start and the end of a right-to-left row', async ({ page }) => {
@@ -89,10 +95,10 @@ test('the version arrows point to the start and the end of a right-to-left row',
     const prev = chat.lastReply.locator('.aparte-branch-prev');
     await expect(prev).toBeVisible({ timeout: 15_000 });
 
-    // "Previous" sits at the start of the row — the right — and its arrow points there.
-    const [prevBox, nextBox] = await Promise.all([prev.boundingBox(), chat.lastReply.locator('.aparte-branch-next').boundingBox()]);
-    expect(prevBox!.x).toBeGreaterThan(nextBox!.x);
+    // "Previous" sits at the start of the row (the right, by the row's own mirroring); its
+    // arrow is turned to point there, and so is "next"'s.
     expect(await prev.locator('> *').first().evaluate((el) => getComputedStyle(el).scale)).toBe('-1 1');
+    expect(await chat.lastReply.locator('.aparte-branch-next > *').first().evaluate((el) => getComputedStyle(el).scale)).toBe('-1 1');
 });
 
 test('a conversation titled in English keeps its own direction in a right-to-left list', async ({ page }) => {

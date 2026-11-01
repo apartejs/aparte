@@ -139,6 +139,7 @@ export type LlmScenario =
     | 'malformed-sse'
     | 'empty-stream'
     | 'math'
+    | 'rtl-mixed'
     | 'math-hostile'
     | 'diagram'
     | 'diagram-broken'
@@ -248,6 +249,17 @@ function bodyForScenario(scenario: LlmScenario): string {
                 contentEvent('$$\n'), contentEvent('\\int_0^1 x^2'), contentEvent('\\,dx = \\frac{1}{3}\n'), contentEvent('$$\n\n'),
                 contentEvent('And a price stays a price: it costs $5 and $10.'),
                 ...TAIL_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        // An Arabic reply that opens with a formula and with inline code: a `dir="auto"` that
+        // read their Latin letters (KaTeX's hidden annotation, the hidden source, `npm`) laid
+        // the whole message out left to right.
+        case 'rtl-mixed':
+            return [
+                contentEvent('$x^2$ هي مساحة المربع.\n\n'), contentEvent('`npm install` ثم شغّل الأمر.\n\n'),
+                contentEvent('$$\n'), contentEvent('\\int_0^1 x^2\\,dx = \\frac{1}{3}\n'), contentEvent('$$\n\n'),
+                contentEvent('هذا كل شيء.'),
                 finishEvent(), usageEvent(), DONE,
             ].join('');
 
