@@ -291,12 +291,26 @@ jobs:
         with:
           packages: 'true'
 
+      - name: Typecheck
+        run: pnpm typecheck --parallel=4
+
+  # Beside `typecheck`, not after it: together they were the longest job of the run.
+  lint:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
       # After the build: the typed rules read the packages' declarations.
       - name: Lint
         run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck --parallel=4
 
       # Test files are excluded from every package's build tsconfig (they must not
       # ship in dist), which left them unchecked by `tsc` entirely. This pass puts
@@ -310,10 +324,9 @@ jobs:
       - name: Typecheck type matrix
         run: pnpm typecheck:matrix
 
-  # Every package and the docs site: `pnpm build` is `nx run-many -t build`, and the site
-  # is one of its projects — the generators run there, so this is what proves they still
+  # The docs site: the generators run in its build, so this is what proves they still
   # produce a site, and where the pages the link checks read are made. The packages come
-  # from the cache; the site and the examples are built here.
+  # from the cache; the examples build beside it, in `examples`.
   site:
     needs: [scope, packages]
     if: needs.scope.outputs.skip != 'true'
@@ -327,8 +340,8 @@ jobs:
         with:
           packages: 'true'
 
-      - name: Build
-        run: pnpm build
+      - name: Build the docs site
+        run: pnpm exec nx run-many -t build --projects=@aparte-workspace/docs
 
       - name: Check dist is current with src
         run: pnpm check:dist-freshness
@@ -379,9 +392,39 @@ jobs:
       - name: Check every published URL still leads somewhere
         run: pnpm check:legacy-urls
 
-      # Publish-safety: publint over every publishable package + are-the-types-wrong
-      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
-      # for their .svelte/.vue/APF type entrypoints — publint still covers them.
+  # The example apps compile — the rest of what `pnpm build` covers, beside the site.
+  examples:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Build the examples
+        run: pnpm exec nx run-many -t build --projects='@aparte-workspace/example-*'
+
+  # Publish-safety: publint over every publishable package + are-the-types-wrong
+  # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
+  # for their .svelte/.vue/APF type entrypoints — publint still covers them.
+  packaging:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
       - name: Check packaging
         run: pnpm check-packaging
 
@@ -451,7 +494,7 @@ jobs:
   # over the jobs it waits for. Green when none of them failed; on a push to main whose tree
   # was already judged, they are all skipped and so is nothing it owes.
   ci:
-    needs: [scope, checks, packages, typecheck, site, test, coverage]
+    needs: [scope, checks, packages, typecheck, lint, site, examples, packaging, test, coverage]
     if: always()
     runs-on: ubuntu-latest
     steps:
