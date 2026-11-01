@@ -288,7 +288,7 @@
   background: var(--aparte-bg);
 }
 
-/* …unless the drawing stands for the whole block (`bare`): then there is no card to fill. */
+/* …but a fenced block a renderer draws wears no card (segments/code.ts): nothing to fill. */
 .aparte-segment-code[data-aparte-bare] .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
   padding: 0;
   background: none;

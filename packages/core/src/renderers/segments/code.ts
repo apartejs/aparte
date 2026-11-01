@@ -60,10 +60,13 @@ function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): voi
 /** The fence's language: the first word of its info string (```` ```mermaid title ````). */
 const languageOf = (segment: AparteCodeSegment): string => (segment.language || '').trim().split(/\s+/)[0] ?? '';
 
-/** A fence whose renderer asks for no code card (`bare`) wears none: the drawing is the block. */
+/**
+ * A fence in a language a renderer draws wears no code card: the drawing is the block. A chart
+ * under a header saying "ECHARTS" read as code, which it is not to the person reading it.
+ */
 function markBare(element: HTMLElement, segment: AparteCodeSegment): void {
     const language = languageOf(segment);
-    element.toggleAttribute('data-aparte-bare', !!language && contextConfig(element).getCodeLanguageRenderer(language)?.bare === true);
+    element.toggleAttribute('data-aparte-bare', !!language && !!contextConfig(element).getCodeLanguageRenderer(language));
 }
 
 /**

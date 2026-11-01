@@ -73,8 +73,9 @@ the same element without `answers` ([`empty-only`](/components/suggestions/)); a
 ## A language of your own
 
 The rule is one seam, public: `registerCodeLanguageRenderer`. Cards and suggestions are two users
-of it, and a language of yours is a third. `bare: true` drops the code card around the block, so
-what you draw stands for it:
+of it, and a language of yours is a third. A fenced block in a drawn language loses its code card, so
+what you draw stands for it; `bare: true` also drops the scroller around the drawing, for one that
+handles its own overflow, as a card's carousel does:
 
 ```ts
 import { aparteGlobalConfig, escapeHtml } from '@aparte/core';

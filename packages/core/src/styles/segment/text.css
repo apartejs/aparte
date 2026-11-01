@@ -14,8 +14,8 @@
   border: var(--aparte-border-width) solid var(--aparte-code-border);
 }
 
-/* A language whose drawing stands for the block (`bare`): no card around it, no header.
-   Its drawing loses the code card's surface too (prose.css). */
+/* A language a renderer draws (a chart, a diagram, a card): no card around it, no header —
+   the drawing is the block. Its drawing loses the code card's surface too (prose.css). */
 .aparte-segment-code[data-aparte-bare] {
   border: 0;
   border-radius: 0;
