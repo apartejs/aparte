@@ -1,10 +1,11 @@
 #!/bin/sh
-# aparte pre-commit gate — the fast half of `pnpm gate`: lint + typecheck.
+# aparte pre-commit — lint the staged files, typecheck the projects they touch.
 #
 # Installed by `pnpm install` (the root `prepare` script points
 # core.hooksPath at this directory). See CONTRIBUTING.md "The gate".
 #
-# Both commands are nx-cached / incremental, so a no-op commit costs seconds.
+# The whole-repo lint and typecheck run on CI, on every pull request. Here only what the
+# commit can break: a docs-only commit costs nothing, a one-file fix a few seconds.
 # If one fails, FIX IT — `--no-verify` defeats the entire point of this file.
 
 set -e
@@ -19,22 +20,31 @@ set -e
 # anyway; the daemon saves it nothing.
 export NX_DAEMON=false
 
-printf '\n[aparte] pre-commit: lint + typecheck\n'
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -n "$staged" ] || exit 0
 
-if ! pnpm lint; then
-    printf '\n[aparte] FAIL: lint. Fix it before committing (not --no-verify).\n\n'
-    exit 1
+printf '\n[aparte] pre-commit: lint + typecheck of what is staged\n'
+
+# eslint's own config decides what it reads; files it ignores are skipped, not errors.
+lintable=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|mjs|cjs|mts|cts|svelte|vue)$' || true)
+if [ -n "$lintable" ]; then
+    # shellcheck disable=SC2086 # one path per word; the repo has no path with a space
+    if ! pnpm exec eslint --max-warnings 0 --no-warn-ignored $lintable; then
+        printf '\n[aparte] FAIL: lint. Fix it before committing (not --no-verify).\n\n'
+        exit 1
+    fi
 fi
 
-if ! pnpm typecheck; then
+# The projects the staged files belong to, and those that depend on them.
+files=$(printf '%s\n' "$staged" | paste -sd, -)
+if ! pnpm exec nx affected -t typecheck --files="$files" --outputStyle=static; then
     printf '\n[aparte] FAIL: typecheck. Fix it before committing (not --no-verify).\n\n'
     exit 1
 fi
 
-# The `.svelte` components are type-checked by svelte-check alone, which `pnpm typecheck`
-# does not run (it is the gate's `typecheck:tests`): a component only svelte-check refuses
-# reached the gate that way, minutes later. Only when a component is staged.
-if git diff --cached --name-only | grep -q '\.svelte$'; then
+# The `.svelte` components are type-checked by svelte-check alone, which `typecheck` does
+# not run (it is the gate's `typecheck:tests`). Only when a component is staged.
+if printf '%s\n' "$staged" | grep -q '\.svelte$'; then
     if ! pnpm --filter @aparte/svelte run typecheck:tests; then
         printf '\n[aparte] FAIL: svelte-check. Fix it before committing (not --no-verify).\n\n'
         exit 1
