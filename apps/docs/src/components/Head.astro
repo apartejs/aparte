@@ -13,19 +13,27 @@
  */
 import Default from '@astrojs/starlight/components/Head.astro';
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { ogSlug } from '../lib/og-slug';
 import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import FontPreload from './site/FontPreload.astro';
 
 const { entry } = Astro.locals.starlightRoute as StarlightRouteData;
 
-// The same rule the generating route uses — see src/lib/og-slug.ts for why it is shared.
-const image = new URL(`/og/${ogSlug(entry.id)}.png`, Astro.site).href;
+// A card's page shows the card itself (public/cards/, scripts/shoot-cards.mjs): its title on a
+// card says less than the picture, and an image search looking for "aparté weather card" found
+// other sites' widgets instead. Every other page: the same rule the generating route uses — see
+// src/lib/og-slug.ts for why it is shared.
+// Keyed on the picture existing rather than on the id alone: a `*-card` page with no shot keeps its title card.
+const named = /^components\/([\w-]+)-card$/.exec(entry.id)?.[1];
+const card = named && existsSync(resolve('public/cards', `${named}-og.png`)) ? named : undefined;
+const image = new URL(card ? `/cards/${card}-og.png` : `/og/${ogSlug(entry.id)}.png`, Astro.site).href;
 
 // The card is generated FROM this page's title and description, so describing it is
 // not a second piece of copy to maintain — it is the same sentence, said to a screen
 // reader on the platforms that surface it.
-const imageAlt = `aparté — ${entry.data.title}`;
+const imageAlt = card ? `The ${entry.data.title.toLowerCase()} of @aparte/plugin-cards, drawn in an aparté chat` : `aparté — ${entry.data.title}`;
 ---
 
 <Default><slot /></Default>

@@ -38,9 +38,15 @@ interface Props {
     height?: number;
     /** The 375 / 768 / Full presets (default on); off where the frame is narrower than 768 anyway. */
     widths?: boolean;
+    /**
+     * A picture of what the frame draws, under it: seen until the frame paints over it, and the
+     * only thing a reader that does not run frames — an image search, a crawler — gets of the
+     * demo. In place of the skeleton, which would cover it.
+     */
+    poster?: { light: string; dark: string; alt: string; width: number; height: number };
 }
 
-const { src, label, caption, code, lang = 'html', height, widths = true } = Astro.props;
+const { src, label, caption, code, lang = 'html', height, widths = true, poster } = Astro.props;
 const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
@@ -74,8 +80,17 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         </a>
     </div>
     <div class="aparte-preview-frame" id={`${id}-preview`} role={code ? 'tabpanel' : undefined} aria-labelledby={code ? `${id}-tab-preview` : undefined}>
+        {
+            poster ? (
+                <>
+                    <img class="frame-poster frame-poster--light" src={poster.light} alt={poster.alt} width={poster.width} height={poster.height} loading="lazy" />
+                    <img class="frame-poster frame-poster--dark" src={poster.dark} alt={poster.alt} width={poster.width} height={poster.height} loading="lazy" />
+                </>
+            ) : (
+                <span class="aparte-skeleton frame-skeleton" aria-hidden="true" />
+            )
+        }
         <iframe title={label} loading="lazy" src={src} style={height ? `height: ${height}px` : undefined}></iframe>
-        <span class="aparte-skeleton frame-skeleton" aria-hidden="true"></span>
     </div>
     {
         code && (
@@ -137,6 +152,9 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
     }
 
     .aparte-preview-frame iframe {
+        /* Above the poster: transparent until its document paints its ground, then over it. */
+        position: relative;
+        z-index: 1;
         display: block;
         width: 100%;
         /* A floor until the frame reports its own height, so the box never collapses to
@@ -145,6 +163,28 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
            200ms is the wrong height for 200ms, which showed as a scrollbar mid-drag. */
         height: 10rem;
         border: 0;
+    }
+
+    /* Where the demo draws it: under the stage's 2rem, in the middle of the column. */
+    .frame-poster {
+        position: absolute;
+        inset-block-start: 2rem;
+        inset-inline: 0;
+        margin-inline: auto;
+        max-width: calc(100% - 2rem);
+        height: auto;
+    }
+
+    /* A frame whose scheme differs from its document's is painted opaque, its blank document
+       included: in the dark theme the poster sat behind a white frame. Light on the element, as
+       the blank document is, keeps it see-through until the demo paints its own ground. */
+    .frame-poster ~ iframe {
+        color-scheme: light;
+    }
+
+    :global(:root[data-theme='dark']) .frame-poster--light,
+    :global(:root:not([data-theme='dark'])) .frame-poster--dark {
+        display: none;
     }
 
     .aparte-preview figcaption {

@@ -9,6 +9,7 @@
 import PreviewFrame from '../PreviewFrame.astro';
 import { findDemo } from '../../data/demos';
 import { frameHeight } from './frame-height';
+import { cardPicture } from './card-picture';
 
 interface Props {
     /** The demo's id in src/data/demos/. */
@@ -19,11 +20,17 @@ interface Props {
     widths?: boolean;
     /** A message the frame types and sends itself once it is on screen (ScenarioRuntime's `?play=`). */
     play?: string;
+    /**
+     * A card's name (`weather`): its pictures in public/cards/, from scripts/shoot-cards.mjs, shown
+     * under the frame. An image search finds no card in a frame, and found other sites' instead.
+     */
+    poster?: string;
 }
 
-const { id, caption, widths, play } = Astro.props;
+const { id, caption, widths, play, poster } = Astro.props;
 const demo = findDemo(id);
 if (!demo) throw new Error(`<Variant id="${id}">: no such demo in src/data/demos/.`);
+const picture = poster ? cardPicture(poster, demo.title) : undefined;
 ---
 
-<PreviewFrame src={`/preview/demo/${demo.id}/${play ? `?play=${encodeURIComponent(play)}` : ''}`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} />
+<PreviewFrame src={`/preview/demo/${demo.id}/${play ? `?play=${encodeURIComponent(play)}` : ''}`} label={demo.title} caption={caption} code={demo.html} height={frameHeight(demo.html)} widths={widths} poster={picture} />

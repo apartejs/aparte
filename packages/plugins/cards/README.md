@@ -4,6 +4,22 @@ Rich cards for [aparté](https://apartejs.dev): a tool's result drawn as a card 
 row — weather, products, places, figures, orders, quotes, plans, scores, media, links — in variants, from your tool's own fields. Each card has its own entry,
 so an app ships only the cards it imports.
 
+<p>
+  <a href="https://apartejs.dev/components/weather-card/"><img src="https://apartejs.dev/cards/weather.png" alt="The weather card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/product-card/"><img src="https://apartejs.dev/cards/product.png" alt="The product card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/place-card/"><img src="https://apartejs.dev/cards/place.png" alt="The place card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/stock-card/"><img src="https://apartejs.dev/cards/stock.png" alt="The stock card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/order-card/"><img src="https://apartejs.dev/cards/order.png" alt="The order card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/items-card/"><img src="https://apartejs.dev/cards/items.png" alt="The items card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/stats-card/"><img src="https://apartejs.dev/cards/stats.png" alt="The stats card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/score-card/"><img src="https://apartejs.dev/cards/score.png" alt="The score card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/plan-card/"><img src="https://apartejs.dev/cards/plan.png" alt="The plan card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/media-card/"><img src="https://apartejs.dev/cards/media.png" alt="The media card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+  <a href="https://apartejs.dev/components/link-card/"><img src="https://apartejs.dev/cards/link.png" alt="The link card of @aparte/plugin-cards, in an aparté chat" width="260"></a>
+</p>
+
+Each picture links to its card's page, where it runs live.
+
 ```bash
 npm install @aparte/plugin-cards @aparte/core
 ```
