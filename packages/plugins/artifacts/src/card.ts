@@ -50,6 +50,24 @@ const BINARY_FILE_KINDS: ReadonlySet<string> = new Set(['pdf', 'xlsx', 'docx']);
 /** What each card's code pane holds, so an update that changes nothing does not rewrite it. */
 const paneContent = new WeakMap<Element, string>();
 
+/**
+ * The previews a person opened, per chat config: the artifact's id AND its content, so only
+ * that very document is shown again. A framework redraws a message's segments when its
+ * conversation is saved (a card it does not hold as a component is drawn anew), and the new
+ * card opened on Code: the preview the person had just asked for was gone. Remembered for
+ * the page's lifetime only — a reload starts on Code, as the gesture rule wants — and only
+ * for what a gesture already ran.
+ */
+const openedPreviews = new WeakMap<object, Set<string>>();
+
+/** The key of one artifact's preview: its id and a hash of its content (FNV-1a). */
+function previewKey(segment: AparteArtifactSegment): string {
+    const content = stripCodeFences(segment.content || '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < content.length; i++) h = Math.imul(h ^ content.charCodeAt(i), 0x01000193);
+    return `${segment.id}\u0000${content.length}:${(h >>> 0).toString(36)}`;
+}
+
 /** Whether the Preview tab exists at all, per the app's `preview` option. */
 function previewEnabled(): boolean {
     return renderOptions(contextConfig()).preview !== false;
@@ -230,12 +248,20 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
          * card did not have. The roving `tabindex` and the arrow handling below are that
          * model; `aria-controls` / `role="tabpanel"` in the markup are the other half.
          */
+        // Read now, while the chat's config is the one setting the card up: a click runs later.
+        const cfg = contextConfig();
         const tabs = [...element.querySelectorAll<HTMLButtonElement>('[data-tab-target]')];
         const select = (btn: HTMLButtonElement, focus: boolean): void => {
             const target = btn.getAttribute('data-tab-target');
             if (!target || btn.disabled) return;
             if (target === 'preview') mountPreviewFrame(element, segment);
             element.setAttribute('data-tab', target);
+            // What the person chose, kept for this card drawn again (see `openedPreviews`).
+            const opened = openedPreviews.get(cfg) ?? new Set<string>();
+            openedPreviews.set(cfg, opened);
+            const key = previewKey(latestSegment.get(element) ?? segment);
+            if (target === 'preview') opened.add(key);
+            else opened.delete(key);
             for (const b of tabs) {
                 const on = b === btn;
                 b.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -263,6 +289,11 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                 }
             });
         }
+
+        // Drawn again after the person opened its preview: open again, the same document.
+        // Never while it streams (the tab is disabled), never a document nobody previewed.
+        const previewTab = tabs.find((b) => b.getAttribute('data-tab-target') === 'preview');
+        if (previewTab && !previewTab.disabled && openedPreviews.get(cfg)?.has(previewKey(segment))) select(previewTab, false);
 
         // Open — handed to the app, which shows it where it wants. The LATEST segment.
         const openBtn = element.querySelector<HTMLButtonElement>('[data-action="open"]');

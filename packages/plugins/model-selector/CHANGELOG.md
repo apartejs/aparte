@@ -1,5 +1,7 @@
 # @aparte/plugin-model-selector
 
+## 0.30.1
+
 ## 0.30.0
 
 ## 0.29.4

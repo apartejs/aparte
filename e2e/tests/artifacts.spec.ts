@@ -86,6 +86,24 @@ test('pressing Preview mounts the sandboxed frame, once, with the policy declare
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
 
+test('a preview the person opened stays open after the next message', async ({ page }) => {
+    // The next turn saves the conversation, and React redraws the earlier message's segments:
+    // the new card opened on Code, the preview gone (and, timed just after the first reply's
+    // save, the test above failed). The card now opens again on what the person chose.
+    await installLlmMock(page, { scenario: 'artifact' });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('write me a page', { expect: 'Tell me what to change' });
+    await chat.segment('artifact-card').first().locator('[data-tab-target="preview"]').click();
+    await expect(page.frameLocator('.aparte-art-card__frame').first().locator('h1')).toHaveText(MOCK_ARTIFACT_MARK);
+
+    await chat.sendAndSettle('make it blue', { expect: 'Tell me what to change' });
+
+    const first = chat.segment('artifact-card').first();
+    await expect(first).toHaveAttribute('data-tab', 'preview');
+    await expect(first.locator('iframe')).toHaveCount(1);
+});
+
 test('the tablist is one tab stop and the arrow keys move between Code and Preview', async ({ page }) => {
     await installLlmMock(page, { scenario: 'artifact' });
     const chat = new ChatPage(page);

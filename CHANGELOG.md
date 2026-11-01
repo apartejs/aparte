@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.30.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [9861514](https://github.com/apartejs/aparte/commit/9861514): An artifact's preview stays open when its card is drawn again; it used to close and show the code.
+
+  A framework redraws a message's segments when its conversation is saved: in the React example,
+  the next message replaced the artifact card and the new one opened on Code, the preview the
+  person had just asked for gone. The card now remembers the tab chosen, per chat, for that very
+  document (its id and its content), and opens on it again. Only what a gesture already ran: a
+  reload, another document under the same id, a card still streaming or another chat open on
+  Code, as before.
+  <sub>`@aparte/plugin-artifacts`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.30.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
