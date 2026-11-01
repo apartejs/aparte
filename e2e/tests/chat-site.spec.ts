@@ -20,6 +20,11 @@ const isEmpty = (page: import('@playwright/test').Page) => page.evaluate(() => {
 
 test('the list is on its way, then fills; opening a conversation shows the wait, then the transcript', async ({ page }) => {
     const errors = collectPageErrors(page);
+    // A dev server compiles the app on its first request — Angular's for seconds — and the
+    // store's 600 ms wait can be over before the page draws. The first test of a shard to
+    // open the app paid that, and never saw the wait. One load first, then the real one.
+    await page.goto('/?scenario&fast');
+    await expect(page.locator(LIST)).toBeVisible();
     await page.goto('/?scenario');
     // The store answers after a delay: the list draws its wait first, and says so.
     await expect(page.locator(LIST)).toHaveAttribute('loading', '');
