@@ -386,7 +386,9 @@ export default defineConfig({
 
     use: {
         viewport: { width: 1000, height: 720 },
-        trace: 'on-first-retry',
+        // Kept for every attempt that fails, the first included: with `on-first-retry` a
+        // flake left only the trace of the retry that PASSED, never the run that broke.
+        trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
 
