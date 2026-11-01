@@ -21,9 +21,19 @@ const params = new URLSearchParams(location.search);
 const fast = params.has('fast');
 /** `?slow`: a full minute per conversation, to look at the wait for as long as you like. */
 const slow = params.has('slow');
+/**
+ * `?held`: every answer waits until `window.__aparteRelease()` — for a test that has to see
+ * a wait, which a timer cannot promise on a busy machine.
+ */
+const held = params.has('held');
+const holding: Array<() => void> = [];
+if (held) (window as unknown as { __aparteRelease: () => void }).__aparteRelease = () => { for (const go of holding.splice(0)) go(); };
 
-/** A wait of `ms` — none under `?fast`. */
-const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, fast ? 0 : ms));
+/** A wait of `ms` — none under `?fast`, until released under `?held`. */
+const wait = (ms: number): Promise<void> => new Promise((resolve) => {
+    if (held) holding.push(resolve);
+    else setTimeout(resolve, fast ? 0 : ms);
+});
 
 /** Somewhere between `min` and `max`, so two loads never take the same time. */
 const between = (min: number, max: number): number => min + Math.random() * (max - min);

@@ -20,16 +20,16 @@ const isEmpty = (page: import('@playwright/test').Page) => page.evaluate(() => {
 
 test('the list is on its way, then fills; opening a conversation shows the wait, then the transcript', async ({ page }) => {
     const errors = collectPageErrors(page);
-    // A dev server compiles the app on its first request — Angular's for seconds — and the
-    // store's 600 ms wait can be over before the page draws. The first test of a shard to
-    // open the app paid that, and never saw the wait. One load first, then the real one.
-    await page.goto('/?scenario&fast');
-    await expect(page.locator(LIST)).toBeVisible();
-    await page.goto('/?scenario');
-    // The store answers after a delay: the list draws its wait first, and says so.
+    // `?held`: the store answers only when the test releases it. Its 600 ms timer was over
+    // before the page drew on a busy runner (Angular compiling, WebKit), and the wait this
+    // test is about was never seen.
+    await page.goto('/?scenario&held');
+    const release = () => page.evaluate(() => (window as unknown as { __aparteRelease: () => void }).__aparteRelease());
+    // The list draws its wait first, and says so.
     await expect(page.locator(LIST)).toHaveAttribute('loading', '');
     await expect(page.locator(LIST)).toHaveAttribute('aria-busy', 'true');
     await expect(page.locator(`${LIST} .aparte-conv-list-loading`)).toBeVisible();
+    await release();
     await expect(page.locator(LIST)).not.toHaveAttribute('loading', '');
     await expect(page).toHaveTitle('aparté');
     await expect(page.locator('aparte-chat-bubble')).toHaveCount(0);
@@ -40,6 +40,7 @@ test('the list is on its way, then fills; opening a conversation shows the wait,
     await expect(page.locator(VIEWPORT)).toHaveAttribute('loading', '');
     await expect.poll(() => isEmpty(page)).toBe(false);
     await expect(page.locator(`${LIST} [aria-current="page"]`)).toContainText('Compare three frameworks');
+    await release();
     await expect(page.locator('aparte-chat-bubble')).toHaveCount(2);
     await expect(page.locator(VIEWPORT)).not.toHaveAttribute('loading', '');
     await expect(page).toHaveTitle('Compare three frameworks · aparté');
