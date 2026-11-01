@@ -179,6 +179,9 @@ export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from '
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
+// From its own file, not the components barrel: it registers a code language on a config and
+// touches no DOM at import, so a server can set it up beside the rest of its config.
+export { setupSuggestionBlocks, SUGGESTIONS_BLOCK_LANGUAGE } from './components/suggestions/suggestion-blocks.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
