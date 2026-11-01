@@ -110,8 +110,39 @@ ORDER_NUMBER.test('FW-26-4812');     // false
 - \`^\` and \`$\` anchor it, so it matches the whole string and nothing around it.
 - Drop them to find order numbers inside a longer text, and add the \`g\` flag.`;
 
-/** What the landing's showcase types, once it is on screen. */
-export const PLAY_QUESTION = 'Write a Python script that renames my photos by the date they were taken.';
+export const PHOTOS_QUESTION = 'Write a Python script that renames my photos by the date they were taken.';
+
+/**
+ * What the landing's showcase types, once it is on screen: a short think, a tool call drawn as
+ * a weather card, then the answer. Brennick is the trip conversation's invented town.
+ */
+export const PLAY_QUESTION = 'Is it good walking weather in Brennick today? I’d like to do the shore loop.';
+
+const WEATHER_THINKING = 'A walking question is a weather question: check the next hours in Brennick. ';
+const WEATHER_PLAN = 'The shore loop is 11 km, about three hours, so it has to fit before any rain.';
+
+const WEATHER_ANSWER = `Yes, if you leave soon: it stays dry for the next four hours, then rain moves in off the lake.
+
+- **The loop** takes about three hours, so start within the hour and you are back before it turns.
+- **Take a light jacket:** the wind off the water makes 12° feel like 9°.
+- **Halfway**, the café at the ferry pier is a good place to wait out a shower if it comes early.`;
+
+/**
+ * What `get_weather` returns for Brennick, from the hour the call is made: mild and cloudy, rain
+ * from the fifth hour. Built on each call, so the card's hours are always the next ones.
+ */
+export function brennickWeather(now = Date.now()): string {
+    const hour = Math.floor(now / 3_600_000) * 3_600_000;
+    const temperatures = [12, 12, 13, 13, 12, 11, 10, 9];
+    return JSON.stringify({
+        location: 'Brennick', condition: 'partly-cloudy', temperature: 12, feelsLike: 9, high: 13, low: 7,
+        humidity: 74, wind: { speed: 19, direction: 250 }, precipitation: 30,
+        hourly: temperatures.map((temperature, i) => ({
+            time: new Date(hour + i * 3_600_000).toISOString(), temperature,
+            condition: i > 3 ? 'rain' : 'partly-cloudy', precipitation: i > 3 ? 70 : 10,
+        })),
+    });
+}
 
 const PHOTOS_THINKING = 'The date a photo was taken is in its EXIF data, not the file’s own timestamp. ';
 const PHOTOS_PLAN = 'Read it with Pillow, and leave a photo alone when it has no date.';
@@ -169,6 +200,12 @@ const FRENCH_ANSWER = `> La réunion est déplacée à jeudi, 10 h. Merci d’ap
 export const scenarios = (pause: number): Record<string, Scenario | ScenarioTurn> => ({
     default:
         'I can summarise a file, plan a trip, explain an idea or write some code. Try one of the suggestions, or ask your own question.',
+    weather: {
+        when: /weather|shore loop/i,
+        turn: [{ thinking: WEATHER_THINKING }, { wait: pause }, { thinking: WEATHER_PLAN }, { tool: 'get_weather', input: { city: 'Brennick' } }],
+    },
+    weatherFast: [{ tool: 'get_weather', input: { city: 'Brennick' } }],
+    weatherAnswer: { after: 'get_weather', turn: WEATHER_ANSWER },
     photos: {
         when: /photo/i,
         turn: [{ thinking: PHOTOS_THINKING }, { wait: pause }, { thinking: PHOTOS_PLAN }, { text: PHOTOS_ANSWER }],
@@ -201,7 +238,8 @@ export const pickScenario = (request: AparteChatRequest, all: Record<string, Sce
 
 /** A new conversation's title, from its first question: short, for a scripted model that knows them. */
 const TITLES = new Map([
-    [PLAY_QUESTION, 'Rename photos by date'],
+    [PLAY_QUESTION, 'Walking weather in Brennick'],
+    [PHOTOS_QUESTION, 'Rename photos by date'],
     [TRIP_QUESTION, 'A quiet weekend at Lake Varden'],
     [INTEREST_QUESTION, 'Compound interest, in a table'],
     [INVOICE_QUESTION, 'Reminder for a late invoice'],
