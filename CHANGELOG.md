@@ -34,6 +34,8 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
 
 ### Patch Changes
 
+- [e1686b8](https://github.com/apartejs/aparte/commit/e1686b8): A card drawn from a block (a product carousel) no longer shows a scrollbar under it, and its shadows are no longer clipped.
+
 - [5460601](https://github.com/apartejs/aparte/commit/5460601): A save no longer redraws the messages on screen under a framework: what a person opened (a reasoning block, an artifact's preview) stays open.
 
   Every save serialises the conversation's tree, and under React, Vue, Svelte or Angular that synced
