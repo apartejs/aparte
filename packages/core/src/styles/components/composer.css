@@ -346,8 +346,12 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
    </aparte-composer>
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Outer shell — visual border + radius. */
+/* Outer shell — visual border + radius. A select inside it (the approval switch, the model
+   selector) sits on this background, so it takes it: by default it paints the page's
+   `--aparte-surface-1`, and a skin that gives the composer its own colour left a darker
+   patch inside it. Declared, not out-specified — a host that sets the token closer wins. */
 .aparte-composer-shell {
+  --aparte-select-bg: var(--aparte-input-bg);
   background: var(--aparte-input-bg);
   border: var(--aparte-border-width) solid var(--aparte-input-border);
   border-radius: var(--aparte-radius-input);
