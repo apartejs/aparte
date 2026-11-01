@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 // Root test config. Each package adds its own vitest.config.ts as it lands;
 // this catches any root-level specs and keeps `pnpm test` green while empty.
-export default defineConfig({
+const config = defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
@@ -217,13 +217,13 @@ export default defineConfig({
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/all/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
-        'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 73 },
+        'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 92, branches: 77 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         // plugin-cards (2026-10-31): measured 99.07 / 94.87 / 98.84 over the kit and eleven cards.
         'packages/plugins/cards/src/**': { lines: 98, statements: 98, functions: 98, branches: 94 },
         // plugin-chartjs (2026-10-31): measured 100 / 94.92 / 97.40 on a stand-in Chart.js (jsdom draws nothing).
         'packages/plugins/chartjs/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
-        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 89 },
+        'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 93 },
         // plugin-echarts (2026-10-31): measured 99.74 / 95.27 / 97.37 on a stand-in ECharts.
         'packages/plugins/echarts/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
@@ -239,13 +239,13 @@ export default defineConfig({
         'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
         // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.
         'packages/providers/agent/n8n/src/**': { lines: 99, statements: 99, functions: 99, branches: 97 },
-        'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 95, branches: 90 },
-        'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 91 },
+        'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 95, branches: 93 },
+        'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 95 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
         // Measured 78.04 by the full run after the worker moved to a stable path (its new
         // construction path is exercised by the published-shape test, not by a run): a
         // point under that, as every floor here.
-        'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 85 },
+        'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 87 },
         'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
         'packages/wrappers/angular/src/**': { lines: 91, statements: 91, functions: 80, branches: 87 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
@@ -258,3 +258,10 @@ export default defineConfig({
     },
   },
 });
+
+// CI runs the suite in shards and judges the floors once, on the merged coverage
+// (`vitest run --merge-reports --coverage`): a shard sees a third of the tests, so its own
+// figures are meaningless against them.
+if (process.env.APARTE_TEST_SHARD && config.test?.coverage) delete config.test.coverage.thresholds;
+
+export default config;
