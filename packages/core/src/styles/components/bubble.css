@@ -337,6 +337,13 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   cursor: default;
 }
 
+/* Previous points to the start, next to the end: in a right-to-left page the arrows turn
+   with the row, or "previous" pointed at the next version. */
+.aparte-branch-prev:dir(rtl) > *,
+.aparte-branch-next:dir(rtl) > * {
+  scale: -1 1;
+}
+
 .aparte-branch-label {
   font-size: var(--aparte-branch-picker-label-size);
   color: var(--aparte-branch-picker-label-color);

@@ -255,6 +255,11 @@ aparte-composer-input .aparte-ci-editor {
   overflow-y: hidden;
   box-sizing: border-box;
   caret-color: var(--aparte-text);
+  /* Each line takes the direction of what is typed in it — English in a right-to-left
+     page, Arabic in a left-to-right one — and an empty editor keeps the page's, so the
+     placeholder sits where the page reads from. `dir="auto"` would not: empty, it falls
+     back to left-to-right. */
+  unicode-bidi: plaintext;
 }
 
 /* Placeholder via CSS. It never wraps: a `::before` counts in `scrollHeight`, and the

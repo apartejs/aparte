@@ -641,7 +641,7 @@ export class AparteConversationList extends HTMLElement {
     type="button"
     data-select-id="${escapedId}"
     aria-current="${isActive ? 'page' : 'false'}"
-  ><span class="${titleClass}">${title}</span><span class="aparte-conv-item__status" aria-hidden="true"></span><span class="aparte-conv-item__state aparte-sr-only">${heard}</span></button>
+  ><span class="${titleClass}" dir="auto">${title}</span><span class="aparte-conv-item__status" aria-hidden="true"></span><span class="aparte-conv-item__state aparte-sr-only">${heard}</span></button>
   <button
     class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-conv-item__more"
     type="button"

@@ -252,6 +252,26 @@
   contain: none;
 }
 
+/* A formula, a diagram or a chart reads left to right in every language, and keeps to
+   itself in a right-to-left sentence: under `dir="rtl"` a KaTeX formula came out mirrored
+   — `∫ dx x² = 1/3` drawn from the right, the exponent before its base. A card (`bare`)
+   is the page's own interface and follows its direction. */
+.aparte-code-drawing:not([data-aparte-bare]) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Code too: a block, a JSON tool input, an artifact's source, an inline `name` — under
+   `dir="rtl"` each line was laid out from the right and its trailing `;` or `{` jumped to
+   the start. The <pre> a drawing replaced is the drawing's (a card follows the page). */
+aparte-chat-bubble :is(pre:not([data-aparte-drawn]), code, kbd, samp) {
+  direction: ltr;
+  unicode-bidi: isolate;
+  /* Its own start, not the right-to-left one it inherits (WebKit resolves an inherited
+     `start` against the parent). */
+  text-align: start;
+}
+
 /* An inline formula too: `\smash`, `\raisebox` or a negative `\kern` would otherwise lay
    a box over the bubble around it, a tool row or a question card. Atomic, because paint
    containment does nothing on an inline box; a formula longer than the line still wraps,

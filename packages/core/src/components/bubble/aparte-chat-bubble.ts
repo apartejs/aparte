@@ -1393,7 +1393,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
           <div class="aparte-attachments" hidden></div>
           <div class="aparte-message-content">
             <div class="aparte-segments"></div>
-            <div class="aparte-content"></div>
+            <div class="aparte-content" dir="auto"></div>
             <div class="aparte-waiting" hidden>
               <span class="aparte-dots" aria-hidden="true"><span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span></span>
               <span class="aparte-sr-only"></span>
