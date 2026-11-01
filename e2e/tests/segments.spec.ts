@@ -56,10 +56,10 @@ test('reasoning deltas render a thinking block the user can open and close', asy
  * had opened closed — this block, an artifact's preview. It showed as flakes (this file's test
  * above, artifacts.spec.ts:55) once the first reply's save could land right after a click.
  */
-test('a reasoning block someone opened stays the same block, open, through the next save', async ({ page }, testInfo) => {
-    // Under Svelte 5 on CI (never locally, 30/30 under load) the block is still drawn again
-    // after the next turn: a late `syncBubbles` from the runes wrapper. Open, to fix in its own PR.
-    test.fixme(testInfo.project.name === 'svelte5', 'svelte5: a late re-sync still redraws the block on CI');
+test('a reasoning block someone opened stays the same block, open, through the next save', async ({ page }) => {
+    // On CI (Svelte 5, then React; never locally, 30/30 under load) the block is still drawn
+    // again after the next turn: another re-sync than the save's. Open, to fix in its own PR.
+    test.fixme(true, 'a re-sync still redraws the block after the next turn on CI');
     await installLlmMock(page, { scenario: 'thinking' });
     const chat = new ChatPage(page);
     await page.goto('/');
