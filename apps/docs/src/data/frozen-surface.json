@@ -235,6 +235,7 @@
     "aparte-suggestions": {
       "package": "@aparte/core",
       "attributes": [
+        "answers",
         "data-empty",
         "empty-only",
         "mode",
@@ -385,6 +386,7 @@
       "AparteSplit",
       "AparteStreamParser",
       "AparteSuggestions",
+      "SUGGESTIONS_BLOCK_LANGUAGE",
       "aparteGlobalConfig",
       "applyElementProps",
       "attachConfig",
@@ -437,6 +439,7 @@
       "runWithConfig",
       "segmentDuration",
       "segmentTiming",
+      "setupSuggestionBlocks",
       "subscribeConfigChange",
       "toToolCallView",
       "toolRefusal",
