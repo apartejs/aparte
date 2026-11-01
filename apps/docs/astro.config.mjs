@@ -121,6 +121,7 @@ export default defineConfig({
       },
     }),
     starlight({
+      routeMiddleware: './src/routeData.ts',
       title: 'aparté',
       // Code blocks are drawn by the library's own code-segment markup (see `markdown` above),
       // not by Expressive Code; no page used its options (titles, highlighted lines).
