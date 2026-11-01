@@ -288,8 +288,8 @@
   background: var(--aparte-bg);
 }
 
-/* …but a fenced block a renderer draws wears no card (segments/code.ts): nothing to fill. */
-.aparte-segment-code[data-aparte-bare] .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
+/* …but a fenced block once drawn wears no card (segment/text.css): nothing to fill. */
+.aparte-segment-code[data-aparte-bare]:has(> .aparte-code-content-wrapper > pre[data-aparte-drawn]):not(:has(.aparte-code-error)) .aparte-code-content-wrapper .aparte-code-drawing[data-aparte-display] {
   padding: 0;
   background: none;
 }

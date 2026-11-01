@@ -61,8 +61,9 @@ function highlightSettled(element: HTMLElement, segment: AparteCodeSegment): voi
 const languageOf = (segment: AparteCodeSegment): string => (segment.language || '').trim().split(/\s+/)[0] ?? '';
 
 /**
- * A fence in a language a renderer draws wears no code card: the drawing is the block. A chart
- * under a header saying "ECHARTS" read as code, which it is not to the person reading it.
+ * A fence in a language a renderer draws wears no code card once it is drawn: the drawing is
+ * the block. A chart under a header saying "ECHARTS" read as code, which it is not to the person
+ * reading it. The attribute says a renderer exists; segment/text.css waits for the drawing.
  */
 function markBare(element: HTMLElement, segment: AparteCodeSegment): void {
     const language = languageOf(segment);

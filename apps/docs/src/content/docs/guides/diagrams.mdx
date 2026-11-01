@@ -35,7 +35,8 @@ screen, so reopening a long conversation stays fast.
 The diagram is drawn as its fence arrives, and redrawn at most every 300 ms — or as long as the
 last drawing took, if longer — keeping the last version that parsed. Until the first version
 parses, the source shows. Once the fence closes, a diagram that does not parse shows a short note
-and its source. A drawn diagram wears no code card: no header and no copy button over it.
+and its source. A drawn diagram wears no code card: no header and no copy button over it. Its text equivalent is
+its alt text, from the diagram's own `accTitle` and `accDescr`, so ask the model to write them.
 
 ## An image, so nothing in it reaches the page
 

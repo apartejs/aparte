@@ -16,7 +16,9 @@ import Fields from '../../../generated/api/segments/code.fields.mdx';
 
 A fenced block in a model's reply becomes a `code` segment of its own, with a header that shows
 the file name when there is one, the language, and a copy button. The button copies the source,
-never the highlighting markup.
+never the highlighting markup. A block a plugin draws — a chart, a diagram, a formula, a card —
+loses the header once it is drawn: what is drawn stands for the block. One that cannot be drawn
+keeps it.
 
 Highlighting is a plugin. With one installed, the block is coloured while it streams, not only
 once the reply has ended.

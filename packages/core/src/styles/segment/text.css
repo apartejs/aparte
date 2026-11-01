@@ -14,15 +14,19 @@
   border: var(--aparte-border-width) solid var(--aparte-code-border);
 }
 
-/* A language a renderer draws (a chart, a diagram, a card): no card around it, no header —
-   the drawing is the block. Its drawing loses the code card's surface too (prose.css). */
-.aparte-segment-code[data-aparte-bare] {
+/* A language a renderer draws (a chart, a diagram, a card), once it IS drawn: no card around
+   it, no header — the drawing is the block. Its drawing loses the code card's surface too
+   (prose.css). Keyed on the drawing, not on the renderer existing: a block not drawn yet (lazy,
+   off screen), one its renderer passed on (`null`), or one that failed (`.aparte-code-error`)
+   is code to the reader, and keeps its card and its copy button. Separate rules, never in a
+   list: an engine without `:has()` drops the rule and keeps the card. */
+.aparte-segment-code[data-aparte-bare]:has(> .aparte-code-content-wrapper > pre[data-aparte-drawn]):not(:has(.aparte-code-error)) {
   border: 0;
   border-radius: 0;
   overflow: visible;
 }
 
-.aparte-segment-code[data-aparte-bare] > .aparte-code-header {
+.aparte-segment-code[data-aparte-bare]:has(> .aparte-code-content-wrapper > pre[data-aparte-drawn]):not(:has(.aparte-code-error)) > .aparte-code-header {
   display: none;
 }
 
