@@ -820,5 +820,10 @@ export class AparteConversationController {
         }
 
         await manager.addMessage(convId, userMsg);
+        // A reply that ended while the conversation was being created — the list still
+        // loading from a slow store — found no active id at its end, so its save did
+        // nothing: saved now, or the conversation keeps the question alone. A reply still
+        // streaming is saved by the end of its turn, which now finds the id.
+        if (!this._isStreaming && this._activeId === convId) this._persistActive();
     }
 }
