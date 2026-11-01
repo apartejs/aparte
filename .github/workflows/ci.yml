@@ -263,6 +263,21 @@ jobs:
           path: .nx/cache
           key: nx-packages-${{ runner.os }}-${{ github.sha }}
 
+      # The same build as files, for the browser jobs: they run in Playwright's container,
+      # which has no zstd, so the cache saved above (zstd) is a miss there. What a build
+      # leaves is the three outputs nx declares: dist, its stamp, and generated sources.
+      - name: Hand the built files to the browser jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packages-built
+          path: |
+            packages/**/dist/
+            packages/**/.dist-stamp
+            packages/**/src/generated/
+            !packages/**/node_modules/**
+          include-hidden-files: true
+          retention-days: 1
+
   typecheck:
     needs: [scope, packages]
     if: needs.scope.outputs.skip != 'true'
@@ -540,7 +555,7 @@ jobs:
       - uses: ./.github/actions/setup
         if: needs.scope.outputs.source == 'true'
         with:
-          packages: 'true'
+          packages: 'artifact'
 
       # `playwright test` directly rather than `pnpm e2e`, so the shard flag reaches
       # Playwright without crossing two `pnpm run` boundaries.
@@ -578,7 +593,7 @@ jobs:
       - uses: ./.github/actions/setup
         if: needs.scope.outputs.source == 'true'
         with:
-          packages: 'true'
+          packages: 'artifact'
 
       - name: Meta-framework SSR E2E
         if: needs.scope.outputs.source == 'true'

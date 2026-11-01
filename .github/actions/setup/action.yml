@@ -11,6 +11,8 @@ inputs:
     description: >
       'true' restores the nx cache the `packages` job saved for this commit and replays its
       build: dist folders come back from the cache in seconds, nothing is compiled twice.
+      'artifact' downloads the built files instead, for the jobs in Playwright's container:
+      it has no zstd, so a cache saved on the host (zstd) is a miss there.
     default: 'false'
 
 runs:
@@ -45,3 +47,10 @@ runs:
       if: inputs.packages == 'true'
       shell: bash
       run: pnpm build --exclude '@aparte-workspace/*'
+
+    - name: Download this run's built packages
+      if: inputs.packages == 'artifact'
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: packages-built
+        path: packages
