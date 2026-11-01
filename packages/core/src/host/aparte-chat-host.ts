@@ -173,6 +173,17 @@ const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStr
  */
 const ALWAYS_PRESENT_FIELDS = new Set(['content', 'segments', 'status']);
 
+/** The same value: the same object, or the same JSON (what a save writes anyway). */
+function sameValue(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (a === undefined || b === undefined) return false;
+    try {
+        return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+        return false;
+    }
+}
+
 /**
  * What an update to a message the framework has ALREADY rendered must still reach its
  * bubble for: the fields the bubble draws from, bar `status` (which has its own immediate
@@ -922,13 +933,18 @@ export class AparteChatHost {
             if (!vp.getMessage?.(msg.id)) {
                 vp.appendMessage?.(msg);
             } else {
+                // Only what changed. This runs on every save (`exportTree`), and an update
+                // redraws the message's segments: passing every field of every message redrew
+                // the whole transcript under the framework at each save — a preview someone
+                // had opened went back to its code, a reasoning block they had opened closed.
+                const known = vp.getMessage?.(msg.id);
                 const updates: Partial<AparteMessage> = {};
-                if (msg.content !== undefined) updates.content = msg.content;
-                if (msg.segments !== undefined) updates.segments = msg.segments;
-                if (msg.status !== undefined) updates.status = msg.status;
-                if (msg.usage !== undefined) updates.usage = msg.usage;
+                if (msg.content !== undefined && !sameValue(msg.content, known?.content)) updates.content = msg.content;
+                if (msg.segments !== undefined && !sameValue(msg.segments, known?.segments)) updates.segments = msg.segments;
+                if (msg.status !== undefined && msg.status !== known?.status) updates.status = msg.status;
+                if (msg.usage !== undefined && !sameValue(msg.usage, known?.usage)) updates.usage = msg.usage;
                 // What the turn ran on: a pause resumed after a reload reads it from the saved tree.
-                if (msg.model !== undefined) updates.model = msg.model;
+                if (msg.model !== undefined && !sameValue(msg.model, known?.model)) updates.model = msg.model;
                 if (Object.keys(updates).length > 0) vp.updateMessage?.(msg.id, updates);
                 // Every other field the app wrote (metadata, attachments, a name…) reaches the
                 // tree too — the saved conversation and what a reopen loads — without a redraw:

@@ -49,6 +49,32 @@ test('reasoning deltas render a thinking block the user can open and close', asy
 });
 
 /**
+ * A save leaves what is on screen alone.
+ *
+ * Every save serialises the tree, and under a framework that synced every field of every
+ * message into the viewport: each message's segments were drawn again, so whatever a person
+ * had opened closed — this block, an artifact's preview. It showed as flakes (this file's test
+ * above, artifacts.spec.ts:55) once the first reply's save could land right after a click.
+ */
+test('a reasoning block someone opened stays the same block, open, through the next save', async ({ page }) => {
+    await installLlmMock(page, { scenario: 'thinking' });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('think about it', { expect: MOCK_REPLY_MARK });
+
+    const first = chat.segment('thinking').first();
+    const wasOpen = await first.evaluate((el) => (el as HTMLDetailsElement).open);
+    await first.locator('summary').click();
+    const handle = await first.elementHandle();
+
+    // The next turn saves the conversation.
+    await chat.sendAndSettle('and again', { expect: MOCK_REPLY_MARK });
+
+    expect(await handle!.evaluate((el) => el.isConnected), 'the same element, not a redrawn one').toBe(true);
+    expect(await handle!.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(!wasOpen);
+});
+
+/**
  * A long reasoning trace has to follow itself down WHILE IT ARRIVES.
  *
  * `.aparte-thinking-content` is its own scroll container (`max-height: 300px`) and the
