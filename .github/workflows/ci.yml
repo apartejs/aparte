@@ -715,7 +715,10 @@ jobs:
 
   release:
     needs: release-check
-    if: needs.release-check.outputs.release == 'true'
+    # `always()` because GitHub skips a job when any job upstream of it was skipped, and on a
+    # tree already judged on its pull request every gate job is: 0.31.0's release was skipped
+    # that way with `release=true` in hand. `release-check` is what decides.
+    if: always() && needs.release-check.result == 'success' && needs.release-check.outputs.release == 'true'
     runs-on: ubuntu-latest
     # Two version commits close together release one after the other, never at once.
     concurrency:
