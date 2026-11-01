@@ -74,6 +74,11 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  *     lands. The element sets and lifts `hidden` itself and never lifts one you set.
  *     With no transcript to read — a composer outside any chat — the first send hides it
  *     until the attribute is removed.
+ * @attr {boolean} answers - Shows the replies the LAST message offered instead of fixed
+ *     starters: a code block in language `suggestions` in that answer
+ *     (`setupSuggestionBlocks`), e.g. the
+ *     free times a booking bot proposes. Empty until an answer offers some, emptied the
+ *     moment a message is sent, and when the last message is the person's.
  * @attr {string} target - The id of the `<aparte-chat>` whose composer should receive
  *     the click, when the element is not inside that composer.
  * @attr {boolean} data-empty - Reflected BY the element while it has no suggestion to
@@ -99,7 +104,7 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  */
 export class AparteSuggestions extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['suggestions', 'target', 'empty-only'];
+        return ['suggestions', 'target', 'empty-only', 'answers'];
     }
 
     private _suggestions: AparteSuggestion[] = [];
@@ -124,6 +129,8 @@ export class AparteSuggestions extends HTMLElement {
      * going from full to empty is a new conversation, which forgets the send.
      */
     private _onSend = (): void => {
+        // The replies an answer offered are for that answer: gone the moment one is sent.
+        if (this.hasAttribute('answers')) this._showAnswers([]);
         if (!this.hasAttribute('empty-only')) return;
         // A composer built after this element had no chat around it yet at connection.
         if (!this._transcript) this._watchTranscript();
@@ -186,6 +193,8 @@ export class AparteSuggestions extends HTMLElement {
             this._render();
         } else if (name === 'target') {
             this._watchComposer();
+        } else if (name === 'answers') {
+            this._watchTranscript();
         } else if (name === 'empty-only') {
             this._watchTranscript();
             if (!this.hasAttribute('empty-only')) {
@@ -254,9 +263,10 @@ export class AparteSuggestions extends HTMLElement {
         return chat.matches('aparte-chat-viewport') ? chat : chat.querySelector('aparte-chat-viewport');
     }
 
-    /** Follow the transcript while `empty-only` is set, and stop following it when it is not. */
+    /** Follow the transcript while `empty-only` or `answers` is set, and stop following it when neither is. */
     private _watchTranscript(): void {
-        const transcript = this.hasAttribute('empty-only') ? this._resolveTranscript() : null;
+        const follows = this.hasAttribute('empty-only') || this.hasAttribute('answers');
+        const transcript = follows ? this._resolveTranscript() : null;
         if (transcript !== this._transcript) {
             this._transcriptObserver?.disconnect();
             this._transcriptObserver = null;
@@ -264,13 +274,39 @@ export class AparteSuggestions extends HTMLElement {
             if (transcript) {
                 // Bubbles land anywhere under the viewport; `loading` is the other way of
                 // not being empty. The same watch `<aparte-chat>` runs for `data-empty`.
-                this._transcriptObserver = new MutationObserver(this._applyEmptyOnly);
+                this._transcriptObserver = new MutationObserver(this._onTranscript);
                 this._transcriptObserver.observe(transcript, {
                     childList: true, subtree: true, attributes: true, attributeFilter: ['loading'],
                 });
             }
         }
+        this._onTranscript();
+    }
+
+    private _onTranscript = (): void => {
         if (this.hasAttribute('empty-only')) this._applyEmptyOnly();
+        if (this.hasAttribute('answers')) this._applyAnswers();
+    };
+
+    /**
+     * `answers`: the replies the LAST message offered, written by a ```suggestions block
+     * (`setupSuggestionBlocks`) as a hidden `[data-aparte-suggestions]` mark in that
+     * message. A last message that is the person's, or that offers none, shows none: the
+     * offer was for the answer it came with.
+     */
+    private _applyAnswers(): void {
+        const bubbles = this._transcript?.querySelectorAll('aparte-chat-bubble');
+        const last = bubbles && bubbles.length ? bubbles[bubbles.length - 1]! : null;
+        const marks = last && last.getAttribute('data-role') !== 'user' ? last.querySelectorAll('[data-aparte-suggestions]') : null;
+        const mark = marks && marks.length ? marks[marks.length - 1]! : null;
+        this._showAnswers(mark ? parseSuggestions(mark.getAttribute('data-aparte-suggestions') ?? '[]') : []);
+    }
+
+    /** Show these replies; the same ones already shown redraw nothing (a transcript mutation is frequent). */
+    private _showAnswers(list: AparteSuggestion[]): void {
+        if (JSON.stringify(list) === JSON.stringify(this._suggestions)) return;
+        this._suggestions = list;
+        if (this.isConnected) this._render();
     }
 
     /** Set `hidden`, or lift it only when this element set it: a `hidden` the page wrote stays. */

@@ -1,0 +1,97 @@
+---
+title: Blocks in a text answer
+description: A backend that only sends text can still send a card or quick replies — a code block whose language names it. Cards, suggestions, and your own.
+sidebar:
+  order: 3.68
+  label: Blocks in a text answer
+guide:
+  group: look
+---
+
+Some backends send only text: a workflow engine that runs its tools itself (n8n), a server that
+streams its answer and nothing else, a model with no tools. Their answer can still put something
+richer than prose on screen, with one rule:
+
+> **A code block whose language aparté knows becomes part of the interface. Any other is shown as code.**
+
+````md
+Which day suits you?
+
+```suggestions
+["Tuesday 3", "Wednesday 4", "Thursday 5"]
+```
+````
+
+The block's body is JSON, written by your backend — build it from your tool's real result (in n8n,
+a **Code** node) rather than asking a model to type JSON: it is exact every time. A chat that does
+not know the language, an email, or a model reading the history back sees the sentence and the
+block, which still reads as what it is.
+
+## The languages aparté knows
+
+| Language | What it becomes | Turn it on |
+| --- | --- | --- |
+| `card-<name>` | that card: `card-order`, `card-place`, `card-weather`, your own | `setupCardFences()` — [cards](/guides/cards/#a-card-written-in-the-answer) |
+| `suggestions` | quick replies above the composer, for the person to click | `setupSuggestionBlocks()` |
+
+Each is off until you turn it on: once on, the block is no longer shown as code, so it is the
+app's choice.
+
+## Quick replies — `suggestions`
+
+The replies the **last** answer offers, as buttons above the composer: the free times of a booking
+bot, "Return an item" after an order status, "Yes" / "No". A click sends the reply as if it were
+typed. Nothing of the block shows in the message, and the replies go the moment a message is sent.
+
+```ts
+import { setupSuggestionBlocks } from '@aparte/core';
+
+setupSuggestionBlocks();
+```
+
+```html
+<aparte-composer>
+  <aparte-suggestions answers></aparte-suggestions>
+  <!-- the composer's input and send button -->
+</aparte-composer>
+```
+
+The block holds an array: a string is both the label and what is sent; `{ "label", "prompt" }`
+shows one and sends the other.
+
+````md
+```suggestions
+["Tuesday 3", { "label": "Another week", "prompt": "Next week, please" }]
+```
+````
+
+`<aparte-suggestions answers>` shows nothing until an answer offers replies, and nothing when the
+last message is the person's. A block that is not a list of replies is shown as its source; a block
+still being written offers nothing until it closes. The fixed prompt starters of an empty chat are
+the same element without `answers` ([`empty-only`](/components/suggestions/)); a page can have both.
+
+## A language of your own
+
+The rule is one seam, public: `registerCodeLanguageRenderer`. Cards and suggestions are two users
+of it, and a language of yours is a third. `bare: true` drops the code card around the block, so
+what you draw stands for it:
+
+```ts
+import { aparteGlobalConfig, escapeHtml } from '@aparte/core';
+
+aparteGlobalConfig.registerCodeLanguageRenderer({
+  languages: ['ticket'],
+  bare: true,
+  render: ({ source, open }) => {
+    if (open) return '';                       // still being written
+    const t = JSON.parse(source);
+    return `<div class="ticket">Ticket ${escapeHtml(t.id)}: ${escapeHtml(t.subject)}</div>`;
+  },
+});
+```
+
+What `render` returns is inserted as it is (it is your code, like a segment renderer), so escape
+what comes from the block. For a block it cannot draw, answer with the source in an element of
+class `aparte-code-error`, which core shows as quiet code. A card with a layout, variants and
+buttons is easier with [`defineCard`](/guides/cards/#a-card-of-your-own), whose block comes for
+free.
