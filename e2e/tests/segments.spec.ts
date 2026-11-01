@@ -33,6 +33,9 @@ test('reasoning deltas render a thinking block the user can open and close', asy
     await expect(thinking.locator('.aparte-thinking-content')).toHaveText(MOCK_THINKING_FULL);
     // A labelled summary is what makes it discoverable.
     await expect(thinking.locator('.aparte-thinking-label')).not.toBeEmpty();
+    // Settled before the clicks: the answer's text can be on screen while the block's last
+    // update is still on its way, and that update may set its open state after a click.
+    await expect(thinking.locator('.aparte-thinking-label')).not.toHaveClass(/aparte-shimmer/);
 
     // It is a native <details>, so opening/closing needs no JS from the host.
     const isOpen = () => thinking.evaluate((el) => (el as HTMLDetailsElement).open);
