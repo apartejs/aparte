@@ -50,10 +50,12 @@ describe('a fence in a drawn language', () => {
         expect(highlight).not.toHaveBeenCalled();
     });
 
-    it('keeps its code card, unless its renderer draws the whole block (bare)', async () => {
+    it('wears no code card: what is drawn stands for the block, a diagram as much as a card', async () => {
         installDiagrams();
+        const code = mount({ id: 'b0', type: 'code', language: 'ts', content: 'const a = 1;', isStreaming: false });
+        expect(code.hasAttribute('data-aparte-bare')).toBe(false);
         const diagram = mount({ id: 'b1', type: 'code', language: 'mermaid', content: 'flowchart TD', isStreaming: false });
-        expect(diagram.hasAttribute('data-aparte-bare')).toBe(false);
+        expect(diagram.hasAttribute('data-aparte-bare')).toBe(true);
         aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['card-note'], bare: true, render: () => '<div class="note"></div>' });
         const card = mount({ id: 'b2', type: 'code', language: 'card-note', content: '{}', isStreaming: false });
         await flush();
