@@ -239,8 +239,11 @@ test('scrolling up mid-stream is not overridden by the arriving reply', async ({
      * pace too and `installLlmMock` sets it per page rather than per turn. That is the
      * price of the assertion being able to fail for the right reason; don't trade it back
      * without changing the invariant.
+     *
+     * 400 since CI runs four browsers per shard: react-webkit's setup outran 4.5s of stream
+     * there (2026-11-01). 18 × 400ms = 7.2s.
      */
-    await installLlmMock(page, { pace: 250 });
+    await installLlmMock(page, { pace: 400 });
     const chat = new ChatPage(page);
     await page.goto('/');
 
