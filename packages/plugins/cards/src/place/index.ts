@@ -158,6 +158,25 @@ export interface PlaceCardOptions extends CardSetupOptions<PlaceData, PlaceVaria
      * one does not replace the other. `false` draws none.
      */
     builtIns?: boolean;
+    /**
+     * A real map behind a place that has coordinates and no photo: the address of your
+     * map tiles, `{z}`, `{x}` and `{y}` in it (OpenStreetMap's, MapTiler's or Stadia's with
+     * your key in the address, your own server's). Unset — the default — the card draws its
+     * own map and fetches nothing: tiles are requests to a third party, which sees the
+     * visitor and the place, so they are the app's choice. A tile that fails to load brings
+     * the drawn map back.
+     *
+     * @example
+     * setupPlaceCard({
+     *   mapTiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+     *   mapAttribution: '© OpenStreetMap contributors',
+     * });
+     */
+    mapTiles?: string;
+    /** The credit the tiles' provider asks for, shown on the map. Most require one. */
+    mapAttribution?: string;
+    /** How close the map is, as tile servers count it: 16 by default, a street and its neighbours. */
+    mapZoom?: number;
 }
 
 const P = {
@@ -650,6 +669,7 @@ interface Settings {
     builtIns: boolean;
     currencySymbol: string;
     now: () => Date;
+    map?: { tiles: string; attribution?: string; zoom: number };
 }
 
 type Tone = 'open' | 'soon' | 'closed';
@@ -807,11 +827,26 @@ function addressOf(ctx: CardContext, place: Place): HTMLElement | null {
  * kind's marker for a wide box, the kind's glyph for a thumbnail. A photo that fails to load
  * is removed, and the placeholder is what shows.
  */
-function mediaOf(ctx: CardContext, place: Place, size: 'wide' | 'thumb'): HTMLElement {
+function mediaOf(ctx: CardContext, place: Place, size: 'wide' | 'thumb', settings?: Settings): HTMLElement {
     const box = el('div', { class: `aparte-place__media aparte-place__media--${size}` });
     const mark = glyph(kindGlyph(place.kind), 'aparte-rich-card__glyph aparte-place__marker-glyph');
     box.append(el('span', { class: 'aparte-place__placeholder', attrs: { 'aria-hidden': 'true' } },
         el('span', { class: 'aparte-place__marker' }, mark)));
+    // The app's tiles, when it gave some: under the marker, for a place with coordinates and no photo.
+    const map = size === 'wide' && !place.image && place.coordinates && settings?.map ? mapOf(place.coordinates, settings.map) : null;
+    if (map) {
+        box.setAttribute('data-map', '');
+        box.prepend(map.layer);
+        if (map.credit) box.append(map.credit);
+        // One tile missing would leave a hole in the street: the drawn map comes back whole.
+        for (const tile of map.layer.querySelectorAll('img')) {
+            tile.addEventListener('error', () => {
+                map.layer.remove();
+                map.credit?.remove();
+                box.removeAttribute('data-map');
+            }, { once: true });
+        }
+    }
     if (place.image) {
         // No referrer: the photo is on someone else's server, which need not learn the chat's address.
         const img = el('img', { class: 'aparte-place__img', attrs: { src: place.image, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' } });
@@ -825,6 +860,39 @@ function mediaOf(ctx: CardContext, place: Place, size: 'wide' | 'thumb'): HTMLEl
         box.setAttribute('data-empty', '');
     }
     return box;
+}
+
+const TILE = 256;
+
+/**
+ * Nine tiles around a point, placed so the point sits under the marker's tip. Web
+ * Mercator, as every tile server cuts its tiles: the point's position in tiles at `zoom`,
+ * the tile it falls in, and where in that tile. Laid out in physical pixels — a map is
+ * not text, and a right-to-left page does not mirror it.
+ */
+function mapOf(at: { lat: number; lng: number }, map: NonNullable<Settings['map']>): { layer: HTMLElement; credit: HTMLElement | null } | null {
+    const lat = Math.max(-85.05, Math.min(85.05, at.lat)) * Math.PI / 180;
+    const n = 2 ** map.zoom;
+    const fx = ((at.lng + 180) / 360) * n;
+    const fy = ((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * n;
+    if (!Number.isFinite(fx) || !Number.isFinite(fy)) return null;
+    const tx = Math.floor(fx);
+    const ty = Math.floor(fy);
+    const layer = el('span', { class: 'aparte-place__map', attrs: { 'aria-hidden': 'true' } });
+    layer.style.setProperty('--aparte-place-map-x', `${Math.round(TILE + (fx - tx) * TILE)}px`);
+    layer.style.setProperty('--aparte-place-map-y', `${Math.round(TILE + (fy - ty) * TILE)}px`);
+    for (let row = -1; row <= 1; row++) {
+        for (let col = -1; col <= 1; col++) {
+            const y = ty + row;
+            const x = (((tx + col) % n) + n) % n; // the world wraps east and west, not north and south
+            const tile = el('img', { class: 'aparte-place__tile', attrs: { alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' } });
+            if (y >= 0 && y < n) tile.setAttribute('src', map.tiles.replace('{z}', String(map.zoom)).replace('{x}', String(x)).replace('{y}', String(y)));
+            else tile.style.visibility = 'hidden';
+            layer.append(tile);
+        }
+    }
+    const credit = map.attribution ? el('span', { class: 'aparte-place__credit', text: map.attribution }) : null;
+    return { layer, credit };
 }
 
 type ActionKind = 'directions' | 'call' | 'website';
@@ -872,7 +940,7 @@ function actionsOf(ctx: CardContext, place: Place, settings: Settings, iconOnly:
 
 /** A place as a tile: photo, name, rating, open status, address, buttons. */
 function tileOf(ctx: CardContext, place: Place, settings: Settings, now: Date, inRow: boolean): HTMLElement {
-    const media = mediaOf(ctx, place, 'wide');
+    const media = mediaOf(ctx, place, 'wide', settings);
     const category = categoryOf(ctx, place);
     if (category) {
         media.append(el('span', { class: 'aparte-place__badge' },
@@ -950,7 +1018,7 @@ function tagsOf(place: Place): HTMLElement | null {
 }
 
 function renderDetail(ctx: CardContext, place: Place, settings: Settings, now: Date): Node[] {
-    const media = mediaOf(ctx, place, 'wide');
+    const media = mediaOf(ctx, place, 'wide', settings);
     const category = categoryOf(ctx, place);
     if (category) {
         media.append(el('span', { class: 'aparte-place__badge' },
@@ -1062,11 +1130,16 @@ export const placeCard = createPlaceCard({ builtIns: true, currencySymbol: '$', 
  * is `false`.
  */
 export function setupPlaceCard(options: PlaceCardOptions = {}): () => void {
-    const { currencySymbol, now, builtIns, ...rest } = options;
+    const { currencySymbol, now, builtIns, mapTiles, mapAttribution, mapZoom, ...rest } = options;
+    const tiles = str(mapTiles);
     const card = createPlaceCard({
         builtIns: builtIns !== false,
         currencySymbol: str(currencySymbol) ?? '$',
         now: now ?? (() => new Date()),
+        // Only an http(s) address with the three placeholders: anything else draws the card's own map.
+        ...(tiles && /^https?:\/\//i.test(tiles) && ['{z}', '{x}', '{y}'].every((p) => tiles.includes(p))
+            ? { map: { tiles, attribution: str(mapAttribution), zoom: Math.round(Math.min(19, Math.max(1, num(mapZoom) ?? 16))) } }
+            : {}),
     });
     return card.setup(rest);
 }

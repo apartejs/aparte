@@ -53,6 +53,31 @@ A price level is a tier, not an amount: `currencySymbol` is the sign it is drawn
 default). The reader takes both generations of Google Places and Yelp; the fields and the hours
 helpers are in [the guide](/guides/cards/#places--place).
 
+## A real map
+
+Without a photo, the card draws a map of its own and fetches nothing. Give it your map tiles and
+a place with coordinates sits on a real one, under its marker:
+
+```ts
+setupPlaceCard({
+  tool: 'find_places',
+  mapTiles: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  mapAttribution: '© OpenStreetMap contributors',
+});
+```
+
+- **Your provider, your choice.** Any server that cuts tiles the usual way: OpenStreetMap's, with
+  no key but [a usage policy](https://operations.osmfoundation.org/policies/tiles/) that rules out
+  heavy traffic; MapTiler's or Stadia's, with your key in the address; your own. Each tile is a
+  request from your visitor's browser to that server, which sees the visitor and the place —
+  which is why the card fetches none unless you ask.
+- **The credit.** `mapAttribution` is shown in a corner of the map; most providers require one.
+- **How close.** `mapZoom` (16 by default) is the tile server's zoom: 16 is a street and its
+  neighbours, 13 a district.
+- **What stays.** A photo still wins over the map. A place without coordinates keeps the drawn
+  map, and so does a card whose tile fails to load. The dark scheme keeps the tiles as they are;
+  `--aparte-place-map-filter` takes a CSS filter to dim them (`brightness(0.85)`).
+
 ## Related
 
 - [Order card](/components/order-card/) — a table or a room, once booked.
