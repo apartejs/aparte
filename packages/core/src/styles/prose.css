@@ -268,11 +268,16 @@
   block-size: auto;
 }
 
+/* `overflow: visible`: the drawing scrolls itself (a diagram) or handles its own overflow (a
+   card). The code card's `overflow-x: hidden` made this <pre> a scroller in BOTH axes — a
+   hidden x turns a visible y into auto — so a carousel reaching 5px past its box for its
+   tiles' shadows showed a vertical scrollbar beside them. */
 :is(.aparte-content, .aparte-segment-content, .aparte-thinking-content, .aparte-code-content-wrapper) pre[data-aparte-drawn] {
   background: none;
   padding: 0;
   font: inherit;
   white-space: normal;
+  overflow: visible;
 }
 
 /* In a code card the drawing takes the room the code had, on the page's own surface:
