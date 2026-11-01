@@ -567,14 +567,14 @@ jobs:
   # Browser smoke E2E — drives every example in a real browser against a
   # network-mocked model (no key/LM Studio).
   #
-  # One job per example (and per engine for the two biggest), each booting only its own
-  # dev server through E2E_ONLY. It was eight numbered shards, each booting all six servers,
-  # Angular's compile included, for a slice of the list; and a red `e2e (4)` said nothing
-  # about where to look, where `e2e (react-webkit)` does. Grouped so no job holds much more
-  # than 200 tests (counts of 2026-11-01). The ruleset requires each `e2e (name)`, and
-  # `check:e2e-projects` fails when a Playwright project is in no job here.
+  # One job per Playwright project — one example in one engine — each booting only that
+  # example's dev server through E2E_ONLY. It was numbered shards, each booting all six
+  # servers, Angular's compile included, for a slice of a list cut in consecutive blocks
+  # (so every WebKit project landed in the same shard); and a red `e2e (4)` said nothing
+  # about where to look, where `e2e (react-webkit)` does. The ruleset requires each
+  # `e2e (project)`, and `check:e2e-projects` fails when a project is in no job here.
   e2e:
-    name: e2e (${{ matrix.name }})
+    name: e2e (${{ matrix.project }})
     needs: [scope, packages]
     if: needs.scope.outputs.skip != 'true'
     runs-on: ubuntu-latest
@@ -582,16 +582,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: vanilla, only: vanilla, projects: --project=vanilla }
-          - { name: vanilla-webkit, only: vanilla, projects: --project=vanilla-webkit }
-          - { name: react, only: react, projects: --project=react }
-          - { name: react-webkit, only: react, projects: --project=react-webkit }
-          - { name: svelte5, only: svelte5, projects: --project=svelte5 --project=svelte5-webkit }
-          - { name: vue, only: vue, projects: --project=vue --project=vue-webkit }
-          - { name: svelte4, only: svelte4, projects: --project=svelte4 --project=svelte4-webkit }
-          - { name: vanilla-dist, only: vanilla-dist, projects: --project=vanilla-dist --project=vanilla-dist-webkit }
-          - { name: angular, only: 'angular,agents-sdk', projects: --project=angular --project=agents-sdk }
-          - { name: firefox, only: 'vanilla,react', projects: --project=vanilla-firefox --project=react-firefox }
+          - { project: vanilla, app: vanilla }
+          - { project: vanilla-webkit, app: vanilla }
+          - { project: vanilla-firefox, app: vanilla }
+          - { project: vanilla-dist, app: vanilla-dist }
+          - { project: vanilla-dist-webkit, app: vanilla-dist }
+          - { project: react, app: react }
+          - { project: react-webkit, app: react }
+          - { project: react-firefox, app: react }
+          - { project: vue, app: vue }
+          - { project: vue-webkit, app: vue }
+          - { project: svelte4, app: svelte4 }
+          - { project: svelte4-webkit, app: svelte4 }
+          - { project: svelte5, app: svelte5 }
+          - { project: svelte5-webkit, app: svelte5 }
+          - { project: angular, app: angular }
+          - { project: agents-sdk, app: agents-sdk }
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
     # run (0.9 to 20+ minutes, depending on the Ubuntu mirror).
@@ -622,14 +628,14 @@ jobs:
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
         env:
-          E2E_ONLY: ${{ matrix.only }}
-        run: pnpm --filter @aparte-workspace/e2e exec playwright test ${{ matrix.projects }}
+          E2E_ONLY: ${{ matrix.app }}
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --project=${{ matrix.project }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-${{ matrix.name }}
+          name: playwright-report-${{ matrix.project }}
           path: e2e/playwright-report/
           retention-days: 7
 
