@@ -469,12 +469,30 @@ async function fulfill(route: Route, body: string, contentType: string, status =
  * timer — real backpressure, real `reader.read()` boundaries in the client loop.
  *
  * Installed as an init script so it is in place before any app code runs.
+ *
+ * The test can also take the timer out of it (`LlmMock.hold` / `release` / `resume`): while
+ * held, a frame is sent only when the test releases one. A spec that needs the stream to be
+ * running at a given moment then says so, rather than betting on how fast the machine is.
  */
 async function installPacedChatStream(page: Page, events: string[], pace: number): Promise<void> {
     await page.addInitScript(
         ({ events: sse, pace: gap }: { events: string[]; pace: number }) => {
             const captured: unknown[] = [];
             (window as unknown as { __apartePacedRequests: unknown[] }).__apartePacedRequests = captured;
+
+            const gate = { held: false, credits: 0, waiting: [] as Array<() => void> };
+            const flush = () => {
+                while (gate.waiting.length && (!gate.held || gate.credits > 0)) {
+                    if (gate.held) gate.credits--;
+                    gate.waiting.shift()!();
+                }
+            };
+            const turn = () => new Promise<void>((resolve) => { gate.waiting.push(resolve); flush(); });
+            (window as unknown as { __aparteStream: unknown }).__aparteStream = {
+                hold() { gate.held = true; gate.credits = 0; },
+                release(n: number) { gate.credits += n; flush(); },
+                resume() { gate.held = false; flush(); },
+            };
 
             const real = window.fetch.bind(window);
             window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -489,6 +507,7 @@ async function installPacedChatStream(page: Page, events: string[], pace: number
                 const stream = new ReadableStream<Uint8Array>({
                     async start(controller) {
                         for (const event of sse) {
+                            await turn();
                             if (signal?.aborted) {
                                 controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
                                 return;
@@ -523,6 +542,12 @@ export interface LlmMock {
      * synchronous getter async would touch every existing spec.
      */
     pacedRequests(): Promise<Record<string, unknown>[]>;
+    /** Paced only: from now on, a frame is sent only when released. */
+    hold(): Promise<void>;
+    /** Paced only: send the next `n` frames of a held stream. */
+    release(n?: number): Promise<void>;
+    /** Paced only: back to the timer. */
+    resume(): Promise<void>;
     /** The scenario this mock is serving. */
     readonly scenario: LlmScenario;
 }
@@ -615,6 +640,9 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
         pacedRequests: () => page.evaluate(
             () => (window as unknown as { __apartePacedRequests?: unknown[] }).__apartePacedRequests ?? [],
         ) as Promise<Record<string, unknown>[]>,
+        hold: () => page.evaluate(() => (window as unknown as { __aparteStream: { hold(): void } }).__aparteStream.hold()),
+        release: (n = 1) => page.evaluate((count) => (window as unknown as { __aparteStream: { release(n: number): void } }).__aparteStream.release(count), n),
+        resume: () => page.evaluate(() => (window as unknown as { __aparteStream: { resume(): void } }).__aparteStream.resume()),
         scenario,
     };
 }

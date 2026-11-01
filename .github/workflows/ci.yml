@@ -567,14 +567,16 @@ jobs:
     needs: [scope, packages]
     if: needs.scope.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    # Six shards: this job was the wall, ~10 minutes in three, on a 2-core runner driving
-    # seven example apps through three engines. Playwright splits the test files evenly;
-    # each shard boots the dev servers itself (one minute). A failing shard names itself
-    # in the check list — `e2e (2)` — and the report of each is its own artifact.
+    # Eight shards: this job was the wall, ~10 minutes in three, driving seven example apps
+    # through three engines. Playwright cuts the list in consecutive blocks, and the WebKit
+    # projects, the slowest, sit together: at six, the shard holding them took 7.4 minutes
+    # against 3.7 for the lightest. Each shard boots the dev servers itself (one minute). A
+    # failing shard names itself in the check list — `e2e (2)` — and the report of each is
+    # its own artifact. The ruleset requires each `e2e (n)` by name: add a shard there too.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
     # run (0.9 to 20+ minutes, depending on the Ubuntu mirror).
@@ -604,7 +606,7 @@ jobs:
       # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/6
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/8
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
