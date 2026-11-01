@@ -34,6 +34,13 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
 
 ### Patch Changes
 
+- [5460601](https://github.com/apartejs/aparte/commit/5460601): A save no longer redraws the messages on screen under a framework: what a person opened (a reasoning block, an artifact's preview) stays open.
+
+  Every save serialises the conversation's tree, and under React, Vue, Svelte or Angular that synced
+  every field of every message into the viewport, so each message's segments were drawn again and
+  closed whatever had been opened. Only the fields that changed are passed now.
+  <sub>`@aparte/core`</sub>
+
 - [33aec02](https://github.com/apartejs/aparte/commit/33aec02): `centerWhenEmpty` now centres the empty state and the composer together, as one block; it used to centre the composer alone and give the greeting only the half above it.
 
   The viewport and the spacer under the composer shared the free height half and half, so a welcome
