@@ -192,6 +192,9 @@ jobs:
       - name: Check every gate step runs in a workflow
         run: pnpm check:gate-in-ci
 
+      - name: Check every Playwright project runs in an e2e job
+        run: pnpm check:e2e-projects
+
       # CLAUDE.md requires a changeset for any package with an API or CSS change,
       # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
       # not just skip one version — the whole 15-package train stays put, no Version PR
@@ -562,21 +565,33 @@ jobs:
           case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
 
   # Browser smoke E2E — drives every example in a real browser against a
-  # network-mocked model (no key/LM Studio). It boots six dev servers + a browser per shard.
+  # network-mocked model (no key/LM Studio).
+  #
+  # One job per example (and per engine for the two biggest), each booting only its own
+  # dev server through E2E_ONLY. It was eight numbered shards, each booting all six servers,
+  # Angular's compile included, for a slice of the list; and a red `e2e (4)` said nothing
+  # about where to look, where `e2e (react-webkit)` does. Grouped so no job holds much more
+  # than 200 tests (counts of 2026-11-01). The ruleset requires each `e2e (name)`, and
+  # `check:e2e-projects` fails when a Playwright project is in no job here.
   e2e:
+    name: e2e (${{ matrix.name }})
     needs: [scope, packages]
     if: needs.scope.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    # Eight shards: this job was the wall, ~10 minutes in three, driving seven example apps
-    # through three engines. Playwright cuts the list in consecutive blocks, and the WebKit
-    # projects, the slowest, sit together: at six, the shard holding them took 7.4 minutes
-    # against 3.7 for the lightest. Each shard boots the dev servers itself (one minute). A
-    # failing shard names itself in the check list — `e2e (2)` — and the report of each is
-    # its own artifact. The ruleset requires each `e2e (n)` by name: add a shard there too.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        include:
+          - { name: vanilla, only: vanilla, projects: --project=vanilla }
+          - { name: vanilla-webkit, only: vanilla, projects: --project=vanilla-webkit }
+          - { name: react, only: react, projects: --project=react }
+          - { name: react-webkit, only: react, projects: --project=react-webkit }
+          - { name: svelte5, only: svelte5, projects: --project=svelte5 --project=svelte5-webkit }
+          - { name: vue, only: vue, projects: --project=vue --project=vue-webkit }
+          - { name: svelte4, only: svelte4, projects: --project=svelte4 --project=svelte4-webkit }
+          - { name: vanilla-dist, only: vanilla-dist, projects: --project=vanilla-dist --project=vanilla-dist-webkit }
+          - { name: angular, only: 'angular,agents-sdk', projects: --project=angular --project=agents-sdk }
+          - { name: firefox, only: 'vanilla,react', projects: --project=vanilla-firefox --project=react-firefox }
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
     # run (0.9 to 20+ minutes, depending on the Ubuntu mirror).
@@ -602,17 +617,19 @@ jobs:
         with:
           packages: 'artifact'
 
-      # `playwright test` directly rather than `pnpm e2e`, so the shard flag reaches
+      # `playwright test` directly rather than `pnpm e2e`, so the project flags reach
       # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/8
+        env:
+          E2E_ONLY: ${{ matrix.only }}
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test ${{ matrix.projects }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.name }}
           path: e2e/playwright-report/
           retention-days: 7
 
