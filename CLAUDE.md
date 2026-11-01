@@ -285,8 +285,9 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   a full build, coverage with per-glob floors, `publint`/`attw` on 15
   packages, the docs site build and a link check over the built pages. Running it 25 times
   in one session is most of the session, and it re-verifies the same thing 25 times.
-  What actually protects each commit is the hooks: **pre-commit** runs lint + typecheck,
-  **pre-push** runs test + build and refuses a direct push to `main`. Gate when a lot is
+  What protects each commit is CI on the PR (~5 min); the hooks only catch the cheap
+  mistakes early: **pre-commit** lints the staged files and typechecks the projects they
+  touch, **pre-push** refuses a direct push to `main` and runs nothing. Gate when a lot is
   done, when a guard is added, or when you have touched a generated artifact — and always
   before the merge. `--no-verify` is never the answer; feature work goes on a branch + PR.
 - **Conventional commits**, one concern per commit. Tests green before each commit — the
