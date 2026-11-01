@@ -219,7 +219,9 @@ away as that message lands;
 [`<aparte-suggestions empty-only>`](/components/suggestions/) shows its starters on the same
 condition. In the framework packages the switch is `centerWhenEmpty`, the greeting goes in
 `emptyState` (React) or the `empty-state` slot (Vue, Svelte, Angular), shown only while the chat is
-empty, and the hook for anything else is `data-aparte-empty`.
+empty, and the hook for anything else is `data-aparte-empty`. There the greeting and the composer
+are centred as one block, whatever the greeting's height: it scrolls only when the block does not
+fit the chat.
 
 ## Jump back in a long thread
 

@@ -261,7 +261,7 @@ for (const moves of [false, true]) {
  * no transition to catch; a jump from anything else (an instant change to the viewport, a
  * selector that misses) moves the composer off that clock, so the reads stop stepping down.
  */
-type SlideWindow = Window & { __slide?: Animation | null };
+type SlideWindow = Window & { __slide?: Animation[] | null };
 test('the first send glides the composer down', async ({ page }) => {
     await page.goto('/?scenario&fast');
     await page.locator('#new-chat').click();   // a person in the page
@@ -275,11 +275,12 @@ test('the first send glides the composer down', async ({ page }) => {
                 && !(r.target as Element).hasAttribute(r.attributeName!));
             if (!dropped) return;
             observer.disconnect();
-            // `getAnimations()` flushes style first, which is what starts the transition.
-            const slide = document.getAnimations().find((a) => (a as CSSTransition).transitionProperty === 'flex-grow'
-                && (a.effect as KeyframeEffect | null)?.pseudoElement === '::after');
-            slide?.pause();
-            w.__slide = slide ?? null;
+            // `getAnimations()` flushes style first, which is what starts the transition. Both
+            // spacers: the welcome and the composer are centred as one block, a spacer above and below.
+            const slides = document.getAnimations().filter((a) => (a as CSSTransition).transitionProperty === 'flex-grow'
+                && ['::after', '::before'].includes((a.effect as KeyframeEffect | null)?.pseudoElement ?? ''));
+            for (const slide of slides) slide.pause();
+            w.__slide = slides.some((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === '::after') ? slides : null;
         }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-empty', 'data-aparte-empty'] });
     });
     await page.keyboard.press('Enter');
@@ -287,8 +288,7 @@ test('the first send glides the composer down', async ({ page }) => {
     expect(await page.evaluate(() => !!(window as unknown as SlideWindow).__slide), 'the empty flag dropped with the spacer\'s flex-grow sliding').toBe(true);
     // Where the composer stands at a fraction of the slide's own duration.
     const at = (fraction: number) => page.evaluate((f) => {
-        const slide = (window as unknown as SlideWindow).__slide!;
-        slide.currentTime = Number(slide.effect!.getComputedTiming().duration) * f;
+        for (const slide of (window as unknown as SlideWindow).__slide!) slide.currentTime = Number(slide.effect!.getComputedTiming().duration) * f;
         return Math.round(document.querySelector('aparte-composer')!.getBoundingClientRect().top);
     }, fraction);
     const first = await at(0);
