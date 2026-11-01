@@ -173,6 +173,10 @@
 
 .aparte-product__image {
   grid-area: 1 / 1;
+  /* The frame centres its children (for the placeholder's glyph): without this the photo's
+     100% height never resolves and `--aparte-product-image-fit: cover` left bands above and
+     below a photo that is not square. */
+  place-self: stretch;
   box-sizing: border-box;
   inline-size: 100%;
   block-size: 100%;
