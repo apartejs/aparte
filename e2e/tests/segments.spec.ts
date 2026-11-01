@@ -59,24 +59,51 @@ test('reasoning deltas render a thinking block the user can open and close', asy
  * had opened closed — this block, an artifact's preview. It showed as flakes (this file's test
  * above, artifacts.spec.ts:55) once the first reply's save could land right after a click.
  */
-test('a reasoning block someone opened stays the same block, open, through the next save', async ({ page }) => {
-    // On CI (Svelte 5, then React; never locally, 30/30 under load) the block is still drawn
-    // again after the next turn: another re-sync than the save's. Open, to fix in its own PR.
-    test.fixme(true, 'a re-sync still redraws the block after the next turn on CI');
+// DIAGNOSTIC (to remove before merge): every way a node leaves the page records its call stack
+// when it takes the watched block with it, so a CI failure names what redrew the block.
+const RECORD_REMOVALS = () => {
+    const w = window as unknown as { __watched?: Element; __removals: string[] };
+    w.__removals = [];
+    const hit = (node: Node | null | undefined, how: string) => {
+        if (w.__watched && node && (node === w.__watched || node.contains?.(w.__watched))) w.__removals.push(`${how}\n${new Error().stack}`);
+    };
+    const wrap = (proto: object, name: string, pick: (self: Node, args: unknown[]) => Node | null | undefined) => {
+        const original = (proto as Record<string, (...a: unknown[]) => unknown>)[name]!;
+        (proto as Record<string, unknown>)[name] = function (this: Node, ...args: unknown[]) { hit(pick(this, args), name); return original.apply(this, args); };
+    };
+    wrap(Element.prototype, 'remove', (self) => self);
+    wrap(Element.prototype, 'replaceWith', (self) => self);
+    wrap(Element.prototype, 'replaceChildren', (self) => self.firstChild ? self : null);
+    wrap(Node.prototype, 'removeChild', (_self, [child]) => child as Node);
+    wrap(Node.prototype, 'replaceChild', (_self, [, old]) => old as Node);
+    for (const prop of ['innerHTML', 'textContent'] as const) {
+        const proto = prop === 'innerHTML' ? Element.prototype : Node.prototype;
+        const desc = Object.getOwnPropertyDescriptor(proto, prop)!;
+        Object.defineProperty(proto, prop, { ...desc, set(this: Node, value: unknown) { hit(this, `${prop}=`); desc.set!.call(this, value); } });
+    }
+};
+
+for (const round of [1, 2, 3, 4, 5]) test(`a reasoning block someone opened stays the same block, open, through the next save (${round})`, async ({ page }) => {
+    await page.addInitScript(RECORD_REMOVALS);
     await installLlmMock(page, { scenario: 'thinking' });
     const chat = new ChatPage(page);
     await page.goto('/');
     await chat.sendAndSettle('think about it', { expect: MOCK_REPLY_MARK });
 
     const first = chat.segment('thinking').first();
+    // Settled first: the block folds itself when the answer begins, and that update can land
+    // after the answer's text is on screen.
+    await expect(first.locator('.aparte-thinking-label')).not.toHaveClass(/aparte-shimmer/);
     const wasOpen = await first.evaluate((el) => (el as HTMLDetailsElement).open);
     await first.locator('summary').click();
     const handle = await first.elementHandle();
+    await handle!.evaluate((el) => { (window as unknown as { __watched?: Element }).__watched = el; });
 
     // The next turn saves the conversation.
     await chat.sendAndSettle('and again', { expect: MOCK_REPLY_MARK });
 
-    expect(await handle!.evaluate((el) => el.isConnected), 'the same element, not a redrawn one').toBe(true);
+    const removals = await page.evaluate(() => (window as unknown as { __removals: string[] }).__removals);
+    expect(await handle!.evaluate((el) => el.isConnected), `the same element, not a redrawn one. Removed by:\n${removals.join('\n---\n')}`).toBe(true);
     expect(await handle!.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(!wasOpen);
 });
 
