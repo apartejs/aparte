@@ -1,8 +1,8 @@
 /**
  * Every Playwright project runs in a CI job.
  *
- * ci.yml runs the browser suite as one job per project, listed in its matrix
- * (`- { project: react-webkit, app: react }`). A project added to e2e/playwright.config.ts and to no job
+ * ci.yml runs the browser suite as jobs that each name their projects
+ * (`--project=react-webkit`). A project added to e2e/playwright.config.ts and to no job
  * would never run on a pull request, and nothing would say so: the jobs it is missing from
  * stay green. This lists the projects as CI sees them (CI=1 keeps WebKit and Firefox) and
  * fails on any that no job names.
@@ -19,7 +19,7 @@ const list = execFileSync('pnpm', ['--filter', '@aparte-workspace/e2e', 'exec', 
 const projects = new Set([...list.matchAll(/^\s*\[([\w-]+)\]/gm)].map((m) => m[1]));
 
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
-const named = new Set([...ci.matchAll(/\{ project: ([\w-]+), app: [\w-]+ \}/g)].map((m) => m[1]));
+const named = new Set([...ci.matchAll(/--project=([\w-]+)/g)].map((m) => m[1]));
 
 if (projects.size < 10) {
     console.error(`[e2e-projects] read only ${projects.size} project(s) from \`playwright test --list\` — the listing broke, not the jobs.`);
