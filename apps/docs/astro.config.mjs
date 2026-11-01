@@ -8,6 +8,7 @@ import starlightLinksValidator from 'starlight-links-validator';
 import { REDIRECTS } from './scripts/lib/redirects.mjs';
 import { catalogueSidebar } from './scripts/lib/catalogue.mjs';
 import { guideGroups } from './scripts/lib/guides.mjs';
+import { CHANGELOG_COMPARE } from './src/lib/changelog-compare.mjs';
 import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 import { LLMS_SETS } from './src/data/llms-sets.mjs';
 
@@ -116,7 +117,7 @@ export default defineConfig({
     sitemap({
       filter: (page) => {
         const path = new URL(page).pathname;
-        return !PREVIEW_FRAME.test(path) && !(path in REDIRECTS);
+        return !PREVIEW_FRAME.test(path) && !CHANGELOG_COMPARE.test(path) && !(path in REDIRECTS);
       },
     }),
     starlight({
