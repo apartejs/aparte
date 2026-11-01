@@ -3,8 +3,8 @@
  *
  * An `AparteStorageAdapter` for `AparteConversationManager`, with split storage: the list
  * is read from small rows (`loadMeta`), a conversation's messages only when it is opened
- * (`loadFull`), and an attachment's file is kept as a `Blob` in its own store, so a
- * picture a person sent is still there after a reload. No server, no dependency.
+ * (`loadFull`), and an attachment's file is kept in its own store, so a picture a person
+ * sent is still there after a reload. No server, no dependency.
  *
  * ```ts
  * import { AparteConversationManager } from '@aparte/core';
@@ -102,7 +102,8 @@ function committed(tx: IDBTransaction): Promise<void> {
     // replace the first.
     const end = new Promise<void>((resolve, reject) => {
         tx.addEventListener('complete', () => resolve());
-        tx.addEventListener('error', () => reject(tx.error));
+        // A request's error reaches the transaction before `tx.error` is set (at the abort).
+        tx.addEventListener('error', (event) => reject((event.target as IDBRequest | null)?.error ?? tx.error));
         tx.addEventListener('abort', () => reject(tx.error ?? new Error('IndexedDB transaction aborted')));
     });
     // Awaited at the end of the work; a rejection before then is not "unhandled".
@@ -230,10 +231,18 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
     };
 
     /**
-     * The files this adapter knows are stored, as they came back from the database or went
-     * into it: saving a conversation again does not rewrite them.
+     * For each file, the conversations this adapter knows hold it in the database — as it
+     * came back from it or went into it — so saving a conversation again does not rewrite
+     * it. By conversation: the same `Blob` in a copy of a conversation is that copy's to
+     * store. A row found missing is written again whatever this says (see `save`).
      */
-    const inStore = new WeakSet<Blob>();
+    const inStore = new WeakMap<Blob, Set<string>>();
+    const known = (blob: Blob, convId: string) => inStore.get(blob)?.has(convId) ?? false;
+    const remember = (blob: Blob, convId: string) => {
+        const holders = inStore.get(blob) ?? new Set<string>();
+        holders.add(convId);
+        inStore.set(blob, holders);
+    };
 
     /** Give each stored attachment of a conversation its file and a URL for this page. */
     const rehydrate = (conv: AparteConversation, rows: AparteAttachmentRow[]): AparteConversation => {
@@ -243,7 +252,7 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         for (const { attachment } of attachmentsIn([conv.messages, conv.tree])) {
             const row = byId.get(attachment.id as string);
             if (!row) continue;
-            inStore.add(row.blob);
+            remember(row.blob, conv.id);
             attachment.blob = row.blob;
             if (objectUrl) {
                 if (!urls.has(row.id)) urls.set(row.id, objectUrl(row.blob));
@@ -301,14 +310,20 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
             for (const entry of attachmentsIn([conv.messages, conv.tree])) {
                 if (!found.has(entry.attachment.id as string)) found.set(entry.attachment.id as string, entry);
             }
-            // The bytes of every file not known to be stored, read BEFORE the transaction:
-            // awaiting anything but an IndexedDB request inside one lets it commit.
+            // Which files this conversation has in the database now, then the bytes of every
+            // file it lacks or holds in a version this adapter did not store — read BEFORE the
+            // write: awaiting anything but an IndexedDB request inside a transaction lets it
+            // commit.
+            const database = await db();
+            const read = database.transaction(ATTACHMENTS, 'readonly');
+            const rows = new Set((await done(read.objectStore(ATTACHMENTS).index(BY_CONVERSATION).getAllKeys(conv.id)))
+                .map((key) => String((key as [string, string])[1])));
             const bytes = new Map<string, ArrayBuffer>();
             await Promise.all([...found].map(async ([id, { attachment }]) => {
                 const blob = attachment.blob;
-                if (blob instanceof Blob && !inStore.has(blob)) bytes.set(id, await blob.arrayBuffer());
+                if (blob instanceof Blob && !(rows.has(id) && known(blob, conv.id))) bytes.set(id, await blob.arrayBuffer());
             }));
-            const tx = (await db()).transaction([CONVERSATIONS, PAYLOADS, ATTACHMENTS], 'readwrite');
+            const tx = database.transaction([CONVERSATIONS, PAYLOADS, ATTACHMENTS], 'readwrite');
             await atomically(tx, async () => {
                 tx.objectStore(CONVERSATIONS).put(metaOf(conv));
                 const payload: PayloadRow = { id: conv.id, messages: withoutFiles(conv.messages) };
@@ -341,7 +356,7 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
                 // goes with it.
                 for (const id of stored) if (!found.has(id)) attachments.delete([conv.id, id]);
                 // Counted as stored once the transaction commits, not before.
-                void committed(tx).then(() => { for (const blob of written) inStore.add(blob); }, () => {});
+                void committed(tx).then(() => { for (const blob of written) remember(blob, conv.id); }, () => {});
             });
         },
 
@@ -362,6 +377,8 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         // A title the person typed: no longer the manager's to change, after a reload too.
         rename: (id, title) => updateMeta(id, (meta) => { meta.title = title; (meta as AparteConversation).autoTitle = false; }),
 
+        // Every file stored under that message id — in a copy of a conversation that kept its
+        // message ids, the copy's too.
         async loadAttachments(msgId) {
             const tx = (await db()).transaction(ATTACHMENTS, 'readonly');
             return (await done(tx.objectStore(ATTACHMENTS).index(BY_MESSAGE).getAll(msgId) as IDBRequest<FileRow[]>)).map(rowOf);

@@ -128,6 +128,49 @@ describe('createIdbStorage', () => {
         put.mockRestore();
     });
 
+    describe('never loses a file it was handed', () => {
+        const withFile = (id: string, blob: Blob) => msg(id, 'x', { attachments: [{ id: 'f', name: 'f.txt', type: 'text/plain', url: '', blob }] } as Partial<AparteMessage>);
+        const fileOf = async (storage: ReturnType<typeof createIdbStorage>, convId: string) => {
+            const attachment = (await storage.loadFull(convId))!.messages.find((m) => m.attachments?.length)?.attachments?.[0];
+            return attachment?.blob ? attachment.blob.text() : null;
+        };
+
+        it('in a copy of a conversation, under a new id, with the same Blob', async () => {
+            const storage = createIdbStorage({ indexedDB: fresh(), objectUrl: () => 'blob:x' });
+            const blob = new Blob(['shared']);
+            await storage.save(conv('a', 1, [withFile('m', blob)]));
+            await storage.save(conv('b', 2, [withFile('m', blob)]));
+            expect(await fileOf(storage, 'b')).toBe('shared');
+            expect(await fileOf(storage, 'a')).toBe('shared');
+        });
+
+        it('when its message is removed and then put back', async () => {
+            const storage = createIdbStorage({ indexedDB: fresh(), objectUrl: () => 'blob:x' });
+            const message = withFile('m', new Blob(['back']));
+            await storage.save(conv('c', 1, [message]));
+            await storage.save(conv('c', 2, []));
+            await storage.save(conv('c', 3, [message]));
+            expect(await fileOf(storage, 'c')).toBe('back');
+        });
+
+        it('when the conversation is deleted and the same one saved again', async () => {
+            const storage = createIdbStorage({ indexedDB: fresh(), objectUrl: () => 'blob:x' });
+            const c = conv('c', 1, [withFile('m', new Blob(['again']))]);
+            await storage.save(c);
+            await storage.delete('c');
+            await storage.save(c);
+            expect(await fileOf(storage, 'c')).toBe('again');
+        });
+
+        it('when a file loaded from one conversation is attached to a new one', async () => {
+            const storage = createIdbStorage({ indexedDB: fresh(), objectUrl: () => 'blob:x' });
+            await storage.save(conv('a', 1, [withFile('m', new Blob(['reused']))]));
+            const loaded = (await storage.loadFull('a'))!.messages[0]!.attachments![0]!.blob!;
+            await storage.save(conv('new', 2, [withFile('n', loaded)]));
+            expect(await fileOf(storage, 'new')).toBe('reused');
+        });
+    });
+
     it('deletes a conversation with its messages and its files', async () => {
         const storage = createIdbStorage({ indexedDB: fresh() });
         const file = { id: 'f', name: 'f', type: 'text/plain', url: '', blob: new Blob(['f']) };
