@@ -29,6 +29,10 @@ concurrency:
 # marker), and it is what the jobs below hand each other.
 env:
   NX_DB_CACHE: 'false'
+  # Every job but `packages` restores the cache `packages` wrote on another runner, and nx
+  # refuses an archive "not generated on this machine" (it checks a machine id) — `test (2)`
+  # failed on it. The archive is this run's own build, so it is trusted.
+  NX_REJECT_UNKNOWN_LOCAL_CACHE: '0'
 
 jobs:
   # The run is cut so that no job holds more than about three minutes of work, and they run
