@@ -1,5 +1,15 @@
 # @aparte-workspace/ssr-next
 
+## 0.0.17
+
+### Patch Changes
+
+- Updated dependencies [8349904]
+  - @aparte/core@0.30.0
+  - @aparte/plugin-approval@0.30.0
+  - @aparte/provider-scenario@0.30.0
+  - @aparte/react@0.30.0
+
 ## 0.0.16
 
 ### Patch Changes
