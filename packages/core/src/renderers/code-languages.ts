@@ -336,6 +336,8 @@ function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCo
         if (ctx.display) drawing.setAttribute('data-aparte-display', '');
         // A drawing that stands for the whole block (a card): it handles its own overflow.
         if (renderer.bare) drawing.setAttribute('data-aparte-bare', '');
+        // A formula, a diagram, a chart reads left to right in any page; a card is the page's.
+        else drawing.setAttribute('dir', 'ltr');
         code.after(drawing);
         drawingOwner.set(drawing, code);
         if (code.parentElement?.tagName === 'PRE') code.parentElement.setAttribute(DRAWN_ATTR, '');
@@ -478,6 +480,19 @@ function drawOpen(root: Element, code: HTMLElement, renderer: AparteCodeLanguage
 }
 
 /**
+ * Code reads left to right in every language — and says so as an attribute, not only in CSS:
+ * the `dir="auto"` of a message decides its direction from its first letter, skipping only
+ * children with a `dir` of their own. An Arabic reply opening with `npm install` (or a
+ * drawn formula's hidden source) was laid out left to right as a whole. By tag rather than
+ * by selector: it runs on every pass, and a pass is meant to cost one scan of the root.
+ */
+function markLeftToRight(root: Element): void {
+    for (const tag of ['code', 'kbd', 'samp']) {
+        for (const el of Array.from(root.getElementsByTagName(tag))) if (!el.hasAttribute('dir')) el.setAttribute('dir', 'ltr');
+    }
+}
+
+/**
  * Draw every placeholder under `root` whose language has a renderer.
  *
  * Core calls it wherever it writes Markdown or a code block; call it yourself after
@@ -488,6 +503,7 @@ export function renderCodeLanguages(root: Element, options: AparteRenderCodeLang
     if (typeof document === 'undefined') return;
     const { streaming = false, refresh = false, language } = options;
     if (!refresh) {
+        markLeftToRight(root);
         lastOptions.set(root, { streaming });
         if (!streaming) asked.delete(root);
         if (!contextConfig(root).hasCodeLanguageRenderer()) {

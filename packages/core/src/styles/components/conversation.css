@@ -102,6 +102,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  /* The title reads in its own direction (`dir="auto"`) but lines up with the list: an
+     Arabic title in a left-to-right list sat flush right, next to the ⋯ button. */
+  text-align: match-parent;
 }
 /* What the conversation is doing (setConversationStatus), as `data-status` on the row. A
    running title shimmers (display/shimmer.css, worn by the title). The mark is an empty
