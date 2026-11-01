@@ -1,5 +1,45 @@
 # @aparte/core
 
+## 0.31.0
+
+### Minor Changes
+
+- 4ebac40: An answer can offer quick replies: call `setupSuggestionBlocks()` and put `<aparte-suggestions answers>` in the composer; a ```suggestions block of JSON in a reply then shows as buttons above the input.
+
+  ````md
+  Which day suits you?
+
+  ```suggestions
+  ["Tuesday 3", "Wednesday 4", { "label": "Another week", "prompt": "Next week, please" }]
+  ```
+  ````
+
+  For a backend that only sends text (an n8n workflow, a plain completion), the way a card is
+  written as a ```card-<name> block. The block draws nothing in the message; the element shows the
+  replies of the LAST answer, a click sends one as if typed, and they go the moment a message is
+  sent or when the last message is the person's. A block that is not a list shows as its source;
+  one still being written offers nothing. Off until `setupSuggestionBlocks()` is called.
+
+  No new system: one more user of `registerCodeLanguageRenderer`, the seam cards use. A new guide,
+  _Blocks in a text answer_, puts the rule in one place: a code block whose language aparté knows
+  becomes part of the interface, any other is shown as code — and shows how to add a language of
+  your own.
+
+### Patch Changes
+
+- 33aec02: `centerWhenEmpty` now centres the empty state and the composer together, as one block; it used to centre the composer alone and give the greeting only the half above it.
+
+  The viewport and the spacer under the composer shared the free height half and half, so a welcome
+  taller than a line got the half above the composer and scrolled under the scroll-to-bottom button:
+  385px for a 490px welcome in a 919px window, and an attachment took half of its own height off that
+  too (#151). While the chat is empty, the viewport now takes its content's height (shrinking and
+  scrolling only when the block does not fit) and a spacer above balances the one below; the first
+  message slides both away, as before. The hidden scroll-to-bottom button no longer holds 36px under
+  an empty state. The framework packages only (`.aparte-chat-container--auto-center`);
+  `<aparte-chat center-empty>` keeps its layout. A host that rebuilt this layout with a grid on the
+  container's children can drop it.
+  - @aparte/engine@0.31.0
+
 ## 0.30.1
 
 ### Patch Changes
