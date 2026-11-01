@@ -78,6 +78,17 @@ describe('drawing a settled source', () => {
         expect(el.children).toHaveLength(1);
     });
 
+    it('marks a drawing that stands for the whole block, so it is not made a scroller', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer(fake({ languages: ['mermaid'] }).renderer);
+        aparteGlobalConfig.registerCodeLanguageRenderer(fake({ languages: ['card-note'], bare: true }).renderer);
+        const el = root('<pre><code class="language-mermaid">a</code></pre><pre><code class="language-card-note">b</code></pre>');
+        renderCodeLanguages(el);
+
+        const [diagram, card] = el.querySelectorAll('.aparte-code-drawing');
+        expect(diagram!.hasAttribute('data-aparte-bare')).toBe(false);
+        expect(card!.hasAttribute('data-aparte-bare')).toBe(true);
+    });
+
     it('reads a display formula outside a <pre> as a block', () => {
         const { renderer, calls } = fake();
         aparteGlobalConfig.registerCodeLanguageRenderer(renderer);

@@ -243,6 +243,15 @@
   contain: paint;
 }
 
+/* …but not a drawing that stands for the whole block (`bare`: a card). It handles its own
+   overflow — a card's carousel scrolls itself, and reaches a few pixels past its box for its
+   tiles' shadows and focus ring — so a scroller here showed a scrollbar under two tiles that
+   fitted, and clipped the shadows. */
+.aparte-code-drawing[data-aparte-display][data-aparte-bare] {
+  overflow: visible;
+  contain: none;
+}
+
 /* An inline formula too: `\smash`, `\raisebox` or a negative `\kern` would otherwise lay
    a box over the bubble around it, a tool row or a question card. Atomic, because paint
    containment does nothing on an inline box; a formula longer than the line still wraps,

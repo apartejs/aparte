@@ -334,6 +334,8 @@ function fill(root: Element, code: HTMLElement, entry: Drawn, renderer: AparteCo
         drawing = document.createElement('span');
         drawing.className = DRAWING_CLASS;
         if (ctx.display) drawing.setAttribute('data-aparte-display', '');
+        // A drawing that stands for the whole block (a card): it handles its own overflow.
+        if (renderer.bare) drawing.setAttribute('data-aparte-bare', '');
         code.after(drawing);
         drawingOwner.set(drawing, code);
         if (code.parentElement?.tagName === 'PRE') code.parentElement.setAttribute(DRAWN_ATTR, '');
