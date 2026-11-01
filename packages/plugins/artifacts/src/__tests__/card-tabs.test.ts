@@ -9,6 +9,7 @@
  * worse than no role: the plain buttons at least behaved as announced.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { AparteConfig, runWithConfig } from '@aparte/core';
 import { artifactRenderer } from '../card.js';
 import type { ArtifactSegment as AparteArtifactSegment } from '../segment.js';
 
@@ -33,10 +34,13 @@ function mount(segment: AparteArtifactSegment): HTMLElement {
 
 let host: HTMLElement;
 
+// A page of its own each time: a preview chosen in one test is remembered for the card drawn
+// again in the same chat (a-preview-survives-a-redraw), and would open the next test's card on it.
 beforeEach(() => {
     document.body.innerHTML = '';
-    host = mount(SEGMENT);
-    artifactRenderer.setup?.(host, SEGMENT);
+    const page = new AparteConfig();
+    host = runWithConfig(page, () => mount(SEGMENT));
+    runWithConfig(page, () => artifactRenderer.setup?.(host, SEGMENT));
 });
 
 const tabs = (): HTMLButtonElement[] => [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
