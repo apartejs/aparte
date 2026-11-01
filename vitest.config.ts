@@ -235,7 +235,8 @@ const config = defineConfig({
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
-        'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 86, branches: 90 },
+        // Measured 2026-11-01 when the package landed: 100 lines, 93.1 branches, 93.5 functions.
+        'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 91, branches: 91 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
         'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
         // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.

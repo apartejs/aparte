@@ -20,8 +20,9 @@
  *   the list needs, so listing never reads a message.
  * - `payloads` — `messages` and the branching `tree`, by conversation id, with every
  *   attachment's `blob` taken out and its session-scoped `blob:` URL dropped.
- * - `attachments` — one `AparteAttachmentRow` per file, indexed by message and by
- *   conversation; `loadFull` gives each attachment a fresh object URL from it.
+ * - `attachments` — one row per file, keyed by conversation and attachment, indexed by
+ *   message; the file is kept as its bytes, and `loadFull` gives each attachment its `Blob`
+ *   back with a fresh object URL.
  */
 import type {
     AparteAttachmentRow,
@@ -45,8 +46,9 @@ export interface IdbStorageOptions {
     indexedDB?: IDBFactory;
     /**
      * Turns a stored file back into a URL the chat can show, when a conversation is
-     * loaded. `URL.createObjectURL` by default; where it does not exist, attachments come
-     * back with their `blob` and the URL they were saved with.
+     * loaded. `URL.createObjectURL` by default; where it does not exist, an attachment comes
+     * back with its `blob` and an empty `url` (a `blob:` URL is not kept: it dies with its
+     * page). A `blob:` `thumbnailUrl` is not kept either, nor rebuilt.
      */
     objectUrl?: (blob: Blob) => string;
 }
@@ -72,6 +74,17 @@ interface PayloadRow {
     tree?: AparteConversation['tree'];
 }
 
+/**
+ * An attachment as stored: its bytes, not its `Blob`. Safari's private browsing — and
+ * Playwright's WebKit, whose contexts are private — refuses a `Blob` in IndexedDB
+ * (`UnknownError`) and takes an `ArrayBuffer`; the `Blob` is built again on the way out.
+ */
+interface FileRow extends Omit<AparteAttachmentRow, 'blob'> {
+    bytes: ArrayBuffer;
+}
+
+const rowOf = ({ bytes, ...row }: FileRow): AparteAttachmentRow => ({ ...row, blob: new Blob([bytes], { type: row.mimeType }) });
+
 /** A request's result, as a promise. */
 function done<T>(request: IDBRequest<T>): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -80,13 +93,38 @@ function done<T>(request: IDBRequest<T>): Promise<T> {
     });
 }
 
-/** A transaction's end: resolves when it commits, rejects when it aborts or fails. */
+/**
+ * A transaction's end: resolves when it commits, rejects when it aborts or fails. Taken
+ * right after the transaction is opened, so the first failure is the one reported.
+ */
 function committed(tx: IDBTransaction): Promise<void> {
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
+    // Listeners, not `on…` properties: a second waiter on the same transaction must not
+    // replace the first.
+    const end = new Promise<void>((resolve, reject) => {
+        tx.addEventListener('complete', () => resolve());
+        tx.addEventListener('error', () => reject(tx.error));
+        tx.addEventListener('abort', () => reject(tx.error ?? new Error('IndexedDB transaction aborted')));
     });
+    // Awaited at the end of the work; a rejection before then is not "unhandled".
+    end.catch(() => {});
+    return end;
+}
+
+/**
+ * Run `work` inside `tx`, all or nothing: a throw (a value structured clone refuses, a
+ * quota) aborts the transaction, so no store keeps half of a write, and the throw is what
+ * the caller gets.
+ */
+async function atomically(tx: IDBTransaction, work: () => Promise<void> | void): Promise<void> {
+    const end = committed(tx);
+    try {
+        await work();
+    } catch (error) {
+        try { tx.abort(); } catch { /* already finished */ }
+        await end.catch(() => {});
+        throw error;
+    }
+    await end;
 }
 
 /** The meta row of a conversation: everything but its messages and tree. */
@@ -95,13 +133,22 @@ function metaOf({ messages: _messages, tree: _tree, ...meta }: AparteConversatio
 }
 
 type Json = unknown;
-const isRecord = (value: Json): value is Record<string, Json> =>
-    typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Blob);
+/**
+ * A plain object — what a message is made of. A `Date`, a `Map`, a typed array or a `Blob`
+ * is not walked into nor rebuilt: structured clone keeps them as they are.
+ */
+const isRecord = (value: Json): value is Record<string, Json> => {
+    if (typeof value !== 'object' || value === null) return false;
+    const proto = Object.getPrototypeOf(value) as unknown;
+    return proto === Object.prototype || proto === null;
+};
 
 /**
  * Every attachment (an object with an `id` in an `attachments` array) found anywhere in a
  * message list or a tree, with the message id it hangs from. The tree's shape is core's,
- * and it nests messages, so the walk is generic rather than tied to it.
+ * and it nests messages, so the walk is generic rather than tied to it. The same attachment
+ * is found twice when a conversation has a tree (its active path is in both); the message
+ * list is walked first, so it names the message.
  */
 function attachmentsIn(root: Json, found: Array<{ attachment: Record<string, Json>; msgId: string }> = [], msgId = ''): typeof found {
     if (Array.isArray(root)) {
@@ -163,13 +210,15 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
             if (!database.objectStoreNames.contains(CONVERSATIONS)) database.createObjectStore(CONVERSATIONS, { keyPath: 'id' });
             if (!database.objectStoreNames.contains(PAYLOADS)) database.createObjectStore(PAYLOADS, { keyPath: 'id' });
             if (!database.objectStoreNames.contains(ATTACHMENTS)) {
-                const files = database.createObjectStore(ATTACHMENTS, { keyPath: 'id' });
+                // Keyed by conversation AND attachment: a conversation copied into another
+                // with the same attachment ids keeps its own files.
+                const files = database.createObjectStore(ATTACHMENTS, { keyPath: ['convId', 'id'] });
                 files.createIndex(BY_MESSAGE, 'msgId');
                 files.createIndex(BY_CONVERSATION, 'convId');
             }
         };
         opening = done(request).then((database) => {
-            // Another tab upgrading the schema asks this one to let go; the next call reopens.
+            // Another tab upgrading the schema asks this one to let go, so it is not blocked.
             database.onversionchange = () => { database.close(); opening = undefined; };
             database.onclose = () => { opening = undefined; };
             return database;
@@ -180,6 +229,12 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         return opening;
     };
 
+    /**
+     * The files this adapter knows are stored, as they came back from the database or went
+     * into it: saving a conversation again does not rewrite them.
+     */
+    const inStore = new WeakSet<Blob>();
+
     /** Give each stored attachment of a conversation its file and a URL for this page. */
     const rehydrate = (conv: AparteConversation, rows: AparteAttachmentRow[]): AparteConversation => {
         if (rows.length === 0) return conv;
@@ -188,6 +243,7 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         for (const { attachment } of attachmentsIn([conv.messages, conv.tree])) {
             const row = byId.get(attachment.id as string);
             if (!row) continue;
+            inStore.add(row.blob);
             attachment.blob = row.blob;
             if (objectUrl) {
                 if (!urls.has(row.id)) urls.set(row.id, objectUrl(row.blob));
@@ -199,13 +255,14 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
 
     const updateMeta = async (id: string, change: (meta: AparteConversationMeta) => void): Promise<void> => {
         const tx = (await db()).transaction(CONVERSATIONS, 'readwrite');
-        const store = tx.objectStore(CONVERSATIONS);
-        const meta = await done(store.get(id) as IDBRequest<AparteConversationMeta | undefined>);
-        if (meta) {
-            change(meta);
-            store.put(meta);
-        }
-        await committed(tx);
+        await atomically(tx, async () => {
+            const store = tx.objectStore(CONVERSATIONS);
+            const meta = await done(store.get(id) as IDBRequest<AparteConversationMeta | undefined>);
+            if (meta) {
+                change(meta);
+                store.put(meta);
+            }
+        });
     };
 
     const loadMeta = async (): Promise<AparteConversationMeta[]> => {
@@ -219,12 +276,12 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         const [meta, payload, rows] = await Promise.all([
             done(tx.objectStore(CONVERSATIONS).get(id) as IDBRequest<AparteConversationMeta | undefined>),
             done(tx.objectStore(PAYLOADS).get(id) as IDBRequest<PayloadRow | undefined>),
-            done(tx.objectStore(ATTACHMENTS).index(BY_CONVERSATION).getAll(id) as IDBRequest<AparteAttachmentRow[]>),
+            done(tx.objectStore(ATTACHMENTS).index(BY_CONVERSATION).getAll(id) as IDBRequest<FileRow[]>),
         ]);
         if (!meta) return null;
         const conv: AparteConversation = { ...meta, messages: payload?.messages ?? [] };
         if (payload?.tree) conv.tree = payload.tree;
-        return rehydrate(conv, rows);
+        return rehydrate(conv, rows.map(rowOf));
     };
 
     return {
@@ -238,46 +295,64 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
         },
 
         async save(conv) {
-            const files = attachmentsIn([conv.messages, conv.tree])
-                .filter(({ attachment }) => attachment.blob instanceof Blob);
-            const tx = (await db()).transaction([CONVERSATIONS, PAYLOADS, ATTACHMENTS], 'readwrite');
-            tx.objectStore(CONVERSATIONS).put(metaOf(conv));
-            const payload: PayloadRow = { id: conv.id, messages: withoutFiles(conv.messages) };
-            if (conv.tree) payload.tree = withoutFiles(conv.tree);
-            tx.objectStore(PAYLOADS).put(payload);
-
-            const attachments = tx.objectStore(ATTACHMENTS);
-            const kept = new Set<string>();
-            for (const { attachment, msgId } of files) {
-                const blob = attachment.blob as Blob;
-                kept.add(attachment.id as string);
-                const row: AparteAttachmentRow = {
-                    id: attachment.id as string,
-                    convId: conv.id,
-                    msgId,
-                    name: typeof attachment.name === 'string' ? attachment.name : '',
-                    mimeType: typeof attachment.type === 'string' && attachment.type ? attachment.type : blob.type,
-                    size: typeof attachment.size === 'number' ? attachment.size : blob.size,
-                    blob,
-                };
-                attachments.put(row);
+            // Each attachment once (a conversation with a tree has its active path twice),
+            // named by the first message it was found in.
+            const found = new Map<string, { attachment: Record<string, Json>; msgId: string }>();
+            for (const entry of attachmentsIn([conv.messages, conv.tree])) {
+                if (!found.has(entry.attachment.id as string)) found.set(entry.attachment.id as string, entry);
             }
-            // A file whose attachment left the conversation (a message edited or deleted)
-            // goes with it. An attachment still referenced without its blob in hand — saved
-            // before, loaded back without it — keeps its row.
-            const referenced = new Set(attachmentsIn([conv.messages, conv.tree]).map(({ attachment }) => attachment.id as string));
-            const stored = await done(attachments.index(BY_CONVERSATION).getAllKeys(conv.id));
-            for (const key of stored) if (!kept.has(String(key)) && !referenced.has(String(key))) attachments.delete(key);
-            await committed(tx);
+            // The bytes of every file not known to be stored, read BEFORE the transaction:
+            // awaiting anything but an IndexedDB request inside one lets it commit.
+            const bytes = new Map<string, ArrayBuffer>();
+            await Promise.all([...found].map(async ([id, { attachment }]) => {
+                const blob = attachment.blob;
+                if (blob instanceof Blob && !inStore.has(blob)) bytes.set(id, await blob.arrayBuffer());
+            }));
+            const tx = (await db()).transaction([CONVERSATIONS, PAYLOADS, ATTACHMENTS], 'readwrite');
+            await atomically(tx, async () => {
+                tx.objectStore(CONVERSATIONS).put(metaOf(conv));
+                const payload: PayloadRow = { id: conv.id, messages: withoutFiles(conv.messages) };
+                if (conv.tree) payload.tree = withoutFiles(conv.tree);
+                tx.objectStore(PAYLOADS).put(payload);
+
+                const attachments = tx.objectStore(ATTACHMENTS);
+                const stored = new Set((await done(attachments.index(BY_CONVERSATION).getAllKeys(conv.id)))
+                    .map((key) => String((key as [string, string])[1])));
+                const written: Blob[] = [];
+                for (const [id, { attachment, msgId }] of found) {
+                    const blob = attachment.blob;
+                    const data = bytes.get(id);
+                    // A file already stored is not written again; one held without its blob
+                    // (saved before, loaded back without it) keeps its row.
+                    if (!(blob instanceof Blob) || !data) continue;
+                    const row: FileRow = {
+                        id,
+                        convId: conv.id,
+                        msgId,
+                        name: typeof attachment.name === 'string' ? attachment.name : '',
+                        mimeType: typeof attachment.type === 'string' && attachment.type ? attachment.type : blob.type,
+                        size: typeof attachment.size === 'number' ? attachment.size : blob.size,
+                        bytes: data,
+                    };
+                    attachments.put(row);
+                    written.push(blob);
+                }
+                // A file whose attachment left the conversation (a message edited or deleted)
+                // goes with it.
+                for (const id of stored) if (!found.has(id)) attachments.delete([conv.id, id]);
+                // Counted as stored once the transaction commits, not before.
+                void committed(tx).then(() => { for (const blob of written) inStore.add(blob); }, () => {});
+            });
         },
 
         async delete(id) {
             const tx = (await db()).transaction([CONVERSATIONS, PAYLOADS, ATTACHMENTS], 'readwrite');
-            tx.objectStore(CONVERSATIONS).delete(id);
-            tx.objectStore(PAYLOADS).delete(id);
-            const attachments = tx.objectStore(ATTACHMENTS);
-            for (const key of await done(attachments.index(BY_CONVERSATION).getAllKeys(id))) attachments.delete(key);
-            await committed(tx);
+            await atomically(tx, async () => {
+                tx.objectStore(CONVERSATIONS).delete(id);
+                tx.objectStore(PAYLOADS).delete(id);
+                const attachments = tx.objectStore(ATTACHMENTS);
+                for (const key of await done(attachments.index(BY_CONVERSATION).getAllKeys(id))) attachments.delete(key);
+            });
         },
 
         archive: (id) => updateMeta(id, (meta) => { meta.archivedAt = Date.now(); }),
@@ -289,7 +364,7 @@ export function createIdbStorage(options: IdbStorageOptions = {}): IdbStorage {
 
         async loadAttachments(msgId) {
             const tx = (await db()).transaction(ATTACHMENTS, 'readonly');
-            return done(tx.objectStore(ATTACHMENTS).index(BY_MESSAGE).getAll(msgId) as IDBRequest<AparteAttachmentRow[]>);
+            return (await done(tx.objectStore(ATTACHMENTS).index(BY_MESSAGE).getAll(msgId) as IDBRequest<FileRow[]>)).map(rowOf);
         },
 
         close() {

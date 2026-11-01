@@ -23,8 +23,10 @@ await manager.init();
   list never reads a message.
 - **The messages and their branches**: the `messages` and the `tree` of every version, read when the
   conversation opens.
-- **The files**: each attachment's `blob` in its own store, by message and by conversation, given a
-  fresh object URL when the conversation is loaded. A file whose attachment left the conversation
+- **The files**: each attachment's file in its own store, by message and by conversation — kept as
+  its bytes, which Safari's private browsing accepts where it refuses a `Blob` — given back as a
+  `Blob` with a fresh object URL when the conversation is loaded, and written once — saving the conversation
+  again does not rewrite them. A file whose attachment left the conversation
   is deleted with it; deleting a conversation deletes its files.
 - **What the person did**: a pin, an archive, a title typed in — kept as a typed title, so the
   manager does not re-title it after a reload.
@@ -40,8 +42,10 @@ await manager.init();
 The adapter returned, `IdbStorage`, is the full `AparteStorageAdapter` (split loading, pins, archives,
 rename, `loadAttachments`) plus `close()`, which lets go of the database; the next call opens it
 again. The database opens on the first call, so creating the adapter during a server render is
-harmless; a call where there is no IndexedDB rejects with a message that says so. Another tab
-upgrading the database is not blocked: this one closes and reopens on its next call.
+harmless; a call where there is no IndexedDB rejects with a message that says so. A save is all
+or nothing: if a message cannot be stored (a value structured clone refuses, the quota), nothing
+of it is, and the save rejects with that error. Another tab upgrading the database is not blocked:
+this connection lets go of it.
 
 [The persistence guide](https://apartejs.dev/guides/conversation-persistence/#keep-them-in-the-browser)
 shows it with the conversation list.

@@ -5,7 +5,7 @@
  * the list does not need is read to draw it.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { AparteConversationManager } from '@aparte/core';
 import type { AparteConversation, AparteMessage } from '@aparte/core';
 import { createIdbStorage } from '../index.js';
@@ -77,6 +77,55 @@ describe('createIdbStorage', () => {
         await storage.save(conv('c', 2, [msg('m1', 'x', { attachments: [aWithoutFile] } as Partial<AparteMessage>)]));
         expect(await storage.loadAttachments('m1')).toHaveLength(1);
         expect(await storage.loadAttachments('m2')).toHaveLength(0);
+    });
+
+    it('writes all of a save or nothing: a message structured clone refuses leaves the stored conversation as it was', async () => {
+        const storage = createIdbStorage({ indexedDB: fresh() });
+        await storage.save({ ...conv('c', 1, [msg('m', 'old')]), title: 'OLD' });
+        const bad = msg('m', 'new', { metadata: { notData: () => 1 } } as Partial<AparteMessage>);
+        await expect(storage.save({ ...conv('c', 99, [bad]), title: 'NEW' })).rejects.toBeTruthy();
+        const after = (await storage.loadFull('c'))!;
+        expect(after.title).toBe('OLD');
+        expect(after.updatedAt).toBe(1);
+        expect(after.messages[0]!.content).toBe('old');
+    });
+
+    it('keeps the files of two conversations apart, even under the same attachment id', async () => {
+        const storage = createIdbStorage({ indexedDB: fresh(), objectUrl: () => 'blob:x' });
+        const file = (text: string) => ({ id: 'same', name: 'f.txt', type: 'text/plain', url: '', blob: new Blob([text]) });
+        await storage.save(conv('a', 1, [msg('ma', 'x', { attachments: [file('from a')] } as Partial<AparteMessage>)]));
+        await storage.save(conv('b', 2, [msg('mb', 'x', { attachments: [file('from b')] } as Partial<AparteMessage>)]));
+        await storage.delete('b');
+        const a = (await storage.loadFull('a'))!.messages[0]!.attachments![0]!;
+        expect(await a.blob!.text()).toBe('from a');
+    });
+
+    it('keeps a Date, a typed array or a Map in a message as they are', async () => {
+        const storage = createIdbStorage({ indexedDB: fresh() });
+        const metadata = { at: new Date(5), bytes: new Uint8Array([1, 2]), tags: new Map([['k', 'v']]) };
+        await storage.save(conv('c', 1, [msg('m', 'x', { metadata } as Partial<AparteMessage>)]));
+        const back = (await storage.loadFull('c'))!.messages[0]!.metadata as typeof metadata;
+        expect(back.at).toBeInstanceOf(Date);
+        expect(back.at.getTime()).toBe(5);
+        expect(Array.from(back.bytes)).toEqual([1, 2]);
+        expect(back.tags.get('k')).toBe('v');
+    });
+
+    it('does not write a stored file again when the conversation is saved again, nor twice for its tree', async () => {
+        const idb = fresh();
+        const storage = createIdbStorage({ indexedDB: idb, objectUrl: () => 'blob:x' });
+        const file = { id: 'f', name: 'f.png', type: 'image/png', url: '', blob: new Blob(['png']) };
+        const message = msg('m', 'x', { attachments: [file] } as Partial<AparteMessage>);
+        const put = vi.spyOn(IDBObjectStore.prototype, 'put');
+        const filePuts = () => put.mock.contexts.filter((store) => (store as IDBObjectStore).name === 'attachments').length;
+
+        await storage.save({ ...conv('c', 1, [message]), tree: { headId: 'm', messages: [{ message, parentId: null }] } } as AparteConversation);
+        expect(filePuts()).toBe(1);
+        const loaded = (await storage.loadFull('c'))!;
+        put.mockClear();
+        await storage.save({ ...loaded, messages: [...loaded.messages, msg('m2', 'more')], updatedAt: 2 });
+        expect(filePuts()).toBe(0);
+        put.mockRestore();
     });
 
     it('deletes a conversation with its messages and its files', async () => {

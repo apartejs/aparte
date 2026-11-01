@@ -1,7 +1,7 @@
 {
     "name": "@aparte/plugin-storage-idb",
     "version": "0.31.0",
-    "homepage": "https://apartejs.dev/plugins/storage-idb/",
+    "homepage": "https://apartejs.dev/guides/conversation-persistence/",
     "description": "Keep conversations in the browser: an IndexedDB storage adapter for aparté's conversation manager — split storage, attachments kept as files, no server.",
     "type": "module",
     "sideEffects": false,
