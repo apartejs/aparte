@@ -1,5 +1,30 @@
 # @aparte-workspace/example-shared
 
+## 0.0.31
+
+### Patch Changes
+
+- Updated dependencies [fca59cc]
+- Updated dependencies [e6a3198]
+- Updated dependencies [8349904]
+  - @aparte/plugin-cards@0.30.0
+  - @aparte/core@0.30.0
+  - @aparte/plugin-approval@0.30.0
+  - @aparte/plugin-artifacts@0.30.0
+  - @aparte/plugin-ask-user@0.30.0
+  - @aparte/plugin-compaction@0.30.0
+  - @aparte/plugin-katex@0.30.0
+  - @aparte/plugin-marked@0.30.0
+  - @aparte/plugin-mermaid@0.30.0
+  - @aparte/plugin-model-selector@0.30.0
+  - @aparte/plugin-shiki@0.30.0
+  - @aparte/plugin-streaming-markdown@0.30.0
+  - @aparte/runner-ag-ui@0.30.0
+  - @aparte/runner-n8n@0.30.0
+  - @aparte/provider-openai-compat@0.30.0
+  - @aparte/provider-scenario@0.30.0
+  - @aparte/engine@0.30.0
+
 ## 0.0.30
 
 ### Patch Changes

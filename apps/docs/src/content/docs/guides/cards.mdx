@@ -177,7 +177,9 @@ setupPlaceCard({ tool: 'find_places', currencySymbol: '€' });
 
 `card` tiles (default), `compact` rows, and a `detail` sheet with the week's hours, today first.
 Its reader takes both generations of Google Places and Yelp. The hours logic is exported too:
-`readHours`, `readTime`, `placeStatus`, `isOpenAt`, `directionsUrl` and `phoneUrl`.
+`readHours`, `readTime`, `placeStatus`, `isOpenAt`, `directionsUrl` and `phoneUrl`. Without a
+photo it draws a map of its own and fetches nothing; `mapTiles` puts a place with coordinates on
+your real map tiles instead ([A real map](/components/place-card/#a-real-map)).
 
 ### Key figures — `stats`
 

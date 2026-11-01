@@ -4,6 +4,50 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.30.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [fca59cc](https://github.com/apartejs/aparte/commit/fca59cc): The place card can show a real map: pass `mapTiles` (your tile server's address, `{z}/{x}/{y}` in it) and `mapAttribution` to `setupPlaceCard`. Nothing changes without them.
+
+  ```ts
+  setupPlaceCard({
+    mapTiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    mapAttribution: "© OpenStreetMap contributors",
+  });
+  ```
+
+  A place with coordinates and no photo then sits on nine tiles, centred under its marker, with the
+  credit in a corner; `mapZoom` sets how close (16 by default). A photo still wins over the map, a
+  place without coordinates keeps the drawn map, and so does a card whose tile fails to load.
+  Off by default because each tile is a request to a third party that sees the visitor and the
+  place: the provider (OpenStreetMap, MapTiler, Stadia, your own) is the app's choice. Tiles keep
+  the page's referrer, which OpenStreetMap's usage policy asks for. `--aparte-place-map-filter`
+  takes a CSS filter to dim them in a dark theme.
+  <sub>`@aparte/plugin-cards`</sub>
+
+### Patch Changes
+
+- [8349904](https://github.com/apartejs/aparte/commit/8349904): A reply that ends before its conversation is created is now saved with it; it used to be lost, leaving the conversation with the question alone.
+
+  The first send creates the conversation, and the creation waits for the list to load. With a
+  store that answers in its own time (a server, IndexedDB), a fast reply could end while there
+  was no active conversation yet: the save at the end of the turn did nothing, and leaving the
+  conversation and opening it again showed an empty answer. The browser suites had caught it as a
+  flaky test on slow CI machines. Now the reply is saved as soon as the conversation exists.
+  <sub>`@aparte/core`</sub>
+
+- [e6a3198](https://github.com/apartejs/aparte/commit/e6a3198): `--aparte-product-image-fit: cover` now fills the product card's photo frame; a photo that was not square used to leave bands above and below it.
+
+  The frame centres what it holds (for the placeholder's glyph), so the photo's 100% height never
+  resolved: measured 186×140 px in a 186×186 frame. Shop packshots, drawn with the default
+  `contain`, look the same as before.
+  <sub>`@aparte/plugin-cards`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.29.4
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

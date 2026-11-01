@@ -288,6 +288,45 @@
     color-mix(in oklab, var(--aparte-place-hue) 13%, var(--aparte-surface-2));
 }
 
+/* The app's own map tiles (`mapTiles`), under the marker: the place at the marker's tip,
+   where its shadow falls. Placed in physical pixels — a map is not text, and a
+   right-to-left page does not mirror it. The drawn map steps aside and keeps the marker. */
+.aparte-place__map {
+  position: absolute;
+  left: calc(50% - var(--aparte-place-map-x));
+  top: calc(50% + 1.45rem - var(--aparte-place-map-y));
+  display: grid;
+  grid-template-columns: repeat(3, 256px);
+  width: 768px;
+  filter: var(--aparte-place-map-filter, none);
+}
+
+.aparte-place__tile {
+  display: block;
+  width: 256px;
+  height: 256px;
+  max-width: none;
+}
+
+.aparte-place__media[data-map] .aparte-place__placeholder {
+  z-index: 1;
+  background: none;
+}
+
+/* The credit the tiles' provider asks for, in a corner of the map. */
+.aparte-place__credit {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  z-index: 2;
+  padding: 1px 6px;
+  border-start-start-radius: var(--aparte-radius-sm, 4px);
+  font-size: 0.625rem;
+  line-height: 1.4;
+  color: var(--aparte-text-muted);
+  background: color-mix(in oklab, var(--aparte-surface-1) 85%, transparent);
+}
+
 /* The marker's shadow on the ground. */
 .aparte-place__placeholder::after {
   content: "";

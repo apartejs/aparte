@@ -1,5 +1,34 @@
 # @aparte/plugin-cards
 
+## 0.30.0
+
+### Minor Changes
+
+- fca59cc: The place card can show a real map: pass `mapTiles` (your tile server's address, `{z}/{x}/{y}` in it) and `mapAttribution` to `setupPlaceCard`. Nothing changes without them.
+
+  ```ts
+  setupPlaceCard({
+    mapTiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    mapAttribution: "© OpenStreetMap contributors",
+  });
+  ```
+
+  A place with coordinates and no photo then sits on nine tiles, centred under its marker, with the
+  credit in a corner; `mapZoom` sets how close (16 by default). A photo still wins over the map, a
+  place without coordinates keeps the drawn map, and so does a card whose tile fails to load.
+  Off by default because each tile is a request to a third party that sees the visitor and the
+  place: the provider (OpenStreetMap, MapTiler, Stadia, your own) is the app's choice. Tiles keep
+  the page's referrer, which OpenStreetMap's usage policy asks for. `--aparte-place-map-filter`
+  takes a CSS filter to dim them in a dark theme.
+
+### Patch Changes
+
+- e6a3198: `--aparte-product-image-fit: cover` now fills the product card's photo frame; a photo that was not square used to leave bands above and below it.
+
+  The frame centres what it holds (for the placeholder's glyph), so the photo's 100% height never
+  resolved: measured 186×140 px in a 186×186 frame. Shop packshots, drawn with the default
+  `contain`, look the same as before.
+
 ## 0.29.4
 
 ## 0.29.3

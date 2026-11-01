@@ -1,5 +1,7 @@
 # @aparte/plugin-ask-question
 
+## 0.30.0
+
 ## 0.29.4
 
 ## 0.29.3

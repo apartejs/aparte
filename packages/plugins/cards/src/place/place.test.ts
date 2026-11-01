@@ -695,3 +695,68 @@ describe('the phone link and the photo', () => {
         expect(draw(call('resolved', TRATTORIA)).querySelector('img.aparte-place__img')!.getAttribute('referrerpolicy')).toBe('no-referrer');
     });
 });
+
+describe('the map behind a place (mapTiles)', () => {
+    const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const STUDIO = { name: 'Demo studio', address: '12 rue de la Paix, Paris', coordinates: { lat: 48.8686, lng: 2.331 } };
+    const tiles = (card: Element) => [...card.querySelectorAll('img.aparte-place__tile')];
+
+    it('fetches nothing unless the app gives tiles: the drawn map, as before', () => {
+        setup();
+        const card = draw(call('resolved', STUDIO));
+        expect(tiles(card)).toHaveLength(0);
+        expect(card.querySelector('.aparte-place__media')!.hasAttribute('data-map')).toBe(false);
+    });
+
+    it('lays nine tiles around the place, the place under the marker, with the provider\'s credit', () => {
+        setup({ mapTiles: OSM, mapAttribution: '© OpenStreetMap contributors' });
+        const card = draw(call('resolved', STUDIO));
+        const media = card.querySelector('.aparte-place__media')!;
+        expect(media.hasAttribute('data-map')).toBe(true);
+        const srcs = tiles(card).map((t) => t.getAttribute('src'));
+        expect(srcs).toHaveLength(9);
+        // The middle one is the tile the place is in (zoom 16 by default).
+        expect(srcs[4]).toBe('https://tile.openstreetmap.org/16/33192/22542.png');
+        expect(srcs[0]).toBe('https://tile.openstreetmap.org/16/33191/22541.png');
+        const layer = card.querySelector<HTMLElement>('.aparte-place__map')!;
+        expect(layer.style.getPropertyValue('--aparte-place-map-x')).toBe('344px');
+        expect(layer.style.getPropertyValue('--aparte-place-map-y')).toBe('493px');
+        expect(layer.getAttribute('aria-hidden')).toBe('true');
+        expect(text(card, '.aparte-place__credit')).toBe('© OpenStreetMap contributors');
+        // Tiles keep the page's referrer: OpenStreetMap's policy asks for one.
+        expect(tiles(card)[4]!.hasAttribute('referrerpolicy')).toBe(false);
+    });
+
+    it('wraps the world east and west, and leaves no tile above the pole', () => {
+        setup({ mapTiles: OSM, mapZoom: 1 });
+        const srcs = tiles(draw(call('resolved', { name: 'Null Island', coordinates: { lat: 0, lng: 0 } }))).map((t) => t.getAttribute('src'));
+        expect(srcs.slice(0, 3)).toEqual(['https://tile.openstreetmap.org/1/0/0.png', 'https://tile.openstreetmap.org/1/1/0.png', 'https://tile.openstreetmap.org/1/0/0.png']);
+        expect(srcs.slice(6)).toEqual([null, null, null]);
+    });
+
+    it('keeps a photo over the map, and the drawn map for a place without coordinates', () => {
+        setup({ mapTiles: OSM });
+        expect(tiles(draw(call('resolved', { ...STUDIO, image: 'https://example.com/front.jpg' })))).toHaveLength(0);
+        document.body.innerHTML = '';
+        expect(tiles(draw(call('resolved', { name: 'Somewhere' })))).toHaveLength(0);
+    });
+
+    it('ignores tiles that are not an http(s) address with {z}, {x} and {y}', () => {
+        for (const mapTiles of ['javascript:alert(1)//{z}/{x}/{y}', 'https://tiles.example/{z}/{x}.png']) {
+            stop();
+            setup({ mapTiles });
+            expect(tiles(draw(call('resolved', STUDIO)))).toHaveLength(0);
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('brings the drawn map back when a tile fails', () => {
+        setup({ mapTiles: OSM, mapAttribution: '© OSM' });
+        const card = draw(call('resolved', STUDIO));
+        tiles(card)[2]!.dispatchEvent(new Event('error'));
+        expect(tiles(card)).toHaveLength(0);
+        expect(card.querySelector('.aparte-place__credit')).toBeNull();
+        expect(card.querySelector('.aparte-place__media')!.hasAttribute('data-map')).toBe(false);
+        expect(card.querySelector('.aparte-place__marker')).not.toBeNull();
+    });
+});
