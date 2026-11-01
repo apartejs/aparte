@@ -333,6 +333,13 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
 const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte4', 'svelte5'];
 
+// Under WebKit a framework example runs its SMOKE suite only — mounting, a send, a reply, the
+// rendering — which is where the framework boundary lives. The deep suites (cards, tools,
+// the chat site, accessibility) run under WebKit once, on vanilla, and on every framework in
+// Chromium: running them again per framework in WebKit was most of a CI run (~300 tests,
+// 2026-11-01) for an engine whose behaviour they do not change.
+const WEBKIT_SMOKE_ONLY: AppKey[] = ['react', 'vue', 'svelte4', 'svelte5'];
+
 // Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
 // WebKit build on Windows creates a real OS window even headless, so a full run pops
 // several of them and steals focus from whatever is fullscreen. Ignored under CI, which
@@ -407,11 +414,11 @@ export default defineConfig({
             // self-skips unless E2E_REAL_MODEL=1); vanilla-dist runs its HITL suite.
             testMatch: suiteFor(k),
         })),
-        // Same suites under WebKit, for the pure web-component examples.
+        // Under WebKit: the full suite on vanilla and vanilla-dist, the smoke on the frameworks.
         ...(skipWebkit ? [] : selected.filter((k) => WEBKIT_APPS.includes(k))).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
-            testMatch: suiteFor(k),
+            testMatch: WEBKIT_SMOKE_ONLY.includes(k) ? [SMOKE] : suiteFor(k),
             // WebKit is the slow engine here, and it runs alongside five other dev
             // servers. Three different specs have been seen failing ONCE each on
             // whichever webkit project was scheduled last, then passing on re-run —

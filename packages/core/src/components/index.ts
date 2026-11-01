@@ -14,7 +14,7 @@ export { AparteConversationList } from './conversation-list/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './conversation-list/index.js';
 
 // Prompt starters
-export { AparteSuggestions } from './suggestions/index.js';
+export { AparteSuggestions, setupSuggestionBlocks, SUGGESTIONS_BLOCK_LANGUAGE } from './suggestions/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './suggestions/index.js';
 
 // Context-window gauge

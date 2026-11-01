@@ -513,6 +513,38 @@ aparte-chat-status:not([visible]) {
   flex-grow: 1;
 }
 
+/* The empty state and the composer centred as ONE block (#151). The viewport and the spacer
+   below used to share the free height half and half, so a welcome taller than a line got the
+   half above the composer and scrolled — 385px for a 490px welcome in a 919px window, and an
+   attachment took half of its own height off that too. While empty, the viewport takes its
+   content's height (shrinking, and scrolling, only when the block does not fit) and a spacer
+   above balances the one below. A message drops the flag: the viewport is back to its one size
+   rule and both spacers slide to nothing, as the one below always has. */
+.aparte-chat-container--auto-center::before {
+  content: '';
+  display: block;
+  flex: 0 1 0%;
+}
+
+.aparte-chat-container--auto-center[data-aparte-empty]::before {
+  flex-grow: 1;
+}
+
+.aparte-chat-container--auto-center[data-aparte-empty] > aparte-chat-viewport.aparte-viewport--framework {
+  flex: 0 1 auto;
+}
+
+.aparte-chat-container--auto-center[data-glide]::before,
+[data-glide] > .aparte-chat-container--auto-center::before {
+  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+/* An empty transcript has nothing to scroll back to: the hidden button gives its 36px back to
+   the welcome instead of holding them under it. */
+.aparte-chat-container--auto-center[data-aparte-empty] .aparte-scroll-btn--hidden {
+  display: none;
+}
+
 /* overlay-composer × center-empty: while the welcome state centres the composer,
    the overlay stands down — an empty transcript has nothing to scroll, so the
    surface has nothing to span, and an absolute viewport would pin the welcome to
@@ -531,7 +563,8 @@ aparte-chat[overlay-composer][center-empty][data-empty] > aparte-chat-viewport,
    bottom inset on that frame (676px for a 104px composer, React, 2026-09-05). The
    overlay's composer has always snapped to the bottom; it keeps doing so. */
 aparte-chat[overlay-composer][center-empty]::after,
-.aparte-chat-container--auto-center[overlay-composer]::after {
+.aparte-chat-container--auto-center[overlay-composer]::after,
+.aparte-chat-container--auto-center[overlay-composer]::before {
   transition: none;
 }
 

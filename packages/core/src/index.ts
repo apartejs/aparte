@@ -257,7 +257,7 @@ export { AparteChatViewport } from './components/index.js';
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
-export { AparteSuggestions } from './components/index.js';
+export { AparteSuggestions, setupSuggestionBlocks, SUGGESTIONS_BLOCK_LANGUAGE } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 export { AparteContext } from './components/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';

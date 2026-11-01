@@ -4,6 +4,60 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.31.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [4ebac40](https://github.com/apartejs/aparte/commit/4ebac40): An answer can offer quick replies: call `setupSuggestionBlocks()` and put `<aparte-suggestions answers>` in the composer; a ```suggestions block of JSON in a reply then shows as buttons above the input.
+
+  ````md
+  Which day suits you?
+
+  ```suggestions
+  ["Tuesday 3", "Wednesday 4", { "label": "Another week", "prompt": "Next week, please" }]
+  ```
+  ````
+
+  For a backend that only sends text (an n8n workflow, a plain completion), the way a card is
+  written as a ```card-<name> block. The block draws nothing in the message; the element shows the
+  replies of the LAST answer, a click sends one as if typed, and they go the moment a message is
+  sent or when the last message is the person's. A block that is not a list shows as its source;
+  one still being written offers nothing. Off until `setupSuggestionBlocks()` is called.
+
+  No new system: one more user of `registerCodeLanguageRenderer`, the seam cards use. A new guide,
+  _Blocks in a text answer_, puts the rule in one place: a code block whose language aparté knows
+  becomes part of the interface, any other is shown as code — and shows how to add a language of
+  your own.
+  <sub>`@aparte/core`</sub>
+
+### Patch Changes
+
+- [e1686b8](https://github.com/apartejs/aparte/commit/e1686b8): A card drawn from a block (a product carousel) no longer shows a scrollbar under it, and its shadows are no longer clipped.
+
+- [5460601](https://github.com/apartejs/aparte/commit/5460601): A save no longer redraws the messages on screen under a framework: what a person opened (a reasoning block, an artifact's preview) stays open.
+
+  Every save serialises the conversation's tree, and under React, Vue, Svelte or Angular that synced
+  every field of every message into the viewport, so each message's segments were drawn again and
+  closed whatever had been opened. Only the fields that changed are passed now.
+  <sub>`@aparte/core`</sub>
+
+- [33aec02](https://github.com/apartejs/aparte/commit/33aec02): `centerWhenEmpty` now centres the empty state and the composer together, as one block; it used to centre the composer alone and give the greeting only the half above it.
+
+  The viewport and the spacer under the composer shared the free height half and half, so a welcome
+  taller than a line got the half above the composer and scrolled under the scroll-to-bottom button:
+  385px for a 490px welcome in a 919px window, and an attachment took half of its own height off that
+  too (#151). While the chat is empty, the viewport now takes its content's height (shrinking and
+  scrolling only when the block does not fit) and a spacer above balances the one below; the first
+  message slides both away, as before. The hidden scroll-to-bottom button no longer holds 36px under
+  an empty state. The framework packages only (`.aparte-chat-container--auto-center`);
+  `<aparte-chat center-empty>` keeps its layout. A host that rebuilt this layout with a grid on the
+  container's children can drop it.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.30.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
