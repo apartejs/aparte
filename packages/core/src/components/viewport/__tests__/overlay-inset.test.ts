@@ -19,7 +19,7 @@ const observed: Element[] = [];
 class CapturingResizeObserver {
     constructor(cb: ResizeObserverCallback) { roCallbacks.push(() => cb([], this as unknown as ResizeObserver)); }
     observe(el: Element): void { if (!observed.includes(el)) observed.push(el); }
-    unobserve(): void {}
+    unobserve(el: Element): void { const i = observed.indexOf(el); if (i !== -1) observed.splice(i, 1); }
     disconnect(): void {}
 }
 
@@ -133,5 +133,38 @@ describe('overlay-composer wiring', () => {
         for (const cb of roCallbacks) cb();
         expect(observed, 'no stack targets without the attribute').not.toContain(composer);
         expect(vp.style.getPropertyValue('--aparte-bottom-inset'), 'no var without the attribute').toBe('');
+    });
+
+    it('an attribute set after the viewport connected is followed (Angular binds it late)', async () => {
+        // Angular's wrapper writes `[attr.overlay-composer]` on its inner container in the
+        // update pass, after the viewport inside it has connected. Read once, the mode was
+        // never seen: no inset, and the composer covered the end of the transcript.
+        const chat = document.createElement('aparte-chat');
+        const vp = document.createElement('aparte-chat-viewport');
+        const composer = document.createElement('aparte-composer');
+        chat.append(vp, composer);
+        document.body.appendChild(chat);
+        mockRect(vp, { top: 0, bottom: 600, height: 600 });
+        mockRect(composer, { top: 470, bottom: 590, height: 120 });
+
+        chat.setAttribute('overlay-composer', '');
+        await Promise.resolve();
+
+        expect(observed, 'the composer is a resize target once the attribute lands').toContain(composer);
+        expect(vp.style.getPropertyValue('--aparte-bottom-inset'), 'measured as soon as the mode is on').toBe('130px');
+    });
+
+    it('an attribute removed later unwires the stack and drops the var', async () => {
+        const { chat, vp, composer } = mountOverlay();
+        mockRect(vp, { top: 0, bottom: 600, height: 600 });
+        mockRect(composer, { top: 470, bottom: 590, height: 120 });
+        for (const cb of roCallbacks) cb();
+        expect(vp.style.getPropertyValue('--aparte-bottom-inset')).toBe('130px');
+
+        chat.removeAttribute('overlay-composer');
+        await Promise.resolve();
+
+        expect(observed, 'the composer is no longer a resize target').not.toContain(composer);
+        expect(vp.style.getPropertyValue('--aparte-bottom-inset'), 'no clearance left behind').toBe('');
     });
 });

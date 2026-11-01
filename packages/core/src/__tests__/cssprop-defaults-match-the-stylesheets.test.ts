@@ -13,6 +13,10 @@
  * declaration in any sheet (a knob the component sets on itself); else the fallback of
  * the `var(--x, F)` that reads it (a knob nothing declares, whose default IS the
  * fallback). The documented default has to be that value, character for character.
+ * One exception to the order: a scoped declaration in ANOTHER sheet than the one whose
+ * fallback reads the knob is a context, not the knob's default — the composer handing
+ * the selects inside it its background (`--aparte-select-bg`) leaves a select elsewhere
+ * on the fallback.
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -35,7 +39,7 @@ function walk(dir: string, ext: string, out: string[] = []): string[] {
 }
 
 /** `var(--x, F)` with F allowed to nest parentheses (`color-mix(…)`, `var(--y, z)`). */
-function fallbacks(css: string, into: Map<string, string>): void {
+function fallbacks(css: string, into: Map<string, string>, file: string, readIn: Map<string, string>): void {
     const re = /var\((--aparte-[\w-]+)\s*,\s*/g;
     for (let m = re.exec(css); m; m = re.exec(css)) {
         let depth = 1;
@@ -45,13 +49,19 @@ function fallbacks(css: string, into: Map<string, string>): void {
             if (css[i] === '(') depth++;
             else if (css[i] === ')') depth--;
         }
-        if (depth === 0 && !into.has(m[1]!)) into.set(m[1]!, norm(css.slice(start, i - 1)));
+        if (depth === 0 && !into.has(m[1]!)) {
+            into.set(m[1]!, norm(css.slice(start, i - 1)));
+            readIn.set(m[1]!, file);
+        }
     }
 }
 
 const rootDecl = new Map<string, string>();
 const scopedDecl = new Map<string, string>();
 const fallback = new Map<string, string>();
+/** The sheet of each knob's first scoped declaration, and of its first fallback. */
+const scopedIn = new Map<string, string>();
+const fallbackIn = new Map<string, string>();
 for (const file of walk(STYLES, '.css')) {
     const css = strip(readFileSync(file, 'utf8'));
     for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -59,10 +69,12 @@ for (const file of walk(STYLES, '.css')) {
         const isRoot = /^(?::where\()?:root\b/.test(selector) && !/prefers-color-scheme|\[data-aparte-theme=/.test(selector);
         for (const d of block[2]!.matchAll(/(--aparte-[\w-]+)\s*:\s*([^;]+);/g)) {
             const target = isRoot ? rootDecl : scopedDecl;
-            if (!target.has(d[1]!)) target.set(d[1]!, norm(d[2]!));
+            if (target.has(d[1]!)) continue;
+            target.set(d[1]!, norm(d[2]!));
+            if (!isRoot) scopedIn.set(d[1]!, file);
         }
     }
-    fallbacks(css, fallback);
+    fallbacks(css, fallback, file, fallbackIn);
 }
 
 const documented: Array<{ at: string; name: string; doc: string }> = [];
@@ -74,7 +86,11 @@ for (const file of walk(SRC, '.ts')) {
     }
 }
 
-const truthOf = (name: string) => rootDecl.get(name) ?? scopedDecl.get(name) ?? fallback.get(name);
+const truthOf = (name: string) => {
+    // A scoped declaration counts unless a fallback in another sheet reads the knob.
+    const scoped = !fallback.has(name) || scopedIn.get(name) === fallbackIn.get(name) ? scopedDecl.get(name) : undefined;
+    return rootDecl.get(name) ?? scoped ?? fallback.get(name);
+};
 
 describe('@cssprop defaults match the stylesheets', () => {
     it('read the corpus', () => {

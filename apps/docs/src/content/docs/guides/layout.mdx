@@ -66,8 +66,8 @@ With `overlay-composer`, the message list takes the whole chat and the composer 
 bottom, so the scrollbar runs the full height. Every other child of the chat, except the
 [scroll rail](#jump-back-in-a-long-thread), floats at the bottom with the composer, and the list
 measures that stack to keep the last message, and the jump-to-bottom button, clear of it. The
-framework packages take it as `overlayComposer`. Set it in the first markup: it is read when the
-chat mounts.
+framework packages take it as `overlayComposer`. It can be set or removed after the chat mounts:
+the list follows the attribute.
 
 A composer of your own, floated without the attribute, sets the space it covers itself:
 `aparte-chat-viewport { --aparte-bottom-inset: 96px; }`.

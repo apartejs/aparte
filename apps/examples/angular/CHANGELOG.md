@@ -1,5 +1,24 @@
 # @aparte-workspace/playground-angular
 
+## 0.0.57
+
+### Patch Changes
+
+- Updated dependencies [100750b]
+- Updated dependencies [f592060]
+  - @aparte/core@0.29.4
+  - @aparte/angular@0.29.4
+  - @aparte/plugin-approval@0.29.4
+  - @aparte/plugin-artifacts@0.29.4
+  - @aparte/plugin-ask-user@0.29.4
+  - @aparte/plugin-compaction@0.29.4
+  - @aparte/plugin-marked@0.29.4
+  - @aparte/plugin-model-selector@0.29.4
+  - @aparte/plugin-shiki@0.29.4
+  - @aparte/provider-openai-compat@0.29.4
+  - @aparte/provider-scenario@0.29.4
+  - @aparte/engine@0.29.4
+
 ## 0.0.56
 
 ### Patch Changes

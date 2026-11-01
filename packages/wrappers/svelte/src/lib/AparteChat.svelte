@@ -46,7 +46,7 @@
   $: loadingText = localeText(localeTick, config, 'loadingConversation');
   // The status line's word, from the locale like the rest of the chat, unless the prop says.
   $: typingLabel = typingText ?? localeText(localeTick, config, 'typing');
-  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
+  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. It can change after mount. */
   export let overlayComposer = false;
   /**
    * Add the file picker + chips strip to the default composer shell. **Off by

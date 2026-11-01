@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.29.4
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [100750b](https://github.com/apartejs/aparte/commit/100750b): A select inside the composer (the approval switch, the model selector) takes the composer's background instead of the page's.
+
+  The select paints `--aparte-select-bg`, which falls back to `--aparte-surface-1`; the composer paints `--aparte-input-bg`. Core's theme makes them equal, so nothing showed until a skin gave the composer a colour of its own: the select kept the page's and drew a darker patch inside the composer. `.aparte-composer-shell` now declares `--aparte-select-bg: var(--aparte-input-bg)`. A select outside the composer is unchanged, and a value set closer to the select (on the toolbar, on the select) still wins.
+  <sub>`@aparte/core`</sub>
+
+- [f592060](https://github.com/apartejs/aparte/commit/f592060): Angular's `overlayComposer` keeps the end of the transcript above the composer again. `overlay-composer` can now be set or removed after the chat mounts.
+
+  The viewport read the attribute once, when it connected. Angular binds it on its inner container after that moment, so the viewport never measured the composer and left `--aparte-bottom-inset` unset: the last message and its action bar sat under the composer. Short turns hid it, because the space kept under a new question was taller than the composer; a question taller than the view brought that space to 0 and showed it. The viewport now follows the attribute on its parent, both ways. React, Vue and Svelte were not affected: they set the attribute before the chat is inserted.
+  <sub>`@aparte/core`, `@aparte/angular`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.29.3
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

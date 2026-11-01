@@ -11,11 +11,12 @@
  *
  * Runs in the DEEP suites: vanilla (`?layout=page`, core mode — container
  * scrolls, absolute button) and react (`?view=overlay`, framework-managed —
- * host scrolls, sticky button), on Chromium and WebKit.
+ * host scrolls, sticky button), on Chromium and WebKit. And on angular, whose
+ * wrapper binds the attribute after the viewport has connected.
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { installLlmMock } from '../helpers/mock-llm.js';
+import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 import { waitForStill } from '../helpers/settle.js';
@@ -141,6 +142,35 @@ test('the scroll surface spans the shell, content clears the floating composer, 
         .toBeLessThanOrEqual(grown.composerTop + 1);
 
     expect(errors, 'no runtime errors across the probes').toEqual([]);
+});
+
+/*
+ * A question taller than the view brings the spacer to 0, so only the inset keeps the end of the
+ * reply off the composer. Short turns cannot show it: their spacer is taller than the composer and
+ * clears it with no inset at all — how Angular's went unseen, never measured because its wrapper
+ * binds the attribute after the viewport connected (reported from a real app, 2026-11-01).
+ */
+test('a question taller than the view: the reply still clears the composer', async ({ page }, testInfo) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto(overlayUrl(testInfo.project.name));
+
+    // Filled, not typed: thousands of characters key by key outlast the timeout (compaction.spec).
+    await chat.waitUngated();
+    await chat.editor.fill('A question longer than the window is tall. '.repeat(120).trim());
+    await chat.sendButton.click();
+    const reply = chat.bubbles('assistant').last();
+    await expect(reply).toContainText(MOCK_REPLY_MARK, { timeout: 20_000 });
+    await expect(reply.locator('.aparte-message-streaming')).toHaveCount(0, { timeout: 20_000 });
+    await waitForStill(page);
+
+    const g = await measure(page);
+    expect(g.fromMax, 'the view follows the reply to the bottom').toBeLessThanOrEqual(1);
+    expect(g.inset, 'the viewport measured a real inset').toBeGreaterThan(20);
+    expect(g.lastBubbleBottom,
+        `the reply (${Math.round(g.lastBubbleBottom)}) ends above the composer (${Math.round(g.composerTop)})`)
+        .toBeLessThanOrEqual(g.composerTop + 1);
+    expect(errors, 'no runtime errors').toEqual([]);
 });
 
 /*

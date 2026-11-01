@@ -36,7 +36,7 @@ interface Props {
    * the prop is for a wait of your own. Off by default.
    */
   loading?: boolean;
-  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
+  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. It can change after mount. */
   overlayComposer?: boolean;
   /**
    * Add the file picker + chips strip to the default composer shell. **Off by

@@ -280,10 +280,12 @@ export class AparteChatViewport extends HTMLElement {
      * purpose. `toggle` does not bubble, so it is caught on the way down.
      */
     private _onDisclosureToggle = (): void => { this._scheduleSpacerUpdate(); };
-    /** The `[overlay-composer]` shell this viewport floats in, if any. Read at observer setup, like `framework-managed`. */
+    /** The `[overlay-composer]` shell this viewport floats in, if any. Followed, not read once: see `_wireOverlay`. */
     private _overlayRoot: HTMLElement | null = null;
     /** Watches the overlay shell's childList, so a stack child that mounts later (elicitation) gets observed too. */
     private _overlayObserver: MutationObserver | null = null;
+    /** Watches the parent's `overlay-composer` attribute, so the mode follows a binding that lands after connect. */
+    private _overlayAttrObserver: MutationObserver | null = null;
     /** Last `--aparte-bottom-inset` written, in px — style writes only when it changes. */
     private _overlayInset = -1;
     /** Last `--aparte-transcript-inset` written on the host, in px — same write-on-change rule. */
@@ -1826,19 +1828,17 @@ export class AparteChatViewport extends HTMLElement {
         // .aparte-chat-container - and a hand-rolled host that sets the attribute on
         // its own shell gets the measurement for free (the CSS readers are
         // unconditional; only the recipe rules are qualified).
-        this._overlayRoot = this.closest('[overlay-composer]');
-        if (this._overlayRoot && this._resizeObserver) {
-            for (const child of this._overlayStack()) this._resizeObserver.observe(child);
-            // A stack child can mount later (elicitation appears on request):
-            // observe it from that moment. childList only, never subtree — what is
-            // inside those children is the host's business, and their size changes
-            // already reach the ResizeObserver.
-            this._overlayObserver = new MutationObserver(() => {
-                for (const child of this._overlayStack()) this._resizeObserver?.observe(child);
-                this._updateOverlayInset();
-            });
-            this._overlayObserver.observe(this._overlayRoot, { childList: true });
-            this._updateOverlayInset();
+        this._wireOverlay();
+        // The attribute is followed, not read once. Angular binds it on its inner
+        // .aparte-chat-container in the update pass, after this element connected in
+        // the creation pass: read here alone, the mode was never seen, no inset was
+        // written, and the composer covered the end of the transcript — invisible
+        // while the spacer is taller than the composer, plain once a question taller
+        // than the view brings the spacer to 0. The parent is the shell (the stack is
+        // its children), so the parent is what is watched.
+        if (this.parentElement) {
+            this._overlayAttrObserver = new MutationObserver(() => this._wireOverlay());
+            this._overlayAttrObserver.observe(this.parentElement, { attributes: true, attributeFilter: ['overlay-composer'] });
         }
 
         this._mutationObserver = new MutationObserver((mutations) => {
@@ -1917,6 +1917,34 @@ export class AparteChatViewport extends HTMLElement {
                 subtree: true
             });
         }
+    }
+
+    /**
+     * Follow the `[overlay-composer]` shell: observe its stack when the attribute is
+     * there, unobserve it and drop the var when it is gone. A no-op while the shell
+     * has not changed — it runs at setup and on every write of the attribute.
+     */
+    private _wireOverlay(): void {
+        const root = this.closest<HTMLElement>('[overlay-composer]');
+        if (root === this._overlayRoot) return;
+        for (const child of this._overlayStack()) this._resizeObserver?.unobserve(child);
+        this._overlayObserver?.disconnect();
+        this._overlayObserver = null;
+        this._overlayRoot = root;
+        this._overlayInset = -1;
+        this.style.removeProperty('--aparte-bottom-inset');
+        if (!root || !this._resizeObserver) return;
+        for (const child of this._overlayStack()) this._resizeObserver.observe(child);
+        // A stack child can mount later (elicitation appears on request):
+        // observe it from that moment. childList only, never subtree — what is
+        // inside those children is the host's business, and their size changes
+        // already reach the ResizeObserver.
+        this._overlayObserver = new MutationObserver(() => {
+            for (const child of this._overlayStack()) this._resizeObserver?.observe(child);
+            this._updateOverlayInset();
+        });
+        this._overlayObserver.observe(root, { childList: true });
+        this._updateOverlayInset();
     }
 
     /**
@@ -2494,6 +2522,8 @@ export class AparteChatViewport extends HTMLElement {
         this.removeEventListener('toggle', this._onDisclosureToggle, true);
         this._overlayObserver?.disconnect();
         this._overlayObserver = null;
+        this._overlayAttrObserver?.disconnect();
+        this._overlayAttrObserver = null;
         this._overlayRoot = null;
         this._overlayInset = -1;
         this._transcriptInset = -1;
