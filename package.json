@@ -26,7 +26,7 @@
     "test": "vitest run --reporter=default --reporter=json --outputFile.json=.vitest-report.json",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=.vitest-report.json && node scripts/stamp-test-count.mjs",
+    "test:coverage": "node scripts/test-coverage.mjs && node scripts/stamp-test-count.mjs",
     "docs": "pnpm --filter @aparte-workspace/docs dev",
     "example:vanilla": "pnpm --filter @aparte-workspace/example-vanilla dev",
     "example:react": "pnpm --filter @aparte-workspace/example-react dev",

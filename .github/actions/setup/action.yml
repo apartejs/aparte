@@ -1,0 +1,47 @@
+name: setup
+description: >
+  pnpm, Node, the install, and this run's built packages from the nx cache. Every job of
+  ci.yml starts here, after its own checkout.
+
+inputs:
+  node-version:
+    description: The Node major to run on.
+    default: '24'
+  packages:
+    description: >
+      'true' restores the nx cache the `packages` job saved for this commit and replays its
+      build: dist folders come back from the cache in seconds, nothing is compiled twice.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+      # version is read from the packageManager field in package.json
+
+    - name: Use Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # The exact key the `packages` job saved under, so what is restored is this commit's
+    # build and nothing older: a stale dist would test code that is not the diff.
+    - name: Restore this run's build
+      if: inputs.packages == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .nx/cache
+        key: nx-packages-${{ runner.os }}-${{ github.sha }}
+        fail-on-cache-miss: true
+
+    # Every target a cache hit: nx puts each package's dist back from the archive.
+    - name: Replay the packages' build
+      if: inputs.packages == 'true'
+      shell: bash
+      run: pnpm build --exclude '@aparte-workspace/*'

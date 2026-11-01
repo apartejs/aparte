@@ -37,8 +37,15 @@ const EXEMPT = new Map([
     ['pnpm typecheck:matrix', 'its own job'],
     ['pnpm check-packaging', 'its own job: publint/attw across every publishable package'],
     ['pnpm check:node-import', 'runs in the Node version matrix, where it means something'],
-    ['pnpm test:coverage', 'named in the guards job, and the coverage job'],
+    ['pnpm test:coverage', 'split in CI: the `test` shards, then `vitest --merge-reports --coverage` in `coverage`'],
 ]);
+
+/**
+ * The one job-level `if:` a gate job may carry. `scope` sets `skip` only on a push to main
+ * whose tree is the head of a pull request with a green run of this workflow — the gate
+ * already ran on that exact code — and the release then goes on without a second copy.
+ */
+const SKIP_WHEN_JUDGED = "if: needs.scope.outputs.skip != 'true'";
 
 const gate = JSON.parse(readFileSync('package.json', 'utf8')).scripts.gate;
 const steps = gate.split('&&').map(s => s.trim()).filter(Boolean);
@@ -127,7 +134,7 @@ for (const file of files) {
             }
             // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
             // (six or more, since a step is a list item inside `steps:`).
-            if (/^ {4}if\s*:/.test(line)) {
+            if (/^ {4}if\s*:/.test(line) && trimmed !== SKIP_WHEN_JUDGED) {
                 silenced.push({ file: file.name, line: start + j + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
             }
         }
