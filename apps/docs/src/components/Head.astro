@@ -21,7 +21,10 @@ import FontPreload from './site/FontPreload.astro';
 const { entry } = Astro.locals.starlightRoute as StarlightRouteData;
 
 // The same rule the generating route uses — see src/lib/og-slug.ts for why it is shared.
-const image = new URL(`/og/${ogSlug(entry.id)}.png`, Astro.site).href;
+// The changelog's pages are not in the docs collection, so the route has no card for them: they
+// pointed at a 404. They share the landing's.
+const changelog = entry.id === 'changelog' || entry.id.startsWith('changelog/');
+const image = new URL(`/og/${changelog ? 'index' : ogSlug(entry.id)}.png`, Astro.site).href;
 
 // The card is generated FROM this page's title and description, so describing it is
 // not a second piece of copy to maintain — it is the same sentence, said to a screen
