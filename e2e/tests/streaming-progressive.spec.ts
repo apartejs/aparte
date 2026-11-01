@@ -217,30 +217,13 @@ test('the transcript is anchored at the bottom once a streamed reply lands', asy
 test('scrolling up mid-stream is not overridden by the arriving reply', async ({ page }) => {
     const errors = collectPageErrors(page);
     /*
-     * 250ms, not 90 — this test needs a stream that is still RUNNING for its whole
-     * polling window, and the arithmetic has to hold under load.
-     *
-     * The paced text scenario is 18 frames (15 reply chunks + finish/usage/done), so
-     * `pace: 90` gave the stream ~1.6s of life. The window below is 20 polls × 100ms = 2s
-     * on its own, and before it there is a send, a wait for the streaming class, a scroll
-     * gesture and a geometry read — each a round trip. Under the full gate (8 workers, a
-     * build just finished) that setup outran the stream, so the reply had ENDED before the
-     * first poll and `grew` could never become true.
-     *
-     * It fails as "no further frames arrived", which reads like a product defect and is
-     * not one: the scroll assertion inside the loop passed on every iteration. Caught on
-     * react-webkit in a gate:full run, then 12/12 green re-running the file in isolation —
-     * which is the signature of setup time, not of flakiness in the thing under test.
-     *
-     * 18 × 250ms = 4.5s of stream against a 2s window leaves room for a slow setup. The
-     * invariant to keep if either number moves: frames × pace > setup + window.
-     *
-     * It costs about 13s per project, because the four filler turns above pay the slow
-     * pace too and `installLlmMock` sets it per page rather than per turn. That is the
-     * price of the assertion being able to fail for the right reason; don't trade it back
-     * without changing the invariant.
+     * The stream is HELD and the test releases its frames: it needs a reply that is still
+     * arriving after the scroll, and a timer cannot promise that. Paced at 250ms, then
+     * 400ms, the setup (a send, the streaming class, a gesture, a geometry read) still
+     * outran the whole stream on a busy runner — react-webkit, four browsers a shard — and
+     * the test failed as "no further frames arrived", a product defect it was not.
      */
-    await installLlmMock(page, { pace: 250 });
+    const mock = await installLlmMock(page, { pace: 40 });
     const chat = new ChatPage(page);
     await page.goto('/');
 
@@ -248,8 +231,10 @@ test('scrolling up mid-stream is not overridden by the arriving reply', async ({
         await chat.sendAndSettle(text, { expect: MOCK_REPLY_MARK });
     }
 
-    // A new turn, then the user reads back while it streams.
+    // A new turn, held after its first frames, then the user reads back while it streams.
+    await mock.hold();
     await chat.send('one more, and I will scroll away');
+    await mock.release(3);
     await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
 
     await armScrollLog(page);
@@ -272,24 +257,21 @@ test('scrolling up mid-stream is not overridden by the arriving reply', async ({
             + ' auto-scroll until the user has actually scrolled away',
         ).toBeLessThan(Math.max(60, afterScroll.client / 2));
 
-        // Now prove frames KEPT ARRIVING while the user stayed put, and check the
-        // position on every poll instead of once after a fixed 500ms. Under load the
-        // old wait could expire before another frame landed, which made the assertion
-        // weaker exactly when the machine was busiest.
+        // Now more of the reply arrives while the user stays put — released here, so it
+        // does arrive — and the position is checked once each frame has landed.
         const lengthNow = () => chat.viewport.evaluate(vp => (vp.textContent ?? '').length);
-        const before = await lengthNow();
-        let grew = false;
-        for (let i = 0; i < 20 && !grew; i++) {
-            await page.waitForTimeout(100);
+        for (let frame = 0; frame < 5; frame++) {
+            const before = await lengthNow();
+            await mock.release(1);
+            await expect.poll(lengthNow, { message: 'a released frame reaches the bubble' }).toBeGreaterThan(before);
             const g = await geometry(chat);
             expect(
                 g.top,
                 `the arriving reply stole the scroll back: top is ${g.top}px, expected to stay near 0`
                 + ` (measured ${g.which} — scrollHeight ${g.height}, clientHeight ${g.client})`,
             ).toBeLessThan(Math.max(60, g.client / 2));
-            grew = (await lengthNow()) > before;
         }
-        expect(grew, 'no further frames arrived, so nothing could have stolen the scroll').toBe(true);
+        await mock.resume();
 
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     } catch (error) {

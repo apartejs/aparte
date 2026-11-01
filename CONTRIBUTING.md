@@ -82,9 +82,10 @@ looking at the words.
 
 `pnpm install` points git at `.githooks/` (via the root `prepare` script), so:
 
-- **pre-commit** — `lint` + `typecheck` (both incremental; a no-op commit costs seconds)
-- **pre-push** — `test` + `build` (scoped to what the diff affects on a branch, full on
-  `main` — see below), and it **refuses a direct push to `main`**
+- **pre-commit** — lint of the staged files, typecheck of the projects they touch (seconds;
+  the whole-repo lint and typecheck run on CI)
+- **pre-push** — it **refuses a direct push to `main`**, and nothing else: the tests and the
+  build are CI's, on the pull request
 
 Feature work goes on a branch and lands through a PR, so CI gates it before it reaches
 `main`. The release goes through a PR too: `main`'s ruleset refuses any direct push, with no

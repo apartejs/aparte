@@ -95,6 +95,7 @@ e2e/ssr/*/next-env.d.ts
 #
 # Plus TypeDoc scratch.
 .vitest-report.json
+.vitest-reports/
 apps/docs/.typedoc/
 
 # Generated framework bindings — rebuilt from the custom-elements manifest on every

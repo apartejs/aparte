@@ -378,15 +378,18 @@ export default defineConfig({
     // they all share the six dev servers this config boots (five Vite + the Angular
     // CLI), so the default 16 saturates a 32-thread box for the whole run.
     // Measured: 16 workers 77s -> 6 workers 87s. A tenth of the wall clock buys
-    // back half the machine. CI keeps 2 (its runners have 2-4 cores).
-    workers: process.env.CI ? 2 : 8,
+    // back half the machine. CI: 4, its runners' core count — with 2, a shard of 179 tests
+    // took 6-7 minutes, most of it waiting on one browser while the other sat idle.
+    workers: process.env.CI ? 4 : 8,
     reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
     timeout: 45_000,
     expect: { timeout: 10_000 },
 
     use: {
         viewport: { width: 1000, height: 720 },
-        trace: 'on-first-retry',
+        // Kept for every attempt that fails, the first included: with `on-first-retry` a
+        // flake left only the trace of the retry that PASSED, never the run that broke.
+        trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
 

@@ -23,322 +23,21 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
+# nx 20 keeps its cache INDEX in a sqlite file under `.nx/workspace-data`, so an archived
+# `.nx/cache` alone restores artifacts no index knows about — a miss on every run, silently.
+# The legacy file cache is self-describing (one directory per hash plus its `.commit`
+# marker), and it is what the jobs below hand each other.
+env:
+  NX_DB_CACHE: 'false'
+
 jobs:
-  ci:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      # nx 20 keeps its cache INDEX in a sqlite file under `.nx/workspace-data`, so an
-      # archived `.nx/cache` alone restores artifacts no index knows about — a miss on
-      # every run, silently. The legacy file cache is self-describing (one directory per
-      # hash plus its `.commit` marker) and is what the cache step below carries.
-      NX_DB_CACHE: 'false'
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          # The changeset guard below needs a MERGE BASE, and a shallow clone has
-          # none: `changeset status --since` died with "Failed to find where HEAD
-          # diverged from origin/main" on the first pull request this repo ever had.
-          # The guard could never have worked — it is PR-only, and there had been no
-          # PR. Full history for this job only; the others do not diff against a base.
-          fetch-depth: 0
+  # The run is cut so that no job holds more than about three minutes of work, and they run
+  # side by side: one job doing everything one step after another took 11 minutes, and each
+  # e2e shard rebuilt every package before it could start. Now `packages` builds once and
+  # hands its nx cache to the rest, which replay that build in seconds.
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-        # version is read from the packageManager field in package.json
-
-      - name: Use Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # nx's cache, carried between runs. A fresh runner typechecks 26 projects (79 s)
-      # and builds them (44 s) for a diff that reached two; with the previous run's
-      # cache restored, only what the diff reaches re-runs. Restored here and in the
-      # e2e job (same Node major, same outputs). NOT in node-floor: nx does not hash
-      # the Node version, so a build restored from a Node 24 run would skip the one
-      # build that job exists to perform.
-      #
-      # Saved at the end of this job, from a push only, so the archive follows the
-      # branch and a pull request cannot write into it. Every key is unique (the sha),
-      # and the prefixes let a run start from the latest of its branch, then of any.
-      - name: Restore the nx cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .nx/cache
-          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            nx-${{ runner.os }}-${{ github.ref_name }}-
-            nx-${{ runner.os }}-
-
-      # Source checks first: each reads the tree as it is, needs no build, and answers in
-      # seconds — so a mistake they can see fails the run in its first minute, not after the
-      # build and the suite.
-      #
-      # Listed individually rather than as `pnpm gate` so a failure names the guard
-      # instead of a 20-minute chain. The list is not maintained by hand:
-      # `pnpm check:gate-in-ci` diffs this file's `run:` lines against the gate chain and
-      # fails on anything missing — seven gate steps once ran in no workflow at all, after
-      # a comment here had already narrated the same drift once.
-      - name: Check the lockfile matches every manifest
-        run: pnpm check:lockfile
-
-      - name: Check internal peer ranges are literal and bounded
-        run: pnpm check:peer-ranges
-
-      - name: Check every MDX page parses and names only what it declares
-        run: pnpm check:mdx
-
-      - name: Check wrapper slot parity
-        run: pnpm check:wrapper-slots
-
-      - name: Check attribute escaping
-        run: pnpm check:attr-escaping
-
-      - name: Check text-position escaping
-        run: pnpm check:text-escaping
-
-      - name: Check secure-context-only APIs stay behind their fallback
-        run: pnpm check:secure-context
-
-      - name: Check a segment is stamped in one place
-        run: pnpm check:segment-stamp
-
-      - name: Check derived CSS variables re-anchor where a palette changes
-        run: pnpm check:derived-vars
-
-      - name: Locale keys (every t() read declared, every key read, fr complete)
-        run: pnpm check:locale-keys
-
-      - name: Check the engine seam has a consumer
-        run: pnpm check:engine-consumer
-
-      - name: Check no comment cites code by line number
-        run: pnpm check:cross-refs
-
-      - name: Check every gate step runs in a workflow
-        run: pnpm check:gate-in-ci
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      # Test files are excluded from every package's build tsconfig (they must not
-      # ship in dist), which left them unchecked by `tsc` entirely. This pass puts
-      # them in a type program — and covers the `.svelte` components, which plain
-      # tsc never parses.
-      - name: Typecheck tests
-        run: pnpm typecheck:tests
-
-      # Both React majors the wrapper's peer range advertises. Developing against
-      # one only is how the React 19 JSX augmentation shipped broken.
-      - name: Typecheck type matrix
-        run: pnpm typecheck:matrix
-
-      # Every package and the docs site: `pnpm build` is `nx run-many -t build`, and the
-      # site is one of its projects — the generators run there, so this is what proves
-      # they still produce a site, and where the pages the link checks read are made.
-      - name: Build
-        run: pnpm build
-
-      - name: Check dist is current with src
-        run: pnpm check:dist-freshness
-
-      # The checks that read what the build made: manifests, built barrels, the site.
-      - name: Check every element documents an example
-        run: pnpm check:examples
-
-      - name: Check every export is documented or exempt
-        run: pnpm check:export-mentions
-
-      - name: Check the SSR barrel carries every type
-        run: pnpm check:node-barrel-types
-
-      - name: Check the entry-point weight contracts
-        run: pnpm check:bundle-entries
-
-      - name: Check the typed event map is honest
-        run: pnpm check:event-map
-
-      # The beta's promise, mechanised: the declared surface in
-      # apps/docs/src/data/frozen-surface.json is re-measured on the tree, and a frozen
-      # name that left without a deprecating changeset fails here rather than on someone's
-      # upgrade. Needs the build above — it reads the manifests and the built barrels.
-      - name: Check the frozen surface still matches the tree
-        run: pnpm check:frozen-surface
-
-      # The documentation, checked rather than assumed.
-      #
-      # A cold audit found FOUR broken snippets — including the headline
-      # `streamRunner: runStreamAgent` composition printed on five pages and a
-      # README, which did not typecheck at all. Every one was the direct
-      # consequence of nothing ever compiling them: the repo enforced that each
-      # element documents an example and that no README imports a removed symbol,
-      # and never checked whether the examples RUN.
-      - name: Compile the docs' self-contained snippets
-        run: pnpm check:doc-snippets
-
-      - name: Check published READMEs
-        run: pnpm check:readmes
-
-      # The Node contract, executed: imports the BUILT packages in real Node through
-      # the `node` export condition (publint/attw only check the map statically, and
-      # the SSR unit test only sees the source entry).
-      - name: Check Node import contract
-        run: pnpm check:node-import
-
-      # The catalogue is written by hand and grouped by what a person sees; each page claims
-      # what it documents, and this holds what the generators used to guarantee by
-      # construction: every element, segment and kit family has exactly one page.
-      - name: Check every component has its catalogue page
-        run: pnpm check:catalogue
-
-      - name: Check internal links and anchors
-        run: pnpm check:doc-links
-
-      # Outside links (npm homepages, READMEs, JSDoc in published .d.ts) cannot be edited.
-      # Every URL the site ever published, and the anchors those links carry, must still
-      # lead to a page — the same one, or the one that replaced it.
-      - name: Check every published URL still leads somewhere
-        run: pnpm check:legacy-urls
-
-      # Publish-safety: publint over every publishable package + are-the-types-wrong
-      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
-      # for their .svelte/.vue/APF type entrypoints — publint still covers them. Both
-      # sets are the `pnpm -r --filter "./packages/**"` filter in `check-packaging`, so
-      # a new package is covered the day it exists; count with
-      # `pnpm -r --filter "./packages/**" list --depth -1`.
-      - name: Check packaging
-        run: pnpm check-packaging
-
-      # Last: the longest step, so everything cheaper has had its say first.
-      - name: Test (with coverage gate)
-        run: pnpm test:coverage
-
-      # Runs AFTER the coverage gate: it reads coverage/coverage-summary.json. In CI a
-      # floor with too much slack fails (locally the same check raises it in place).
-      - name: Check the coverage floors sit on the measurement
-        run: pnpm check:coverage-floors
-
-      # CLAUDE.md requires a changeset for any package with an API or CSS change,
-      # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
-      # not just skip one version — the whole 15-package train stays put, no Version PR
-      # gets opened, and the published `alpha`/`latest` drift away from the
-      # source everyone reads. PR-only: a direct push to main has no base to diff.
-      - name: Check a changeset accompanies the change
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch --no-tags origin "${{ github.base_ref }}"
-          # A RELEASE pull request has no changesets left: `pnpm version-packages`
-          # consumed them into the per-package CHANGELOGs and the root aggregate, in
-          # this very branch. `changeset status` exits 1 when it finds none — which is
-          # exactly what makes it a useful guard on a feature PR and a false alarm on
-          # a release one.
-          #
-          # The root CHANGELOG.md is the signal: nothing writes it except
-          # `scripts/gen-root-changelog.mjs`, which only `pnpm version-packages` runs.
-          # If this PR touches it, the versions moved inside it and the changesets are
-          # already spent.
-          #
-          # And a PR that touches no package needs no changeset: a workflow, a script,
-          # a docs page, the site. The rule in CLAUDE.md is "any package with an API or
-          # CSS change" — this guard used to demand one for a one-line ci.yml change,
-          # which is a changeset about nothing.
-          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
-          if printf '%s\n' "$changed" | grep -qx 'CHANGELOG.md'; then
-            echo "release PR (root CHANGELOG.md moved) — the changesets were consumed here"
-          elif ! printf '%s\n' "$changed" | grep -q '^packages/'; then
-            echo "no package changed — no changeset needed"
-          else
-            pnpm exec changeset status --since="origin/${{ github.base_ref }}"
-          fi
-
-      # The archive would otherwise only ever grow: each run restores the previous one
-      # and adds its own entries. A week of trunk state is what a diff can reach.
-      - name: Prune nx cache entries older than a week
-        if: github.event_name == 'push'
-        run: find .nx/cache -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
-
-      - name: Save the nx cache
-        if: github.event_name == 'push'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .nx/cache
-          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-
-  # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
-  #
-  # This was four jobs — Node 18, 20 and 22 on ubuntu plus Node 22 on Windows — and
-  # across the three CI runs of the release that first exercised them, all four
-  # passed every time while the two jobs beside them found three real breakages.
-  # Thirty minutes of compute per push, finding nothing, because three of the four
-  # were already covered:
-  #
-  #   - Node 24 on Linux: the `ci` job above runs the whole gate on it.
-  #   - Windows: the maintainer develops on Windows, on Node 24, continuously. A
-  #     Windows-only break reaches him before it reaches a runner.
-  #   - Node 20 and 22: between a floor that is tested and a ceiling that is tested.
-  #     Not nothing, but the thinnest band imaginable.
-  #
-  # What is left is the floor, and it is not theoretical: `check:node-import` is
-  # the only thing that resolves the published `node` export condition in a real
-  # Node — publint/attw read the map statically and the unit suite runs under jsdom —
-  # and on 18, `Request`, `ReadableStream` and `structuredClone` are genuinely not
-  # the same surface. Test the promise, not the interpolation.
-  #
-  # Add a version back the day a break is found in that band, with the break named.
-  node-floor:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-
-      # The FLOOR of engines.node. Bump both together, or the promise drifts from
-      # what is tested.
-      - name: Use Node.js 18
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '18'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Everything EXCEPT the docs site. This job exists to test the `engines.node: ">=18"`
-      # promise of the PUBLISHED packages; `apps/docs` is private and makes no such claim,
-      # and since the Astro 7 upgrade it requires Node 22. Building it here would only
-      # prove that a private app does not run on a floor it never advertised — and would
-      # fail the one job whose whole point is a different question. The Angular example
-      # is left out for the same reason: it runs the newest Angular its users run, whose CLI
-      # requires Node 20.19 or later, and it is private too. The Angular PACKAGE is still
-      # built here, on its oldest supported major.
-      - name: Build
-        run: pnpm build --exclude @aparte-workspace/docs,@aparte-workspace/example-angular
-
-      - name: Test
-        run: pnpm test
-
-      # The packages declare `engines.node: ">=18"`, and the Node import contract is
-      # the ONLY thing that resolves the published `node` export condition in real
-      # Node — publint/attw check the map statically, and the unit test runs under
-      # jsdom against the source entry. It used to run once, on the newest Node in
-      # the `ci` job, so the `>=18` claim was untested on 18: `Request`,
-      # `ReadableStream` and `structuredClone` are not the same surface there.
-      - name: Check Node import contract
-        run: pnpm check:node-import
-
-  # Does this diff touch anything a browser could notice?
+  # Does this diff touch anything a browser could notice — and, on a push to main, was this
+  # exact tree already judged green on its pull request?
   #
   # Its own job, on a plain runner, and that is the whole point: the `e2e` job below
   # runs INSIDE the Playwright container, where `actions/checkout` has no git and falls
@@ -348,14 +47,19 @@ jobs:
   # full of source. It reported green in 33 seconds. Failing open was the intent and
   # the opposite is what shipped, so the check is now explicit rather than implied.
   #
-  # What it buys: a release's Version PR is ~113 files and not one of them is source —
+  # What `source` buys: a release's Version PR is ~113 files and not one of them is source —
   # package versions, CHANGELOGs, and the changesets they consumed. Running seven
   # example apps in three engines to prove a version number does not break a chat is
   # ten minutes, twice per release.
   scope:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     outputs:
       source: ${{ steps.decide.outputs.source }}
+      skip: ${{ steps.tested.outputs.skip }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -398,29 +102,505 @@ jobs:
             echo "source=false" >> "$GITHUB_OUTPUT"
             echo "versions, changelogs and changesets only — the browser suite has nothing new to see"
           fi
-  # Browser smoke E2E — drives every example in a real browser against a
-  # network-mocked model (no key/LM Studio). Separate job: it boots six dev
-  # servers + a browser, so it is heavier and isolated from the fast gate above.
-  e2e:
+
+      # A merged pull request used to run the whole suite a second time on main before the
+      # release could start, twelve more minutes to prove what its pull request had just
+      # proved. When the commit on main has the same TREE as the head of the pull request
+      # it came from, and that head has a green run of this workflow, the code is the code
+      # that was judged: every job below is skipped and the release goes straight on.
+      # Anything else — main moved under the pull request, no pull request, a lookup that
+      # fails — answers `skip=false` and the full run happens, as before.
+      - id: tested
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          skip=false
+          pr=$(gh api "repos/$REPO/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$pr" ]; then
+            head=$(gh api "repos/$REPO/pulls/$pr" --jq '.head.sha' 2>/dev/null || true)
+            if [ -n "$head" ] && git fetch --no-tags --quiet origin "pull/$pr/head" \
+              && [ "$(git rev-parse "$head^{tree}")" = "$(git rev-parse "HEAD^{tree}")" ]; then
+              green=$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success" \
+                --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")] | length' 2>/dev/null || echo 0)
+              if [ "${green:-0}" -gt 0 ]; then skip=true; fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "main at $GITHUB_SHA, from pull request ${pr:-none}: skip=$skip"
+
+  # The source checks: each reads the tree as it is, needs no build, and answers in seconds.
+  #
+  # Listed individually rather than as `pnpm gate` so a failure names the guard
+  # instead of a 20-minute chain. The list is not maintained by hand:
+  # `pnpm check:gate-in-ci` diffs this file's `run:` lines against the gate chain and
+  # fails on anything missing — seven gate steps once ran in no workflow at all, after
+  # a comment here had already narrated the same drift once.
+  checks:
     needs: scope
+    if: needs.scope.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    # Three shards, because this job was the wall: ~10 min against ~6 for `ci`, on a
-    # 2-core runner driving seven example apps through three engines. Playwright splits
-    # the test files evenly across shards; each shard boots the six dev servers itself
-    # (one minute) and pays the install and the build (cached, see the nx cache in
-    # `ci`). A failing shard names itself in the check list — `e2e (2)` — and the
-    # report of each is its own artifact.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # The changeset guard below needs a MERGE BASE, and a shallow clone has
+          # none: `changeset status --since` died with "Failed to find where HEAD
+          # diverged from origin/main" on the first pull request this repo ever had.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+
+      - name: Check the lockfile matches every manifest
+        run: pnpm check:lockfile
+
+      - name: Check internal peer ranges are literal and bounded
+        run: pnpm check:peer-ranges
+
+      - name: Check every MDX page parses and names only what it declares
+        run: pnpm check:mdx
+
+      - name: Check wrapper slot parity
+        run: pnpm check:wrapper-slots
+
+      - name: Check attribute escaping
+        run: pnpm check:attr-escaping
+
+      - name: Check text-position escaping
+        run: pnpm check:text-escaping
+
+      - name: Check secure-context-only APIs stay behind their fallback
+        run: pnpm check:secure-context
+
+      - name: Check a segment is stamped in one place
+        run: pnpm check:segment-stamp
+
+      - name: Check derived CSS variables re-anchor where a palette changes
+        run: pnpm check:derived-vars
+
+      - name: Locale keys (every t() read declared, every key read, fr complete)
+        run: pnpm check:locale-keys
+
+      - name: Check the engine seam has a consumer
+        run: pnpm check:engine-consumer
+
+      - name: Check no comment cites code by line number
+        run: pnpm check:cross-refs
+
+      - name: Check every gate step runs in a workflow
+        run: pnpm check:gate-in-ci
+
+      - name: Check every Playwright project runs in an e2e job
+        run: pnpm check:e2e-projects
+
+      # CLAUDE.md requires a changeset for any package with an API or CSS change,
+      # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
+      # not just skip one version — the whole 15-package train stays put, no Version PR
+      # gets opened, and the published `alpha`/`latest` drift away from the
+      # source everyone reads. PR-only: a direct push to main has no base to diff.
+      - name: Check a changeset accompanies the change
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          # A RELEASE pull request has no changesets left: `pnpm version-packages`
+          # consumed them into the per-package CHANGELOGs and the root aggregate, in
+          # this very branch. `changeset status` exits 1 when it finds none — which is
+          # exactly what makes it a useful guard on a feature PR and a false alarm on
+          # a release one.
+          #
+          # The root CHANGELOG.md is the signal: nothing writes it except
+          # `scripts/gen-root-changelog.mjs`, which only `pnpm version-packages` runs.
+          # If this PR touches it, the versions moved inside it and the changesets are
+          # already spent.
+          #
+          # And a PR that touches no package needs no changeset: a workflow, a script,
+          # a docs page, the site.
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          if printf '%s\n' "$changed" | grep -qx 'CHANGELOG.md'; then
+            echo "release PR (root CHANGELOG.md moved) — the changesets were consumed here"
+          elif ! printf '%s\n' "$changed" | grep -q '^packages/'; then
+            echo "no package changed — no changeset needed"
+          else
+            pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+          fi
+
+  # Every publishable package, built once. Its nx cache is saved under this commit's sha and
+  # every job below restores it: their `pnpm build` is then all cache hits, which put the
+  # dist folders back without compiling anything.
+  #
+  # Starts from the latest such archive (of any run), so a diff that reached two packages
+  # builds two. nx does not hash the Node version, which is what lets node-floor replay
+  # this build on Node 18: the dist it tests is the one the release publishes, built on 24.
+  packages:
+    needs: scope
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+
+      - name: Restore the latest build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-packages-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            nx-packages-${{ runner.os }}-
+
+      - name: Build the packages
+        run: pnpm build --exclude '@aparte-workspace/*'
+
+      # The archive would otherwise only ever grow: each run restores the previous one
+      # and adds its own entries. A week of trunk state is what a diff can reach.
+      - name: Prune nx cache entries older than a week
+        run: find .nx/cache -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
+
+      - name: Hand this build to the other jobs
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-packages-${{ runner.os }}-${{ github.sha }}
+
+      # The same build as files, for the browser jobs: they run in Playwright's container,
+      # which has no zstd, so the cache saved above (zstd) is a miss there. What a build
+      # leaves is the three outputs nx declares: dist, its stamp, and generated sources.
+      - name: Hand the built files to the browser jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packages-built
+          path: |
+            packages/**/dist/
+            packages/**/.dist-stamp
+            packages/**/src/generated/
+            !packages/**/node_modules/**
+          include-hidden-files: true
+          retention-days: 1
+
+  typecheck:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Typecheck
+        run: pnpm typecheck --parallel=4
+
+  # Beside `typecheck`, not after it: together they were the longest job of the run.
+  lint:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      # After the build: the typed rules read the packages' declarations.
+      - name: Lint
+        run: pnpm lint
+
+      # Test files are excluded from every package's build tsconfig (they must not
+      # ship in dist), which left them unchecked by `tsc` entirely. This pass puts
+      # them in a type program — and covers the `.svelte` components, which plain
+      # tsc never parses.
+      - name: Typecheck tests
+        run: pnpm typecheck:tests
+
+      # Both React majors the wrapper's peer range advertises. Developing against
+      # one only is how the React 19 JSX augmentation shipped broken.
+      - name: Typecheck type matrix
+        run: pnpm typecheck:matrix
+
+  # The docs site: the generators run in its build, so this is what proves they still
+  # produce a site, and where the pages the link checks read are made. The packages come
+  # from the cache; the examples build beside it, in `examples`.
+  site:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Build the docs site
+        run: pnpm exec nx run-many -t build --projects=@aparte-workspace/docs
+
+      - name: Check dist is current with src
+        run: pnpm check:dist-freshness
+
+      # The checks that read what the build made: manifests, built barrels, the site.
+      - name: Check every element documents an example
+        run: pnpm check:examples
+
+      - name: Check every export is documented or exempt
+        run: pnpm check:export-mentions
+
+      - name: Check the SSR barrel carries every type
+        run: pnpm check:node-barrel-types
+
+      - name: Check the entry-point weight contracts
+        run: pnpm check:bundle-entries
+
+      - name: Check the typed event map is honest
+        run: pnpm check:event-map
+
+      # The beta's promise, mechanised: the declared surface in
+      # apps/docs/src/data/frozen-surface.json is re-measured on the tree, and a frozen
+      # name that left without a deprecating changeset fails here rather than on someone's
+      # upgrade. Needs the build above — it reads the manifests and the built barrels.
+      - name: Check the frozen surface still matches the tree
+        run: pnpm check:frozen-surface
+
+      # The documentation, checked rather than assumed: a cold audit found four broken
+      # snippets, the headline composition among them, because nothing compiled them.
+      - name: Compile the docs' self-contained snippets
+        run: pnpm check:doc-snippets
+
+      - name: Check published READMEs
+        run: pnpm check:readmes
+
+      # The catalogue is written by hand and grouped by what a person sees; each page claims
+      # what it documents, and this holds what the generators used to guarantee by
+      # construction: every element, segment and kit family has exactly one page.
+      - name: Check every component has its catalogue page
+        run: pnpm check:catalogue
+
+      - name: Check internal links and anchors
+        run: pnpm check:doc-links
+
+      # Outside links (npm homepages, READMEs, JSDoc in published .d.ts) cannot be edited.
+      # Every URL the site ever published, and the anchors those links carry, must still
+      # lead to a page — the same one, or the one that replaced it.
+      - name: Check every published URL still leads somewhere
+        run: pnpm check:legacy-urls
+
+  # The example apps compile — the rest of what `pnpm build` covers, beside the site.
+  examples:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Build the examples
+        run: pnpm exec nx run-many -t build --projects='@aparte-workspace/example-*'
+
+  # Publish-safety: publint over every publishable package + are-the-types-wrong
+  # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
+  # for their .svelte/.vue/APF type entrypoints — publint still covers them.
+  packaging:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Check packaging
+        run: pnpm check-packaging
+
+  # The unit suite in three shards; each writes a blob report with its coverage, and
+  # `coverage` merges them, so the floors are judged on the whole suite as before.
+  test:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+        with:
+          packages: 'true'
+
+      - name: Test (one shard, with coverage)
+        env:
+          # The floors are judged on the merged coverage, in `coverage` (vitest.config.ts).
+          APARTE_TEST_SHARD: '1'
+        run: pnpm exec vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=blob
+
+      - name: Hand the shard's report to the merge
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: .vitest-reports/
+          include-hidden-files: true
+          retention-days: 1
+
+  coverage:
+    needs: [scope, test]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: ./.github/actions/setup
+
+      - name: Collect the shards' reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: vitest-blob-*
+          path: .vitest-reports
+          merge-multiple: true
+
+      # The coverage gate, on the merged suite: the thresholds in vitest.config.ts apply here.
+      - name: Test results and the coverage gate
+        run: |
+          pnpm exec vitest run --merge-reports --coverage --reporter=default --reporter=json --outputFile.json=.vitest-report.json
+          node scripts/stamp-test-count.mjs
+
+      # Reads coverage/coverage-summary.json. In CI a floor with too much slack fails
+      # (locally the same check raises it in place).
+      - name: Check the coverage floors sit on the measurement
+        run: pnpm check:coverage-floors
+
+  # One check for the branch rules: the ruleset requires `ci`, and the work is now spread
+  # over the jobs it waits for. Green when none of them failed; on a push to main whose tree
+  # was already judged, they are all skipped and so is nothing it owes.
+  ci:
+    needs: [scope, checks, packages, typecheck, lint, site, examples, packaging, test, coverage]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every part passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
+
+  # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
+  #
+  # This was four jobs — Node 18, 20 and 22 on ubuntu plus Node 22 on Windows — and
+  # across the three CI runs of the release that first exercised them, all four
+  # passed every time while the two jobs beside them found three real breakages.
+  # Node 24 on Linux is the jobs above; Windows is the maintainer's machine; 20 and 22
+  # sit between a floor and a ceiling that are both tested. What is left is the floor,
+  # and it is not theoretical: `check:node-import` is the only thing that resolves the
+  # published `node` export condition in a real Node, and on 18 `Request`,
+  # `ReadableStream` and `structuredClone` are genuinely not the same surface.
+  #
+  # Two shards of the unit suite on Node 18, against the packages as the release builds
+  # them. Add a version back the day a break is found in that band, with the break named.
+  node-floor-shard:
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      # The FLOOR of engines.node. Bump both together, or the promise drifts from
+      # what is tested.
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '18'
+          packages: 'true'
+
+      - name: Test
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/2
+
+      # The packages declare `engines.node: ">=18"`, and the Node import contract is
+      # the ONLY thing that resolves the published `node` export condition in real
+      # Node — publint/attw check the map statically, and the unit test runs under
+      # jsdom against the source entry.
+      - name: Check Node import contract
+        run: pnpm check:node-import
+
+  # The name the ruleset requires, over the shards.
+  node-floor:
+    needs: [node-floor-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
+
+  # Browser smoke E2E — drives every example in a real browser against a
+  # network-mocked model (no key/LM Studio).
+  #
+  # One job per Playwright project — one example in one engine — each booting only that
+  # example's dev server through E2E_ONLY. It was numbered shards, each booting all six
+  # servers, Angular's compile included, for a slice of a list cut in consecutive blocks
+  # (so every WebKit project landed in the same shard); and a red `e2e (4)` said nothing
+  # about where to look, where `e2e (react-webkit)` does. The ruleset requires each
+  # `e2e (project)`, and `check:e2e-projects` fails when a project is in no job here.
+  e2e:
+    name: e2e (${{ matrix.project }})
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: vanilla, app: vanilla }
+          - { project: vanilla-webkit, app: vanilla }
+          - { project: vanilla-firefox, app: vanilla }
+          - { project: vanilla-dist, app: vanilla-dist }
+          - { project: vanilla-dist-webkit, app: vanilla-dist }
+          - { project: react, app: react }
+          - { project: react-webkit, app: react }
+          - { project: react-firefox, app: react }
+          - { project: vue, app: vue }
+          - { project: vue-webkit, app: vue }
+          - { project: svelte4, app: svelte4 }
+          - { project: svelte4-webkit, app: svelte4 }
+          - { project: svelte5, app: svelte5 }
+          - { project: svelte5-webkit, app: svelte5 }
+          - { project: angular, app: angular }
+          - { project: agents-sdk, app: agents-sdk }
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
-    # run. That step cost 0.9 min on a good day, 3.2 min on a worse one, and 20+
-    # when the Azure Ubuntu mirror refuses the request (`Ign:` lines in the log) and
-    # apt falls back to archive.ubuntu.com. None of it was cacheable: browser
-    # binaries could be, but system packages install into the runner's OS, which is
-    # thrown away after every job.
+    # run (0.9 to 20+ minutes, depending on the Ubuntu mirror).
     #
     # The tag MUST track `@playwright/test` in pnpm-lock.yaml (1.61.1 today). A
     # mismatch fails loudly on the first launch ("Executable doesn't exist"), never
@@ -428,66 +608,34 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
     # Firefox refuses to launch when $HOME is not owned by the current user, which is
-    # the case inside this container. Playwright says so itself, in the failure:
-    # "Workaround: Set the HOME=/root environment variable". Chromium and WebKit do not
-    # care, which is why the Firefox projects were the only ones failing — in 2ms, before
-    # a single page loaded.
-    #
-    # Firefox joined the matrix locally and this job never ran it: the repo had no pull
-    # request until 0.8.0, so its first CI run was also the first run of the Firefox
-    # projects.
+    # the case inside this container: "Workaround: Set the HOME=/root environment variable".
     env:
       HOME: /root
-      # See the `ci` job: the file cache is what the restore step below carries.
-      NX_DB_CACHE: 'false'
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Install pnpm
-        if: needs.scope.outputs.source == 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-
-      - name: Use Node.js
-        if: needs.scope.outputs.source == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        if: needs.scope.outputs.source == 'true'
-        run: pnpm install --frozen-lockfile
-
-      # Read-only here: the `ci` job saves. Same keys, so the build below is mostly hits.
-      - name: Restore the nx cache
-        if: needs.scope.outputs.source == 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .nx/cache
-          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            nx-${{ runner.os }}-${{ github.ref_name }}-
-            nx-${{ runner.os }}-
-
       # vanilla-dist consumes @aparte/core from its dist, so the packages must be
-      # built before the E2E dev servers boot.
-      - name: Build
+      # there before the E2E dev servers boot. The examples themselves run from source.
+      - uses: ./.github/actions/setup
         if: needs.scope.outputs.source == 'true'
-        run: pnpm build
+        with:
+          packages: 'artifact'
 
-      # `playwright test` directly rather than `pnpm e2e`, so the shard flag reaches
+      # `playwright test` directly rather than `pnpm e2e`, so the project flags reach
       # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/3
+        env:
+          E2E_ONLY: ${{ matrix.app }}
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --project=${{ matrix.project }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.project }}
           path: e2e/playwright-report/
           retention-days: 7
 
@@ -497,47 +645,23 @@ jobs:
   # framework's own component. The examples' dev servers cannot prove a server render: none of
   # them renders on a server.
   e2e-ssr:
-    needs: scope
+    needs: [scope, packages]
+    if: needs.scope.outputs.skip != 'true'
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
     env:
       HOME: /root
-      NX_DB_CACHE: 'false'
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Install pnpm
-        if: needs.scope.outputs.source == 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-
-      - name: Use Node.js
-        if: needs.scope.outputs.source == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        if: needs.scope.outputs.source == 'true'
-        run: pnpm install --frozen-lockfile
-
-      - name: Restore the nx cache
-        if: needs.scope.outputs.source == 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .nx/cache
-          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            nx-${{ runner.os }}-${{ github.ref_name }}-
-            nx-${{ runner.os }}-
-
       # The fixtures consume the packages' dist, as an installed copy would.
-      - name: Build
+      - uses: ./.github/actions/setup
         if: needs.scope.outputs.source == 'true'
-        run: pnpm build
+        with:
+          packages: 'artifact'
 
       - name: Meta-framework SSR E2E
         if: needs.scope.outputs.source == 'true'
@@ -569,7 +693,11 @@ jobs:
   # expires, the publish step says so; update the secret and re-run the failed jobs.
   release-check:
     needs: [ci, node-floor, scope, e2e, e2e-ssr]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # `always()` so a tree already judged on its pull request — every job above skipped —
+    # still reaches the release; a failed or cancelled one still stops it.
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     permissions:
       contents: read
