@@ -280,6 +280,7 @@ const SATELLITES = [
     ['@aparte/plugin-approval', 'packages/plugins/approval'],
     ['@aparte/plugin-compaction', 'packages/plugins/compaction'],
     ['@aparte/plugin-titler', 'packages/plugins/titler'],
+    ['@aparte/plugin-storage-idb', 'packages/plugins/storage-idb'],
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],
