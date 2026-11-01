@@ -108,7 +108,7 @@ const LILLE = `{
       location: 'Lille', condition: 'partly-cloudy', temperature: 11, feelsLike: 9, high: 14, low: 7,
       humidity: 78, wind: { speed: 18, direction: 240 }, precipitation: 40,
       hourly: [11, 12, 13, 14, 13, 12, 10, 9].map((temperature, i) => ({
-        time: new Date(Date.now() + i * 3600000), temperature,
+        time: new Date((Math.floor(Date.now() / 3600000) + i) * 3600000), temperature,
         condition: i > 4 ? 'rain' : 'partly-cloudy', precipitation: i > 4 ? 60 : 10,
       })),
     }`;
@@ -136,7 +136,7 @@ const WEATHER: DemoEntry[] = [
       location: 'Oslo', condition: 'snow', night: true, temperature: -3, feelsLike: -8, high: -1, low: -6,
       humidity: 88, wind: { speed: 12, direction: 20 }, precipitation: 70,
       hourly: [-3, -3, -4, -4, -5, -5, -6, -6].map((temperature, i) => ({
-        time: new Date(Date.now() + i * 3600000), temperature, condition: i < 5 ? 'snow' : 'cloudy', precipitation: i < 5 ? 70 : 20,
+        time: new Date((Math.floor(Date.now() / 3600000) + i) * 3600000), temperature, condition: i < 5 ? 'snow' : 'cloudy', precipitation: i < 5 ? 70 : 20,
       })),
     }`,
     }),
