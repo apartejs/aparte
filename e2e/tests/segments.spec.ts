@@ -60,15 +60,17 @@ test('reasoning deltas render a thinking block the user can open and close', asy
  * above, artifacts.spec.ts:55) once the first reply's save could land right after a click.
  */
 test('a reasoning block someone opened stays the same block, open, through the next save', async ({ page }) => {
-    // On CI (Svelte 5, then React; never locally, 30/30 under load) the block is still drawn
-    // again after the next turn: another re-sync than the save's. Open, to fix in its own PR.
-    test.fixme(true, 'a re-sync still redraws the block after the next turn on CI');
     await installLlmMock(page, { scenario: 'thinking' });
     const chat = new ChatPage(page);
     await page.goto('/');
     await chat.sendAndSettle('think about it', { expect: MOCK_REPLY_MARK });
 
     const first = chat.segment('thinking').first();
+    // Settled first: the block folds itself when the answer begins, and that last update of
+    // the first turn can land after the answer's text is on screen — on CI it did, and the
+    // handle below was taken on the element it then replaced (fixme'd in 0.31.0; proved 5×
+    // per project on CI, PR #156, once this wait was in).
+    await expect(first.locator('.aparte-thinking-label')).not.toHaveClass(/aparte-shimmer/);
     const wasOpen = await first.evaluate((el) => (el as HTMLDetailsElement).open);
     await first.locator('summary').click();
     const handle = await first.elementHandle();
