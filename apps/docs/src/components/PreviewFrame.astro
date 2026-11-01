@@ -83,7 +83,7 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
         {
             poster ? (
                 <>
-                    <img class="frame-poster frame-poster--light" src={poster.light} alt={poster.alt} width={poster.width} height={poster.height} />
+                    <img class="frame-poster frame-poster--light" src={poster.light} alt={poster.alt} width={poster.width} height={poster.height} loading="lazy" />
                     <img class="frame-poster frame-poster--dark" src={poster.dark} alt={poster.alt} width={poster.width} height={poster.height} loading="lazy" />
                 </>
             ) : (

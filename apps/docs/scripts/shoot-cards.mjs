@@ -89,7 +89,9 @@ async function shootCard(page, demo, scheme, target = '.aparte-rich-card', css =
     await page.waitForTimeout(400);
     const box = await card.boundingBox();
     if (!box) throw new Error(`${demo}: the card has no box`);
+    // The whole page, so a reply taller than the window is not cut at its bottom edge.
     return page.screenshot({
+        fullPage: true,
         clip: { x: Math.max(0, box.x - MARGIN), y: Math.max(0, box.y - MARGIN), width: box.width + 2 * MARGIN, height: box.height + 2 * MARGIN },
     });
 }
@@ -113,8 +115,8 @@ function stage(png, title) {
 async function main() {
     mkdirSync(OUT, { recursive: true });
     const browser = await chromium.launch();
-    // English dates and numbers whatever the machine's language: the cards format with `Intl`.
-    const page = await browser.newPage({ viewport: { width: 720, height: 1000 }, deviceScaleFactor: 2, locale: 'en-US' });
+    // English dates and numbers, and one time zone, whatever the machine: the cards format with `Intl`.
+    const page = await browser.newPage({ viewport: { width: 720, height: 1000 }, deviceScaleFactor: 2, locale: 'en-US', timezoneId: 'Europe/Paris' });
     const og = await browser.newPage({ viewport: { width: 1200, height: 630 } });
     for (const { card, title, demo } of cardPages()) {
         const dark = await shootCard(page, demo, 'dark');
