@@ -21,12 +21,22 @@ imposed — and you take as much of it as you need.
   [`@aparte/engine`](/guides/engine/); the engine also runs alone, on a server or out of the
   page. Or keep your own loop and [stream its replies](/guides/bring-your-own-loop/) into the
   chat.
+- **The agent can live elsewhere.** The loop can run on [your server](/guides/server-loop/),
+  next to your tools, and an approval still reaches the person and survives a reload. An agent
+  that runs its own loop plugs in through a runner: [AG-UI](/providers/agent/ag-ui/) (Agno,
+  LangGraph, Mastra, CrewAI, Pydantic AI, TanStack AI) or an
+  [n8n workflow](/providers/agent/n8n/). The chat draws the same thing either way.
+- **Rich output is opt-in.** [Maths](/guides/math/), [diagrams](/guides/diagrams/),
+  [charts](/guides/charts/) and [cards for a tool's result](/guides/cards/) each come from a
+  plugin you add, so a page loads only what it uses. The sources a model cites are drawn as
+  [citations](/guides/citations/) by the providers that receive them.
 
 ## What aparté is not
 
-No routing, no sign-in, no settings screens, no database: those belong to your product.
-Storage is an interface you implement — [`AparteStorageAdapter`](/guides/conversation-persistence/)
-— not a backend that comes with it.
+No routing, no sign-in, no settings screens, no backend, no database: those belong to your
+product. Storage is an interface you implement —
+[`AparteStorageAdapter`](/guides/conversation-persistence/). An adapter over the browser's
+IndexedDB ships as an option; a backend never does.
 
 ## Where it stands
 

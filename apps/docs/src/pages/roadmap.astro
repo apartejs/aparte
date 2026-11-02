@@ -24,7 +24,7 @@ import Landing from '../layouts/Landing.astro';
  *      the reader; a date can only be missed.
  *   2. Nothing is claimed that is not on the tree. The numbers below were measured,
  *      and the ones that are cheap to re-measure are read at build time (the version,
- *      the gate, the stamped test count) rather than typed here — the same rule the
+ *      the stamped test count) rather than typed here — the same rule the
  *      landing follows, for the same reason: a line that describes the code has to be
  *      re-measured, not trusted.
  *
@@ -46,11 +46,6 @@ const at = (p: string) => new URL(p, REPO);
 
 /** The shipped version — the one npm serves. */
 const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
-
-/** The release gate, and how many of its steps are `check:*` guards. */
-const gate: string = JSON.parse(readFileSync(at('package.json'), 'utf8')).scripts.gate;
-const GATE_STEPS = gate.split('&&').length;
-const GATE_GUARDS = gate.split('&&').filter((s) => /pnpm check/.test(s)).length;
 
 /**
  * The surface figures are counted the same way: the manifest for the elements, the
@@ -201,8 +196,21 @@ const ROADMAP_IMAGE_ALT =
                 ECharts or Chart.js. A tool&#8217;s result can be a <a href="/guides/cards/">rich
                 card</a> now &#8212; eleven of them, from the weather to a market quote, read from the
                 tool&#8217;s own fields, and redrawn in place when a control on them, like the stock card&#8217;s range buttons,
-                is pressed. Compaction no longer rewrites the history it summarises. Next comes
-                customization: a chat that wears your design system.
+                is pressed. Compaction no longer rewrites the history it summarises.
+              </p>
+              <p class="st-lede">
+                Around the chat, the library grew too. The <a href="/components/launcher/">launcher</a>
+                floats the chat in a corner of the page, as a card, and as a full-window sheet on a phone.
+                An answer can offer <a href="/components/suggestions/">quick replies</a>. The
+                <a href="/providers/agent/n8n/">n8n runner</a> draws an n8n chat workflow, and the
+                <a href="/other-plugins/n8n-chat/">n8n widget</a> replaces n8n&#8217;s own chat widget on your page, with the same <code>createChat()</code> call.
+                The chat speaks {LOCALES} languages, English in core and the rest in <code>@aparte/locales</code>, and
+                <a href="/guides/conversation-persistence/#keep-them-in-the-browser">conversations
+                can be kept in the browser&#8217;s IndexedDB</a>. Right-to-left was checked in a real
+                browser, Chromium and WebKit, in two rounds of fixes.
+              </p>
+              <p class="st-lede">
+                Next come the items still open in the 1.0 barrier below. After them, customization: a chat that wears your design system.
               </p>
 
 
@@ -227,7 +235,6 @@ const ROADMAP_IMAGE_ALT =
                 <div class="fig"><b>{PLUGINS}</b><span>plugins</span></div>
                 <div class="fig"><b>4</b><span>wrappers<em>React, Vue, Svelte, Angular &#8212; plus vanilla</em></span></div>
                 <div class="fig"><b>{TESTS_LABEL}</b><span>tests<em>in {FILES} files</em></span></div>
-                <div class="fig"><b>{GATE_STEPS}</b><span>gate steps<em>{GATE_GUARDS} of them guards</em></span></div>
                 <div class="fig"><b>0</b><span>third-party deps<em>core&#8217;s one dependency is @aparte/engine, first-party</em></span></div>
               </div>
 
@@ -241,7 +248,8 @@ const ROADMAP_IMAGE_ALT =
             <h2 class="serif"><span class="paren">(</span>Beta<span class="paren">)</span></h2>
             <p class="st-lede">
               The beta is a dist-tag and a promise, and both are out: <code>npm i @aparte/core@beta</code>
-              installs <b>0.17.0</b>, and the <b>declared surface</b> &#8212; elements, attributes,
+              has been the beta channel since <b>0.17.0</b> and follows each release, and the
+              <b>declared surface</b> &#8212; elements, attributes,
               events and their detail, barrel exports, CSS tokens and contract classes, locale keys
               &#8212; is <a href="/reference/stability/">frozen as of that version</a>: it stops changing
               without a notice release. The alpha broke cleanly; the beta warns.
@@ -255,13 +263,13 @@ const ROADMAP_IMAGE_ALT =
               </li>
               <li>
                 <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
-                <span class="b-text">No critical or major audit finding left open.</span>
-                <em class="b-state">done &#183; re-checked by the cold audit</em>
+                <span class="b-text">No critical or major review finding left open.</span>
+                <em class="b-state">done &#183; re-checked by a fresh review of the whole tree</em>
               </li>
               <li>
                 <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
                 <span class="b-text">The frozen surface declared on a <a href="/reference/stability/">stability page</a>.</span>
-                <em class="b-state">done &#183; the page declares what is frozen, and the gate refuses a removal without a notice</em>
+                <em class="b-state">done &#183; the page declares what is frozen, and an automated check refuses a removal without a notice</em>
               </li>
               <li>
                 <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
@@ -289,7 +297,7 @@ const ROADMAP_IMAGE_ALT =
                 <em class="b-state">in progress &#183; the first signs are in</em>
               </li>
             </ol>
-            <p class="st-note">The beta shipped on the seven conditions this list can measure. The two it cannot hold: the cold audit ran on the final tree before the cut, and soak time is what the barrier below is for.</p>
+            <p class="st-note">The beta shipped on the seven conditions this list can measure. The two it cannot hold: a fresh review of the whole tree ran before the cut, and soak time is what the barrier below is for.</p>
             <p class="st-sub">What 0.17.0 carries</p>
               <div class="cluster">
                 <h3>In the library</h3>
@@ -297,7 +305,7 @@ const ROADMAP_IMAGE_ALT =
                   <li>The <b>comfortable</b> default density.</li>
                   <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
                   <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
-                  <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
+                  <li>The model&#8217;s question to the person, reworked in <code>@aparte/plugin-ask-user</code>, and <code>@aparte/plugin-approval</code>.</li>
                   <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a {TITLER.kb} KB model that runs in the browser</a>, in 17 languages.</li>
                   <li>The scroll rail measured against the market and reworked: a list of ticks capped at a share of the transcript, centred on it, and a jump that lands where it aimed.</li>
                 </ul>
@@ -339,8 +347,8 @@ const ROADMAP_IMAGE_ALT =
               <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span><em class="b-state">in progress &#183; since 0.17.0</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span><em class="b-state">done &#183; Angular SSR too: a production build of each, rendered on the server and hydrated in a browser</em></li>
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span></li>
-              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">A locale-keys guard in the gate.</span><em class="b-state">done</em></li>
+              <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span><em class="b-state">in progress &#183; the <a href="/guides/accessibility/">accessibility guide</a> says what is covered and what is tested, and right-to-left was checked in a real browser, Chromium and WebKit, in two rounds of fixes</em></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">Every locale carries every key.</span><em class="b-state">done &#183; an automated check refuses a locale that misses one</em></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">npm provenance, and a written semver and deprecation policy.</span><em class="b-state">done &#183; every package is published from CI with its provenance, and the <a href="/reference/stability/">stability page</a> writes the notice-then-removal path</em></li>
               <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">The 1.0 versioning decision, taken cold.</span></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">The engine competitors re-evaluated (TanStack AI), and engine&#8217;s run events mapped onto the AG-UI / A2A vocabulary if interop becomes a demand.</span><em class="b-state">done &#183; TanStack AI and any AG-UI agent plug in through <code>@aparte/runner-ag-ui</code>, which passes the AG-UI 1.0 conformance fixtures</em></li>
@@ -401,10 +409,10 @@ const ROADMAP_IMAGE_ALT =
               <dd>Another product.</dd>
               <dt>Arbitrary generative UI</dt>
               <dd>Custom segments and tool renderers are the sane version of it, and they are already here.</dd>
-              <dt>Multi-runtime adapters</dt>
-              <dd>Bring-your-own-loop covers it. A guide, not a package.</dd>
-              <dt>Routing, settings, persistence</dt>
-              <dd>The product&#8217;s, never the library&#8217;s.</dd>
+              <dt>An adapter per agent framework</dt>
+              <dd>A runner per wire protocol, not per framework: <code>@aparte/runner-ag-ui</code> serves every agent that speaks AG-UI, and <code>@aparte/runner-n8n</code> the n8n Chat Trigger. Anything else uses your own loop.</dd>
+              <dt>A backend, a database, routing, settings</dt>
+              <dd>The product&#8217;s, never the library&#8217;s. Storage is an interface; the one adapter that ships, <code>@aparte/plugin-storage-idb</code>, keeps conversations in the browser and is opt-in.</dd>
               <dt>A citation type in the segment union</dt>
               <dd>An annotation on a range of text, not a member of the union &#8212; which is how citations shipped, once two providers in this repo returned them.</dd>
             </dl>

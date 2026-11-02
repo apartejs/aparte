@@ -270,7 +270,10 @@ export default defineConfig({
             + 'agent loop), plus thin React, Vue, Svelte and Angular '
             + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
             + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
-            + 'server-side. Providers and plugins are opt-in packages. How it compares to '
+            + 'server-side. It connects to any OpenAI-compatible endpoint or an AG-UI agent, runs '
+            + 'tools with a person\'s approval, and draws tool results as interactive cards '
+            + '(generative UI: weather, products, places, orders) with @aparte/plugin-cards. '
+            + 'Providers and plugins are opt-in packages. How it compares to '
             + 'assistant-ui, AI Elements, deep-chat and Loquix: /compare/.',
           details: [
             'Three families, three places. **Components** are custom elements (`<aparte-chat>`, '

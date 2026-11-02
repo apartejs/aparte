@@ -4,8 +4,9 @@
  * per thing a visitor weighs — the pieces of a chat, the human in the loop, how it fits between
  * a framework and a model, the look, whole apps, and what is checked.
  *
- * Every number comes from src/lib/facts.ts, measured at build time; every demo is the library
- * itself, running in a frame (no screenshot anywhere on the site).
+ * Every number comes from src/lib/facts.ts or is counted at build time (the kit's families, from the
+ * generated reference); every demo is the library itself, running in a frame. The only pictures are
+ * the posters a frame shows until it loads.
  */
 import { arrowRightIcon, checkIcon, copyIcon } from '@aparte/core/icons';
 import Variant from '../components/catalog/Variant.astro';
@@ -21,6 +22,13 @@ import { LANDING_DESCRIPTION, LANDING_IMAGE_ALT, LANDING_TITLE } from '../data/l
 import Landing from '../layouts/Landing.astro';
 import { BROWSER_ENGINES, COMPONENTS, CORE_THIRD_PARTY_DEPS, CORE_VERSION, TESTS } from '../lib/facts';
 import { findTemplate } from '../templates/registry';
+import kit from '../generated/api/kit.json';
+
+/**
+ * The kit's family count, from the generator's data: the same file /kit/ takes its "N families" from
+ * and the roadmap counts. COMPONENTS.kit counts catalogue PAGES, and a page can claim several families.
+ */
+const KIT_FAMILIES = kit.length;
 
 const assistant = findTemplate('assistant');
 if (!assistant) throw new Error('The home shows the Assistant template, and the registry has none.');
@@ -190,10 +198,16 @@ const PROOF = [
 
     <div class="home">
         <section class="home-hero">
-            <h1 class="home-hero__title">{COMPONENTS.total} components for AI chat and agents, built as Web Components</h1>
+            <h1 class="home-hero__title">AI chat Web Components that talk to your backend and draw interactive cards</h1>
             <p class="home-hero__lede">
-                The transcript, the tools, the approvals and the composer of an AI app, streaming any model or agent — in
-                React, Vue, Svelte, Angular or vanilla JS, with zero third-party dependencies.
+                {COMPONENTS.total} components for the transcript, the tools, the approvals and the composer of an AI app,
+                streaming any model or agent — in React, Vue, Svelte, Angular or vanilla JS, with zero third-party
+                dependencies.
+            </p>
+            <p class="home-hero__lede home-hero__lede--detail">
+                Point it at your own endpoint — any OpenAI-compatible API, an AG-UI agent or your <code>/api/chat</code> — let
+                the model call your tools with a person’s approval, and draw what they return as interactive cards (generative UI): weather,
+                products, places, orders.
             </p>
             <div class="home-hero__actions">
                 <a class="aparte-btn aparte-btn--solid aparte-btn--primary aparte-btn--lg" href="/guides/getting-started/">
@@ -212,6 +226,10 @@ const PROOF = [
 
         <section class="home-fits" aria-labelledby="fits">
             <h2 id="fits" class="home-fits__title">Between your framework and your model</h2>
+            <p class="home-fits__line">
+                The chat is the front end only: the model and the tools run behind it, on your backend, an AG-UI agent
+                or an n8n workflow.
+            </p>
             <HowItFits />
         </section>
 
@@ -313,7 +331,7 @@ const PROOF = [
                 <Variant id="home-skin-terminal" widths={false} />
             </div>
             <p class="home-note">
-                The rest of your app wears the same tokens: a kit of {COMPONENTS.kit} recipes — buttons, fields, menus, dialogs,
+                The rest of your app wears the same tokens: a kit of {KIT_FAMILIES} families — buttons, fields, menus, dialogs,
                 tabs. <a href="/guides/theming/">Theme it</a> · <a href="/components/button/">The kit</a>
             </p>
         </section>
@@ -422,6 +440,12 @@ const PROOF = [
         line-height: 1.55;
         text-wrap: pretty;
     }
+    .home-hero__lede--detail {
+        font-size: clamp(0.9375rem, 1.3vw, 1.0625rem);
+    }
+    .home-hero__lede code {
+        font-size: 0.9em;
+    }
     .home-hero__actions {
         display: flex;
         flex-wrap: wrap;
@@ -470,6 +494,15 @@ const PROOF = [
         letter-spacing: 0.12em;
         text-align: center;
         text-transform: uppercase;
+    }
+    .home-fits__line {
+        max-width: 44rem;
+        margin: 0 auto;
+        color: var(--aparte-text-muted);
+        font-size: 1.0625rem;
+        line-height: 1.6;
+        text-align: center;
+        text-wrap: pretty;
     }
     /* The weights, in the proof section. */
     .home-weight {
