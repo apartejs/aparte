@@ -73,6 +73,15 @@ describe('drawing a diagram', () => {
         expect(c['secure']).toEqual(expect.arrayContaining(['securityLevel', 'htmlLabels', 'flowchart', 'themeCSS']));
     });
 
+    it('draws an edge label on an opaque background, so the edge stops at the words', async () => {
+        const { mermaid, configs } = fakeMermaid();
+        setupMermaidWith(mermaid, { mermaid: { themeCSS: '.node rect { rx: 4px; }' } });
+        await renderer().render(ctx('flowchart TD\n  A -->|label| B'));
+        const css = String(configs[0]!['themeCSS']);
+        expect(css).toMatch(/\.edgeLabel rect \{ opacity: 1; \}/);
+        expect(css, "the page's own themeCSS is kept").toContain('.node rect { rx: 4px; }');
+    });
+
     it('answers a diagram that does not parse with a note and its source', async () => {
         const { mermaid } = fakeMermaid();
         setupMermaidWith(mermaid);
