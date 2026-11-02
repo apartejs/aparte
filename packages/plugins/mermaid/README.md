@@ -4,6 +4,8 @@ Diagrams for [aparté](https://github.com/apartejs/aparte) via [Mermaid](https:/
 Every ```` ```mermaid ```` fence in a reply is drawn as a diagram — as it streams, whichever
 Markdown provider is installed, or none.
 
+<img src="https://apartejs.dev/shots/mermaid.png" alt="A Mermaid flowchart drawn from a fence, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-mermaid @aparte/core mermaid
 ```

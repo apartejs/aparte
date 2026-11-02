@@ -4,6 +4,8 @@ Charts for [aparté](https://github.com/apartejs/aparte) via [Chart.js](https://
 A Chart.js config that a model writes in a ```` ```chartjs ```` fence, or that a tool returns, is
 drawn as a chart — as it streams, whichever Markdown provider is installed, or none.
 
+<img src="https://apartejs.dev/shots/chartjs.png" alt="A Chart.js line chart drawn from a fence, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-chartjs @aparte/core chart.js
 ```

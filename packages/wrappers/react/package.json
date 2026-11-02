@@ -2,7 +2,7 @@
   "name": "@aparte/react",
   "version": "0.32.1",
   "homepage": "https://apartejs.dev/frameworks/react/",
-  "description": "React 18+ wrapper for aparté — an ergonomic <AparteChat> component plus hooks over the framework-agnostic web components.",
+  "description": "React AI chat component built on Web Components: connect your backend, approve tool calls, draw results as interactive cards. <AparteChat> plus hooks.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",

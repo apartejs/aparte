@@ -2,7 +2,7 @@
   "name": "@aparte/vue",
   "version": "0.32.1",
   "homepage": "https://apartejs.dev/frameworks/vue/",
-  "description": "Vue 3 wrapper for aparté — an ergonomic <AparteChat> component plus composables over the framework-agnostic web components.",
+  "description": "Vue 3 AI chat component built on Web Components: connect your backend, approve tool calls, draw results as interactive cards. <AparteChat> plus composables.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",

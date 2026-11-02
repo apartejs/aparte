@@ -7,7 +7,7 @@ dependencies, runs in the browser or Node.
 npm install @aparte/engine @aparte/core
 ```
 
-`@aparte/core` is **not a dependency** of this package — it is the other way round: core depends on the engine. Install core for the recommended path below.
+`@aparte/engine` does not depend on `@aparte/core` — it is the other way round: core depends on the engine. Install core for the recommended path below.
 
 ```ts
 import { AparteClient } from '@aparte/core';
@@ -20,13 +20,11 @@ Its core export is **`runStreamAgent`**: a DOM-free structured-stream loop that 
 transport's token stream into high-level run events (text, thinking, tool calls),
 drives the tool-calling loop (with optional human-in-the-loop approval), and reports usage.
 
-`@aparte/core` runs this loop by default — it used to embed a copy of it inline, and the
-two were held equal by a parity suite; the copy is gone, and that suite now lives in core
-with the loop's call sequences pinned as snapshots. `AparteClientOptions.streamRunner` is
-the seam to wrap it (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host
-that owns its transcript) or to replace it with a loop of your own emitting the same events.
+`@aparte/core` runs this loop by default. `AparteClientOptions.streamRunner` is the seam to
+wrap it (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host that owns its
+transcript) or to replace it with a loop of your own emitting the same events.
 
-`@aparte/core` is not needed here — `runStreamAgent` and the parsers import nothing from it.
+You can also use the engine without core: `runStreamAgent` and the parsers import nothing from it.
 Conversation compaction (the context budget, the selector, the summariser) is
 `@aparte/plugin-compaction`, not the engine: the loop reports usage and lets the caller decide.
 

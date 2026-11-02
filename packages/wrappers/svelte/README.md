@@ -4,6 +4,8 @@ The **Svelte AI chat component** of [aparté](https://github.com/apartejs/aparte
 `<AparteChat>` (Svelte 4 and 5) plus stores (`createAparteChat`, `createAparteClient`, `createConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
+<img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420">
+
 On Svelte 5, import from **`@aparte/svelte/runes`**: the same chat written in runes — snippets,
 `bind:messages`, callback props, and `<AparteToolUI>` to draw a tool call with your own component.
 Tested in CI with Svelte 4 and 5, and in a SvelteKit 2 page rendered on the server and hydrated

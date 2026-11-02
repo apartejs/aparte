@@ -4,6 +4,8 @@ Maths for [aparté](https://github.com/apartejs/aparte) via [KaTeX](https://kate
 `$…$`, `$$…$$`, `\(…\)` and `\[…\]` in a reply is drawn as a formula — while the reply streams,
 under whichever Markdown provider recognises maths.
 
+<img src="https://apartejs.dev/shots/katex.png" alt="A formula drawn from a display block, with the prices around it left as text, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-katex @aparte/core katex
 ```

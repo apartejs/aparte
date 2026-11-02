@@ -1,16 +1,21 @@
 # aparté
 
-**AI chat and agent UI components, built as Web Components — with the runtime inside.**
+**AI chat as Web Components, for React, Vue, Svelte, Angular or plain HTML.** Connect your own
+OpenAI-compatible backend or an AG-UI agent (n8n too), let the model call tools that a human
+approves, and draw the results as [interactive cards](https://apartejs.dev/guides/cards/):
+weather, products, places, orders (generative UI).
+
+<a href="https://apartejs.dev/"><img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420"></a>
+
 Everything an AI chat shows, each piece [on its own page with live variants](https://apartejs.dev/components/):
 the conversation, messages with Markdown and code, reasoning, tool calls a human approves,
 the questions an agent asks, the composer and its model picker — then the layout around it
-(app shell, sidebar, conversation list) and a UI kit for the rest of your app. Use them in
-React, Vue, Svelte, Angular or plain HTML, connect any model, restyle everything with CSS
-variables. **Zero third-party dependencies** at the core.
+(app shell, sidebar, conversation list) and a UI kit for the rest of your app. Restyle everything
+with CSS variables. **Zero third-party dependencies** at the core.
 
-Start from a [template](https://apartejs.dev/templates/) — an assistant, an agent workshop, a
-support widget, a research assistant — or see [how it compares](https://apartejs.dev/compare/)
-with assistant-ui, AI Elements, Deep Chat and Loquix.
+Begin from a [template](https://apartejs.dev/templates/) — an assistant, an agent workshop, a
+support widget, a research assistant, a shopping assistant, a travel concierge — or see
+[how it compares](https://apartejs.dev/compare/) with assistant-ui, AI Elements, Deep Chat and Loquix.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![npm (beta)](https://img.shields.io/npm/v/@aparte/core/beta?label=npm%20beta&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/beta)
@@ -34,9 +39,17 @@ with assistant-ui, AI Elements, Deep Chat and Loquix.
   attachments, reasoning, code blocks, tool calls, artifacts, errors, approvals, questions,
   suggestions, a model picker, a context gauge — and the shell around them. Each one is
   documented with its variants running live, not as a screenshot.
+- **Rich output, not just text.** A tool's result can be drawn as an interactive
+  [card](https://apartejs.dev/guides/cards/) (weather, products, places, stocks, orders…),
+  and a reply can carry [charts](https://apartejs.dev/guides/charts/),
+  [maths](https://apartejs.dev/guides/math/), [diagrams](https://apartejs.dev/guides/diagrams/) and
+  [citations](https://apartejs.dev/guides/citations/), drawn while it streams.
 - **The runtime is included.** Streaming, the agent loop (`@aparte/engine`) and tool calls
   come with the components — or keep your own loop and
   [stream its replies](https://apartejs.dev/guides/bring-your-own-loop/) into the chat.
+- **Agents, not only models.** Put the chat on an AG-UI agent (Agno, LangGraph, Mastra, CrewAI,
+  or a TanStack AI route), on an n8n chat workflow, or on a
+  [server-side loop](https://apartejs.dev/guides/server-loop/) behind your own `/api/chat`.
 - **A human in the loop.** Mark a tool `needsApproval` and the user approves or rejects the
   call; the agent can ask typed questions; and with the
   [server loop](https://apartejs.dev/guides/server-loop/) an approval survives a reload.
@@ -88,7 +101,7 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 A real streaming, bring-your-own-key chat — no backend, no build magic.
-→ **[Getting started](./apps/docs/src/content/docs/guides/getting-started.mdx)**
+→ **[Getting started](https://apartejs.dev/guides/getting-started/)** builds the same chat step by step on a scripted model that needs no key, and wires Markdown from two smaller packages (`@aparte/plugin-marked` and `@aparte/plugin-streaming-markdown`); this page uses the one-call shortcut and a real model.
 
 ## Any framework
 
@@ -119,10 +132,10 @@ export function Chat() {
 
 | Framework | Package | Tested in CI with | Rendered on a server, tested in | Guide |
 |---|---|---|---|---|
-| React 18 / 19 | `@aparte/react` | React 19 | Next 15 App Router | [React](./apps/docs/src/content/docs/frameworks/react.mdx) |
-| Vue 3.5 | `@aparte/vue` | Vue 3.5 | Nuxt 3 | [Vue](./apps/docs/src/content/docs/frameworks/vue.mdx) |
-| Svelte 4 / 5 | `@aparte/svelte` (`/runes` on Svelte 5) | Svelte 4 and 5 | SvelteKit 2 | [Svelte](./apps/docs/src/content/docs/frameworks/svelte.mdx) |
-| Angular 19–21 | `@aparte/angular` | Angular 19 and 21, zoneless | Angular 21 SSR, hydrated | [Angular](./apps/docs/src/content/docs/frameworks/angular.mdx) |
+| React 18 / 19 | `@aparte/react` | React 19 | Next 15 App Router | [React](https://apartejs.dev/frameworks/react/) |
+| Vue 3.5 | `@aparte/vue` | Vue 3.5 | Nuxt 3 | [Vue](https://apartejs.dev/frameworks/vue/) |
+| Svelte 4 / 5 | `@aparte/svelte` (`/runes` on Svelte 5) | Svelte 4 and 5 | SvelteKit 2 | [Svelte](https://apartejs.dev/frameworks/svelte/) |
+| Angular 19–21 | `@aparte/angular` | Angular 19 and 21, zoneless | Angular 21 SSR, hydrated | [Angular](https://apartejs.dev/frameworks/angular/) |
 
 Each server-rendered page is built for production, served, and hydrated in a browser with no
 mismatch. Underneath, it is the same Web Components: the chat's markup and its CSS variables are
@@ -151,6 +164,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/plugin-cards` | A tool's result drawn as a rich card — weather, products, places… — in variants, from your tool's own fields |
 | `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
 | `@aparte/plugin-artifacts` | A `create_artifact` tool the model calls, and the card that shows its result: the code, and a live preview |
+| `@aparte/plugin-storage-idb` | Keep conversations in the browser: an IndexedDB storage adapter, attachments kept as files, no server |
 | `@aparte/plugin-titler` | A title for every conversation, from a small model that runs in the browser |
 | `@aparte/locales` | The UI strings in nine languages — French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified); English is core's built-in default |
 
@@ -159,15 +173,18 @@ Runnable examples for every framework (plus vanilla) live in
 Live at **[apartejs.dev](https://apartejs.dev/)** — a [Starlight](https://starlight.astro.build/)
 site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
-- **[Getting started](./apps/docs/src/content/docs/guides/getting-started.mdx)** — your first streaming chat, no framework
-- **[Providers](./apps/docs/src/content/docs/providers/index.mdx)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
-- **[Theming](./apps/docs/src/content/docs/guides/theming.mdx)** — restyle everything through CSS variables
-- **[Customization](./apps/docs/src/content/docs/guides/customization/index.mdx)** — icons, render hooks, action registries
-- **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.mdx)** — retry, edit, branches, persistence
-- **[The agent engine](./apps/docs/src/content/docs/guides/engine.mdx)** — the headless `runStreamAgent` loop
-- **[Tools & human-in-the-loop](./apps/docs/src/content/docs/guides/tools.mdx)** — function calling with an approve/reject gate
-- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.mdx)** — your `/api/chat`, key stays server-side
-- **[Bring your own loop](./apps/docs/src/content/docs/guides/bring-your-own-loop.mdx)** — display-only mode for an external agent loop
+- **[Getting started](https://apartejs.dev/guides/getting-started/)** — your first streaming chat, no framework
+- **[Providers](https://apartejs.dev/providers/)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
+- **[Theming](https://apartejs.dev/guides/theming/)** — restyle everything through CSS variables
+- **[Customization](https://apartejs.dev/guides/customization/)** — icons, render hooks, action registries
+- **[Conversations & branching](https://apartejs.dev/guides/conversations-branching/)** — retry, edit, branches, persistence
+- **[The agent engine](https://apartejs.dev/guides/engine/)** — the headless `runStreamAgent` loop
+- **[Tools & human-in-the-loop](https://apartejs.dev/guides/tools/)** — function calling with an approve/reject gate
+- **[Backend transport](https://apartejs.dev/guides/backend-transport/)** — your `/api/chat`, key stays server-side
+- **[Bring your own loop](https://apartejs.dev/guides/bring-your-own-loop/)** — display-only mode for an external agent loop
+- **[Cards](https://apartejs.dev/guides/cards/)** — a tool's result drawn as an interactive card (generative UI)
+- **[Server loop](https://apartejs.dev/guides/server-loop/)** — run the agent loop on your server; approvals survive a reload
+- **[Docs for agents](https://apartejs.dev/guides/docs-for-agents/)** — [`llms.txt`](https://apartejs.dev/llms.txt) and an MCP server for your coding agent
 
 ## Status
 
@@ -185,7 +202,7 @@ aggregate), or a package's own `CHANGELOG.md` for its detail.
 ## Contributing
 
 Issues and PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions
-and the gate each change lands behind. It's a pnpm + NX monorepo:
+and the checks each change must pass. It's a pnpm + NX monorepo:
 
 ```bash
 pnpm install

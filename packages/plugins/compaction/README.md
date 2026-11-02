@@ -5,6 +5,8 @@ outgrows the model's window, summarise the older turns for the model and keep th
 verbatim — without deleting anything. Nothing in core compacts by itself — no UI kit does, and
 every agent SDK ships it as an opt-in module — so this is where it lives.
 
+<img src="https://apartejs.dev/shots/compaction.png" alt="The separator the plugin draws above the turns the model still reads word for word, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-compaction @aparte/core
 ```

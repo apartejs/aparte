@@ -2,8 +2,13 @@
 
 [![Published on webcomponents.org](https://img.shields.io/badge/webcomponents.org-published-blue.svg)](https://www.webcomponents.org/element/@aparte/core)
 
-AI chat and agent UI components as **vanilla Web Components, with the agent loop inside** —
-zero third-party dependencies, ESM-only, usable in any framework or none.
+**AI chat as Web Components, with the agent loop inside** — for React, Vue, Svelte, Angular or
+plain HTML. Connect your own OpenAI-compatible backend or an AG-UI agent (n8n too), let the model
+call tools that a human approves, and draw the results as
+[interactive cards](https://apartejs.dev/guides/cards/) (generative UI). Zero third-party
+dependencies, ESM-only.
+
+<a href="https://apartejs.dev/"><img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420"></a>
 
 The conversation, messages, reasoning, tool calls a human approves, the questions an agent
 asks, the composer, the layout around the chat (app shell, sidebar, conversation list) and a
@@ -56,7 +61,7 @@ there is nothing to call for text, code or thinking blocks to appear. Calling
 
 `@aparte/core` imports cleanly on the server. A `node` export condition resolves to a
 DOM-free entry, so `import '@aparte/core'` works in Node, an Electron **main** process,
-or an SSR pass (Next / Nuxt / SvelteKit / Angular Universal) without a DOM shim:
+or an SSR pass (Next / Nuxt / SvelteKit / Angular SSR) without a DOM shim:
 
 ```ts
 // Node — same specifier, DOM-free entry
@@ -68,10 +73,7 @@ conversation/message runtime, config, parsers and every type. **You lose** the c
 elements themselves — they extend `HTMLElement`, so they're browser-only, and
 `registerAllComponents()` is a safe no-op there.
 
-Reading `src/index.ts` is misleading on this point: that's the *browser* entry (it defines
-the custom elements), and the workspace resolves it first by design. The contract is
-enforced by `pnpm check:node-import`, which imports the built packages in real Node on
-every CI run.
+The `node` entry is checked on every CI run by importing the built package in real Node.
 
 ## What's in it
 
@@ -85,7 +87,19 @@ every CI run.
 - **Transports** — `AparteDirectTransport` (browser → provider, BYOK / local model) or
   `AparteBackendTransport` (browser → your endpoint, API key stays server-side).
 - **Theming** — restyle everything through `--aparte-*` CSS variables (Light DOM, no forking).
-- **Customization** — icons, render hooks, and a zoned action registry via `aparteGlobalConfig`.
+- **Customization** — icons, render hooks and the message-action registry (the buttons under a
+  message) via `aparteGlobalConfig`. A composer button is an `<aparte-composer-action>`
+  element you write in markup.
+- **`<aparte-launcher>`** — a floating button that opens the chat as a window, and as a
+  full-window sheet on a narrow or short screen.
+- **Citations** — sources a provider returns appear as a chip after the cited passage, with a
+  card and a list.
+- **Maths, diagrams and charts** — a code block in a registered language (`math`, `mermaid`,
+  `echarts`…) is drawn as it streams. Core carries the seam
+  (`registerCodeLanguageRenderer`); `@aparte/plugin-katex`, `-mermaid`, `-echarts` and
+  `-chartjs` supply the drawings.
+- **Suggestions** — `<aparte-suggestions>` shows prompt starters, and a model's suggestion
+  block becomes quick replies.
 
 Zero third-party dependencies (the agent loop, `@aparte/engine`, is the one first-party dependency): Markdown, syntax highlighting, etc. are **opt-in** providers you inject.
 ESM-only (CJS consumers use `await import()`).
@@ -104,13 +118,6 @@ The two most-asked-for pages, directly:
   hook, the action registry, the composer toolbar.
 - **[CSS variables](https://apartejs.dev/reference/css-variables/)** — the full
   token catalogue, GENERATED from the stylesheet, so it cannot drift from it.
-
-(This package used to carry `CUSTOMIZATION.md` and `THEMING.md` alongside these.
-They were never published — `files` is `dist`, `README.md`, `LICENSE` — nothing
-linked to them, and both had drifted: one taught a `registerBubbleAction` that does
-not exist, the other listed six `--aparte-bubble-*` variables that the stylesheet
-never defined. A wrong orphan a coding agent finds by grepping the repo is worse
-than no orphan, so they are gone rather than fixed twice.)
 
 ## License
 

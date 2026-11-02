@@ -6,6 +6,8 @@ Damian Tarnawski's [`streaming-markdown`](https://github.com/thetarnav/streaming
 release since May 2025. Parses only the new text and **appends** DOM nodes per streamed chunk — no
 per-token re-parse or `innerHTML` rebuild.
 
+<img src="https://apartejs.dev/shots/streaming-markdown.png" alt="A reply written in Markdown, drawn in an aparté chat: a heading, a table, a numbered list and a quote" width="420">
+
 ```bash
 npm install @aparte/plugin-streaming-markdown @aparte/core
 ```

@@ -7,6 +7,8 @@ nature, so the whole convention lives here: the `create_artifact` **tool** the m
 **card** that renders its result, and the `<artifact>` **tag grammar** for a model that writes one
 in its prose.
 
+<img src="https://apartejs.dev/shots/artifacts.png" alt="An artifact card with Code and Preview tabs, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-artifacts @aparte/core
 ```

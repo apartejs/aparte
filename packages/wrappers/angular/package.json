@@ -2,7 +2,7 @@
   "name": "@aparte/angular",
   "version": "0.32.1",
   "homepage": "https://apartejs.dev/frameworks/angular/",
-  "description": "Angular wrapper for aparté (Angular 19.2 to 21, zone or zoneless) — an ergonomic <aparte-chat> component plus services over the framework-agnostic web components.",
+  "description": "Angular AI chat component built on Web Components: connect your backend, approve tool calls, draw results as cards. Angular 19.2 to 21, zone or zoneless.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/fesm2022/aparte-angular.mjs",

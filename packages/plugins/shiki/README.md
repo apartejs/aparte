@@ -4,6 +4,8 @@ Syntax highlighting for [aparté](https://github.com/apartejs/aparte) via [shiki
 Registers shiki as the highlight provider, backed by a **single lazily-created highlighter** — grammars
 and the theme load on demand and are cached, so you never re-initialise per code block.
 
+<img src="https://apartejs.dev/shots/shiki.png" alt="A TypeScript code block highlighted by Shiki, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-shiki @aparte/core shiki
 ```

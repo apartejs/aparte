@@ -4,6 +4,8 @@ Markdown rendering for [aparté](https://github.com/apartejs/aparte) via
 [marked](https://marked.js.org). Registers the **one-shot** Markdown provider used for finished /
 re-rendered message bubbles.
 
+<img src="https://apartejs.dev/shots/marked.png" alt="A reply written in Markdown, drawn in an aparté chat: a heading, a table, a numbered list and a quote" width="420">
+
 ```bash
 npm install @aparte/plugin-marked @aparte/core marked
 ```

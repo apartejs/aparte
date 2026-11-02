@@ -5,7 +5,7 @@
     "publishConfig": {
         "access": "public"
     },
-    "description": "Rich cards for aparté — a tool's result drawn as a card (weather, products, places, figures, orders, stocks, scores, plans, media, links), with variants and live controls, from any source.",
+    "description": "Rich cards for aparté — a tool's result drawn as a card (weather, items, products, places, figures, orders, stocks, scores, plans, media, links), with variants and live controls, from any source.",
     "type": "module",
     "sideEffects": false,
     "main": "./dist/index.js",
