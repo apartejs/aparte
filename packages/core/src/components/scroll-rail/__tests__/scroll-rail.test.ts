@@ -558,6 +558,22 @@ describe('aparte-scroll-rail holds still', () => {
         expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'a1', 'u2-final', 'u3']);
     });
 
+    it('a rebuild re-reads only the text that changed', async () => {
+        // A rebuild re-read the head of every question, twice a turn: 500 of them in a long
+        // conversation, for names that had not changed.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        const walk = vi.spyOn(document, 'createTreeWalker');
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(walk, 'the new question only').toHaveBeenCalledTimes(1);
+        turns[2]!.querySelector('.aparte-message-content')!.textContent = 'And a light-DOM one, edited?';
+        await nextFrame(); await nextFrame();
+        expect(walk, 'and the one that was edited').toHaveBeenCalledTimes(2);
+        expect(ticks(rail)[1]!.getAttribute('aria-label')).toBe('You: And a light-DOM one, edited?');
+        walk.mockRestore();
+    });
+
     it('a reply re-rendered whole on each token is not searched for bubbles', async () => {
         // Without a streaming Markdown plugin a reply's content is replaced on every token; the
         // structural test ran first and searched both the old and the new subtree each time.

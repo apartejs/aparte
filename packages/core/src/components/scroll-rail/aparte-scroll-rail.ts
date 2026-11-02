@@ -119,6 +119,12 @@ export class AparteScrollRail extends HTMLElement {
     private _rebuildWanted = false;
     /** Ticked bubbles whose text changed since the last frame: only their names can have moved. */
     private _relabel = new Set<HTMLElement>();
+    /**
+     * Each message's excerpt, read once and forgotten when a mutation touches its text: a
+     * rebuild re-read the head of all 500 questions of a long conversation, twice a turn, for
+     * names that had not changed.
+     */
+    private _excerpts = new WeakMap<Element, string>();
     private _pickQueued = false;
     private _currentId: string | null = null;
     /**
@@ -226,6 +232,7 @@ export class AparteScrollRail extends HTMLElement {
                     const at = record.target instanceof Element ? record.target : record.target.parentElement;
                     const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
                     if (owner) {
+                        this._excerpts.delete(owner);
                         if (this._ticked(owner)) this._queueRelabel(owner);
                         continue;
                     }
@@ -340,6 +347,8 @@ export class AparteScrollRail extends HTMLElement {
 
     /** The first words of a message, for the tick's name. An excerpt, never a summary. */
     private _excerpt(bubble: HTMLElement): string {
+        const known = this._excerpts.get(bubble);
+        if (known !== undefined) return known;
         const body = bubble.querySelector<HTMLElement>('.aparte-message-content') ?? bubble;
         // The head of the text only, read node by node: `textContent` built the whole message
         // (a pasted document, a long reply on every rebuild) to keep sixty characters.
@@ -347,7 +356,9 @@ export class AparteScrollRail extends HTMLElement {
         const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node && head.length < EXCERPT_LENGTH * 16; node = walker.nextNode()) head += node.nodeValue ?? '';
         const text = head.slice(0, EXCERPT_LENGTH * 16).replace(/\s+/g, ' ').trim();
-        return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
+        const excerpt = text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
+        this._excerpts.set(bubble, excerpt);
+        return excerpt;
     }
 
     private _tickLabel(bubble: HTMLElement, locale: AparteLocale): string {
@@ -744,17 +755,25 @@ export class AparteScrollRail extends HTMLElement {
         const aboveStyle = getComputedStyle(above);
         const hit = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-hit-size')) || 24;
         const thickness = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-tick-thickness')) || 2;
-        // The room is the rail's ceiling, measured at the theme's pitch: there a list that does
-        // not fit is cut at the ceiling, so the rail's height IS the ceiling, whatever sets it —
-        // its share of the transcript, a host's border or inner container, a consumer's own
-        // max-height. Measured at the tightened pitch, it was the tightened list and the pitch
-        // never loosened: a 1000-message conversation, then a 20-message one, kept 6px ticks
-        // where 24px fit (Chromium).
-        this._write('--aparte-scroll-rail-hit-size', '');
-        this._write('--aparte-scroll-rail-gap', '');
+        // The room is the rail's ceiling, whatever sets it: its share of the transcript, a host's
+        // border or inner container, a consumer's own max-height. A list cut at the ceiling makes
+        // the rail's height the ceiling, and so does a list at the theme's pitch that fits: read
+        // as is. A list tightened and fitting hides it — the room was read off that list and the
+        // pitch never loosened: a 1000-message conversation, then a 20-message one, kept 6px
+        // ticks where 24px fit (Chromium) — so that one is laid out at the theme's pitch first.
+        // Only then: clearing the pitch re-styles every tick, 15 ms at 500 of them.
+        const tightened = (this._written.get('--aparte-scroll-rail-hit-size') ?? '') !== '';
+        if (tightened && this.scrollHeight <= this.clientHeight + 1) {
+            this._write('--aparte-scroll-rail-hit-size', '');
+            this._write('--aparte-scroll-rail-gap', '');
+        }
         const height = this.clientHeight;
         const count = this._list()?.children.length ?? 0;
-        if (!count || !height || count * hit <= height) return;
+        if (!count || !height || count * hit <= height) {
+            this._write('--aparte-scroll-rail-hit-size', '');
+            this._write('--aparte-scroll-rail-gap', '');
+            return;
+        }
         const pitch = Math.max(MIN_PITCH, Math.floor(height / count));
         this._write('--aparte-scroll-rail-hit-size', `${pitch}px`);
         // The theme derives the gap from the hit size on `:root`, and a `var()` resolves
