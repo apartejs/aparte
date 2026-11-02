@@ -49,7 +49,8 @@ const ALIGN_TOLERANCE = 1;
  * of the transcript (`--aparte-scroll-rail-share`, 60%). When more turns exist than 24px
  * targets fit in that, the pitch tightens to what fits, down to a 6px floor; past that
  * the rail scrolls itself so the current tick is always in view, and the arrow keys walk
- * every tick whatever the pitch.
+ * every tick whatever the pitch. The rail is one Tab stop, the current tick: Tab crosses
+ * it once, however long the conversation, and the arrows, Home and End move inside it.
  *
  * @element aparte-scroll-rail
  *
@@ -369,6 +370,7 @@ export class AparteScrollRail extends HTMLElement {
                 tick.type = 'button';
                 tick.className = 'aparte-scroll-rail__tick';
                 tick.dataset['messageId'] = id;
+                tick.tabIndex = -1;
                 item.appendChild(tick);
             }
             const tick = item.firstElementChild as HTMLElement;
@@ -387,6 +389,7 @@ export class AparteScrollRail extends HTMLElement {
         }
 
         if (this._currentId && !known.has(this._currentId)) this._currentId = null;
+        this._syncTabStop();
         if (!sameElements(this._observedBubbles, bubbles)) this._observe(bubbles);
         this._layout();
     }
@@ -497,6 +500,30 @@ export class AparteScrollRail extends HTMLElement {
                 tick.removeAttribute('aria-current');
             }
         }
+        this._syncTabStop();
+    }
+
+    /**
+     * One Tab stop for the whole rail, as in a toolbar: the tick that has the focus, else
+     * the current one, else the last. Every tick was a button in the tab order, so a
+     * keyboard reader crossed 500 of them between the transcript and the composer of a
+     * long conversation; the arrows, Home and End walk the rail instead.
+     */
+    private _syncTabStop(): void {
+        const ticks = Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick'));
+        if (ticks.length === 0) return;
+        const focused = activeElementIn(this);
+        const stop = (focused instanceof HTMLElement && ticks.includes(focused) ? focused : undefined)
+            ?? ticks.find((t) => t.dataset['messageId'] === this._currentId)
+            ?? ticks[ticks.length - 1]!;
+        this._setTabStop(stop, ticks);
+    }
+
+    private _setTabStop(stop: HTMLElement, ticks: HTMLElement[]): void {
+        for (const tick of ticks) {
+            const wanted = tick === stop ? 0 : -1;
+            if (tick.tabIndex !== wanted) tick.tabIndex = wanted;
+        }
     }
 
     /** Past the floor the rail scrolls itself: the current tick is kept inside its window. */
@@ -596,7 +623,10 @@ export class AparteScrollRail extends HTMLElement {
             : e.key === 'End' ? ticks.length - 1
             : e.key === 'ArrowDown' ? Math.min(ticks.length - 1, index + 1)
             : Math.max(0, index - 1);
-        ticks[next]?.focus();
+        const target = ticks[next];
+        if (!target) return;
+        this._setTabStop(target, ticks);
+        target.focus();
     };
 
     /**

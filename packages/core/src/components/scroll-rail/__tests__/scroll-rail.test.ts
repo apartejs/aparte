@@ -222,6 +222,24 @@ describe('aparte-scroll-rail', () => {
         expect(document.activeElement).toBe(list[1]);
     });
 
+    it('is one Tab stop: the current tick, else the last, and the stop follows the arrows', async () => {
+        // Every tick was a button in the tab order: a keyboard reader crossed 500 of them
+        // between the transcript and the composer of a long conversation.
+        const { viewport, rail } = mount(THREE_TURNS());
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        expect(stops(), 'no current tick yet: the last one').toEqual(['u3']);
+        band().cb([{ target: band().observed[1]!, isIntersecting: true, intersectionRatio: 1 }]);
+        expect(stops(), 'the current tick').toEqual(['u2']);
+        // The reader is on a tick: a rebuild leaves the stop where the focus is.
+        ticks(rail)[0]!.focus();
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(stops(), 'the focused tick keeps the stop').toEqual(['u1']);
+        ticks(rail)[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+        expect(document.activeElement).toBe(ticks(rail)[3]);
+        expect(stops(), 'the stop moved with the focus').toEqual(['u4']);
+    });
+
     it('the arrows walk the ticks inside a host shadow root too', () => {
         // `document.activeElement` retargets to the shadow HOST, so "which tick holds the
         // focus?" answered -1 and the arrows were a silent no-op in the arrangement the
