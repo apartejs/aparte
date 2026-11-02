@@ -89,10 +89,10 @@ function — and no size in it can freeze the tab.
 - **ECharts** (`sanitizeEChartsOption`): tooltips are drawn as text (`renderMode: 'richText'`);
   the toolbox's download and data view, pictures, links, a CSS `url()` however it is spelled
   (escapes included) and anything beyond a font name in a font are taken out; a colour key
-  takes colour syntax only; a dataset filter's regular expression (`reg`) is dropped. A fence
+  takes colour syntax only and a `cursor` (`cursorGrab`, `cursorGrabbing`) only a keyword; a dataset filter's regular expression (`reg`) is dropped. A fence
   that is JSON with nothing to draw shows the note.
 - **Chart.js** (`readChartConfig`): the config's own `plugins` list is dropped, and so is any
-  string where Chart.js would call a function (tooltip and legend callbacks), and a looping
+  string where Chart.js would call a function (tooltip callbacks, a dataset's included, and legend callbacks), and a looping
   animation. A chart carries 5000 points, labels and datasets at most (`maxPoints`), and a
   scale a hundred ticks.
 

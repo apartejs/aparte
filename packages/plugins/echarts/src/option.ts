@@ -21,21 +21,24 @@ const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 /**
  * The keys ECharts writes into a text's `style` attribute in its SVG output
  * (`style="font-size:…;font-family:…"`): a value with a `;` in it would add declarations
- * of its own — a `fill: url(https://…)` that fetches.
+ * of its own — a `mask-image: image-set(https://…)` that fetches. Any key with "font" in it:
+ * besides `font` and `fontFamily`, ECharts reads the legacy spellings (`textFont`, a
+ * toolbox's `textFontFamily` / `textFontSize`…), so a list of names would always be one short.
  */
-const FONT_KEYS = new Set(['font', 'fontFamily', 'fontStyle', 'fontWeight', 'fontSize']);
+const FONT_KEY = /font/i;
 /** What a font name, size, style or weight is made of — and nothing a declaration needs. */
 export const SAFE_FONT = /^[\p{L}\p{N}\s,'"._/%-]*$/u;
 
 /**
  * A string ECharts turns into a request: `image://…` (a symbol, a legend icon, a handle drawn
- * from a picture) and a CSS `url(…)` (a fill or a stroke pointing at another document).
+ * from a picture), also as `emptyImage://…`, since ECharts strips an `empty` prefix from a
+ * symbol before it looks for the scheme, and a CSS `url(…)` (a fill or a stroke pointing at another document).
  * Not `curl (…)`: the `url` must start a word. Tested on the string with its CSS escapes
  * read (`cssUnescape`), since zrender copies a colour into a `fill` / `stroke` attribute as
  * it is, and CSS reads `u\rl(` or `\75 rl(` as `url(` there.
  */
-const IMAGE_SCHEME = /^\s*image:\/\//i;
-const CSS_URL = /(^|[^\w-])(url|src)\s*\(/i;
+const IMAGE_SCHEME = /^\s*(?:empty)?image:\/\//i;
+const CSS_URL = /(^|[^\w-])(url|src|(?:-webkit-)?image-set|cross-fade)\s*\(/i;
 /** A CSS escape: up to six hex digits and the one space that may end them, or any other character. */
 const CSS_ESCAPE = /\\(?:([0-9a-f]{1,6})[ \t\n\r\f]?|([^\n\r\f]))/gi;
 
@@ -45,13 +48,22 @@ const CSS_ESCAPE = /\\(?:([0-9a-f]{1,6})[ \t\n\r\f]?|([^\n\r\f]))/gi;
  * `hsl()` / `hsla()` holding only numbers. A gradient or a pattern is an OBJECT, which ECharts
  * builds itself, and is walked like any other.
  */
-const SAFE_COLOUR = /^\s*(?:[a-z]+|#[0-9a-f]{3,8}|(?:rgba?|hsla?)\(\s*[\d.,%\s/+-]*(?:deg)?[\d.,%\s/+-]*\))\s*$/i;
+const SAFE_COLOUR = /^\s*(?:[a-z]+|#[0-9a-f]{3,8}|(?:rgba?|hsla?)\([\d.,%\s/+-]*(?:deg[\d.,%\s/+-]*)?\))\s*$/i;
+/**
+ * The longest colour that is read at all. No real colour comes near it, and a cap keeps the
+ * pattern from ever being run on a model's megabyte; the pattern itself has no nested or
+ * adjacent quantifiers over the same characters, so it is linear whatever the string.
+ */
+const MAX_COLOUR_LENGTH = 64;
+/** A cursor is a keyword (`pointer`, `not-allowed`): a list with `image-set()` / `url()` makes the browser fetch. */
+const SAFE_CURSOR = /^\s*[a-z-]+\s*$/i;
 /**
  * The keys zrender reads a colour from: `fill`, `stroke`, and any key naming a colour —
  * `color`, every `…Color`, a candlestick's `color0` / `borderColor0` / `borderColorDoji`. The
  * few that hold no colour (`colorBy`, `colorAlpha`…) hold a word or a number, which pass.
  */
-const isColourKey = (key: string): boolean => key === 'fill' || key === 'stroke' || /(^c|C)olor/.test(key);
+const isColourKey = (key: string): boolean =>
+    key === 'fill' || key === 'stroke' || key === 'textFill' || key === 'textStroke' || /(^c|C)olor/.test(key);
 
 /** `s` as CSS reads it once its escapes are decoded. */
 function cssUnescape(s: string): string {
@@ -94,6 +106,9 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
  * - a dataset filter's `reg` goes: ECharts compiles it, and a pattern can backtrack for minutes;
  * - a string `link` / `sublink` (a title, a treemap or sunburst node: ECharts opens it on a
  *   click, and a `javascript:` URL would run in the page) goes;
+ * - a `cursor`, `cursorGrab` or `cursorGrabbing` that is not a keyword (`pointer`,
+ *   `not-allowed`) goes: `image-set("https://…")` is a cursor the browser fetches when the
+ *   pointer passes over;
  * - a font value with anything beyond a font name in it (`;`, `:`, brackets) goes: ECharts
  *   writes it into a `style` attribute;
  * - `__proto__`, `constructor` and `prototype` keys go.
@@ -112,8 +127,9 @@ function walk(value: unknown, key: string, depth: number): unknown {
         if (IMAGE_SCHEME.test(value) || CSS_URL.test(value) || CSS_URL.test(cssUnescape(value))) return undefined;
         // Whatever an escape could spell, a backslash beside a bracket is no label anyone writes.
         if (value.includes('\\') && value.includes('(')) return undefined;
-        if (isColourKey(key) && !SAFE_COLOUR.test(value)) return undefined;
-        if (FONT_KEYS.has(key) && !SAFE_FONT.test(value)) return undefined;
+        if (isColourKey(key) && (value.length > MAX_COLOUR_LENGTH || !SAFE_COLOUR.test(value))) return undefined;
+        if (/^cursor/i.test(key) && !SAFE_CURSOR.test(value)) return undefined;
+        if (FONT_KEY.test(key) && !SAFE_FONT.test(value)) return undefined;
         if (key === 'link' || key === 'sublink') return undefined;
         return value;
     }
@@ -161,10 +177,16 @@ export function parseOption(source: string, open = false): unknown {
  * label half written is not drawn.
  */
 function parsePrefix(source: string): unknown {
-    const stack: string[] = [];
-    const cuts: Array<{ at: number; closers: string }> = [];
+    /*
+     * The brackets still open are a linked list, so a cut records one pointer and the closers are
+     * written only for the few cuts kept. Writing them at every cut cost the depth each time: a
+     * fence of nothing but `[` took seconds, on every frame.
+     */
+    interface Open { closer: string; up: Open | null }
+    let top: Open | null = null;
+    const cuts: Array<{ at: number; open: Open | null }> = [];
     const cut = (at: number): void => {
-        cuts.push({ at, closers: stack.slice().reverse().join('') });
+        cuts.push({ at, open: top });
         if (cuts.length > 8) cuts.shift();
     };
     let inString = false;
@@ -178,12 +200,14 @@ function parsePrefix(source: string): unknown {
             continue;
         }
         if (ch === '"') inString = true;
-        else if (ch === '{' || ch === '[') { stack.push(ch === '{' ? '}' : ']'); cut(i + 1); }
-        else if (ch === '}' || ch === ']') { stack.pop(); cut(i + 1); }
+        else if (ch === '{' || ch === '[') { top = { closer: ch === '{' ? '}' : ']', up: top }; cut(i + 1); }
+        else if (ch === '}' || ch === ']') { top = top ? top.up : null; cut(i + 1); }
         else if (ch === ',') cut(i);
     }
     for (let i = cuts.length - 1; i >= 0; i--) {
-        const { at, closers } = cuts[i]!;
+        const { at, open } = cuts[i]!;
+        let closers = '';
+        for (let n = open; n; n = n.up) closers += n.closer;
         try { return JSON.parse(source.slice(0, at) + closers); } catch { /* an earlier cut */ }
     }
     return undefined;

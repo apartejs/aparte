@@ -93,9 +93,10 @@ function isLocale(tag: unknown): boolean {
  * - `options.devicePixelRatio`: it multiplies the canvas' pixels, and a large one asks the
  *   browser for a canvas bigger than any it will allocate;
  * - `options.locale` when `Intl` refuses it, which would throw on the first tick;
- * - a string where Chart.js CALLS a function, on every hover: the tooltip's `external`,
+ * - a string where Chart.js CALLS a function, on every hover: the tooltip's (and each dataset's) `external`,
  *   `filter`, `itemSort` and `callbacks`, the legend labels' `generateLabels`, `filter` and
- *   `sort` — and a tooltip `position` that is not one of Chart.js' own;
+ *   `sort` — and a tooltip `position` that is not one of Chart.js' own. A tooltip option is also read
+ *   from `options.interaction`, so the same ones go from there;
  * - `loop` in any animation (see `plain`).
  * `options.aspectRatio` is held to 1:4–4:1 for the same reason as the pixel ratio: a tiny
  * one makes the canvas millions of pixels tall. A scale's `ticks.count` and
@@ -139,12 +140,28 @@ export function readChartConfig(value: unknown, maxPoints = MAX_POINTS): Chartjs
             }
         }
         const plugins = child(options, 'plugins');
-        const tooltip = child(plugins, 'tooltip');
-        dropCalls(tooltip, ['external', 'filter', 'itemSort', 'callbacks']);
-        if (tooltip && tooltip['position'] !== undefined && !TOOLTIP_POSITIONS.has(tooltip['position'] as string)) delete tooltip['position'];
+        cleanTooltip(child(plugins, 'tooltip'));
+        // Chart.js looks a tooltip option up in `options.interaction` too (the plugin declares it as an extra
+        // scope), so `interaction.external` or `interaction.callbacks` is called on every hover as well.
+        cleanTooltip(child(options, 'interaction'));
         dropCalls(child(child(plugins, 'legend'), 'labels'), ['generateLabels', 'filter', 'sort']);
     }
+    // A dataset has a tooltip of its own, and Chart.js reads its `callbacks` the same way.
+    for (const d of datasets) cleanTooltip(child(d, 'tooltip'));
     return copy as unknown as ChartjsConfig;
+}
+
+/**
+ * A tooltip's options with the ones Chart.js calls as functions taken out: the top-level one, and a dataset's.
+ *
+ * `interaction` and `plugins` go too. The tooltip's option scopes are its own options, then `options.interaction`
+ * (the plugin declares it as an extra scope), and Chart.js resolves a name through every nested object it finds
+ * under those names as well: `plugins.tooltip.interaction.external` and `plugins.tooltip.plugins.tooltip.external`
+ * are called on every hover like the top-level one. Neither key is a tooltip option, so nothing real is lost.
+ */
+function cleanTooltip(tooltip: Record<string, unknown> | undefined): void {
+    dropCalls(tooltip, ['external', 'filter', 'itemSort', 'callbacks', 'interaction', 'plugins']);
+    if (tooltip && tooltip['position'] !== undefined && !TOOLTIP_POSITIONS.has(tooltip['position'] as string)) delete tooltip['position'];
 }
 
 /** Whether a config has a point to draw: a chart still arriving shows nothing until it does. */
@@ -163,11 +180,14 @@ export function hasPoints(config: ChartjsConfig): boolean {
  * (`[1, 2` gives `[1]`: the `2` may be the start of `25`).
  */
 export function closeJson(text: string): string | null {
-    const stack: string[] = [];
+    // The open brackets are a linked list: a cut keeps one pointer, and the closers are written
+    // once, at the end. Writing them at every cut cost the depth each time.
+    interface Open { closer: string; up: Open | null }
+    let top: Open | null = null;
     let inString = false;
     let escaped = false;
     let cut = -1;
-    let closers = '';
+    let cutOpen: Open | null = null;
     for (let i = 0; i < text.length; i++) {
         const c = text[i]!;
         if (inString) {
@@ -178,20 +198,24 @@ export function closeJson(text: string): string | null {
         }
         if (c === '"') inString = true;
         else if (c === '{' || c === '[') {
-            stack.push(c === '{' ? '}' : ']');
+            top = { closer: c === '{' ? '}' : ']', up: top };
             cut = i + 1;
-            closers = stack.slice().reverse().join('');
+            cutOpen = top;
         } else if (c === '}' || c === ']') {
-            if (stack.pop() !== c) return null;
+            if (!top || top.closer !== c) return null;
+            top = top.up;
             cut = i + 1;
-            closers = stack.slice().reverse().join('');
-            if (stack.length === 0) return text.slice(0, cut);
+            cutOpen = top;
+            if (top === null) return text.slice(0, cut);
         } else if (c === ',') {
             cut = i;
-            closers = stack.slice().reverse().join('');
+            cutOpen = top;
         }
     }
-    return cut < 0 ? null : text.slice(0, cut) + closers;
+    if (cut < 0) return null;
+    let closers = '';
+    for (let n = cutOpen; n; n = n.up) closers += n.closer;
+    return text.slice(0, cut) + closers;
 }
 
 /** The config a fence holds: all of it once closed, its closed prefix while it arrives. */
