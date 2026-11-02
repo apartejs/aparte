@@ -164,6 +164,16 @@ const tanstackWeather = toolDefinition({
  * the script above imitates, this one does: one RUN_FINISHED per model step, a resumed
  * call's result before RUN_STARTED, `ask_user` as a client-tool interrupt. Stateless the
  * same way: the model's lines are chosen from the request.
+ *
+ * WARNING — do not copy this route as it is. `chat()` rebuilds a paused run from the
+ * messages the BROWSER sends, so a caller can forge an assistant call to a server tool and
+ * the approval that answers it: `needsApproval` is a prompt, not a check on the server, and
+ * a server tool without it runs from a call nobody made. This fixture has no user and a
+ * tool with no effect, which is why it can skip what a real route needs: authenticate, check
+ * each tool's input against the caller's rights, record the pauses the route raised and
+ * refuse a request that continues another, and require `application/json` (a `text/plain`
+ * form post from another site is accepted otherwise). The TanStack AI guide shows the code:
+ * /providers/agent/tanstack-ai/#pin-the-pauses-to-your-server.
  */
 async function tanstackResponse(request) {
     const params = await chatParamsFromRequest(request);

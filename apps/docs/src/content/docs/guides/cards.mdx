@@ -130,9 +130,11 @@ setupItemsCard({
 });
 
 // A button read from a tool's result never sends text as the person: it carries an `id`,
-// and your app decides what it does.
+// and your app decides what it does. A card the model wrote itself (`origin` is 'fence')
+// is not your app's: act only on the origins you trust.
 document.addEventListener('aparte-card-action', (event) => {
-  const { action, data } = event.detail;
+  const { action, data, origin } = event.detail;
+  if (origin === 'fence') return;
   if (action.id === 'summarise') sendToChat(`Summarise ${(data as { url: string }).url}`);
 });
 
@@ -142,7 +144,9 @@ declare function sendToChat(text: string): void;
 An item reads `title`, `subtitle`, `description`, `image` (a string, or `{ src, alt }`), `badge`,
 `meta` (up to three short lines), `url` (the whole tile opens it) and `actions` (two at most, each
 a web link or an `id`: what a button sends as the person is never read from a tool's result,
-since a page the tool read could choose it).
+since a page the tool read could choose it). A card the model wrote as a `card-items` block draws
+only the links among its actions: an `id` there would let the model press a button of your app, with
+its own label and data, so `actions` is where your own buttons for such a card come from.
 
 ### Products — `product`
 
@@ -372,14 +376,32 @@ import { setupWeatherCard } from '@aparte/plugin-cards/weather';
 setupWeatherCard({
   tool: 'get_weather',
   actions: (data) => [
-    { label: 'Hourly forecast', send: `Hourly forecast for ${data.location}`, primary: true },
+    // A fixed message: nothing the card holds is in it.
+    { label: 'Hourly forecast', send: 'Show me the hourly forecast', primary: true },
     { label: 'Open the full forecast', url: `https://example.com/weather/${encodeURIComponent(data.location ?? '')}` },
   ],
 });
 
 document.addEventListener('aparte-card-action', (event) => {
-  const { card, action, data } = event.detail;
+  const { card, action, data, origin } = event.detail;
   // Cancel it to do something else instead of the link or the message.
+});
+```
+
+`send` goes out as the person's own message, so never build it from the card's fields when the
+model wrote them. `actions` is told who did, in its second argument (`{ origin }`, also in the
+event's detail): `'tool'` for the result of a tool your app runs, `'segment'` for a `card`
+segment your app added, and `'fence'` for a card the model wrote as a block in its answer
+([below](#a-card-written-in-the-answer)). A model-written `location` becomes a message the person
+never typed, so for a `'fence'` card keep `send` fixed, or give the button an `id` and decide in the
+`aparte-card-action` listener, where the data is yours to check:
+
+```ts
+setupWeatherCard({
+  tool: 'get_weather',
+  actions: (data, { origin }) => origin === 'fence'
+    ? [{ label: 'Hourly forecast', id: 'hourly' }]
+    : [{ label: 'Hourly forecast', send: `Hourly forecast for ${data.location}` }],
 });
 ```
 
@@ -505,7 +527,8 @@ A card already set up on the page needs no `load` entry, and that includes a car
 (`{ "variant": "compact", … }`). While the block streams, a placeholder
 holds its place; once it closes, the card is drawn. A block whose JSON does not parse, or that
 names a card the page cannot draw, shows its source. A chat without this plugin shows the block as
-code, so put a sentence before it. It works with any Markdown provider, or none, like the
+code, so put a sentence before it. A card written this way has the origin `fence`: every field of it is
+the model's, so keep its buttons' `send` fixed (see [Buttons](#buttons)). It works with any Markdown provider, or none, like the
 [charts](/guides/charts/).
 
 ## Words and languages

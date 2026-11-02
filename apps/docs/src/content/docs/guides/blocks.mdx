@@ -56,12 +56,20 @@ setupSuggestionBlocks();
 </aparte-composer>
 ```
 
-The block holds an array: a string is both the label and what is sent; `{ "label", "prompt" }`
-shows one and sends the other.
+The block holds an array of strings, each both the label and what is sent. A `{ "label", "prompt" }`
+object is read for its label alone: the block arrives in the reply's text, where a model can write
+it too, and a button must send what it shows. A page that wants a button to show one thing and send
+another writes it in the `suggestions` attribute of the element, which is the page's own.
+
+A reply is shown only if it is 1 to 100 characters long and holds nothing invisible: no zero-width,
+bidi or tag characters, no stray joiners or variation selectors (an emoji sequence such as 🏳️‍🌈 is
+fine). A reply that fails is left out, and the console says which one, once. A click on a reply sends
+its text alone, leaves what the person was typing and any files they attached where they were, and
+does nothing while a question holds the composer or a reply is streaming.
 
 ````md
 ```suggestions
-["Tuesday 3", { "label": "Another week", "prompt": "Next week, please" }]
+["Tuesday 3", "Another week"]
 ```
 ````
 

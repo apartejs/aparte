@@ -18,9 +18,11 @@ export type {
     AparteCardSegment,
     CardAction,
     CardActionEventDetail,
+    CardActionsContext,
     CardChangeEventDetail,
     CardContext,
     CardDefinition,
+    CardOrigin,
     CardSetupOptions,
 } from './kit/define.js';
 export { el, glyph, safeUrl, webUrl, num, str } from './kit/dom.js';

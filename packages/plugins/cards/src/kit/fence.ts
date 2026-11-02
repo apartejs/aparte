@@ -95,8 +95,8 @@ async function drawFence(el: HTMLElement): Promise<void> {
     const variant = data && typeof data === 'object' && typeof (data as { variant?: unknown }).variant === 'string'
         ? (data as { variant: string }).variant : undefined;
     const segment = { id: idOf(card, source), type: 'card' as const, card, data, ...(variant ? { variant } : {}) };
-    let drawn = drawCardSegment(config, segment);
-    if (!drawn && await fetchCard(config, card) && el.isConnected) drawn = drawCardSegment(config, segment);
+    let drawn = drawCardSegment(config, segment, 'fence');
+    if (!drawn && await fetchCard(config, card) && el.isConnected) drawn = drawCardSegment(config, segment, 'fence');
     if (drawn) el.replaceChildren(drawn);
     else showSource();
 }

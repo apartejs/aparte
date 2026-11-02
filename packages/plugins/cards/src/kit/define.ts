@@ -57,6 +57,20 @@ declare module '@aparte/core' {
     }
 }
 
+/**
+ * Who authored the data a card was drawn from. `tool`: the result of a tool your app runs.
+ * `segment`: a `card` segment your app or its provider added to the message. `fence`: a
+ * ```card-<name> block the MODEL wrote in its answer, so every field of it is model text —
+ * a `send` built from one is a message the model chose for the person.
+ */
+export type CardOrigin = 'tool' | 'segment' | 'fence';
+
+/** What `actions` is told besides the data. */
+export interface CardActionsContext {
+    /** Who wrote the card's data: build a `send` from the data only for `tool` and `segment`. */
+    origin: CardOrigin;
+}
+
 /** A button under a card: a link it opens, a message it sends, or an `id` the app handles. */
 export interface CardAction {
     label: string;
@@ -81,6 +95,8 @@ export interface CardActionEventDetail {
     card: string;
     action: CardAction;
     data: unknown;
+    /** Who wrote the card: see {@link CardOrigin}. A listener that sends text as the person checks it. */
+    origin: CardOrigin;
 }
 
 /**
@@ -179,8 +195,12 @@ export interface CardSetupOptions<D, V extends string = string> {
     mapInput?: (input: Record<string, unknown>) => Partial<D> | null;
     /** A variant, or a function choosing one from the data. A name the card lacks reads as its default. */
     variant?: V | ((data: D) => V);
-    /** Buttons under the card, at most three. */
-    actions?: (data: D) => CardAction[];
+    /**
+     * Buttons under the card, at most three. The second argument says who wrote the data
+     * (`{ origin }`): a card the model wrote as a block (`'fence'`) must not build a `send`
+     * from its fields, since that text goes out as the person's message.
+     */
+    actions?: (data: D, context: CardActionsContext) => CardAction[];
     /**
      * A control inside the card moved (a range, a switch, a slider). Return the card's new
      * fields — the shape `map` returns — and the card is drawn again in place, the same
@@ -197,7 +217,7 @@ type DrawState = 'ready' | 'loading' | 'waiting' | 'refused' | 'unavailable';
 
 /** What a registered card keeps, per config. */
 interface Entry {
-    draw(segment: AparteCardSegment): HTMLElement;
+    draw(segment: AparteCardSegment, origin: CardOrigin): HTMLElement;
 }
 
 /** Per config, each card's setups, the newest last: the newest draws the card's segments. */
@@ -207,8 +227,8 @@ const registries = new WeakMap<AparteConfig, Map<string, Entry[]>>();
  * Draw a `card` segment with the card set up under `card` on `config`, or `null` when none
  * is. Internal to the kit (the fences draw through it); not exported from the package.
  */
-export function drawCardSegment(config: AparteConfig, segment: AparteCardSegment): HTMLElement | null {
-    return registries.get(config)?.get(segment.card)?.at(-1)?.draw(segment) ?? null;
+export function drawCardSegment(config: AparteConfig, segment: AparteCardSegment, origin: CardOrigin): HTMLElement | null {
+    return registries.get(config)?.get(segment.card)?.at(-1)?.draw(segment, origin) ?? null;
 }
 
 /** The names of the cards set up on `config`. Internal to the kit. */
@@ -266,7 +286,7 @@ function relabel(root: Element): void {
 function makeContext<V extends string>(
     config: AparteConfig,
     variant: V,
-    source: 'tool' | 'segment',
+    source: CardOrigin,
     card: string,
     onChange?: (name: string, value: unknown) => void,
 ): CardContext<V> {
@@ -280,10 +300,15 @@ function makeContext<V extends string>(
     return {
         config,
         variant,
-        source,
+        // A card drawn from a fence is still a segment to the card's own drawing.
+        source: source === 'fence' ? 'segment' : source,
         bind,
         word: (target, key, table, vars) => bind(target, () => word(config, key, table, vars)),
-        action: (action, data, className) => actionButton(card, action, data, className),
+        // A card the model wrote carries only links. An `id` is a button the APP's listener acts
+        // on ("Summarise this", "Add to cart"), and a label the model chose, beside data the model
+        // chose, would let it press that button in the person's name. The app's own buttons come
+        // from `actions(data, { origin })`, which draws them on any card.
+        action: (action, data, className) => actionButton(card, source === 'fence' ? withoutId(action) : action, data, source, className),
         change: (name, value) => onChange?.(name, value),
         live: onChange !== undefined,
     };
@@ -366,8 +391,14 @@ function busy(element: Element, on: boolean): void {
     else element.removeAttribute('aria-busy');
 }
 
+/** An action as its link alone: with no link either, it cannot run. */
+function withoutId(action: CardAction): CardAction {
+    const { id: _id, ...rest } = action;
+    return rest;
+}
+
 /** A button that runs `action`, or `null` when it cannot run. */
-function actionButton(card: string, action: CardAction, data: unknown, className = ''): HTMLButtonElement | null {
+function actionButton(card: string, action: CardAction, data: unknown, origin: CardOrigin, className = ''): HTMLButtonElement | null {
     if (!action || typeof action.label !== 'string' || !action.label.trim()) return null;
     const url = action.url === undefined ? undefined : safeUrl(action.url);
     if (action.url !== undefined && !url) return null;
@@ -380,13 +411,13 @@ function actionButton(card: string, action: CardAction, data: unknown, className
     button.addEventListener('click', (event) => {
         // A button inside a card that is itself a link must not follow the link too.
         event.stopPropagation();
-        runAction(card, button, action, url, data);
+        runAction(card, button, action, url, data, origin);
     });
     return button;
 }
 
-function runAction(card: string, button: HTMLElement, action: CardAction, url: string | null | undefined, data: unknown): void {
-    const detail: CardActionEventDetail = { card, action, data };
+function runAction(card: string, button: HTMLElement, action: CardAction, url: string | null | undefined, data: unknown, origin: CardOrigin): void {
+    const detail: CardActionEventDetail = { card, action, data, origin };
     const proceed = button.dispatchEvent(new CustomEvent<CardActionEventDetail>('aparte-card-action', {
         detail, bubbles: true, composed: true, cancelable: true,
     }));
@@ -402,8 +433,14 @@ function runAction(card: string, button: HTMLElement, action: CardAction, url: s
         type Composer = HTMLElement & { value: string; streaming: boolean; panelActive: boolean; setValue(v: string): void; submit(): void };
         // The chat the card is in, in every shape: `<aparte-chat>` (vanilla, Angular) or the
         // `<div data-aparte-chat>` the React, Vue and Svelte wrappers render.
-        const composer = (button.closest('aparte-chat, [data-aparte-chat]')?.querySelector('aparte-composer')
-            ?? document.querySelector('aparte-composer')) as Composer | null;
+        // Resolved from above the BUBBLE: the reply the card is in is model-written, and a
+        // `<div data-aparte-chat>` it carries would otherwise be taken for the chat. Without
+        // a chat around (a card outside any), the page's composer answers only when it is
+        // the only one: with two, "the first" is another conversation's.
+        const bubble = button.closest('aparte-chat-bubble');
+        const chat = (bubble?.parentElement ?? button).closest('aparte-chat, [data-aparte-chat]');
+        const onPage = document.querySelectorAll('aparte-composer');
+        const composer = (chat?.querySelector('aparte-composer') ?? (onPage.length === 1 ? onPage[0] : null)) as Composer | null;
         if (!composer) {
             console.warn(`[aparte-cards] the ${card} card has no <aparte-composer> to send "${action.send}" through.`);
             return;
@@ -469,16 +506,16 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         });
     }
 
-    function actionsOf(options: CardSetupOptions<D, V>, data: D): HTMLElement | null {
-        const buttons = (options.actions?.(data) ?? [])
-            .map((action) => actionButton(definition.name, action, data))
+    function actionsOf(options: CardSetupOptions<D, V>, data: D, origin: CardOrigin): HTMLElement | null {
+        const buttons = (options.actions?.(data, { origin }) ?? [])
+            .map((action) => actionButton(definition.name, action, data, origin))
             .filter((b): b is HTMLButtonElement => b !== null)
             .slice(0, 3);
         return buttons.length ? el('div', { class: 'aparte-rich-card__actions' }, ...buttons) : null;
     }
 
     /** The one-line drawing of a call that has no data to show. */
-    function strip(config: AparteConfig, state: Exclude<DrawState, 'ready' | 'loading'>, partial: Partial<D> | null, variant: V, id: string, source: 'tool' | 'segment' = 'tool'): HTMLElement {
+    function strip(config: AparteConfig, state: Exclude<DrawState, 'ready' | 'loading'>, partial: Partial<D> | null, variant: V, id: string, source: CardOrigin = 'tool'): HTMLElement {
         const node = root(state, variant, id);
         const ctx = makeContext(config, variant, source, definition.name);
         const key = state === 'waiting' ? 'cardsWaiting' : state === 'refused' ? 'cardsRefused' : 'cardsUnavailable';
@@ -561,14 +598,14 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         if (byKey.size > KEPT_MAX) byKey.delete(byKey.keys().next().value!);
     }
 
-    function drawData(options: CardSetupOptions<D, V>, config: AparteConfig, data: D, variant: V, id: string, source: 'tool' | 'segment', from: string): HTMLElement {
+    function drawData(options: CardSetupOptions<D, V>, config: AparteConfig, data: D, variant: V, id: string, source: CardOrigin, from: string): HTMLElement {
         const node = root('ready', variant, id);
         drawnFrom.set(node, from);
         // The element on the page: a redraw moves this drawing into the one already there.
         const onChange = (name: string, value: unknown) => void change(homes.get(node) ?? node, options, config, data, variant, id, source, from, name, value);
         const ctx = makeContext(config, variant, source, definition.name, options.onChange ? onChange : undefined);
         node.append(...definition.render(data, ctx));
-        const actions = actionsOf(options, data);
+        const actions = actionsOf(options, data, source);
         if (actions) node.append(actions);
         ctx.bind(node, () => definition.label(data, ctx), 'aria-label');
         return node;
@@ -581,7 +618,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         data: D,
         variant: V,
         id: string,
-        source: 'tool' | 'segment',
+        source: CardOrigin,
         from: string,
         name: string,
         value: unknown,
@@ -671,14 +708,14 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         const registry = registries.get(config) ?? new Map<string, Entry[]>();
         registries.set(config, registry);
         const entry: Entry = {
-            draw: (segment) => {
+            draw: (segment, origin) => {
                 const from = fingerprint(segment.data);
-                const live = recall(options, `segment:${segment.id}`, from);
-                if (live) return drawData(options, config, live.data, live.variant, segment.id, 'segment', from);
+                const live = recall(options, `${origin}:${segment.id}`, from);
+                if (live) return drawData(options, config, live.data, live.variant, segment.id, origin, from);
                 const data = definition.normalize(segment.data);
                 const variant = chooseVariant(options, data, segment.variant);
-                if (!data) return strip(config, 'unavailable', null, variant, segment.id, 'segment');
-                return drawData(options, config, data, variant, segment.id, 'segment', from);
+                if (!data) return strip(config, 'unavailable', null, variant, segment.id, origin);
+                return drawData(options, config, data, variant, segment.id, origin, from);
             },
         };
         const stack = registry.get(definition.name) ?? [];
@@ -748,7 +785,7 @@ function cardSegmentRenderer(config: AparteConfig): AparteSegmentRenderer<Aparte
         type: CARD_SEGMENT_TYPE,
         render: (segment) => {
             const entry = registries.get(config)?.get(segment.card)?.at(-1);
-            if (entry) return entry.draw(segment);
+            if (entry) return entry.draw(segment, 'segment');
             // A card this page did not set up: its sentence, not nothing.
             return el('p', { class: 'aparte-segment aparte-rich-card__fallback', attrs: { 'data-segment-id': segment.id }, text: segment.fallback ?? '' });
         },
@@ -758,10 +795,10 @@ function cardSegmentRenderer(config: AparteConfig): AparteSegmentRenderer<Aparte
             if (!entry) return;
             // Drawn as its fallback sentence before its card was set up: the card replaces it.
             if (!element.hasAttribute('data-card')) {
-                element.replaceWith(entry.draw(segment));
+                element.replaceWith(entry.draw(segment, 'segment'));
                 return;
             }
-            const next = entry.draw(segment);
+            const next = entry.draw(segment, 'segment');
             if (drawnFrom.get(next) !== drawnFrom.get(element)) bumpTurn(element);
             const wasBusy = element.hasAttribute('data-busy') && queues.has(element);
             patch(element, next);

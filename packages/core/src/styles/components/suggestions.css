@@ -36,7 +36,12 @@ aparte-suggestions[data-empty] {
   margin-inline: auto;
 }
 
-/* A starter's label is a short phrase; it must not become a two-line chip. */
+/* A starter's label is a short phrase, and one line when it fits. When it does not, it wraps:
+   the click sends the whole label, so the chip has to show the whole label — a chip that ran
+   past the chat's edge showed its first words and sent the rest. */
 .aparte-suggestion {
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  max-inline-size: 100%;
 }
