@@ -375,6 +375,32 @@ describe('aparte-scroll-rail holds still', () => {
         expect(seen, 'attributes rewritten on a reconcile that changed nothing').toEqual([]);
     });
 
+    it('a turn that drops the oldest question moves no other tick, and the focus stays', async () => {
+        // At its cap the viewport releases its oldest bubble on each turn. The stale tick was
+        // removed after the placement, so every kept tick was taken out and put back: 500 of
+        // them per turn measured in Chromium, and a focused tick lost the focus to <body>.
+        const many = Array.from({ length: 6 }, (_, i) => bubble(`q${i}`, 'user', `Question ${i}`));
+        const { viewport, rail } = mount(many);
+        const list = rail.querySelector('ol')!;
+        const focused = ticks(rail)[3]!;
+        focused.focus();
+        const moved: string[] = [];
+        const mo = new MutationObserver((records) => {
+            for (const r of records) {
+                for (const n of r.removedNodes) moved.push(`- ${(n as Element).querySelector('button')?.dataset['messageId']}`);
+                for (const n of r.addedNodes) moved.push(`+ ${(n as Element).querySelector('button')?.dataset['messageId']}`);
+            }
+        });
+        mo.observe(list, { childList: true });
+        many[0]!.remove();
+        viewport.appendChild(bubble('q6', 'user', 'Question 6'));
+        await nextFrame(); await nextFrame();
+        mo.disconnect();
+        expect(moved, 'one tick out, one in').toEqual(['- q0', '+ q6']);
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']);
+        expect(document.activeElement).toBe(focused);
+    });
+
     it('drops the tick of a bubble that left, and keeps the others in place', async () => {
         const turns = THREE_TURNS();
         const { rail } = mount(turns);

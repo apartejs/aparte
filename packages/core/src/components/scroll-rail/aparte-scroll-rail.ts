@@ -348,15 +348,22 @@ export class AparteScrollRail extends HTMLElement {
             const id = item.firstElementChild instanceof HTMLElement ? item.firstElementChild.dataset['messageId'] : undefined;
             if (id) existing.set(id, item);
         }
-        const known = new Set<string>();
-        let index = 0;
+        // The ticks whose bubble left go first. Removed after the placement, a tick gone from
+        // the front stood at every position the loop compared against, so each kept tick was
+        // taken out and put back: all 500 on every turn once the viewport prunes its oldest
+        // bubble, and a tick that had the focus lost it.
+        const known = new Set(bubbles.map((b) => b.getAttribute('message-id')!));
+        for (const [id, item] of existing) {
+            if (known.has(id)) continue;
+            item.remove();
+            existing.delete(id);
+        }
+        // A cursor, not `list.children[index]`: the collection is re-walked after each move.
+        let at: Element | null = list.firstElementChild;
         for (const bubble of bubbles) {
             const id = bubble.getAttribute('message-id')!;
-            known.add(id);
             let item = existing.get(id);
-            if (item) {
-                existing.delete(id);
-            } else {
+            if (!item) {
                 item = document.createElement('li');
                 const tick = document.createElement('button');
                 tick.type = 'button';
@@ -375,11 +382,9 @@ export class AparteScrollRail extends HTMLElement {
             } else {
                 tick.removeAttribute('aria-current');
             }
-            const at = list.children[index] ?? null;
-            if (at !== item) list.insertBefore(item, at);
-            index++;
+            if (item === at) at = at.nextElementSibling;
+            else list.insertBefore(item, at);
         }
-        for (const stale of existing.values()) stale.remove();
 
         if (this._currentId && !known.has(this._currentId)) this._currentId = null;
         if (!sameElements(this._observedBubbles, bubbles)) this._observe(bubbles);
