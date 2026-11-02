@@ -155,6 +155,47 @@ describe('aparte-scroll-rail', () => {
         expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
     });
 
+    it('a greeting before the first question, alone in the band, keeps the mark and reads no layout', () => {
+        const turns = [bubble('a0', 'assistant', 'Hello! Ask me anything.'), ...THREE_TURNS()];
+        const { rail } = mount(turns);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
+        const read = vi.spyOn(rail as unknown as { _lastAbove(): string | null }, '_lastAbove');
+        band().cb([
+            { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('a0'), isIntersecting: true, intersectionRatio: 1 },
+        ]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'above every question: the mark stays').toBe('true');
+        expect(read, 'the band said where the reader is: no layout to read').not.toHaveBeenCalled();
+    });
+
+    it('with no message in the band and every question below its edge, the mark stays', () => {
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        viewport.getBoundingClientRect = () => ({ top: 0, height: 1000 }) as DOMRect;
+        for (const b of turns) b.getBoundingClientRect = () => ({ top: 800 }) as DOMRect;
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u2'), isIntersecting: false, intersectionRatio: 0 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current'), 'no question above the band: the mark stays (the first question used to be named)').toBe('true');
+    });
+
+    it('a jump to a reply marks the question it answers, as the band reads it', () => {
+        vi.useFakeTimers();
+        try {
+            const turns = THREE_TURNS();
+            const { rail } = mount(turns);
+            turns[3]!.scrollIntoView = vi.fn();
+            (rail as unknown as { jumpTo(id: string): void }).jumpTo('a2');
+            const current = (): string | null => (rail as HTMLElement & { currentMessageId: string | null }).currentMessageId;
+            expect(current(), 'a reply has no tick: its question is marked').toBe('u2');
+            vi.advanceTimersByTime(400);
+            expect(current(), 'and stays marked once the jump has settled').toBe('u2');
+            expect(ticks(rail).filter((t) => t.tabIndex === 0).map((t) => t.dataset['messageId'])).toEqual(['u2']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('with nothing in the band, marks the last question above its lower edge — the reader is inside its reply', () => {
         // Measured in Chromium: a reader who wheeled up through long replies was still marked
         // on the last question seven questions later. A short question crosses the band between

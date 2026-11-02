@@ -554,10 +554,17 @@ export class AparteScrollRail extends HTMLElement {
         // Chromium: the band held only replies, and an empty band kept the old mark.
         let last: string | null = null;
         let above: string | null = null;
+        let seen = false;
         for (const bubble of this._bandTargets) {
             if (this._ticked(bubble)) above = bubble.getAttribute('message-id');
-            if (above !== null && (this._visible.get(bubble) ?? 0) > 0) last = above;
+            if ((this._visible.get(bubble) ?? 0) > 0) {
+                seen = true;
+                if (above !== null) last = above;
+            }
         }
+        // The band holds messages with no question above them (a greeting before the first
+        // one): the reader has not reached a question, and the mark stays as it was.
+        if (last === null && seen) return;
         // No message in the band at all (above the first one, or in the space after the
         // last): the band's rule, read from the layout.
         last ??= this._lastAbove();
@@ -568,7 +575,8 @@ export class AparteScrollRail extends HTMLElement {
      * The last question whose top is above the reading band's lower edge: by halves, since
      * the questions are in document order and their tops only grow. A question never
      * rendered has its estimated height (`content-visibility`), which keeps that order.
-     * `null` when nothing is laid out, and the mark stays as it was.
+     * `null` when no question is above the edge or nothing is laid out, and the mark stays
+     * as it was.
      */
     private _lastAbove(): string | null {
         const surface = this._observedSurface;
@@ -579,7 +587,7 @@ export class AparteScrollRail extends HTMLElement {
         const edge = box.top + (box.height * BAND_PERCENT) / 100;
         let low = 0;
         let high = bubbles.length - 1;
-        let found = 0;
+        let found = -1;
         while (low <= high) {
             const mid = (low + high) >> 1;
             if (bubbles[mid]!.getBoundingClientRect().top < edge) {
@@ -589,7 +597,19 @@ export class AparteScrollRail extends HTMLElement {
                 high = mid - 1;
             }
         }
-        return bubbles[found]!.getAttribute('message-id');
+        return found < 0 ? null : bubbles[found]!.getAttribute('message-id');
+    }
+
+    /** The tick a message is read under: its own, else the question above it, as the band reads a reply. */
+    private _markFor(bubble: HTMLElement): string {
+        const id = bubble.getAttribute('message-id')!;
+        if (this._ticked(bubble)) return id;
+        let above: string | null = null;
+        for (const candidate of this._messages()) {
+            if (candidate === bubble) break;
+            if (this._ticked(candidate)) above = candidate.getAttribute('message-id');
+        }
+        return above ?? id;
     }
 
     private _setCurrent(id: string | null): void {
@@ -760,7 +780,9 @@ export class AparteScrollRail extends HTMLElement {
         // its own — armed, it pinned the reader straight back to the bottom.
         (this._viewport() as (HTMLElement & { setAutoScroll?: (enabled: boolean) => void }) | null)?.setAutoScroll?.(false);
         this._scrollTo(bubble);
-        this._setCurrent(messageId);
+        // A reply jumped to (a search result, say) is marked under its question, as the band
+        // reads it; with no tick of its own it cleared the mark and moved the Tab stop away.
+        this._setCurrent(this._markFor(bubble));
         this._hold(messageId);
     }
 
@@ -807,7 +829,7 @@ export class AparteScrollRail extends HTMLElement {
             }
         }
         this._release();
-        if (id) this._setCurrent(id);
+        if (id) this._setCurrent(bubble ? this._markFor(bubble) : id);
     }
 
     private _release(): void {
