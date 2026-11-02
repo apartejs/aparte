@@ -101,6 +101,19 @@ test('the version arrows point to the start and the end of a right-to-left row',
     expect(await chat.lastReply.locator('.aparte-branch-next > *').first().evaluate((el) => getComputedStyle(el).scale)).toBe('-1 1');
 });
 
+test('the send arrow points to the left in a right-to-left composer, and only the send arrow', async ({ page }) => {
+    const scaleOfSend = () => page.locator('.aparte-send-button[data-act="send"] > *').first().evaluate((el) => getComputedStyle(el).scale);
+    await installLlmMock(page, { scenario: 'text' });
+    await page.goto('/');
+    await page.locator('aparte-composer-input .aparte-ci-editor').first().waitFor();
+    expect(await scaleOfSend()).toBe('none');
+
+    await rightToLeft(page);
+    await page.reload();
+    await page.locator('aparte-composer-input .aparte-ci-editor').first().waitFor();
+    expect(await scaleOfSend()).toBe('-1 1');
+});
+
 test('a conversation titled in English keeps its own direction, and lines up with a right-to-left list', async ({ page }) => {
     await rightToLeft(page);
     await page.goto('/?scenario&fast');
