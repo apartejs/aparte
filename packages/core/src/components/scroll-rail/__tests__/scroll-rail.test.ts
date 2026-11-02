@@ -156,10 +156,11 @@ describe('aparte-scroll-rail', () => {
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
         // After a send the viewport rests with the new question low on the screen: off
         // the band, but on screen.
-        screen().cb([{ target: screen().observed[2]!, isIntersecting: true, intersectionRatio: 0.4 }]);
+        expect(screen().observed.map((e) => e.getAttribute('message-id')), 'the whole surface watches the last question only').toEqual(['u3']);
+        screen().cb([{ target: screen().observed[0]!, isIntersecting: true, intersectionRatio: 0.4 }]);
         expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
         // It leaves the screen: the band speaks again.
-        screen().cb([{ target: screen().observed[2]!, isIntersecting: false, intersectionRatio: 0 }]);
+        screen().cb([{ target: screen().observed[0]!, isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
     });
 
@@ -319,6 +320,36 @@ describe('aparte-scroll-rail holds still', () => {
         }
         expect(ioConstructed).toBe(2);
         expect(ticks(rail)).toEqual(before);
+    });
+
+    it('a streaming reply does not even reconcile: only a bubble coming or going rebuilds the rail', async () => {
+        // Measured in Chromium at 500 questions: the reconcile ran once a frame for the whole
+        // reply, 10.8 ms each, to find every name unchanged.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        for (let i = 0; i < 5; i++) {
+            turns[1]!.querySelector('.aparte-message-content')!.textContent += ' token';
+            await nextFrame();
+        }
+        expect(rebuild, 'tokens in a reply, which has no tick').not.toHaveBeenCalled();
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(rebuild, 'a question arrived').toHaveBeenCalledTimes(1);
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'u2', 'u3', 'u4']);
+    });
+
+    it('with every="message", a streaming reply re-names its own tick and nothing else', async () => {
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns, { every: 'message' });
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        const before = ticks(rail);
+        turns[1]!.querySelector('.aparte-message-content')!.textContent = 'A custom element, defined once.';
+        await nextFrame(); await nextFrame();
+        expect(rebuild).not.toHaveBeenCalled();
+        expect(ticks(rail)).toEqual(before);
+        expect(ticks(rail)[1]!.getAttribute('aria-label')).toBe('Assistant: A custom element, defined once.');
+        expect(ticks(rail)[0]!.getAttribute('aria-label')).toBe('You: What is a web component?');
     });
 
     it('a streaming reply writes no attribute either: a reconcile leaves an unchanged value alone', async () => {

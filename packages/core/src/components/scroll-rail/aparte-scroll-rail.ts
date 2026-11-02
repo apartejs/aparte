@@ -1,4 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
+import type { AparteLocale } from '../../config/locale.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn } from '../../utils/event-target.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -103,7 +104,11 @@ export class AparteScrollRail extends HTMLElement {
     private _observedBubbles: HTMLElement[] = [];
     /** The scroll surface the observer is rooted on, and whose bottom edge is read. */
     private _observedSurface: HTMLElement | null = null;
-    private _rebuildQueued = false;
+    /** One frame does the queued work: a full rebuild when bubbles came or went, else the re-labels. */
+    private _frameQueued = false;
+    private _rebuildWanted = false;
+    /** Ticked bubbles whose text changed since the last frame: only their names can have moved. */
+    private _relabel = new Set<HTMLElement>();
     private _pickQueued = false;
     private _currentId: string | null = null;
     /** Visible ratio per message id in the reading band, from the intersection observer. */
@@ -177,9 +182,24 @@ export class AparteScrollRail extends HTMLElement {
         // are mutations: those are dropped here, or the rail rebuilds itself every frame
         // for ever (measured at 61 to 146 rebuilds a second, at rest, each with a fresh
         // intersection observer — and nothing on a tick survived a frame).
+        //
+        // And only bubbles coming or going rebuild it. A reply streaming is a mutation per
+        // token, and the full reconcile walked every bubble and re-read every question's text
+        // each frame for a name that had not changed: 10.8 ms a frame at 500 questions,
+        // measured in Chromium, half a frame's budget, on every reply of a long conversation.
+        // A change inside a message re-names that message's tick, when it has one.
         if (typeof MutationObserver !== 'undefined') {
             this._mutations = new MutationObserver((records) => {
-                if (records.some((record) => !this.contains(record.target))) this._queueRebuild();
+                for (const record of records) {
+                    if (this.contains(record.target)) continue;
+                    if (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes))) {
+                        this._queueRebuild();
+                        return;
+                    }
+                    const at = record.target instanceof Element ? record.target : record.target.parentElement;
+                    const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
+                    if (owner && this._ticked(owner)) this._queueRelabel(owner);
+                }
             });
             this._mutations.observe(this._host, { childList: true, subtree: true, characterData: true });
         }
@@ -204,14 +224,51 @@ export class AparteScrollRail extends HTMLElement {
         this._host = null;
     }
 
-    /** Coalesce a burst of mutations (a streaming reply is one per token) into one rebuild. */
+    /** Coalesce a burst of mutations into one frame of work: a rebuild, which re-names every tick too. */
     private _queueRebuild(): void {
-        if (this._rebuildQueued) return;
-        this._rebuildQueued = true;
+        this._rebuildWanted = true;
+        this._queueFrame();
+    }
+
+    private _queueRelabel(bubble: HTMLElement): void {
+        this._relabel.add(bubble);
+        this._queueFrame();
+    }
+
+    private _queueFrame(): void {
+        if (this._frameQueued) return;
+        this._frameQueued = true;
         requestAnimationFrame(() => {
-            this._rebuildQueued = false;
-            this._rebuild();
+            this._frameQueued = false;
+            const relabel = [...this._relabel];
+            this._relabel.clear();
+            if (this._rebuildWanted) {
+                this._rebuildWanted = false;
+                this._rebuild();
+                return;
+            }
+            const locale = resolveConfig(this).getLocale();
+            for (const bubble of relabel) this._label(bubble, locale);
         });
+    }
+
+    /** Whether a bubble has a tick: every message with `every="message"`, else the user's. */
+    private _ticked(bubble: HTMLElement): boolean {
+        if (!bubble.hasAttribute('message-id')) return false;
+        return this.getAttribute('every') === 'message' || bubble.getAttribute('data-role') === 'user';
+    }
+
+    /** Re-name one bubble's tick, written only when the name changed. */
+    private _label(bubble: HTMLElement, locale: AparteLocale): void {
+        const id = bubble.getAttribute('message-id');
+        if (!id) return;
+        const tick = this.querySelector<HTMLElement>(`.aparte-scroll-rail__tick[data-message-id="${cssEscape(id)}"]`);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+        if (!tick) return;
+        const label = this._tickLabel(bubble, locale);
+        if (tick.getAttribute('aria-label') !== label) {
+            tick.setAttribute('aria-label', label);
+            tick.title = label;
+        }
     }
 
     private _viewport(): HTMLElement | null {
@@ -238,12 +295,12 @@ export class AparteScrollRail extends HTMLElement {
     /** The first words of a message, for the tick's name. An excerpt, never a summary. */
     private _excerpt(bubble: HTMLElement): string {
         const body = bubble.querySelector<HTMLElement>('.aparte-message-content') ?? bubble;
-        const text = (body.textContent ?? '').replace(/\s+/g, ' ').trim();
+        // The head of the text only: the collapse ran over a whole pasted document to keep sixty characters.
+        const text = (body.textContent ?? '').slice(0, EXCERPT_LENGTH * 16).replace(/\s+/g, ' ').trim();
         return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
     }
 
-    private _tickLabel(bubble: HTMLElement): string {
-        const locale = resolveConfig(this).getLocale();
+    private _tickLabel(bubble: HTMLElement, locale: AparteLocale): string {
         const role = bubble.getAttribute('data-role') === 'user'
             ? (locale.roleNameUser ?? 'You')
             : (locale.roleNameAssistant ?? 'Assistant');
@@ -308,7 +365,7 @@ export class AparteScrollRail extends HTMLElement {
                 item.appendChild(tick);
             }
             const tick = item.firstElementChild as HTMLElement;
-            const label = this._tickLabel(bubble);
+            const label = this._tickLabel(bubble, locale);
             if (tick.getAttribute('aria-label') !== label) {
                 tick.setAttribute('aria-label', label);
                 tick.title = label;
@@ -366,10 +423,10 @@ export class AparteScrollRail extends HTMLElement {
             }
             this._pickCurrent();
         }, { root, threshold: [0] });
-        for (const bubble of bubbles) {
-            this._intersections.observe(bubble);
-            this._onScreenObserver.observe(bubble);
-        }
+        for (const bubble of bubbles) this._intersections.observe(bubble);
+        // Only the last is ever read from this one: watching every question made the browser
+        // compute their intersections each frame of a scroll, and called back on each crossing.
+        this._onScreenObserver.observe(bubbles[bubbles.length - 1]!);
         this._observedSurface = root;
         root.addEventListener('scroll', this._onRootScroll, { passive: true });
     }
@@ -623,6 +680,12 @@ export class AparteScrollRail extends HTMLElement {
         this._settleSurface = null;
         this._held = null;
     }
+}
+
+/** A bubble, or an element holding some (the viewport, a wrapper rendered whole): the set of ticks can change. */
+function holdsBubbles(nodes: NodeList): boolean {
+    return Array.from(nodes).some((n) =>
+        n instanceof Element && (n.tagName === 'APARTE-CHAT-BUBBLE' || n.tagName === 'APARTE-CHAT-VIEWPORT' || n.querySelector('aparte-chat-bubble') !== null));
 }
 
 function sameElements(a: HTMLElement[], b: HTMLElement[]): boolean {
