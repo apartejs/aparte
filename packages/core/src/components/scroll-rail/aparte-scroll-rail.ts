@@ -119,10 +119,14 @@ export class AparteScrollRail extends HTMLElement {
     private _relabel = new Set<HTMLElement>();
     private _pickQueued = false;
     private _currentId: string | null = null;
-    /** Visible ratio per message id in the reading band, from the intersection observer. */
-    private _visible = new Map<string, number>();
-    /** The bubbles on screen at all, from the second observer; only the last one is read. */
-    private _onScreen = new Set<string>();
+    /**
+     * Visible ratio per message in the reading band, from the intersection observer. Keyed by
+     * the element, not its id: an id changed in place keeps what the observer saw, and a
+     * bubble that left is let go with it.
+     */
+    private _visible = new WeakMap<Element, number>();
+    /** Whether the last question is on screen at all, from the second observer. */
+    private _onScreen = new WeakSet<Element>();
     private _onScreenObserver: IntersectionObserver | null = null;
     /** The mark a jump asked for, held until the transcript has stopped moving. */
     private _held: string | null = null;
@@ -427,10 +431,14 @@ export class AparteScrollRail extends HTMLElement {
             else list.insertBefore(item, at);
         }
 
-        if (this._currentId && !known.has(this._currentId)) this._currentId = null;
+        const dropped = this._currentId !== null && !known.has(this._currentId);
+        if (dropped) this._currentId = null;
         this._syncTabStop();
         if (!sameElements(this._observedBubbles, bubbles) || !sameElements(this._bandTargets, all)) this._observe(bubbles, all);
         this._layout();
+        // The marked message left, or its id changed in place: what the observers last
+        // reported, kept by element, names the question again; no scroll needs to happen.
+        if (dropped) this._pickCurrent();
     }
 
     /**
@@ -452,38 +460,50 @@ export class AparteScrollRail extends HTMLElement {
      * observer reports a reply entering the band whatever moved it.
      */
     private _observe(bubbles: HTMLElement[], all: HTMLElement[]): void {
-        this._unobserve();
-        this._observedBubbles = bubbles;
-        this._bandTargets = all;
-        if (typeof IntersectionObserver === 'undefined') return;
-        const root = this._scrollSurface();
-        if (!root) return;
-        this._intersections = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                const id = (entry.target as HTMLElement).getAttribute('message-id');
-                if (id) this._visible.set(id, entry.isIntersecting ? entry.intersectionRatio : 0);
-            }
-            this._pickCurrent();
-        }, { root, rootMargin: `0px 0px -${100 - BAND_PERCENT}% 0px`, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
-        // The whole surface, for one question only: the last. While the end of the thread
-        // is on screen the reader is at the end, whatever the band holds — after a send,
-        // the viewport rests with the new question low on the screen and older ones in
-        // the band, and a rail marking the question above the one just asked is wrong.
-        this._onScreenObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                const id = (entry.target as HTMLElement).getAttribute('message-id');
-                if (!id) continue;
-                if (entry.isIntersecting) this._onScreen.add(id);
-                else this._onScreen.delete(id);
-            }
-            this._pickCurrent();
-        }, { root, threshold: [0] });
-        for (const bubble of all) this._intersections.observe(bubble);
+        const root = typeof IntersectionObserver === 'undefined' ? null : this._scrollSurface();
+        if (!root) {
+            this._unobserve();
+            this._observedBubbles = bubbles;
+            this._bandTargets = all;
+            return;
+        }
+        // Made once per scroll surface and re-pointed by difference. Made afresh on every
+        // change, the band observer was torn down twice a turn (the question, then its reply)
+        // over every message, and each new one delivered every entry again.
+        if (!this._intersections || !this._onScreenObserver || this._observedSurface !== root) {
+            this._unobserve();
+            this._intersections = new IntersectionObserver((entries) => {
+                for (const entry of entries) this._visible.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0);
+                this._pickCurrent();
+            }, { root, rootMargin: `0px 0px -${100 - BAND_PERCENT}% 0px`, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
+            // The whole surface, for one question only: the last. While the end of the thread
+            // is on screen the reader is at the end, whatever the band holds — after a send,
+            // the viewport rests with the new question low on the screen and older ones in
+            // the band, and a rail marking the question above the one just asked is wrong.
+            this._onScreenObserver = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) this._onScreen.add(entry.target);
+                    else this._onScreen.delete(entry.target);
+                }
+                this._pickCurrent();
+            }, { root, threshold: [0] });
+            this._observedSurface = root;
+            root.addEventListener('scroll', this._onRootScroll, { passive: true });
+        }
+        const next = new Set<Element>(all);
+        for (const bubble of this._bandTargets) if (!next.has(bubble)) this._intersections.unobserve(bubble);
+        const before = new Set<Element>(this._bandTargets);
+        for (const bubble of all) if (!before.has(bubble)) this._intersections.observe(bubble);
         // Only the last is ever read from this one: watching every question made the browser
         // compute their intersections each frame of a scroll, and called back on each crossing.
-        this._onScreenObserver.observe(bubbles[bubbles.length - 1]!);
-        this._observedSurface = root;
-        root.addEventListener('scroll', this._onRootScroll, { passive: true });
+        const last = bubbles[bubbles.length - 1]!;
+        const previous = this._observedBubbles[this._observedBubbles.length - 1];
+        if (previous !== last) {
+            if (previous) this._onScreenObserver.unobserve(previous);
+            this._onScreenObserver.observe(last);
+        }
+        this._observedBubbles = bubbles;
+        this._bandTargets = all;
     }
 
     private _unobserve(): void {
@@ -495,8 +515,8 @@ export class AparteScrollRail extends HTMLElement {
         this._observedSurface = null;
         this._observedBubbles = [];
         this._bandTargets = [];
-        this._visible.clear();
-        this._onScreen.clear();
+        this._visible = new WeakMap();
+        this._onScreen = new WeakSet();
     }
 
     /** A scroll only matters at the bottom edge, where the observer is silent: one pick per frame. */
@@ -522,8 +542,9 @@ export class AparteScrollRail extends HTMLElement {
         if (this._held) return;
         const bubbles = this._observedBubbles;
         if (bubbles.length === 0) return;
-        const lastId = bubbles[bubbles.length - 1]!.getAttribute('message-id')!;
-        if (this._atBottom() || this._onScreen.has(lastId)) {
+        const lastBubble = bubbles[bubbles.length - 1]!;
+        const lastId = lastBubble.getAttribute('message-id')!;
+        if (this._atBottom() || this._onScreen.has(lastBubble)) {
             this._setCurrent(lastId);
             return;
         }
@@ -534,9 +555,8 @@ export class AparteScrollRail extends HTMLElement {
         let last: string | null = null;
         let above: string | null = null;
         for (const bubble of this._bandTargets) {
-            const id = bubble.getAttribute('message-id')!;
-            if (this._ticked(bubble)) above = id;
-            if (above !== null && (this._visible.get(id) ?? 0) > 0) last = above;
+            if (this._ticked(bubble)) above = bubble.getAttribute('message-id');
+            if (above !== null && (this._visible.get(bubble) ?? 0) > 0) last = above;
         }
         // No message in the band at all (above the first one, or in the space after the
         // last): the band's rule, read from the layout.

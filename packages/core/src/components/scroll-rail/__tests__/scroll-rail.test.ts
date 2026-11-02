@@ -31,7 +31,7 @@ beforeEach(() => {
         constructor(cb: IOCallback, opts?: IntersectionObserverInit) { this._rec = { cb, opts, observed: [] }; observers.push(this._rec); ioConstructed++; }
         observe(el: Element): void { this._rec.observed.push(el); }
         disconnect(): void { /* noop */ }
-        unobserve(): void { /* noop */ }
+        unobserve(el: Element): void { this._rec.observed = this._rec.observed.filter((o) => o !== el); }
     }
     (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = IO;
 });
@@ -366,7 +366,36 @@ describe('aparte-scroll-rail holds still', () => {
         expect(ticks(rail)[0]).toBe(first);
         expect(ticks(rail)[1]).toBe(second);
         expect(document.activeElement, 'the reader was on a tick; a new turn does not throw them off it').toBe(second);
-        expect(ioConstructed, 'the set of bubbles changed, so the observers were made once more').toBe(4);
+        expect(ioConstructed, 'the observers are kept: the new bubbles are observed on them').toBe(2);
+    });
+
+    it('keeps its observers across turns: a new message is observed on them, a departed one let go', async () => {
+        // Made afresh on every change, the band observer was torn down twice a turn (the
+        // question, then its reply) over every message, and re-delivered every entry.
+        const turns = THREE_TURNS();
+        const { viewport } = mount(turns);
+        viewport.appendChild(bubble('a3', 'assistant', 'Light DOM.'));
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        turns[0]!.remove();
+        await nextFrame(); await nextFrame();
+        expect(ioConstructed).toBe(2);
+        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['a1', 'u2', 'a2', 'u3', 'a3', 'u4']);
+        expect(screen().observed.map((e) => e.getAttribute('message-id')), 'the last question only').toEqual(['u4']);
+    });
+
+    it('keeps the mark on a question whose id changes in place', async () => {
+        // A host that swaps a temporary id for the server's, on the same element: what the
+        // band reported was keyed by the old id, so the mark was lost until the next scroll.
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u2');
+        turns[2]!.setAttribute('message-id', 'u2-final');
+        await nextFrame(); await nextFrame();
+        expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u2-final');
+        expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+        expect(ticks(rail)[1]!.dataset['messageId']).toBe('u2-final');
     });
 
     it('a streaming reply changes nothing on the rail: no new observer, no new nodes', async () => {
