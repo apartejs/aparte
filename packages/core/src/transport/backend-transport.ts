@@ -3,6 +3,7 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteTransport, AparteTransportContext } from './types.js';
 import { vendorError, withSources } from './types.js';
 import { parseAparteEventStream } from '../parsers/index.js';
+import { jsonHeaders } from './json-headers.js';
 
 export interface BackendTransportOptions {
     /** Your backend chat endpoint, e.g. `/api/chat`. */
@@ -71,7 +72,7 @@ export class AparteBackendTransport implements AparteTransport {
 
         const response = await fetch(this.options.endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...this.options.headers },
+            headers: jsonHeaders(this.options.headers),
             body: JSON.stringify(body),
             signal: ctx.signal,
         });

@@ -43,6 +43,7 @@ a Vercel edge route.
 | `providers` | the providers, keyed by the `providerId` the page sends: an unknown id is a 400, a provider that is not a [format adapter](/providers/#write-your-own-provider) a 500 |
 | `authorize(req)` | required, run before anything else: `false` answers 401, a `Response` answers itself, `true` goes on |
 | `resolveKey(providerId)` | the vendor key, from your environment or a secret store; `undefined` for a keyless server |
+| `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
 | `fetchImpl` | the `fetch` that calls the vendor |
 
 These are the `AparteChatHandlerOptions`.
@@ -51,6 +52,13 @@ These are the `AparteChatHandlerOptions`.
 `Boolean(req.headers.get('cookie'))` passes any request that carries any cookie, a cross-site one
 included, and the route then spends your key for anyone who can load it. Call the session lookup
 that guards your other routes.
+:::
+
+:::note[A page on another site can post to this route]
+It does so with your visitor's cookie, in a form that needs no preflight. The handler refuses any
+body not declared `application/json` with a 415, which such a form cannot send, before it calls
+`authorize`. For a cookie session also set `SameSite=Lax` or `Strict`, and list your pages in
+`allowedOrigins`.
 :::
 
 ## What the route accepts

@@ -46,8 +46,12 @@ function vendorStreamOk() {
     ));
 }
 
-function backendRequest(body: unknown): Request {
-    return new Request('http://localhost/api/chat', { method: 'POST', body: JSON.stringify(body) });
+function backendRequest(body: unknown, headers: Record<string, string> = {}): Request {
+    return new Request('http://localhost/api/chat', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json', ...headers },
+    });
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -125,8 +129,57 @@ describe('createAparteChatHandler', () => {
 
     it('400s on a malformed body', async () => {
         const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, fetchImpl: vendorStreamOk() });
-        const res = await handler(new Request('http://localhost/api/chat', { method: 'POST', body: 'not json' }));
+        const res = await handler(new Request('http://localhost/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'not json' }));
         expect(res.status).toBe(400);
+    });
+
+    it('415s a body that is not declared application/json, before authorize and before the vendor', async () => {
+        // A cross-site <form enctype="text/plain"> sends a body that parses as JSON, with the
+        // victim's cookie, and no preflight: the content type is the only thing that tells it apart.
+        const vendor = vendorStreamOk();
+        const authorize = vi.fn(() => true);
+        const handler = createAparteChatHandler({ authorize, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
+        for (const type of ['text/plain', 'text/plain;charset=UTF-8', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x']) {
+            const res = await handler(backendRequest({ providerId: 'mock', request: req }, { 'Content-Type': type }));
+            expect(res.status, type).toBe(415);
+        }
+        const bare = await handler(new Request('http://localhost/api/chat', { method: 'POST', body: new Uint8Array(8) }));
+        expect(bare.status).toBe(415);
+        expect(authorize).not.toHaveBeenCalled();
+        expect(vendor).not.toHaveBeenCalled();
+        // The library client's header, with a charset or in another case, is still JSON.
+        for (const type of ['application/json', 'application/json; charset=utf-8', 'Application/JSON']) {
+            const ok = await handler(backendRequest({ providerId: 'mock', request: req }, { 'Content-Type': type }));
+            expect(ok.status, type).toBe(200);
+            await ok.text();
+        }
+    });
+
+    it('403s an Origin outside allowedOrigins, before authorize and before the vendor', async () => {
+        const vendor = vendorStreamOk();
+        const authorize = vi.fn(() => true);
+        const handler = createAparteChatHandler({
+            authorize, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor,
+            allowedOrigins: ['https://app.example.com'],
+        });
+        for (const origin of ['https://evil.example', 'null', 'https://app.example.com.evil.example']) {
+            const res = await handler(backendRequest({ providerId: 'mock', request: req }, { Origin: origin }));
+            expect(res.status, origin).toBe(403);
+        }
+        expect(authorize).not.toHaveBeenCalled();
+        expect(vendor).not.toHaveBeenCalled();
+        const own = await handler(backendRequest({ providerId: 'mock', request: req }, { Origin: 'https://app.example.com' }));
+        expect(own.status).toBe(200);
+        await own.text();
+        // No Origin: not a browser request, so the list has nothing to say about it.
+        const server = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(server.status).toBe(200);
+        await server.text();
+        // Without the option no origin is refused (CORS stays the host's business).
+        const open = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, fetchImpl: vendorStreamOk() });
+        const res = await open(backendRequest({ providerId: 'mock', request: req }, { Origin: 'https://evil.example' }));
+        expect(res.status).toBe(200);
+        await res.text();
     });
 
     it('propagates a vendor error status so the client can surface it', async () => {

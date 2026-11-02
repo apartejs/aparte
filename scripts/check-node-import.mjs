@@ -249,6 +249,7 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
     const res = await handler(
         new Request('http://localhost/api/chat', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ providerId: 'mock', request: { messages: [{ role: 'user', content: 'hi' }], model: 'm', stream: true } }),
         }),
     );

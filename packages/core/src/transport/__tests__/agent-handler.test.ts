@@ -51,7 +51,12 @@ function handlerWith(provider: AparteAIProvider, extra: Partial<AparteAgentHandl
 }
 
 const post = (body: unknown, init: RequestInit = {}) =>
-    new Request('http://x/api/agent', { method: 'POST', body: JSON.stringify(body), ...init });
+    new Request('http://x/api/agent', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...init,
+        headers: { 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined) },
+    });
 
 async function lines(res: Response): Promise<Line[]> {
     const out: Line[] = [];
@@ -360,5 +365,123 @@ describe('createAparteAgentHandler', () => {
         })(post(firstBody())));
         expect(out.find((l) => l.type === 'tool-rejected')).toMatchObject({ reason: 'Not on this server.' });
         expect(out.at(-1)!.type).toBe('run-done');
+    });
+
+    it('415 when the body is not declared application/json, before authorize and before parsing', async () => {
+        // A cross-site <form enctype="text/plain"> is a "simple" request: no preflight, the
+        // victim's cookie rides along, and the body can be shaped into valid JSON.
+        const { provider, requests } = scriptedProvider();
+        const authorize = vi.fn(() => true);
+        const handler = handlerWith(provider, { authorize });
+        for (const type of ['text/plain', 'text/plain;charset=UTF-8', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x']) {
+            const res = await handler(post(firstBody(), { headers: { 'Content-Type': type } }));
+            expect(res.status).toBe(415);
+        }
+        const bare = await handler(new Request('http://x/api/agent', { method: 'POST', body: new Uint8Array(JSON.stringify(firstBody()).length) }));
+        expect(bare.status).toBe(415);
+        expect(authorize).not.toHaveBeenCalled();
+        expect(requests).toHaveLength(0);
+        // The library client's header, with or without a charset, still goes through.
+        for (const type of ['application/json', 'application/json; charset=utf-8', 'Application/JSON']) {
+            const ok = await handler(post(firstBody(), { headers: { 'Content-Type': type } }));
+            expect(ok.status).toBe(200);
+            await lines(ok);
+        }
+    });
+
+    it('403 when an Origin outside allowedOrigins posts, before authorize', async () => {
+        const { provider } = scriptedProvider();
+        const authorize = vi.fn(() => true);
+        const handler = handlerWith(provider, { authorize, allowedOrigins: ['https://app.example.com'] });
+        const foreign = await handler(post(firstBody(), { headers: { Origin: 'https://evil.example' } }));
+        expect(foreign.status).toBe(403);
+        const sandboxed = await handler(post(firstBody(), { headers: { Origin: 'null' } }));
+        expect(sandboxed.status).toBe(403);
+        expect(authorize).not.toHaveBeenCalled();
+        const own = await handler(post(firstBody(), { headers: { Origin: 'https://app.example.com' } }));
+        expect(own.status).toBe(200);
+        await lines(own);
+        // Not a browser request (no Origin): the list has nothing to say about it.
+        const server = await handler(post(firstBody()));
+        expect(server.status).toBe(200);
+        await lines(server);
+        // Without the option, no origin is refused.
+        const open = await handlerWith(scriptedProvider().provider)(post(firstBody(), { headers: { Origin: 'https://evil.example' } }));
+        expect(open.status).toBe(200);
+        await lines(open);
+    });
+
+    it('does not accept a ticket whose base64url text is not the canonical encoding (single-use bypass)', async () => {
+        // An HMAC-SHA256 signature is 43 characters whose last one carries two padding bits
+        // that atob() ignores: four strings verify as the same signature, so a seen-set keyed on
+        // the text counted four tickets and let the approved tool run four times.
+        ran.length = 0;
+        const { provider } = scriptedProvider(
+            turnCallingDelete,
+            [{ type: 'text', delta: 'Deleted.' }, { type: 'done' }],
+            [{ type: 'text', delta: 'Again.' }, { type: 'done' }],
+            [{ type: 'text', delta: 'Again.' }, { type: 'done' }],
+            [{ type: 'text', delta: 'Again.' }, { type: 'done' }],
+        );
+        const ticket = await suspend(provider);
+        const [payload, signature] = ticket.split('.') as [string, string];
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        const last = alphabet.indexOf(signature.at(-1)!);
+        const variants = [0, 1, 2, 3].map((low) => `${payload}.${signature.slice(0, -1)}${alphabet[(last & ~3) | low]}`).filter((t) => t !== ticket);
+        expect(variants).toHaveLength(3);
+
+        const used = new Set<string>();
+        const onTicket = vi.fn((id: string) => { if (used.has(id)) return false; used.add(id); return true; });
+        const handler = handlerWith(provider, { onTicket });
+        const approve = { c1: { kind: 'decision', approved: true } };
+
+        const first = await handler(post(resumeBody(ticket, approve)));
+        expect(first.status).toBe(200);
+        await lines(first);
+        const statuses: number[] = [];
+        for (const variant of variants) statuses.push((await handler(post(resumeBody(variant, approve)))).status);
+        expect(statuses).toEqual([400, 400, 400]);
+        expect((await handler(post(resumeBody(ticket, approve)))).status).toBe(409);
+        // The seen-set heard of the ticket twice (the original, used again), and the tool ran once.
+        expect(onTicket).toHaveBeenCalledTimes(2);
+        expect(ran).toEqual(['delete_file {"path":"a"}']);
+    });
+
+    it('cannot run a tool prepareRequest removed, even when the model names it', async () => {
+        ran.length = 0;
+        const wipe = {
+            tool: { name: 'admin_wipe', description: 'Wipe.', inputSchema: { type: 'object' } },
+            handler: async (call: { id: string }) => { ran.push('admin_wipe'); return { toolCallId: call.id, content: 'wiped' }; },
+        };
+        const { provider, requests } = scriptedProvider(
+            [{ type: 'tool_use', id: 'w1', name: 'admin_wipe', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Cannot.' }, { type: 'done' }],
+        );
+        const out = await lines(await handlerWith(provider, {
+            tools: [deleteTool, wipe],
+            prepareRequest: (request) => ({ ...request, tools: (request.tools ?? []).filter((t) => t.name !== 'admin_wipe') }),
+        })(post(firstBody())));
+        // The model was not offered it, and it named it anyway.
+        expect(requests[0]!.tools?.map((t) => t.name)).toEqual(['delete_file']);
+        expect(ran).toEqual([]);
+        expect(JSON.stringify(out)).not.toContain('wiped');
+        expect(out.at(-1)!.type).toBe('run-done');
+    });
+
+    it('still runs a tool prepareRequest leaves in place', async () => {
+        ran.length = 0;
+        const echo = {
+            tool: { name: 'echo', description: 'Echo.', inputSchema: { type: 'object' } },
+            handler: async (call: { id: string }) => { ran.push('echo'); return { toolCallId: call.id, content: 'ok' }; },
+        };
+        const { provider } = scriptedProvider(
+            [{ type: 'tool_use', id: 'e1', name: 'echo', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Done.' }, { type: 'done' }],
+        );
+        await lines(await handlerWith(provider, {
+            tools: [echo],
+            prepareRequest: (request) => ({ ...request, messages: [{ role: 'system', content: 'Be brief.' }, ...request.messages] }),
+        })(post(firstBody())));
+        expect(ran).toEqual(['echo']);
     });
 });

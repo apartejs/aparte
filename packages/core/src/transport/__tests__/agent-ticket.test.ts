@@ -48,6 +48,24 @@ describe('the ticket', () => {
         }
     });
 
+    it('has one spelling: the padding bits of the last character cannot be varied', async () => {
+        // 32 signature bytes are 43 characters; the last carries two bits atob() ignores,
+        // so four strings used to verify as the same ticket.
+        const ticket = await signTicket(payload, SECRET, subtle);
+        const [body, sig] = ticket.split('.') as [string, string];
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        const last = alphabet.indexOf(sig.at(-1)!);
+        const spellings = [0, 1, 2, 3].map((low) => `${body}.${sig.slice(0, -1)}${alphabet[(last & ~3) | low]}`);
+        expect(spellings.filter((t) => t === ticket)).toHaveLength(1);
+        for (const spelling of spellings) {
+            expect(await verifyTicket(spelling, [SECRET], subtle, DAY, 2_000)).toEqual(spelling === ticket ? payload : null);
+        }
+        // The payload half is held to the same rule.
+        const bodyLast = alphabet.indexOf(body.at(-1)!);
+        const otherBody = `${body.slice(0, -1)}${alphabet[bodyLast ^ 1]}`;
+        expect(await verifyTicket(`${otherBody}.${sig}`, [SECRET], subtle, DAY, 2_000)).toBeNull();
+    });
+
     it('compares inputs whatever the key order', () => {
         expect(canonicalJson({ b: [2, { d: 1, c: 0 }], a: 1, u: undefined })).toBe('{"a":1,"b":[2,{"c":0,"d":1}]}');
         expect(sameCalls([{ id: 'c', name: 'n', input: { a: 1, b: 2 } }], [{ id: 'c', name: 'n', input: { b: 2, a: 1 } }])).toBe(true);

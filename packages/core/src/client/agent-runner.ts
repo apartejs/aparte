@@ -2,6 +2,7 @@ import type { StreamRunEvent, StreamUsage } from '@aparte/engine';
 import type { AparteChatRequest } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { readNdjson } from '../utils/ndjson.js';
+import { jsonHeaders } from '../transport/json-headers.js';
 import type { AparteStreamRunner } from './stream-adapter.js';
 
 export interface AgentStreamRunnerOptions {
@@ -54,7 +55,7 @@ export function createAgentStreamRunner(options: AgentStreamRunnerOptions): Apar
         };
         const response = await doFetch(options.endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...headers },
+            headers: jsonHeaders(headers),
             body: JSON.stringify(body),
             signal: opts.signal,
             ...(options.credentials ? { credentials: options.credentials } : {}),

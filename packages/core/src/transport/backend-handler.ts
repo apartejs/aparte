@@ -2,6 +2,7 @@ import type { AparteChatRequest } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import { AparteErrorCode } from '../types/errors.js';
 import { isFormatAdapter } from './types.js';
+import { refuseUnsafeRequest } from './request-guard.js';
 
 export interface AparteChatHandlerOptions {
     /**
@@ -35,6 +36,14 @@ export interface AparteChatHandlerOptions {
      * (Node 18+, Deno, Bun, Workers). Override in tests or to add a proxy.
      */
     fetchImpl?: typeof fetch;
+    /**
+     * The origins whose pages may call this endpoint, as the browser writes them
+     * (`'https://app.example.com'`). A request carrying any other `Origin` — a form on
+     * another site posting with your visitor's cookie — is refused with 403 before
+     * `authorize`. A request with no `Origin` (a server, curl) is left to `authorize`.
+     * Off by default; the `application/json` requirement is always on.
+     */
+    allowedOrigins?: readonly string[];
 }
 
 /**
@@ -67,7 +76,12 @@ export function createAparteChatHandler(
     const doFetch = options.fetchImpl ?? fetch;
 
     return async function handler(req: Request): Promise<Response> {
-        // Auth gate first: this route spends the server-held key, so reject
+        // Not JSON, or from an origin the host did not list: 415 / 403, before anything
+        // runs on the visitor's behalf (a cross-site form cannot send application/json).
+        const unsafe = refuseUnsafeRequest(req, options.allowedOrigins);
+        if (unsafe) return unsafe;
+
+        // Auth gate: this route spends the server-held key, so reject
         // unauthorized callers before parsing or doing any work. Required by the
         // type — there is no path through here without a verdict.
         const verdict = await options.authorize(req);

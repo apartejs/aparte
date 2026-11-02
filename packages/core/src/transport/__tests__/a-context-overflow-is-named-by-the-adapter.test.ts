@@ -38,7 +38,9 @@ function adapter(over: Partial<AparteAIProvider> = {}): AparteAIProvider {
 const reject = (p: Promise<unknown>) =>
     p.then(() => { throw new Error('resolved instead of rejecting'); }, (e: unknown) => e as AparteError);
 
-const post = (body: unknown) => new Request('http://localhost/api/chat', { method: 'POST', body: JSON.stringify(body) });
+const post = (body: unknown) => new Request('http://localhost/api/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+});
 
 afterEach(() => vi.restoreAllMocks());
 
