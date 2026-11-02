@@ -635,6 +635,18 @@ jobs:
           E2E_ONLY: ${{ matrix.app }}
         run: pnpm --filter @aparte-workspace/e2e exec playwright test ${{ matrix.projects }} ${{ matrix.shard }}
 
+      # The performance budget measures time, so nothing runs beside it: in the step above it
+      # shared this four-core runner with three other browsers, and its chunk-to-paint p95 swung
+      # across the 50 ms ceiling (under it on three runs, 52.2 and 55.1 ms on main after an
+      # unrelated merge). One job carries it, one worker, after the suite; its report and traces
+      # go in subfolders of the suite's, so the upload below takes both.
+      - name: Performance budget, measured alone
+        if: needs.scope.outputs.source == 'true' && matrix.name == 'vanilla 2-2'
+        env:
+          E2E_ONLY: vanilla
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/performance
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --project=performance --workers=1 --output=test-results/performance
+
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

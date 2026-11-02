@@ -25,8 +25,9 @@ reason.
 | A 500-message conversation, in memory | **{runtime.heap500Mb} MB** of heap | 500 messages set at once (half of them answers with bold text, code and a list), the heap read after a forced garbage collection, against the same page before them. |
 | A 500-message conversation, drawn | **{runtime.render500Ms} ms** | The `setMessages` call for those 500 messages, until it returns. |
 
-Measured in Chromium (the heap is read through the DevTools protocol), in the browser suite every
-pull request runs; the numbers each run measured are in its log.
+Measured in Chromium (the heap is read through the DevTools protocol) on every pull request, with
+no other test running beside it: a time measured beside other tests measures them too. The
+numbers each run measured are in its log.
 
 ## On the wire
 
