@@ -27,6 +27,7 @@
  * replaced one keeps the rule; an incremental Markdown provider, before it sets a `src` on a
  * live node; and a plugin that draws pictures itself, through `AparteConfig.decideImage`.
  */
+import { escapeAttr, escapeHtml } from '../utils/escape.js';
 import { readTag } from './sanitize.js';
 
 /** What a picture a model or a tool chose does: load now, wait for a click, or go. */
@@ -259,10 +260,6 @@ function writeSrcset(candidates: SrcsetCandidate[]): string {
     return candidates.map((c) => (c.descriptor ? `${c.url} ${c.descriptor}` : c.url)).join(', ');
 }
 
-const escapeAttr = (value: string): string =>
-    value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const escapeText = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
 /**
  * Where a held picture would load from, as the reader is shown it: the host, exactly — a
  * look-alike name is the reason to show it, which is also why its end, the part a reader
@@ -294,8 +291,8 @@ export function heldImageHtml(address: string, alt: string, words: HeldImageWord
     return `${opening} data-aparte-image="${escapeAttr(address)}"${alt ? ` data-aparte-image-alt="${escapeAttr(alt)}"` : ''}`
         + ` title="${escapeAttr(words.load(host))}" aria-label="${escapeAttr(name)}">`
         + `<span class="aparte-image-held__icon" aria-hidden="true">${words.icon}</span>`
-        + (alt ? `<span class="aparte-tag__label aparte-image-held__alt">${escapeText(alt)}</span>` : '')
-        + `<span class="aparte-image-held__host">${escapeText(host)}</span>${inLink ? '</span>' : '</a>'}`;
+        + (alt ? `<span class="aparte-tag__label aparte-image-held__alt">${escapeHtml(alt)}</span>` : '')
+        + `<span class="aparte-image-held__host">${escapeHtml(host)}</span>${inLink ? '</span>' : '</a>'}`;
 }
 
 /** A picture the policy lets load, drawn from what a held one carried. */

@@ -1,4 +1,4 @@
-import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
+import { aparteGlobalConfig, escapeAttr, isSafeUrl, type AparteConfig } from '@aparte/core';
 import { parser, parser_write, parser_end, default_renderer, Attr, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
 
 /** What core's code-language engine reads as a formula still arriving. */
@@ -44,9 +44,6 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  * as the TAIL to remove, so the token is one expression with no branch to miss.
  */
 const LANG_TAIL = /[^A-Za-z0-9_+#.-].*$/s;
-
-/** A value written into a double-quoted attribute. */
-const attr = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
  * A formula that holds nothing but a number is a reference in brackets — `\[1\]`,
@@ -100,7 +97,7 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
         const writeImage = (node: Element | undefined, address: string): void => {
             if (!node || node.tagName !== 'IMG') return;
             const template = document.createElement('template');
-            template.innerHTML = config.sanitizeHtml(`<img src="${attr(address)}" alt="${attr(node.textContent ?? '')}">`);
+            template.innerHTML = config.sanitizeHtml(`<img src="${escapeAttr(address)}" alt="${escapeAttr(node.textContent ?? '')}">`);
             node.replaceWith(template.content);
         };
         renderer.set_attr = (data, type, value) => {
