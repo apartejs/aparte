@@ -59,7 +59,8 @@ screens, where a thin tick is no target.
 
 - The rail is a navigation landmark named from the `scrollRailLabel` key ("Conversation
   outline"); each tick is a button named by the first words of its message.
-- The tick in view carries `aria-current`; arrow keys walk every tick.
+- The tick in view carries `aria-current`. The rail is one Tab stop, on that tick, however
+  long the conversation; the arrow keys, Home and End walk every tick.
 - A tick's target is 24px tall, wider than the drawn line, as long as the rail has room for
   every tick (WCAG 2.5.8); past that, the ticks draw closer together.
 

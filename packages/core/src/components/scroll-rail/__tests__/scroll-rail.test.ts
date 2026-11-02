@@ -19,6 +19,8 @@ let ioConstructed = 0;
 /** The latest reading-band observer (the one with a negative bottom margin), and the latest whole-surface one. */
 const band = (): StubObserver => observers.filter((o) => o.opts?.rootMargin?.includes('-70%')).at(-1)!;
 const screen = (): StubObserver => observers.filter((o) => !o.opts?.rootMargin?.includes('-70%')).at(-1)!;
+/** The bubble the reading band watches under a message id: it watches the replies too, so indices would lie. */
+const inBand = (id: string): Element => band().observed.find((e) => e.getAttribute('message-id') === id)!;
 
 beforeEach(() => {
     observers.length = 0;
@@ -29,7 +31,7 @@ beforeEach(() => {
         constructor(cb: IOCallback, opts?: IntersectionObserverInit) { this._rec = { cb, opts, observed: [] }; observers.push(this._rec); ioConstructed++; }
         observe(el: Element): void { this._rec.observed.push(el); }
         disconnect(): void { /* noop */ }
-        unobserve(): void { /* noop */ }
+        unobserve(el: Element): void { this._rec.observed = this._rec.observed.filter((o) => o !== el); }
     }
     (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = IO;
 });
@@ -116,30 +118,110 @@ describe('aparte-scroll-rail', () => {
 
     it('marks the LAST question that reached the reading band as current, via the intersection observer', () => {
         const { rail } = mount(THREE_TURNS());
-        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['u1', 'u2', 'u3']);
+        // Every message is watched, the replies too: a reply in the band names its question.
+        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['u1', 'a1', 'u2', 'a2', 'u3']);
         // The second question fills most of the band and the third has just entered it:
         // the reader is under the third — a scrollspy's rule, not the largest share.
         band().cb([
-            { target: band().observed[0]!, isIntersecting: false, intersectionRatio: 0 },
-            { target: band().observed[1]!, isIntersecting: true, intersectionRatio: 0.6 },
-            { target: band().observed[2]!, isIntersecting: true, intersectionRatio: 0.2 },
+            { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('u2'), isIntersecting: true, intersectionRatio: 0.6 },
+            { target: inBand('u3'), isIntersecting: true, intersectionRatio: 0.2 },
         ]);
         expect(ticks(rail).map((t) => t.getAttribute('aria-current'))).toEqual([null, null, 'true']);
         expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u3');
 
         // Only the second one left in the band: the reader is under it.
-        band().cb([{ target: band().observed[2]!, isIntersecting: false, intersectionRatio: 0 }]);
+        band().cb([{ target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
 
-        // Nothing in the band keeps the last mark rather than clearing it.
-        band().cb([{ target: band().observed[1]!, isIntersecting: false, intersectionRatio: 0 }]);
+        // Nothing in the band, and nothing laid out to read (jsdom): the last mark stays.
+        band().cb([{ target: inBand('u2'), isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('a reply in the band is read under its question, whatever moved it there', () => {
+        // The layout moves under a still reader: a bubble never rendered takes its real height
+        // once the scroll has stopped. The band observer reports the reply that slid into it.
+        const { rail } = mount(THREE_TURNS());
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
+        band().cb([
+            { target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('a1'), isIntersecting: true, intersectionRatio: 0.4 },
+        ]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'inside the reply to u1').toBe('true');
+        // A question and the reply above it both in the band: the question, the later of the two.
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 0.3 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('a greeting before the first question, alone in the band, keeps the mark and reads no layout', () => {
+        const turns = [bubble('a0', 'assistant', 'Hello! Ask me anything.'), ...THREE_TURNS()];
+        const { rail } = mount(turns);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
+        const read = vi.spyOn(rail as unknown as { _lastAbove(): string | null }, '_lastAbove');
+        band().cb([
+            { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('a0'), isIntersecting: true, intersectionRatio: 1 },
+        ]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'above every question: the mark stays').toBe('true');
+        expect(read, 'the band said where the reader is: no layout to read').not.toHaveBeenCalled();
+    });
+
+    it('with no message in the band and every question below its edge, the mark stays', () => {
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        viewport.getBoundingClientRect = () => ({ top: 0, height: 1000 }) as DOMRect;
+        for (const b of turns) b.getBoundingClientRect = () => ({ top: 800 }) as DOMRect;
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u2'), isIntersecting: false, intersectionRatio: 0 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current'), 'no question above the band: the mark stays (the first question used to be named)').toBe('true');
+    });
+
+    it('a jump to a reply marks the question it answers, as the band reads it', () => {
+        vi.useFakeTimers();
+        try {
+            const turns = THREE_TURNS();
+            const { rail } = mount(turns);
+            turns[3]!.scrollIntoView = vi.fn();
+            (rail as unknown as { jumpTo(id: string): void }).jumpTo('a2');
+            const current = (): string | null => (rail as HTMLElement & { currentMessageId: string | null }).currentMessageId;
+            expect(current(), 'a reply has no tick: its question is marked').toBe('u2');
+            vi.advanceTimersByTime(400);
+            expect(current(), 'and stays marked once the jump has settled').toBe('u2');
+            expect(ticks(rail).filter((t) => t.tabIndex === 0).map((t) => t.dataset['messageId'])).toEqual(['u2']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('with nothing in the band, marks the last question above its lower edge — the reader is inside its reply', () => {
+        // Measured in Chromium: a reader who wheeled up through long replies was still marked
+        // on the last question seven questions later. A short question crosses the band between
+        // two frames and is never reported in it, and an empty band kept the old mark.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        viewport.getBoundingClientRect = () => ({ top: 0, height: 1000 }) as DOMRect;
+        const tops: Record<string, number> = { u1: -2400, u2: -900, u3: 1600 };
+        for (const b of turns) b.getBoundingClientRect = () => ({ top: tops[b.getAttribute('message-id')!] ?? 0 }) as DOMRect;
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
+        // Wheeled up past u3 and well into the reply to u2: the band holds no question.
+        band().cb([{ target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current'), 'under u2, whose top is above the band').toBe('true');
+        // Further up, into the reply to u1.
+        tops['u2'] = 500;
+        tops['u3'] = 3000;
+        viewport.dispatchEvent(new Event('scroll'));
+        band().cb([]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'under u1 now').toBe('true');
     });
 
     it('at the bottom of the transcript, the last question is current whatever the band holds', async () => {
         const { viewport, rail } = mount(THREE_TURNS());
         // The observer says the first question is the one in the band…
-        band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
         // …but the surface is at its bottom edge: the reader is under the latest question.
         Object.defineProperty(viewport, 'scrollHeight', { value: 1000, configurable: true });
@@ -152,14 +234,15 @@ describe('aparte-scroll-rail', () => {
 
     it('while the last question is on screen at all, it is the current one — the end of the thread is where the reader is', () => {
         const { rail } = mount(THREE_TURNS());
-        band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
         // After a send the viewport rests with the new question low on the screen: off
         // the band, but on screen.
-        screen().cb([{ target: screen().observed[2]!, isIntersecting: true, intersectionRatio: 0.4 }]);
+        expect(screen().observed.map((e) => e.getAttribute('message-id')), 'the whole surface watches the last question only').toEqual(['u3']);
+        screen().cb([{ target: screen().observed[0]!, isIntersecting: true, intersectionRatio: 0.4 }]);
         expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
         // It leaves the screen: the band speaks again.
-        screen().cb([{ target: screen().observed[2]!, isIntersecting: false, intersectionRatio: 0 }]);
+        screen().cb([{ target: screen().observed[0]!, isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
     });
 
@@ -221,6 +304,50 @@ describe('aparte-scroll-rail', () => {
         expect(document.activeElement).toBe(list[1]);
     });
 
+    it('is one Tab stop: the current tick, else the last, and the stop follows the arrows', async () => {
+        // Every tick was a button in the tab order: a keyboard reader crossed 500 of them
+        // between the transcript and the composer of a long conversation.
+        const { viewport, rail } = mount(THREE_TURNS());
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        expect(stops(), 'no current tick yet: the last one').toEqual(['u3']);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(stops(), 'the current tick').toEqual(['u2']);
+        // The reader is on a tick: a rebuild leaves the stop where the focus is.
+        ticks(rail)[0]!.focus();
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(stops(), 'the focused tick keeps the stop').toEqual(['u1']);
+        ticks(rail)[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+        expect(document.activeElement).toBe(ticks(rail)[3]);
+        expect(stops(), 'the stop moved with the focus').toEqual(['u4']);
+    });
+
+    it('the stop follows the focus onto a tick — a click on the current one made a second stop', () => {
+        const { rail } = mount(THREE_TURNS());
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        ticks(rail)[0]!.focus();
+        expect(stops()).toEqual(['u1']);
+        // The reader scrolls: u3 becomes current, the stop stays where the focus is.
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(stops()).toEqual(['u1']);
+        // A click focuses the current tick (Chromium, Firefox): the mark does not change, the stop moves.
+        ticks(rail)[2]!.focus();
+        expect(stops()).toEqual(['u3']);
+    });
+
+    it('leaving the rail, the stop goes back to the current tick', () => {
+        const { rail } = mount(THREE_TURNS());
+        const outside = document.createElement('button');
+        document.body.appendChild(outside);
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        ticks(rail)[0]!.focus();
+        ticks(rail)[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+        expect(stops(), 'the arrows took the stop to the end').toEqual(['u3']);
+        outside.focus();
+        expect(stops(), 'Tab back in lands where the reader is').toEqual(['u2']);
+    });
+
     it('the arrows walk the ticks inside a host shadow root too', () => {
         // `document.activeElement` retargets to the shadow HOST, so "which tick holds the
         // focus?" answered -1 and the arrows were a silent no-op in the arrangement the
@@ -243,6 +370,59 @@ describe('aparte-scroll-rail', () => {
         list[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
 
         expect(root.activeElement, 'ArrowDown moves to the next tick').toBe(list[1]);
+    });
+
+    it('watches the size of a viewport mounted after it, and of the scroll surface', async () => {
+        // A wrapper may mount the viewport after the rail; it was never watched, so a panel or a
+        // composer that later resized it left the rail measuring the old box. The scroll surface
+        // is watched for itself: a classic scrollbar appearing narrows it, not the viewport.
+        const watched: Element[] = [];
+        const original = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+        (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+            observe(el: Element): void { watched.push(el); }
+            unobserve(el: Element): void { watched.splice(watched.indexOf(el), 1); }
+            disconnect(): void { watched.length = 0; }
+        };
+        try {
+            const host = document.createElement('aparte-chat');
+            const rail = document.createElement('aparte-scroll-rail');
+            host.appendChild(rail);
+            document.body.appendChild(host);
+            expect(watched).toEqual([host]);
+            const viewport = document.createElement('aparte-chat-viewport');
+            const surface = document.createElement('div');
+            surface.className = 'aparte-viewport-container';
+            for (const b of THREE_TURNS()) surface.appendChild(b);
+            viewport.appendChild(surface);
+            host.insertBefore(viewport, rail);
+            await nextFrame(); await nextFrame();
+            expect(watched).toEqual([host, viewport, surface]);
+        } finally {
+            (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = original;
+        }
+    });
+
+    it('a re-label queued for one chat never names the next chat\'s tick', async () => {
+        const make = (id: string, reply: string): HTMLElement => {
+            const host = document.createElement('aparte-chat');
+            host.id = id;
+            const viewport = document.createElement('aparte-chat-viewport');
+            for (const b of [bubble('u1', 'user', `${id} question`), bubble('a1', 'assistant', reply), bubble('u2', 'user', `${id} second`)]) viewport.appendChild(b);
+            host.appendChild(viewport);
+            document.body.appendChild(host);
+            return viewport;
+        };
+        const a = make('chat-a', 'A reply');
+        make('chat-b', 'B reply');
+        const rail = document.createElement('aparte-scroll-rail');
+        rail.setAttribute('every', 'message');
+        rail.setAttribute('target', 'chat-a');
+        document.body.appendChild(rail);
+        a.querySelector('aparte-chat-bubble[message-id="a1"] .aparte-message-content')!.textContent = 'A reply, streamed further';
+        await Promise.resolve();   // the record is delivered and its re-label queued for the next frame
+        rail.setAttribute('target', 'chat-b');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail)[1]!.getAttribute('aria-label'), 'chat B\'s own reply, not chat A\'s').toBe('Assistant: B reply');
     });
 
     it('target names a chat the rail is not inside', () => {
@@ -306,7 +486,36 @@ describe('aparte-scroll-rail holds still', () => {
         expect(ticks(rail)[0]).toBe(first);
         expect(ticks(rail)[1]).toBe(second);
         expect(document.activeElement, 'the reader was on a tick; a new turn does not throw them off it').toBe(second);
-        expect(ioConstructed, 'the set of bubbles changed, so the observers were made once more').toBe(4);
+        expect(ioConstructed, 'the observers are kept: the new bubbles are observed on them').toBe(2);
+    });
+
+    it('keeps its observers across turns: a new message is observed on them, a departed one let go', async () => {
+        // Made afresh on every change, the band observer was torn down twice a turn (the
+        // question, then its reply) over every message, and re-delivered every entry.
+        const turns = THREE_TURNS();
+        const { viewport } = mount(turns);
+        viewport.appendChild(bubble('a3', 'assistant', 'Light DOM.'));
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        turns[0]!.remove();
+        await nextFrame(); await nextFrame();
+        expect(ioConstructed).toBe(2);
+        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['a1', 'u2', 'a2', 'u3', 'a3', 'u4']);
+        expect(screen().observed.map((e) => e.getAttribute('message-id')), 'the last question only').toEqual(['u4']);
+    });
+
+    it('keeps the mark on a question whose id changes in place', async () => {
+        // A host that swaps a temporary id for the server's, on the same element: what the
+        // band reported was keyed by the old id, so the mark was lost until the next scroll.
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u2');
+        turns[2]!.setAttribute('message-id', 'u2-final');
+        await nextFrame(); await nextFrame();
+        expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u2-final');
+        expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+        expect(ticks(rail)[1]!.dataset['messageId']).toBe('u2-final');
     });
 
     it('a streaming reply changes nothing on the rail: no new observer, no new nodes', async () => {
@@ -319,6 +528,81 @@ describe('aparte-scroll-rail holds still', () => {
         }
         expect(ioConstructed).toBe(2);
         expect(ticks(rail)).toEqual(before);
+    });
+
+    it('a streaming reply does not even reconcile: only a bubble coming or going rebuilds the rail', async () => {
+        // Measured in Chromium at 500 questions: the reconcile ran once a frame for the whole
+        // reply, 10.8 ms each, to find every name unchanged.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        for (let i = 0; i < 5; i++) {
+            turns[1]!.querySelector('.aparte-message-content')!.textContent += ' token';
+            await nextFrame();
+        }
+        expect(rebuild, 'tokens in a reply, which has no tick').not.toHaveBeenCalled();
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(rebuild, 'a question arrived').toHaveBeenCalledTimes(1);
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'u2', 'u3', 'u4']);
+    });
+
+    it('follows a bubble whose id or role changes in place — a framework reusing the element', async () => {
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        turns[2]!.setAttribute('message-id', 'u2-final');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'u2-final', 'u3']);
+        turns[1]!.setAttribute('data-role', 'user');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'a1', 'u2-final', 'u3']);
+    });
+
+    it('a rebuild re-reads only the text that changed', async () => {
+        // A rebuild re-read the head of every question, twice a turn: 500 of them in a long
+        // conversation, for names that had not changed.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        const walk = vi.spyOn(document, 'createTreeWalker');
+        viewport.appendChild(bubble('u4', 'user', 'One more'));
+        await nextFrame(); await nextFrame();
+        expect(walk, 'the new question only').toHaveBeenCalledTimes(1);
+        turns[2]!.querySelector('.aparte-message-content')!.textContent = 'And a light-DOM one, edited?';
+        await nextFrame(); await nextFrame();
+        expect(walk, 'and the one that was edited').toHaveBeenCalledTimes(2);
+        expect(ticks(rail)[1]!.getAttribute('aria-label')).toBe('You: And a light-DOM one, edited?');
+        walk.mockRestore();
+    });
+
+    it('a reply re-rendered whole on each token is not searched for bubbles', async () => {
+        // Without a streaming Markdown plugin a reply's content is replaced on every token; the
+        // structural test ran first and searched both the old and the new subtree each time.
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        const search = vi.spyOn(Element.prototype, 'querySelector');
+        const content = turns[1]!.querySelector('.aparte-message-content')!;
+        for (let i = 0; i < 3; i++) {
+            content.innerHTML = `<p>Token ${i}</p><ul><li>one</li><li>two</li></ul>`;
+            await nextFrame();
+        }
+        const searched = search.mock.calls.filter(([selector]) => selector === 'aparte-chat-bubble').length;
+        search.mockRestore();
+        expect(rebuild).not.toHaveBeenCalled();
+        expect(searched, 'a record inside a message holds no bubble: none searched for').toBe(0);
+    });
+
+    it('with every="message", a streaming reply re-names its own tick and nothing else', async () => {
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns, { every: 'message' });
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        const before = ticks(rail);
+        turns[1]!.querySelector('.aparte-message-content')!.textContent = 'A custom element, defined once.';
+        await nextFrame(); await nextFrame();
+        expect(rebuild).not.toHaveBeenCalled();
+        expect(ticks(rail)).toEqual(before);
+        expect(ticks(rail)[1]!.getAttribute('aria-label')).toBe('Assistant: A custom element, defined once.');
+        expect(ticks(rail)[0]!.getAttribute('aria-label')).toBe('You: What is a web component?');
     });
 
     it('a streaming reply writes no attribute either: a reconcile leaves an unchanged value alone', async () => {
@@ -344,6 +628,32 @@ describe('aparte-scroll-rail holds still', () => {
         expect(seen, 'attributes rewritten on a reconcile that changed nothing').toEqual([]);
     });
 
+    it('a turn that drops the oldest question moves no other tick, and the focus stays', async () => {
+        // At its cap the viewport releases its oldest bubble on each turn. The stale tick was
+        // removed after the placement, so every kept tick was taken out and put back: 500 of
+        // them per turn measured in Chromium, and a focused tick lost the focus to <body>.
+        const many = Array.from({ length: 6 }, (_, i) => bubble(`q${i}`, 'user', `Question ${i}`));
+        const { viewport, rail } = mount(many);
+        const list = rail.querySelector('ol')!;
+        const focused = ticks(rail)[3]!;
+        focused.focus();
+        const moved: string[] = [];
+        const mo = new MutationObserver((records) => {
+            for (const r of records) {
+                for (const n of r.removedNodes) moved.push(`- ${(n as Element).querySelector('button')?.dataset['messageId']}`);
+                for (const n of r.addedNodes) moved.push(`+ ${(n as Element).querySelector('button')?.dataset['messageId']}`);
+            }
+        });
+        mo.observe(list, { childList: true });
+        many[0]!.remove();
+        viewport.appendChild(bubble('q6', 'user', 'Question 6'));
+        await nextFrame(); await nextFrame();
+        mo.disconnect();
+        expect(moved, 'one tick out, one in').toEqual(['- q0', '+ q6']);
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']);
+        expect(document.activeElement).toBe(focused);
+    });
+
     it('drops the tick of a bubble that left, and keeps the others in place', async () => {
         const turns = THREE_TURNS();
         const { rail } = mount(turns);
@@ -363,14 +673,14 @@ describe('aparte-scroll-rail holds still', () => {
             turns[2]!.scrollIntoView = vi.fn();
             ticks(rail)[1]!.click();
             // Mid-scroll, the band crosses the first question: ignored while the jump settles.
-            band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 0.9 }]);
+            band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 0.9 }]);
             expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
             vi.advanceTimersByTime(400);
             expect(ticks(rail)[1]!.getAttribute('aria-current'), 'settled: the clicked tick is the mark').toBe('true');
             // The reader scrolls on — the first question leaves, the third enters: the observer is in charge again.
             band().cb([
-                { target: band().observed[0]!, isIntersecting: false, intersectionRatio: 0 },
-                { target: band().observed[2]!, isIntersecting: true, intersectionRatio: 0.8 },
+                { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+                { target: inBand('u3'), isIntersecting: true, intersectionRatio: 0.8 },
             ]);
             expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
         } finally {
@@ -430,6 +740,27 @@ describe('aparte-scroll-rail holds still', () => {
         expect(rail.style.getPropertyValue('--aparte-scroll-rail-gap')).toBe('');
     });
 
+    it('loosens the pitch again when the conversation gets shorter: the room is measured at the default pitch', async () => {
+        // The rail is as tall as its ticks, up to its ceiling. Measured at the tightened pitch,
+        // its height was the tightened list and the pitch never loosened: a 1000-message
+        // conversation, then a 20-message one, kept 6px ticks where 24px fit (Chromium).
+        const many = Array.from({ length: 50 }, (_, i) => bubble(`u${i}`, 'user', `Question ${i}`));
+        const { rail } = mount(many);
+        // jsdom lays nothing out: the stylesheet's box, the list at the pitch in force, cut at a 240px ceiling.
+        Object.defineProperty(rail, 'clientHeight', {
+            configurable: true,
+            get: () => Math.min(ticks(rail).length * (parseFloat(rail.style.getPropertyValue('--aparte-scroll-rail-hit-size')) || 24), 240),
+        });
+        const layout = (rail as unknown as { _layout(): void })._layout.bind(rail);
+        layout();
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'), '50 ticks under a 240px ceiling: the floor').toBe('6px');
+        for (const b of many.slice(5)) b.remove();
+        await nextFrame(); await nextFrame();
+        layout();
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'), '5 × 24px fit under it: the stylesheet decides again').toBe('');
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-gap')).toBe('');
+    });
+
     it('past the floor, scrolls itself so the current tick stays in its window', () => {
         const many = Array.from({ length: 10 }, (_, i) => bubble(`u${i}`, 'user', `Question ${i}`));
         const { rail } = mount(many);
@@ -437,7 +768,7 @@ describe('aparte-scroll-rail holds still', () => {
         const last = ticks(rail)[9]!;
         Object.defineProperty(last, 'offsetTop', { value: 56, configurable: true });
         Object.defineProperty(last, 'offsetHeight', { value: 2, configurable: true });
-        band().cb([{ target: band().observed[9]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u9'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(rail.scrollTop, 'the mark is below the window: the rail slid down to it').toBeGreaterThan(0);
     });
 });

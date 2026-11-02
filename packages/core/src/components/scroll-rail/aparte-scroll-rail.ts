@@ -1,4 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
+import type { AparteLocale } from '../../config/locale.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn } from '../../utils/event-target.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -20,6 +21,8 @@ const SETTLE_MS = 150;
 const MAX_ALIGN_PASSES = 4;
 /** Within this many pixels of the top, a jump has landed. */
 const ALIGN_TOLERANCE = 1;
+/** The reading band: the top share of the scroll surface, in percent, where a question is "the one you are under". */
+const BAND_PERCENT = 30;
 
 /**
  * A rail of ticks beside the transcript — one per turn — that shows where you are in a
@@ -48,7 +51,8 @@ const ALIGN_TOLERANCE = 1;
  * of the transcript (`--aparte-scroll-rail-share`, 60%). When more turns exist than 24px
  * targets fit in that, the pitch tightens to what fits, down to a 6px floor; past that
  * the rail scrolls itself so the current tick is always in view, and the arrow keys walk
- * every tick whatever the pitch.
+ * every tick whatever the pitch. The rail is one Tab stop, the current tick: Tab crosses
+ * it once, however long the conversation, and the arrows, Home and End move inside it.
  *
  * @element aparte-scroll-rail
  *
@@ -98,18 +102,39 @@ export class AparteScrollRail extends HTMLElement {
     private _host: HTMLElement | null = null;
     private _mutations: MutationObserver | null = null;
     private _resizes: ResizeObserver | null = null;
+    /** The boxes the resize observer watches: the host, the transcript and its scroll surface. */
+    private _sized: HTMLElement[] = [];
     private _intersections: IntersectionObserver | null = null;
     /** The bubbles the intersection observer watches — compared by identity, so a re-rendered bubble is re-observed. */
     private _observedBubbles: HTMLElement[] = [];
+    /**
+     * Every message the reading band watches: the ticked ones and, with `every="user"`, the
+     * replies too, each read under the question above it.
+     */
+    private _bandTargets: HTMLElement[] = [];
     /** The scroll surface the observer is rooted on, and whose bottom edge is read. */
     private _observedSurface: HTMLElement | null = null;
-    private _rebuildQueued = false;
+    /** One frame does the queued work: a full rebuild when bubbles came or went, else the re-labels. */
+    private _frameQueued = false;
+    private _rebuildWanted = false;
+    /** Ticked bubbles whose text changed since the last frame: only their names can have moved. */
+    private _relabel = new Set<HTMLElement>();
+    /**
+     * Each message's excerpt, read once and forgotten when a mutation touches its text: a
+     * rebuild re-read the head of all 500 questions of a long conversation, twice a turn, for
+     * names that had not changed.
+     */
+    private _excerpts = new WeakMap<Element, string>();
     private _pickQueued = false;
     private _currentId: string | null = null;
-    /** Visible ratio per message id in the reading band, from the intersection observer. */
-    private _visible = new Map<string, number>();
-    /** The bubbles on screen at all, from the second observer; only the last one is read. */
-    private _onScreen = new Set<string>();
+    /**
+     * Visible ratio per message in the reading band, from the intersection observer. Keyed by
+     * the element, not its id: an id changed in place keeps what the observer saw, and a
+     * bubble that left is let go with it.
+     */
+    private _visible = new WeakMap<Element, number>();
+    /** Whether the last question is on screen at all, from the second observer. */
+    private _onScreen = new WeakSet<Element>();
     private _onScreenObserver: IntersectionObserver | null = null;
     /** The mark a jump asked for, held until the transcript has stopped moving. */
     private _held: string | null = null;
@@ -133,6 +158,8 @@ export class AparteScrollRail extends HTMLElement {
         if (!this.getAttribute('role')) this.setAttribute('role', 'navigation');
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
+        this.addEventListener('focusin', this._onFocusIn);
+        this.addEventListener('focusout', this._onFocusOut);
         window.addEventListener('aparte-config-change', this._onConfigChange);
         this._attach();
     }
@@ -141,6 +168,8 @@ export class AparteScrollRail extends HTMLElement {
         this._detach();
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
+        this.removeEventListener('focusin', this._onFocusIn);
+        this.removeEventListener('focusout', this._onFocusOut);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -177,20 +206,54 @@ export class AparteScrollRail extends HTMLElement {
         // are mutations: those are dropped here, or the rail rebuilds itself every frame
         // for ever (measured at 61 to 146 rebuilds a second, at rest, each with a fresh
         // intersection observer — and nothing on a tick survived a frame).
+        //
+        // And only bubbles coming or going rebuild it. A reply streaming is a mutation per
+        // token, and the full reconcile walked every bubble and re-read every question's text
+        // each frame for a name that had not changed: 10.8 ms a frame at 500 questions,
+        // measured in Chromium, half a frame's budget, on every reply of a long conversation.
+        // A change inside a message re-names that message's tick, when it has one.
         if (typeof MutationObserver !== 'undefined') {
             this._mutations = new MutationObserver((records) => {
-                if (records.some((record) => !this.contains(record.target))) this._queueRebuild();
+                for (const record of records) {
+                    if (this.contains(record.target)) continue;
+                    if (record.type === 'attributes') {
+                        // A bubble's id or role changed in place (a framework reusing an element):
+                        // which messages have ticks, and under which ids, is what a rebuild reads.
+                        if (isBubble(record.target)) {
+                            this._queueRebuild();
+                            return;
+                        }
+                        continue;
+                    }
+                    // Inside a message, checked first: bubbles are never nested, so nothing there
+                    // adds or removes one, and only that message's name can change. A reply
+                    // re-rendered whole on each token replaces its subtree, which the structural
+                    // test below would otherwise walk on every token.
+                    const at = record.target instanceof Element ? record.target : record.target.parentElement;
+                    const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
+                    if (owner) {
+                        this._excerpts.delete(owner);
+                        if (this._ticked(owner)) this._queueRelabel(owner);
+                        continue;
+                    }
+                    if (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes))) {
+                        this._queueRebuild();
+                        return;
+                    }
+                }
             });
-            this._mutations.observe(this._host, { childList: true, subtree: true, characterData: true });
+            this._mutations.observe(this._host, {
+                childList: true,
+                subtree: true,
+                characterData: true,
+                attributes: true,
+                attributeFilter: ['message-id', 'data-role'],
+            });
         }
         // The rail spans the transcript and sits clear of its scrollbar, both measured:
         // re-measured when the chat or the transcript changes size (a composer that grows).
-        if (typeof ResizeObserver !== 'undefined') {
-            this._resizes = new ResizeObserver(() => this._layout());
-            this._resizes.observe(this._host);
-            const viewport = this._viewport();
-            if (viewport) this._resizes.observe(viewport);
-        }
+        // What it watches is pointed at the boxes on each rebuild (`_watchSizes`).
+        if (typeof ResizeObserver !== 'undefined') this._resizes = new ResizeObserver(() => this._layout());
         this._rebuild();
     }
 
@@ -199,19 +262,62 @@ export class AparteScrollRail extends HTMLElement {
         this._mutations = null;
         this._resizes?.disconnect();
         this._resizes = null;
+        this._sized = [];
+        // Work queued for the chat being left is not this chat's: a re-label looked up by id
+        // would name the next chat's tick with the last one's text.
+        this._relabel.clear();
+        this._rebuildWanted = false;
         this._unobserve();
         this._release();
         this._host = null;
     }
 
-    /** Coalesce a burst of mutations (a streaming reply is one per token) into one rebuild. */
+    /** Coalesce a burst of mutations into one frame of work: a rebuild, which re-names every tick too. */
     private _queueRebuild(): void {
-        if (this._rebuildQueued) return;
-        this._rebuildQueued = true;
+        this._rebuildWanted = true;
+        this._queueFrame();
+    }
+
+    private _queueRelabel(bubble: HTMLElement): void {
+        this._relabel.add(bubble);
+        this._queueFrame();
+    }
+
+    private _queueFrame(): void {
+        if (this._frameQueued) return;
+        this._frameQueued = true;
         requestAnimationFrame(() => {
-            this._rebuildQueued = false;
-            this._rebuild();
+            this._frameQueued = false;
+            const relabel = [...this._relabel];
+            this._relabel.clear();
+            if (this._rebuildWanted) {
+                this._rebuildWanted = false;
+                this._rebuild();
+                return;
+            }
+            const locale = resolveConfig(this).getLocale();
+            for (const bubble of relabel) this._label(bubble, locale);
         });
+    }
+
+    /** Whether a bubble has a tick: every message with `every="message"`, else the user's. */
+    private _ticked(bubble: HTMLElement): boolean {
+        if (!bubble.hasAttribute('message-id')) return false;
+        return this.getAttribute('every') === 'message' || bubble.getAttribute('data-role') === 'user';
+    }
+
+    /** Re-name one bubble's tick, written only when the name changed. */
+    private _label(bubble: HTMLElement, locale: AparteLocale): void {
+        if (!this._host?.contains(bubble)) return;
+        const id = bubble.getAttribute('message-id');
+        if (!id) return;
+        const tick = this.querySelector<HTMLElement>(`.aparte-scroll-rail__tick[data-message-id="${cssEscape(id)}"]`);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+        if (!tick) return;
+        const label = this._tickLabel(bubble, locale);
+        if (tick.getAttribute('aria-label') !== label) {
+            tick.setAttribute('aria-label', label);
+            tick.title = label;
+        }
     }
 
     private _viewport(): HTMLElement | null {
@@ -225,11 +331,15 @@ export class AparteScrollRail extends HTMLElement {
         return viewport.querySelector<HTMLElement>('.aparte-viewport-container') ?? viewport;
     }
 
-    private _bubbles(): HTMLElement[] {
+    /** Every message bubble of the transcript, in document order. */
+    private _messages(): HTMLElement[] {
         const viewport = this._viewport();
-        if (!viewport) return [];
+        return viewport ? Array.from(viewport.querySelectorAll<HTMLElement>('aparte-chat-bubble[message-id]')) : [];
+    }
+
+    /** The bubbles that get a tick, from all of them. */
+    private _bubbles(all: HTMLElement[] = this._messages()): HTMLElement[] {
         const every: AparteScrollRailEvery = this.getAttribute('every') === 'message' ? 'message' : 'user';
-        const all = Array.from(viewport.querySelectorAll<HTMLElement>('aparte-chat-bubble[message-id]'));
         return every === 'message' ? all : all.filter((b) => b.getAttribute('data-role') === 'user');
     }
 
@@ -237,13 +347,21 @@ export class AparteScrollRail extends HTMLElement {
 
     /** The first words of a message, for the tick's name. An excerpt, never a summary. */
     private _excerpt(bubble: HTMLElement): string {
+        const known = this._excerpts.get(bubble);
+        if (known !== undefined) return known;
         const body = bubble.querySelector<HTMLElement>('.aparte-message-content') ?? bubble;
-        const text = (body.textContent ?? '').replace(/\s+/g, ' ').trim();
-        return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
+        // The head of the text only, read node by node: `textContent` built the whole message
+        // (a pasted document, a long reply on every rebuild) to keep sixty characters.
+        let head = '';
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node && head.length < EXCERPT_LENGTH * 16; node = walker.nextNode()) head += node.nodeValue ?? '';
+        const text = head.slice(0, EXCERPT_LENGTH * 16).replace(/\s+/g, ' ').trim();
+        const excerpt = text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
+        this._excerpts.set(bubble, excerpt);
+        return excerpt;
     }
 
-    private _tickLabel(bubble: HTMLElement): string {
-        const locale = resolveConfig(this).getLocale();
+    private _tickLabel(bubble: HTMLElement, locale: AparteLocale): string {
         const role = bubble.getAttribute('data-role') === 'user'
             ? (locale.roleNameUser ?? 'You')
             : (locale.roleNameAssistant ?? 'Assistant');
@@ -262,7 +380,9 @@ export class AparteScrollRail extends HTMLElement {
      * and dropped when its bubble left.
      */
     private _rebuild(): void {
-        const bubbles = this._bubbles();
+        this._watchSizes();
+        const all = this._messages();
+        const bubbles = this._bubbles(all);
         const locale = resolveConfig(this).getLocale();
         // Written only when the value changes: a reconcile runs on every host mutation, and
         // an attribute rewritten to the value it already has is still a DOM mutation —
@@ -276,6 +396,7 @@ export class AparteScrollRail extends HTMLElement {
             this._unobserve();
             this._currentId = null;
             this._write('--aparte-scroll-rail-hit-size', '');
+            this._write('--aparte-scroll-rail-gap', '');
             return;
         }
         this.removeAttribute('data-empty');
@@ -291,24 +412,32 @@ export class AparteScrollRail extends HTMLElement {
             const id = item.firstElementChild instanceof HTMLElement ? item.firstElementChild.dataset['messageId'] : undefined;
             if (id) existing.set(id, item);
         }
-        const known = new Set<string>();
-        let index = 0;
+        // The ticks whose bubble left go first. Removed after the placement, a tick gone from
+        // the front stood at every position the loop compared against, so each kept tick was
+        // taken out and put back: all 500 on every turn once the viewport prunes its oldest
+        // bubble, and a tick that had the focus lost it.
+        const known = new Set(bubbles.map((b) => b.getAttribute('message-id')!));
+        for (const [id, item] of existing) {
+            if (known.has(id)) continue;
+            item.remove();
+            existing.delete(id);
+        }
+        // A cursor, not `list.children[index]`: the collection is re-walked after each move.
+        let at: Element | null = list.firstElementChild;
         for (const bubble of bubbles) {
             const id = bubble.getAttribute('message-id')!;
-            known.add(id);
             let item = existing.get(id);
-            if (item) {
-                existing.delete(id);
-            } else {
+            if (!item) {
                 item = document.createElement('li');
                 const tick = document.createElement('button');
                 tick.type = 'button';
                 tick.className = 'aparte-scroll-rail__tick';
                 tick.dataset['messageId'] = id;
+                tick.tabIndex = -1;
                 item.appendChild(tick);
             }
             const tick = item.firstElementChild as HTMLElement;
-            const label = this._tickLabel(bubble);
+            const label = this._tickLabel(bubble, locale);
             if (tick.getAttribute('aria-label') !== label) {
                 tick.setAttribute('aria-label', label);
                 tick.title = label;
@@ -318,15 +447,18 @@ export class AparteScrollRail extends HTMLElement {
             } else {
                 tick.removeAttribute('aria-current');
             }
-            const at = list.children[index] ?? null;
-            if (at !== item) list.insertBefore(item, at);
-            index++;
+            if (item === at) at = at.nextElementSibling;
+            else list.insertBefore(item, at);
         }
-        for (const stale of existing.values()) stale.remove();
 
-        if (this._currentId && !known.has(this._currentId)) this._currentId = null;
-        if (!sameElements(this._observedBubbles, bubbles)) this._observe(bubbles);
+        const dropped = this._currentId !== null && !known.has(this._currentId);
+        if (dropped) this._currentId = null;
+        this._syncTabStop();
+        if (!sameElements(this._observedBubbles, bubbles) || !sameElements(this._bandTargets, all)) this._observe(bubbles, all);
         this._layout();
+        // The marked message left, or its id changed in place: what the observers last
+        // reported, kept by element, names the question again; no scroll needs to happen.
+        if (dropped) this._pickCurrent();
     }
 
     /**
@@ -339,39 +471,59 @@ export class AparteScrollRail extends HTMLElement {
      * position read is the bottom, because there the reader is under the latest question
      * whatever the band holds, and the observer has nothing to report on the last few
      * pixels.
+     *
+     * The replies are watched too, and a reply in the band is read under its question. With
+     * the questions alone the band was empty whenever the reader was inside a long reply, and
+     * nothing moved the mark when the layout did: a bubble never rendered has an estimated
+     * height (`content-visibility`) and takes its real one once the scroll has stopped, so a
+     * still reader's question changed with no scroll and no question crossing the band. The
+     * observer reports a reply entering the band whatever moved it.
      */
-    private _observe(bubbles: HTMLElement[]): void {
-        this._unobserve();
-        this._observedBubbles = bubbles;
-        if (typeof IntersectionObserver === 'undefined') return;
-        const root = this._scrollSurface();
-        if (!root) return;
-        this._intersections = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                const id = (entry.target as HTMLElement).getAttribute('message-id');
-                if (id) this._visible.set(id, entry.isIntersecting ? entry.intersectionRatio : 0);
-            }
-            this._pickCurrent();
-        }, { root, rootMargin: '0px 0px -70% 0px', threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
-        // The whole surface, for one question only: the last. While the end of the thread
-        // is on screen the reader is at the end, whatever the band holds — after a send,
-        // the viewport rests with the new question low on the screen and older ones in
-        // the band, and a rail marking the question above the one just asked is wrong.
-        this._onScreenObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                const id = (entry.target as HTMLElement).getAttribute('message-id');
-                if (!id) continue;
-                if (entry.isIntersecting) this._onScreen.add(id);
-                else this._onScreen.delete(id);
-            }
-            this._pickCurrent();
-        }, { root, threshold: [0] });
-        for (const bubble of bubbles) {
-            this._intersections.observe(bubble);
-            this._onScreenObserver.observe(bubble);
+    private _observe(bubbles: HTMLElement[], all: HTMLElement[]): void {
+        const root = typeof IntersectionObserver === 'undefined' ? null : this._scrollSurface();
+        if (!root) {
+            this._unobserve();
+            this._observedBubbles = bubbles;
+            this._bandTargets = all;
+            return;
         }
-        this._observedSurface = root;
-        root.addEventListener('scroll', this._onRootScroll, { passive: true });
+        // Made once per scroll surface and re-pointed by difference. Made afresh on every
+        // change, the band observer was torn down twice a turn (the question, then its reply)
+        // over every message, and each new one delivered every entry again.
+        if (!this._intersections || !this._onScreenObserver || this._observedSurface !== root) {
+            this._unobserve();
+            this._intersections = new IntersectionObserver((entries) => {
+                for (const entry of entries) this._visible.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0);
+                this._pickCurrent();
+            }, { root, rootMargin: `0px 0px -${100 - BAND_PERCENT}% 0px`, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
+            // The whole surface, for one question only: the last. While the end of the thread
+            // is on screen the reader is at the end, whatever the band holds — after a send,
+            // the viewport rests with the new question low on the screen and older ones in
+            // the band, and a rail marking the question above the one just asked is wrong.
+            this._onScreenObserver = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) this._onScreen.add(entry.target);
+                    else this._onScreen.delete(entry.target);
+                }
+                this._pickCurrent();
+            }, { root, threshold: [0] });
+            this._observedSurface = root;
+            root.addEventListener('scroll', this._onRootScroll, { passive: true });
+        }
+        const next = new Set<Element>(all);
+        for (const bubble of this._bandTargets) if (!next.has(bubble)) this._intersections.unobserve(bubble);
+        const before = new Set<Element>(this._bandTargets);
+        for (const bubble of all) if (!before.has(bubble)) this._intersections.observe(bubble);
+        // Only the last is ever read from this one: watching every question made the browser
+        // compute their intersections each frame of a scroll, and called back on each crossing.
+        const last = bubbles[bubbles.length - 1]!;
+        const previous = this._observedBubbles[this._observedBubbles.length - 1];
+        if (previous !== last) {
+            if (previous) this._onScreenObserver.unobserve(previous);
+            this._onScreenObserver.observe(last);
+        }
+        this._observedBubbles = bubbles;
+        this._bandTargets = all;
     }
 
     private _unobserve(): void {
@@ -382,8 +534,9 @@ export class AparteScrollRail extends HTMLElement {
         this._observedSurface?.removeEventListener('scroll', this._onRootScroll);
         this._observedSurface = null;
         this._observedBubbles = [];
-        this._visible.clear();
-        this._onScreen.clear();
+        this._bandTargets = [];
+        this._visible = new WeakMap();
+        this._onScreen = new WeakSet();
     }
 
     /** A scroll only matters at the bottom edge, where the observer is silent: one pick per frame. */
@@ -409,19 +562,74 @@ export class AparteScrollRail extends HTMLElement {
         if (this._held) return;
         const bubbles = this._observedBubbles;
         if (bubbles.length === 0) return;
-        const lastId = bubbles[bubbles.length - 1]!.getAttribute('message-id')!;
-        if (this._atBottom() || this._onScreen.has(lastId)) {
+        const lastBubble = bubbles[bubbles.length - 1]!;
+        const lastId = lastBubble.getAttribute('message-id')!;
+        if (this._atBottom() || this._onScreen.has(lastBubble)) {
             this._setCurrent(lastId);
             return;
         }
+        // The last message in the band names the question: itself when it has a tick, else the
+        // ticked one above it. With the questions alone, a reader who wheeled up through long
+        // replies was still marked on the last question seven questions later, measured in
+        // Chromium: the band held only replies, and an empty band kept the old mark.
         let last: string | null = null;
-        for (const bubble of bubbles) {
-            const id = bubble.getAttribute('message-id')!;
-            if ((this._visible.get(id) ?? 0) > 0) last = id;
+        let above: string | null = null;
+        let seen = false;
+        for (const bubble of this._bandTargets) {
+            if (this._ticked(bubble)) above = bubble.getAttribute('message-id');
+            if ((this._visible.get(bubble) ?? 0) > 0) {
+                seen = true;
+                if (above !== null) last = above;
+            }
         }
-        // Nothing in the band (the reader is deep in one reply): keep the last mark
-        // rather than clearing it.
+        // The band holds messages with no question above them (a greeting before the first
+        // one): the reader has not reached a question, and the mark stays as it was.
+        if (last === null && seen) return;
+        // No message in the band at all (above the first one, or in the space after the
+        // last): the band's rule, read from the layout.
+        last ??= this._lastAbove();
         if (last !== null) this._setCurrent(last);
+    }
+
+    /**
+     * The last question whose top is above the reading band's lower edge: by halves, since
+     * the questions are in document order and their tops only grow. A question never
+     * rendered has its estimated height (`content-visibility`), which keeps that order.
+     * `null` when no question is above the edge or nothing is laid out, and the mark stays
+     * as it was.
+     */
+    private _lastAbove(): string | null {
+        const surface = this._observedSurface;
+        const bubbles = this._observedBubbles;
+        if (!surface || bubbles.length === 0) return null;
+        const box = surface.getBoundingClientRect();
+        if (box.height <= 0) return null;
+        const edge = box.top + (box.height * BAND_PERCENT) / 100;
+        let low = 0;
+        let high = bubbles.length - 1;
+        let found = -1;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (bubbles[mid]!.getBoundingClientRect().top < edge) {
+                found = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return found < 0 ? null : bubbles[found]!.getAttribute('message-id');
+    }
+
+    /** The tick a message is read under: its own, else the question above it, as the band reads a reply. */
+    private _markFor(bubble: HTMLElement): string {
+        const id = bubble.getAttribute('message-id')!;
+        if (this._ticked(bubble)) return id;
+        let above: string | null = null;
+        for (const candidate of this._messages()) {
+            if (candidate === bubble) break;
+            if (this._ticked(candidate)) above = candidate.getAttribute('message-id');
+        }
+        return above ?? id;
     }
 
     private _setCurrent(id: string | null): void {
@@ -434,6 +642,46 @@ export class AparteScrollRail extends HTMLElement {
             } else {
                 tick.removeAttribute('aria-current');
             }
+        }
+        this._syncTabStop();
+    }
+
+    /**
+     * One Tab stop for the whole rail, as in a toolbar: the tick that has the focus, else
+     * the current one, else the last. Every tick was a button in the tab order, so a
+     * keyboard reader crossed 500 of them between the transcript and the composer of a
+     * long conversation; the arrows, Home and End walk the rail instead.
+     */
+    private _syncTabStop(ignoreFocus = false): void {
+        const ticks = Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick'));
+        if (ticks.length === 0) return;
+        const focused = ignoreFocus ? null : activeElementIn(this);
+        const stop = (focused instanceof HTMLElement && ticks.includes(focused) ? focused : undefined)
+            ?? ticks.find((t) => t.dataset['messageId'] === this._currentId)
+            ?? ticks[ticks.length - 1]!;
+        this._setTabStop(stop, ticks);
+    }
+
+    /**
+     * The stop follows the focus onto a tick, however it got there: the arrows, a click (a
+     * click on the current tick moved the focus but not the stop, which made two), a host's
+     * `focus()`.
+     */
+    private _onFocusIn = (e: FocusEvent): void => {
+        const tick = e.target instanceof HTMLElement && e.target.classList.contains('aparte-scroll-rail__tick') ? e.target : null;
+        if (tick && this.contains(tick)) this._setTabStop(tick, Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick')));
+    };
+
+    /** Leaving the rail, the stop goes back to the current tick: Tab back in lands where the reader is. */
+    private _onFocusOut = (e: FocusEvent): void => {
+        if (e.relatedTarget instanceof Node && this.contains(e.relatedTarget)) return;
+        this._syncTabStop(true);
+    };
+
+    private _setTabStop(stop: HTMLElement, ticks: HTMLElement[]): void {
+        for (const tick of ticks) {
+            const wanted = tick === stop ? 0 : -1;
+            if (tick.tabIndex !== wanted) tick.tabIndex = wanted;
         }
     }
 
@@ -448,6 +696,23 @@ export class AparteScrollRail extends HTMLElement {
     }
 
     // ─── Geometry ─────────────────────────────────────────────────────────
+
+    /**
+     * Point the resize observer at the boxes the geometry is read from. Re-pointed on each
+     * rebuild: a viewport a wrapper mounts after the rail, or replaces, was never watched, and
+     * the panel or composer that resized it later left the rail measuring the old box. The
+     * scroll surface is watched for itself: a classic scrollbar appearing narrows it without
+     * resizing the viewport, and the rail has to move clear of the bar.
+     */
+    private _watchSizes(): void {
+        if (!this._resizes) return;
+        const wanted: HTMLElement[] = [];
+        for (const box of [this._host, this._viewport(), this._scrollSurface()]) if (box && !wanted.includes(box)) wanted.push(box);
+        if (sameElements(this._sized, wanted)) return;
+        for (const box of this._sized) if (!wanted.includes(box)) this._resizes.unobserve(box);
+        for (const box of wanted) if (!this._sized.includes(box)) this._resizes.observe(box);
+        this._sized = wanted;
+    }
 
     /** Write a custom property on this element only when its value changed; '' removes it. */
     private _write(name: string, value: string): void {
@@ -484,20 +749,27 @@ export class AparteScrollRail extends HTMLElement {
                 this._write('--aparte-scroll-rail-block-end', `${Math.max(0, Math.round(h.bottom - v.bottom))}px`);
             }
         }
-        const count = this._list()?.children.length ?? 0;
-        const height = this.clientHeight;
-        if (!count || !height) {
-            this._write('--aparte-scroll-rail-hit-size', '');
-            this._write('--aparte-scroll-rail-gap', '');
-            return;
-        }
         // The default pitch is the theme's, read above this element so that the value the
         // rail itself wrote is never mistaken for it.
         const above = host ?? document.documentElement;
         const aboveStyle = getComputedStyle(above);
         const hit = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-hit-size')) || 24;
         const thickness = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-tick-thickness')) || 2;
-        if (count * hit <= height) {
+        // The room is the rail's ceiling, whatever sets it: its share of the transcript, a host's
+        // border or inner container, a consumer's own max-height. A list cut at the ceiling makes
+        // the rail's height the ceiling, and so does a list at the theme's pitch that fits: read
+        // as is. A list tightened and fitting hides it — the room was read off that list and the
+        // pitch never loosened: a 1000-message conversation, then a 20-message one, kept 6px
+        // ticks where 24px fit (Chromium) — so that one is laid out at the theme's pitch first.
+        // Only then: clearing the pitch re-styles every tick, 15 ms at 500 of them.
+        const tightened = (this._written.get('--aparte-scroll-rail-hit-size') ?? '') !== '';
+        if (tightened && this.scrollHeight <= this.clientHeight + 1) {
+            this._write('--aparte-scroll-rail-hit-size', '');
+            this._write('--aparte-scroll-rail-gap', '');
+        }
+        const height = this.clientHeight;
+        const count = this._list()?.children.length ?? 0;
+        if (!count || !height || count * hit <= height) {
             this._write('--aparte-scroll-rail-hit-size', '');
             this._write('--aparte-scroll-rail-gap', '');
             return;
@@ -534,7 +806,10 @@ export class AparteScrollRail extends HTMLElement {
             : e.key === 'End' ? ticks.length - 1
             : e.key === 'ArrowDown' ? Math.min(ticks.length - 1, index + 1)
             : Math.max(0, index - 1);
-        ticks[next]?.focus();
+        const target = ticks[next];
+        if (!target) return;
+        this._setTabStop(target, ticks);
+        target.focus();
     };
 
     /**
@@ -566,7 +841,9 @@ export class AparteScrollRail extends HTMLElement {
         // its own — armed, it pinned the reader straight back to the bottom.
         (this._viewport() as (HTMLElement & { setAutoScroll?: (enabled: boolean) => void }) | null)?.setAutoScroll?.(false);
         this._scrollTo(bubble);
-        this._setCurrent(messageId);
+        // A reply jumped to (a search result, say) is marked under its question, as the band
+        // reads it; with no tick of its own it cleared the mark and moved the Tab stop away.
+        this._setCurrent(this._markFor(bubble));
         this._hold(messageId);
     }
 
@@ -613,7 +890,7 @@ export class AparteScrollRail extends HTMLElement {
             }
         }
         this._release();
-        if (id) this._setCurrent(id);
+        if (id) this._setCurrent(bubble ? this._markFor(bubble) : id);
     }
 
     private _release(): void {
@@ -623,6 +900,17 @@ export class AparteScrollRail extends HTMLElement {
         this._settleSurface = null;
         this._held = null;
     }
+}
+
+/** By local name, which keeps its case in an XHTML document where `tagName` does not upper-case it. */
+function isBubble(node: Node): boolean {
+    return node instanceof Element && node.localName === 'aparte-chat-bubble';
+}
+
+/** A bubble, or an element holding some (the viewport, a wrapper rendered whole): the set of ticks can change. */
+function holdsBubbles(nodes: NodeList): boolean {
+    return Array.from(nodes).some((n) =>
+        n instanceof Element && (isBubble(n) || n.localName === 'aparte-chat-viewport' || n.querySelector('aparte-chat-bubble') !== null));
 }
 
 function sameElements(a: HTMLElement[], b: HTMLElement[]): boolean {
