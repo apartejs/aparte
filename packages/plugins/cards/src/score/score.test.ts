@@ -34,7 +34,11 @@ const LIVE = { home: 'Lyon', away: 'Marseille', status: 'live', clock: 67, sport
 const TONIGHT = { home: 'Nice', away: 'Monaco', status: 'scheduled', startTime: at(2, 21).toISOString(), competition: 'Ligue 1' };
 
 let stop: () => void = () => {};
-beforeEach(() => aparteGlobalConfig.extendLocale({ tag: 'en-US' }));
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => {
+    aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    aparteGlobalConfig.setImagePolicy(['*']);
+});
 afterEach(() => {
     stop();
     stop = () => {};

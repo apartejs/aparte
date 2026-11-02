@@ -26,7 +26,11 @@ const SOCK = { title: 'Wool socks', price: 12, currency: 'EUR', availability: 'l
 const LIST = { title: 'Trail shoes', products: [SHOE, BOOT, SOCK] };
 
 let stop: () => void = () => {};
-beforeEach(() => aparteGlobalConfig.extendLocale({ tag: 'en-US' }));
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => {
+    aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    aparteGlobalConfig.setImagePolicy(['*']);
+});
 afterEach(() => {
     stop();
     aparteGlobalConfig.reset();

@@ -832,8 +832,10 @@ function mediaOf(ctx: CardContext, place: Place, size: 'wide' | 'thumb', setting
     const mark = glyph(kindGlyph(place.kind), 'aparte-rich-card__glyph aparte-place__marker-glyph');
     box.append(el('span', { class: 'aparte-place__placeholder', attrs: { 'aria-hidden': 'true' } },
         el('span', { class: 'aparte-place__marker' }, mark)));
+    // Asked first: a photo the image policy holds leaves the box as it is without one, map included.
+    const img = place.image ? ctx.image(place.image, { class: 'aparte-place__img', attrs: { loading: 'lazy', decoding: 'async' } }) : null;
     // The app's tiles, when it gave some: under the marker, for a place with coordinates and no photo.
-    const map = size === 'wide' && !place.image && place.coordinates && settings?.map ? mapOf(place.coordinates, settings.map) : null;
+    const map = size === 'wide' && !img && place.coordinates && settings?.map ? mapOf(place.coordinates, settings.map) : null;
     if (map) {
         box.setAttribute('data-map', '');
         box.prepend(map.layer);
@@ -847,9 +849,7 @@ function mediaOf(ctx: CardContext, place: Place, size: 'wide' | 'thumb', setting
             }, { once: true });
         }
     }
-    if (place.image) {
-        // No referrer: the photo is on someone else's server, which need not learn the chat's address.
-        const img = el('img', { class: 'aparte-place__img', attrs: { src: place.image, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' } });
+    if (img) {
         ctx.bind(img, () => word(ctx.config, 'cardsPlacePhoto', P.cardsPlacePhoto, { name: place.name }), 'alt');
         img.addEventListener('error', () => {
             img.remove();

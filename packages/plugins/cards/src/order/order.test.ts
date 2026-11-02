@@ -47,6 +47,8 @@ beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 31, 12));
     aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    // These cards are drawn with their pictures; the held default has its own tests.
+    aparteGlobalConfig.setImagePolicy(['*']);
 });
 afterEach(() => {
     stop();

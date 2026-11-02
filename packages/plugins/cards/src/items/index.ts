@@ -205,21 +205,14 @@ function labelOf(data: Partial<ItemsData> | null, config: AparteConfig): string 
  * load it is taken out and the placeholder shows — the box keeps its size either way, so
  * nothing below it moves.
  */
-function media(item: Item, badge: boolean): HTMLElement {
-    const box = el('div', { class: 'aparte-items__media', attrs: { 'data-empty': !item.image } },
+function media(ctx: CardContext, item: Item, badge: boolean): HTMLElement {
+    // A picture the policy holds leaves the box as it is without one.
+    const img = item.image
+        ? ctx.image(item.image.src, { class: 'aparte-items__image', attrs: { alt: item.image.alt, loading: 'lazy', decoding: 'async' } })
+        : null;
+    const box = el('div', { class: 'aparte-items__media', attrs: { 'data-empty': !img } },
         glyph(IMAGE_ICON, 'aparte-rich-card__glyph aparte-items__placeholder'));
-    if (item.image) {
-        const img = el('img', {
-            class: 'aparte-items__image',
-            attrs: {
-                src: item.image.src,
-                alt: item.image.alt,
-                loading: 'lazy',
-                decoding: 'async',
-                // A third-party picture learns nothing of the page that shows it.
-                referrerpolicy: 'no-referrer',
-            },
-        });
+    if (img) {
         img.addEventListener('error', () => {
             img.remove();
             box.setAttribute('data-empty', '');
@@ -271,7 +264,7 @@ function actionsOf(ctx: CardContext, item: Item, max: number): HTMLElement | nul
 function tile(ctx: CardContext, item: Item): HTMLElement {
     const body = el('div', { class: 'aparte-items__body' }, titleOf(ctx, item), ...details(item));
     return el('article', { class: 'aparte-items__item aparte-items__tile', attrs: { 'data-link': !!item.url } },
-        media(item, true), body, actionsOf(ctx, item, ACTIONS_MAX));
+        media(ctx, item, true), body, actionsOf(ctx, item, ACTIONS_MAX));
 }
 
 /**
@@ -282,7 +275,7 @@ function row(ctx: CardContext, item: Item, pictures: boolean): HTMLElement {
     const head = el('div', { class: 'aparte-items__title-line' }, titleOf(ctx, item), item.badge ? badgeOf(item.badge, 'aparte-badge--soft') : null);
     const body = el('div', { class: 'aparte-items__body' }, head, ...details(item));
     return el('article', { class: 'aparte-items__item aparte-items__row', attrs: { 'data-link': !!item.url, 'data-bare': !pictures } },
-        pictures ? media(item, false) : null, body, actionsOf(ctx, item, 1));
+        pictures ? media(ctx, item, false) : null, body, actionsOf(ctx, item, 1));
 }
 
 function header(ctx: CardContext, title: string | undefined, count: number): HTMLElement | null {

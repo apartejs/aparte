@@ -78,6 +78,15 @@ export const KIT_WORDS = {
         en: 'Next', fr: 'Suivant', de: 'Weiter', es: 'Siguiente', it: 'Successivo',
         ja: '次へ', ko: '다음', pt: 'Próximo', ru: 'Далее', zh: '下一个',
     },
+    cardsImagesShow: {
+        en: 'Show images', fr: 'Afficher les images', de: 'Bilder anzeigen', es: 'Mostrar imágenes', it: 'Mostra immagini',
+        ja: '画像を表示', ko: '이미지 표시', pt: 'Mostrar imagens', ru: 'Показать изображения', zh: '显示图片',
+    },
+    cardsImagesShowFrom: {
+        en: 'Show images from {hosts}', fr: 'Afficher les images de {hosts}', de: 'Bilder von {hosts} anzeigen',
+        es: 'Mostrar imágenes de {hosts}', it: 'Mostra immagini da {hosts}', ja: '{hosts} の画像を表示',
+        ko: '{hosts}의 이미지 표시', pt: 'Mostrar imagens de {hosts}', ru: 'Показать изображения с {hosts}', zh: '显示来自 {hosts} 的图片',
+    },
     cardsSlide: {
         en: '{n} of {total}', fr: '{n} sur {total}', de: '{n} von {total}', es: '{n} de {total}', it: '{n} di {total}',
         ja: '{total}件中{n}件目', ko: '{total}개 중 {n}번째', pt: '{n} de {total}', ru: '{n} из {total}', zh: '第 {n} 个，共 {total} 个',
