@@ -5,6 +5,8 @@ user a structured question (title + optional description), as single (radio) or 
 The handler is a thin adapter over the core **elicitation** primitive — it maps the tool input to an
 elicitation schema and awaits `requestUserInput`, presented by `<aparte-elicitation>`.
 
+<img src="https://apartejs.dev/shots/ask-user.png" alt="A question with three choices, asked at the composer, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-ask-user @aparte/core
 ```

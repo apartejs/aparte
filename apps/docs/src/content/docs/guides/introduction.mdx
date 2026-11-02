@@ -25,18 +25,26 @@ import { COMPONENTS } from '../../../lib/facts';
   [tool calls](/components/tool/), [errors](/components/error/), and
   [views of your own](/components/custom-view/). Markdown and code highlighting come from
   [plugins](/guides/markdown/).
+- **More than text in a reply**: a tool's result drawn as a [rich card](/guides/cards/) (the
+  weather, a product, a stock quote), [charts](/guides/charts/), [maths](/guides/math/) and
+  [diagrams](/guides/diagrams/) while they stream, and the [sources](/guides/citations/) a model
+  cites. Each comes from a plugin.
 - **Tools, with a person in the loop**: the model calls your functions, the ones you choose
   wait for the person's [approval](/guides/tools/), and the model can
   [ask a question](/guides/elicitation/) in the middle of a turn.
 - **Conversations**: [retry](/guides/conversations-branching/) keeps each answer as a version you
   can step through, edit rewrites a message and its reply — both one line to turn on — with a
   [conversation list](/components/conversation-list/), [attachments](/guides/attachments/) when
-  you ask for them, and [storage](/guides/conversation-persistence/) you plug in.
+  you ask for them, and [storage](/guides/conversation-persistence/) you plug in, with an
+  IndexedDB adapter ready to use. A model can offer [quick replies](/components/suggestions/),
+  and a [launcher](/components/launcher/) floats the whole chat in a corner of the page.
 - **Your look**: colours, sizes and shapes are [CSS variables](/guides/theming/), and a
   [kit of classes](/kit/) draws the controls around the chat.
 - **Any model**: [OpenAI-compatible APIs](/providers/ai/openai-compat/), the
   [Vercel AI SDK](/providers/ai/ai-sdk/), a [model in the browser](/providers/ai/transformers/),
-  or an agent that runs its own loop, over [AG-UI](/providers/agent/ag-ui/).
+  or an agent that runs its own loop, over [AG-UI](/providers/agent/ag-ui/),
+  [TanStack AI](/providers/agent/tanstack-ai/) or an [n8n workflow](/providers/agent/n8n/). The loop
+  can run on [your server](/guides/server-loop/) too.
 - **Any framework**: [React, Vue, Svelte, Angular](/frameworks/), or none.
 
 <a href="/components/">{COMPONENTS.total} components</a> in all, each on a page of its own with
@@ -46,7 +54,8 @@ live examples.
 
 Routing, sign-in, settings, and where conversations are kept belong to your app. aparté draws
 the chat and runs the conversation; storage is an interface you implement over your own
-database, IndexedDB or API.
+database or API, with an [IndexedDB adapter](/guides/conversation-persistence/#keep-them-in-the-browser)
+if the browser is enough.
 
 ## What you need
 

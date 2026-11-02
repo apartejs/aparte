@@ -436,17 +436,17 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 
 <script>
   document.querySelector('aparte-chat-viewport').setMessages([
-    { id: 'u1', role: 'user', content: 'What goes into 0.19.2?', timestamp: Date.now() },
-    { id: 'a1', role: 'assistant', content: 'Two CSS fixes — the sidebar drawer and the menu check mark — and gzip on the docs server.', timestamp: Date.now() },
+    { id: 'u1', role: 'user', content: 'How do I export my data?', timestamp: Date.now() },
+    { id: 'a1', role: 'assistant', content: 'Open Settings, then Data, and choose Export. You get a ZIP of your conversations and files.', timestamp: Date.now() },
     {
-      id: 'u2', role: 'user', content: 'The changelog is written. Can I push the tag?', timestamp: Date.now(),
+      id: 'u2', role: 'user', content: 'Can I schedule it every week?', timestamp: Date.now(),
       contextSummary: {
-        summary: 'The user is preparing release 0.19.2: two CSS fixes (the sidebar drawer, the menu check mark) and gzip on the docs server.',
+        summary: 'The user asked how to export their data; the assistant explained Settings, then Data, then Export, which produces a ZIP of conversations and files.',
         count: 2,
         createdAt: Date.now(),
       },
     },
-    { id: 'a2', role: 'assistant', content: 'Wait for CI on the release commit first, then push the tag alone.', timestamp: Date.now() },
+    { id: 'a2', role: 'assistant', content: 'Yes: under Export, turn on Weekly export and pick the day.', timestamp: Date.now() },
   ]);
 </script>`,
     },

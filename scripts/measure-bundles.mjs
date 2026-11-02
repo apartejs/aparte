@@ -39,19 +39,20 @@ const OUT = join(root, 'apps/docs/src/data/bundle-sizes.json');
 const WORK = resolve(process.argv[2] ?? join(tmpdir(), 'aparte-bundle-weights'));
 
 /** Every library, aparté included, at its latest version published before this instant. */
-const BEFORE = '2026-10-17T00:00:00Z';
+const BEFORE = '2026-11-03T00:00:00Z';
 const ESBUILD = '0.27.7';
 const REACT = { react: '19.3.1', 'react-dom': '19.3.1' };
 
 /**
  * The source assistant-ui's docs copy into an app for its <Thread/>, at the commit tagged
- * @assistant-ui/react@0.15.29: the thread.aui item and every local file it imports, resolved the
+ * @assistant-ui/react@0.15.32: the thread.aui item and every local file it imports, resolved the
  * way the repo's own example resolves its aliases (ui/base first).
  */
-const ASSISTANT_UI_COMMIT = 'a46d6634e7a75eddd85d51415b1a615886d4ad0e';
+const ASSISTANT_UI_COMMIT = '2769cdf4db1b95f8e3f627910caf12b39a58216e';
 const ASSISTANT_UI_FILES = [
     'components/react/assistant-ui/elements/thread.aui.tsx',
     'components/react/assistant-ui/elements/attachment.aui.tsx',
+    'components/react/assistant-ui/elements/attachment-state.ts',
     'components/react/assistant-ui/elements/collapsible-root.tsx',
     'components/react/assistant-ui/elements/file.tsx',
     'components/react/assistant-ui/elements/follow-up-suggestions.aui.tsx',
@@ -85,8 +86,8 @@ const LIBRARIES = [
     {
         id: 'aparte',
         name: 'aparté',
-        version: '0.19.2',
-        packages: { '@aparte/core': '0.19.2', '@aparte/provider-openai-compat': '0.19.2', '@aparte/plugin-marked': '0.19.2', '@aparte/plugin-streaming-markdown': '0.19.2' },
+        version: '0.32.1',
+        packages: { '@aparte/core': '0.32.1', '@aparte/provider-openai-compat': '0.32.1', '@aparte/plugin-marked': '0.32.1', '@aparte/plugin-streaming-markdown': '0.32.1' },
         files: {
             'entry.js': `import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import '@aparte/core/styles.css';
@@ -211,19 +212,19 @@ document.body.appendChild(chat);
     {
         id: 'assistant-ui',
         name: 'assistant-ui',
-        version: '0.15.29',
+        version: '0.15.32',
         framework: 'react',
         packages: {
-            '@assistant-ui/react': '0.15.29',
-            '@assistant-ui/ai-sdk': '0.0.13',
-            '@assistant-ui/react-markdown': '0.14.23',
-            ai: '7.0.142',
+            '@assistant-ui/react': '0.15.32',
+            '@assistant-ui/ai-sdk': '0.0.16',
+            '@assistant-ui/react-markdown': '0.14.24',
+            ai: '7.0.159',
             '@base-ui/react': '1.9.0',
-            'lucide-react': '1.58.0',
+            'lucide-react': '1.66.0',
             cn: '0.4.0',
             'class-variance-authority': '0.7.1',
             'remark-gfm': '4.0.1',
-            zustand: '5.0.15',
+            zustand: '5.0.16',
         },
         source: { repo: 'assistant-ui/assistant-ui', commit: ASSISTANT_UI_COMMIT, base: 'packages/ui/src/', files: ASSISTANT_UI_FILES, into: 'ui' },
         files: {
@@ -301,9 +302,9 @@ createRoot(document.getElementById('root')!).render(<App />);
     {
         id: 'copilotkit',
         name: 'CopilotKit',
-        version: '1.79.1',
+        version: '1.83.0',
         framework: 'react',
-        packages: { '@copilotkit/react-core': '1.79.1', '@copilotkit/react-ui': '1.79.1', zod: '4.6.7' },
+        packages: { '@copilotkit/react-core': '1.83.0', '@copilotkit/react-ui': '1.83.0', zod: '4.6.7' },
         files: {
             'entry.tsx': `import React from 'react';
 import ReactDOM from 'react-dom/client';

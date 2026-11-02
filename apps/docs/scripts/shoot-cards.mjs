@@ -21,21 +21,17 @@
  *
  *   node apps/docs/scripts/shoot-cards.mjs [base-url]     (default http://localhost:4321)
  *
- * Playwright comes from the e2e workspace, which installs it with its browsers.
+ * Playwright comes from the e2e workspace, which installs it with its browsers; the browser
+ * setup and the shot itself are shared with shoot-pictures.mjs, in lib/shoot.mjs.
  */
-// The functions passed to `page.evaluate` and `waitForFunction` run in the page.
-/* global document, window, performance */
+// The function passed to `evaluate` runs in the page.
+/* global document */
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chromium, newShotPage, openDemo, settle, shootElement } from './lib/shoot.mjs';
 
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(join(DOCS, '../../e2e/package.json'));
-const { chromium } = require('@playwright/test');
-
-// A weekday afternoon, just after the hour.
-const SHOT_AT = new Date('2026-11-03T14:05:00+01:00');
 const BASE = (process.argv[2] ?? 'http://localhost:4321').replace(/\/$/, '');
 const PAGES = join(DOCS, 'src/content/docs/components');
 const OUT = join(DOCS, 'public/cards');
@@ -63,39 +59,11 @@ export function landingShot() {
     return { card: 'reply', demo, target: 'aparte-chat-bubble[data-role="assistant"] .aparte-segments', css: 'aparte-chat-viewport { height: auto !important }' };
 }
 
-/** Room around the card, so its shadow is in the picture rather than cut at the border. */
-const MARGIN = 24;
-
 async function shootCard(page, demo, scheme, target = '.aparte-rich-card', css = '') {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-    await page.goto(`${BASE}/preview/demo/${demo}/`, { waitUntil: 'networkidle' });
-    const card = page.locator(target).last();
-    await card.waitFor();
-    // A reply that streams draws its card as a skeleton first: wait for it to settle, then
-    // for nothing in it to change for a second.
-    await page.waitForFunction((sel) => {
-        const el = [...document.querySelectorAll(sel)].pop();
-        if (!el || el.querySelector('.aparte-skeleton')) return false;
-        const now = el.innerHTML;
-        const settled = window.__shotLast === now && performance.now() - window.__shotSince > 1000;
-        if (window.__shotLast !== now) Object.assign(window, { __shotLast: now, __shotSince: performance.now() });
-        return settled;
-    }, target, { polling: 200, timeout: 30_000 });
-    // The card alone: the message's name and time around it would date the picture.
-    await page.addStyleTag({ content: `body * { visibility: hidden } :is(${target}), :is(${target}) * { visibility: visible } ${css}` });
-    // Pictures (a map's tiles, a product's photo) and the fonts, before the shutter.
-    await page.evaluate(async () => {
-        await document.fonts.ready;
-        await Promise.all([...document.images].map((img) => (img.complete ? null : img.decode().catch(() => null))));
-    });
-    await page.waitForTimeout(400);
-    const box = await card.boundingBox();
-    if (!box) throw new Error(`${demo}: the card has no box`);
-    // The whole page, so a reply taller than the window is not cut at its bottom edge.
-    return page.screenshot({
-        fullPage: true,
-        clip: { x: Math.max(0, box.x - MARGIN), y: Math.max(0, box.y - MARGIN), width: box.width + 2 * MARGIN, height: box.height + 2 * MARGIN },
-    });
+    await openDemo(page, BASE, demo, scheme);
+    // A reply that streams draws its card as a skeleton first: wait for it to settle.
+    await settle(page, target);
+    return shootElement(page, target, { css });
 }
 
 /** The card on the brand's stage (the og route's colours), its name under it. */
@@ -117,11 +85,8 @@ function stage(png, title) {
 async function main() {
     mkdirSync(OUT, { recursive: true });
     const browser = await chromium.launch();
-    // English dates and numbers, and one time zone, whatever the machine: the cards format with `Intl`.
-    const page = await browser.newPage({ viewport: { width: 720, height: 1000 }, deviceScaleFactor: 2, locale: 'en-US', timezoneId: 'Europe/Paris' });
-    // And one moment, whenever it runs: the demos date everything from `Date.now()`, and a run at
-    // 23:00 drew a forecast of night hours under a sun. Timers keep running, so the cards still settle.
-    await page.clock.setFixedTime(SHOT_AT);
+    // English dates and numbers, one time zone and one moment, whatever the machine: the cards format with `Intl`.
+    const page = await newShotPage(browser);
     const og = await browser.newPage({ viewport: { width: 1200, height: 630 } });
     for (const { card, title, demo } of cardPages()) {
         const dark = await shootCard(page, demo, 'dark');

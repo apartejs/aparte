@@ -1,6 +1,6 @@
 ---
 title: 'Best AI Chat UI Libraries in 2026, Compared'
-description: A fair, dated comparison of AI chat UI libraries — Loquix, assistant-ui, AI Elements, deep-chat, kitn, ChatKit — on lock-in, runtime, local models and theming.
+description: 'A dated comparison of AI chat UI libraries (assistant-ui, Deep Chat, Loquix, kitn, ChatKit, AI Elements): Web Components or React, your backend, generative UI.'
 sidebar:
   label: Compare
 ---
@@ -8,6 +8,7 @@ sidebar:
 import WeightChart from '../../components/home/WeightChart.astro';
 import { kb, WEIGHTS } from '../../lib/weights';
 import { TESTED_FRAMEWORKS as T } from '../../data/tested-frameworks';
+import { COMPONENTS } from '../../lib/facts';
 
 export const weight = (id) => kb(WEIGHTS.find((row) => row.id === id).total);
 
@@ -15,14 +16,17 @@ export const weight = (id) => kb(WEIGHTS.find((row) => row.id === id).total);
 If you are choosing a chat UI library for an LLM product, the libraries below are the ones you
 will shortlist. This page says what each is good at and where aparté differs — including
 the cases where you should pick the other one. Claims about other projects were checked
-against their public docs and npm packages in **October 2026**, the month the weights below were
-measured; they move fast, so verify before deciding.
+against their public docs and npm packages in **October 2026**; the weights below, and the AI
+Elements, assistant-ui, ChatKit and TanStack AI rows, were re-checked in **November 2026**.
+They move fast, so verify before deciding. One change to know before you read on:
+Vercel's AI Elements announces on its own site that it will be deprecated at the end of
+November 2026 ([details below](#vercel-ai-elements)).
 
 The short version: **aparté is the one that is a complete runtime *and* framework-agnostic
-*and* free of third-party dependencies.** The React kits have the larger ecosystems. The other
-web-component kits are presentational — you bring the loop. If you need neither
-framework freedom nor a runtime, you have better options than aparté, and they are named
-below.
+*and* free of third-party dependencies.** The React kits have the larger ecosystems. Two of the
+other web-component kits here, Loquix and kitn, are presentational — you bring the loop. If you
+need neither framework freedom nor a runtime, you have better options than aparté, and they are
+named below.
 
 ## What a working chat weighs
 
@@ -33,19 +37,30 @@ run again.
 
 <WeightChart />
 
+At {weight('aparte')}, aparté is heavier than Deep Chat ({weight('deep-chat')}) and than Loquix
+({weight('loquix')}, which ships no model client), and lighter than the two React kits, whose
+bars carry React. Against Loquix, the difference is the model client, the loop and the approval
+gate; Deep Chat, which also carries its own clients, is the lighter of the two complete options.
+
 ## The matrix
+
+AI Elements is in the matrix as it stands today; its own site announces its deprecation at the
+end of November 2026 ([below](#vercel-ai-elements)). Where a cell says *not measured*, that
+row was not verified for that library, and we do not guess.
 
 | Criterion | aparté | assistant-ui | AI Elements | deep-chat | Loquix | kitn |
 |---|---|---|---|---|---|---|
 | Frameworks | Web Components + React, Vue, Svelte, Angular wrappers — tested with React {T.react}, Vue {T.vue}, Svelte {T.svelte[0]} and {T.svelte[1]}, Angular {T.angular[0]} and {T.angular[1]} | React (Vue bindings in early preview) | React | Web Component (+ React wrapper) | Web Components (Lit) | Web Components (+ React wrappers), built in SolidJS |
 | Server-rendered page, hydrated with no error | **Tested in CI** with [Next {T.next} App Router, Nuxt {T.nuxt}, SvelteKit {T.sveltekit}, Angular {T.angularSsr} SSR](/frameworks/elements/#on-the-server) | not measured | not measured | not measured | not measured | not measured |
 | Your framework's components inside tool calls | **React, Vue, Svelte 5, Angular** — [rendered with your app's context](/guides/tool-ui/) | Yes, React (tool UI) | Yes, React | not measured | not measured | not measured |
+| Tool results as interactive cards (generative UI) | **Yes** — [eleven ready-made cards](/guides/cards/) (weather, products, places, orders…) and `defineCard` for your own, with buttons and controls that change a card in place | Yes, React: a generative UI guide in its docs | A Tool component shows a call's state, input and output; richer widgets are your own React | not measured | not measured | Typed cards: confirmations, choices, forms |
 | Runtime included (streaming, agent loop, tool calls) | **Yes** — [core](/why/) + [headless engine](/guides/engine/) | Runtime adapters (AI SDK, LangGraph, …) | Via the Vercel AI SDK | Built in, config-driven | No — presentational | No — reads a stream you open (OpenAI, Anthropic) |
+| Connects to your own backend (OpenAI-compatible, AG-UI, your endpoint) | **Yes** — [any OpenAI-compatible endpoint](/providers/ai/openai-compat/), [your own `/api/chat`](/guides/backend-transport/), an [AG-UI agent](/providers/agent/ag-ui/), an [n8n workflow](/providers/agent/n8n/) | Yes — runtimes for the AI SDK, AG-UI and others, or a local runtime with an adapter you write | Through the AI SDK: your route returns a UI message stream | Yes — a `connect` property for your own service, besides direct connections to AI APIs | You write the `fetch`: no model client | You open the stream (OpenAI or Anthropic format); it renders |
 | Weight of a working chat (JavaScript and CSS, gzipped) | **{weight('aparte')}** | {weight('assistant-ui')}, React included | not measured: its components are copied into your app | {weight('deep-chat')} | {weight('loquix')}, no model client | not measured |
 | Framework you must adopt | **None** — and no third-party dependency in `@aparte/core` | React | React + the AI SDK | None | None (Lit is bundled) | None |
 | Human-in-the-loop: tool approval, typed questions | **Approval at the composer, [typed elicitation panel](/guides/elicitation/)** | Generic tool UI | Confirmation component | — | Rendered, not run | Rendered, not run |
 | Edit / retry / branch a conversation | **[Yes, with a version picker](/guides/conversations-branching/)** | Yes | Partial | — | Partial | — |
-| Persistence | [A storage interface you implement](/guides/conversation-persistence/) | A hosted cloud service (paid) | Your own | — | — | — |
+| Persistence | [An IndexedDB adapter in the browser (`@aparte/plugin-storage-idb`), or a storage interface for your own database](/guides/conversation-persistence/) | Assistant Cloud (a free tier, then paid), or threads you persist yourself | Your own | — | — | — |
 | Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables (Shadow DOM) |
 | Run a model in the browser | Yes — the [transformers provider](/providers/ai/transformers/) | — | — | Yes (Web LLM) | — | — |
 | Scripted demo/test provider | **Yes — [the scenario provider](/providers/ai/scenario/)** (deterministic turns: thinking, tools, artifacts) | — | — | Demo mode (canned) | — | — |
@@ -54,12 +69,14 @@ run again.
 | Voice | — | Yes (realtime) | Yes | Yes | — | — |
 | Citations / sources | Yes — [a chip at the end of each cited passage, a card, the source list](/guides/citations/): OpenAI and OpenRouter annotations, Perplexity, the AI SDK | Partial | Yes | — | Yes | — |
 | Floating / modal chat | Yes — [`<aparte-launcher>`](/components/launcher/): a card, a sheet on a phone | Yes | — | Yes (embed) | Partial | — |
-| Best fit for | Multi-framework teams that want the runtime included | React teams, all-in on React | Apps already on the Vercel AI SDK | A config-driven embed, fast | A polished presentational kit (Lit) | A minimal presentational kit |
+| Best fit for | Multi-framework teams that want the runtime included | React teams, all-in on React | Apps already built on it; new projects should read its move to shadcn/ui first | A config-driven embed, fast | A polished presentational kit (Lit) | A minimal presentational kit |
 | Licence | MIT | MIT | Apache-2.0 | MIT | MIT | MIT |
 
-The rows read left to right as *what aparté is for*: the top half is the runtime, the
-bottom half is the catalogue. aparté wins the top half and loses the bottom half, and both
-halves are true.
+The rows read as *what aparté is for*: the runtime and the connection to your backend first,
+the catalogue after. The catalogue is no longer the thin half: aparté draws {COMPONENTS.total}
+components, including eleven tool-result cards, charts, maths and diagrams. Where it is still behind is
+voice, the breadth of React integrations, and the code-oriented parts AI Elements built
+(sandbox, terminal, workflow graph).
 
 **What a wrapper is, and is not.** Each wrapper gives you the chat in your framework's own
 syntax — props or inputs, slots or snippets, callbacks or outputs, a bindable list of messages,
@@ -69,12 +86,28 @@ and classes, not through your framework's styling system; your components go whe
 tool calls let them. That is what makes one chat ship in four frameworks, and it is the line a
 React-only kit does not have to draw.
 
+## Which AI chat library is built on Web Components, talks to my backend and shows interactive widgets?
+
+aparté is built for that combination: Web Components with wrappers for React, Vue, Svelte and
+Angular, a connection to any [OpenAI-compatible endpoint](/providers/ai/openai-compat/), your own
+`/api/chat` or an [AG-UI agent](/providers/agent/ag-ui/), and tool results drawn as
+[interactive cards](/guides/cards/), the generative UI of a weather forecast, a product or a place.
+The nearest alternatives each leave one of the three to you:
+OpenAI ChatKit is a web component with interactive widgets, but its server side is an
+OpenAI-hosted workflow or a server you build with its Python SDK around OpenAI's Agents SDK; Deep
+Chat is a web component that connects to your own service, but its README documents Markdown and
+custom elements, not tool-result cards; and ai-chat-element is a web component with a pluggable
+transport for your backend, whose README documents Markdown, code and slots but no tool-call
+rendering. Pick one of those if the missing piece does not matter to you.
+
 ## assistant-ui
 
 **The React reference**, with Vue bindings in early preview since October 2026 (`@assistant-ui/vue`, 0.0.x). A composable primitives kit (thread, composer, message, action bar,
 branch picker, chain of thought, attachments) with the widest set of runtime integrations
 in the category — the Vercel AI SDK, LangGraph, LangChain, Mastra, AG-UI, A2A and more —
-plus realtime voice, Mermaid and KaTeX rendering, and a hosted cloud for thread persistence.
+plus realtime voice, Mermaid and KaTeX rendering, and an optional hosted cloud, Assistant Cloud
+(with a free tier), for thread persistence. The library itself is MIT, and you can persist threads
+yourself.
 
 **Pick assistant-ui when** you are on React for good, want its idioms end to end, and want
 to plug into one of those runtimes rather than run a loop of your own. Its ecosystem is
@@ -88,12 +121,23 @@ DOM, so it is a stylesheet.
 
 ## Vercel AI Elements
 
-**The largest catalogue.** Fifty-odd shadcn components — chatbot, code (artifact, file tree,
-terminal, sandbox, web preview), voice and workflow-graph families — installed by CLI, so the
-source lands in your app. Requires React and the Vercel AI SDK.
+**Being deprecated.** Its own site carries a banner: it announces that AI Elements is moving
+to shadcn/ui and that the project "will be deprecated at the end of November 2026". The
+components now live as AI Elements patterns in the shadcn/ui docs
+([ui.shadcn.com/docs/ai-elements](https://ui.shadcn.com/docs/ai-elements)), each a composition of
+shadcn/ui components that you copy into your project; that page says an existing project does not
+need to migrate and the code it already copied keeps working. Not every element was rebuilt: the
+artifact, sandbox, web preview, workflow-graph and voice parts have no shadcn/ui pattern, and that
+page suggests composing them from shadcn/ui's own components. If you are choosing a library today,
+start from those shadcn/ui patterns, not from the AI Elements package this column describes.
 
-**Pick AI Elements when** you build on Next.js and the AI SDK and want a finished part for
-every screen an agent product has. Nobody else has that breadth.
+**The largest catalogue, as it stands.** About fifty shadcn components — chatbot, code (artifact,
+file tree, terminal, sandbox, web preview), voice and workflow-graph families — installed by CLI,
+so the source lands in your app. They are built for React and the Vercel AI SDK.
+
+**Keep using it when** you already built on it: copied source does not stop working because the
+registry ends. For a new project, the shadcn/ui patterns cover most of those parts; the ones
+listed above you compose yourself.
 
 **Pick aparté when** you are not on React, or when you want the parts to update as a
 dependency rather than as copied source. One thing to know: AI Elements' file tree,
@@ -150,8 +194,10 @@ runtime under it.
 ## OpenAI ChatKit
 
 **The platform drop-in.** A web component (with a React wrapper) served by the OpenAI
-platform through a client token — streaming, tools, attachments and chain-of-thought
-visualisation without writing the front end. Self-hosting goes through their Python SDK.
+platform through a client token — streaming, tools, attachments, interactive widgets and
+chain-of-thought visualisation without writing the front end. Self-hosting means running your own
+chat server with their Python SDK and storing the threads yourself; its guide builds that around
+OpenAI models and the Agents SDK.
 
 **Pick ChatKit when** you build on the OpenAI platform and want their hosted chat
 experience with the least code.
@@ -170,9 +216,20 @@ aparté's [transport](/why/) is the seam that keeps it out.
   speaks its [AG-UI protocol](/providers/agent/ag-ui/).
 - **NLUX** — React and vanilla, under the MPL-2.0 licence; no release since August 2024.
 - **TanStack AI** — a type-safe SDK that runs the agent loop on your server, with provider
-  adapters, MCP, durable streams and sandboxes, bindings for React, Vue, Svelte, Angular and Solid,
-  and headless chat components you style yourself. Closer to aparté's engine than to its
-  components — and aparté can [draw a TanStack AI route](/providers/agent/tanstack-ai/) as its UI.
+  adapters, MCP, durable streams and sandboxes, bindings for React, Preact, Vue, Svelte, Angular and
+  Solid (now at 1.0), and headless chat components you style yourself. Closer
+  to aparté's engine than to its components — and aparté can
+  [draw a TanStack AI route](/providers/agent/tanstack-ai/) as its UI.
+- **ai-chat-element** — one `<ai-chat>` Web Component (0.6.0, MPL-2.0) with a pluggable transport:
+  built-in adapters for OpenAI-compatible and Anthropic APIs, or your own backend. Its README
+  documents Markdown, code, 66 CSS variables and 17 slots, and about 98 KB gzipped; it renders
+  text, and no tool-call or card rendering is documented.
+- **ask-ui-kit** — sixteen Lit Web Components (0.4.0, MIT) for AI chat — message, tool call,
+  streaming, chat input, conversation list, model selector — documented alongside ask-rb, a Ruby
+  library. A set of views you feed, like Loquix.
+- **Persona** (`@runtypelabs/persona`, 4.34.0, MIT) — a vanilla JavaScript streaming agent widget
+  with a launcher or docked panel, voice input, tool output, approvals and component directives.
+  Its reference setup talks to the Runtype agent platform through an optional proxy package.
 - **Chainlit** — Python full-stack; a different stack entirely.
 
 ## How to read this page

@@ -4,6 +4,8 @@ A provider + model selector web component for [aparté](https://github.com/apart
 `<aparte-select>` with each registered AI provider grouped into an `<aparte-optgroup>` (a single provider
 renders a flat list), for the BYOK (Bring Your Own Key) pattern.
 
+<img src="https://apartejs.dev/shots/model-selector.png" alt="The model selector open in the composer, one group per provider, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-model-selector @aparte/core
 ```

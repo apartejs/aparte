@@ -446,6 +446,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /** Every segment on screen, by id: see {@link DrawnSegment}. */
   private _drawn = new Map<string, DrawnSegment>();
 
+  /** Segments written to with no `isStreaming: false` yet: settled when the message stops streaming. */
+  private _written = new Set<string>();
+
   /** The segments were released because the bubble was still out of the page at the next microtask. */
   private _releasedWhileDetached = false;
 
@@ -906,6 +909,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (index !== -1) {
       const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
+      if (updated.isStreaming === false) this._written.delete(segmentId);
+      else if ('content' in updates) this._written.add(segmentId);
       this._applySegmentUpdate(segmentId, updated, updates);
       if ('sources' in updates) this._syncSources();
       this._syncCopyAction();
@@ -919,9 +924,31 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const segment = this._segments.find(s => s.id === segmentId);
     if (segment && 'content' in segment) {
       (segment as { content: string }).content += content;
+      if (segment.isStreaming !== false) this._written.add(segmentId);
       this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content });
       this._syncCopyAction();
     }
+  }
+
+  /**
+   * The message stopped streaming, so a segment it was still writing is finished too.
+   *
+   * A segment written to with no `isStreaming` flag — `appendToSegment` from a stream driven
+   * by hand, as the docs' own streaming demo does — goes through the incremental Markdown
+   * parser, which holds back what may still open a token (the full stop after `**bold**`)
+   * until it is told the text is complete. Nothing told it: the message ended with its tail
+   * missing. Marked finished here, it is flushed and settled like any finished segment.
+   */
+  private _settleWrittenSegments(): void {
+    for (const id of this._written) {
+      const index = this._segments.findIndex((s) => s.id === id);
+      const segment = this._segments[index];
+      if (!segment || segment.isStreaming === false) continue;
+      const settled = { ...segment, isStreaming: false } as AparteSegment;
+      this._segments[index] = settled;
+      this._applySegmentUpdate(id, settled, { isStreaming: false });
+    }
+    this._written.clear();
   }
 
   /** Get all segments */
@@ -2583,6 +2610,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
      * highlight too.
      */
     if (wasStreaming && !streaming) this._updateContent();
+    // A segment still being written when the message stopped is finished with it.
+    if (wasStreaming && !streaming) this._settleWrittenSegments();
     // Segments have no such pass: if a Markdown or highlight provider arrived while they
     // streamed, the finished message is drawn again with it — segment by segment, keeping
     // the cards a mounted renderer holds (it checks the version itself).

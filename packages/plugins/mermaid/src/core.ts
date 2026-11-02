@@ -257,6 +257,11 @@ function mermaidConfig(user: Record<string, unknown>, host: HTMLElement): Record
         fontFamily: SYSTEM_FONTS,
         flowchart: { ...(user['flowchart'] as Record<string, unknown> | undefined), htmlLabels: false },
         themeVariables: { ...palette, ...(user['themeVariables'] as Record<string, unknown> | undefined), fontFamily: SYSTEM_FONTS },
+        // With SVG labels, Mermaid's own sheet draws an edge label's background at half
+        // opacity, so the edge runs through the words and they read as struck through.
+        // Opaque, it is the drawing's own surface (`edgeLabelBackground` is `--aparte-bg`, the
+        // colour prose.css puts behind a drawing), and the line stops at the label.
+        themeCSS: `${(user['themeCSS'] as string | undefined) ?? ''}\n.edgeLabel rect { opacity: 1; }`,
         maxTextSize: 50_000,
         maxEdges: 500,
         // What a diagram's own `%%{init}%%` may not change.

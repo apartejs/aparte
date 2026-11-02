@@ -5,6 +5,8 @@ Every ```` ```echarts ```` fence in a reply — an ECharts `option` as JSON — 
 it streams, whichever Markdown provider is installed, or none. A tool whose result is an option
 can be drawn the same way, in place of its row.
 
+<img src="https://apartejs.dev/shots/echarts.png" alt="An ECharts bar chart drawn from a fence, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-echarts @aparte/core echarts
 ```

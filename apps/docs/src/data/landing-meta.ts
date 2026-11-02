@@ -12,16 +12,17 @@
  * They went out of step twice in one afternoon. So: one export, imported by both.
  */
 
-import { SEGMENT_KINDS } from './segment-kinds';
+/*
+ * No figure in these strings. "6 kinds of content in one turn" was counted from the segment
+ * list and read as a cap on a library whose turns also draw cards, charts, formulas and
+ * diagrams; what the page offers is said in words instead.
+ */
 
-/** Derived, never typed out: the hero said "ten" over a list of eight. */
-const KIND_COUNT = SEGMENT_KINDS.length;
-
-export const LANDING_TITLE = 'AI Chat & Agent UI Components — React, Vue, Svelte, Angular';
+export const LANDING_TITLE = 'AI Chat Web Components: your backend, tools, cards | aparté';
 
 export const LANDING_DESCRIPTION =
-    'Open-source AI chat and agent UI as Web Components: streaming, tool approval, '
-    + 'branching, a UI kit, local LLMs — in React, Vue, Svelte, Angular or plain HTML.';
+    'Open-source AI chat Web Components for React, Vue, Svelte, Angular or HTML: '
+    + 'your OpenAI-compatible backend, tool calls, results drawn as interactive cards.';
 
 /**
  * What the social card's 1200x630 image actually shows, for `og:image:alt`.
@@ -33,10 +34,10 @@ export const LANDING_DESCRIPTION =
  * beside the strings it describes.
  */
 export const LANDING_IMAGE_ALT =
-    'A dark card with a brass edge and the aparté mascot, headed “AI chat & agent '
-    + 'UI”, over the line “Built as Web Components: the agent loop, tool calls with '
-    + `human approval, edit-and-branch replies, ${KIND_COUNT} kinds of content in one `
-    + 'turn. React, Vue, Svelte, Angular or plain HTML.”';
+    'A dark card with a brass edge and the aparté mascot, headed “AI chat Web '
+    + 'Components”, over the line “Your OpenAI-compatible backend or AG-UI agent, tool '
+    + 'calls with a person\'s approval, results drawn as interactive cards. React, Vue, '
+    + 'Svelte, Angular or HTML.”';
 
 /*
  * The social card is not the same shape as a meta tag: astro-og-canvas renders its
@@ -49,9 +50,8 @@ export const LANDING_IMAGE_ALT =
  * together and cannot drift apart in separate files, which is exactly what happened
  * before this module existed.
  */
-export const LANDING_CARD_TITLE = 'AI chat & agent UI';
+export const LANDING_CARD_TITLE = 'AI chat Web Components';
 
 export const LANDING_CARD_BODY =
-    'Built as Web Components: the agent loop, tool calls with human approval, '
-    + `edit-and-branch replies, ${KIND_COUNT} kinds of content in one turn. `
-    + 'React, Vue, Svelte, Angular or plain HTML.';
+    'Your OpenAI-compatible backend or AG-UI agent, tool calls with a person\'s '
+    + 'approval, results drawn as interactive cards. React, Vue, Svelte, Angular or HTML.';

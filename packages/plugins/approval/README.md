@@ -4,6 +4,8 @@ Approval **modes** for [aparté](https://github.com/apartejs/aparte) tool calls 
 `auto` — from a classification of your own tool names, with a `<aparte-approval-mode>` switch for the
 composer's toolbar. It decides; it never executes anything and stores nothing.
 
+<img src="https://apartejs.dev/shots/approval.png" alt="The approval mode switch open in the composer: Plan, Ask, Auto-edit, Auto, in an aparté chat" width="420">
+
 ```bash
 npm install @aparte/plugin-approval @aparte/core
 ```

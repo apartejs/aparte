@@ -130,9 +130,9 @@ new AparteClient({ keyResolver: () => localStorage.getItem('openrouter-key') }).
 Three things change from the scripted chat:
 
 - **The provider.** [`@aparte/provider-openai-compat`](/providers/ai/openai-compat/) talks to any
-  OpenAI-compatible API, with presets for OpenAI, Mistral, OpenRouter, Z.ai, LM Studio and
-  Ollama. [Models and agents](/providers/) has the others: the Vercel AI SDK, a model running in
-  the browser, an agent over AG-UI.
+  OpenAI-compatible API, with presets for OpenAI, Mistral, OpenRouter, Z.ai, Perplexity, LM Studio,
+  Ollama, llama.cpp and vLLM. [Models and agents](/providers/) has the others: the Vercel AI SDK, a
+  model running in the browser, an agent over AG-UI, an n8n workflow or a TanStack AI route.
 - **The model.** A provider that lists its models over the network selects none, and a message
   sent with no model selected goes nowhere: name one with `setModelConfig`, or let the person
   pick with the [model selector](/components/model-selector/).

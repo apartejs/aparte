@@ -1,0 +1,13 @@
+# aparté
+
+> AI chat Web Components with the agent loop inside: your OpenAI-compatible backend, approved tool calls, generative UI cards. Zero third-party deps. Use it in React, Vue, Svelte, Angular or plain HTML (@aparte/core, with thin wrappers @aparte/react, @aparte/vue, @aparte/svelte and @aparte/angular).
+
+The full, current documentation for language models is published on the site, so this file only points to it:
+
+- [llms.txt](https://apartejs.dev/llms.txt): the index, with one topic file per subject
+- [llms-full.txt](https://apartejs.dev/llms-full.txt): the complete documentation in one file
+- [Getting started](https://apartejs.dev/guides/getting-started/): a first chat, step by step
+- [Cards](https://apartejs.dev/guides/cards/): a tool's result (the weather, a product, a place) drawn as an interactive card (generative UI)
+- [Providers and agents](https://apartejs.dev/providers/): OpenAI-compatible endpoints, the Vercel AI SDK, AG-UI agents, n8n
+- [Compare](https://apartejs.dev/compare/): how it differs from assistant-ui, AI Elements, Deep Chat and Loquix
+- [Source](https://github.com/apartejs/aparte): the repository

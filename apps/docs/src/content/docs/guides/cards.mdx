@@ -1,6 +1,6 @@
 ---
-title: Show a tool's result as a card
-description: Draw what a tool returns as a rich card — the weather first — in variants, from your tool's own fields, with @aparte/plugin-cards.
+title: "Generative UI cards: a tool result as a chat widget"
+description: "Generative UI for AI chat: draw what a tool returns as an interactive card, the weather first, in variants, from your tool's own fields."
 sidebar:
   order: 3.7
   label: Cards
@@ -13,7 +13,8 @@ import Variant from '../../../components/catalog/Variant.astro';
 <Variant id="cards-weather" caption="One tool, one card, three variants chosen from the data." />
 
 A tool's call is drawn as a row: its name, its input, its output. For a tool whose result a
-person reads — the weather, a product, a place — a card says it better.
+person reads — the weather, a product, a place — a card says it better. This is what is often called generative UI: an
+interactive card in the chat where a block of JSON would have been.
 `@aparte/plugin-cards` draws that card where the row would be, while the call runs and once it
 has returned, and your tool keeps its own fields.
 
