@@ -167,6 +167,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   color: var(--aparte-text-muted);
 }
 
+/* Sending points the way the text goes: in a right-to-left composer the plane flies to the left,
+   as the version arrows turn. Only the send glyph — a check or a stop square is the same both ways,
+   and a mirrored check reads as a mistake. Any icon put here (`getIcon('send')`) turns with it. */
+.aparte-send-button[data-act='send']:dir(rtl) > * {
+  scale: -1 1;
+}
+
 /* Model Selector Component */
 /* The element and the class said the same three things in two rules. The class is
    the hook for an app that lays out its own selector; grouping them is what stops

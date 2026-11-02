@@ -136,7 +136,11 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
  */
 export function optionBody(label: string, description?: string, recommended?: boolean): HTMLElement {
     const body = el('span', 'aparte-elic-option-body');
+    // The model's words read in their own direction (`dir="auto"`), as a message does: an
+    // English option in a right-to-left panel read "?Blue". Every model-written text of a
+    // panel — message, title, description, option, step label — carries it.
     const title = el('span', 'aparte-elic-option-title', label);
+    title.dir = 'auto';
     if (recommended) {
         // Said, not only tinted: a tint is a hint the eye may miss and a screen reader
         // never gets. The reference products write it into the label.
@@ -145,7 +149,7 @@ export function optionBody(label: string, description?: string, recommended?: bo
         title.append(' ', badge);
     }
     body.appendChild(title);
-    if (description) body.appendChild(el('span', 'aparte-elic-option-desc', description));
+    if (description) body.appendChild(Object.assign(el('span', 'aparte-elic-option-desc', description), { dir: 'auto' }));
     return body;
 }
 
@@ -181,11 +185,12 @@ function fieldHeader(parent: HTMLElement, field: AparteElicitationField, skipTit
     // both meant one question, not two.
     if (field.title && field.title.trim() !== skipTitle?.trim()) {
         const title = el('p', 'aparte-elic-title', field.title);
+        title.dir = 'auto';
         titleId = `elic-title-${uuid()}`;
         title.id = titleId;
         parent.appendChild(title);
     }
-    if (field.description) parent.appendChild(el('p', 'aparte-elic-desc', field.description));
+    if (field.description) parent.appendChild(Object.assign(el('p', 'aparte-elic-desc', field.description), { dir: 'auto' }));
     return titleId;
 }
 
@@ -469,6 +474,7 @@ function buildBooleanField(
         if (field.default != null && String(field.default) === val) control.checked = true;
         const body = el('span', 'aparte-elic-option-body');
         const title = el('span', 'aparte-elic-option-title', label);
+        title.dir = 'auto';
         // Registered only when the LOCALE supplied the label. A `trueLabel` the app
         // passed is its copy, in whatever language it chose, and a language switch
         // has no business rewriting it.
@@ -607,7 +613,7 @@ function buildPanel(
     // from the tool that asked, which means the MODEL wrote it. Re-reading a
     // model-authored sentence on a language switch would mean nothing.
     const asked = typeof message === 'function' ? message() : message;
-    if (asked) panel.appendChild(el('p', 'aparte-elic-message', asked));
+    if (asked) panel.appendChild(Object.assign(el('p', 'aparte-elic-message', asked), { dir: 'auto' }));
 
     /*
      * The click that IS the answer, for the shapes that have one.
@@ -662,7 +668,7 @@ function buildPanel(
             const built = buildField(field, notify, undefined, key);
             // Ensure a title so each field in a form is labelled.
             if (!field.title && !built.el.querySelector('.aparte-elic-title')) {
-                built.el.insertBefore(el('p', 'aparte-elic-title', key), built.el.firstChild);
+                built.el.insertBefore(Object.assign(el('p', 'aparte-elic-title', key), { dir: 'auto' }), built.el.firstChild);
             }
             body.appendChild(built.el);
             return { key, field: built, required: requiredKeys.has(key), header: field.header };
@@ -719,6 +725,7 @@ function buildPanel(
             // The position when the model gave no short label: honest, and it never
             // truncates a sentence into nonsense.
             chip.textContent = f.header?.trim() || String(i + 1);
+            chip.dir = 'auto';
             // A chip is how you go BACK. Free navigation rather than a Previous
             // button: an answer you have already given is the thing you most want to
             // revisit, and hunting for a Back button to do it is the frustrating
@@ -737,7 +744,11 @@ function buildPanel(
             f.field.el.setAttribute('aria-labelledby', chip.id);
             chip.setAttribute('aria-controls', f.field.el.id);
             chip.addEventListener('keydown', (e: KeyboardEvent) => {
-                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                // The next step is to the left in a right-to-left row: the row's direction,
+                // not the chip's, which reads its own label (`dir="auto"`).
+                const forward = getComputedStyle(steps).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+                const back = forward === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+                const step = e.key === forward ? 1 : e.key === back ? -1 : 0;
                 let next = -1;
                 if (step) next = (i + step + fields.length) % fields.length;
                 else if (e.key === 'Home') next = 0;

@@ -116,6 +116,7 @@ export class AparteComposerSend extends HTMLElement {
             class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--icon aparte-cs-button aparte-send-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
+            data-act="send"
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
 
@@ -195,6 +196,7 @@ export class AparteComposerSend extends HTMLElement {
         }
         this._button.disabled = !panel.submitEnabled;
         this._button.innerHTML = this._getSubmitIcon();
+        this._button.setAttribute('data-act', 'submit');
         const label = cfg.t('submitButton') || 'Submit';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
@@ -214,6 +216,7 @@ export class AparteComposerSend extends HTMLElement {
         const isEmpty = root.value.trim() === '' && root.attachments.length === 0;
         this._button.disabled = root.disabled || isEmpty;
         this._button.innerHTML = this._getSendIcon();
+        this._button.setAttribute('data-act', 'send');
         const label = resolveConfig(this).t('sendButton') || 'Send';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
@@ -225,6 +228,7 @@ export class AparteComposerSend extends HTMLElement {
         if (streaming) {
             this._button.disabled = false;
             this._button.innerHTML = this._getStopIcon();
+            this._button.setAttribute('data-act', 'stop');
             // Was the bare literal 'Stop', so no locale could reach it — the same
             // gap `aparte-composer-cancel` had, on a second element. The key is
             // declared now.

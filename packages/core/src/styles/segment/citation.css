@@ -60,6 +60,12 @@
   font-size: var(--aparte-font-size-xs);
 }
 
+/* Previous points to the start, next to the end, as the version arrows do (bubble.css):
+   in a right-to-left card both pointed inward. */
+.aparte-citation-card__pager button:dir(rtl) > * {
+  scale: -1 1;
+}
+
 .aparte-citation-card__title {
   margin: 0;
   font-weight: 600;

@@ -64,8 +64,9 @@
 /* Where the box goes: the anchor is the trigger's wrapper and the tooltip is placed
    against it. `translate` centres the box on the axis across the side: with a logical
    inset of 50% the box's start edge sits at the anchor's middle, and moving it back by
-   half its own size centres it — in both writing directions, because the inset flips
-   with the direction and the translate is half the box either way. */
+   half its own size centres it. `translate` is physical, so "back" is +50% when the start
+   edge is the right one: a top tooltip in a right-to-left page sat wholly left of its
+   anchor, its arrow pointing at nothing. */
 .aparte-tooltip-anchor {
   position: relative;
   display: inline-block;
@@ -86,6 +87,10 @@
   inset-block-start: calc(100% + var(--aparte-tooltip-gap));
   inset-inline-start: 50%;
   translate: -50% 0;
+}
+
+.aparte-tooltip:is([data-side='top'], [data-side='bottom']):dir(rtl) {
+  translate: 50% 0;
 }
 
 .aparte-tooltip[data-side='start'] {

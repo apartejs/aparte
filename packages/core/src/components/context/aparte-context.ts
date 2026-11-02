@@ -847,7 +847,11 @@ export class AparteContext extends HTMLElement {
         const anchor = this.getBoundingClientRect();
         const box = panel.getBoundingClientRect();
         if (box.height > 0 && anchor.top < box.height) panel.setAttribute('data-placement', 'below');
-        if (box.width > 0 && box.right > document.documentElement.clientWidth) panel.setAttribute('data-align', 'end');
+        // The panel grows toward the inline end: the right in a left-to-right page, the left in a
+        // right-to-left one, where only the right edge was checked and it ran off the left.
+        const rtl = getComputedStyle(panel).direction === 'rtl';
+        const overflows = rtl ? box.left < 0 : box.right > document.documentElement.clientWidth;
+        if (box.width > 0 && overflows) panel.setAttribute('data-align', 'end');
     }
 }
 

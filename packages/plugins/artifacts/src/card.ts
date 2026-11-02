@@ -273,8 +273,11 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             btn.addEventListener('click', () => select(btn, false));
             btn.addEventListener('keydown', (e) => {
                 // Home/End as well as the arrows: both are in the pattern, and on a
-                // two-tab list they are the fastest way to the one you are not on.
-                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                // two-tab list they are the fastest way to the one you are not on. The
+                // next tab is to the left in a right-to-left list.
+                const forward = getComputedStyle(btn.parentElement ?? btn).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+                const back = forward === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+                const step = e.key === forward ? 1 : e.key === back ? -1 : 0;
                 let next = -1;
                 if (step) next = (i + step + tabs.length) % tabs.length;
                 else if (e.key === 'Home') next = 0;

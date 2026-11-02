@@ -117,6 +117,36 @@ describe('buildElicitationPanel', () => {
             expect(chips(p).map((c) => c.textContent)).toEqual(['Colour', 'Shape']);
         });
 
+        it('steps with the arrow that points to the next chip: the left one in a right-to-left row', () => {
+            const three: AparteElicitationSchema = {
+                type: 'object',
+                properties: {
+                    q1: { type: 'string', title: 'A?', header: 'One' },
+                    q2: { type: 'string', title: 'B?', header: 'Two' },
+                    q3: { type: 'string', title: 'C?', header: 'Three' },
+                },
+            };
+            const press = (chip: HTMLElement, key: string) => chip.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+            const selected = (p: { el: HTMLElement }) => chips(p).findIndex((c) => c.getAttribute('aria-selected') === 'true');
+
+            const ltr = buildElicitationPanel('', three, noop);
+            document.body.append(ltr.el);
+            press(chips(ltr)[0]!, 'ArrowRight');
+            expect(selected(ltr)).toBe(1);
+
+            const rtl = buildElicitationPanel('', three, noop);
+            document.body.append(rtl.el);
+            rtl.el.querySelector<HTMLElement>('.aparte-elic-steps')!.style.direction = 'rtl';
+            press(chips(rtl)[0]!, 'ArrowLeft');
+            expect(selected(rtl), 'ArrowLeft is forward when the row reads right to left').toBe(1);
+            press(chips(rtl)[1]!, 'ArrowRight');
+            expect(selected(rtl)).toBe(0);
+            // The chips read their own labels in their own direction.
+            expect(chips(rtl).every((c) => c.dir === 'auto')).toBe(true);
+            ltr.el.remove();
+            rtl.el.remove();
+        });
+
         it('falls back to the position when the model gave no short label', () => {
             const p = buildElicitationPanel('', {
                 type: 'object',

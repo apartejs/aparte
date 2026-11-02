@@ -474,9 +474,13 @@ export class AparteChatViewport extends HTMLElement {
         el.setAttribute('aria-label', resolveConfig(this).t('transcript'));
     }
 
-    /** Mirror `locale.direction` onto the scroll container. */
+    /**
+     * Mirror `locale.direction` onto the scroll surface: the container, or the viewport itself
+     * when a framework renders the messages — a wrapper's transcript stayed left to right
+     * under a right-to-left locale while its composer turned.
+     */
     private _applyDirection(): void {
-        const container = this.querySelector('.aparte-viewport-container');
+        const container = this._frameworkManagedDOM ? this : this.querySelector('.aparte-viewport-container');
         if (!container) return;
         const direction = resolveConfig(this).getLocale().direction;
         if (direction) container.setAttribute('dir', direction);
@@ -1630,6 +1634,7 @@ export class AparteChatViewport extends HTMLElement {
         }
         this.classList.add('aparte-viewport--framework');
         this._nameScrollSurface(this);
+        this._applyDirection();
 
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
