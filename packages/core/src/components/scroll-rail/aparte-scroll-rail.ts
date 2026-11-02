@@ -200,17 +200,29 @@ export class AparteScrollRail extends HTMLElement {
             this._mutations = new MutationObserver((records) => {
                 for (const record of records) {
                     if (this.contains(record.target)) continue;
-                    // A bubble's id or role changed in place (a framework reusing an element):
-                    // which messages have ticks, and under which ids, is what a rebuild reads.
-                    const retagged = record.type === 'attributes' && (record.target as Element).tagName === 'APARTE-CHAT-BUBBLE';
-                    if (retagged || (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes)))) {
+                    if (record.type === 'attributes') {
+                        // A bubble's id or role changed in place (a framework reusing an element):
+                        // which messages have ticks, and under which ids, is what a rebuild reads.
+                        if (isBubble(record.target)) {
+                            this._queueRebuild();
+                            return;
+                        }
+                        continue;
+                    }
+                    // Inside a message, checked first: bubbles are never nested, so nothing there
+                    // adds or removes one, and only that message's name can change. A reply
+                    // re-rendered whole on each token replaces its subtree, which the structural
+                    // test below would otherwise walk on every token.
+                    const at = record.target instanceof Element ? record.target : record.target.parentElement;
+                    const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
+                    if (owner) {
+                        if (this._ticked(owner)) this._queueRelabel(owner);
+                        continue;
+                    }
+                    if (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes))) {
                         this._queueRebuild();
                         return;
                     }
-                    if (record.type === 'attributes') continue;
-                    const at = record.target instanceof Element ? record.target : record.target.parentElement;
-                    const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
-                    if (owner && this._ticked(owner)) this._queueRelabel(owner);
                 }
             });
             this._mutations.observe(this._host, {
@@ -317,8 +329,12 @@ export class AparteScrollRail extends HTMLElement {
     /** The first words of a message, for the tick's name. An excerpt, never a summary. */
     private _excerpt(bubble: HTMLElement): string {
         const body = bubble.querySelector<HTMLElement>('.aparte-message-content') ?? bubble;
-        // The head of the text only: the collapse ran over a whole pasted document to keep sixty characters.
-        const text = (body.textContent ?? '').slice(0, EXCERPT_LENGTH * 16).replace(/\s+/g, ' ').trim();
+        // The head of the text only, read node by node: `textContent` built the whole message
+        // (a pasted document, a long reply on every rebuild) to keep sixty characters.
+        let head = '';
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node && head.length < EXCERPT_LENGTH * 16; node = walker.nextNode()) head += node.nodeValue ?? '';
+        const text = head.slice(0, EXCERPT_LENGTH * 16).replace(/\s+/g, ' ').trim();
         return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…` : text;
     }
 
@@ -783,10 +799,15 @@ export class AparteScrollRail extends HTMLElement {
     }
 }
 
+/** By local name, which keeps its case in an XHTML document where `tagName` does not upper-case it. */
+function isBubble(node: Node): boolean {
+    return node instanceof Element && node.localName === 'aparte-chat-bubble';
+}
+
 /** A bubble, or an element holding some (the viewport, a wrapper rendered whole): the set of ticks can change. */
 function holdsBubbles(nodes: NodeList): boolean {
     return Array.from(nodes).some((n) =>
-        n instanceof Element && (n.tagName === 'APARTE-CHAT-BUBBLE' || n.tagName === 'APARTE-CHAT-VIEWPORT' || n.querySelector('aparte-chat-bubble') !== null));
+        n instanceof Element && (isBubble(n) || n.localName === 'aparte-chat-viewport' || n.querySelector('aparte-chat-bubble') !== null));
 }
 
 function sameElements(a: HTMLElement[], b: HTMLElement[]): boolean {

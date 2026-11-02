@@ -409,6 +409,24 @@ describe('aparte-scroll-rail holds still', () => {
         expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'a1', 'u2-final', 'u3']);
     });
 
+    it('a reply re-rendered whole on each token is not searched for bubbles', async () => {
+        // Without a streaming Markdown plugin a reply's content is replaced on every token; the
+        // structural test ran first and searched both the old and the new subtree each time.
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        const rebuild = vi.spyOn(rail as unknown as { _rebuild(): void }, '_rebuild');
+        const search = vi.spyOn(Element.prototype, 'querySelector');
+        const content = turns[1]!.querySelector('.aparte-message-content')!;
+        for (let i = 0; i < 3; i++) {
+            content.innerHTML = `<p>Token ${i}</p><ul><li>one</li><li>two</li></ul>`;
+            await nextFrame();
+        }
+        const searched = search.mock.calls.filter(([selector]) => selector === 'aparte-chat-bubble').length;
+        search.mockRestore();
+        expect(rebuild).not.toHaveBeenCalled();
+        expect(searched, 'a record inside a message holds no bubble: none searched for').toBe(0);
+    });
+
     it('with every="message", a streaming reply re-names its own tick and nothing else', async () => {
         const turns = THREE_TURNS();
         const { rail } = mount(turns, { every: 'message' });
