@@ -19,7 +19,7 @@ import { setupCompaction, type CompactionTarget } from '../compaction.js';
 const SUMMARISED = 'blob:aparte-summarised';
 const KEPT = 'blob:aparte-kept';
 
-type Viewport = HTMLElement & CompactionTarget;
+type Viewport = HTMLElement & CompactionTarget & { appendMessage(message: AparteMessage): void };
 
 const withFile = (m: AparteMessage, url: string): AparteMessage => ({
     ...m,
@@ -35,7 +35,7 @@ async function mountViewport(messages: AparteMessage[]): Promise<Viewport> {
     const vp = document.createElement('aparte-chat-viewport') as Viewport;
     document.body.appendChild(vp);
     await vi.waitFor(() => expect(typeof vp.appendMessage).toBe('function'));
-    for (const m of messages) vp.appendMessage!(m);
+    for (const m of messages) vp.appendMessage(m);
     return vp;
 }
 
@@ -113,7 +113,7 @@ describe('a compaction and the attachments of the turns it summarises', () => {
 
         await vi.waitFor(() => expect(release).toBeDefined());
         const late = withFile({ id: 'u9', role: 'user', content: 'sent meanwhile', timestamp: 30, status: 'completed' }, KEPT);
-        vp.appendMessage!(late);
+        vp.appendMessage(late);
         release('S');
         await running;
 

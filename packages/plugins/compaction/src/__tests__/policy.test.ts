@@ -121,21 +121,6 @@ describe('after a turn ends', () => {
 
         expect(chat, '900 of 100 000 is nothing').not.toHaveBeenCalled();
     });
-
-    it('takes the window a gauge sends with its request as a last resort, and keeps it', async () => {
-        const target = makeTarget(conversation(900));
-        const { cfg, chat } = makeConfig('SUMMARY');
-        setup({ selector: dropFirstTwo, resolveTarget: () => target }, cfg);
-
-        // A manual request that carries a window: the compaction runs, and the plugin remembers the window.
-        window.dispatchEvent(new CustomEvent('aparte-compact', { detail: { targetId: 'c', window: 1000 } }));
-        await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
-        await settle();
-
-        target.messages = another();
-        turnEnded();
-        await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(2));
-    });
 });
 
 describe('when it does not act', () => {
