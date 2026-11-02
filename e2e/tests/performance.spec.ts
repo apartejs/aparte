@@ -11,8 +11,15 @@
  *   collection, against the same page before them, and the time the call took.
  *
  * Chromium only: the heap is read through the DevTools protocol. The budgets are the ones the
- * performance reference page publishes; the numbers measured are printed as annotations, so a CI
- * log shows where a run sits under them.
+ * performance reference page publishes; the numbers measured are printed in the log and kept as
+ * annotations, so a run shows where it sits under them.
+ *
+ * Measured ALONE, or not at all: its own project (`performance`), one worker, the two tests in
+ * turn. Inside the vanilla suite it shared a four-core runner with three other browsers, and the
+ * chunk-to-paint p95 swung across its 50 ms ceiling with nothing changed in what it measures:
+ * under it on three runs, 52.2 and 55.1 ms on main after an unrelated merge. A time measured
+ * against whatever happens to run beside it is a measure of the neighbours. With more than one
+ * worker the tests skip and say how to run them.
  */
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
@@ -60,7 +67,9 @@ async function armStreamClock(page: Page): Promise<void> {
 }
 
 test.describe('the performance budget', () => {
+    test.describe.configure({ mode: 'serial' });
     test.skip(({ browserName }) => browserName !== 'chromium', 'the heap is read through the DevTools protocol');
+    test.skip(() => test.info().config.workers > 1, 'measured alone: playwright test --project=performance --workers=1');
 
     test('a streamed chunk is on screen within the budget', async ({ page }) => {
         await installLlmMock(page, { scenario: 'long-reply', pace: 20 });
@@ -77,7 +86,9 @@ test.describe('the performance budget', () => {
             if (shown) latencies.push(shown[0] - read);
         }
         const p95 = percentile(latencies, 95);
-        test.info().annotations.push({ type: 'chunk-to-paint', description: `p50 ${percentile(latencies, 50).toFixed(1)} ms, p95 ${p95.toFixed(1)} ms, max ${Math.max(...latencies).toFixed(1)} ms over ${latencies.length} chunks` });
+        const measured = `p50 ${percentile(latencies, 50).toFixed(1)} ms, p95 ${p95.toFixed(1)} ms, max ${Math.max(...latencies).toFixed(1)} ms over ${latencies.length} chunks`;
+        console.log(`[performance] chunk to paint: ${measured} (ceiling ${BUDGET.chunkToPaintP95Ms} ms)`);
+        test.info().annotations.push({ type: 'chunk-to-paint', description: measured });
         expect(latencies.length, 'most chunks drew something').toBeGreaterThan(100);
         expect(p95).toBeLessThan(BUDGET.chunkToPaintP95Ms);
     });
@@ -111,7 +122,9 @@ test.describe('the performance budget', () => {
 
         const grownMb = (await heap() - before) / (1024 * 1024);
         const nodes = await page.evaluate(() => document.getElementsByTagName('*').length);
-        test.info().annotations.push({ type: '500-messages', description: `heap +${grownMb.toFixed(1)} MB, setMessages ${renderMs.toFixed(0)} ms, ${nodes} elements on the page` });
+        const measured = `heap +${grownMb.toFixed(1)} MB, setMessages ${renderMs.toFixed(0)} ms, ${nodes} elements on the page`;
+        console.log(`[performance] 500 messages: ${measured} (ceilings ${BUDGET.heap500Mb} MB, ${BUDGET.render500Ms} ms)`);
+        test.info().annotations.push({ type: '500-messages', description: measured });
         expect(grownMb).toBeLessThan(BUDGET.heap500Mb);
         expect(renderMs).toBeLessThan(BUDGET.render500Ms);
     });

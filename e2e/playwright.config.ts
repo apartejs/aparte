@@ -289,8 +289,9 @@ const CITATIONS = /citations\.spec\.ts/;
 // Right-to-left, measured in a browser (the unit test reads the sheets). Vanilla carries it, so
 // it runs in Chromium and WebKit; the frameworks mount the same elements and the same CSS.
 const RTL = /right-to-left\.spec\.ts/;
-// The performance budget: chunk to paint, and 500 messages. Chromium reads the heap; the spec
-// skips elsewhere. Vanilla carries it — the frameworks mount the same elements.
+// The performance budget: chunk to paint, and 500 messages. Not in any app's suite: it runs as its
+// own project (`performance`, Chromium, on vanilla's page — the frameworks mount the same
+// elements), alone, with one worker — see the spec's header for why a time cannot share the box.
 const PERF = /performance\.spec\.ts/;
 
 // Which specs a given app runs.
@@ -312,7 +313,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, PERF, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
@@ -441,6 +442,13 @@ export default defineConfig({
             testMatch: firefoxSuiteFor(k),
             expect: { timeout: 20_000 },
         })),
+        // The performance budget, on vanilla's page, measured alone: CI runs it in a step of its
+        // own with `--workers=1`, after the vanilla suite; with more workers the spec skips.
+        ...(selected.includes('vanilla') ? [{
+            name: 'performance',
+            use: { ...devices['Desktop Chrome'], baseURL: url('vanilla') },
+            testMatch: PERF,
+        }] : []),
         ...(runAgentsSdk ? [{
             name: 'agents-sdk',
             use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${AGENTS_SDK_PORT}` },
