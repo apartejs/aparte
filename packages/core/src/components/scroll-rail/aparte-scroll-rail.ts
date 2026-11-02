@@ -200,16 +200,26 @@ export class AparteScrollRail extends HTMLElement {
             this._mutations = new MutationObserver((records) => {
                 for (const record of records) {
                     if (this.contains(record.target)) continue;
-                    if (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes))) {
+                    // A bubble's id or role changed in place (a framework reusing an element):
+                    // which messages have ticks, and under which ids, is what a rebuild reads.
+                    const retagged = record.type === 'attributes' && (record.target as Element).tagName === 'APARTE-CHAT-BUBBLE';
+                    if (retagged || (record.type === 'childList' && (holdsBubbles(record.addedNodes) || holdsBubbles(record.removedNodes)))) {
                         this._queueRebuild();
                         return;
                     }
+                    if (record.type === 'attributes') continue;
                     const at = record.target instanceof Element ? record.target : record.target.parentElement;
                     const owner = at?.closest<HTMLElement>('aparte-chat-bubble');
                     if (owner && this._ticked(owner)) this._queueRelabel(owner);
                 }
             });
-            this._mutations.observe(this._host, { childList: true, subtree: true, characterData: true });
+            this._mutations.observe(this._host, {
+                childList: true,
+                subtree: true,
+                characterData: true,
+                attributes: true,
+                attributeFilter: ['message-id', 'data-role'],
+            });
         }
         // The rail spans the transcript and sits clear of its scrollbar, both measured:
         // re-measured when the chat or the transcript changes size (a composer that grows).
@@ -632,8 +642,8 @@ export class AparteScrollRail extends HTMLElement {
                 transcript = v.height;
             }
         }
-        // The default pitch and the share are the theme's, read above this element so that a
-        // value the rail itself wrote is never mistaken for them.
+        // The default pitch is the theme's, read above this element so that the value the
+        // rail itself wrote is never mistaken for it.
         const above = host ?? document.documentElement;
         const aboveStyle = getComputedStyle(above);
         // The room is the rail's ceiling, its share of the transcript (the stylesheet's
@@ -641,7 +651,8 @@ export class AparteScrollRail extends HTMLElement {
         // once tightened its height WAS the tightened list and the pitch never loosened. A
         // 1000-message conversation, then a 20-message one, kept 6px ticks where 24px fit,
         // measured in Chromium. Its own height is the fallback when nothing is laid out.
-        const share = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-share')) || 0.6;
+        // The share as the stylesheet reads it, on this element: a consumer may set it here.
+        const share = parseFloat(getComputedStyle(this).getPropertyValue('--aparte-scroll-rail-share')) || 0.6;
         const height = transcript > 0 ? Math.floor(transcript * share) : this.clientHeight;
         const count = this._list()?.children.length ?? 0;
         if (!count || !height) {

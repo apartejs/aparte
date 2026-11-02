@@ -398,6 +398,17 @@ describe('aparte-scroll-rail holds still', () => {
         expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'u2', 'u3', 'u4']);
     });
 
+    it('follows a bubble whose id or role changes in place — a framework reusing the element', async () => {
+        const turns = THREE_TURNS();
+        const { rail } = mount(turns);
+        turns[2]!.setAttribute('message-id', 'u2-final');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'u2-final', 'u3']);
+        turns[1]!.setAttribute('data-role', 'user');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail).map((t) => t.dataset['messageId'])).toEqual(['u1', 'a1', 'u2-final', 'u3']);
+    });
+
     it('with every="message", a streaming reply re-names its own tick and nothing else', async () => {
         const turns = THREE_TURNS();
         const { rail } = mount(turns, { every: 'message' });
