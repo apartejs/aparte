@@ -92,12 +92,12 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
          * the live document all the same. So the `<img>` the parser built is replaced by what
          * core makes of the picture: the same one sent without a referrer when the image
          * policy lets it load, the link a held one becomes, or nothing. Its description is the
-         * text the parser wrote inside it, which an `<img>` cannot show.
+         * text the parser wrote inside it, which an `<img>` cannot show. The parser sets a
+         * `src` on the image it is writing and on nothing else.
          */
-        const writeImage = (node: Element | undefined, address: string): void => {
-            if (!node || node.tagName !== 'IMG') return;
+        const writeImage = (node: Element, address: string): void => {
             const template = document.createElement('template');
-            template.innerHTML = config.sanitizeHtml(`<img src="${escapeAttr(address)}" alt="${escapeAttr(node.textContent ?? '')}">`);
+            template.innerHTML = config.sanitizeHtml(`<img src="${escapeAttr(address)}" alt="${escapeAttr(String(node.textContent))}">`);
             node.replaceWith(template.content);
         };
         renderer.set_attr = (data, type, value) => {
@@ -110,7 +110,7 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
             }
             if (type === HREF && !isSafeUrl(value, 'a')) return;
             if (type === SRC) {
-                writeImage(data.nodes[data.index], value);
+                writeImage(data.nodes[data.index]!, value);
                 return;
             }
             if (type === LANG) {
