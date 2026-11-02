@@ -182,9 +182,15 @@ export interface AparteCodeLanguageRenderer {
      * The drawing handles its own overflow: no scroller around it. For a rich card, whose
      * carousel scrolls itself and whose shadows reach past its box; a diagram or a chart leaves
      * it off and scrolls inside its box. Either way a fenced block of a drawn language wears no
-     * code card (header, language, copy button): what is drawn stands for the block.
+     * code card (header, language, copy button) unless `card` keeps it.
      */
     readonly bare?: boolean;
+    /**
+     * Keep the code card around the drawing once it is drawn: its header, language and copy
+     * button. For a drawing whose source the reader takes away, as a Mermaid diagram's is pasted
+     * into a document. Left off, what is drawn stands for the block, as a chart or a card does.
+     */
+    readonly card?: boolean;
 }
 
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */

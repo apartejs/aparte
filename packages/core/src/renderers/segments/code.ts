@@ -63,11 +63,13 @@ const languageOf = (segment: AparteCodeSegment): string => (segment.language || 
 /**
  * A fence in a language a renderer draws wears no code card once it is drawn: the drawing is
  * the block. A chart under a header saying "ECHARTS" read as code, which it is not to the person
- * reading it. The attribute says a renderer exists; segment/text.css waits for the drawing.
+ * reading it. A renderer whose source is worth taking keeps the card (`card`). The attribute
+ * says a renderer drops it; segment/text.css waits for the drawing.
  */
 function markBare(element: HTMLElement, segment: AparteCodeSegment): void {
     const language = languageOf(segment);
-    element.toggleAttribute('data-aparte-bare', !!language && !!contextConfig(element).getCodeLanguageRenderer(language));
+    const renderer = language ? contextConfig(element).getCodeLanguageRenderer(language) : undefined;
+    element.toggleAttribute('data-aparte-bare', !!renderer && renderer.card !== true);
 }
 
 /**

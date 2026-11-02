@@ -182,6 +182,8 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
     const renderer = {
         languages: ['mermaid'] as const,
         lazy: true,
+        // A diagram's source is what a reader takes away, to paste into a document or edit.
+        card: true,
         epoch: 0,
         /** The colours themselves, not the theme's name: two skins may share one name. */
         cacheKey(ctx: AparteCodeLanguageContext): string {

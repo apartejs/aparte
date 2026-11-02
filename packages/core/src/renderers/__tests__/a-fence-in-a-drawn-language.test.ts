@@ -63,6 +63,13 @@ describe('a fence in a drawn language', () => {
         expect(card.querySelector('.note')).not.toBeNull();
     });
 
+    it('keeps its code card when the renderer asks (card), for a source worth copying', () => {
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['flow'], card: true, render: () => '<img class="aparte-diagram" alt="Diagram">' });
+        const diagram = mount({ id: 'b3', type: 'code', language: 'flow', content: 'flowchart TD', isStreaming: false });
+        expect(diagram.hasAttribute('data-aparte-bare')).toBe(false);
+        expect(diagram.querySelector('.aparte-code-header')).not.toBeNull();
+    });
+
     it('is drawn as it streams, then once more when it closes', () => {
         const asked = installDiagrams();
         const segment: AparteCodeSegment = { id: 'd2', type: 'code', language: 'mermaid', content: '', isStreaming: true };
