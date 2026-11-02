@@ -305,6 +305,9 @@ export class AparteChatViewport extends HTMLElement {
      */
     private _frameworkManagedDOM = false;
 
+    /** Inside `setMessages`: each append leaves the layout work to the end of the loop. */
+    private _bulkAppend = false;
+
     static get observedAttributes(): string[] {
         return ['scroll-threshold', 'max-rendered-bubbles', 'loading'];
     }
@@ -1011,6 +1014,8 @@ export class AparteChatViewport extends HTMLElement {
                 populateBubbleFromMessage(bubble as unknown as SyncableBubble, stored);
             }
         }
+        // A whole conversation set at once does the layout work below once, at the end.
+        if (this._bulkAppend) return;
         this._pruneRenderedBubbles();
         this._syncBusy();
         // User sending always anchors to bottom regardless of scroll position — and it
@@ -1325,11 +1330,28 @@ export class AparteChatViewport extends HTMLElement {
         // Same reason as `importTree`: the incoming messages may BE the outgoing
         // ones, and a conversation the user can switch back to still holds them.
         this.clearAll({ revokeAttachments: false });
-        for (const m of messages) {
-            // Historical by definition: this replaces the transcript with a list the
-            // caller already had. Nothing here is starting now.
-            this.appendMessage(m, { historical: true });
+        this._bulkAppend = true;
+        try {
+            for (const m of messages) {
+                // Historical by definition: this replaces the transcript with a list the
+                // caller already had. Nothing here is starting now.
+                this.appendMessage(m, { historical: true });
+            }
+        } finally {
+            this._bulkAppend = false;
         }
+        /*
+         * The layout work each append does, done once. Each one measured the spacer and
+         * each person's message started a smooth scroll, and each of those forced a layout
+         * of the whole transcript: loading 500 messages took 2.8 s, more than a second of
+         * it in those two calls. A conversation set whole ends at its last message, as it
+         * did, without a glide through every turn on the way.
+         */
+        this._pruneRenderedBubbles();
+        this._syncBusy();
+        if (messages.some((m) => m.role === 'user')) this._isAutoScrollEnabled = true;
+        this._recalculateSpacer();
+        this._autoScroll();
     }
 
     /**
