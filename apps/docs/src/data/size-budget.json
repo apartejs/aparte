@@ -1,10 +1,10 @@
 {
     "@aparte/angular": {
-        "js": 33280,
+        "js": 33024,
         "css": 0
     },
     "@aparte/core": {
-        "js": 248064,
+        "js": 256256,
         "css": 24320
     },
     "@aparte/docs-mcp": {
@@ -16,7 +16,7 @@
         "css": 0
     },
     "@aparte/locales": {
-        "js": 24320,
+        "js": 24576,
         "css": 0
     },
     "@aparte/plugin-approval": {
@@ -32,7 +32,7 @@
         "css": 0
     },
     "@aparte/plugin-cards": {
-        "js": 191488,
+        "js": 192512,
         "css": 0
     },
     "@aparte/plugin-chartjs": {
@@ -56,7 +56,7 @@
         "css": 0
     },
     "@aparte/plugin-mermaid": {
-        "js": 5888,
+        "js": 6400,
         "css": 0
     },
     "@aparte/plugin-model-selector": {
@@ -72,7 +72,7 @@
         "css": 0
     },
     "@aparte/plugin-streaming-markdown": {
-        "js": 1280,
+        "js": 1536,
         "css": 0
     },
     "@aparte/plugin-titler": {
