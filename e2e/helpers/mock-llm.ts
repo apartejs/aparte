@@ -143,7 +143,8 @@ export type LlmScenario =
     | 'math-hostile'
     | 'diagram'
     | 'diagram-broken'
-    | 'citations';
+    | 'citations'
+    | 'long-reply';
 
 export interface LlmMockOptions {
     /** Return an empty model list → nothing auto-selects, the gate stays shut. */
@@ -181,6 +182,17 @@ export interface LlmMockOptions {
 const REPLY_CHUNKS = [
     'Hello', ' from', ' the', ' **aparte', ' e2e', ' mock**.',
     ' This', ' is', ' a', ' second', ' line', ' that', ' adds', ' vertical', ' height.',
+];
+
+/** The `long-reply` scenario: 145 small chunks of ordinary Markdown. */
+export const LONG_REPLY_MARK = 'That is the end of the long reply.';
+const LONG_REPLY_CHUNKS = [
+    ...Array.from({ length: 6 }, (_, p) => [
+        `${p ? '\n\n' : ''}Paragraph ${p + 1}:`, ' the', ' chat', ' writes', ' each', ' **chunk**', ' as', ' it', ' arrives,',
+        ' with', ' `inline code`', ' and', ' a', ' little', ' more', ' prose', ' to', ' wrap.',
+        '\n\n- one', ' item', '\n- another', ' item', '\n- a third', ' item',
+    ]).flat(),
+    `\n\n${LONG_REPLY_MARK}`,
 ];
 
 const sse = (payload: unknown): string => `data: ${JSON.stringify(payload)}\n\n`;
@@ -441,6 +453,11 @@ function bodyForScenario(scenario: LlmScenario): string {
                 contentEvent('fact>\n\nTell me what to change.'),
                 finishEvent(), usageEvent(), DONE,
             ].join('');
+
+        // A long Markdown reply in small chunks — paragraphs, bold, inline code, a list — so a
+        // paced run gives a timing sample per chunk: the performance spec's stream.
+        case 'long-reply':
+            return [...LONG_REPLY_CHUNKS.map(contentEvent), finishEvent(), usageEvent(), DONE].join('');
 
         case 'text':
         case 'slow':
