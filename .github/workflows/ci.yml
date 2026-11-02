@@ -435,6 +435,9 @@ jobs:
       - name: Check packaging
         run: pnpm check-packaging
 
+      - name: Check each package's size against its budget
+        run: pnpm check:size-budget
+
   # The unit suite in three shards; each writes a blob report with its coverage, and
   # `coverage` merges them, so the floors are judged on the whole suite as before.
   test:

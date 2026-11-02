@@ -1,0 +1,118 @@
+{
+    "@aparte/angular": {
+        "js": 33280,
+        "css": 0
+    },
+    "@aparte/core": {
+        "js": 248064,
+        "css": 24320
+    },
+    "@aparte/docs-mcp": {
+        "js": 4096,
+        "css": 0
+    },
+    "@aparte/engine": {
+        "js": 4352,
+        "css": 0
+    },
+    "@aparte/locales": {
+        "js": 24320,
+        "css": 0
+    },
+    "@aparte/plugin-approval": {
+        "js": 3072,
+        "css": 0
+    },
+    "@aparte/plugin-artifacts": {
+        "js": 18432,
+        "css": 0
+    },
+    "@aparte/plugin-ask-user": {
+        "js": 7680,
+        "css": 0
+    },
+    "@aparte/plugin-cards": {
+        "js": 191488,
+        "css": 0
+    },
+    "@aparte/plugin-chartjs": {
+        "js": 12288,
+        "css": 0
+    },
+    "@aparte/plugin-compaction": {
+        "js": 9984,
+        "css": 0
+    },
+    "@aparte/plugin-echarts": {
+        "js": 13312,
+        "css": 0
+    },
+    "@aparte/plugin-katex": {
+        "js": 2304,
+        "css": 0
+    },
+    "@aparte/plugin-marked": {
+        "js": 5120,
+        "css": 0
+    },
+    "@aparte/plugin-mermaid": {
+        "js": 5888,
+        "css": 0
+    },
+    "@aparte/plugin-model-selector": {
+        "js": 8960,
+        "css": 0
+    },
+    "@aparte/plugin-shiki": {
+        "js": 1536,
+        "css": 0
+    },
+    "@aparte/plugin-storage-idb": {
+        "js": 3328,
+        "css": 0
+    },
+    "@aparte/plugin-streaming-markdown": {
+        "js": 1280,
+        "css": 0
+    },
+    "@aparte/plugin-titler": {
+        "js": 512,
+        "css": 0
+    },
+    "@aparte/provider-ai-sdk": {
+        "js": 4352,
+        "css": 0
+    },
+    "@aparte/provider-openai-compat": {
+        "js": 9728,
+        "css": 0
+    },
+    "@aparte/provider-scenario": {
+        "js": 6656,
+        "css": 0
+    },
+    "@aparte/provider-transformers": {
+        "js": 11008,
+        "css": 0
+    },
+    "@aparte/react": {
+        "js": 5120,
+        "css": 0
+    },
+    "@aparte/runner-ag-ui": {
+        "js": 10752,
+        "css": 0
+    },
+    "@aparte/runner-n8n": {
+        "js": 10240,
+        "css": 0
+    },
+    "@aparte/svelte": {
+        "js": 5120,
+        "css": 0
+    },
+    "@aparte/vue": {
+        "js": 5632,
+        "css": 0
+    }
+}
