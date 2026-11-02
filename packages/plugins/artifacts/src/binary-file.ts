@@ -121,7 +121,8 @@ export function setupBinaryFileArtifact(element: HTMLElement, segment: ArtifactS
         element.dataset['aparteInit'] = 'true';
         element.addEventListener('click', (ev) => {
             const target = ev.target as HTMLElement;
-            const action = target.closest<HTMLElement>('[data-action]')?.getAttribute('data-action');
+            // Only the card's own button: `data-action` in a converter's `previewHtml` is not it.
+            const action = target.closest<HTMLElement>('.aparte-art-file__actions [data-action]')?.getAttribute('data-action');
             if (action !== 'download') return;
             const bin = produced.get(segment.id);
             if (bin) downloadBinary(bin);
@@ -218,7 +219,7 @@ function swapToPreview(element: HTMLElement, bin: ArtifactBinary, kind: string):
     if (nameEl) nameEl.textContent = bin.filename;
     const sub = element.querySelector<HTMLElement>('[data-role="file-sub"]');
     if (sub) sub.textContent = `${formatBytes(byteLength(bin.buffer))} · ${kind.toUpperCase()}`;
-    const dlBtn = element.querySelector<HTMLButtonElement>('[data-action="download"]');
+    const dlBtn = element.querySelector<HTMLButtonElement>('.aparte-art-file__actions [data-action="download"]');
     if (dlBtn) dlBtn.disabled = false;
 }
 

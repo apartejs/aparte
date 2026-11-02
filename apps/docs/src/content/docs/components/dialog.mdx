@@ -22,7 +22,9 @@ gives the focus back and dims the page behind a backdrop. The recipe draws a `__
 
 Core adds the wiring. A control with `data-aparte-dialog-open="settings"` opens the dialog whose
 id is `settings`; a control inside with `data-aparte-dialog-close` closes it; a click on the
-backdrop closes it too, unless the dialog carries `data-aparte-dialog-static`.
+backdrop closes it too, unless the dialog carries `data-aparte-dialog-static`. A control inside a
+message's content (a reply, a custom segment or tool renderer) is ignored, opener and closer alike:
+the attributes are for controls your page places, never for text a model wrote.
 
 ## Customize
 

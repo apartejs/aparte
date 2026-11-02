@@ -121,9 +121,12 @@ describe('a formula still arriving', () => {
         };
     }
     const part = (): HTMLElement => {
+        const segments = document.createElement('div');
+        segments.className = 'aparte-segments';
         const el = document.createElement('div');
         el.setAttribute('data-segment-id', 's1');
-        document.body.appendChild(el);
+        segments.appendChild(el);
+        document.body.appendChild(segments);
         return el;
     };
 

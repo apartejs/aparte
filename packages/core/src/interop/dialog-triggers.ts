@@ -20,6 +20,8 @@
  * a host that builds the page before importing core, and idempotent.
  */
 
+import { inRenderedContent } from '../utils/rendered-content.js';
+
 const INSTALLED = Symbol.for('aparte.dialogTriggers');
 
 /**
@@ -50,7 +52,12 @@ function onClick(event: Event): void {
     if (!target?.closest) return;
 
     const opener = target.closest<HTMLElement>('[data-aparte-dialog-open]');
-    if (opener) {
+    // An opener inside a reply is text the model wrote, not a control the app placed: its
+    // markup may not carry the attribute, and if a custom sanitizer lets it through it
+    // still opens nothing. The closer gets the same rule below: a chat can itself sit in
+    // a `<dialog>`, so "a dialog the click is already inside" proves nothing about who
+    // wrote the control. The backdrop stays: it is the `<dialog>` element, never content.
+    if (opener && !inRenderedContent(opener)) {
         const id = opener.getAttribute('data-aparte-dialog-open');
         const dialog = id ? document.getElementById(id) : null;
         if (dialog instanceof HTMLDialogElement && !dialog.open) {
@@ -61,7 +68,7 @@ function onClick(event: Event): void {
     }
 
     const closer = target.closest<HTMLElement>('[data-aparte-dialog-close]');
-    if (closer) {
+    if (closer && !inRenderedContent(closer)) {
         const dialog = closer.closest('dialog');
         if (dialog instanceof HTMLDialogElement && dialog.open) {
             event.preventDefault();

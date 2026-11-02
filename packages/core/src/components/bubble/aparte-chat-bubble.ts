@@ -1221,6 +1221,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const button = (event.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-checkpoint-action]');
     const separator = button?.closest('.aparte-checkpoint');
     if (!button || !separator || separator.parentElement !== this) return;
+    // The summary panel is Markdown the model wrote: a button in it is not Restore.
+    if (button.closest('.aparte-checkpoint__summary')) return;
     switch (button.getAttribute('data-checkpoint-action')) {
       case 'toggle':
         this._checkpointOpen = !this._checkpointOpen;

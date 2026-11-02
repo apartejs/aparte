@@ -118,7 +118,7 @@ describe('defaultSanitizer', () => {
 
         it('is not fooled by the case of the type', () => {
             expect(s('<input type="PASSWORD">')).not.toContain('PASSWORD');
-            expect(s('<input type="CheckBox">')).toContain('type="CheckBox"');
+            expect(s('<input type="CheckBox">')).toContain('type="checkbox"');
         });
 
         it('keeps a highlighter’s CUSTOM properties — dual-theme output is only those', () => {
@@ -519,6 +519,13 @@ describe('defaultSanitizer — srcset follows the same URL allowlist as src', ()
  * Both lists are now derived from `DANGEROUS_TAGS`, which is why this suite
  * loops over the Set rather than a copy of it.
  */
+/** The `on*` attributes a browser builds from `html`. */
+const RealDOMParser = DOMParser;
+function handlers(html: string): string[] {
+    const doc = new RealDOMParser().parseFromString(html, 'text/html');
+    return [...doc.querySelectorAll('*')].flatMap((el) => el.getAttributeNames().filter((name) => name.startsWith('on')));
+}
+
 describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
     const noDom = (html: string): string => {
         vi.stubGlobal('DOMParser', undefined);
@@ -540,7 +547,9 @@ describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
             '<img/onerror=alert(1) src=x>',
         ]) {
             it(`strips the handler in ${payload}`, () => {
-                expect(noDom(payload)).not.toMatch(/onerror/i);
+                // Judged on what a browser builds from the answer: `src=x/onerror=…` is one
+                // unquoted VALUE to a tokenizer, so the word may stay in the text, inert.
+                expect(handlers(noDom(payload))).toEqual([]);
             });
         }
 
@@ -558,9 +567,7 @@ describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
             '<img src=x onload=0 onerror=alert(1)>',
         ]) {
             it(`strips BOTH handlers in ${payload}`, () => {
-                const out = noDom(payload);
-                expect(out).not.toMatch(/onerror/i);
-                expect(out).not.toMatch(/onload/i);
+                expect(handlers(noDom(payload))).toEqual([]);
             });
         }
     });
@@ -570,6 +577,8 @@ describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
         // hoists them away and keeps what they wrap, so eating the text would
         // lose the answer rather than protect anyone.
         const UNWRAPPED = new Set(['html', 'body', 'head']);
+        // A void element wraps nothing in a browser either: only its tag goes.
+        const VOID = new Set(['link', 'meta', 'base', 'embed', 'frame']);
 
         it('reads the whole Set (a corpus that silently shrinks is the failure worth catching)', () => {
             expect(DANGEROUS_TAGS.size).toBeGreaterThanOrEqual(26);
@@ -580,13 +589,15 @@ describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
                 const out = noDom(`<${tag} onload=alert(1)>after`);
                 expect(out).not.toContain(`<${tag}`);
                 expect(out).not.toMatch(/onload/i);
-                expect(out).toContain('after');
+                // An unclosed element wraps the rest of the text, as it does in a browser.
+                if (UNWRAPPED.has(tag) || VOID.has(tag)) expect(out).toContain('after');
+                else expect(out).not.toContain('after');
             });
 
-            it(`removes <${tag}>…</${tag}> ${UNWRAPPED.has(tag) ? 'but keeps what it wrapped' : 'content and all'}`, () => {
+            it(`removes <${tag}>…</${tag}> ${UNWRAPPED.has(tag) || VOID.has(tag) ? 'but keeps what follows it' : 'content and all'}`, () => {
                 const out = noDom(`<${tag}>secret</${tag}>`);
                 expect(out).not.toContain(`<${tag}`);
-                if (UNWRAPPED.has(tag)) expect(out).toContain('secret');
+                if (UNWRAPPED.has(tag) || VOID.has(tag)) expect(out).toContain('secret');
                 else expect(out).not.toContain('secret');
             });
         }
@@ -604,5 +615,67 @@ describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
 
     it('leaves ordinary prose alone', () => {
         expect(noDom('<p>hello <strong>world</strong></p>')).toBe('<p>hello <strong>world</strong></p>');
+    });
+});
+
+describe('an http(s) scheme with no slash after it is external', () => {
+    // On an https page `http:evil.example` resolves to http://evil.example/, so the link has to open
+    // in its own tab like any other external one, and a model's target="_self" cannot keep it here.
+    for (const href of ['http:evil.example/phish', 'HTTP:evil.example', 'https:evil.example', 'HTTPS:evil.example']) {
+        it(`hardens ${href}`, () => {
+            const out = s(`<a href="${href}">the docs</a>`);
+            expect(out).toContain('target="_blank"');
+            expect(out).toContain('rel="noopener noreferrer"');
+            const own = s(`<a href="${href}" target="_self">the docs</a>`);
+            expect(own).toContain('target="_blank"');
+            expect(own).not.toContain('_self');
+        });
+    }
+});
+
+describe('role', () => {
+    it.each(['textbox', 'button', 'link', 'checkbox', 'tab', 'tablist', 'menu', 'menuitem', 'dialog', 'combobox', 'listbox', 'grid', 'switch', 'slider', 'application', 'toolbar', 'progressbar', 'tabpanel'])(
+        'drops the widget role %s, and a list that holds one',
+        (role) => {
+            expect(s(`<div role="${role}">x</div>`)).toBe('<div>x</div>');
+            expect(s(`<div role="note ${role.toUpperCase()}">x</div>`)).toBe('<div>x</div>');
+        },
+    );
+
+    it.each(['region', 'group', 'status', 'alert', 'math', 'term', 'definition', 'article', 'code', 'blockquote', 'meter', 'tooltip', 'doc-noteref', 'note', 'figure', 'img', 'list', 'table', 'heading'])(
+        'keeps the role %s, which describes structure, a landmark or a live region',
+        (role) => {
+            expect(s(`<div role="${role}">x</div>`)).toBe(`<div role="${role}">x</div>`);
+        },
+    );
+});
+
+describe('the no-DOM fallback keeps a task-list checkbox as a fixed one', () => {
+    const noDom = (html: string): string => {
+        vi.stubGlobal('DOMParser', undefined);
+        return s(html);
+    };
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('rebuilds the checkbox tags marked and streaming-markdown write, whatever the order and quoting', () => {
+        expect(noDom('<li><input checked="" disabled="" type="checkbox"> shipped</li><li><input disabled="" type="checkbox"> tested</li>'))
+            .toBe('<li><input type="checkbox" checked disabled> shipped</li><li><input type="checkbox" disabled> tested</li>');
+        expect(noDom('<input type=checkbox disabled checked>')).toBe('<input type="checkbox" checked disabled>');
+        expect(noDom("<input TYPE='checkbox' disabled />")).toBe('<input type="checkbox" disabled>');
+    });
+
+    it('drops every other input, and a checkbox that carries anything else', () => {
+        for (const tag of [
+            '<input>', '<input type="text">', '<input type="password" title="API key">',
+            '<input title="type=checkbox">', '<input type="checkbox-x">',
+        ]) {
+            expect(noDom(`a${tag}b`), tag).toBe('ab');
+        }
+    });
+
+    it('stays fast on a long run of spaces inside the tag', () => {
+        const started = performance.now();
+        noDom('<input' + ' '.repeat(50_000) + 'x>');
+        expect(performance.now() - started).toBeLessThan(100);
     });
 });
