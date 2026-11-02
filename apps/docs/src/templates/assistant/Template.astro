@@ -6,12 +6,12 @@
  */
 import { sparklesIcon } from '@aparte/core/icons';
 import './assistant.css';
-import { FRENCH_QUESTION, INTEREST_QUESTION, PLAY_QUESTION, TODO_QUESTION } from './scenario';
+import { FRENCH_QUESTION, INTEREST_QUESTION, PHOTOS_QUESTION, TODO_QUESTION } from './scenario';
 
 // The starters under the greeting: each one is a question the script answers (scenario.ts), and
 // none of them is already in the history, so a starter never adds a twin to the list.
 const suggestions = JSON.stringify([
-    { label: 'Rename photos by date', prompt: PLAY_QUESTION },
+    { label: 'Rename photos by date', prompt: PHOTOS_QUESTION },
     { label: 'Explain compound interest', prompt: INTEREST_QUESTION },
     { label: 'Notes to a to-do list', prompt: TODO_QUESTION },
     { label: 'Translate into French', prompt: FRENCH_QUESTION },

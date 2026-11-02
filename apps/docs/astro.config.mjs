@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { existsSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
@@ -8,6 +9,7 @@ import starlightLinksValidator from 'starlight-links-validator';
 import { REDIRECTS } from './scripts/lib/redirects.mjs';
 import { catalogueSidebar } from './scripts/lib/catalogue.mjs';
 import { guideGroups } from './scripts/lib/guides.mjs';
+import { CHANGELOG_COMPARE } from './src/lib/changelog-compare.mjs';
 import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 import { LLMS_SETS } from './src/data/llms-sets.mjs';
 
@@ -116,10 +118,20 @@ export default defineConfig({
     sitemap({
       filter: (page) => {
         const path = new URL(page).pathname;
-        return !PREVIEW_FRAME.test(path) && !(path in REDIRECTS);
+        return !PREVIEW_FRAME.test(path) && !CHANGELOG_COMPARE.test(path) && !(path in REDIRECTS);
+      },
+      // A card's page carries its picture (`<Variant poster>`), and says so here: an image
+      // search shown "aparté weather card" found other sites' widgets, none of ours.
+      serialize: (item) => {
+        const path = new URL(item.url).pathname;
+        // The landing's reply (`poster="reply"`): a card, a formula and a chart.
+        const card = path === '/' ? 'reply' : /^\/components\/([\w-]+)-card\/$/.exec(path)?.[1];
+        if (card && existsSync(`public/cards/${card}.png`)) item.img = [{ url: `https://apartejs.dev/cards/${card}.png` }];
+        return item;
       },
     }),
     starlight({
+      routeMiddleware: './src/routeData.ts',
       title: 'aparté',
       // Code blocks are drawn by the library's own code-segment markup (see `markdown` above),
       // not by Expressive Code; no page used its options (titles, highlighted lines).
