@@ -74,6 +74,8 @@ export const ptBR: AparteLocale = {
     sourceNext: "Próxima fonte",
     sourcePosition: "Fonte {i} de {n}",
     opensInNewTab: "(abre em uma nova aba)",
+    imageLoad: "Carregar a imagem de {host}",
+    imageLoadNamed: "Carregar a imagem “{alt}” de {host}",
     questionDeclined: "Você optou por não responder.",
     artifactNotCreated: "Não criado",
     thoughtFor: "Raciocínio: {duration}",

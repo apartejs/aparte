@@ -313,7 +313,7 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteCodeLanguageRenderer, AparteCodeLanguageContext, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteCodeLanguageRenderer, AparteCodeLanguageContext, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer, AparteImageDecision, AparteImagePolicy } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
@@ -526,4 +526,9 @@ export { installDialogTriggersOnce };
 // `defer-hydration`: the elements leave a server-rendered page alone until the framework has
 // hydrated it; a wrapper releases them. An element of yours can honour it too.
 export { deferHydrationOf, releaseDeferredHydration } from './interop/defer-hydration.js';
-if (typeof document !== 'undefined') installDialogTriggersOnce();
+// A picture the image policy held loads on a plain click on its link, installed the same way.
+import { installImageHoldsOnce } from './interop/image-holds.js';
+if (typeof document !== 'undefined') {
+    installDialogTriggersOnce();
+    installImageHoldsOnce();
+}

@@ -74,6 +74,8 @@ export const ko: AparteLocale = {
     sourceNext: "다음 출처",
     sourcePosition: "출처 {i}/{n}",
     opensInNewTab: "(새 탭에서 열림)",
+    imageLoad: "{host}에서 이미지 불러오기",
+    imageLoadNamed: "{host}에서 이미지 “{alt}” 불러오기",
     questionDeclined: "답변하지 않기로 했습니다.",
     artifactNotCreated: "생성되지 않음",
     thoughtFor: "생각 시간: {duration}",

@@ -109,11 +109,41 @@
   border-radius: var(--aparte-radius-xs);
 }
 
-.aparte-content a,
-.aparte-segment-content a,
-.aparte-thinking-content a {
+/* `:where(:not(…))` leaves out a held picture at no weight: the rule keeps one class and one
+   type, so a consumer's own `.aparte-content a` still wins over it. */
+.aparte-content a:where(:not(.aparte-image-held)),
+.aparte-segment-content a:where(:not(.aparte-image-held)),
+.aparte-thinking-content a:where(:not(.aparte-image-held)) {
   color: var(--aparte-message-link, var(--aparte-primary-ink));
   text-decoration: underline;
+}
+
+/* A picture the image policy held (`config/image-policy.ts`): a link to it that wears the tag
+   recipe and names the host it would load from. A click loads it in place
+   (`interop/image-holds.ts`). What is its own: no underline, a pointer, the host in a quieter
+   ink, and the focus ring a link needs.
+
+   The host is never cut, and it is its END that matters: `cdn.yourbank.com.<…>.attacker.example`
+   loads from attacker.example, and a host clipped at the edge of the bubble would show only the
+   trusted-looking start. So it wraps, on its own line when it must, and the description beside
+   it is what gives way. */
+.aparte-image-held {
+  flex-wrap: wrap;
+  cursor: pointer;
+  text-decoration: none;
+  --aparte-icon-size: 1.15em;
+}
+.aparte-image-held__icon { display: inline-flex; }
+.aparte-image-held__host {
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  line-height: var(--aparte-line-height-tight);
+  overflow-wrap: anywhere;
+}
+.aparte-image-held:hover { border-color: var(--aparte-border-control); }
+.aparte-image-held:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-content hr,

