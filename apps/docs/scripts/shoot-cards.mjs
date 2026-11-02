@@ -34,6 +34,8 @@ const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(join(DOCS, '../../e2e/package.json'));
 const { chromium } = require('@playwright/test');
 
+// A weekday afternoon, just after the hour.
+const SHOT_AT = new Date('2026-11-03T14:05:00+01:00');
 const BASE = (process.argv[2] ?? 'http://localhost:4321').replace(/\/$/, '');
 const PAGES = join(DOCS, 'src/content/docs/components');
 const OUT = join(DOCS, 'public/cards');
@@ -117,6 +119,9 @@ async function main() {
     const browser = await chromium.launch();
     // English dates and numbers, and one time zone, whatever the machine: the cards format with `Intl`.
     const page = await browser.newPage({ viewport: { width: 720, height: 1000 }, deviceScaleFactor: 2, locale: 'en-US', timezoneId: 'Europe/Paris' });
+    // And one moment, whenever it runs: the demos date everything from `Date.now()`, and a run at
+    // 23:00 drew a forecast of night hours under a sun. Timers keep running, so the cards still settle.
+    await page.clock.setFixedTime(SHOT_AT);
     const og = await browser.newPage({ viewport: { width: 1200, height: 630 } });
     for (const { card, title, demo } of cardPages()) {
         const dark = await shootCard(page, demo, 'dark');
