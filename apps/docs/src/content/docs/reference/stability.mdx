@@ -1,6 +1,6 @@
 ---
 title: What will not change under you
-description: The names aparté does not rename without a release of notice first — its elements and attributes, events, exported functions and classes, locale keys and CSS tokens — listed from the code itself.
+description: What aparté 1.x keeps until 2.0 — its elements and attributes, events, exported functions and classes, locale keys and CSS tokens, by name and by what their documentation says they do — listed from the code itself, with what the beta changed.
 sidebar:
   order: 9
   label: Stability
@@ -19,6 +19,9 @@ export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 ## The promise
 
+From **1.0.0**, aparté follows semantic versioning on the surface below: a frozen name keeps its name,
+and what its documentation says it does, until the next major version.
+
 | Frozen | Not frozen |
 | --- | --- |
 | element tags and the attributes they document | the methods of an element or of an exported class |
@@ -27,20 +30,47 @@ export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 | the keys of `AparteLocale` | the keys a plugin adds to the locale |
 | `--aparte-*` token names | a token's default value; class names, the kit's included; default colours, spacing and English labels; the docs, the example apps, `@aparte/docs-mcp` |
 
-The promise holds since **{frozen.frozenSince.version}**, and a name added since is frozen from
-the release that added it. A frozen name leaves in two steps:
+A name added in a 1.x release is frozen from that release. A frozen name leaves in two steps:
 
-1. **A notice release**: the old name still works, and the [changelog](/changelog/) and its JSDoc
-   mark it deprecated — your editor strikes it through — with the release it disappears in and its
-   replacement.
-2. **A removal release**, at least one minor later.
-
-One name has left without a notice release: 0.27.0 removed the package `@aparte/locale-fr` and its
-`fr` in one step. The same `fr` is now `@aparte/locales/fr`; the [changelog](/changelog/) says so.
+1. **A notice, in a minor**: the old name still works, and the [changelog](/changelog/) and its
+   JSDoc mark it deprecated — your editor strikes it through — with its replacement.
+2. **The removal, in the next major.**
 
 Adding is always allowed: a new optional attribute, a new optional field on an event's `detail`, a
-new export. What is not frozen can change in a minor, and the changelog says so: read it before
-you implement an exported type yourself, or build on a class name.
+new export. What is not frozen can change in a minor, never in a patch, and the changelog says
+what to change: read it before you implement an exported type yourself, or build on a class name.
+
+One exception, for security. A fix that closes a hole may make the library refuse what it used to
+accept — markup the sanitizer now strips, a request a server handler now turns away — in any
+release, and its changelog entry says so on its first line, with what to change.
+
+Every `@aparte` package ships at the same version, and each one's peer range on another is that
+version up to the next major: `@aparte/react` 1.2.0 asks for `@aparte/core` `>=1.2.0 <2.0.0`.
+
+## The beta, 0.17 to 0.32
+
+The beta froze the same names from **{frozen.frozenSince.version}** and kept them, with one
+exception: 0.27.0 removed the package `@aparte/locale-fr` and its `fr` without a notice release
+(the same `fr` is `@aparte/locales/fr`). It froze names, not what they did, so these changes of
+behaviour or default reached code written against an earlier beta. Each is in the notes of the
+release that shipped it; four of them came in a patch.
+
+| Release | What changed | What to change |
+| --- | --- | --- |
+| 0.17.1 | `<aparte-suggestions empty-only>` shows while the conversation is empty, instead of hiding for good after the first send; `<aparte-chat data-empty>` is reflected without `center-empty`. | Add `[center-empty]` to a selector that relied on it. |
+| 0.18.0 | `AparteClient`'s history carries the tool calls and their results (`toolCalls`, `role: 'tool'`). | A backend that serialises the history itself maps them, or drops them. |
+| 0.19.0 | A `:root` rebrand now also applies in dark mode when `data-aparte-theme="dark"` is set. | Give dark a block of its own. |
+| 0.19.3 | Derived tokens are worked out again on `[data-aparte-chat]`, so a value set on `:root` no longer reaches a React, Vue or Svelte chat. | List `[data-aparte-chat]` beside `aparte-chat`. |
+| 0.19.3 | A button with no intent no longer reads `--aparte-btn-ink` where relative colour syntax exists. | Set `--aparte-on-neutral` instead. |
+| 0.20.0 | `--aparte-message-content-text-user` and `-assistant` colour the words, not only the box. | Check that colour. |
+| 0.21.0 | `<aparte-chat>` and `[data-aparte-chat]` paint `--aparte-bg` and `color`. | `background: none` to keep the page's own. |
+| 0.22.0 | `createAgUiRunner` rejects a stream that does not follow AG-UI 1.0, and a `RUN_ERROR` no longer cuts the stream. | For TanStack AI, `relaxedRunFraming: true`. |
+| 0.26.0 | `setupCompaction()` compacts automatically by default, deletes nothing, and refuses a model with no `contextWindow`. | `auto: false` to keep it manual; declare the window, or pass `contextWindow`. |
+| 0.27.0 | `accept` on `<aparte-composer-add-attachment>` also applies to a file dropped, pasted, or picked through "All files". | — |
+| 0.27.1 | Copy is off by default: `APARTE_DEFAULT_BUBBLE_ACTIONS.copy` is `false`. | `setBubbleActions({ copy: true })`. |
+
+1.0.0 then removed what the beta had marked deprecated; the [changelog](/changelog/) lists each
+name with its replacement.
 
 ## The elements
 
