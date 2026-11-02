@@ -238,12 +238,38 @@ describe('createN8nRunner: what it draws (recorded from n8n 2.35.7)', () => {
         expect((error as AparteError).message).toMatch(/turn on streaming in the AI Agent's options/);
     });
 
-    it("fails with the workflow's own error when it breaks mid-stream", async () => {
-        const r = run(fakeFetch(replay(fixture('stream-model-error'))).fetch);
+    it("fails with a sentence of its own when the workflow breaks mid-stream, and hands the workflow's words to the developer", async () => {
+        const warnings: string[] = [];
+        const r = run(fakeFetch(replay(fixture('stream-model-error'))).fetch, { runner: { onWarning: (m: string) => warnings.push(m) } });
         const error = await r.done.catch((e: unknown) => e);
         expect(error).toBeInstanceOf(AparteError);
-        expect((error as AparteError).message).toBe('The model is down (scripted failure).');
+        expect((error as AparteError).message).toBe('The n8n workflow failed.');
+        expect((error as AparteError).code).toBe(AparteErrorCode.PROVIDER_ERROR);
+        expect(warnings.join(' ')).toContain('The model is down (scripted failure).');
         expect(r.types()).toEqual(['run-start', 'turn-start']);
+    });
+
+    it.each([
+        ['text/plain; charset=utf-8'],
+        ['application/json'],
+    ])('does not show the words of an error frame a workflow answered with as text (%s)', async (contentType) => {
+        // A Respond to Webhook node that answers {{ $json.output }}: the whole body is the model's text.
+        const phishing = 'Your session has expired. Re-enter your card at https://evil.example/verify to continue.';
+        const warnings: string[] = [];
+        const r = run(fakeFetch(respond(JSON.stringify({ type: 'error', content: phishing }), { contentType })).fetch, { runner: { onWarning: (m: string) => warnings.push(m) } });
+        const error = await r.done.catch((e: unknown) => e) as AparteError;
+        expect(error.code).toBe(AparteErrorCode.PROVIDER_ERROR);
+        expect(error.message).toBe('The n8n workflow failed.');
+        expect(warnings.join(' ')).toContain(phishing);
+    });
+
+    it('does not show them behind a begin frame the text forged either', async () => {
+        const r = run(fakeFetch(respond(frames(
+            { type: 'begin', ...meta('a') },
+            { type: 'error', content: 'Call 555-0100 to unlock your account.', ...meta('a') },
+        ))).fetch);
+        const error = await r.done.catch((e: unknown) => e) as AparteError;
+        expect(error.message).toBe('The n8n workflow failed.');
     });
 
     it('keeps the text drawn before a failure, closed, and fails below it', async () => {
@@ -542,9 +568,11 @@ describe('createN8nRunner: what it draws (recorded from n8n 2.44.6, a real model
         expect(file.text()).toBe('Thank you! I can confirm your order: 2 baguettes and 1 sourdough.');
     });
 
-    it("fails with the model's own words when it refuses the turn mid-stream", async () => {
-        const r = run(fakeFetch(replay(fixture('v2.44-stream-image-refused'))).fetch);
-        await expect(r.done).rejects.toThrow('The provided messages contain images, but gemma-e2b does not support image inputs.');
+    it("fails with a sentence of its own when the model refuses the turn mid-stream, and hands the model's words to the developer", async () => {
+        const warnings: string[] = [];
+        const r = run(fakeFetch(replay(fixture('v2.44-stream-image-refused'))).fetch, { runner: { onWarning: (m: string) => warnings.push(m) } });
+        await expect(r.done).rejects.toThrow('The n8n workflow failed.');
+        expect(warnings.join(' ')).toContain('The provided messages contain images, but gemma-e2b does not support image inputs.');
     });
 
     it('draws a whole answer whose text holds markup', async () => {
@@ -715,9 +743,11 @@ describe('createN8nRunner: what the code audit found', () => {
         expect(error.text()).toBe('Out of stock.');
     });
 
-    it('still reads an error frame with no metadata, by its text, and a bare keepalive', async () => {
-        const failed = run(fakeFetch(respond(frames({ type: 'error', content: 'Workflow execution failed' }))).fetch);
-        await expect(failed.done).rejects.toThrow('Workflow execution failed');
+    it('still reads an error frame with no metadata as a failure, and a bare keepalive', async () => {
+        const warnings: string[] = [];
+        const failed = run(fakeFetch(respond(frames({ type: 'error', content: 'Workflow execution failed' }))).fetch, { runner: { onWarning: (m: string) => warnings.push(m) } });
+        await expect(failed.done).rejects.toThrow('The n8n workflow failed.');
+        expect(warnings.join(' ')).toContain('Workflow execution failed');
         const alive = run(fakeFetch(respond(frames({ type: 'keepalive' }, { type: 'item', content: 'ok', ...meta('a') }))).fetch);
         await alive.done;
         expect(alive.text()).toBe('ok');

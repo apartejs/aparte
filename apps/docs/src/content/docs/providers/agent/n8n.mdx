@@ -152,6 +152,7 @@ new AparteClient({
 | `chatInputKey` | the body field that carries the message, `chatInput` by default, for a workflow that reads another |
 | `onWarning` | told what the runner skipped; `console.warn` by default |
 | `WebSocket` | what a workflow with response nodes is read with; the global `WebSocket` by default |
+| `waitingPrefix` | the path n8n serves a waiting execution's button links under, for an instance that moved it; by default the webhook URL's own mount followed by `/webhook-waiting/<execution id>` |
 
 These are the `N8nRunnerOptions`. `loadN8nHistory` takes `N8nHistoryOptions` — the same
 `webhookUrl`, `sessionId`, `metadata`, `headers`, `fetch`, `credentials` and `chatSessionKey`, plus a
@@ -182,8 +183,17 @@ The turn pauses on the buttons, which are asked at the composer with the labels 
 them; the one chosen goes back to n8n, and the workflow's next messages follow in the same turn.
 Without *Block User Input*, the person may write instead, as in n8n's widget: n8n reads the words as
 a message and the Chat node goes on as not approved. With it, the answer has to be a button. The
-transcript keeps the answer as a quiet line. A button whose link leads off the n8n that sent it is
-not shown.
+transcript keeps the answer as a quiet line.
+
+Buttons are shown only when every link is **this** execution's waiting link: http(s), on the
+webhook's origin, and under n8n's own `/webhook-waiting/<execution id>/…` at the place the webhook
+URL says n8n is mounted (webhook `https://site/n8n/webhook/…` takes `/n8n/webhook-waiting/<execution id>/…`;
+a path that only contains that segment further down does not count). If any link is not, no button is
+shown, `onWarning` says so, and the Chat node's question is drawn as text. An instance that moved the
+waiting endpoint (`N8N_ENDPOINT_WEBHOOK_WAIT`) gives `waitingPrefix: '/n8n/webhook-waiting'`, and the
+links must then start with `<prefix>/<execution id>`. This matters because on n8n 2.x a Chat node's message travels as plain
+text, so an answer that looks like a buttons frame is read as one. An error frame shows
+"The n8n workflow failed."; the frame's own words go to `onWarning`.
 
 On n8n 2.x, Chat nodes run only when the Chat Trigger's **Mode** is *Hosted Chat*: an embedded one
 stops with "Embedded chat is not supported". A runtime without a global `WebSocket` passes one as
