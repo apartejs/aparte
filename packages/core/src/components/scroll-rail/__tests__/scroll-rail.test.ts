@@ -546,6 +546,27 @@ describe('aparte-scroll-rail holds still', () => {
         expect(rail.style.getPropertyValue('--aparte-scroll-rail-gap')).toBe('');
     });
 
+    it('loosens the pitch again when the conversation gets shorter: the room is its share of the transcript, not its own height', async () => {
+        // The rail is as tall as its ticks. Measured from its own height, a tightened rail
+        // measured the tightened list and never loosened: a 1000-message conversation, then a
+        // 20-message one, kept 6px ticks where 24px fit (Chromium).
+        const many = Array.from({ length: 50 }, (_, i) => bubble(`u${i}`, 'user', `Question ${i}`));
+        const { host, viewport, rail } = mount(many);
+        const box = (height: number) => ({ top: 0, bottom: height, height, left: 0, right: 600, width: 600, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+        host.getBoundingClientRect = () => box(400);
+        viewport.getBoundingClientRect = () => box(400);   // 60% of it is 240px of room
+        const layout = (rail as unknown as { _layout(): void })._layout.bind(rail);
+        layout();
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'), '50 ticks in 240px: the floor').toBe('6px');
+        for (const b of many.slice(5)) b.remove();
+        await nextFrame(); await nextFrame();
+        // What the old reading saw: a list of five 6px ticks, 30px tall.
+        Object.defineProperty(rail, 'clientHeight', { value: 30, configurable: true });
+        layout();
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-hit-size'), '5 × 24px fit in 240px: the stylesheet decides again').toBe('');
+        expect(rail.style.getPropertyValue('--aparte-scroll-rail-gap')).toBe('');
+    });
+
     it('past the floor, scrolls itself so the current tick stays in its window', () => {
         const many = Array.from({ length: 10 }, (_, i) => bubble(`u${i}`, 'user', `Question ${i}`));
         const { rail } = mount(many);

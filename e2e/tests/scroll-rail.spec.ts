@@ -369,3 +369,29 @@ test('the mark follows a reader who wheels up through long replies', async ({ pa
     expect(walked.size, 'the walk crossed several questions').toBeGreaterThan(3);
     expect(errors).toEqual([]);
 });
+
+/*
+ * Measured in Chromium on 2026-11-02: after a 1000-message conversation, a 20-message one kept
+ * 6px ticks where 24px fit. The rail measured its room from its own height, and a rail is as
+ * tall as its ticks: once tightened, its height was the tightened list.
+ */
+test('after a long conversation, a short one gets its full pitch back', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await expect(chat.viewport).toBeVisible();
+    const rail = page.locator('aparte-scroll-rail');
+    const hitSize = () => rail.evaluate((el) => (el as HTMLElement).style.getPropertyValue('--aparte-scroll-rail-hit-size'));
+    await setConversation(page, 200, 1);
+    await expect(rail.locator('.aparte-scroll-rail__tick')).toHaveCount(100);
+    await expect.poll(hitSize, { message: 'a hundred ticks do not fit at 24px: tightened' }).not.toBe('');
+    await setConversation(page, 6, 1);
+    await expect(rail.locator('.aparte-scroll-rail__tick')).toHaveCount(3);
+    await expect.poll(hitSize, { message: 'three ticks fit at the default pitch: the stylesheet decides again' }).toBe('');
+    const pitch = await rail.evaluate((el) => {
+        const t = el.querySelectorAll('.aparte-scroll-rail__tick');
+        return t[1]!.getBoundingClientRect().top - t[0]!.getBoundingClientRect().top;
+    });
+    expect(pitch, 'the default 24px pitch, not the 6px floor').toBeGreaterThanOrEqual(23);
+    expect(errors).toEqual([]);
+});

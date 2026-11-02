@@ -346,6 +346,7 @@ export class AparteScrollRail extends HTMLElement {
             this._unobserve();
             this._currentId = null;
             this._write('--aparte-scroll-rail-hit-size', '');
+            this._write('--aparte-scroll-rail-gap', '');
             return;
         }
         this.removeAttribute('data-empty');
@@ -621,25 +622,33 @@ export class AparteScrollRail extends HTMLElement {
         if (host && surface) {
             this._write('--aparte-scroll-rail-bar', `${Math.max(0, surface.offsetWidth - surface.clientWidth)}px`);
         }
+        let transcript = 0;
         if (host && viewport) {
             const v = viewport.getBoundingClientRect();
             const h = host.getBoundingClientRect();
             if (v.height > 0 && h.height > 0) {
                 this._write('--aparte-scroll-rail-block-start', `${Math.max(0, Math.round(v.top - h.top))}px`);
                 this._write('--aparte-scroll-rail-block-end', `${Math.max(0, Math.round(h.bottom - v.bottom))}px`);
+                transcript = v.height;
             }
         }
+        // The default pitch and the share are the theme's, read above this element so that a
+        // value the rail itself wrote is never mistaken for them.
+        const above = host ?? document.documentElement;
+        const aboveStyle = getComputedStyle(above);
+        // The room is the rail's ceiling, its share of the transcript (the stylesheet's
+        // `max-height`), never the rail's own height: the rail is as tall as its ticks, so
+        // once tightened its height WAS the tightened list and the pitch never loosened. A
+        // 1000-message conversation, then a 20-message one, kept 6px ticks where 24px fit,
+        // measured in Chromium. Its own height is the fallback when nothing is laid out.
+        const share = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-share')) || 0.6;
+        const height = transcript > 0 ? Math.floor(transcript * share) : this.clientHeight;
         const count = this._list()?.children.length ?? 0;
-        const height = this.clientHeight;
         if (!count || !height) {
             this._write('--aparte-scroll-rail-hit-size', '');
             this._write('--aparte-scroll-rail-gap', '');
             return;
         }
-        // The default pitch is the theme's, read above this element so that the value the
-        // rail itself wrote is never mistaken for it.
-        const above = host ?? document.documentElement;
-        const aboveStyle = getComputedStyle(above);
         const hit = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-hit-size')) || 24;
         const thickness = parseFloat(aboveStyle.getPropertyValue('--aparte-scroll-rail-tick-thickness')) || 2;
         if (count * hit <= height) {
