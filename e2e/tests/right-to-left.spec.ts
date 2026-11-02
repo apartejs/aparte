@@ -101,13 +101,17 @@ test('the version arrows point to the start and the end of a right-to-left row',
     expect(await chat.lastReply.locator('.aparte-branch-next > *').first().evaluate((el) => getComputedStyle(el).scale)).toBe('-1 1');
 });
 
-test('a conversation titled in English keeps its own direction in a right-to-left list', async ({ page }) => {
+test('a conversation titled in English keeps its own direction, and lines up with a right-to-left list', async ({ page }) => {
     await rightToLeft(page);
     await page.goto('/?scenario&fast');
     const title = page.locator('aparte-conversation-list .aparte-conv-item__title').filter({ hasText: 'Compare three frameworks' });
     await expect(title).toBeVisible();
     expect(await title.evaluate((el) => getComputedStyle(el).direction)).toBe('ltr');
     expect(await page.locator('aparte-conversation-list').evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
+    // Flush with the list's start, as its date headings are. Chromium reads only
+    // `-webkit-match-parent`: with the unprefixed keyword alone the titles sat on the left.
+    await title.evaluate((el) => el.setAttribute('data-shot', ''));
+    expect(await textSide(page, '[data-shot]')).toBe('right');
 });
 
 test('the input follows what is typed in it, and an empty one the page', async ({ page }) => {
