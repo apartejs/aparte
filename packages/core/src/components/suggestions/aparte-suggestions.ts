@@ -3,6 +3,7 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { visibleReply } from './suggestion-blocks.js';
 
 /**
  * One prompt starter: the text sent, or a visible label over a longer prompt.
@@ -77,7 +78,8 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  * @attr {boolean} answers - Shows the replies the LAST message offered instead of fixed
  *     starters: a code block in language `suggestions` in that answer
  *     (`setupSuggestionBlocks`), e.g. the
- *     free times a booking bot proposes. Empty until an answer offers some, emptied the
+ *     free times a booking bot proposes. Written by the model, so a reply sends what its chip
+ *     shows: its label, never a `prompt`. Empty until an answer offers some, emptied the
  *     moment a message is sent, and when the last message is the person's.
  * @attr {string} target - The id of the `<aparte-chat>` whose composer should receive
  *     the click, when the element is not inside that composer.
@@ -183,6 +185,7 @@ export class AparteSuggestions extends HTMLElement {
         this._transcriptObserver?.disconnect();
         this._transcriptObserver = null;
         this._transcript = null;
+        this._stopHolding();
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -299,7 +302,10 @@ export class AparteSuggestions extends HTMLElement {
         const last = bubbles && bubbles.length ? bubbles[bubbles.length - 1]! : null;
         const marks = last && last.getAttribute('data-role') !== 'user' ? last.querySelectorAll('[data-aparte-suggestions]') : null;
         const mark = marks && marks.length ? marks[marks.length - 1]! : null;
-        this._showAnswers(mark ? parseSuggestions(mark.getAttribute('data-aparte-suggestions') ?? '[]') : []);
+        // The replies of an answer are model text: each sends what its chip shows (`visibleReply`),
+        // whatever the mark holds.
+        const offered = mark ? parseSuggestions(mark.getAttribute('data-aparte-suggestions') ?? '[]') : [];
+        this._showAnswers(offered.map(visibleReply).filter((r): r is string => r !== null));
     }
 
     /** Show these replies; the same ones already shown redraw nothing (a transcript mutation is frequent). */
@@ -346,6 +352,43 @@ export class AparteSuggestions extends HTMLElement {
         this.appendChild(row);
     }
 
+    private _sending = false;
+    private _sendingTimer: ReturnType<typeof setTimeout> | undefined;
+    private _stopHolding = (): void => {
+        this._sending = false;
+        clearTimeout(this._sendingTimer);
+        window.removeEventListener('aparte-message-start', this._onTurnStart);
+    };
+    /**
+     * The latch ends when ITS chat's turn starts. Another chat's `aparte-message-start` crosses the
+     * window too, and must not release it: the second chip would then send a second message while the
+     * first is still being built. The composer's own rule: an event naming no chat is for every chat.
+     */
+    private _onTurnStart = (e: Event): void => {
+        const from = (e as CustomEvent).detail?.targetId as string | undefined;
+        const own = this._ownChatId();
+        if (!from || !own || from === own) this._stopHolding();
+    };
+
+    /** The chat the sending composer belongs to: its `target`, else the id of the chat host above it. */
+    private _ownChatId(): string | undefined {
+        const composer = this._composer;
+        const attr = composer?.getAttribute('target');
+        if (attr) return attr;
+        for (let el = composer?.parentElement ?? null; el; el = el.parentElement) {
+            if ((el.tagName.toLowerCase() === 'aparte-chat' || el.hasAttribute('data-aparte-chat')) && el.id) return el.id;
+        }
+        return undefined;
+    }
+
+    /** A chip sent: no other chip sends until the turn has started, or a second has passed without one. */
+    private _holdUntilStreaming(): void {
+        this._stopHolding();
+        this._sending = true;
+        window.addEventListener('aparte-message-start', this._onTurnStart);
+        this._sendingTimer = setTimeout(this._stopHolding, 1000);
+    }
+
     private _activate(suggestion: AparteSuggestion): void {
         const detail: AparteSuggestionEventDetail = { label: labelOf(suggestion), prompt: promptOf(suggestion) };
         const proceed = this.dispatchEvent(new CustomEvent<AparteSuggestionEventDetail>('aparte-suggestion', {
@@ -360,11 +403,36 @@ export class AparteSuggestions extends HTMLElement {
             return;
         }
         if (composer !== this._composer) this._watchComposer();
+        // While a question holds the composer, `submit()` answers it with whatever is selected —
+        // a chip the model wrote beside it would send the preselected option as the person's own
+        // answer. While a reply streams, `submit()` stops it. Neither is what a chip means.
+        const held = composer as AparteComposer & { panelActive?: boolean; streaming?: boolean };
+        if (held.panelActive) return;
+        const fill = this.getAttribute('mode') === 'fill';
+        // The composer only knows it is streaming once the client has built the request and
+        // announced it, a few awaits after `aparte-send`: until then a second chip would send a
+        // second message, and the client would abandon the first turn for it.
+        if (!fill && (held.streaming || this._sending)) return;
         const chipHadFocus = this.contains(document.activeElement);
+        // What the person was writing and what they attached are theirs: a chip sends its own
+        // text alone, and both are back once it has gone.
+        const draft = typeof composer.value === 'string' ? composer.value : '';
+        const files = fill ? [] : (composer.attachments ?? []).slice();
+        if (files.length) composer.clearAttachments();
         composer.setValue(detail.prompt);
-        if (this.getAttribute('mode') === 'fill') composer.focus();
+        if (fill) composer.focus();
         else {
+            let sent = false;
+            const sawSend = (): void => { sent = true; };
+            composer.addEventListener('aparte-send', sawSend, { once: true });
             composer.submit();
+            composer.removeEventListener('aparte-send', sawSend);
+            if (sent) this._holdUntilStreaming();
+            if (files.length) composer.addAttachments(files);
+            // The person's draft comes back — also when a gate said no (disabled, no model chosen, a
+            // blank prompt) and the chip's text was only staged: it must not wait in the field
+            // to go out on the next Enter.
+            if ((typeof composer.value === 'string' ? composer.value : '') !== draft) composer.setValue(draft);
             // The chip that sent may go with its row (`empty-only`), and the focus with it,
             // to <body>. The person's next move is the composer, so it goes there.
             if (chipHadFocus) composer.focus();

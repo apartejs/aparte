@@ -152,7 +152,8 @@ states, variants, language switch, buttons):
   block of JSON in an answer as its card, for backends that send only text; `load` fetches each
   card the first time a block names it.
 - `defineCard(definition)` and `CARD_SEGMENT_TYPE`; types `CardDefinition`, `CardSetupOptions`,
-  `CardContext`, `CardAction`, `CardActionEventDetail`, `CardChangeEventDetail`, `AparteCardSegment`.
+  `CardContext`, `CardAction`, `CardActionEventDetail`, `CardActionsContext`, `CardOrigin`,
+  `CardChangeEventDetail`, `AparteCardSegment`.
 - Controls, drawn only when the card has an `onChange`: `segmented` (`SegmentedOptions`), `toggle`
   (`ToggleOptions`), `slider` (`SliderOptions`). A press fires `aparte-card-change`, and what `onChange`
   returns is drawn in place.

@@ -43,7 +43,8 @@ closes on Escape or a click outside, and gives the focus back to the button that
 <Usage />
 
 Any element carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar, or the one whose id
-the attribute names, so a button in the [header](/components/header/) needs no script.
+the attribute names, so a button in the [header](/components/header/) needs no script. One inside a
+message's content is ignored: the attribute is for controls your page places, not for a reply.
 `aparte-sidebar-toggle` fires on every change, whoever caused it. The search field is any input
 with `data-aparte-sidebar-search`; it filters by title, on the rows the list already has, and the
 query holds through the list's next renders. When nothing matches, the list says so in a status

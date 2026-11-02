@@ -20,9 +20,10 @@ const OPEN = 'data-aparte-open';
  * scheme, and a SINGLE slash after an explicit scheme differing from the page's
  * enters authority state. Measured with Node's WHATWG URL against base
  * `https://site.example/chat/`: `/\evil.example` → `https://evil.example/`,
- * `http:/evil.example` and `http:/\evil.example` → `http://evil.example/`.
+ * `http:/evil.example` and `http:/\evil.example` → `http://evil.example/`, and with no slash
+ * at all `http:evil.example` does too: any explicit http(s) scheme counts as external.
  */
-const EXTERNAL_URL = /^(?:https?:)?[/\\]{2}|^https?:[/\\]/i;
+const EXTERNAL_URL = /^(?:https?:)?[/\\]{2}|^https?:/i;
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
 

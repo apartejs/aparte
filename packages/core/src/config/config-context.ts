@@ -132,7 +132,13 @@ export function detachConfig(el: HTMLElement): void {
  * broken.
  */
 export function resolveConfig(el: Element | null | undefined): AparteConfig {
-    const host = el?.closest?.(`[${APARTE_HOST_ATTR}]`) as (Element & ConfigHost) | null | undefined;
+    const selector = `[${APARTE_HOST_ATTR}]`;
+    let host = el?.closest?.(selector) as (Element & ConfigHost) | null | undefined;
+    // Only `attachConfig` fills the slot. An element that merely WEARS the attribute (a
+    // `<div data-aparte-host>` in a reply, a server-rendered host a wrapper has not bound
+    // yet) is not a boundary: walking past it keeps what is inside it on the chat's config
+    // rather than the page's.
+    while (host && !host[CONFIG_SLOT]) host = host.parentElement?.closest(selector) as (Element & ConfigHost) | null;
     return host?.[CONFIG_SLOT] ?? aparteGlobalConfig;
 }
 

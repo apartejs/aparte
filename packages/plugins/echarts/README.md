@@ -155,8 +155,12 @@ ECharts would turn into HTML, a request or a navigation before it is drawn — a
   bracket goes too.
 - **Only colours where a colour goes.** ECharts copies a `color`, `fill`, `stroke` or any `…Color`
   into an SVG attribute as it is, so there only colour syntax stays: a name, `#hex`, or `rgb()` /
-  `rgba()` / `hsl()` / `hsla()` of numbers. A gradient is an object ECharts builds itself; its
-  stops are checked the same way.
+  `rgba()` / `hsl()` / `hsla()` of numbers, at most 64 characters. A gradient is an object ECharts
+  builds itself; its stops are checked the same way.
+- **Only a keyword as a cursor.** A series' or element's `cursor`, and a dataZoom's
+  `cursorGrab` / `cursorGrabbing`, stay when they are a keyword
+  (`pointer`, `not-allowed`, `grab`); `image-set("https://…")` and the like go, since the browser would
+  fetch the picture when the pointer passes over the chart.
 - **No regular expression.** A dataset `filter` transform's `reg` is compiled and run on every
   value, and a pattern can backtrack for minutes (`^(a+)+$`), so every `reg` goes.
 - **No links.** A string `link` or `sublink` (a title, a treemap or sunburst node — ECharts opens

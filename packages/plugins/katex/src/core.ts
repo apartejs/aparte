@@ -90,7 +90,7 @@ function createKatexRenderer(
      * the bubble's content when the reply has no segments — not the paragraph, which the
      * Markdown provider writes anew on every token.
      */
-    const partOf = (host: HTMLElement): Element => host.closest('[data-segment-id], .aparte-content') ?? host.parentElement ?? host;
+    const partOf = (host: HTMLElement): Element => host.closest('.aparte-segments > [data-segment-id], .aparte-content') ?? host.parentElement ?? host;
 
     const ensure = (): KatexLike | Promise<KatexLike> => {
         if (katex) return katex;

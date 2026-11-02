@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
 import { activeElementIn, eventOrigin, rootOf } from '../../utils/event-target.js';
+import { inRenderedContent } from '../../utils/rendered-content.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
@@ -313,7 +314,7 @@ export class AparteSidebar extends HTMLElement {
             ? Array.from(document.querySelectorAll<HTMLElement>(selector))
             : [...root.querySelectorAll<HTMLElement>(selector), ...document.querySelectorAll<HTMLElement>(selector)];
         for (const control of controls) {
-            if (!this._drives(control)) continue;
+            if (inRenderedContent(control) || !this._drives(control)) continue;
             control.setAttribute('aria-expanded', String(!this.collapsed));
             control.setAttribute('aria-controls', this.id);
         }
@@ -418,7 +419,7 @@ export class AparteSidebar extends HTMLElement {
         // `eventOrigin`, not `e.target`: a click from inside a consumer's shadow root is
         // retargeted to the shadow host by the time it reaches `document`.
         const control = (eventOrigin(e) as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-sidebar-toggle]');
-        if (!control) return;
+        if (!control || inRenderedContent(control)) return;
         if (!this._drives(control)) return;
         this.toggle(control);
     };

@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import { nextPosition, keyDelta } from './geometry.js';
 import { presenceOn } from '../../utils/presence.js';
+import { inRenderedContent } from '../../utils/rendered-content.js';
 import { eventOrigin, rootOf } from '../../utils/event-target.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
@@ -944,7 +945,7 @@ export class AparteSplit extends HTMLElement {
         // `eventOrigin`, not `e.target`: a click from inside a consumer's shadow root is
         // retargeted to the shadow host by the time it reaches `document`.
         const control = (eventOrigin(e) as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-split-pane]');
-        if (!control) return;
+        if (!control || inRenderedContent(control)) return;
         const value = (control.getAttribute('data-aparte-split-pane') ?? '').trim();
         const which = value === 'start' || value === 'end' ? value : null;
         const named = which ? '' : value;
@@ -977,6 +978,7 @@ export class AparteSplit extends HTMLElement {
                 const which = (control.getAttribute('data-aparte-split-pane') ?? '').trim();
                 if (which !== 'start' && which !== 'end') continue;
                 if (control.localName !== 'button' && control.getAttribute('role') !== 'button') continue;
+                if (inRenderedContent(control)) continue;
                 const target = control.closest('aparte-split')
                     ?? rootOf(control).querySelector('aparte-split')
                     ?? document.querySelector('aparte-split');

@@ -80,7 +80,9 @@ suggestions.suggestions = SUGGESTIONS;
 const cart = createCart(root, { 'cone-dripper': 1 });
 
 document.addEventListener('aparte-card-action', (event) => {
-    const { action, data } = event.detail;
+    const { action, data, origin } = event.detail;
+    // A card the model wrote in its answer is not the shop's: it cannot add to the cart.
+    if (origin === 'fence') return;
     if (action.id === ADD_TO_CART) cart.add(String((data as { id?: unknown }).id ?? ''));
     else if (action.id === EMAIL_LABEL) cart.toast(`Return label sent to ${CUSTOMER.email}`);
 });

@@ -50,12 +50,20 @@ the first signing and all verifying.
 | --- | --- |
 | `approvalPolicy` | rules on each call, as `setApprovalPolicy` does in the page |
 | `clientTools` | whether the page's own tools are accepted: `true` (the default), `false`, or a list of names |
-| `prepareRequest(request, req)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt |
+| `prepareRequest(request, req)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it |
+| `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
 | `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default; a tool's own `maxTurns` applies too |
 | `ticketMaxAgeMs` | how long a paused run can wait, seven days by default |
 | `onTicket(id)` | a check on each resume; `false` refuses it with a 409 |
 | `transport` | how the server calls the model, `new AparteDirectTransport({ byok: true })` by default |
 | `crypto` | the Web Crypto used to sign, for [Node 18](#node-18) |
+
+:::note[A page on another site can post to this route]
+It does so with your visitor's cookie, in a form that needs no preflight. The handler refuses any
+body not declared `application/json` with a 415, which such a form cannot send, before it calls
+`authorize`. For a cookie session also set `SameSite=Lax` or `Strict`, and list your pages in
+`allowedOrigins`. A tool that changes something still wants `needsApproval`.
+:::
 
 On Node's own `http` server, hand it a `Request` and stream the `Response` back. Stop in the
 browser closes the connection, and the handler stops the run — the model call and any tool still

@@ -1,0 +1,11 @@
+---
+"@aparte/core": patch
+---
+
+The agent and chat handlers now refuse a request whose Content-Type is not `application/json` (415), and `prepareRequest` can now remove a server tool for good.
+
+If you call `createAparteAgentHandler` or `createAparteChatHandler` from `AparteBackendTransport`, `createAgentStreamRunner` or any `fetch` that sets `Content-Type: application/json`, nothing changes. A caller that posts the JSON body without that header (a bare `fetch(url, { body: JSON.stringify(...) })` sends `text/plain`) must add it. A `content-type` you pass in the `headers` option of `AparteBackendTransport` or `createAgentStreamRunner`, in any case, replaces the library's one instead of being joined to it (`application/json, application/json` was refused). The check runs before `authorize`, and it closes a cross-site hole: an HTML form with `enctype="text/plain"` can post a body that parses as JSON, with your visitor's cookie, without a preflight, and the handler used to run it.
+
+- New option `allowedOrigins` on both handlers: a request carrying any other `Origin` header is refused with 403, before `authorize`. A request with no `Origin` (a server, curl) is left to `authorize`. It is off by default. For a cookie session, also set the cookie `SameSite=Lax` or `Strict`. The server-loop and backend-transport guides say so.
+- `createAparteAgentHandler` runs a tool only if the request returned by `prepareRequest` still lists it. A tool you remove from `request.tools` (say `admin_wipe`, for a user who is not an admin) used to run anyway when the model named it, because local and compatible models can emit any name; it is now refused as a tool with no handler. A tool you leave in place runs as before.
+- A continuation ticket now has exactly one spelling. The last character of the 43-character signature carries two bits the decoder ignored, so four different strings verified as the same ticket, and an `onTicket` single-use check keyed on the text counted four tickets and let an approved tool run four times. A ticket whose signature or payload is not the canonical base64url encoding is refused with the same 400 as any invalid ticket. Tickets your server signed are canonical, so none of them is affected.

@@ -20,12 +20,25 @@ setupMermaid();
 the first diagram, not before, and a diagram is drawn only once it comes near the screen, so
 reopening a long conversation stays fast.
 
-## An image, so nothing in it reaches the page
+## An image, so nothing in it can act on the page
 
 Each diagram is an `<img>` of its SVG. A browser draws an image's SVG with no scripts and no
 access to the page, so neither a label a model wrote nor a style inside the diagram can act on
 the chat around it. Mermaid also runs with `securityLevel: 'strict'` and HTML labels off, and a
 diagram's own `%%{init}%%` cannot turn either back on.
+
+Mermaid draws before that image exists, in the page, and what a diagram names there is fetched at
+that moment. Two things name a picture. A node's or an actor's own: `A@{ shape: imageSquare, img: "https://…" }`
+or a sequence diagram's `properties A: {"icon": "https://…"}` would send a request to that address, so
+the plugin asks Mermaid what it parsed, and a diagram holding a picture that is not inline
+(`data:image/…`) is not drawn, however the source spelled it. And a style: `classDef c mask-image:url(https://…)`
+in a state or block diagram is fetched as soon as the diagram is measured, so a source holding a CSS
+`url(`, `image-set(` or `cross-fade(` (or an `@import`) is not drawn, nor is one that styles
+something and holds a backslash escape, which could spell one. A diagram that is not drawn shows its
+source and the note that it could not be drawn. A Mermaid object that cannot be asked
+what it parsed (`setupMermaidWith` with your own) falls back to refusing on the text alone, which also
+refuses a label saying "img" in a diagram with shape data and a sequence diagram using the word
+`properties` or `details`.
 
 What that costs: the text in a diagram cannot be selected, and it is set in the system fonts,
 since an image cannot load the page's. A drawn diagram keeps its code card, so the copy button copies its source.

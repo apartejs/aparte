@@ -63,6 +63,16 @@ export interface N8nRunnerOptions {
      * @default the global `WebSocket`
      */
     WebSocket?: N8nWebSocketLike;
+    /**
+     * The path n8n serves a waiting execution's links under, for an instance that changed it
+     * (`N8N_ENDPOINT_WEBHOOK_WAIT`) or sits behind a base path: `/n8n/webhook-waiting`. A
+     * Chat node's button is only shown when its link is `<prefix>/<execution id>/…` on the
+     * webhook's origin.
+     * @default the webhook URL's own mount (its path before the Chat Trigger's `/webhook/<id>/chat`,
+     * nothing for an instance at the root of its origin) followed by n8n's `/webhook-waiting`. A URL
+     * not shaped like a Chat Trigger's has no default: give `waitingPrefix`.
+     */
+    waitingPrefix?: string;
 }
 
 /** What a paused turn hands the page, and gets back with the button chosen. */
@@ -81,7 +91,8 @@ function readTicket(token: string | undefined): Ticket | undefined {
     try {
         const ticket = JSON.parse(token) as Partial<Ticket>;
         return ticket.v === 1 && typeof ticket.sessionId === 'string' && typeof ticket.executionId === 'string'
-            && typeof ticket.toolCallId === 'string' && Array.isArray(ticket.links) ? ticket as Ticket : undefined;
+            && typeof ticket.toolCallId === 'string' && Array.isArray(ticket.links)
+            && ticket.links.every((link) => typeof link === 'string') ? ticket as Ticket : undefined;
     } catch {
         return undefined;
     }
@@ -180,6 +191,56 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
     // reply to a Chat node that waits for one, a button's answer — go on it.
     const sockets = new Map<string, { socket: N8nChatSocket; executionId: string; token?: string }>();
 
+    /**
+     * A button's link, resolved once against the webhook URL: the absolute href when it is
+     * http(s), on the webhook's origin and is THIS execution's waiting link — else `undefined`. What is
+     * stored and fetched is this href, never the string n8n (or a model's text) wrote, which
+     * a relative link would have the page resolve against itself.
+     */
+    /**
+     * What n8n is mounted under on its origin: what sits in front of the Chat Trigger's own
+     * `/webhook/<id>/chat`, at its END (so a base path that itself holds a `/webhook` segment is
+     * read whole). `''` for an instance at the root of its origin. `undefined` when the URL is not
+     * shaped like that: no place is guessed, and buttons then need `waitingPrefix`.
+     */
+    const mount = (() => {
+        try {
+            const found = /^(.*)\/webhook(?:-test)?\/[^/]+\/chat\/?$/.exec(new URL(options.webhookUrl).pathname);
+            return found ? found[1]!.replace(/\/+$/, '') : undefined;
+        } catch { return undefined; }
+    })();
+    const waitingBase = options.waitingPrefix !== undefined
+        ? `/${options.waitingPrefix.replace(/^\/+|\/+$/g, '')}`
+        : mount === undefined ? undefined : `${mount}/webhook-waiting`;
+
+    const resumeLink = (link: string, executionId: string): string | undefined => {
+        try {
+            const url = new URL(link, options.webhookUrl);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+            if (url.origin !== new URL(options.webhookUrl).origin) return undefined;
+            if (url.username || url.password) return undefined;
+            const path = url.pathname;
+            if (/%2f|%5c|%2e/i.test(path)) return undefined;
+            if (waitingBase === undefined || url.hash) return undefined;
+            // n8n's own link, exactly `<mount>/webhook-waiting/<id>/<node id>?approved=true|false&signature=<64 hex>`:
+            // the mount is what sits in front of the Chat Trigger's `/webhook/<id>/chat`. Anchored
+            // there and shaped whole, not "somewhere in the path": `/rest/x/webhook-waiting/<id>` is
+            // another endpoint of the same origin that merely ignores what follows its own path, and
+            // a waiting webhook with no signature (a Wait node) is not a button's to press.
+            const rest = path.startsWith(`${waitingBase}/`) ? path.slice(waitingBase.length + 1).split('/') : [];
+            if (rest.length !== 2 || rest[0] !== encodeURIComponent(executionId) || !/^[A-Za-z0-9_-]+$/.test(rest[1]!)) return undefined;
+            const approved = url.searchParams.get('approved');
+            if ([...url.searchParams].length !== 2 || (approved !== 'true' && approved !== 'false') || !/^[0-9a-f]{64}$/.test(url.searchParams.get('signature') ?? '')) return undefined;
+            // What this still cannot tell: on n8n 2.x a Chat node's message travels as plain text, so a
+            // model that knows the execution id (they count up across the instance) can write a frame
+            // whose button has this exact shape, and the person is then asked a question the model
+            // chose. A click only reaches n8n with a signature n8n made.
+            return url.href;
+        } catch {
+            return undefined;
+        }
+    };
+
     const openSocket = (sessionId: string, executionId: string, token?: string) => {
         const Socket = options.WebSocket ?? (globalThis as { WebSocket?: N8nWebSocketLike }).WebSocket;
         if (!Socket) throw new AparteError(NO_WEBSOCKET, AparteErrorCode.PROVIDER_MISCONFIGURED);
@@ -226,14 +287,19 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         emit({ type: 'text-delta', delta: frame.text });
                         emit({ type: 'text-flush' });
                     }
-                    // As n8n's widget: only a button that leads back to this n8n is shown —
-                    // a link elsewhere would have the page fetch whatever a workflow wrote.
-                    const origin = new URL(options.webhookUrl).origin;
-                    const buttons = frame.buttons.filter((b) => {
-                        try { return new URL(b.link, options.webhookUrl).origin === origin; } catch { return false; }
-                    });
+                    // Buttons are shown only when EVERY link is this execution's waiting link on
+                    // this n8n: the frame is text the workflow wrote (a model's answer can look
+                    // like one), n8n never mixes good and bad links in one frame, and a link
+                    // elsewhere would have the page fetch whatever it said.
+                    const links = frame.buttons.map((b) => resumeLink(b.link, entry.executionId));
+                    const buttons = links.every((link) => link !== undefined) ? frame.buttons : [];
+                    if (buttons.length < frame.buttons.length) {
+                        warn('An n8n Chat node sent buttons whose links do not resume this execution on this n8n instance; '
+                            + `they were not shown. A link has to be on the webhook's origin, http(s), and be ${waitingBase === undefined
+                                ? 'n8n\'s own, but the webhook URL is not a Chat Trigger URL ("…/webhook/<id>/chat") that says where n8n is mounted: set the runner\'s waitingPrefix option'
+                                : `"${waitingBase}/<execution id>/<node id>?approved=true|false&signature=<64 hex>"; if your instance serves its waiting links elsewhere, set the runner's waitingPrefix option`}.`);
+                    }
                     if (buttons.length === 0) {
-                        warn('An n8n Chat node sent buttons whose links lead off this n8n instance; they were not shown.');
                         emit({ type: 'run-done' });
                         return;
                     }
@@ -245,7 +311,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                     };
                     const ticket: Ticket = {
                         v: 1, sessionId, executionId: entry.executionId, ...(entry.token ? { token: entry.token } : {}),
-                        toolCallId, links: buttons.map((b) => b.link),
+                        toolCallId, links: links.filter((link): link is string => link !== undefined),
                     };
                     emit({ type: 'tool-start', toolCallId, name: N8N_BUTTONS_TOOL, input });
                     emit({
@@ -257,7 +323,10 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 }
                 case 'error':
                     if (drawn) emit({ type: 'text-flush' });
-                    throw new AparteError(frame.message || 'The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
+                    // What the person reads is ours: the frame's words are the workflow's, or a
+                    // model's, and go to the developer.
+                    if (frame.message) warn(`n8n sent an error: ${frame.message}`);
+                    throw new AparteError('The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
                 case 'closed':
                     // The execution ended: the next message starts a new one.
                     sockets.delete(sessionId);
@@ -273,7 +342,10 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
         emit({ type: 'turn-start' });
         const outcome = opts.deferral?.outcomes?.[ticket.toolCallId];
         const chosen = outcome?.kind === 'result' ? (outcome.structuredContent as N8nButtonsResult | undefined) : undefined;
-        const link = chosen ? ticket.links[chosen.index] : undefined;
+        // The ticket came back from the page: its link is checked again before it is fetched.
+        const stored = chosen ? ticket.links[chosen.index] : undefined;
+        const link = stored === undefined ? undefined : resumeLink(stored, ticket.executionId);
+        if (stored !== undefined && link === undefined) warn('An n8n button link in the ticket does not resume this execution on this n8n instance; it was not fetched.');
         // Words of the person's own instead of a button: n8n hears them as a chat message,
         // which the waiting Chat node resumes on as not approved.
         if (outcome?.kind === 'result' && chosen?.written) {
@@ -413,7 +485,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             };
 
             if (!response.body) throw new AparteError(EMPTY_STREAM, AparteErrorCode.PROVIDER_MISCONFIGURED);
-            for await (const part of readN8nReply(response.body)) {
+            for await (const part of readN8nReply(response.body, response.headers.get('content-type') ?? '')) {
                 switch (part.kind) {
                     case 'begin':
                         if (active === undefined) open(part.stream);
@@ -430,7 +502,11 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                         break;
                     case 'error':
                         flush();
-                        throw new AparteError(part.message || 'The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
+                        // What the person reads is ours, as on the socket: a body that is only text cannot be told
+                        // from an error frame (a workflow that answers with a model's text can write one, and a
+                        // `begin` before it), so the frame's words go to the developer.
+                        if (part.message) warn(`n8n sent an error: ${part.message}`);
+                        throw new AparteError('The n8n workflow failed.', AparteErrorCode.PROVIDER_ERROR);
                     case 'reply':
                         whole = true;
                         draw(part.text);

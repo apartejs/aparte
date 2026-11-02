@@ -43,6 +43,15 @@ run continue. A route that passes only `messages` streams, but an approval or a 
 never reaches the run. `mergeAgentTools` adds the tools the page declares to yours; a page tool
 must not share a name with a server tool, since the server's wins.
 
+:::caution[This route trusts the history the browser sends]
+`chat()` rebuilds a paused run from the messages in the request, so a caller can write the pause
+itself: an assistant message with a call to one of your server tools, and the approval that
+answers it. `needsApproval` is a prompt to the person, not a check on your server. Every server
+tool decides whether *this user* may run *these arguments*, and one without `needsApproval` runs
+from a call the caller invented. [Pin the pauses to your server](#pin-the-pauses-to-your-server)
+below shows how to refuse a call the route never made.
+:::
+
 ## Connect the page
 
 ```bash
@@ -81,6 +90,172 @@ React and Vue, `createAparteClient({ streamRunner })` in Svelte,
   implementation is not needed, the page's handler is the implementation. As with any
   [AG-UI agent](/providers/agent/ag-ui/#tools-the-page-runs), the page asks nobody before running
   it.
+
+## Pin the pauses to your server
+
+A server tool that deletes, pays or sends does not rely on `needsApproval`: it checks the
+caller's rights on its own input, as a
+[server-loop tool does](/guides/server-loop/#what-the-ticket-protects-and-what-it-does-not).
+What the route can add is a record of what it did: every call to a server tool it made (who for,
+in which thread, with which arguments, and whether it ran) and every pause it raised. Then it
+refuses a request whose history holds a call to a server tool it never made, whatever else that
+request carries, a call that already ran and comes back without its result (TanStack runs a call
+that has no result row, so that is how a call would run twice), and a resume that is not for a
+pause it raised, for this user, in this thread, and not yet answered. It reads the history the way
+TanStack's `chat()` does, through `convertMessagesToModelMessages`, not the rows as they arrived: a
+result row tagged `subagentRunId` is taken out of the conversation by `chat()`, so it must not count as
+the answer to a call either.
+The ticket of the [server loop](/guides/server-loop/) does the same with a signature, for a server
+that stores nothing.
+
+{/* doc-check: skip excerpt — TanStack AI is your package, as in the route above */}
+```ts
+// app/api/chat/pauses.ts
+import { convertMessagesToModelMessages } from '@tanstack/ai';
+
+type Event = {
+  type: string;
+  toolCallId?: string;
+  toolCallName?: string;
+  delta?: string;
+  outcome?: { type?: string; interrupts?: Array<Record<string, any>> };
+};
+type Call = { name: string; args: string; user: string; thread: string; ran: boolean };
+type Pause = { run: string; user: string; thread: string; answered: boolean };
+
+// Both maps live in memory here. Use a database with an expiry when you run several
+// instances, restart, or want a pause to lapse.
+const calls = new Map<string, Call>();   // toolCallId → the call this server made
+const pauses = new Map<string, Pause>(); // interruptId → the pause this server raised
+
+/** The same text whatever the order of an object's keys. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
+    return `{${entries.map(([key, v]) => `${JSON.stringify(key)}:${canonical(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+/** A call's arguments, as text that is equal when the arguments are. */
+function argsOf(text: unknown): string {
+  try { return canonical(!text ? {} : JSON.parse(String(text))); } catch { return `unreadable:${text}`; }
+}
+
+/** Pass chat()'s events through, noting each call it makes and each pause it raises for `user`. */
+export async function* notePauses<T extends Event>(
+  events: AsyncIterable<T>,
+  user: string,
+  thread: string,
+  run: string,
+): AsyncGenerator<T> {
+  const names = new Map<string, string>();
+  const streamed = new Map<string, string>();
+  for await (const event of events) {
+    const id = event.toolCallId;
+    if (id && event.type === 'TOOL_CALL_START') { names.set(id, String(event.toolCallName)); streamed.set(id, ''); }
+    if (id && event.type === 'TOOL_CALL_ARGS') streamed.set(id, (streamed.get(id) ?? '') + (event.delta ?? ''));
+    if (id && event.type === 'TOOL_CALL_END' && names.has(id)) {
+      calls.set(id, { name: names.get(id)!, args: argsOf(streamed.get(id)), user, thread, ran: false });
+    }
+    // The tool ran (or was refused): chat() has an answer for the call, and will not ask for another.
+    if (id && event.type === 'TOOL_CALL_RESULT' && calls.has(id)) calls.get(id)!.ran = true;
+    if (event.type === 'RUN_FINISHED' && event.outcome?.type === 'interrupt') {
+      for (const pause of event.outcome.interrupts ?? []) pauses.set(pause.id, { run, user, thread, answered: false });
+    }
+    yield event;
+  }
+}
+
+/**
+ * Why the request must be refused, or `undefined` when it only continues what this server did for
+ * `user`. Returning `undefined` also marks the pauses it resumes as answered: a pause is answered once.
+ */
+export function refusal(
+  params: { threadId: string; parentRunId?: string; messages: any[]; resume?: Array<{ interruptId: string }> },
+  user: string,
+  serverTools: string[],
+): string | undefined {
+  const resumed: Pause[] = [];
+  for (const { interruptId } of params.resume ?? []) {
+    const pause = pauses.get(interruptId);
+    if (!pause || pause.answered || pause.user !== user || pause.thread !== params.threadId || pause.run !== params.parentRunId) {
+      return `Unknown pause ${interruptId}`;
+    }
+    resumed.push(pause);
+  }
+  // Read the history the way chat() reads it, through TanStack's own conversion: it moves a message
+  // tagged `subagentRunId` out of the conversation, turns a message written as `parts` into calls and
+  // result rows, and so on. A check on the raw rows would be checking a history chat() does not see.
+  let history: any[];
+  try { history = convertMessagesToModelMessages(params.messages as never) as any[]; }
+  catch { return 'Unreadable history'; }
+  // chat() runs any call in the last assistant message that has no result row (or a
+  // `pendingExecution` placeholder), so the result rows the request carries matter.
+  const answered = new Set<string>();
+  for (const row of history) {
+    if (row.role !== 'tool' || !row.toolCallId) continue;
+    let pending = false;
+    try { pending = JSON.parse(String(row.content))?.pendingExecution === true; } catch { /* a plain result */ }
+    if (!pending) answered.add(row.toolCallId);
+  }
+  // Every call to a server tool in the history must be one this server made, with these arguments:
+  // whether it has a result row or not, since the row comes from the caller too. And one that
+  // already ran comes back only with its result row: without it, chat() would run it again.
+  for (const message of history) {
+    if (message.role !== 'assistant') continue;
+    for (const call of message.toolCalls ?? []) {
+      if (!serverTools.includes(call.function?.name)) continue;
+      const made = calls.get(call.id);
+      if (!made || made.user !== user || made.thread !== params.threadId || made.name !== call.function.name || made.args !== argsOf(call.function.arguments)) {
+        return `The call ${call.id} was not made by this server`;
+      }
+      if (made.ran && !answered.has(call.id)) return `The call ${call.id} already ran`;
+    }
+  }
+  for (const pause of resumed) pause.answered = true;
+  return undefined;
+}
+```
+
+Then the route asks it before running anything, and requires `application/json`: a page on
+another site can post a form with `text/plain`, and a cookie goes with it, while a JSON body needs a
+CORS preflight your route does not answer.
+
+{/* doc-check: skip excerpt — `userOf` and `serverTools` are yours */}
+```ts
+import { notePauses, refusal } from './pauses';
+
+export async function POST(request: Request) {
+  if (!request.headers.get('content-type')?.startsWith('application/json')) {
+    return new Response('Send application/json', { status: 415 });
+  }
+  const user = await userOf(request);          // your session; no user, no chat
+  if (!user) return new Response('Sign in', { status: 401 });
+  let params;
+  try { params = await chatParamsFromRequest(request); }
+  catch (error) { if (error instanceof Response) return error; throw error; }
+  const problem = refusal(params, user, serverTools.map((tool) => tool.name));
+  if (problem) return new Response(problem, { status: 400 });
+  return toServerSentEventsResponse(notePauses(chat({
+    adapter: openaiText('gpt-5.5'),
+    messages: params.messages,
+    threadId: params.threadId,
+    runId: params.runId,
+    parentRunId: params.parentRunId,
+    resume: params.resume,
+    tools: mergeAgentTools(serverTools, params.tools),
+  }), user, params.threadId, params.runId));
+}
+```
+
+A forged call or approval now gets a 400 and runs nothing, and an approval can be answered once: a
+resume that fails before the tool ran needs a new approval. A call the route made, a pause it raised,
+answered by the person it was raised for, runs as before. Because the record is in memory, a
+conversation that outlives a restart is refused until its calls are in your database: keep them
+there if conversations are long. The arguments can still be edited by the person who approves
+(TanStack's `editedArgs`), so the tool's own check stays.
 
 It works with `@tanstack/ai` <code>{TANSTACK_RANGE}</code>. TanStack AI is at 1.x, and a major
 can change its wire: check that range when you upgrade it.

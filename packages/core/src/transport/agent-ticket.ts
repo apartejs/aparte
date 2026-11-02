@@ -56,10 +56,18 @@ function toBase64Url(bytes: Uint8Array): string {
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/**
+ * Only the canonical encoding decodes. `atob` ignores the padding bits of the last
+ * character, so a 43-character HMAC has four spellings that verify as one signature; a host
+ * that keys its single-use set on the text (`onTicket`) would count them as four tickets.
+ * Decode, re-encode, and require the same text.
+ */
 function fromBase64Url(text: string): Uint8Array {
     if (!/^[A-Za-z0-9_-]*$/.test(text)) throw new Error('not base64url');
     const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
-    return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    if (toBase64Url(bytes) !== text) throw new Error('not canonical base64url');
+    return bytes;
 }
 
 function hmacKey(secret: string, subtle: SubtleCrypto): Promise<CryptoKey> {

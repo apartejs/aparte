@@ -1,6 +1,7 @@
 import { resolveConfig, APARTE_HOST_ATTR, type AparteConfig } from '../../config/index.js';
 import { presenceOn } from '../../utils/presence.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
+import { inRenderedContent } from '../../utils/rendered-content.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 
 /** Detail of `aparte-launcher-toggle`: the state just entered. */
@@ -233,7 +234,8 @@ export class AparteLauncher extends HTMLElement {
      * in another language. Resolved live, never kept: the boundary may arrive after connect.
      */
     private _config(): AparteConfig {
-        return resolveConfig(this.querySelector(`[${APARTE_HOST_ATTR}]`) ?? this);
+        const boundary = Array.from(this.querySelectorAll(`[${APARTE_HOST_ATTR}]`)).find((el) => !inRenderedContent(el));
+        return resolveConfig(boundary ?? this);
     }
 
     /**
@@ -331,8 +333,10 @@ export class AparteLauncher extends HTMLElement {
     private _focusChat(): void {
         // A composer the card hides (a welcome screen in front of the chat) takes no focus:
         // the first visible control does.
+        // Not one inside a reply: `role` is the model's to write too, and the transcript
+        // comes before the composer in the card.
         const composer = Array.from(this.querySelectorAll<HTMLElement>('[role="textbox"]:not([aria-disabled="true"])'))
-            .find((el) => !el.closest('[hidden]') && el.checkVisibility?.() !== false);
+            .find((el) => !inRenderedContent(el) && !el.closest('[hidden]') && el.checkVisibility?.() !== false);
         const target = composer ?? this._focusables().find((el) => el !== this._button);
         target?.focus();
     }
@@ -342,7 +346,8 @@ export class AparteLauncher extends HTMLElement {
         // `eventOrigin`, not `e.target`: a click from inside a consumer's shadow root is
         // retargeted to its host by the time it bubbles here.
         const control = (eventOrigin(e) as HTMLElement | null)?.closest?.('[data-aparte-launcher-close]');
-        if (control && this.contains(control)) this.close();
+        // A control the card placed, not a phrase in a reply.
+        if (control && this.contains(control) && !inRenderedContent(control)) this.close();
     };
 
     /**

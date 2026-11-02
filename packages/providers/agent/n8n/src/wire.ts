@@ -123,13 +123,32 @@ function fieldsOf(value: unknown): string[] {
     return Object.keys(record as object).slice(0, 6);
 }
 
-function wholePart(raw: string): N8nReplyPart | undefined {
+const DEFERRAL_KEYS = new Set(['executionStarted', 'executionId', 'resumeToken']);
+
+/**
+ * Whether a whole answer is n8n's "the answer comes on the socket" reply: exactly
+ * `{ executionStarted: true, executionId, resumeToken }`, an execution id that is a number (n8n's
+ * are), and sent as JSON. The id and the token choose which socket the page opens and trusts for
+ * the rest of the session, so a workflow whose body is the model's own text (a Respond to Webhook
+ * node set to Text) must not be able to name them: that body is not JSON, or holds more than this.
+ */
+function isDeferral(value: object, json: boolean): boolean {
+    if ((value as { executionStarted?: unknown }).executionStarted !== true || !json) return false;
+    if (!Object.keys(value).every((key) => DEFERRAL_KEYS.has(key))) return false;
+    const { executionId, resumeToken } = value as { executionId?: unknown; resumeToken?: unknown };
+    if (executionId !== undefined && !/^\d{1,20}$/.test(String(executionId))) return false;
+    return resumeToken === undefined || typeof resumeToken === 'string';
+}
+
+function wholePart(raw: string, json: boolean): N8nReplyPart | undefined {
     const text = raw.trim();
     if (!text) return undefined;
     // Parsed first: a JSON answer is an answer, whatever markup its text holds.
     const value = parse(text);
     if (value === undefined) return isHtml(text) ? { kind: 'html' } : { kind: 'reply', text: raw };
     if (typeof value === 'object' && value !== null && (value as { executionStarted?: unknown }).executionStarted === true) {
+        // Looks like a deferral and is not one: it is somebody's text, shown as such.
+        if (!isDeferral(value, json)) return { kind: 'reply', text: raw };
         const { executionId, resumeToken } = value as { executionId?: unknown; resumeToken?: unknown };
         return {
             kind: 'deferred',
@@ -142,7 +161,7 @@ function wholePart(raw: string): N8nReplyPart | undefined {
 }
 
 /** Yields what n8n's answer carries, frame by frame as it streams, or once for a whole answer. */
-export async function* readN8nReply(body: ReadableStream<Uint8Array>): AsyncGenerator<N8nReplyPart> {
+export async function* readN8nReply(body: ReadableStream<Uint8Array>, contentType = ''): AsyncGenerator<N8nReplyPart> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     // Widened on purpose: `lines` below decides it, a closure TypeScript's narrowing does not follow.
@@ -192,7 +211,7 @@ export async function* readN8nReply(body: ReadableStream<Uint8Array>): AsyncGene
         reader.releaseLock();
     }
     if (mode !== 'frames') {
-        const part = wholePart(raw);
+        const part = wholePart(raw, /^\s*application\/(?:[\w.+-]+\+)?json\b/i.test(contentType));
         if (part) yield part;
     }
 }

@@ -281,16 +281,16 @@ function fromSubsteps(subs: PlanStep[]): PlanStatus {
     return 'pending';
 }
 
-/** `- [x] Write the tests` → its title and status; a list marker and a checkbox are both optional. */
-const LINE = /^\s*(?:(?:[-*+•]|\d+[.)])\s+)?(?:\[([ xX✓✔>~!-])\]\s*)?(.*?)\s*$/;
+/** `- [x] Write the tests` → its title and status; a list marker and a checkbox are both optional. Only the prefix is matched: the rest of the line is sliced, so nothing can fail and backtrack. */
+const PREFIX = /^\s*(?:(?:[-*+•]|\d+[.)])\s+)?(?:\[([ xX✓✔>~!-])\]\s*)?/;
 /** A line that is a list item: a marker, or a checkbox. */
 const ITEM = /^\s*(?:(?:[-*+•]|\d+[.)])\s+|\[[ xX✓✔>~!-]\])/;
 
 const BOX: Record<string, PlanStatus> = { ' ': 'pending', x: 'done', X: 'done', '✓': 'done', '✔': 'done', '>': 'in-progress', '!': 'failed', '-': 'skipped', '~': 'blocked' };
 
 function checkbox(text: string): { title: string; status?: PlanStatus } | null {
-    const match = LINE.exec(text)!;
-    const title = match[2]!;
+    const match = PREFIX.exec(text)!;
+    const title = text.slice(match[0].length).trim();
     if (!title) return null;
     return { title, ...(match[1] !== undefined ? { status: BOX[match[1]]! } : {}) };
 }

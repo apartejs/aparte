@@ -1,4 +1,5 @@
 import { aparteGlobalConfig, escapeAttr, escapeHtml, renderCodeLanguages, type AparteConfig, type AparteCodeLanguageContext } from '@aparte/core';
+import { cssFetches, fetchesImage, parsedFetchesImage, type ParsedDiagram } from './shape-data.js';
 
 /**
  * The part of Mermaid this plugin calls. Structural, so this module imports nothing
@@ -8,6 +9,12 @@ export interface MermaidLike {
     initialize(config: Record<string, unknown>): void;
     parse(text: string, options?: { suppressErrors?: boolean }): Promise<unknown>;
     render(id: string, text: string): Promise<{ svg: string; diagramType?: string }>;
+    /**
+     * Mermaid's own parser, which reads a diagram without drawing it. When present, the plugin
+     * asks it what the source says (a node's picture, an actor's icon) instead of guessing from
+     * the text; `mermaid` itself has it. Without it, the plugin refuses on the text.
+     */
+    mermaidAPI?: { getDiagramFromText(text: string): Promise<ParsedDiagram> };
 }
 
 export interface MermaidOptions {
@@ -165,9 +172,21 @@ function createMermaidRenderer(load: () => Promise<MermaidLike>, options: Mermai
     const draw = (ctx: AparteCodeLanguageContext): Promise<string | null> => serial(async () => {
         const source = ctx.open ? ctx.source.slice(0, ctx.source.lastIndexOf('\n') + 1) : ctx.source;
         if (!source.trim()) return null;
+        // Mermaid draws in the page, and a style a diagram writes (`classDef c mask-image:url(…)`)
+        // is fetched there, whatever its type: such a diagram is shown as its source.
+        if (cssFetches(source)) return null;
         const m = await mermaidOf();
+        // A node's `img:` and an actor's icon are fetched the same way. What Mermaid parsed is
+        // asked below; when it cannot be asked, the text is refused on its own.
+        const parser = m.mermaidAPI;
+        if (!parser && fetchesImage(source)) return null;
         m.initialize(mermaidConfig(user, ctx.host));
         if (!(await m.parse(source, { suppressErrors: true }))) return null;
+        if (parser) {
+            let parsed: ParsedDiagram;
+            try { parsed = await parser.getDiagramFromText(source); } catch { return null; }
+            if (parsedFetchesImage(parsed)) return null;
+        }
         const id = `${ID_PREFIX}-${++ids}`;
         try {
             const { svg, diagramType } = await m.render(id, source);

@@ -154,7 +154,8 @@ To add DOMPurify, chain it in front of the built-in sanitizer, as above, rather 
 [`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer) replaces the sanitizer, and
 DOMPurify's defaults are written for any page, not for a chat: on their own they keep inline layout
 styles (a reply can cover the screen), core's `aparte-` classes (a reply can draw a button that looks
-like an approval), form controls and `id`s, and they leave a link to another site opening in the
+like an approval), form controls, `id`s, `role`s that make text a control, the `data-aparte-*`
+attributes core reads as commands (a reply can open a dialog), and they leave a link to another site opening in the
 chat's own frame.
 
 ## Maths and diagrams

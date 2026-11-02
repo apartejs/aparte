@@ -309,6 +309,33 @@ describe('the checklist', () => {
         const edge = plan([...Array.from({ length: 49 }, (_, i) => `x${i}`), { title: 'last', substeps: ['a', 'b'] }]);
         expect(edge.steps.at(-1)!.substeps).toBeUndefined();
     });
+
+    it('reads a step line in linear time, whatever the whitespace in it', () => {
+        // The title was matched lazily against a trailing `\s*$`: quadratic on a long line with spaces in it.
+        const lines = ['x' + ' '.repeat(50_000) + 'x', '1' + ' '.repeat(50_000) + 'x', 'a' + ' '.repeat(50_000) + 'x', '- [x] ' + 'a '.repeat(25_000) + 'x'];
+        for (const line of lines) {
+            const started = performance.now();
+            const read = plan([line]);
+            expect(performance.now() - started).toBeLessThan(50);
+            expect(read.steps).toHaveLength(1);
+        }
+        expect(plan(['  - [x]  Write the tests   ']).steps[0]).toMatchObject({ title: 'Write the tests', status: 'done' });
+    });
+
+    it('reads a line holding a character that "." cannot cross in linear time, and without throwing', () => {
+        // A lone CR and U+2028 stay in a line after the text is split on "\n"; a pattern ending in
+        // `(.*)$` failed on them and backtracked over the spaces before it (1 s for 50 000), then null.
+        const spaces = ' '.repeat(50_000);
+        for (const tail of ['\rx\r', ' x ']) {
+            const started = performance.now();
+            const fromText = readPlan('Plan\n- ' + spaces + tail);
+            const fromTool = readPlan({ steps: ['- ' + spaces + tail] });
+            expect(performance.now() - started).toBeLessThan(50);
+            expect(fromText?.steps).toHaveLength(1);
+            expect(fromTool?.steps).toHaveLength(1);
+        }
+        expect(plan(['- [x] a\rb']).steps[0]).toMatchObject({ status: 'done' });
+    });
 });
 
 describe('the timeline', () => {

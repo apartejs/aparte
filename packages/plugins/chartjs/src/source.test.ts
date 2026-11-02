@@ -97,6 +97,42 @@ describe('readChartConfig', () => {
         expect((nearest.options!['plugins'] as Record<string, Record<string, unknown>>)['tooltip']).toEqual({ position: 'nearest' });
     });
 
+    it('drops a dataset\'s own tooltip callbacks, which would throw on every hover', () => {
+        const out = readChartConfig(bar({
+            data: {
+                labels: ['a'],
+                datasets: [{ data: [1], tooltip: { callbacks: { label: 'x' }, external: 'x', filter: 'x', itemSort: 'x', position: 'nowhere', enabled: true } }],
+            },
+        }))!;
+        expect(out.data.datasets[0]!['tooltip']).toEqual({ enabled: true });
+    });
+
+    it('drops the tooltip options Chart.js also reads from options.interaction', () => {
+        const out = readChartConfig(bar({
+            options: { interaction: { mode: 'index', intersect: false, external: 'x', filter: 'x', itemSort: 'x', callbacks: { label: 'x' }, position: 'nowhere' } },
+        }))!;
+        expect(out.options!['interaction']).toEqual({ mode: 'index', intersect: false });
+        const kept = readChartConfig(bar({ options: { interaction: { position: 'nearest' } } }))!;
+        expect(kept.options!['interaction']).toEqual({ position: 'nearest' });
+    });
+
+    it('drops a tooltip option nested where Chart.js resolves it again (tooltip.interaction, tooltip.plugins.tooltip)', () => {
+        const calls = { external: 'x', filter: 'x', itemSort: 'x', callbacks: { label: 'x' }, position: 'nowhere' };
+        const out = readChartConfig(bar({
+            data: {
+                labels: ['a'],
+                datasets: [{ data: [1], tooltip: { enabled: true, interaction: calls, plugins: { tooltip: calls } } }],
+            },
+            options: {
+                interaction: { mode: 'index', plugins: { tooltip: calls }, interaction: calls },
+                plugins: { tooltip: { enabled: true, interaction: calls, plugins: { tooltip: calls } } },
+            },
+        }))!;
+        expect((out.options!['plugins'] as Record<string, unknown>)['tooltip']).toEqual({ enabled: true });
+        expect(out.options!['interaction']).toEqual({ mode: 'index' });
+        expect(out.data.datasets[0]!['tooltip']).toEqual({ enabled: true });
+    });
+
     it('drops an animation that loops forever', () => {
         const out = readChartConfig({
             type: 'line',
@@ -146,6 +182,16 @@ describe('closeJson', () => {
     it('has nothing before the first bracket, and refuses brackets that do not match', () => {
         expect(closeJson('  ')).toBeNull();
         expect(closeJson('{"a": [1}')).toBeNull();
+    });
+
+    it('closes a fence of nothing but open brackets in linear time', () => {
+        // Each cut used to write out the closers for every bracket open: 40,000 took 5 s, per frame.
+        for (const text of ['['.repeat(50_000), '['.repeat(20_000) + ','.repeat(10_000), '{"a":'.repeat(20_000)]) {
+            const started = performance.now();
+            closeJson(text);
+            parseFence(text, true);
+            expect(performance.now() - started).toBeLessThan(500);
+        }
     });
 });
 

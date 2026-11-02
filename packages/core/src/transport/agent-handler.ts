@@ -8,6 +8,7 @@ import { AparteDirectTransport } from './direct-transport.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { readableToAsyncIterable } from '../client/stream-adapter.js';
 import { sameCalls, signTicket, verifyTicket, type AparteTicketCall } from './agent-ticket.js';
+import { refuseUnsafeRequest } from './request-guard.js';
 
 /** A server tool: its definition (what the model sees) and its handler (what runs here). */
 export interface AparteAgentTool {
@@ -60,6 +61,8 @@ export interface AparteAgentHandlerOptions {
     /**
      * Rewrite the request before the run — impose your system prompt, drop messages. The
      * resume checks read what it returns: the loop runs on that, not on what the browser sent.
+     * So do the tools: one you remove from `request.tools` does not run, even if the model
+     * names it.
      */
     prepareRequest?: (request: AparteChatRequest, req: Request) => AparteChatRequest | Promise<AparteChatRequest>;
     /** How many model turns one run may take before it stops. @default 10 */
@@ -78,6 +81,14 @@ export interface AparteAgentHandlerOptions {
     transport?: AparteTransport;
     /** Web Crypto. @default `globalThis.crypto.subtle`; on Node 18, pass `(await import('node:crypto')).webcrypto.subtle`. */
     crypto?: SubtleCrypto;
+    /**
+     * The origins whose pages may call this endpoint, as the browser writes them
+     * (`'https://app.example.com'`). A request carrying any other `Origin` — a form on
+     * another site posting with your visitor's cookie — is refused with 403 before
+     * `authorize`. A request with no `Origin` (a server, curl) is left to `authorize`.
+     * Off by default; the `application/json` requirement is always on.
+     */
+    allowedOrigins?: readonly string[];
 }
 
 /** What `createAgentStreamRunner` POSTs. */
@@ -131,6 +142,11 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
     const maxAge = options.ticketMaxAgeMs ?? DEFAULT_TICKET_MAX_AGE_MS;
 
     return async function handler(req: Request): Promise<Response> {
+        // Not JSON, or from an origin the host did not list: 415 / 403, before anything
+        // runs with the visitor's rights (a cross-site form cannot send application/json).
+        const unsafe = refuseUnsafeRequest(req, options.allowedOrigins);
+        if (unsafe) return unsafe;
+
         const verdict = await options.authorize(req);
         if (verdict instanceof Response) return verdict;
         if (!verdict) return jsonError(401, 'Unauthorized.');
@@ -183,6 +199,10 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             tools: [...[...tools.values()].map((t) => t.tool), ...clientTools],
         };
         if (options.prepareRequest) request = await options.prepareRequest(request, req);
+        // A tool runs only if the request the model was given still lists it. A host that
+        // hides `admin_wipe` from a user in `prepareRequest` means it: a local or compatible
+        // model can name any tool, and the static map would have run it.
+        const offered = new Set((request.tools ?? []).map((t) => t.name));
 
         // The calls the loop will resume, read from what it will RUN ON — after
         // `prepareRequest`, which may drop messages: a history ending on a system message
@@ -270,12 +290,13 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                             : readableToAsyncIterable(response as ReadableStream<AparteStreamEvent>, run.signal);
                     },
                     toolLookup: (name) => {
-                        const t = tools.get(name);
+                        const t = offered.has(name) ? tools.get(name) : undefined;
                         // The request rides along: a tool checks the caller's rights itself,
                         // since the model — not the caller — chose the arguments.
                         return t ? (call, signal) => t.handler(call as AparteToolCall, signal, { request: req }) : undefined;
                     },
                     toolConfigLookup: (name) => {
+                        if (!offered.has(name)) return undefined;
                         if (external.has(name)) return { external: true };
                         const t = tools.get(name);
                         if (!t) return undefined;
