@@ -1,0 +1,53 @@
+---
+title: Performance budget
+description: What each @aparte package weighs, how soon a streamed chunk is on screen, and what a 500-message conversation costs — the ceilings every change is checked against.
+sidebar:
+  order: 9
+  label: Performance budget
+---
+
+import sizes from '../../../data/size-budget.json';
+import runtime from '../../../data/performance-budget.json';
+import weights from '../../../data/bundle-sizes.json';
+
+export const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
+export const aparte = weights.libraries.find((library) => library.id === 'aparte');
+
+These are ceilings, not averages: a change that crosses one fails the checks that every pull
+request runs, and raising a ceiling is a decision written in the change that needs it, with the
+reason.
+
+## In the browser
+
+| What | Ceiling | How it is measured |
+| --- | --- | --- |
+| A streamed chunk, to the screen | 95% of chunks within **{runtime.chunkToPaintP95Ms} ms** | A reply of 145 small Markdown chunks, 20 ms apart, through the real provider, client and renderers. Each chunk is timed from the moment it leaves the network layer to the first frame whose text shows it. |
+| A 500-message conversation, in memory | **{runtime.heap500Mb} MB** of heap | 500 messages set at once (half of them answers with bold text, code and a list), the heap read after a forced garbage collection, against the same page before them. |
+| A 500-message conversation, drawn | **{runtime.render500Ms} ms** | The `setMessages` call for those 500 messages, until it returns. |
+
+Measured in Chromium (the heap is read through the DevTools protocol), in the browser suite every
+pull request runs; the numbers each run measured are in its log.
+
+## On the wire
+
+What a page downloads to start a working chat — the chat with Markdown while it streams, its own
+client for any OpenAI-compatible API, and the agent loop with tools and approvals — is
+**{kb(aparte.startupGzip)}** of JavaScript and **{kb(aparte.cssGzip)}** of CSS, gzipped, measured
+with aparté {aparte.version} (the [comparison](/compare/#what-a-working-chat-weighs) shows the method and the
+other libraries).
+
+What each package ships, every JavaScript and CSS file gzipped at level 9 and summed (source maps
+and type declarations do not reach a browser), may not exceed:
+
+<table>
+  <thead><tr><th>Package</th><th>JavaScript</th><th>CSS</th></tr></thead>
+  <tbody>
+    {Object.entries(sizes).map(([name, ceiling]) => (
+      <tr key={name}><td><code>{name}</code></td><td>{kb(ceiling.js)}</td><td>{ceiling.css ? kb(ceiling.css) : '—'}</td></tr>
+    ))}
+  </tbody>
+</table>
+
+A package's figure counts everything it ships, including the parts a page loads only when it
+uses them (a card's own code, a chart library's adapter): it is the weight npm serves, an upper
+bound on what a page loads.
