@@ -102,16 +102,17 @@ test('the version arrows point to the start and the end of a right-to-left row',
 });
 
 test('the send arrow points to the left in a right-to-left composer, and only the send arrow', async ({ page }) => {
+    // Polled, the glyph read afresh each time: the button rewrites its content as it settles
+    // after the page loads, and a glyph read in that instant is already detached — its
+    // computed `scale` is "" (CI, 2026-11-02), which says nothing about the arrow.
     const scaleOfSend = () => page.locator('.aparte-send-button[data-act="send"] > *').first().evaluate((el) => getComputedStyle(el).scale);
     await installLlmMock(page, { scenario: 'text' });
     await page.goto('/');
-    await page.locator('aparte-composer-input .aparte-ci-editor').first().waitFor();
-    expect(await scaleOfSend()).toBe('none');
+    await expect.poll(scaleOfSend).toBe('none');
 
     await rightToLeft(page);
     await page.reload();
-    await page.locator('aparte-composer-input .aparte-ci-editor').first().waitFor();
-    expect(await scaleOfSend()).toBe('-1 1');
+    await expect.poll(scaleOfSend).toBe('-1 1');
 });
 
 test('a conversation titled in English keeps its own direction, and lines up with a right-to-left list', async ({ page }) => {
