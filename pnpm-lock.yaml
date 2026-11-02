@@ -1165,6 +1165,21 @@ importers:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
 
+  packages/plugins/storage-idb:
+    devDependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../core
+      fake-indexeddb:
+        specifier: ^6.2.7
+        version: 6.2.7
+      typescript:
+        specifier: ^5.4.0
+        version: 5.7.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@20.11.0)(jiti@2.7.0)(less@4.9.0)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
+
   packages/plugins/streaming-markdown:
     dependencies:
       '@paulrichez/streaming-markdown':
@@ -8969,6 +8984,10 @@ packages:
 
   externality@1.0.2:
     resolution: {integrity: sha512-LyExtJWKxtgVzmgtEHyQtLFpw1KFhQphF9nTG8TpAIVkiI/xQ3FJh75tRFLYl4hkn7BNIIdLJInuDAavX35pMw==}
+
+  fake-indexeddb@6.2.7:
+    resolution: {integrity: sha512-g0ghQ+BmU3CSZaHup5FigEAAtCmtNyxkrmID7OAeK2qONHghw1aQ2l2T1RxmfhP1H1tEXVRWArUTGVCk5832ww==}
+    engines: {node: '>=18'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -22536,6 +22555,8 @@ snapshots:
       mlly: 1.8.2
       pathe: 1.1.2
       ufo: 1.6.4
+
+  fake-indexeddb@6.2.7: {}
 
   fast-deep-equal@3.1.3: {}
 

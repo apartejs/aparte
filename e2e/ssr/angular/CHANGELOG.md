@@ -1,5 +1,16 @@
 # @aparte-workspace/ssr-angular
 
+## 0.0.20
+
+### Patch Changes
+
+- Updated dependencies [8304712]
+- Updated dependencies [72d2e68]
+- Updated dependencies [4015d65]
+  - @aparte/core@0.32.0
+  - @aparte/provider-scenario@0.32.0
+  - @aparte/angular@0.32.0
+
 ## 0.0.19
 
 ### Patch Changes

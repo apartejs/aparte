@@ -4,6 +4,53 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.32.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [8304712](https://github.com/apartejs/aparte/commit/8304712): A chart, a formula or a card drawn from a fenced block no longer sits in a code card once drawn: no header with its language, no copy button. A Mermaid diagram keeps its card and its copy button. A renderer keeps the card with the new `card: true`.
+
+  Until now only a rich card dropped the card (`bare: true`); a chart from `@aparte/plugin-echarts` or `@aparte/plugin-chartjs` kept a header saying "ECHARTS" over it, which read as code to a person who sees a chart. Every language a renderer draws now stands for its block once it is drawn, unless the renderer sets `card: true`, as `@aparte/plugin-mermaid` does: a diagram's source is what a reader takes away, to paste into a document or edit. A block not drawn yet, one the renderer passed on, or one that failed keeps the card and its copy button, so its source is never out of reach. `bare` keeps one meaning: the drawing handles its own overflow (a card's carousel), where a chart or a diagram scrolls inside its box. If you styled `.aparte-segment-code[data-aparte-bare]`, it now matches every drawn block without `card`, not only cards. A chart drawn from a tool call never had a code card and is unchanged.
+  <sub>`@aparte/core`</sub>
+
+### Patch Changes
+
+- [72d2e68](https://github.com/apartejs/aparte/commit/72d2e68): A card drawn from a block no longer shows a vertical scrollbar beside it.
+
+  The code card's `<pre>` had `overflow-x: hidden`, which turns its `overflow-y` into `auto`; a carousel reaching a few pixels past its box for its tiles' shadows made it scroll. A `<pre>` holding a drawing now never scrolls: the drawing handles its own overflow.
+  <sub>`@aparte/core`</sub>
+
+- [4015d65](https://github.com/apartejs/aparte/commit/4015d65): In a right-to-left page, code, formulas and the version arrows now read the right way, and a message keeps its own direction.
+
+  Found by the first right-to-left pass in a real browser (Chromium and WebKit), then a cold review of the fix:
+
+  - Code — a block, a JSON tool input or output, the approval panel's arguments, an artifact's source, inline `code` — is laid out left to right and isolated from the sentence around it; it was laid out from the right, its trailing `;` or `{` at the start of the line.
+  - A formula, a diagram or a chart drawn from a code block reads left to right; a KaTeX formula came out mirrored. A card drawn from a block follows the message it is in.
+  - The ‹ › arrows between the versions of a reply, and a folded option group's chevron, point the right way in a right-to-left row.
+  - A message, a reasoning block and a conversation title take the direction of their first letter (`dir="auto"`), so an English reply in an Arabic page reads left to right with its full stop at the end. Code and drawings carry `dir="ltr"` as an attribute, so an Arabic reply that opens with `npm install` or a formula stays right to left. A title lines up with its list whatever its own direction. The input takes the direction of each line typed (`unicode-bidi: plaintext`), and an empty one keeps the page's, placeholder included.
+
+  Pinned by `e2e/tests/right-to-left.spec.ts` (vanilla, Chromium and WebKit): the message directions, a code block, a mixed Arabic reply with a formula and inline code, the version arrows, a title's direction, and the input.
+  <sub>`@aparte/core`</sub>
+
+- [956c2b2](https://github.com/apartejs/aparte/commit/956c2b2): The README shows a picture of every card, each linked to its page on apartejs.dev.
+
+  An image search for aparté's cards found other sites' widgets: the cards were live demos in frames, and the package page had no picture.
+  <sub>`@aparte/plugin-cards`</sub>
+
+- [8304712](https://github.com/apartejs/aparte/commit/8304712): A chart, a formula or a card drawn from a fenced block no longer sits in a code card once drawn: no header with its language, no copy button. A Mermaid diagram keeps its card and its copy button. A renderer keeps the card with the new `card: true`.
+
+  Until now only a rich card dropped the card (`bare: true`); a chart from `@aparte/plugin-echarts` or `@aparte/plugin-chartjs` kept a header saying "ECHARTS" over it, which read as code to a person who sees a chart. Every language a renderer draws now stands for its block once it is drawn, unless the renderer sets `card: true`, as `@aparte/plugin-mermaid` does: a diagram's source is what a reader takes away, to paste into a document or edit. A block not drawn yet, one the renderer passed on, or one that failed keeps the card and its copy button, so its source is never out of reach. `bare` keeps one meaning: the drawing handles its own overflow (a card's carousel), where a chart or a diagram scrolls inside its box. If you styled `.aparte-segment-code[data-aparte-bare]`, it now matches every drawn block without `card`, not only cards. A chart drawn from a tool call never had a code card and is unchanged.
+  <sub>`@aparte/plugin-mermaid`</sub>
+
+- [fc1fc9f](https://github.com/apartejs/aparte/commit/fc1fc9f): New package: `createIdbStorage()` keeps conversations in the browser's IndexedDB, as the conversation manager's storage adapter.
+
+  The list is read without a single message (`loadMeta`), a conversation's messages when it opens (`loadFull`), and an attachment's file is kept in its own store (as its bytes, which Safari's private browsing accepts where it refuses a `Blob`) and given back as a `Blob` with a fresh object URL when the conversation is loaded, so it survives a reload. A save is all or nothing, and a file is written once. Pins, archives and a typed title are kept, the latter as a typed title. Options: `name` (the database, `'aparte'`), `indexedDB` (an `IDBFactory`, e.g. `fake-indexeddb` in a test), `objectUrl`. No dependency.
+  <sub>`@aparte/plugin-storage-idb`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 0.31.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

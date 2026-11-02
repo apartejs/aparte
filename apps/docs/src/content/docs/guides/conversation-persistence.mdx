@@ -14,6 +14,33 @@ import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="conversation-list" caption="The list of saved conversations, grouped by date, each with its menu." />
 
+## Keep them in the browser
+
+```bash
+npm install @aparte/plugin-storage-idb
+```
+
+```ts
+import { AparteConversationManager } from '@aparte/core';
+import { createIdbStorage } from '@aparte/plugin-storage-idb';
+
+const manager = new AparteConversationManager(createIdbStorage());
+await manager.init();
+```
+
+`createIdbStorage()` keeps the conversations in the page's IndexedDB, with nothing to run on a
+server. The list is read without a single message, a conversation's messages when it opens, and a
+file a person attached is kept as a file: it is still there after a reload. Pins, archives and a
+title typed in are kept too.
+
+Its options: `name`, the database name (`'aparte'`; two chats on one origin that must not share
+their conversations take two), `indexedDB` (a test passes `fake-indexeddb`'s) and `objectUrl`, which
+turns a stored file back into a URL (`URL.createObjectURL`). `close()` lets go of the database; the
+next call opens it again. The adapter returned, `IdbStorage`, has every method below; the options
+are `IdbStorageOptions`.
+
+To keep them anywhere else — your API, SQLite, `localStorage` — write the adapter yourself.
+
 ## Write a storage adapter
 
 ```ts
@@ -276,6 +303,7 @@ its `url` dies with the page. Save each `blob` where binary data fits, such as I
 `AparteAttachmentRow` with its conversation and message ids, and when you load a conversation give
 each attachment a new `URL.createObjectURL(row.blob)`
 ([Attachments](/guides/attachments/#release-memory-and-save-the-files)).
+[`@aparte/plugin-storage-idb`](#keep-them-in-the-browser) does exactly that.
 
 ## Next
 

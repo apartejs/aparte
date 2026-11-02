@@ -659,6 +659,9 @@
       "setupShikiProvider",
       "setupShikiProviderFromHighlighter"
     ],
+    "@aparte/plugin-storage-idb": [
+      "createIdbStorage"
+    ],
     "@aparte/plugin-streaming-markdown": [
       "setupStreamingMarkdownProvider"
     ],
