@@ -24,16 +24,32 @@ export const GATED_IMPACTS = ['critical', 'serious'];
  *
  * Infinite animations are skipped on purpose: the typing dots and the spinners
  * never finish, by design.
+ *
+ * Settled means a whole frame with none running, not the end of the ones listed once. A
+ * single snapshot let two kinds through: a transition cancelled and replaced while it was
+ * awaited (its `finished` rejects at once, and the rejection was swallowed), and one that
+ * started after the snapshot. The open approval panel's scan read the welcome heading at a
+ * quarter of its opacity on CI's WebKit (`#c2c2c2 on #ffffff`, 1.78:1): the panel opens
+ * about 120 ms into the welcome's 200 ms fade, so whatever restarts that fade lands in the
+ * scan.
  */
 export async function settleTransitions(page: Page): Promise<void> {
-    await page.evaluate(() => Promise.all(
-        document.getAnimations()
-            .filter((a) => {
-                const iterations = (a.effect as KeyframeEffect | null)?.getTiming?.().iterations;
-                return a.playState === 'running' && iterations !== Infinity;
-            })
-            .map((a) => a.finished.catch(() => undefined)),
-    ));
+    await page.evaluate(async () => {
+        const running = (): Animation[] => document.getAnimations().filter((a) => {
+            const iterations = (a.effect as KeyframeEffect | null)?.getTiming?.().iterations;
+            return a.playState === 'running' && iterations !== Infinity;
+        });
+        const frame = (): Promise<void> => new Promise((done) => requestAnimationFrame(() => done()));
+        for (let round = 0; round < 50; round++) {
+            const now = running();
+            if (now.length === 0) {
+                await frame();
+                if (running().length === 0) return;
+                continue;
+            }
+            await Promise.all(now.map((a) => a.finished.catch(() => undefined)));
+        }
+    });
 }
 
 export interface GatedViolation {
