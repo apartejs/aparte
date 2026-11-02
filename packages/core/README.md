@@ -15,10 +15,10 @@ asks, the composer, the layout around the chat (app shell, sidebar, conversation
 UI kit for the rest of the app — each one [shown live with its variants](https://apartejs.dev/components/),
 and assembled into [templates](https://apartejs.dev/templates/) you can copy.
 
-> **Beta.** On npm, released in lockstep with every other `@aparte/*` package — the
-> version number is a plain `0.x`, and the declared surface is
-> [frozen as of 0.17.0](https://apartejs.dev/reference/stability/): it leaves only
-> through a notice release. Part of the [aparté](https://github.com/apartejs/aparte)
+> **1.x.** On npm, released in lockstep with every other `@aparte/*` package, and the
+> declared surface follows semver: a [frozen](https://apartejs.dev/reference/stability/)
+> name keeps its name, and what its documentation says it does, until 2.0. Part of the
+> [aparté](https://github.com/apartejs/aparte)
 > monorepo; what changed when is at [apartejs.dev/changelog](https://apartejs.dev/changelog/).
 
 ## Install

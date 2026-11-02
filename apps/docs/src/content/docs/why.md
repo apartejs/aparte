@@ -40,8 +40,9 @@ IndexedDB ships as an option; a backend never does.
 
 ## Where it stands
 
-aparté is in beta. Every `@aparte/*` package is a `0.x`, released together, and its public
-surface is [frozen](/reference/stability/); what changed, release by release, is in the
+aparté is at 1.x. Every `@aparte/*` package is released together, at one version, and its
+public surface follows semver: a [frozen](/reference/stability/) name keeps its name, and what
+its documentation says it does, until 2.0. What changed, release by release, is in the
 [changelog](/changelog/).
 
 ## When another library fits better
