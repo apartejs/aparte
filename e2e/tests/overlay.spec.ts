@@ -212,6 +212,12 @@ test('a header over the transcript: the first message starts below it, and a jum
         return surface.querySelectorAll('aparte-chat-bubble')[i]!.getBoundingClientRect().top - surface.getBoundingClientRect().top;
     }, index);
     await move('inset');
+    // The inset makes the transcript taller while the last reply's glide still aims at the old
+    // bottom: the view stops 60px above the new one, still following, and is re-pinned whenever
+    // the viewport next settles. On a CI Angular run that landed as the wheel did, and the
+    // wheel's delta (old bottom to top, -503) applied to the re-pinned offset (563) left the
+    // view 60px short of the top. Put the reader at the new bottom first, where the re-pin would.
+    await move('bottom');
     await move('top');
     const first = await offsetOf(0);
     await move('bottom');
