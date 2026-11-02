@@ -360,9 +360,9 @@ export interface AparteAbortEventDetail {
  * Detail payload for `aparte-compact` — a COMMAND dispatched on `window` to ask for
  * the conversation so far to be summarised.
  *
- * `<aparte-context auto-compact>` dispatches it on reaching `danger`, and a host
- * dispatches it from a button; `@aparte/plugin-compaction` is what answers it. Core
- * itself neither listens for it nor compacts — the events below are the plugin's.
+ * A host dispatches it from a button, and the context gauge's Retry does when no compactor
+ * is registered; `@aparte/plugin-compaction` is what answers it. Core itself neither
+ * listens for it nor compacts — the events below are the plugin's.
  *
  * @event aparte-compact
  */
@@ -370,18 +370,11 @@ export interface AparteCompactEventDetail {
     /** Which chat to compact. Omit on a single-chat page. */
     targetId?: string;
     /**
-     * `true` when the request is an automatic one, made without a person asking: the
-     * gauge's deprecated `auto-compact` sets it. The plugin counts such a request against
-     * its back-off (two failures stop the automatic attempts), which a button's request
-     * never is.
+     * `true` when the request is an automatic one, made without a person asking (an app's
+     * own trigger). The plugin counts such a request against its back-off (two failures stop
+     * the automatic attempts), which a button's request never is.
      */
     auto?: boolean;
-    /**
-     * The context window, in tokens, the sender measured against. Honoured by the plugin
-     * as a last resort, when the current model declares none and no `contextWindow` option
-     * is set.
-     */
-    window?: number;
 }
 
 /**

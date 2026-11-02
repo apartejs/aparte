@@ -42,7 +42,6 @@ export const es: AparteLocale = {
     contextTotal: "Total",
     contextReclaim: "Compactar ahora liberaría ~{n} tokens",
     contextCompactNow: "Compactar ahora",
-    compactionSummaryTitle: "Resumen de la conversación",
     checkpointCount: "{n} mensajes resumidos para el modelo",
     checkpointCountOne: "1 mensaje resumido para el modelo",
     checkpointLegacy: "Los mensajes anteriores se resumieron",

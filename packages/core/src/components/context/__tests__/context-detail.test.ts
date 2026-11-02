@@ -519,22 +519,3 @@ describe('<aparte-context> — the panel', () => {
         window.removeEventListener('aparte-compact', asked);
     });
 });
-
-describe('<aparte-context auto-compact> — the deprecated request', () => {
-    it('marks its request as automatic and carries the window it measured against', () => {
-        const compacts: Array<Record<string, unknown>> = [];
-        window.addEventListener('aparte-compact', (e) => compacts.push((e as CustomEvent).detail));
-        mount([user('u1', text(380)), reply('a1', text(380), { usage: { inputTokens: 900, outputTokens: 50 } })], 'window="1000" auto-compact');
-        turn('a1', 900, 50);
-        expect(compacts).toEqual([{ targetId: 'chat-a', auto: true, window: 1000 }]);
-    });
-
-    it('still asks per turn, one request at a time', () => {
-        const compacts: unknown[] = [];
-        window.addEventListener('aparte-compact', (e) => compacts.push((e as CustomEvent).detail));
-        mount([user('u1', text(380)), reply('a1', text(380), { usage: { inputTokens: 900, outputTokens: 50 } })], 'window="1000" auto-compact');
-        turn('a1', 900, 50);
-        turn('a1', 920, 50);
-        expect(compacts).toHaveLength(1);
-    });
-});

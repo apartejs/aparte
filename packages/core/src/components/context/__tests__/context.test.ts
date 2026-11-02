@@ -3,9 +3,8 @@
  * <aparte-context> — the gauge of the model's context window.
  *
  * It reads the usage each turn reports and the window the model declares (or the
- * `window` attribute), turns warn/danger at the two fractions, fires a threshold
- * event when the level changes, and with `auto-compact` asks for a compaction once
- * on reaching danger. Before the first turn, or without a window, it shows nothing.
+ * `window` attribute), turns warn/danger at the two fractions and fires a threshold
+ * event when the level changes. Before the first turn, or without a window, it shows nothing.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { aparteGlobalConfig } from '../../../config/index.js';
@@ -87,19 +86,17 @@ describe('<aparte-context>', () => {
         expect(el.getAttribute('data-level')).toBe('danger');
     });
 
-    it('auto-compact asks for a compaction once on reaching danger, and again after a real compaction', () => {
+    it('never asks for a compaction by itself, in danger or after one (an auto-compact attribute left in markup does nothing)', () => {
         const el = mount(`<aparte-chat id="chat-a"><aparte-context window="1000" auto-compact></aparte-context></aparte-chat>`);
         const compacts: string[] = [];
         window.addEventListener('aparte-compact', (e) => compacts.push(String((e as CustomEvent).detail?.targetId)));
 
         turn(900, 50, 'chat-a');
-        turn(920, 50, 'chat-a');   // still danger: not asked twice
-        expect(compacts).toEqual(['chat-a']);
-
+        expect(el.getAttribute('data-level')).toBe('danger');
         window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary: 's', kept: 2 } }));
         expect(el.hasAttribute('data-empty')).toBe(true);   // nothing measured yet after the compaction
         turn(950, 20, 'chat-a');
-        expect(compacts).toEqual(['chat-a', 'chat-a']);
+        expect(compacts).toEqual([]);
     });
 
     it('ignores the turns of another chat', () => {
@@ -115,39 +112,6 @@ describe('<aparte-context>', () => {
         turn(600, 100);
         window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true } }));
         expect(el.used).toBe(700);
-    });
-
-    it('a refused compaction does not latch auto-compact off: the next turn in danger asks again', () => {
-        // The request used to be spent only by a real compaction; a skip (nothing to
-        // drop yet, a stream in flight) returned early, the level never left danger,
-        // and the gauge never asked again for the life of the element.
-        mount(`<aparte-chat id="chat-a"><aparte-context window="1000" auto-compact></aparte-context></aparte-chat>`);
-        const compacts: string[] = [];
-        window.addEventListener('aparte-compact', (e) => compacts.push(String((e as CustomEvent).detail?.targetId)));
-
-        turn(900, 50, 'chat-a');
-        expect(compacts).toEqual(['chat-a']);
-        window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true, reason: 'nothing-to-drop', targetId: 'chat-a' } }));
-        turn(920, 50, 'chat-a');
-        expect(compacts).toEqual(['chat-a', 'chat-a']);
-        // Still open: no second ask until the plugin answers.
-        turn(930, 50, 'chat-a');
-        expect(compacts).toEqual(['chat-a', 'chat-a']);
-    });
-
-    it('a failed compaction spends the request too', () => {
-        mount(`<aparte-chat id="chat-a"><aparte-context window="1000" auto-compact></aparte-context></aparte-chat>`);
-        const compacts: string[] = [];
-        window.addEventListener('aparte-compact', (e) => compacts.push(String((e as CustomEvent).detail?.targetId)));
-
-        turn(900, 50, 'chat-a');
-        window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: new Error('502'), targetId: 'chat-a' } }));
-        turn(920, 50, 'chat-a');
-        expect(compacts).toEqual(['chat-a', 'chat-a']);
-        // Another chat's failure is not this gauge's.
-        window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: new Error('502'), targetId: 'chat-z' } }));
-        turn(930, 50, 'chat-a');
-        expect(compacts).toEqual(['chat-a', 'chat-a']);
     });
 });
 
@@ -270,7 +234,7 @@ describe('<aparte-context> — a conversation switch', () => {
     // The viewport says "emptied" (`aparte-reset-done`, on itself) and the controller says
     // "on screen" (`aparte-conversation-loaded`, on the chat host). A load does both, in order.
     const chatWith = (messages: unknown[]): { chat: HTMLElement; viewport: HTMLElement } => {
-        document.body.innerHTML = `<aparte-chat id="chat-a"><aparte-chat-viewport></aparte-chat-viewport><aparte-context window="1000" auto-compact></aparte-context></aparte-chat>`;
+        document.body.innerHTML = `<aparte-chat id="chat-a"><aparte-chat-viewport></aparte-chat-viewport><aparte-context window="1000"></aparte-context></aparte-chat>`;
         const chat = document.querySelector('aparte-chat') as HTMLElement;
         (chat as unknown as { getMessages: () => unknown[] }).getMessages = () => messages;
         return { chat, viewport: chat.querySelector('aparte-chat-viewport') as HTMLElement };
@@ -315,24 +279,6 @@ describe('<aparte-context> — a conversation switch', () => {
         loaded(chat);
         expect(gauge().used).toBeNull();
         expect(gauge().hasAttribute('data-empty')).toBe(true);
-    });
-
-    it('a restored reading in danger does not ask for a compaction', () => {
-        const { chat, viewport } = chatWith([
-            { id: 'a1', role: 'assistant', content: 'b', timestamp: 2, usage: { inputTokens: 950, outputTokens: 30 } },
-        ]);
-        const compacts: unknown[] = [];
-        window.addEventListener('aparte-compact', (e) => compacts.push(e));
-
-        reset(viewport);
-        loaded(chat);
-        expect(gauge().getAttribute('data-level')).toBe('danger');
-        expect(compacts).toEqual([]);
-        // Nor does a later re-draw: only the end of a turn asks.
-        window.dispatchEvent(new CustomEvent('aparte-config-change'));
-        expect(compacts).toEqual([]);
-        turn(950, 30, 'chat-a');
-        expect(compacts).toHaveLength(1);
     });
 
     it('ignores the switch of another chat', () => {

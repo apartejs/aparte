@@ -42,7 +42,6 @@ export const zhCN: AparteLocale = {
     contextTotal: "总计",
     contextReclaim: "现在压缩可释放约 {n} 个 token",
     contextCompactNow: "立即压缩",
-    compactionSummaryTitle: "对话摘要",
     checkpointCount: "已为模型总结 {n} 条消息",
     checkpointCountOne: "已为模型总结 1 条消息",
     checkpointLegacy: "较早的消息已被总结",

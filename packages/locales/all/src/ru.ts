@@ -42,7 +42,6 @@ export const ru: AparteLocale = {
     contextTotal: "Всего",
     contextReclaim: "Сжатие сейчас освободит ~{n} токенов",
     contextCompactNow: "Сжать сейчас",
-    compactionSummaryTitle: "Сводка беседы",
     checkpointCount: "Сообщений сжато для модели: {n}",
     checkpointCountOne: "1 сообщение сжато для модели",
     checkpointLegacy: "Предыдущие сообщения сжаты",

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
  *
  *   1. Retry on assistant message → user message stays on active path
  *   2. Multiple retries → correct sibling count & navigation
- *   3. New-chat (clearMessages) → repo reset, no leftover topology
+ *   3. New-chat (clearAll) → repo reset, no leftover topology
  *   4. Retry after new-chat → no duplicate / ghost messages
  *   5. aparte-path-changed payload in framework-managed mode
  *   6. aparte-path-changed includes sibling metadata after retry
@@ -23,7 +23,7 @@ type ViewportEl = HTMLElement & {
     appendMessage(msg: AparteMessage): void;
     addSiblingOf(existingId: string, newMsg: AparteMessage): string | null;
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void;
-    clearMessages(): void;
+    clearAll(): void;
     getMessage(id: string): AparteMessage | undefined;
     getMessages(): AparteMessage[];
     setFrameworkManagedDOM(managed: boolean): void;
@@ -188,29 +188,29 @@ describe('Retry flow', () => {
     });
 });
 
-describe('New conversation (clearMessages) flow', () => {
+describe('New conversation (clearAll) flow', () => {
     let vp: ViewportEl;
 
     beforeEach(() => { vp = createViewport(); });
     afterEach(() => { vp.remove(); });
 
-    it('clearMessages() empties the active path', () => {
+    it('clearAll() empties the active path', () => {
         vp.appendMessage(msg({ role: 'user', content: 'q' }));
         vp.appendMessage(msg({ role: 'assistant', content: 'a' }));
         expect(vp.getMessages()).toHaveLength(2);
 
-        vp.clearMessages();
+        vp.clearAll();
         expect(vp.getMessages()).toHaveLength(0);
     });
 
-    it('messages appended after clearMessages() start a fresh linear chain', () => {
+    it('messages appended after clearAll() start a fresh linear chain', () => {
         // First conversation
         const u1 = msg({ role: 'user', content: 'q1' });
         const a1 = msg({ role: 'assistant', content: 'a1' });
         vp.appendMessage(u1);
         vp.appendMessage(a1);
 
-        vp.clearMessages();
+        vp.clearAll();
 
         // Second conversation — new IDs
         const u2 = msg({ role: 'user', content: 'q2' });
@@ -224,10 +224,10 @@ describe('New conversation (clearMessages) flow', () => {
         expect(path[1].id).toBe(a2.id);
     });
 
-    it('old messages from previous conversation are not accessible after clearMessages()', () => {
+    it('old messages from previous conversation are not accessible after clearAll()', () => {
         const old = msg({ role: 'assistant', content: 'old' });
         vp.appendMessage(old);
-        vp.clearMessages();
+        vp.clearAll();
         expect(vp.getMessage(old.id)).toBeUndefined();
     });
 
@@ -237,7 +237,7 @@ describe('New conversation (clearMessages) flow', () => {
         const a1 = msg({ role: 'assistant', content: 'a1' });
         vp.appendMessage(u1);
         vp.appendMessage(a1);
-        vp.clearMessages();
+        vp.clearAll();
 
         // Second conversation
         const u2 = msg({ role: 'user', content: 'q2' });
@@ -269,7 +269,7 @@ describe('New conversation (clearMessages) flow', () => {
         vp.appendMessage(u1);
         vp.appendMessage(a1);
         vp.addSiblingOf(a1.id, msg({ role: 'assistant', content: 'a1-retry' }));
-        vp.clearMessages();
+        vp.clearAll();
 
         // Second conversation
         const u2 = msg({ role: 'user', content: 'q2' });

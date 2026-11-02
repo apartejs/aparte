@@ -146,9 +146,9 @@ interface AparteEventMap {
     // ── The compaction conversation, and the one command core listens for ─────
     // `aparte-abort` is the only one here core NEVER sends: it listens for it, so an
     // app is always the sender. The other four are a round trip an app can join at
-    // either end — `<aparte-context auto-compact>` dispatches `aparte-compact` when
-    // the gauge reaches `danger` and so can your own button, `@aparte/plugin-compaction`
-    // answers it and reports back with `-start` / `-done` / `-error`. This block used
+    // either end — your own button dispatches `aparte-compact` (and so does the context
+    // gauge's Retry), `@aparte/plugin-compaction` answers it and reports back with
+    // `-start` / `-done` / `-error`. This block used
     // to say "Core never sends these", which was false of four of the five and hid the
     // gauge's own event from the manifest and from its docs page for as long.
     // Either way they are the most public events in the set: without a type there was

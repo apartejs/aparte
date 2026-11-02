@@ -31,7 +31,7 @@ type ViewportEl = HTMLElement & {
     addSiblingOf(existingId: string, newMsg: AparteMessage): string | null;
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void;
     truncateFrom(messageId: string): void;
-    clearMessages(): void;
+    clearAll(): void;
     setFrameworkManagedDOM(managed: boolean): void;
 };
 
@@ -465,7 +465,7 @@ describe('Thread scenarios — full spec', () => {
     });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 12 — clearMessages (nouvelle conversation)
+    // STEP 12 — clearAll (nouvelle conversation)
     // ═══════════════════════════════════════════════════════════════════════
     //
     // Expected:
@@ -473,12 +473,12 @@ describe('Thread scenarios — full spec', () => {
     //   getMessage(any old id) = undefined
     //   headId = null
 
-    describe('Step 12 — clearMessages', () => {
+    describe('Step 12 — clearAll', () => {
         beforeEach(() => {
             vp.appendMessage(u1); vp.appendMessage(a1);
             vp.appendMessage(u2); vp.appendMessage(a2);
             vp.addSiblingOf(a2.id, a2r);
-            vp.clearMessages();
+            vp.clearAll();
         });
 
         it('getMessages() returns []', () => {
@@ -522,7 +522,7 @@ describe('Thread scenarios — full spec', () => {
             vp.addSiblingOf(a2.id, a2r); // creates siblings in old tree
 
             // New conversation
-            vp.clearMessages();
+            vp.clearAll();
             nu1  = msg('user',      'nouvelle question');
             na1  = msg('assistant', 'nouvelle réponse');
             na1r = msg('assistant', 'nouvelle réponse — retry');

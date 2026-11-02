@@ -124,16 +124,12 @@ const NO_PARTS = { system: 0, tools: 0, summary: 0, messages: 0 } as const;
  * While a compaction runs the element carries `data-compact="running"`, and `"failed"` after a
  * failure, with Retry in the panel. Escape and a click outside close it; nothing opens on hover.
  *
- * `auto-compact` is deprecated: the plugin decides when to compact now (after a turn, and
- * before a send that would overflow), so a page does not need the gauge to ask. It still
- * works — a turn that ends in `danger` dispatches `aparte-compact`, one request at a time,
- * with `auto: true` so the plugin can tell it from a button — and it will go away in a
- * future major version.
+ * The gauge never asks for a compaction by itself: `@aparte/plugin-compaction` decides when to
+ * compact (after a turn, and before a send that would overflow).
  *
  * A new chat or a conversation loaded in place of the last replaces the reading: it is
  * cleared on `aparte-reset-done` and, for a stored conversation, read from its last reply on
- * `aparte-conversation-loaded`. A restored reading never asks for a compaction, whatever its
- * level — that stays tied to the end of a turn.
+ * `aparte-conversation-loaded`.
  *
  * The bar wears the `aparte-progress` recipe. `variant="ring"` draws the same reading
  * as a ring with the percentage beside it — for a toolbar, where a bar wants a width
@@ -146,7 +142,6 @@ const NO_PARTS = { system: 0, tools: 0, summary: 0, messages: 0 } as const;
  * @attr {number} used - Tokens in use before a turn of this page has reported any: a restored conversation's last usage. The next turn's usage replaces it.
  * @attr {number} warn - Fraction of the window at which the level turns `warn`. Default `0.75`.
  * @attr {number} danger - Fraction at which it turns `danger`. Default `0.9`.
- * @attr {boolean} auto-compact - Deprecated, still works. Dispatch `aparte-compact` (with `auto: true`) on each turn that ends in `danger`, one request at a time. `@aparte/plugin-compaction` decides when to compact by itself now, so leave this off.
  * @attr {string} target - The id of the `<aparte-chat>` to watch, when the element is not under it.
  * @attr {string} variant - `bar` (default) or `ring`: a progress bar with the reading beside it, or a ring with the percentage.
  * @attr {string} data-level - Reflected BY the element: `ok`, `warn` or `danger`. Read-only.
@@ -154,7 +149,7 @@ const NO_PARTS = { system: 0, tools: 0, summary: 0, messages: 0 } as const;
  * @attr {string} data-compact - Reflected BY the element while this chat is being compacted (`running`) and after a compaction failed (`failed`). Read-only.
  *
  * @fires {CustomEvent<AparteContextThresholdEventDetail>} aparte-context-threshold - The level changed. Bubbles.
- * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` when the deprecated `auto-compact` is set and a turn ends in `danger` (`auto: true`, with the `window` it measured against), and by Retry in the panel when no compactor is registered. One automatic request at a time — the next turn in `danger` asks again once the plugin has answered. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
+ * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` by Retry in the panel when no compactor is registered. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
  *
  * @cssprop [--aparte-context-ring-size=22px] - Diameter of the ring variant.
  *
@@ -186,7 +181,6 @@ export class AparteContext extends HTMLElement {
      */
     private _used: number | null = null;
     private _level: AparteContextLevel | null = null;
-    private _compactRequested = false;
     /** The last turn's usage and the reply it belongs to, so the measure has it before the list has written it back. */
     private _lastDone: { messageId: string | undefined; usage: AparteUsage } | null = null;
     /** What the model reads changed with nothing on the path to say so (a Restore): the reading is an estimate until the next turn reports. */
@@ -219,9 +213,7 @@ export class AparteContext extends HTMLElement {
         this._viewChanged = false;
         this._blank = false;
         this._overflow = false;
-        // The one render that may ask for a compaction: auto-compact is tied to the END of
-        // a turn, never to a reading that was merely restored or re-drawn.
-        this._render(true);
+        this._render();
     };
 
     /**
@@ -262,7 +254,6 @@ export class AparteContext extends HTMLElement {
         const messages = host?.getMessages?.() ?? [];
         const last = [...messages].reverse().find((m) => m.role === 'assistant' && m.usage);
         this._used = last?.usage ? usageTokens(last.usage) : null;
-        // Never `_render(true)`: a restored reading in danger must not start a compaction.
         this._render();
     };
 
@@ -289,11 +280,6 @@ export class AparteContext extends HTMLElement {
     private _onCompacted = (e: Event): void => {
         const detail = (e as CustomEvent<AparteCompactDoneEventDetail>).detail;
         if (!this._isMine(detail?.targetId)) return;
-        // The request is spent whatever the outcome. A skip (`empty`, `nothing-to-drop`,
-        // `running`, `streaming`) used to return before this line, so with the usage
-        // still climbing the level never left `danger` and the gauge never asked again
-        // for the life of the element — one refused compaction latched auto-compact off.
-        this._compactRequested = false;
         // Any answer ends the wait, a skip included: the compaction is no longer running.
         this._compact = null;
         if (detail?.skipped) {
@@ -306,11 +292,9 @@ export class AparteContext extends HTMLElement {
         this._render();
     };
 
-    /** A failed compaction spends the request too; the next `danger` asks again. */
     private _onCompactError = (e: Event): void => {
         const detail = (e as CustomEvent<AparteCompactErrorEventDetail | undefined>).detail;
         if (!this._isMine(detail?.targetId)) return;
-        this._compactRequested = false;
         // A cancelled compaction (Stop, Restore) is not a failure: no "failed", no Retry.
         this._compact = detail?.aborted ? null : 'failed';
         this._failure = detail?.aborted ? '' : (typeof detail?.error === 'string' ? detail.error : '');
@@ -497,7 +481,7 @@ export class AparteContext extends HTMLElement {
         return { window: capacity, used: this._used, estimated: false, parts: { ...NO_PARTS }, other: this._used };
     }
 
-    private _render(askToCompact = false): void {
+    private _render(): void {
         const capacity = this._window();
         const measure = capacity === null ? null : this._measure(capacity);
         // Reflected even while nothing is drawn: a compaction is running whether or not there
@@ -613,17 +597,6 @@ export class AparteContext extends HTMLElement {
             const targetId = this._ownTargetId();
             const detail: AparteContextThresholdEventDetail = { level, used, window: capacity, ratio, targetId };
             this.dispatchEvent(new CustomEvent<AparteContextThresholdEventDetail>('aparte-context-threshold', { detail, bubbles: true, composed: true }));
-            if (level !== 'danger') this._compactRequested = false;
-        }
-        // Asked per TURN, not per level change: one request stays open until the
-        // plugin answers (done, skipped or failed), and the next turn in danger asks
-        // again. Tied to the level change, a refused compaction — nothing to drop yet,
-        // a stream in flight — left the level at danger and the gauge silent for good.
-        if (askToCompact && level === 'danger' && this.hasAttribute('auto-compact') && !this._compactRequested) {
-            this._compactRequested = true;
-            window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', {
-                detail: { targetId: this._ownTargetId(), auto: true, window: capacity },
-            }));
         }
     }
 
