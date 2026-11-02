@@ -21,6 +21,8 @@ const SETTLE_MS = 150;
 const MAX_ALIGN_PASSES = 4;
 /** Within this many pixels of the top, a jump has landed. */
 const ALIGN_TOLERANCE = 1;
+/** The reading band: the top share of the scroll surface, in percent, where a question is "the one you are under". */
+const BAND_PERCENT = 30;
 
 /**
  * A rail of ticks beside the transcript — one per turn — that shows where you are in a
@@ -103,6 +105,11 @@ export class AparteScrollRail extends HTMLElement {
     private _intersections: IntersectionObserver | null = null;
     /** The bubbles the intersection observer watches — compared by identity, so a re-rendered bubble is re-observed. */
     private _observedBubbles: HTMLElement[] = [];
+    /**
+     * Every message the reading band watches: the ticked ones and, with `every="user"`, the
+     * replies too, each read under the question above it.
+     */
+    private _bandTargets: HTMLElement[] = [];
     /** The scroll surface the observer is rooted on, and whose bottom edge is read. */
     private _observedSurface: HTMLElement | null = null;
     /** One frame does the queued work: a full rebuild when bubbles came or went, else the re-labels. */
@@ -283,11 +290,15 @@ export class AparteScrollRail extends HTMLElement {
         return viewport.querySelector<HTMLElement>('.aparte-viewport-container') ?? viewport;
     }
 
-    private _bubbles(): HTMLElement[] {
+    /** Every message bubble of the transcript, in document order. */
+    private _messages(): HTMLElement[] {
         const viewport = this._viewport();
-        if (!viewport) return [];
+        return viewport ? Array.from(viewport.querySelectorAll<HTMLElement>('aparte-chat-bubble[message-id]')) : [];
+    }
+
+    /** The bubbles that get a tick, from all of them. */
+    private _bubbles(all: HTMLElement[] = this._messages()): HTMLElement[] {
         const every: AparteScrollRailEvery = this.getAttribute('every') === 'message' ? 'message' : 'user';
-        const all = Array.from(viewport.querySelectorAll<HTMLElement>('aparte-chat-bubble[message-id]'));
         return every === 'message' ? all : all.filter((b) => b.getAttribute('data-role') === 'user');
     }
 
@@ -320,7 +331,8 @@ export class AparteScrollRail extends HTMLElement {
      * and dropped when its bubble left.
      */
     private _rebuild(): void {
-        const bubbles = this._bubbles();
+        const all = this._messages();
+        const bubbles = this._bubbles(all);
         const locale = resolveConfig(this).getLocale();
         // Written only when the value changes: a reconcile runs on every host mutation, and
         // an attribute rewritten to the value it already has is still a DOM mutation —
@@ -390,7 +402,7 @@ export class AparteScrollRail extends HTMLElement {
 
         if (this._currentId && !known.has(this._currentId)) this._currentId = null;
         this._syncTabStop();
-        if (!sameElements(this._observedBubbles, bubbles)) this._observe(bubbles);
+        if (!sameElements(this._observedBubbles, bubbles) || !sameElements(this._bandTargets, all)) this._observe(bubbles, all);
         this._layout();
     }
 
@@ -404,10 +416,18 @@ export class AparteScrollRail extends HTMLElement {
      * position read is the bottom, because there the reader is under the latest question
      * whatever the band holds, and the observer has nothing to report on the last few
      * pixels.
+     *
+     * The replies are watched too, and a reply in the band is read under its question. With
+     * the questions alone the band was empty whenever the reader was inside a long reply, and
+     * nothing moved the mark when the layout did: a bubble never rendered has an estimated
+     * height (`content-visibility`) and takes its real one once the scroll has stopped, so a
+     * still reader's question changed with no scroll and no question crossing the band. The
+     * observer reports a reply entering the band whatever moved it.
      */
-    private _observe(bubbles: HTMLElement[]): void {
+    private _observe(bubbles: HTMLElement[], all: HTMLElement[]): void {
         this._unobserve();
         this._observedBubbles = bubbles;
+        this._bandTargets = all;
         if (typeof IntersectionObserver === 'undefined') return;
         const root = this._scrollSurface();
         if (!root) return;
@@ -417,7 +437,7 @@ export class AparteScrollRail extends HTMLElement {
                 if (id) this._visible.set(id, entry.isIntersecting ? entry.intersectionRatio : 0);
             }
             this._pickCurrent();
-        }, { root, rootMargin: '0px 0px -70% 0px', threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
+        }, { root, rootMargin: `0px 0px -${100 - BAND_PERCENT}% 0px`, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
         // The whole surface, for one question only: the last. While the end of the thread
         // is on screen the reader is at the end, whatever the band holds — after a send,
         // the viewport rests with the new question low on the screen and older ones in
@@ -431,7 +451,7 @@ export class AparteScrollRail extends HTMLElement {
             }
             this._pickCurrent();
         }, { root, threshold: [0] });
-        for (const bubble of bubbles) this._intersections.observe(bubble);
+        for (const bubble of all) this._intersections.observe(bubble);
         // Only the last is ever read from this one: watching every question made the browser
         // compute their intersections each frame of a scroll, and called back on each crossing.
         this._onScreenObserver.observe(bubbles[bubbles.length - 1]!);
@@ -447,6 +467,7 @@ export class AparteScrollRail extends HTMLElement {
         this._observedSurface?.removeEventListener('scroll', this._onRootScroll);
         this._observedSurface = null;
         this._observedBubbles = [];
+        this._bandTargets = [];
         this._visible.clear();
         this._onScreen.clear();
     }
@@ -479,14 +500,49 @@ export class AparteScrollRail extends HTMLElement {
             this._setCurrent(lastId);
             return;
         }
+        // The last message in the band names the question: itself when it has a tick, else the
+        // ticked one above it. With the questions alone, a reader who wheeled up through long
+        // replies was still marked on the last question seven questions later, measured in
+        // Chromium: the band held only replies, and an empty band kept the old mark.
         let last: string | null = null;
-        for (const bubble of bubbles) {
+        let above: string | null = null;
+        for (const bubble of this._bandTargets) {
             const id = bubble.getAttribute('message-id')!;
-            if ((this._visible.get(id) ?? 0) > 0) last = id;
+            if (this._ticked(bubble)) above = id;
+            if (above !== null && (this._visible.get(id) ?? 0) > 0) last = above;
         }
-        // Nothing in the band (the reader is deep in one reply): keep the last mark
-        // rather than clearing it.
+        // No message in the band at all (above the first one, or in the space after the
+        // last): the band's rule, read from the layout.
+        last ??= this._lastAbove();
         if (last !== null) this._setCurrent(last);
+    }
+
+    /**
+     * The last question whose top is above the reading band's lower edge: by halves, since
+     * the questions are in document order and their tops only grow. A question never
+     * rendered has its estimated height (`content-visibility`), which keeps that order.
+     * `null` when nothing is laid out, and the mark stays as it was.
+     */
+    private _lastAbove(): string | null {
+        const surface = this._observedSurface;
+        const bubbles = this._observedBubbles;
+        if (!surface || bubbles.length === 0) return null;
+        const box = surface.getBoundingClientRect();
+        if (box.height <= 0) return null;
+        const edge = box.top + (box.height * BAND_PERCENT) / 100;
+        let low = 0;
+        let high = bubbles.length - 1;
+        let found = 0;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (bubbles[mid]!.getBoundingClientRect().top < edge) {
+                found = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return bubbles[found]!.getAttribute('message-id');
     }
 
     private _setCurrent(id: string | null): void {

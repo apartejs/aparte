@@ -317,3 +317,55 @@ test('a jump under a header lands below it, without chasing the inset', async ({
     // of them (5). A pass or two is the rail's own catch-up on `content-visibility` (WebKit).
     expect(landed.jumps, 'the landing check settles instead of chasing the inset to its last pass').toBeLessThan(5);
 });
+
+/** Set a conversation in one call: `count` messages, the replies `replyRepeat` sentences long. */
+async function setConversation(page: Page, count: number, replyRepeat: number): Promise<void> {
+    await page.evaluate(([n, repeat]) => {
+        const prose = 'A long answer, the kind that runs for screens. '.repeat(repeat);
+        const messages = Array.from({ length: n }, (_, i) => ({
+            id: `m${i}`,
+            role: i % 2 ? 'assistant' : 'user',
+            content: i % 2 ? prose : `Question ${Math.floor(i / 2)}?`,
+            timestamp: Date.now(),
+        }));
+        (document.querySelector('aparte-chat-viewport') as HTMLElement & { setMessages(m: unknown[]): void }).setMessages(messages);
+    }, [count, replyRepeat] as const);
+}
+
+/*
+ * Measured in Chromium on 2026-11-02: a reader who wheeled up through long replies was still
+ * marked on the last question seven questions later. A question is short, a wheel step carries
+ * it across the reading band between two frames, and an empty band kept the old mark.
+ */
+test('the mark follows a reader who wheels up through long replies', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await expect(chat.viewport).toBeVisible();
+    await setConversation(page, 20, 90);
+    await expect(page.locator('aparte-scroll-rail .aparte-scroll-rail__tick')).toHaveCount(10);
+    await waitForStill(page, { frames: 10 });
+    const box = (await page.locator('aparte-chat-viewport').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // The question the reader is under, by the rail's own rule: the last one while it is on
+    // screen at all, else the last whose top is above the reading band's lower edge.
+    const under = () => page.evaluate(() => {
+        const surface = (document.querySelector('.aparte-viewport-container') as HTMLElement).getBoundingClientRect();
+        const questions = [...document.querySelectorAll<HTMLElement>('aparte-chat-bubble[data-role="user"]')];
+        const last = questions.at(-1)!.getBoundingClientRect();
+        if (last.bottom > surface.top && last.top < surface.bottom) return questions.at(-1)!.getAttribute('message-id');
+        const edge = surface.top + surface.height * 0.3;
+        return (questions.filter((q) => q.getBoundingClientRect().top < edge).at(-1) ?? questions[0]!).getAttribute('message-id');
+    });
+    const marked = () => page.evaluate(() => (document.querySelector('aparte-scroll-rail [aria-current="true"]') as HTMLElement | null)?.dataset['messageId'] ?? null);
+    const walked = new Set<string>();
+    for (let step = 0; step < 12; step++) {
+        await page.mouse.wheel(0, -700);
+        await waitForStill(page, { frames: 6 });
+        const expected = await under();
+        walked.add(expected!);
+        await expect.poll(marked, { message: `wheel step ${step}: the reader is under ${expected}` }).toBe(expected);
+    }
+    expect(walked.size, 'the walk crossed several questions').toBeGreaterThan(3);
+    expect(errors).toEqual([]);
+});

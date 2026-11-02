@@ -19,6 +19,8 @@ let ioConstructed = 0;
 /** The latest reading-band observer (the one with a negative bottom margin), and the latest whole-surface one. */
 const band = (): StubObserver => observers.filter((o) => o.opts?.rootMargin?.includes('-70%')).at(-1)!;
 const screen = (): StubObserver => observers.filter((o) => !o.opts?.rootMargin?.includes('-70%')).at(-1)!;
+/** The bubble the reading band watches under a message id: it watches the replies too, so indices would lie. */
+const inBand = (id: string): Element => band().observed.find((e) => e.getAttribute('message-id') === id)!;
 
 beforeEach(() => {
     observers.length = 0;
@@ -116,30 +118,69 @@ describe('aparte-scroll-rail', () => {
 
     it('marks the LAST question that reached the reading band as current, via the intersection observer', () => {
         const { rail } = mount(THREE_TURNS());
-        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['u1', 'u2', 'u3']);
+        // Every message is watched, the replies too: a reply in the band names its question.
+        expect(band().observed.map((e) => e.getAttribute('message-id'))).toEqual(['u1', 'a1', 'u2', 'a2', 'u3']);
         // The second question fills most of the band and the third has just entered it:
         // the reader is under the third — a scrollspy's rule, not the largest share.
         band().cb([
-            { target: band().observed[0]!, isIntersecting: false, intersectionRatio: 0 },
-            { target: band().observed[1]!, isIntersecting: true, intersectionRatio: 0.6 },
-            { target: band().observed[2]!, isIntersecting: true, intersectionRatio: 0.2 },
+            { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('u2'), isIntersecting: true, intersectionRatio: 0.6 },
+            { target: inBand('u3'), isIntersecting: true, intersectionRatio: 0.2 },
         ]);
         expect(ticks(rail).map((t) => t.getAttribute('aria-current'))).toEqual([null, null, 'true']);
         expect((rail as HTMLElement & { currentMessageId: string | null }).currentMessageId).toBe('u3');
 
         // Only the second one left in the band: the reader is under it.
-        band().cb([{ target: band().observed[2]!, isIntersecting: false, intersectionRatio: 0 }]);
+        band().cb([{ target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
 
-        // Nothing in the band keeps the last mark rather than clearing it.
-        band().cb([{ target: band().observed[1]!, isIntersecting: false, intersectionRatio: 0 }]);
+        // Nothing in the band, and nothing laid out to read (jsdom): the last mark stays.
+        band().cb([{ target: inBand('u2'), isIntersecting: false, intersectionRatio: 0 }]);
         expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('a reply in the band is read under its question, whatever moved it there', () => {
+        // The layout moves under a still reader: a bubble never rendered takes its real height
+        // once the scroll has stopped. The band observer reports the reply that slid into it.
+        const { rail } = mount(THREE_TURNS());
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
+        band().cb([
+            { target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 },
+            { target: inBand('a1'), isIntersecting: true, intersectionRatio: 0.4 },
+        ]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'inside the reply to u1').toBe('true');
+        // A question and the reply above it both in the band: the question, the later of the two.
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 0.3 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('with nothing in the band, marks the last question above its lower edge — the reader is inside its reply', () => {
+        // Measured in Chromium: a reader who wheeled up through long replies was still marked
+        // on the last question seven questions later. A short question crosses the band between
+        // two frames and is never reported in it, and an empty band kept the old mark.
+        const turns = THREE_TURNS();
+        const { viewport, rail } = mount(turns);
+        viewport.getBoundingClientRect = () => ({ top: 0, height: 1000 }) as DOMRect;
+        const tops: Record<string, number> = { u1: -2400, u2: -900, u3: 1600 };
+        for (const b of turns) b.getBoundingClientRect = () => ({ top: tops[b.getAttribute('message-id')!] ?? 0 }) as DOMRect;
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
+        // Wheeled up past u3 and well into the reply to u2: the band holds no question.
+        band().cb([{ target: inBand('u3'), isIntersecting: false, intersectionRatio: 0 }]);
+        expect(ticks(rail)[1]!.getAttribute('aria-current'), 'under u2, whose top is above the band').toBe('true');
+        // Further up, into the reply to u1.
+        tops['u2'] = 500;
+        tops['u3'] = 3000;
+        viewport.dispatchEvent(new Event('scroll'));
+        band().cb([]);
+        expect(ticks(rail)[0]!.getAttribute('aria-current'), 'under u1 now').toBe('true');
     });
 
     it('at the bottom of the transcript, the last question is current whatever the band holds', async () => {
         const { viewport, rail } = mount(THREE_TURNS());
         // The observer says the first question is the one in the band…
-        band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
         // …but the surface is at its bottom edge: the reader is under the latest question.
         Object.defineProperty(viewport, 'scrollHeight', { value: 1000, configurable: true });
@@ -152,7 +193,7 @@ describe('aparte-scroll-rail', () => {
 
     it('while the last question is on screen at all, it is the current one — the end of the thread is where the reader is', () => {
         const { rail } = mount(THREE_TURNS());
-        band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(ticks(rail)[0]!.getAttribute('aria-current')).toBe('true');
         // After a send the viewport rests with the new question low on the screen: off
         // the band, but on screen.
@@ -228,7 +269,7 @@ describe('aparte-scroll-rail', () => {
         const { viewport, rail } = mount(THREE_TURNS());
         const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
         expect(stops(), 'no current tick yet: the last one').toEqual(['u3']);
-        band().cb([{ target: band().observed[1]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(stops(), 'the current tick').toEqual(['u2']);
         // The reader is on a tick: a rebuild leaves the stop where the focus is.
         ticks(rail)[0]!.focus();
@@ -438,14 +479,14 @@ describe('aparte-scroll-rail holds still', () => {
             turns[2]!.scrollIntoView = vi.fn();
             ticks(rail)[1]!.click();
             // Mid-scroll, the band crosses the first question: ignored while the jump settles.
-            band().cb([{ target: band().observed[0]!, isIntersecting: true, intersectionRatio: 0.9 }]);
+            band().cb([{ target: inBand('u1'), isIntersecting: true, intersectionRatio: 0.9 }]);
             expect(ticks(rail)[1]!.getAttribute('aria-current')).toBe('true');
             vi.advanceTimersByTime(400);
             expect(ticks(rail)[1]!.getAttribute('aria-current'), 'settled: the clicked tick is the mark').toBe('true');
             // The reader scrolls on — the first question leaves, the third enters: the observer is in charge again.
             band().cb([
-                { target: band().observed[0]!, isIntersecting: false, intersectionRatio: 0 },
-                { target: band().observed[2]!, isIntersecting: true, intersectionRatio: 0.8 },
+                { target: inBand('u1'), isIntersecting: false, intersectionRatio: 0 },
+                { target: inBand('u3'), isIntersecting: true, intersectionRatio: 0.8 },
             ]);
             expect(ticks(rail)[2]!.getAttribute('aria-current')).toBe('true');
         } finally {
@@ -512,7 +553,7 @@ describe('aparte-scroll-rail holds still', () => {
         const last = ticks(rail)[9]!;
         Object.defineProperty(last, 'offsetTop', { value: 56, configurable: true });
         Object.defineProperty(last, 'offsetHeight', { value: 2, configurable: true });
-        band().cb([{ target: band().observed[9]!, isIntersecting: true, intersectionRatio: 1 }]);
+        band().cb([{ target: inBand('u9'), isIntersecting: true, intersectionRatio: 1 }]);
         expect(rail.scrollTop, 'the mark is below the window: the rail slid down to it').toBeGreaterThan(0);
     });
 });
