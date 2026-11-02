@@ -372,6 +372,59 @@ describe('aparte-scroll-rail', () => {
         expect(root.activeElement, 'ArrowDown moves to the next tick').toBe(list[1]);
     });
 
+    it('watches the size of a viewport mounted after it, and of the scroll surface', async () => {
+        // A wrapper may mount the viewport after the rail; it was never watched, so a panel or a
+        // composer that later resized it left the rail measuring the old box. The scroll surface
+        // is watched for itself: a classic scrollbar appearing narrows it, not the viewport.
+        const watched: Element[] = [];
+        const original = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+        (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+            observe(el: Element): void { watched.push(el); }
+            unobserve(el: Element): void { watched.splice(watched.indexOf(el), 1); }
+            disconnect(): void { watched.length = 0; }
+        };
+        try {
+            const host = document.createElement('aparte-chat');
+            const rail = document.createElement('aparte-scroll-rail');
+            host.appendChild(rail);
+            document.body.appendChild(host);
+            expect(watched).toEqual([host]);
+            const viewport = document.createElement('aparte-chat-viewport');
+            const surface = document.createElement('div');
+            surface.className = 'aparte-viewport-container';
+            for (const b of THREE_TURNS()) surface.appendChild(b);
+            viewport.appendChild(surface);
+            host.insertBefore(viewport, rail);
+            await nextFrame(); await nextFrame();
+            expect(watched).toEqual([host, viewport, surface]);
+        } finally {
+            (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = original;
+        }
+    });
+
+    it('a re-label queued for one chat never names the next chat\'s tick', async () => {
+        const make = (id: string, reply: string): HTMLElement => {
+            const host = document.createElement('aparte-chat');
+            host.id = id;
+            const viewport = document.createElement('aparte-chat-viewport');
+            for (const b of [bubble('u1', 'user', `${id} question`), bubble('a1', 'assistant', reply), bubble('u2', 'user', `${id} second`)]) viewport.appendChild(b);
+            host.appendChild(viewport);
+            document.body.appendChild(host);
+            return viewport;
+        };
+        const a = make('chat-a', 'A reply');
+        make('chat-b', 'B reply');
+        const rail = document.createElement('aparte-scroll-rail');
+        rail.setAttribute('every', 'message');
+        rail.setAttribute('target', 'chat-a');
+        document.body.appendChild(rail);
+        a.querySelector('aparte-chat-bubble[message-id="a1"] .aparte-message-content')!.textContent = 'A reply, streamed further';
+        await Promise.resolve();   // the record is delivered and its re-label queued for the next frame
+        rail.setAttribute('target', 'chat-b');
+        await nextFrame(); await nextFrame();
+        expect(ticks(rail)[1]!.getAttribute('aria-label'), 'chat B\'s own reply, not chat A\'s').toBe('Assistant: B reply');
+    });
+
     it('target names a chat the rail is not inside', () => {
         const host = document.createElement('aparte-chat');
         host.id = 'elsewhere';

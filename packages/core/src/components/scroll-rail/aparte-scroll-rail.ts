@@ -102,6 +102,8 @@ export class AparteScrollRail extends HTMLElement {
     private _host: HTMLElement | null = null;
     private _mutations: MutationObserver | null = null;
     private _resizes: ResizeObserver | null = null;
+    /** The boxes the resize observer watches: the host, the transcript and its scroll surface. */
+    private _sized: HTMLElement[] = [];
     private _intersections: IntersectionObserver | null = null;
     /** The bubbles the intersection observer watches — compared by identity, so a re-rendered bubble is re-observed. */
     private _observedBubbles: HTMLElement[] = [];
@@ -243,12 +245,8 @@ export class AparteScrollRail extends HTMLElement {
         }
         // The rail spans the transcript and sits clear of its scrollbar, both measured:
         // re-measured when the chat or the transcript changes size (a composer that grows).
-        if (typeof ResizeObserver !== 'undefined') {
-            this._resizes = new ResizeObserver(() => this._layout());
-            this._resizes.observe(this._host);
-            const viewport = this._viewport();
-            if (viewport) this._resizes.observe(viewport);
-        }
+        // What it watches is pointed at the boxes on each rebuild (`_watchSizes`).
+        if (typeof ResizeObserver !== 'undefined') this._resizes = new ResizeObserver(() => this._layout());
         this._rebuild();
     }
 
@@ -257,6 +255,11 @@ export class AparteScrollRail extends HTMLElement {
         this._mutations = null;
         this._resizes?.disconnect();
         this._resizes = null;
+        this._sized = [];
+        // Work queued for the chat being left is not this chat's: a re-label looked up by id
+        // would name the next chat's tick with the last one's text.
+        this._relabel.clear();
+        this._rebuildWanted = false;
         this._unobserve();
         this._release();
         this._host = null;
@@ -298,6 +301,7 @@ export class AparteScrollRail extends HTMLElement {
 
     /** Re-name one bubble's tick, written only when the name changed. */
     private _label(bubble: HTMLElement, locale: AparteLocale): void {
+        if (!this._host?.contains(bubble)) return;
         const id = bubble.getAttribute('message-id');
         if (!id) return;
         const tick = this.querySelector<HTMLElement>(`.aparte-scroll-rail__tick[data-message-id="${cssEscape(id)}"]`);  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
@@ -365,6 +369,7 @@ export class AparteScrollRail extends HTMLElement {
      * and dropped when its bubble left.
      */
     private _rebuild(): void {
+        this._watchSizes();
         const all = this._messages();
         const bubbles = this._bubbles(all);
         const locale = resolveConfig(this).getLocale();
@@ -680,6 +685,23 @@ export class AparteScrollRail extends HTMLElement {
     }
 
     // ─── Geometry ─────────────────────────────────────────────────────────
+
+    /**
+     * Point the resize observer at the boxes the geometry is read from. Re-pointed on each
+     * rebuild: a viewport a wrapper mounts after the rail, or replaces, was never watched, and
+     * the panel or composer that resized it later left the rail measuring the old box. The
+     * scroll surface is watched for itself: a classic scrollbar appearing narrows it without
+     * resizing the viewport, and the rail has to move clear of the bar.
+     */
+    private _watchSizes(): void {
+        if (!this._resizes) return;
+        const wanted: HTMLElement[] = [];
+        for (const box of [this._host, this._viewport(), this._scrollSurface()]) if (box && !wanted.includes(box)) wanted.push(box);
+        if (sameElements(this._sized, wanted)) return;
+        for (const box of this._sized) if (!wanted.includes(box)) this._resizes.unobserve(box);
+        for (const box of wanted) if (!this._sized.includes(box)) this._resizes.observe(box);
+        this._sized = wanted;
+    }
 
     /** Write a custom property on this element only when its value changed; '' removes it. */
     private _write(name: string, value: string): void {
