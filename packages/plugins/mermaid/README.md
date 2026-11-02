@@ -26,7 +26,7 @@ the chat around it. Mermaid also runs with `securityLevel: 'strict'` and HTML la
 diagram's own `%%{init}%%` cannot turn either back on.
 
 What that costs: the text in a diagram cannot be selected, and it is set in the system fonts,
-since an image cannot load the page's. The copy button on the block copies the diagram's source.
+since an image cannot load the page's. A drawn diagram keeps its code card, so the copy button copies its source.
 
 ## While a reply streams
 

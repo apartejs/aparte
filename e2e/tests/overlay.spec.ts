@@ -185,15 +185,22 @@ test('a header over the transcript: the first message starts below it, and a jum
     await page.goto(overlayUrl(testInfo.project.name));
     for (let i = 0; i < 4; i++) await chat.sendAndSettle(`turn ${i}`);
     const INSET = 60;
-    // Each move waits for the view to stop: the inset re-pins a reader at the bottom, and a
-    // `scrollTop = 0` written while that re-pin is still landing measured the re-pin (the
-    // first message 427px above the edge, under load) instead of the top of the transcript.
+    // Each move waits for the view to stop: the inset re-pins a reader at the bottom.
     const move = async (how: 'inset' | 'top' | 'bottom' | 'jump') => {
+        if (how === 'top') {
+            // Up with the wheel, as a reader goes up: a page's own `scrollTop = 0` written within
+            // a second of the inset's re-pin is read as the engine clamping and pinned back to
+            // the bottom (the first message measured 427px above the edge on a CI WebKit).
+            const box = (await page.locator('[overlay-composer] aparte-chat-viewport').boundingBox())!;
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+            await page.mouse.wheel(0, -20_000);
+            await waitForStill(page);
+            return;
+        }
         await page.evaluate(([step, inset]) => {
             const surface = (document.querySelector('[overlay-composer] .aparte-viewport-container')
                 ?? document.querySelector('[overlay-composer] aparte-chat-viewport')) as HTMLElement;
             if (step === 'inset') (document.querySelector('[overlay-composer]') as HTMLElement).style.setProperty('--aparte-top-inset', `${inset}px`);
-            if (step === 'top') surface.scrollTop = 0;
             if (step === 'bottom') surface.scrollTop = surface.scrollHeight;
             if (step === 'jump') (surface.querySelectorAll('aparte-chat-bubble')[2] as HTMLElement).scrollIntoView({ block: 'start' });
         }, [how, INSET] as const);

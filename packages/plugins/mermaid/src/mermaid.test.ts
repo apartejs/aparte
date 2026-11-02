@@ -56,6 +56,12 @@ describe('drawing a diagram', () => {
         expect(decodeURIComponent(img.getAttribute('src')!)).not.toContain('max-width');
     });
 
+    it('keeps the code card and its copy button: the source is what a reader takes away', () => {
+        const { mermaid } = fakeMermaid();
+        setupMermaidWith(mermaid);
+        expect(renderer().card).toBe(true);
+    });
+
     it('forces the settings that keep a model-written diagram harmless', async () => {
         const { mermaid, configs } = fakeMermaid();
         setupMermaidWith(mermaid, { mermaid: { securityLevel: 'loose', htmlLabels: true, flowchart: { htmlLabels: true, curve: 'basis' } } });
