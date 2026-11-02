@@ -512,10 +512,56 @@ function rebuildTag(tag: string, attrs: Array<[string, string]>): string {
 }
 
 /**
- * Every tag in `html`, read the way a browser's tokenizer reads one (a quote ends where its
- * match is, an unquoted value at a space or `>`, `/` and a closing quote separate attributes,
- * the first of two equal names wins) and written again with `rebuildTag`. A tag left open at
- * the end, a bogus comment (`<!x>`, `<?x>`, `</ x>`) and a tag the DOM path would unwrap are
+ * One tag read from `nameAt` (the first letter of its name) the way a browser's tokenizer reads
+ * it: a quote ends where its match is, an unquoted value at a space or `>`, `/` and a closing
+ * quote separate attributes, the first of two equal names wins, and a value is read with the
+ * entities that can spell a checked character decoded. `end` is the index past its `>`, or `-1`
+ * when the text ends inside the tag.
+ *
+ * Exported for the image policy's DOM-free pass (`image-policy.ts`), which has to find the same
+ * tags in the same text this scrub wrote; not from the package barrel.
+ */
+export function readTag(html: string, nameAt: number): { tag: string; attrs: Array<[string, string]>; end: number } {
+    const n = html.length;
+    let j = nameAt;
+    while (j < n && !NAME_END.test(html[j]!)) j++;
+    const tag = html.slice(nameAt, j).toLowerCase();
+    const attrs: Array<[string, string]> = [];
+    const seen = new Set<string>();
+    while (j < n) {
+        while (j < n && (SPACE.test(html[j]!) || html[j] === '/')) j++;
+        if (j >= n) break;
+        if (html[j] === '>') return { tag, attrs, end: j + 1 };
+        const nameStart = j++;
+        while (j < n && !ATTR_NAME_END.test(html[j]!)) j++;
+        const name = html.slice(nameStart, j).toLowerCase();
+        let k = j;
+        while (k < n && SPACE.test(html[k]!)) k++;
+        let value = '';
+        if (html[k] === '=') {
+            k++;
+            while (k < n && SPACE.test(html[k]!)) k++;
+            const quote = html[k];
+            if (quote === '"' || quote === "'") {
+                const end = html.indexOf(quote, k + 1);
+                if (end < 0) break;
+                value = html.slice(k + 1, end);
+                j = end + 1;
+            } else {
+                const valueStart = k;
+                while (k < n && !SPACE.test(html[k]!) && html[k] !== '>') k++;
+                value = html.slice(valueStart, k);
+                j = k;
+            }
+        }
+        if (!seen.has(name)) { seen.add(name); attrs.push([name, decodeEntities(value)]); }
+    }
+    return { tag, attrs, end: -1 };
+}
+
+/**
+ * Every tag in `html`, read with `readTag` and written again with `rebuildTag`. A tag left open
+ * at the end, a bogus comment (`<!x>`, `<?x>`, `</ x>`) and a tag the DOM path would unwrap are
  * dropped; an end tag is reduced to its name.
  */
 function rewriteTags(html: string): string {
@@ -554,47 +600,14 @@ function rewriteTags(html: string): string {
             }
             continue;
         }
-        let j = nameAt;
-        while (j < n && !NAME_END.test(html[j]!)) j++;
-        const tag = html.slice(nameAt, j).toLowerCase();
-        const attrs: Array<[string, string]> = [];
-        const seen = new Set<string>();
-        let closed = false;
-        while (j < n) {
-            while (j < n && (SPACE.test(html[j]!) || html[j] === '/')) j++;
-            if (j >= n) break;
-            if (html[j] === '>') { j++; closed = true; break; }
-            const nameStart = j++;
-            while (j < n && !ATTR_NAME_END.test(html[j]!)) j++;
-            const name = html.slice(nameStart, j).toLowerCase();
-            let k = j;
-            while (k < n && SPACE.test(html[k]!)) k++;
-            let value = '';
-            if (html[k] === '=') {
-                k++;
-                while (k < n && SPACE.test(html[k]!)) k++;
-                const quote = html[k];
-                if (quote === '"' || quote === "'") {
-                    const end = html.indexOf(quote, k + 1);
-                    if (end < 0) { j = n; break; }
-                    value = html.slice(k + 1, end);
-                    j = end + 1;
-                } else {
-                    const valueStart = k;
-                    while (k < n && !SPACE.test(html[k]!) && html[k] !== '>') k++;
-                    value = html.slice(valueStart, k);
-                    j = k;
-                }
-            }
-            if (!seen.has(name)) { seen.add(name); attrs.push([name, decodeEntities(value)]); }
-        }
-        i = closed ? j : n;
-        if (!closed) break;
+        const { tag, attrs, end } = readTag(html, nameAt);
+        if (end < 0) break;
+        i = end;
         if (closing) { if (ALLOWED_TAGS.has(tag)) out += `</${tag}>`; }
         else if (DANGEROUS_TAGS.has(tag) && !UNWRAPPED_TAGS.has(tag) && !VOID_DANGEROUS.has(tag)) {
             // The element and what it wraps go; with no end tag it wraps the rest of the text.
             const re = endTag(tag);
-            re.lastIndex = j;
+            re.lastIndex = end;
             const m = re.exec(html);
             if (!m) break;
             i = m.index + m[0].length;
