@@ -380,6 +380,11 @@ function openCard(chip: HTMLElement): void {
     const el = document.createElement('div');
     el.className = 'aparte-citation-card aparte-popover';
     el.id = `aparte-citation-card-${++cards}`;
+    // Mounted beside the transcript (or in the top layer), it inherits nothing from it: it takes
+    // the transcript's direction, which a right-to-left locale writes there and nowhere else.
+    // Not the chip's: a chip in an English sentence of an Arabic chat reads left to right.
+    const transcript = chip.closest('.aparte-viewport-container, aparte-chat-viewport') ?? chip.ownerDocument.documentElement;
+    el.dir = getComputedStyle(transcript).direction === 'rtl' ? 'rtl' : 'ltr';
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', config.getLocale().sourcesCard ?? 'Sources');
     const body = document.createElement('div');
@@ -541,6 +546,8 @@ function drawCard(): void {
         link.rel = 'noopener noreferrer';
         link.dataset.aparteCardPart = 'link';
         link.textContent = title;
+        // A source's own words, in their own direction, as a message's are.
+        link.dir = 'auto';
         const hint = document.createElement('span');
         hint.className = 'aparte-sr-only';
         hint.textContent = ` ${locale.opensInNewTab ?? '(opens in a new tab)'}`;
@@ -550,6 +557,7 @@ function drawCard(): void {
         const plain = document.createElement('p');
         plain.className = 'aparte-citation-card__title';
         plain.textContent = title;
+        plain.dir = 'auto';
         body.append(plain);
     }
     const domain = sourceDomain(source);
@@ -557,12 +565,14 @@ function drawCard(): void {
         const p = document.createElement('p');
         p.className = 'aparte-citation-card__domain';
         p.textContent = domain;
+        p.dir = 'auto';
         body.append(p);
     }
     if (source.snippet) {
         const p = document.createElement('p');
         p.className = 'aparte-citation-card__snippet';
         p.textContent = source.snippet;
+        p.dir = 'auto';
         body.append(p);
     }
     if (sources.length > 1) {
@@ -642,18 +652,20 @@ export function renderSourceList(container: HTMLElement, after: Element, sources
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.textContent = title;
+            link.dir = 'auto';
             const hint = document.createElement('span');
             hint.className = 'aparte-sr-only';
             hint.textContent = ` ${hintText}`;
             link.append(hint);
             item.append(link);
         } else {
-            item.append(title);
+            item.append(Object.assign(document.createElement('span'), { textContent: title, dir: 'auto' }));
         }
         if (domain && domain !== title) {
             const d = document.createElement('span');
             d.className = 'aparte-sources__domain';
             d.textContent = domain;
+            d.dir = 'auto';
             item.append(' ', d);
         }
         items.append(item);

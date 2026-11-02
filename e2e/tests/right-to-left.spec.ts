@@ -143,3 +143,69 @@ test('the input follows what is typed in it, and an empty one the page', async (
     await page.keyboard.type(ARABIC);
     expect(await textSide(page, 'aparte-composer-input .aparte-ci-editor')).toBe('right');
 });
+
+// The second RTL audit (2026-11-02): four surfaces only a laid-out page can judge.
+
+test('the approval panel shows its arguments left to right, and the question in its own direction', async ({ page }) => {
+    await rightToLeft(page);
+    const chat = new ChatPage(page);
+    await page.goto('/?scenario');
+    await expect(chat.approvalMode.locator('aparte-select')).toBeVisible();
+    await chat.send('what is the weather?');
+    const panel = page.locator('.aparte-elic-panel.aparte-approval-panel');
+    const args = panel.locator('.aparte-approval-args');
+    await expect(args).toContainText('Lille');
+    // The composer takes the panel out of <aparte-elicitation> to show it: the code rule
+    // has to reach it there, or the JSON reads `}` first.
+    expect(await args.evaluate((el) => getComputedStyle(el).direction)).toBe('ltr');
+    await expect(panel.locator('.aparte-elic-message')).toHaveAttribute('dir', 'auto');
+});
+
+test('the citation card reads in its chip\'s direction, its arrows pointing out', async ({ page }) => {
+    await rightToLeft(page);
+    await installLlmMock(page, { scenario: 'citations', pace: 40 });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('why is the sky blue?');
+    await chat.lastReply.locator('.aparte-citation').first().click();
+    const card = page.locator('.aparte-citation-card');
+    await expect(card).toBeVisible();
+    await expect(card).toHaveAttribute('dir', 'rtl');
+    const arrows = card.locator('.aparte-citation-card__pager button > *');
+    await expect(arrows).toHaveCount(2);
+    expect(await arrows.evaluateAll((all) => all.map((el) => getComputedStyle(el).scale))).toEqual(['-1 1', '-1 1']);
+    await expect(card.locator('.aparte-citation-card__title')).toHaveAttribute('dir', 'auto');
+});
+
+test('a tooltip above its anchor is centred on it in a right-to-left page', async ({ page }) => {
+    await rightToLeft(page);
+    await page.goto('/');
+    const gap = await page.evaluate(() => {
+        const anchor = document.createElement('span');
+        anchor.className = 'aparte-tooltip-anchor';
+        anchor.style.cssText = 'position: fixed; top: 200px; inset-inline-start: 300px';
+        anchor.innerHTML = '<button type="button">Anchor</button><span class="aparte-tooltip" data-side="top">A tooltip that is wider than its anchor</span>';
+        document.body.append(anchor);
+        const a = anchor.getBoundingClientRect();
+        const t = anchor.querySelector('.aparte-tooltip')!.getBoundingClientRect();
+        anchor.remove();
+        return Math.abs((a.left + a.right) / 2 - (t.left + t.right) / 2);
+    });
+    expect(gap).toBeLessThan(2);
+});
+
+test('the context gauge\'s panel stays on screen near the left edge of a right-to-left page', async ({ page }) => {
+    await rightToLeft(page);
+    await page.goto('/');
+    await page.evaluate(() => {
+        const gauge = document.createElement('aparte-context');
+        gauge.setAttribute('window', '128000');
+        gauge.setAttribute('used', '64000');
+        gauge.style.cssText = 'position: fixed; left: 12px; top: 420px';
+        document.body.append(gauge);
+    });
+    await page.locator('aparte-context .aparte-context__toggle').click();
+    const panel = page.locator('aparte-context .aparte-context__panel');
+    await expect(panel).toBeVisible();
+    expect((await panel.boundingBox())!.x).toBeGreaterThanOrEqual(0);
+});

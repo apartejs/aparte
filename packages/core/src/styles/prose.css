@@ -264,9 +264,11 @@
 
 /* Code too: a block, a JSON tool input, an artifact's source, an inline `name` — under
    `dir="rtl"` each line was laid out from the right and its trailing `;` or `{` jumped to
-   the start. In a bubble, in a segment drawn outside one, and in the approval panel's JSON.
-   The <pre> a drawing replaced is the drawing's (a card follows its message). */
-:is(aparte-chat-bubble, aparte-elicitation, .aparte-segment) :is(pre:not([data-aparte-drawn]), code, kbd, samp) {
+   the start. In a bubble, in a segment drawn outside one, and in a question or approval panel
+   — by its own class, since the composer takes the panel out of `<aparte-elicitation>` to show
+   it, which left the approval's JSON reading `}` first. The <pre> a drawing replaced is the
+   drawing's (a card follows its message). */
+:is(aparte-chat-bubble, aparte-elicitation, .aparte-elic-panel, .aparte-segment) :is(pre:not([data-aparte-drawn]), code, kbd, samp) {
   direction: ltr;
   unicode-bidi: isolate;
   /* Its own start, not the right-to-left one it inherits (WebKit resolves an inherited

@@ -76,7 +76,7 @@ export function buildApprovalPanel(
     const askText = (): string => (typeof message === 'function' ? message() : message);
     // `textContent`, never innerHTML: the message names a tool the MODEL chose and can
     // carry its arguments. The string arm of a render hook is a model-to-DOM XSS.
-    const ask = askText() ? el('p', 'aparte-elic-message', askText()) : null;
+    const ask = askText() ? Object.assign(el('p', 'aparte-elic-message', askText()), { dir: 'auto' }) : null;
     if (ask) body.appendChild(ask);
 
     /*

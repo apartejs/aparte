@@ -38,6 +38,12 @@
   animation: aparte-skeleton-shimmer var(--aparte-duration-pulse) linear infinite;
 }
 
+/* The sweep enters at the start edge, as `.aparte-shimmer`'s does (shimmer.css): the
+   gradient's physical positions do not follow a right-to-left page. */
+.aparte-skeleton:dir(rtl) {
+  animation-direction: reverse;
+}
+
 /* Under reduced motion the loop stops outright. The duration tokens are reset to
    0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
    is not stillness, it is a flicker. The descendant sweep there does not reach a
