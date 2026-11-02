@@ -37,7 +37,6 @@ export type {
     AparteThemeVariables,
     AparteStatus,
     AparteAttachment,
-    AparteMessageBranch,
     AparteBubbleActionsConfig,
     AparteBubbleActionName,
     AparteSegment,

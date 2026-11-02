@@ -58,19 +58,11 @@ export interface CompactionTarget {
     getMessages(): AparteMessage[];
     /**
      * Merge `updates` into one message of the path — the one write a compaction makes: the
-     * checkpoint (`contextSummary`) on the first message that stays. A target without it
-     * cannot hold a checkpoint, and the compaction fails with an error saying so rather
-     * than falling back to rewriting the transcript.
+     * checkpoint (`contextSummary`) on the first message that stays. A target without it (an
+     * object written in plain JavaScript) cannot hold a checkpoint, and the compaction fails
+     * with an error saying so rather than falling back to rewriting the transcript.
      */
-    updateMessage?(messageId: string, updates: Partial<AparteMessage>): void;
-    /**
-     * Not called any more. A compaction used to empty the transcript and put the kept turns
-     * back; it now writes one checkpoint and removes nothing. Still accepted, so a target
-     * written for the earlier contract keeps type-checking.
-     */
-    clearAll?(options?: { revokeAttachments?: boolean }): void;
-    /** Not called any more; see `clearAll`. */
-    appendMessage?(message: AparteMessage): void;
+    updateMessage(messageId: string, updates: Partial<AparteMessage>): void;
 }
 
 /** Which messages are summarised (`drop`) and which stay verbatim (`keep`). Pure — no model call. */
@@ -235,9 +227,7 @@ export interface CompactionSetupOptions {
      * The window to measure against when the current model declares none — a number, or a
      * getter read at each use (`() => settings.contextWindow`). A local server has no
      * window the page can read, and without one nothing is automatic and the default
-     * selector skips. The model's own `contextWindow` wins when it declares one. For one
-     * more release, the `window` a gauge sends with its `aparte-compact` request is read
-     * as a last resort.
+     * selector skips. The model's own `contextWindow` wins when it declares one.
      */
     contextWindow?: number | (() => number | undefined);
 }
@@ -348,9 +338,7 @@ const ownResolvers = new Map<(targetId?: string) => CompactionTarget | null, num
 const asTarget = (candidate: unknown, depth = 0): CompactionTarget | null => {
     if (!candidate || typeof candidate !== 'object' || depth > 1) return null;
     const el = candidate as Partial<CompactionTarget> & { viewport?: unknown };
-    const writes = typeof el.updateMessage === 'function'
-        || (typeof el.clearAll === 'function' && typeof el.appendMessage === 'function');
-    if (typeof el.getMessages === 'function' && writes) return el as CompactionTarget;
+    if (typeof el.getMessages === 'function' && typeof el.updateMessage === 'function') return el as CompactionTarget;
     // The `<aparte-chat>` shell matches the selectors but renders through its viewport.
     return asTarget(el.viewport, depth + 1);
 };
@@ -642,18 +630,16 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     const scope = options.scopeToTargetId;
     const threshold = options.threshold !== undefined && options.threshold > 0 ? Math.min(options.threshold, 1) : DEFAULT_THRESHOLD;
 
-    /** The window the gauge's request named, kept as the last resort for one release. */
-    let windowHint: number | undefined;
     /**
      * The window everything here measures against: the current model's, else the host's
-     * `contextWindow`, else the gauge's. Read at each use — a model change is picked up on
-     * the next decision, never guessed.
+     * `contextWindow`. Read at each use — a model change is picked up on the next decision,
+     * never guessed.
      */
     const windowFor = (): number | undefined => {
         const declared = config.getCurrentModel()?.contextWindow;
         if (declared && declared > 0) return declared;
         const own = typeof options.contextWindow === 'function' ? options.contextWindow() : options.contextWindow;
-        return own && own > 0 ? own : windowHint;
+        return own && own > 0 ? own : undefined;
     };
     const selectDefault = defaultSelector(config, keepWithoutWindow, windowFor);
 
@@ -709,9 +695,8 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
     const onCompact = (e: Event): void => {
         if (!addressed(e)) return;
         const detail = (e as CustomEvent<AparteCompactEventDetail | undefined>).detail;
-        if (typeof detail?.window === 'number' && detail.window > 0) windowHint = detail.window;
-        // The gauge's deprecated `auto-compact` says its request is automatic: the back-off
-        // counts it. A button's request, which says nothing, is a person's.
+        // A request that says it is automatic counts against the back-off. A button's
+        // request, which says nothing, is a person's.
         void run({
             target: null,
             reason: detail?.auto ? 'auto' : 'manual',
@@ -1062,7 +1047,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (previousHolderId && !live.find((m) => m.id === previousHolderId)?.contextSummary) throw new Error(CHANGED);
             const summary = `${modelSummary}${firstRequest}`;
             const count = drop.length + (previous?.count ?? 0);
-            target.updateMessage!(holder.id, { contextSummary: { summary, count, createdAt: Date.now() } });
+            target.updateMessage(holder.id, { contextSummary: { summary, count, createdAt: Date.now() } });
 
             // What the policy learns from it: a success clears the back-off, remembers the range,
             // and, when what the model reads next is still over the threshold (a summary that

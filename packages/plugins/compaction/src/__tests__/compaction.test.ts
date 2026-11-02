@@ -133,7 +133,8 @@ describe('setupCompaction — what is summarised and what stays', () => {
 
     it('a target that cannot update a message fails with an error that says so, before the model is paid', async () => {
         const store = makeTarget(session('x'));
-        const target: CompactionTarget = { getMessages: store.getMessages, clearAll: () => undefined, appendMessage: () => undefined };
+        // An object written in plain JavaScript, where nothing checks the contract.
+        const target = { getMessages: store.getMessages } as unknown as CompactionTarget;
         const { cfg, chat } = makeConfig();
 
         const outcome = await setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => target, listen: false }, cfg).compact();

@@ -90,6 +90,8 @@ for (const file of manifests) {
  * on every release is a floor that will rot again.
  */
 const LOCKSTEP = JSON.parse(readFileSync('packages/core/package.json', 'utf8')).version;
+/** The lockstep contract's other half: up to the next major, never past it and never short of it. */
+const CEILING = `${Number(LOCKSTEP.split('.')[0]) + 1}.0.0`;
 const stale = [];
 for (const file of manifests) {
     const json = JSON.parse(readFileSync(file, 'utf8'));
@@ -97,15 +99,16 @@ for (const file of manifests) {
         if (!dep.startsWith(SCOPE)) continue;
         if (String(range).startsWith('workspace:')) continue;
         const floor = /^>=\s*([0-9][^\s]*)/.exec(String(range))?.[1];
-        if (floor !== LOCKSTEP) stale.push({ file, name: json.name, dep, range: String(range), floor });
+        const ceiling = /<\s*([0-9][^\s]*)/.exec(String(range))?.[1];
+        if (floor !== LOCKSTEP || ceiling !== CEILING) stale.push({ file, name: json.name, dep, range: String(range), floor, ceiling });
     }
 }
 
 if (stale.length) {
-    console.error(`\n[peer-ranges] ${stale.length} internal peer floor(s) do not match the lockstep version ${LOCKSTEP}:\n`);
+    console.error(`\n[peer-ranges] ${stale.length} internal peer range(s) are not ">=${LOCKSTEP} <${CEILING}", the lockstep version up to the next major:\n`);
     for (const s of stale) {
         console.error(`  ${s.name}  ->  "${s.dep}": "${s.range}"   (${s.file})`);
-        console.error(`    floor is ${s.floor ?? '(unreadable)'}, the lot is on ${LOCKSTEP}\n`);
+        console.error(`    floor is ${s.floor ?? '(unreadable)'}, ceiling is ${s.ceiling ?? '(none)'}\n`);
     }
     console.error(
         '  These packages are published together and are never tested apart, so the floor\n'

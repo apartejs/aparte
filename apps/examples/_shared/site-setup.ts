@@ -327,9 +327,9 @@ async function run(): Promise<SiteSetup> {
     applySystemPrompt(aparteGlobalConfig, loadSettings());
     client.start(); // listens for aparte-send/retry/edit and streams replies into the chat
 
-    // Compaction: an `<aparte-context auto-compact>` asks on reaching 90 %, and this
-    // answers — the newest turns that still fit the model's window stay verbatim, the
-    // rest is summarised through the same provider, key and endpoint the chat uses.
+    // Compaction: past 80 % of the model's window, the newest turns that still fit stay
+    // verbatim and the rest is summarised through the same provider, key and endpoint
+    // the chat uses.
     setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 
     wireAttachmentLightbox();

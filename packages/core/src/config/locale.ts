@@ -277,16 +277,6 @@ export type AparteLocale = {
     /** The panel's button that compacts the conversation now (default: "Compact now"). */
     contextCompactNow?: string;
     /**
-     * Title line of the summary message `@aparte/plugin-compaction` used to inject in
-     * place of the summarised turns (default: "Conversation summary").
-     *
-     * @deprecated Since 0.26 a compaction deletes nothing: it writes `contextSummary` on
-     * the first turn it keeps, and the separator above it says what happened through the
-     * `checkpoint*` keys. Nothing reads this key any more; it stays until a later minor
-     * so a locale that sets it keeps compiling.
-     */
-    compactionSummaryTitle?: string;
-    /**
      * The separator drawn above the first message the model still reads verbatim, once
      * the messages before it were summarised for the model; `{n}` is how many
      * (default: "{n} messages summarised for the model"). The messages stay on screen.
@@ -596,7 +586,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     contextTotal: "Total",
     contextReclaim: "Compacting now would free ~{n} tokens",
     contextCompactNow: "Compact now",
-    compactionSummaryTitle: "Conversation summary",
     checkpointCount: "{n} messages summarised for the model",
     checkpointCountOne: "1 message summarised for the model",
     checkpointLegacy: "Earlier messages were summarised",

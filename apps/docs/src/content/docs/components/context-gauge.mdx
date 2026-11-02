@@ -53,9 +53,8 @@ request the model refused as over its window turns it `danger` until the next re
 ### When the window is full
 
 The gauge measures; `@aparte/plugin-compaction` decides when to summarise the older turns, past 80 % of
-the window by default (see [Long conversations](/guides/long-conversations/)). The `auto-compact`
-attribute, which made the gauge ask for a compaction at `danger`, still works but is deprecated: the
-plugin compacts on its own once it is set up.
+the window by default (see [Long conversations](/guides/long-conversations/)). The gauge never asks
+for a compaction itself: the plugin compacts on its own once it is set up.
 
 ## Customize
 

@@ -1311,14 +1311,6 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Clear all messages
-     * @deprecated Use clearAll() to also remove DOM bubbles
-     */
-    clearMessages(): void {
-        this._repo.clear();
-    }
-
-    /**
      * Replace the entire message list in one shot. Used when switching
      * conversations: clears existing repo + DOM, then appends each message.
      *

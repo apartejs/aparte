@@ -165,7 +165,7 @@ export interface AparteChatHostOptions {
 const MAX_SIBLING_RETRIES = 6;
 
 /** A message's fields the viewport's tree derives itself, which a framework's list never overwrites. */
-const TREE_OWNED_FIELDS = new Set(['id', 'branches', 'activeBranchIndex', 'isStreaming']);
+const TREE_OWNED_FIELDS = new Set(['id', 'isStreaming']);
 
 /**
  * The fields every message carries, which a framework's list never clears: its text, its

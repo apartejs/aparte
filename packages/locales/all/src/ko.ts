@@ -42,7 +42,6 @@ export const ko: AparteLocale = {
     contextTotal: "합계",
     contextReclaim: "지금 압축하면 약 {n}개 토큰을 확보할 수 있습니다",
     contextCompactNow: "지금 압축",
-    compactionSummaryTitle: "대화 요약",
     checkpointCount: "모델을 위해 메시지 {n}개를 요약했습니다",
     checkpointCountOne: "모델을 위해 메시지 1개를 요약했습니다",
     checkpointLegacy: "이전 메시지가 요약되었습니다",

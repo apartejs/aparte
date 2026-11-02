@@ -234,11 +234,6 @@ export interface AparteCodeSegment extends AparteSegmentBase {
     content: string;
     language?: string;
     filename?: string;
-    /**
-     * @deprecated Read by nothing: no renderer and no stylesheet draws line numbers, so setting it
-     * changes nothing. It will be removed in a later minor.
-     */
-    showLineNumbers?: boolean;
 }
 
 /**
@@ -273,12 +268,6 @@ export interface AparteErrorSegment extends AparteSegmentBase {
      * `data-error-code`, and a custom error renderer receives it.
      */
     code?: string;
-    /**
-     * @deprecated Set by nothing and read by nothing: the error renderer draws a sentence (or
-     * `content`) and `details` only. Put a stack in `details` to show it. It will be removed in
-     * a later minor.
-     */
-    stack?: string;
 }
 
 /**

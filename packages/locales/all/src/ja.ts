@@ -42,7 +42,6 @@ export const ja: AparteLocale = {
     contextTotal: "合計",
     contextReclaim: "今すぐ圧縮すると約 {n} トークン空きます",
     contextCompactNow: "今すぐ圧縮",
-    compactionSummaryTitle: "会話の要約",
     checkpointCount: "{n} 件のメッセージをモデル用に要約しました",
     checkpointCountOne: "1 件のメッセージをモデル用に要約しました",
     checkpointLegacy: "以前のメッセージは要約されました",
