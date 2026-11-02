@@ -267,6 +267,11 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     transform: rotate(-90deg);
 }
 
+/* Folded, the chevron points along the row, toward its end: the left in right-to-left. */
+aparte-optgroup[collapsed] .aparte-optgroup-chevron:dir(rtl) {
+    transform: rotate(90deg);
+}
+
 /* No dark block: every colour above reads a token the derived layer re-anchors on
    `[data-aparte-theme]`, so `--aparte-surface-1` IS the dark surface there. The block
    that used to sit here restated the trigger's and the panel's backgrounds from

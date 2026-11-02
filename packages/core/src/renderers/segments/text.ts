@@ -24,7 +24,7 @@ import type {
  */
 export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
     type: 'text',
-    render: (segment) => `<div class="aparte-segment aparte-segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="aparte-segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
+    render: (segment) => `<div class="aparte-segment aparte-segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="aparte-segment-content" dir="auto">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
     /*
      * A fence in a settled text segment is highlighted, as the thinking renderer does for
      * its own. The parser turns a streamed fence into a `code` segment, so this only ever

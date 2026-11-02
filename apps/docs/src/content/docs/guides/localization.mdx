@@ -136,6 +136,12 @@ codes: `errorUnreachable`, `errorTimeout`, `errorRefused`, `errorRateLimited`, `
   Without it, the chat follows the page: a page that says `<html dir="rtl">` gets a right-to-left
   chat with no locale setting at all.
 
+In a right-to-left chat, what a person or a model wrote keeps its own direction: each message, each
+reasoning block and each conversation title reads from its first letter (`dir="auto"`), and the
+input follows what is typed on each line, so an English answer in an Arabic page ends with its full
+stop on the right. Code, formulas, diagrams and charts always read left to right — and do not
+turn an Arabic reply that opens with them; a card follows the message it is in.
+
 ## Add strings of your own
 
 ```ts
