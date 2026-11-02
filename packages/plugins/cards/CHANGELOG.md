@@ -1,5 +1,13 @@
 # @aparte/plugin-cards
 
+## 0.32.0
+
+### Patch Changes
+
+- 956c2b2: The README shows a picture of every card, each linked to its page on apartejs.dev.
+
+  An image search for aparté's cards found other sites' widgets: the cards were live demos in frames, and the package page had no picture.
+
 ## 0.31.0
 
 ## 0.30.1

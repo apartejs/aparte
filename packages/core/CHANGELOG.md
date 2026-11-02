@@ -1,5 +1,31 @@
 # @aparte/core
 
+## 0.32.0
+
+### Minor Changes
+
+- 8304712: A chart, a formula or a card drawn from a fenced block no longer sits in a code card once drawn: no header with its language, no copy button. A Mermaid diagram keeps its card and its copy button. A renderer keeps the card with the new `card: true`.
+
+  Until now only a rich card dropped the card (`bare: true`); a chart from `@aparte/plugin-echarts` or `@aparte/plugin-chartjs` kept a header saying "ECHARTS" over it, which read as code to a person who sees a chart. Every language a renderer draws now stands for its block once it is drawn, unless the renderer sets `card: true`, as `@aparte/plugin-mermaid` does: a diagram's source is what a reader takes away, to paste into a document or edit. A block not drawn yet, one the renderer passed on, or one that failed keeps the card and its copy button, so its source is never out of reach. `bare` keeps one meaning: the drawing handles its own overflow (a card's carousel), where a chart or a diagram scrolls inside its box. If you styled `.aparte-segment-code[data-aparte-bare]`, it now matches every drawn block without `card`, not only cards. A chart drawn from a tool call never had a code card and is unchanged.
+
+### Patch Changes
+
+- 72d2e68: A card drawn from a block no longer shows a vertical scrollbar beside it.
+
+  The code card's `<pre>` had `overflow-x: hidden`, which turns its `overflow-y` into `auto`; a carousel reaching a few pixels past its box for its tiles' shadows made it scroll. A `<pre>` holding a drawing now never scrolls: the drawing handles its own overflow.
+
+- 4015d65: In a right-to-left page, code, formulas and the version arrows now read the right way, and a message keeps its own direction.
+
+  Found by the first right-to-left pass in a real browser (Chromium and WebKit), then a cold review of the fix:
+
+  - Code — a block, a JSON tool input or output, the approval panel's arguments, an artifact's source, inline `code` — is laid out left to right and isolated from the sentence around it; it was laid out from the right, its trailing `;` or `{` at the start of the line.
+  - A formula, a diagram or a chart drawn from a code block reads left to right; a KaTeX formula came out mirrored. A card drawn from a block follows the message it is in.
+  - The ‹ › arrows between the versions of a reply, and a folded option group's chevron, point the right way in a right-to-left row.
+  - A message, a reasoning block and a conversation title take the direction of their first letter (`dir="auto"`), so an English reply in an Arabic page reads left to right with its full stop at the end. Code and drawings carry `dir="ltr"` as an attribute, so an Arabic reply that opens with `npm install` or a formula stays right to left. A title lines up with its list whatever its own direction. The input takes the direction of each line typed (`unicode-bidi: plaintext`), and an empty one keeps the page's, placeholder included.
+
+  Pinned by `e2e/tests/right-to-left.spec.ts` (vanilla, Chromium and WebKit): the message directions, a code block, a mixed Arabic reply with a formula and inline code, the version arrows, a title's direction, and the input.
+  - @aparte/engine@0.32.0
+
 ## 0.31.0
 
 ### Minor Changes
