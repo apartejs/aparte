@@ -322,6 +322,32 @@ describe('aparte-scroll-rail', () => {
         expect(stops(), 'the stop moved with the focus').toEqual(['u4']);
     });
 
+    it('the stop follows the focus onto a tick — a click on the current one made a second stop', () => {
+        const { rail } = mount(THREE_TURNS());
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        ticks(rail)[0]!.focus();
+        expect(stops()).toEqual(['u1']);
+        // The reader scrolls: u3 becomes current, the stop stays where the focus is.
+        band().cb([{ target: inBand('u3'), isIntersecting: true, intersectionRatio: 1 }]);
+        expect(stops()).toEqual(['u1']);
+        // A click focuses the current tick (Chromium, Firefox): the mark does not change, the stop moves.
+        ticks(rail)[2]!.focus();
+        expect(stops()).toEqual(['u3']);
+    });
+
+    it('leaving the rail, the stop goes back to the current tick', () => {
+        const { rail } = mount(THREE_TURNS());
+        const outside = document.createElement('button');
+        document.body.appendChild(outside);
+        const stops = (): string[] => ticks(rail).filter((t) => t.tabIndex >= 0).map((t) => t.dataset['messageId']!);
+        band().cb([{ target: inBand('u2'), isIntersecting: true, intersectionRatio: 1 }]);
+        ticks(rail)[0]!.focus();
+        ticks(rail)[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+        expect(stops(), 'the arrows took the stop to the end').toEqual(['u3']);
+        outside.focus();
+        expect(stops(), 'Tab back in lands where the reader is').toEqual(['u2']);
+    });
+
     it('the arrows walk the ticks inside a host shadow root too', () => {
         // `document.activeElement` retargets to the shadow HOST, so "which tick holds the
         // focus?" answered -1 and the arrows were a silent no-op in the arrangement the

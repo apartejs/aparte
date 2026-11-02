@@ -150,6 +150,8 @@ export class AparteScrollRail extends HTMLElement {
         if (!this.getAttribute('role')) this.setAttribute('role', 'navigation');
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
+        this.addEventListener('focusin', this._onFocusIn);
+        this.addEventListener('focusout', this._onFocusOut);
         window.addEventListener('aparte-config-change', this._onConfigChange);
         this._attach();
     }
@@ -158,6 +160,8 @@ export class AparteScrollRail extends HTMLElement {
         this._detach();
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
+        this.removeEventListener('focusin', this._onFocusIn);
+        this.removeEventListener('focusout', this._onFocusOut);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
@@ -632,15 +636,31 @@ export class AparteScrollRail extends HTMLElement {
      * keyboard reader crossed 500 of them between the transcript and the composer of a
      * long conversation; the arrows, Home and End walk the rail instead.
      */
-    private _syncTabStop(): void {
+    private _syncTabStop(ignoreFocus = false): void {
         const ticks = Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick'));
         if (ticks.length === 0) return;
-        const focused = activeElementIn(this);
+        const focused = ignoreFocus ? null : activeElementIn(this);
         const stop = (focused instanceof HTMLElement && ticks.includes(focused) ? focused : undefined)
             ?? ticks.find((t) => t.dataset['messageId'] === this._currentId)
             ?? ticks[ticks.length - 1]!;
         this._setTabStop(stop, ticks);
     }
+
+    /**
+     * The stop follows the focus onto a tick, however it got there: the arrows, a click (a
+     * click on the current tick moved the focus but not the stop, which made two), a host's
+     * `focus()`.
+     */
+    private _onFocusIn = (e: FocusEvent): void => {
+        const tick = e.target instanceof HTMLElement && e.target.classList.contains('aparte-scroll-rail__tick') ? e.target : null;
+        if (tick && this.contains(tick)) this._setTabStop(tick, Array.from(this.querySelectorAll<HTMLElement>('.aparte-scroll-rail__tick')));
+    };
+
+    /** Leaving the rail, the stop goes back to the current tick: Tab back in lands where the reader is. */
+    private _onFocusOut = (e: FocusEvent): void => {
+        if (e.relatedTarget instanceof Node && this.contains(e.relatedTarget)) return;
+        this._syncTabStop(true);
+    };
 
     private _setTabStop(stop: HTMLElement, ticks: HTMLElement[]): void {
         for (const tick of ticks) {
