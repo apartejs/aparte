@@ -16,6 +16,7 @@ import {
 import type { AparteChatViewport, AparteConversationList, AparteSidebar, AparteToolCallSegment } from '@aparte/core';
 import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupWeatherCard } from '@aparte/plugin-cards/weather';
 import '@aparte/plugin-model-selector';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
@@ -31,7 +32,7 @@ import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { followTheme, reducedMotion, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
 import { CONVERSATIONS, FIRST_CONVERSATION } from './conversations';
 import { showReasoningDuration } from './reasoning';
-import { PLAY_QUESTION, pickScenario, scenarios, titleFor, TRIP_RESULTS } from './scenario';
+import { brennickWeather, PLAY_QUESTION, pickScenario, scenarios, titleFor, TRIP_RESULTS } from './scenario';
 import { createMemoryStore } from './store';
 
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
@@ -83,6 +84,16 @@ async function main(): Promise<void> {
         },
         async (call) => ({ toolCallId: call.id, content: TRIP_RESULTS }),
     );
+    // The weather the landing's run asks for, drawn as the card rather than a tool row.
+    aparteGlobalConfig.registerTool(
+        {
+            name: 'get_weather',
+            description: 'The current weather and the next hours in a town.',
+            inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+        },
+        async (call) => ({ toolCallId: call.id, content: brennickWeather() }),
+    );
+    setupWeatherCard({ tool: 'get_weather' });
     // A person reads the search the way a chat app shows it: the quiet line, core's default (a
     // shimmer while it runs, no "Done" once it is — the label's tense says it), what was searched in words,
     // and the pages it found behind the line, never the call's JSON.

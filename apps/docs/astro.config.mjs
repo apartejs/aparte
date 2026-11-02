@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { existsSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
@@ -117,6 +118,15 @@ export default defineConfig({
       filter: (page) => {
         const path = new URL(page).pathname;
         return !PREVIEW_FRAME.test(path) && !(path in REDIRECTS);
+      },
+      // A card's page carries its picture (`<Variant poster>`), and says so here: an image
+      // search shown "aparté weather card" found other sites' widgets, none of ours.
+      serialize: (item) => {
+        const path = new URL(item.url).pathname;
+        // The landing's reply (`poster="reply"`): a card, a formula and a chart.
+        const card = path === '/' ? 'reply' : /^\/components\/([\w-]+)-card\/$/.exec(path)?.[1];
+        if (card && existsSync(`public/cards/${card}.png`)) item.img = [{ url: `https://apartejs.dev/cards/${card}.png` }];
+        return item;
       },
     }),
     starlight({
