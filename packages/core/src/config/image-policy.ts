@@ -285,12 +285,13 @@ export function imageHost(address: string): string {
 export function heldImageHtml(address: string, alt: string, words: HeldImageWords, inLink = false): string {
     const host = imageHost(address);
     const name = alt ? words.named(host, alt) : words.load(host);
+    const icon = words.icon; // safe-text: the chat's own image glyph (core's, or the app's icon provider's), markup on purpose
     const opening = inLink
         ? '<span class="aparte-tag aparte-image-held" role="button" tabindex="0"'
         : `<a class="aparte-tag aparte-image-held" href="${escapeAttr(address)}" target="_blank" rel="noopener noreferrer"`;
     return `${opening} data-aparte-image="${escapeAttr(address)}"${alt ? ` data-aparte-image-alt="${escapeAttr(alt)}"` : ''}`
         + ` title="${escapeAttr(words.load(host))}" aria-label="${escapeAttr(name)}">`
-        + `<span class="aparte-image-held__icon" aria-hidden="true">${words.icon}</span>`
+        + `<span class="aparte-image-held__icon" aria-hidden="true">${icon}</span>`
         + (alt ? `<span class="aparte-tag__label aparte-image-held__alt">${escapeHtml(alt)}</span>` : '')
         + `<span class="aparte-image-held__host">${escapeHtml(host)}</span>${inLink ? '</span>' : '</a>'}`;
 }
