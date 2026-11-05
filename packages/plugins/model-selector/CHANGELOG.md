@@ -1,5 +1,26 @@
 # @aparte/plugin-model-selector
 
+## 1.0.0
+
+### Patch Changes
+
+- 2e5c5ab: The READMEs of the plugins and the framework packages now show a picture of what they draw. No code changes: nothing to do on your side.
+
+  Each plugin README that draws something (Markdown, maths, diagrams, both chart libraries, the approval modes, the question panel, artifacts, the model selector, code highlighting, compaction) shows its own demo, taken from the live docs (`https://apartejs.dev/shots/<name>.png`). The four framework packages show an assistant reply with a card, a formula and a chart.
+
+- Updated dependencies [26ddd6c]
+- Updated dependencies [e97d464]
+- Updated dependencies [0a6dd91]
+- Updated dependencies [635f69b]
+- Updated dependencies [224afde]
+- Updated dependencies [2e5c5ab]
+- Updated dependencies [67efebe]
+- Updated dependencies [99fcc42]
+- Updated dependencies [e97d464]
+- Updated dependencies [048864d]
+- Updated dependencies [99784ad]
+  - @aparte/core@1.0.0
+
 ## 0.32.1
 
 ## 0.32.0
