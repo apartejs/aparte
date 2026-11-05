@@ -2,13 +2,13 @@
 
 [![Published on webcomponents.org](https://img.shields.io/badge/webcomponents.org-published-blue.svg)](https://www.webcomponents.org/element/@aparte/core)
 
-**AI chat as Web Components, with the agent loop inside** — for React, Vue, Svelte, Angular or
-plain HTML. Connect your own OpenAI-compatible backend or an AG-UI agent (n8n too), let the model
-call tools that a human approves, and draw the results as
-[interactive cards](https://apartejs.dev/guides/cards/) (generative UI). Zero third-party
-dependencies, ESM-only.
+**The complete AI chat UI, for any framework** — Web Components for React, Vue, Svelte, Angular
+or plain HTML, with the agent loop inside. Replies that stream with Markdown and code, a
+conversation list, tools a person approves, answers drawn as
+[cards](https://apartejs.dev/guides/cards/). Your own backend or an AG-UI agent behind it (n8n
+too), your styles on it. Zero third-party dependencies, ESM-only.
 
-<a href="https://apartejs.dev/"><img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420"></a>
+<a href="https://apartejs.dev/templates/assistant/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://apartejs.dev/shots/chat-dark.png"><img src="https://apartejs.dev/shots/chat.png" alt="An aparté chat: the conversation list, a question, and the assistant's reply — its reasoning, a weather card and the answer — above the composer"></picture></a>
 
 The conversation, messages, reasoning, tool calls a human approves, the questions an agent
 asks, the composer, the layout around the chat (app shell, sidebar, conversation list) and a
