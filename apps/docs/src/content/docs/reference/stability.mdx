@@ -85,7 +85,7 @@ name with its replacement.
 
 | Release | What changed | What to change |
 | --- | --- | --- |
-| 1.0.0 | Pictures a model or a tool chose no longer load by themselves. `data:` and `blob:` pictures do; any other is shown as a link that names its host and loads on a click (a card shows one "Show images" button). Nothing is fetched while a reply streams, and every picture that loads goes with `referrerpolicy="no-referrer"`. | `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])` for your own sources, or `['*']` for the earlier behaviour ([the policy](/guides/markdown/#pictures-a-reply-can-load)). |
+| 1.0.0 | Pictures a model or a tool chose no longer load by themselves. `data:` and `blob:` pictures do; any other is shown as a link that names its host and loads on a click (a card shows one "Show images" button). A held picture is not fetched while a reply streams either, and every picture that loads goes with `referrerpolicy="no-referrer"`. | `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])` for your own sources, or `['*']` for the earlier behaviour ([the policy](/guides/markdown/#pictures-a-reply-can-load)). |
 
 ## The elements
 
@@ -127,7 +127,7 @@ and {frozen.events.names.length} that carry no `detail` — {codeList(frozen.eve
 ## The locale keys
 
 **{frozen.locale.length}** keys on `AparteLocale`, which a translation and every `t('…')` call are
-written against; the English strings behind them can be reworded in a patch
+written against; the English strings behind them can be reworded in a minor
 ([Translation](/guides/localization/)).
 
 <details>
