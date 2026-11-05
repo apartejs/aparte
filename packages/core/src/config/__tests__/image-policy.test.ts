@@ -479,3 +479,42 @@ describe('the default sanitizer and the policy together', () => {
         expect(defaultSanitizer(`<img src="${ATTACKER}">`)).toContain('<img');
     });
 });
+
+describe('the console note about a held picture', () => {
+    /** A fresh module: the note is said once per page, so each case needs its own page. */
+    const freshConfig = async (): Promise<typeof AparteConfig> => {
+        vi.resetModules();
+        return (await import('../aparte-config')).AparteConfig;
+    };
+    const notes = (warn: { mock: { calls: unknown[][] } }): string[] =>
+        warn.mock.calls.map(([message]) => String(message)).filter((m) => m.includes("waits for the reader's click"));
+
+    it('says once per page, with the host and the line to write, when the default policy holds a picture', async () => {
+        const Config = await freshConfig();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const cfg = new Config();
+        expect(cfg.decideImage('https://cdn.example.com/a.png')).toBe('hold');
+        cfg.decideImage('https://other.example/b.png');
+        new Config().decideImage('https://third.example/c.png');
+        expect(notes(warn)).toHaveLength(1);
+        expect(notes(warn)[0]).toContain('cdn.example.com');
+        expect(notes(warn)[0]).toContain("setImagePolicy(['https://cdn.example.com'])");
+        expect(notes(warn)[0]).toContain('setImagePolicy([])');
+    });
+
+    it('says nothing once the app names a policy, the default included', async () => {
+        const Config = await freshConfig();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const cfg = new Config();
+        cfg.setImagePolicy([]);
+        expect(cfg.decideImage('https://cdn.example.com/a.png')).toBe('hold');
+        expect(notes(warn)).toEqual([]);
+    });
+
+    it('says nothing for a picture that loads', async () => {
+        const Config = await freshConfig();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        expect(new Config().decideImage('data:image/png;base64,iVBORw0KGgo=')).toBe('load');
+        expect(notes(warn)).toEqual([]);
+    });
+});

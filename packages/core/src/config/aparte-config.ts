@@ -32,9 +32,15 @@ import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandl
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import {
-    applyImagePolicy, compileImagePolicy, decideImageAddress, forgetShownImages, rememberShownImage, sameImagePolicy, shownImagesOf,
+    applyImagePolicy, compileImagePolicy, decideImageAddress, forgetShownImages, imageHost, rememberShownImage, sameImagePolicy, shownImagesOf,
     type AparteImageDecision, type AparteImagePolicy, type HeldImageWords, type ImageDecider,
 } from './image-policy.js';
+
+/**
+ * Whether the page has already been told why a picture waits for a click: once per page, not
+ * per config, so a page with three chats or a test suite with a config per test says it once.
+ */
+let heldImageNoted = false;
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
@@ -317,6 +323,8 @@ export class AparteConfig {
     // default only `data:` and `blob:`, which make no request.
     private _imagePolicy: AparteImagePolicy = [];
     private _imageDecider: ImageDecider = compileImagePolicy([]);
+    /** Whether the app named an image policy, the default included; see `decideImage`. */
+    private _imagePolicyNamed = false;
     private _systemPromptTemplate?: string;
     private _systemPromptVarsProvider?: AparteSystemPromptVarsProvider;
     private _statusRenderer?: AparteStatusRenderer;
@@ -692,6 +700,9 @@ export class AparteConfig {
      * @example aparteGlobalConfig.setImagePolicy((url) => url.startsWith('https://images.example.com/') ? 'load' : 'hold');
      */
     setImagePolicy(policy: AparteImagePolicy): void {
+        // Any call names the policy, the default included: `setImagePolicy([])` keeps every
+        // picture held and silences the console note `decideImage` writes otherwise.
+        this._imagePolicyNamed = true;
         // The same rule again changes nothing, so it redraws nothing: a framework that sets it
         // on every render with a list literal would otherwise redraw every message each time.
         if (sameImagePolicy(policy, this._imagePolicy)) return;
@@ -709,7 +720,26 @@ export class AparteConfig {
      * the request.
      */
     decideImage(url: string): AparteImageDecision {
-        return decideImageAddress(this._imageDecider, url, shownImagesOf(this));
+        const decision = decideImageAddress(this._imageDecider, url, shownImagesOf(this));
+        if (decision === 'hold') this._noteHeldImage(url);
+        return decision;
+    }
+
+    /**
+     * The first picture the default policy holds, said once to the developer. A picture that
+     * waits for a click with nothing in the console reads as a broken image to whoever wrote
+     * the app, and the line that changes it cannot be guessed. Silent once the app names a
+     * policy, whatever it is: `setImagePolicy([])` keeps the default and the silence.
+     */
+    private _noteHeldImage(url: string): void {
+        if (this._imagePolicyNamed || heldImageNoted) return;
+        heldImageNoted = true;
+        console.warn(
+            `[aparte] A picture from ${imageHost(url)} waits for the reader's click: pictures a model or a tool chose `
+            + 'load only from the sources the app allows. To load yours, call '
+            + "aparteGlobalConfig.setImagePolicy(['https://cdn.example.com']); to keep holding them without this note, "
+            + 'setImagePolicy([]). Why: https://apartejs.dev/guides/markdown/#pictures-a-reply-can-load',
+        );
     }
 
     /**
@@ -2131,6 +2161,7 @@ export class AparteConfig {
         this._sanitizer = defaultSanitizer;
         this._imagePolicy = [];
         this._imageDecider = compileImagePolicy([]);
+        this._imagePolicyNamed = false;
         forgetShownImages(this);
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
