@@ -8,12 +8,11 @@
  * passes `--tag beta` (possible since the repo left changesets' pre mode), and this
  * script is the check that every tag actually ended up on the version just built.
  *
- * The tags are aligned, on purpose. There is no stable line yet: `latest` already
- * pointed at a pre-release, so freezing it protects nobody and only serves older bits
- * to a bare `npm i @aparte/core`. The day a stable line exists, `latest` stops
- * following the beta channel — and that is the day to change this script. `alpha` was
- * kept aligned for 0.17.0 only, a bridge for the READMEs and pins that said `@alpha`
- * for months, and left the list at the release after it: it stays on 0.17.0.
+ * The tags are aligned, on purpose. `latest` is the stable line since 1.0.0, and `beta`
+ * still follows it: the beta's README told everyone to install `@aparte/core@beta`, and
+ * an install written that way should get the current release rather than stay on 0.32.1.
+ * `alpha` was kept aligned for 0.17.0 only, a bridge for the READMEs and pins that said
+ * `@alpha` for months, and left the list at the release after it: it stays on 0.17.0.
  *
  * Usage (part of `pnpm release`):
  *   node scripts/align-dist-tags.mjs [--dry]
@@ -40,8 +39,8 @@ const npm = (args) => execSync(`npm ${args.join(' ')}`, { encoding: 'utf8', stdi
 
 /**
  * The channel this repo publishes under, and the tags that must all point at it.
- * `beta` is the channel (`package.json`'s `release` script passes it to
- * `changeset publish`); `latest` follows while no stable line exists — see above.
+ * `beta` is the tag `changeset publish` is given (`package.json`'s `release` script and
+ * the release job pass it); `latest`, the stable line, is brought level — see above.
  */
 const TAGS = ['beta', 'latest'];
 
