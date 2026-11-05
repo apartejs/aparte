@@ -4,7 +4,7 @@ The **React AI chat component** of [aparté](https://github.com/apartejs/aparte)
 `<AparteChat>` (React 18/19) plus hooks (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
-<img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420">
+<a href="https://apartejs.dev/templates/assistant/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://apartejs.dev/shots/chat-dark.png"><img src="https://apartejs.dev/shots/chat.png" alt="An aparté chat: the conversation list, a question, and the assistant's reply — its reasoning, a weather card and the answer — above the composer"></picture></a>
 
 Tested in CI with React 19, and in a Next 15 App Router page rendered on the server and hydrated
 with no mismatch. `<AparteToolUI name="…">` draws a tool call with your own component, with your

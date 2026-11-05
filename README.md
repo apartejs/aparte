@@ -1,17 +1,17 @@
 # aparté
 
-**AI chat as Web Components, for React, Vue, Svelte, Angular or plain HTML.** Connect your own
-OpenAI-compatible backend or an AG-UI agent (n8n too), let the model call tools that a human
-approves, and draw the results as [interactive cards](https://apartejs.dev/guides/cards/):
-weather, products, places, orders (generative UI).
+**The complete AI chat UI, for any framework.** Drop a ChatGPT-style chat into React, Vue,
+Svelte, Angular or plain HTML: replies that stream with Markdown and code, a conversation list,
+tools a person approves, answers drawn as [cards](https://apartejs.dev/guides/cards/). Your own
+backend or an AG-UI agent behind it, your styles on it, zero dependencies at the core.
 
-<a href="https://apartejs.dev/"><img src="https://apartejs.dev/cards/reply.png" alt="An assistant reply in an aparté chat: a stock card, a formula and a chart" width="420"></a>
+<a href="https://apartejs.dev/templates/assistant/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://apartejs.dev/shots/chat-dark.png"><img src="https://apartejs.dev/shots/chat.png" alt="An aparté chat: the conversation list, a question, and the assistant's reply — its reasoning, a weather card and the answer — above the composer"></picture></a>
 
 Everything an AI chat shows, each piece [on its own page with live variants](https://apartejs.dev/components/):
 the conversation, messages with Markdown and code, reasoning, tool calls a human approves,
 the questions an agent asks, the composer and its model picker — then the layout around it
 (app shell, sidebar, conversation list) and a UI kit for the rest of your app. Restyle everything
-with CSS variables. **Zero third-party dependencies** at the core.
+with CSS variables.
 
 Begin from a [template](https://apartejs.dev/templates/) — an assistant, an agent workshop, a
 support widget, a research assistant, a shopping assistant, a travel concierge — or see
