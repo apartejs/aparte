@@ -8,8 +8,8 @@ guide:
 ---
 
 1.0.0 is the first release under the [stability promise](/reference/stability/): from here on, a
-name on the declared surface keeps its name, and what it does, until 2.0. Getting there asks a few
-changes of code written against 0.x, and most apps need one or two of them.
+name on the declared surface keeps its name, and what it does, until 2.0. Getting there takes a few
+changes to code written against 0.x, and most apps need one or two of them.
 
 ## Move every package at once
 
@@ -37,7 +37,8 @@ The beta also changed a few behaviours along the way, each in the notes of its r
 
 A picture a model or a tool chose no longer loads by itself. `data:` and `blob:` pictures do; any
 other shows as a link that names its host, and loads when the reader clicks it. A card shows one
-"Show images" button in place of its pictures, and nothing is fetched while a reply streams.
+"Show images" button in place of its pictures, and a held picture is not fetched while a reply
+streams either.
 
 Allow the places your own pictures come from:
 
@@ -48,7 +49,9 @@ aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
 ```
 
 `['*']` loads every picture, as 0.x did. [Pictures a reply can load](/guides/markdown/#pictures-a-reply-can-load)
-gives the whole rule, and why a picture waits by default.
+says why a picture waits by default — a reply can carry the conversation to any host through a
+picture's address, without a click — and which policy to choose. Until you name one, the first
+picture held on a page writes a note in the browser console with the line to add.
 
 ## What 1.0 removes
 
@@ -74,8 +77,8 @@ setupCompaction({ contextWindow: 128_000 });
 ```
 
 **A `CompactionTarget` without `updateMessage`.** The type now requires it, and `clearAll` and
-`appendMessage` left it: since 0.26.0 a compaction writes one checkpoint through `updateMessage` and
-calls nothing else.
+`appendMessage` are no longer part of it: since 0.26.0 a compaction writes one checkpoint through
+`updateMessage` and calls nothing else.
 
 ```diff lang="ts"
   const target: CompactionTarget = {
@@ -111,10 +114,14 @@ These keep their names; what they do moved. Most apps meet none of them.
 
 - **Suggestion buttons the model writes send their label.** In a `suggestions` block, a
   `{ "label", "prompt" }` reply sends its label and the `prompt` is ignored, because the block is
-  model text and the button must send what it shows. Suggestions your app passes are unchanged.
-- **A card the model wrote draws only the links among its actions.** A card's `actions` receives
-  `{ origin }` as its second argument — `'tool'`, `'segment'` or `'fence'` — and a card the model
-  wrote as a code block (`'fence'`) shows its links and drops its other buttons.
+  model text and the button must send what it shows. Suggestions your app passes still send their
+  `prompt`.
+- **A card the model wrote no longer draws its own buttons.** A card's `actions` receives
+  `{ origin }` as its second argument — `'tool'`, `'segment'` or `'fence'`. In a card the model
+  wrote as a code block (`'fence'`), an action of the card's own data that carries an `id` is not
+  drawn, and its links are. The buttons your `actions` returns are drawn on every card, so do not
+  build a `send` from a `'fence'` card's fields: keep its text fixed, or give the button an `id`
+  and decide in your `aparte-card-action` listener.
 - **A reply cannot drive your page's controls.** Markup in a message no longer carries the
   attributes core reads as controls (`data-aparte-dialog-open` and the rest), and `<input>` in a
   reply is limited to a disabled checkbox. Change your code only if a custom segment renderer, a
