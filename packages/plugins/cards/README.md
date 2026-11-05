@@ -36,6 +36,21 @@ setupWeatherCard({
 
 The full guide: [apartejs.dev/guides/cards](https://apartejs.dev/guides/cards/).
 
+## Pictures
+
+A card's pictures come from a tool's data, so they follow the chat's image policy: a picture from a
+host your app has not allowed waits behind one "Show images" button on the card. Allow your own
+sources:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
+```
+
+[Pictures and the image policy](https://apartejs.dev/guides/cards/#pictures-and-the-image-policy)
+gives the whole rule.
+
 ## The weather card — `@aparte/plugin-cards/weather`
 
 - `setupWeatherCard(options)` plugs the card in and returns the function that unplugs it.

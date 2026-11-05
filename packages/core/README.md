@@ -94,6 +94,10 @@ The `node` entry is checked on every CI run by importing the built package in re
   full-window sheet on a narrow or short screen.
 - **Citations** — sources a provider returns appear as a chip after the cited passage, with a
   card and a list.
+- **Pictures** — a picture a model or a tool chose waits for the reader's click until you allow
+  where it comes from, because its address alone can carry the conversation to another host:
+  `aparteGlobalConfig.setImagePolicy(['https://cdn.example.com'])`
+  ([why, and which policy to choose](https://apartejs.dev/guides/markdown/#pictures-a-reply-can-load)).
 - **Maths, diagrams and charts** — a code block in a registered language (`math`, `mermaid`,
   `echarts`…) is drawn as it streams. Core carries the seam
   (`registerCodeLanguageRenderer`); `@aparte/plugin-katex`, `-mermaid`, `-echarts` and

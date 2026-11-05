@@ -51,6 +51,11 @@ support widget, a research assistant, a shopping assistant, a travel concierge �
 - **A human in the loop.** Mark a tool `needsApproval` and the user approves or rejects the
   call; the agent can ask typed questions; and with the
   [server loop](https://apartejs.dev/guides/server-loop/) an approval survives a reload.
+- **Safe with what a model writes.** Replies go through a built-in sanitizer, and a picture a
+  model or a tool chose waits for the reader's click until you allow where it comes from, because
+  its address alone can carry the conversation to another host. One line loads yours:
+  `setImagePolicy(['https://cdn.example.com'])`
+  ([why](https://apartejs.dev/guides/markdown/#pictures-a-reply-can-load)).
 - **Framework-agnostic core.** One engine — vanilla Web Components — renders the
   *same* chat everywhere. Thin wrappers give React/Vue/Svelte/Angular an
   ergonomic component; with no framework, use the `<aparte-*>` custom elements
