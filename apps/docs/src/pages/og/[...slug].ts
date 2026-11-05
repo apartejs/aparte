@@ -38,7 +38,7 @@ const pages = Object.fromEntries([
     // Its og:image:alt (ROADMAP_IMAGE_ALT, in roadmap.astro) is written FROM this entry,
     // because astro-og-canvas bakes these two strings into the PNG as pixels — change
     // one and change the other.
-    ['roadmap', { title: 'One road, no dates', description: 'What npm serves, where the current branch stands, and the conditions the beta and 1.0 each have to meet.' }],
+    ['roadmap', { title: 'One road, no dates', description: 'What npm serves, where the current branch stands, and the conditions the beta and 1.0 each had to meet.' }],
     // /models/ and each model's page are Astro pages on the same frame. Their
     // og:image:alt strings (in each page) are written FROM these entries.
     ['models', { title: 'Small models, one task each', description: 'The models aparté publishes: built for one job in a chat, light enough to run in the browser, with no API call.' }],
