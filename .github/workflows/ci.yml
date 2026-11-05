@@ -802,7 +802,7 @@ jobs:
           NPM_CONFIG_PROVENANCE: 'true'
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::The NPM_TOKEN repository secret is not set: nothing was published."
+            echo "::error::The NPM_TOKEN secret is not set, in the npm environment or the repository: nothing was published."
             exit 1
           fi
           if ! npm whoami > /dev/null 2>&1; then
