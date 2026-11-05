@@ -16,9 +16,11 @@
  *
  * The card fetches nothing the tool's data does not name: no page, and no address of its
  * own making — no favicon service is asked, no icon guessed at `/favicon.ico`. A picture or an
- * icon the data names is loaded as given, wherever it is hosted (Brave's results name icons
- * on Brave's own proxy). A site without an icon in the data gets its initial on a tinted
- * square, and a page without a picture gets no picture.
+ * icon the data names loads as the chat's image policy allows (`setImagePolicy`), wherever it
+ * is hosted (Brave's results name icons on Brave's own proxy); one the policy holds waits
+ * behind the card's "Show images" button. A site without an icon in the data, or while its
+ * icon is held, gets its initial on a tinted square, and a page without a picture gets no
+ * picture.
  *
  * Every value is text. Search engines highlight the query in their snippets with markup
  * (Brave's `<strong>`): those tags are dropped and the usual entities decoded, and what is
@@ -51,7 +53,7 @@ export interface LinkInput {
     image?: string;
     /** Falls back to the host without `www.`. Also `og:site_name`, `site`, `publisher`, `source`. */
     siteName?: string;
-    /** The site's icon, loaded as given. Without it, the site's initial on a tinted square — no icon address is made up. Also `icon`, `logo`, Brave's `meta_url.favicon`. */
+    /** The site's icon, loaded as the image policy allows. Without it, or while it is held, the site's initial on a tinted square — no icon address is made up. Also `icon`, `logo`, Brave's `meta_url.favicon`. */
     favicon?: string;
     /** Also `byline`, `article:author`, `authors[0]`. */
     author?: string;
