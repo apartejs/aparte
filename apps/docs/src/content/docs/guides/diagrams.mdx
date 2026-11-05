@@ -46,10 +46,13 @@ around it. Mermaid also runs with `securityLevel: 'strict'` and HTML labels off,
 own `%%{init}%%` cannot turn either back on.
 
 Mermaid draws before that image exists, in the page, and what a diagram names there is fetched at
-that moment. Two things name a picture. A node's or an actor's own: `A@{ shape: imageSquare, img: "https://…" }`
+that moment. Three things name a picture. A node's or an actor's own: `A@{ shape: imageSquare, img: "https://…" }`
 or a sequence diagram's `properties A: {"icon": "https://…"}` would send a request to that address, so
 the plugin asks Mermaid what it parsed, and a diagram holding a picture that is not inline
-(`data:image/…`) is not drawn, however the source spelled it. And a style: `classDef c mask-image:url(https://…)`
+(`data:image/…`) is not drawn, however the source spelled it. A label Mermaid writes as HTML even
+with HTML labels off, such as an architecture service's icon text: it goes through Mermaid's own
+sanitizer with pictures, players, frames and styles forbidden, a rule a diagram's `%%{init}%%`
+cannot lift. And a style: `classDef c mask-image:url(https://…)`
 in a state or block diagram is fetched as soon as the diagram is measured, so a source holding a CSS
 `url(`, `image-set(` or `cross-fade(` (or an `@import`) is not drawn, nor is one that styles
 something and holds a backslash escape, which could spell one. A diagram that is not drawn shows its

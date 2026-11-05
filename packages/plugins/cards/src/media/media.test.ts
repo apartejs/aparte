@@ -16,7 +16,11 @@ const SUNSET = {
 const photos = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `https://cdn.example/p${i}.jpg`, ...(i === 1 ? { title: `Photo ${i}` } : {}) }));
 
 let stop: () => void = () => {};
-beforeEach(() => aparteGlobalConfig.extendLocale({ tag: 'en-US' }));
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => {
+    aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    aparteGlobalConfig.setImagePolicy(['*']);
+});
 afterEach(() => {
     stop();
     stop = () => {};

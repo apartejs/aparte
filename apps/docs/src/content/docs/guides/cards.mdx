@@ -184,7 +184,7 @@ setupPlaceCard({ tool: 'find_places', currencySymbol: '€' });
 Its reader takes both generations of Google Places and Yelp. The hours logic is exported too:
 `readHours`, `readTime`, `placeStatus`, `isOpenAt`, `directionsUrl` and `phoneUrl`. Without a
 photo it draws a map of its own and fetches nothing; `mapTiles` puts a place with coordinates on
-your real map tiles instead ([A real map](/components/place-card/#a-real-map)).
+your real map tiles instead, which are your own choice and not subject to the image policy ([A real map](/components/place-card/#a-real-map)).
 
 ### Key figures — `stats`
 
@@ -329,7 +329,8 @@ setupMediaCard({ tool: 'search_photos', map: (result) => result.results, variant
 ```
 
 A video plays in the browser's own `<video>`, a sound in its `<audio>`, and a YouTube or Vimeo
-page is a picture that links to it: no player script, no request your app did not make. A
+page is a picture that links to it: no player script, and no request before the picture is
+allowed ([the image policy](#pictures-and-the-image-policy)). A
 `MediumInput` needs a `src` (`http(s)`); `kind` (`MediaKind`: `image`, `video` or `audio`) is
 read from the address when it is missing, and `width` with `height` keep the space before the
 picture loads. `readMedia` reads a `MediaData` of `Medium`s from Unsplash, Pexels and image
@@ -348,12 +349,45 @@ setupLinkCard({ tool: 'unfurl' }); // one page's Open Graph, as it is
 setupLinkCard({ tool: 'web_search', map: (result) => result.items, variant: 'compact' });
 ```
 
-The card fetches nothing — no favicon service, no page: a site without its own icon in the data
-gets its initial on a tinted square. A `LinkInput` needs a `url`; `readLinks` reads Open Graph and
+The card fetches no page and calls no favicon service: a site without its own icon in the data
+gets its initial on a tinted square. Its picture and icon follow
+[the image policy](#pictures-and-the-image-policy). A `LinkInput` needs a `url`; `readLinks` reads Open Graph and
 Twitter keys and the results of Google's Custom Search, SerpAPI, Brave, Tavily and Exa into a
 `LinkData` of `Link`s. A link's badge is its `LinkType` (`article`, `video`, `repo`, `product`,
 `website`), read from the page when the data does not say. Its options are `LinkCardOptions`, its
 variants `LinkVariant`.
+
+## Pictures and the image policy
+
+A card's pictures come from data a model or a tool wrote, so they follow the chat's image policy:
+one from a host the app has not allowed is not fetched until the reader allows it. The card
+draws what it draws without a picture (the initial, the monogram, the placeholder) and adds one
+"Show images" button that names the hosts. A click loads them and draws the card again. To load
+your own CDN with no click:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
+```
+
+The levers, the reason and the limits are in
+[the Markdown guide](/guides/markdown/#pictures-a-reply-can-load).
+
+A card you write with `defineCard` asks the policy through its context. `ctx.image(src, props)`
+returns an `<img>` that loads, sent without a referrer, or `null` when the policy does not let it
+load; `ctx.loads(url)` answers the same for a video, a sound or a poster. Either one lists a held
+picture under "Show images", so draw the card without it meanwhile:
+
+```ts
+import type { CardContext } from '@aparte/plugin-cards';
+
+declare const ctx: CardContext;
+declare const photo: string;
+
+const img = ctx.image(photo, { class: 'my-card-photo', attrs: { loading: 'lazy', alt: '' } });
+const cover = img ?? document.createElement('div'); // no picture yet: a plain block
+```
 
 ## While the call runs, and when it does not
 

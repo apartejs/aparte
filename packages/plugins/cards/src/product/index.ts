@@ -430,24 +430,17 @@ const notNull = <T>(value: T | null | undefined): value is T => value !== null &
  * The photo in its square, over a bag glyph that stays underneath: a missing photo shows
  * the bag, and one that fails to load is hidden to show it — no node comes or goes.
  */
-function media(product: Product, className = ''): HTMLElement {
+function media(ctx: CardContext, product: Product, className = ''): HTMLElement {
     const frame = el('div', { class: `aparte-product__media${className ? ` ${className}` : ''}` },
         glyph(BAG, 'aparte-rich-card__glyph aparte-product__placeholder'));
-    if (!product.image) {
+    // A photo the policy holds shows the bag, as a product without one does.
+    const image = product.image
+        ? ctx.image(product.image.src, { class: 'aparte-product__image', attrs: { alt: product.image.alt ?? product.title, loading: 'lazy', decoding: 'async' } })
+        : null;
+    if (!image) {
         frame.setAttribute('data-empty', '');
         return frame;
     }
-    const image = el('img', {
-        class: 'aparte-product__image',
-        attrs: {
-            src: product.image.src,
-            alt: product.image.alt ?? product.title,
-            loading: 'lazy',
-            decoding: 'async',
-            // A shop's CDN learns nothing about the chat page that showed its photo.
-            referrerpolicy: 'no-referrer',
-        },
-    });
     image.addEventListener('error', () => {
         image.hidden = true;
         frame.setAttribute('data-empty', '');
@@ -471,12 +464,12 @@ function titleOf(product: Product): HTMLElement {
     return title;
 }
 
-function merchantOf(product: Product): HTMLElement | null {
+function merchantOf(ctx: CardContext, product: Product): HTMLElement | null {
     if (!product.merchant) return null;
     const node = el('div', { class: 'aparte-product__merchant' });
-    if (product.merchantLogo) {
-        // Empty alt: the shop's name is written right beside it.
-        const logo = el('img', { class: 'aparte-product__logo', attrs: { src: product.merchantLogo, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' } });
+    // Empty alt: the shop's name is written right beside it. A held logo leaves the name alone.
+    const logo = product.merchantLogo ? ctx.image(product.merchantLogo, { class: 'aparte-product__logo', attrs: { alt: '', loading: 'lazy', decoding: 'async' } }) : null;
+    if (logo) {
         logo.addEventListener('error', () => { logo.hidden = true; }, { once: true });
         node.append(logo);
     }
@@ -587,11 +580,11 @@ function productRoot(kind: 'tile' | 'row' | 'detail', product: Product, extra = 
  */
 function tile(ctx: CardContext, product: Product, { actions, mini = false }: { actions: number; mini?: boolean }): HTMLElement {
     const node = productRoot('tile', product, mini ? 'aparte-product--mini' : '');
-    const photo = media(product);
+    const photo = media(ctx, product);
     const corner = mini ? null : flags(ctx, product, true);
     if (corner) photo.append(corner);
     const body = el('div', { class: 'aparte-product__body' },
-        mini ? null : merchantOf(product),
+        mini ? null : merchantOf(ctx, product),
         titleOf(product),
         mini ? null : rating(ctx, product.rating, { count: product.reviewCount }),
         priceOf(ctx, product),
@@ -613,7 +606,7 @@ function row(ctx: CardContext, product: Product): HTMLElement {
         rating(ctx, product.rating, { starsOnly: true }),
         product.availability && !('status' in product.availability && product.availability.status === 'in-stock') ? availabilityOf(ctx, product) : null);
     const main = el('div', { class: 'aparte-product__main' }, titleOf(product), meta.childNodes.length ? meta : null);
-    node.append(media(product, 'aparte-product__thumb'), main);
+    node.append(media(ctx, product, 'aparte-product__thumb'), main);
     const amount = priceOf(ctx, product);
     if (amount) node.append(amount);
     const buttons = actionsOf(ctx, product, 1);
@@ -624,7 +617,7 @@ function row(ctx: CardContext, product: Product): HTMLElement {
 /** The `detail` variant: everything the card knows, the photo beside it on a wide card. */
 function detail(ctx: CardContext, product: Product): HTMLElement {
     const node = productRoot('detail', product);
-    const photo = media(product);
+    const photo = media(ctx, product);
     const corner = flags(ctx, product, false);
     if (corner) photo.append(corner);
     // The photo links where the name does; the name's link is the one a keyboard and a
@@ -634,7 +627,7 @@ function detail(ctx: CardContext, product: Product): HTMLElement {
         : photo;
     const facts = el('div', { class: 'aparte-product__facts' }, availabilityOf(ctx, product), shippingOf(ctx, product));
     const body = el('div', { class: 'aparte-product__body' },
-        merchantOf(product),
+        merchantOf(ctx, product),
         titleOf(product),
         rating(ctx, product.rating, { count: product.reviewCount }),
         priceOf(ctx, product, true),

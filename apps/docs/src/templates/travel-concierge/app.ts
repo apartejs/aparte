@@ -71,6 +71,9 @@ const model = createScenarioProvider({
     pacing: replyPacing(),
     models: [{ id: 'concierge', name: CONCIERGE, capabilities: ['streaming', 'function_calling'] }],
 });
+// The places' and the city's pictures are served by this site: let them load. A picture from
+// anywhere else waits for the reader, behind the card's "Show images".
+aparteGlobalConfig.setImagePolicy(['self']);
 aparteGlobalConfig.registerAIProvider(model);
 aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'concierge' });
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));

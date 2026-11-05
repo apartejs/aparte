@@ -363,10 +363,16 @@ function placeholder(kind: MediaKind): HTMLElement {
 /**
  * A picture in `holder`, lazy and decoded off the main thread. One that fails to load is
  * removed, and the holder's placeholder is what shows. `alt` null: the picture is
- * decoration, its holder is named some other way.
+ * decoration, its holder is named some other way. `null` when the image policy holds it:
+ * the placeholder shows then too, and the holder is not left waiting for a load that
+ * will not come.
  */
-function picture(ctx: CardContext, holder: HTMLElement, src: string, alt: (() => string) | null, className = 'aparte-media__img'): HTMLImageElement {
-    const img = el('img', { class: className, attrs: { src, loading: 'lazy', decoding: 'async' } });
+function picture(ctx: CardContext, holder: HTMLElement, src: string, alt: (() => string) | null, className = 'aparte-media__img'): HTMLImageElement | null {
+    const img = ctx.image(src, { class: className, attrs: { loading: 'lazy', decoding: 'async' } });
+    if (!img) {
+        holder.removeAttribute('data-loading');
+        return null;
+    }
     if (alt) ctx.bind(img, alt, 'alt');
     else img.setAttribute('alt', '');
     img.addEventListener('load', () => holder.removeAttribute('data-loading'), { once: true });
@@ -402,8 +408,10 @@ const hostOf = (url: string) => new URL(url).hostname.replace(/^www\./, '');
 function imageFrame(ctx: CardContext, m: Medium, open: (from: HTMLElement) => void): HTMLElement {
     const frame = el('button', { class: 'aparte-media__frame', attrs: { type: 'button', 'aria-haspopup': 'dialog', 'data-kind': 'image', 'data-loading': '' } });
     reserve(frame, m);
-    frame.append(placeholder('image'), picture(ctx, frame, m.src, () => altOf(ctx.config, m)),
-        glyph(EXPAND, 'aparte-rich-card__glyph aparte-media__zoom'));
+    frame.append(placeholder('image'));
+    const img = picture(ctx, frame, m.src, () => altOf(ctx.config, m));
+    if (img) frame.append(img);
+    frame.append(glyph(EXPAND, 'aparte-rich-card__glyph aparte-media__zoom'));
     ctx.bind(frame, () => word(ctx.config, 'cardsMediaView', M.cardsMediaView), 'title');
     frame.addEventListener('click', () => open(frame));
     return frame;
@@ -413,9 +421,18 @@ function imageFrame(ctx: CardContext, m: Medium, open: (from: HTMLElement) => vo
 function videoFrame(ctx: CardContext, m: Medium, className = 'aparte-media__frame aparte-media__frame--video'): HTMLElement {
     const frame = el('div', { class: className, attrs: { 'data-kind': 'video' } });
     reserve(frame, m);
+    // A video the policy holds is not fetched at all, not even its length: the kind's
+    // placeholder stands in until the reader shows it.
+    // The poster is asked about too, held or not, so one "Show images" shows both.
+    const playable = ctx.loads(m.src);
+    const poster = m.poster && ctx.loads(m.poster) ? m.poster : undefined;
+    if (!playable) {
+        frame.append(placeholder('video'));
+        return frame;
+    }
     const video = el('video', {
         class: 'aparte-media__video',
-        attrs: { controls: true, preload: 'metadata', playsinline: true, src: m.src, poster: m.poster },
+        attrs: { controls: true, preload: 'metadata', playsinline: true, src: m.src, poster },
     });
     ctx.bind(video, () => nameOf(ctx.config, m), 'aria-label');
     frame.append(video);
@@ -436,7 +453,8 @@ function externalFrame(ctx: CardContext, m: Medium): HTMLElement {
     });
     reserve(frame, m);
     frame.append(placeholder('video'));
-    if (m.poster) frame.append(picture(ctx, frame, m.poster, null));
+    const poster = m.poster ? picture(ctx, frame, m.poster, null) : null;
+    if (poster) frame.append(poster);
     frame.append(
         el('span', { class: 'aparte-media__play', attrs: { 'aria-hidden': 'true' } }, glyph(PLAY, 'aparte-rich-card__glyph aparte-media__play-glyph')),
         el('span', { class: 'aparte-media__site', attrs: { 'aria-hidden': 'true' } }, glyph(EXTERNAL, 'aparte-rich-card__glyph aparte-media__site-glyph'), site),
@@ -453,19 +471,23 @@ function externalFrame(ctx: CardContext, m: Medium): HTMLElement {
  */
 function audioBlock(ctx: CardContext, m: Medium): HTMLElement {
     const cover = el('span', { class: 'aparte-media__cover', attrs: { 'data-kind': 'audio' } }, placeholder('audio'));
-    if (m.poster) cover.append(picture(ctx, cover, m.poster, null));
+    const art = m.poster ? picture(ctx, cover, m.poster, null) : null;
+    if (art) cover.append(art);
     const title = el('div', { class: 'aparte-media__audio-title' });
     ctx.bind(title, () => m.title ?? kindWord(ctx.config, 'audio'));
     const text = el('div', { class: 'aparte-media__audio-text' }, title,
         m.credit ? el('div', { class: 'aparte-media__audio-credit', text: m.credit }) : null);
     const head = el('div', { class: 'aparte-media__audio-head' }, cover, text,
         m.duration !== undefined ? durationOf(ctx, m.duration, 'aparte-media__audio-length') : null);
-    const audio = el('audio', { class: 'aparte-media__player', attrs: { controls: true, preload: 'metadata', src: m.src } });
-    ctx.bind(audio, () => nameOf(ctx.config, m), 'aria-label');
+    // A sound the policy holds has no player, so nothing is requested: the cover and the title stay.
+    const audio = ctx.loads(m.src) ? el('audio', { class: 'aparte-media__player', attrs: { controls: true, preload: 'metadata', src: m.src } }) : null;
+    if (audio) ctx.bind(audio, () => nameOf(ctx.config, m), 'aria-label');
     const block = el('div', { class: 'aparte-media__audio', attrs: { 'data-kind': 'audio' } },
         head, el('span', { class: 'aparte-media__wave', attrs: { 'aria-hidden': 'true' } }), audio);
-    audio.addEventListener('play', () => block.setAttribute('data-playing', ''));
-    for (const stop of ['pause', 'ended', 'emptied']) audio.addEventListener(stop, () => block.removeAttribute('data-playing'));
+    if (audio) {
+        audio.addEventListener('play', () => block.setAttribute('data-playing', ''));
+        for (const stop of ['pause', 'ended', 'emptied']) audio.addEventListener(stop, () => block.removeAttribute('data-playing'));
+    }
     return block;
 }
 
@@ -497,8 +519,10 @@ function stageOf(ctx: CardContext, m: Medium, open: ((from: HTMLElement) => void
     // In the lightbox: no lazy loading, it is the one picture on screen.
     const box = el('div', { class: 'aparte-media__lb-picture', attrs: { 'data-loading': '' } }, placeholder('image'));
     const img = picture(ctx, box, m.src, () => altOf(ctx.config, m, index), 'aparte-media__lb-img');
-    img.removeAttribute('loading');
-    box.append(img);
+    if (img) {
+        img.removeAttribute('loading');
+        box.append(img);
+    }
     return box;
 }
 
@@ -508,7 +532,8 @@ function tileOf(ctx: CardContext, m: Medium, index: number, more: number, open: 
     tile.append(placeholder(m.kind));
     // An image's tile may load its smaller copy; a video's and a sound's show their still, if any.
     const still = m.kind === 'image' ? (m.poster ?? m.src) : m.poster;
-    if (still) tile.append(picture(ctx, tile, still, null, 'aparte-media__img'));
+    const face = still ? picture(ctx, tile, still, null, 'aparte-media__img') : null;
+    if (face) tile.append(face);
     if (m.kind === 'video') {
         tile.append(el('span', { class: 'aparte-media__play aparte-media__play--sm', attrs: { 'aria-hidden': 'true' } },
             glyph(PLAY, 'aparte-rich-card__glyph aparte-media__play-glyph')));
@@ -669,8 +694,21 @@ function lightbox(ctx: CardContext, items: Medium[], host: () => HTMLElement): (
     };
 }
 
+/**
+ * Every address a medium can make the card fetch, wherever it is drawn: its file (a page a
+ * video only links to is not one) and its still.
+ */
+function fetchedBy(m: Medium): string[] {
+    const linkedOnly = m.kind !== 'audio' && (m.site || (m.kind === 'video' && !playsHere(m)));
+    return [linkedOnly ? undefined : m.src, m.poster].filter((address): address is string => !!address);
+}
+
 function render(data: MediaData, ctx: CardContext<MediaVariant>): Node[] {
     const [first] = data.items as [Medium];
+    // Asked about up front, all of them: the lightbox draws a medium only when it opens, which
+    // is after the card's "Show images" was drawn — a full-size picture from another host than
+    // its tile would otherwise wait there with nothing that could show it.
+    for (const m of data.items) for (const address of fetchedBy(m)) ctx.loads(address);
     let root: HTMLElement | undefined;
     const open = lightbox(ctx, data.items, () => root!);
     if (data.items.length === 1) {

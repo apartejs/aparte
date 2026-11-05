@@ -82,6 +82,29 @@
   background: var(--aparte-surface-1);
 }
 
+/* Pictures the chat's image policy held (`ctx.image`): one quiet button for the card, and the
+   hosts they would load from beside it. Above the app's own buttons — it is about the drawing.
+   The hosts wrap rather than end in an ellipsis: a host is judged by its end. */
+.aparte-rich-card__images {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-1) var(--aparte-space-3);
+  padding: var(--aparte-space-2) var(--aparte-rich-card-padding);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-rich-card__images-show {
+  --aparte-btn-icon-size: 1.1em;
+}
+
+.aparte-rich-card__images-hosts {
+  min-inline-size: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
 /* A card this page did not set up: its sentence. */
 .aparte-rich-card__fallback {
   margin-block: var(--aparte-space-2);

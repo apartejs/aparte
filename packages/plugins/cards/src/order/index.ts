@@ -889,16 +889,16 @@ function header(ctx: CardContext, data: OrderData): HTMLElement {
  * The line's thumbnail, over a parcel glyph that stays underneath: a missing photo shows
  * the parcel, and one that fails to load is hidden to show it — no node comes or goes.
  */
-function thumb(line: OrderLine): HTMLElement {
+function thumb(ctx: CardContext, line: OrderLine): HTMLElement {
     const frame = el('div', { class: 'aparte-order__thumb' }, glyph(BOX, 'aparte-rich-card__glyph aparte-order__thumb-glyph'));
-    if (!line.image) {
+    // A photo the policy holds leaves the parcel, as a line without one does.
+    const image = line.image
+        ? ctx.image(line.image.src, { class: 'aparte-order__image', attrs: { alt: line.image.alt ?? line.title, loading: 'lazy', decoding: 'async' } })
+        : null;
+    if (!image) {
         frame.setAttribute('data-empty', '');
         return frame;
     }
-    const image = el('img', {
-        class: 'aparte-order__image',
-        attrs: { src: line.image.src, alt: line.image.alt ?? line.title, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' },
-    });
     image.addEventListener('error', () => {
         image.hidden = true;
         frame.setAttribute('data-empty', '');
@@ -914,7 +914,7 @@ function lineNode(ctx: CardContext, data: OrderData, line: OrderLine, thumbs: bo
             ? bound(ctx, 'span', 'aparte-order__line-each', () => say(ctx.config, 'cardsOrderEach', { price: money(ctx.config, data, line.price!) }))
             : null);
     return el('li', { class: 'aparte-order__line' },
-        thumbs ? thumb(line) : null,
+        thumbs ? thumb(ctx, line) : null,
         el('div', { class: 'aparte-order__line-main' },
             el('div', { class: 'aparte-order__line-title', text: line.title }),
             meta.childNodes.length ? meta : null),

@@ -883,12 +883,13 @@ function wear(node: HTMLElement, property: string, color: string | undefined): v
  * monogram — on a disc in the team's colour, or a neutral tint. Decorative (`alt=""`): the
  * team's name is always written beside it.
  */
-function crestOf(team: Team, size: 'lg' | 'sm'): HTMLElement {
+function crestOf(ctx: CardContext, team: Team, size: 'lg' | 'sm'): HTMLElement {
     const box = el('span', { class: `aparte-score__crest aparte-score__crest--${size}`, attrs: { 'aria-hidden': 'true', 'data-ink': team.color ? inkOn(team.color) : undefined } },
         el('span', { class: 'aparte-score__monogram', text: monogram(team) }));
     wear(box, '--aparte-score-team', team.color);
-    if (team.logo) {
-        const img = el('img', { class: 'aparte-score__logo', attrs: { src: team.logo, alt: '', loading: 'lazy', decoding: 'async' } });
+    // A logo the policy holds leaves the monogram.
+    const img = team.logo ? ctx.image(team.logo, { class: 'aparte-score__logo', attrs: { alt: '', loading: 'lazy', decoding: 'async' } }) : null;
+    if (img) {
         img.addEventListener('error', () => {
             img.remove();
             box.removeAttribute('data-logo');
@@ -964,10 +965,10 @@ function centreOf(ctx: CardContext, match: Match, now: Date): HTMLElement {
     return centre;
 }
 
-function teamOf(match: Match, key: MatchSide): HTMLElement {
+function teamOf(ctx: CardContext, match: Match, key: MatchSide): HTMLElement {
     const team = match[key];
     return el('div', { class: `aparte-score__team aparte-score__team--${key}`, attrs: { 'data-lead': leadOf(match, key) } },
-        crestOf(team, 'lg'),
+        crestOf(ctx, team, 'lg'),
         el('span', { class: 'aparte-score__team-name', text: team.name }),
         team.record ? el('span', { class: 'aparte-score__record', text: team.record }) : null);
 }
@@ -1019,9 +1020,9 @@ function footOf(ctx: CardContext, match: Match): HTMLElement | null {
 /** The board: the two teams facing each other, the score between them. */
 function boardOf(ctx: CardContext, match: Match, now: Date): HTMLElement {
     return el('div', { class: 'aparte-score__board', attrs: { 'data-winner': match.winner } },
-        teamOf(match, 'home'),
+        teamOf(ctx, match, 'home'),
         centreOf(ctx, match, now),
-        teamOf(match, 'away'));
+        teamOf(ctx, match, 'away'));
 }
 
 /** The match's root, wearing both teams' colours for its band. */
@@ -1068,7 +1069,7 @@ function periodsOf(ctx: CardContext, match: Match): HTMLElement | null {
         return el('tr', { attrs: { 'data-lead': leadOf(match, key) } },
             // The cell stays a cell; the crest and the name line up in a box inside it.
             el('th', { class: 'aparte-score__row-team', attrs: { scope: 'row' } },
-                el('span', { class: 'aparte-score__row-label' }, crestOf(team, 'sm'), el('span', { class: 'aparte-score__row-name', text: team.shortName ?? team.name }))),
+                el('span', { class: 'aparte-score__row-label' }, crestOf(ctx, team, 'sm'), el('span', { class: 'aparte-score__row-name', text: team.shortName ?? team.name }))),
             ...cells, sum);
     };
     const table = el('table', { class: 'aparte-score__periods' }, caption, el('thead', {}, head), el('tbody', {}, row('home'), row('away')));
@@ -1144,7 +1145,7 @@ function lineOf(ctx: CardContext, match: Match, key: MatchSide, withScore: boole
     const team = match[key];
     const lead = leadOf(match, key);
     return el('div', { class: 'aparte-score__line', attrs: { 'data-lead': lead } },
-        crestOf(team, 'sm'),
+        crestOf(ctx, team, 'sm'),
         el('span', { class: 'aparte-score__line-name', text: team.name }),
         withScore && team.score !== undefined ? numberOf(ctx, team.score, 'aparte-score__line-score') : null,
         // The winner is not told by weight alone: a mark points at the score, as the scoreboards do.

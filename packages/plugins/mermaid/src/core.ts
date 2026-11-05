@@ -283,8 +283,17 @@ function mermaidConfig(user: Record<string, unknown>, host: HTMLElement): Record
         themeCSS: `${(user['themeCSS'] as string | undefined) ?? ''}\n.edgeLabel rect { opacity: 1; }`,
         maxTextSize: 50_000,
         maxEdges: 500,
+        // A label Mermaid still writes as HTML — an architecture service's `iconText` is one,
+        // whatever `htmlLabels` says — goes through Mermaid's DOMPurify with these, and a label
+        // is words: no picture, no player, no frame, no style. Without them `<img src=…>` in
+        // such a label was put in the page while the diagram was measured, and fetched before
+        // the drawing became an image. `style` stays refused, as Mermaid's own default has it.
+        dompurifyConfig: {
+            FORBID_TAGS: ['style', 'img', 'image', 'picture', 'source', 'video', 'audio', 'track', 'input', 'svg', 'object', 'embed', 'iframe', 'link'],
+            FORBID_ATTR: ['src', 'srcset', 'poster', 'background', 'style'],
+        },
         // What a diagram's own `%%{init}%%` may not change.
-        secure: ['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'maxEdges', 'suppressErrorRendering', 'htmlLabels', 'flowchart', 'themeCSS', 'fontFamily'],
+        secure: ['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'maxEdges', 'suppressErrorRendering', 'htmlLabels', 'flowchart', 'themeCSS', 'fontFamily', 'dompurifyConfig'],
     };
 }
 

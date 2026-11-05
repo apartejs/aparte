@@ -368,6 +368,14 @@ export type AparteLocale = {
     /** After a source's link, for screen readers (default: "(opens in a new tab)"). */
     opensInNewTab?: string;
     /**
+     * A picture the image policy held: its link's tooltip, and its name when the picture has
+     * no description. `{host}` is where it would load from (default: "Load the image from
+     * {host}").
+     */
+    imageLoad?: string;
+    /** Its name when it has a description; `{alt}` is that description (default: "Load the image “{alt}” from {host}"). */
+    imageLoadNamed?: string;
+    /**
      * `@aparte/plugin-ask-user`: the receipt's line when the person declined to answer
      * (default: "You declined to answer."). The model reads `ASK_USER_DECLINED`, its own
      * sentence; this is the person's.
@@ -618,6 +626,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     sourceNext: "Next source",
     sourcePosition: "Source {i} of {n}",
     opensInNewTab: "(opens in a new tab)",
+    imageLoad: "Load the image from {host}",
+    imageLoadNamed: "Load the image “{alt}” from {host}",
     questionDeclined: "You declined to answer.",
     artifactNotCreated: "Not created",
     thoughtFor: "Thought for {duration}",

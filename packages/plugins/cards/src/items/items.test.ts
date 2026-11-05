@@ -17,6 +17,8 @@ const TRAILS: ItemsInput = {
     ],
 };
 
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => aparteGlobalConfig.setImagePolicy(['*']));
 let stop: () => void = () => {};
 afterEach(() => {
     stop();

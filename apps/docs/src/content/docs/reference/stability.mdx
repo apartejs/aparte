@@ -72,6 +72,12 @@ release that shipped it; four of them came in a patch.
 1.0.0 then removed what the beta had marked deprecated; the [changelog](/changelog/) lists each
 name with its replacement.
 
+## Changes of default in 1.0
+
+| Release | What changed | What to change |
+| --- | --- | --- |
+| 1.0.0 | Pictures a model or a tool chose no longer load by themselves. `data:` and `blob:` pictures do; any other is shown as a link that names its host and loads on a click (a card shows one "Show images" button). Nothing is fetched while a reply streams, and every picture that loads goes with `referrerpolicy="no-referrer"`. | `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])` for your own sources, or `['*']` for the earlier behaviour ([the policy](/guides/markdown/#pictures-a-reply-can-load)). |
+
 ## The elements
 
 **{elements.length}** elements across {elementPackages.length} packages, with **{attributeCount}**
