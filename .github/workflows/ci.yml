@@ -704,9 +704,14 @@ jobs:
   # token; every other push stops there. `release` asks again under the release lock and
   # runs only the missing steps, so a run that failed halfway is finished by re-running it.
   #
-  # Needs the repository secret NPM_TOKEN: an npm granular access token with read and
-  # write on the whole @aparte scope, allowed to bypass two-factor authentication. When it
-  # expires, the publish step says so; update the secret and re-run the failed jobs.
+  # Needs the secret NPM_TOKEN: an npm granular access token with read and write on the
+  # whole @aparte scope, allowed to bypass two-factor authentication. When it expires, the
+  # publish step says so; update the secret and re-run the failed jobs.
+  #
+  # `release` runs in the `npm` environment, which is the human gate in front of the
+  # publish: GitHub holds the job until the environment's required reviewer approves the
+  # run, and only `main` may deploy to it. The token belongs in that environment's secrets,
+  # not the repository's, so no job outside the environment can read it.
   release-check:
     needs: [ci, node-floor, scope, e2e, e2e-ssr]
     # `always()` so a tree already judged on its pull request — every job above skipped —
@@ -739,6 +744,7 @@ jobs:
     # that way with `release=true` in hand. `release-check` is what decides.
     if: always() && needs.release-check.result == 'success' && needs.release-check.outputs.release == 'true'
     runs-on: ubuntu-latest
+    environment: npm
     # Two version commits close together release one after the other, never at once.
     concurrency:
       group: release
