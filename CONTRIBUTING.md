@@ -318,12 +318,9 @@ The flow:
    later commit that finds it unfinished only warns, naming the commit whose run it belongs
    to, and a version below the `beta` npm serves is refused. On `main`, every
    commit gets its own ci run, so a merge right after the version commit cannot cancel its
-   release. The `release` job runs in the **`npm` environment**, and GitHub holds it until the
-   environment's required reviewer approves the run: open the run on `main` and approve the
-   deployment, or nothing is published. It needs the secret **`NPM_TOKEN`**, kept in that
-   environment — an npm granular access token with read and write on the whole `@aparte`
-   scope, allowed to bypass 2FA. Without it, or with an expired one, the run fails before
-   publishing anything and its error says which.
+   release. It needs the repository secret **`NPM_TOKEN`** — an npm granular access token
+   with read and write on the whole `@aparte` scope, allowed to bypass 2FA. Without it, or
+   with an expired one, the run fails before publishing anything and its error says which.
    When CI cannot release at all, run steps 3 to 5 by hand, as below: `prerelease-checks`
    judges the checks of the run, not its release jobs. The two paths meet without harm: whichever
    finishes a step first, the other finds it done.
