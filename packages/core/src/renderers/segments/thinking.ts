@@ -109,7 +109,12 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
     /** A block restored from storage is drawn here: `update` only runs on one that changes. */
     setup: (el, segment) => {
         const contentEl = el.querySelector('.aparte-thinking-content');
-        if (contentEl) renderCodeLanguages(contentEl, { streaming: arriving(segment) });
+        if (!contentEl) return;
+        // Drawn mid-stream, the streaming renderer writes it from the first chunk — as the
+        // text renderer does, and for the same reason: `render`'s one-shot pass shows an
+        // unclosed `**` raw until the next chunk.
+        if (arriving(segment)) writeStreamedMarkdown(el as AparteMarkdownStreamHost, contentEl, segment.content, true);
+        else renderCodeLanguages(contentEl, { streaming: false });
     },
     update: (el, segment) => {
         // The label follows the block: "Thinking" becomes its duration when it settles.

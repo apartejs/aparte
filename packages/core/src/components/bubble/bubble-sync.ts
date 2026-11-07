@@ -29,6 +29,26 @@ export interface SyncableBubble {
 }
 
 /**
+ * The message's segments, its last one flagged `isStreaming: true` while the message streams.
+ *
+ * A host redraws the bubble with `setSegments` each time a new segment streams in, so the
+ * new segment's FIRST chunk is drawn by a full redraw. The stream parser's text carries no
+ * flag, and `setup` reads a missing flag as finished (a restored message carries none
+ * either), so that chunk went through the one-shot Markdown provider: with marked,
+ * `Done: **Book ` showed its `**` raw until the next chunk reached the streaming renderer.
+ * Only the last segment is arriving; only a text or reasoning one is written as Markdown;
+ * and a flag the producer set is kept. The bubble settles it when the message ends — this
+ * function's caller sends `isStreaming: false` then.
+ */
+function withLastArriving(message: AparteMessage): AparteSegment[] {
+    const segments = message.segments!;
+    const last = segments[segments.length - 1];
+    if (message.status !== 'streaming' || !last || last.isStreaming !== undefined) return segments;
+    if (last.type !== 'text' && last.type !== 'thinking') return segments;
+    return [...segments.slice(0, -1), { ...last, isStreaming: true } as AparteSegment];
+}
+
+/**
  * Reconcile a bubble element with a message and optional sibling metadata.
  *
  * **For framework wrappers** (Angular, React, Vue, Svelte) that own bubble
@@ -85,7 +105,7 @@ export function populateBubbleFromMessage(
                 }
             }
         } else {
-            bubble.setSegments?.(message.segments);
+            bubble.setSegments?.(withLastArriving(message));
         }
     } else if (message.content !== undefined) {
         bubble.setContent?.(message.content);

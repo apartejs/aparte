@@ -476,7 +476,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * Recorded BEFORE `setup`: a setup that throws (a framework mount) leaves an element that
    * will still be cleaned up. The same id drawn twice releases the first element.
    */
-  private _install(segment: AparteSegment, el: HTMLElement, renderer: AparteSegmentRenderer | undefined): void {
+  private _install(
+    segment: AparteSegment,
+    el: HTMLElement,
+    renderer: AparteSegmentRenderer | undefined,
+    drawnAs: AparteSegment = segment,
+  ): void {
     const previous = this._drawn.get(segment.id);
     if (previous && previous.el !== el) this._release(segment.id);
     const drawn: DrawnSegment = { el, renderer, tool: null, segment };
@@ -484,8 +489,39 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Drawn into a bubble that is out of the page (a late write after its removal): decide
     // again, so what was just mounted cannot outlive it.
     if (!this.isConnected) this._scheduleReleaseCheck();
-    if (renderer?.setup) runWithConfig(this._cfg, () => renderer.setup!(el, segment));
+    if (renderer?.setup) runWithConfig(this._cfg, () => renderer.setup!(el, drawnAs));
     if (segment.type === 'tool_call') drawn.tool = toolRendererThatDrew(el);
+  }
+
+  /**
+   * The segment as its renderer's `setup` sees it: one ADDED while the message streams is
+   * arriving, flag or no flag.
+   *
+   * A text or reasoning segment flagged `isStreaming: true` is written by its renderer's
+   * `setup` through the streaming renderer, from its first chunk. The stream parser's text
+   * carries no flag at all, though: `update` reads a missing flag as "still arriving",
+   * `setup` cannot, because a restored message's segments carry none either and are
+   * finished. So its first chunk — drawn by `render` and `setup`, while `update` only runs
+   * from the second — went through the one-shot provider, which reads `Done: **Book ` as
+   * finished text: with marked, the `**` showed raw until the next chunk reached the
+   * streaming renderer, which completes it. `addSegment` on a streaming message is a segment
+   * arriving, and the bubble is what knows the message streams, so it tells `setup`
+   * (`render` keeps the segment as stored: the reasoning label reads the flag, and would lose
+   * its shimmer again at the next chunk). `setSegments` infers nothing — a hand-set text is
+   * finished, and the streaming renderer would keep back what may still open a token (the
+   * full stop after `**bold**`) until the turn ends; a framework host flags the segment
+   * itself (`populateBubbleFromMessage`). Either way the segment joins `_written`, to be
+   * settled — flushed, then drawn whole — when the message stops.
+   */
+  private _drawnAs(segment: AparteSegment, added = false): AparteSegment {
+    if (segment.type !== 'text' && segment.type !== 'thinking') return segment;
+    if (segment.isStreaming === true) {
+      this._written.add(segment.id);
+      return segment;
+    }
+    if (!added || segment.isStreaming === false || !this._streaming) return segment;
+    this._written.add(segment.id);
+    return { ...segment, isStreaming: true };
   }
 
   /**
@@ -533,12 +569,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const renderer = resolveSegmentRenderer(segment.type, cfg);
     const old = drawn.el;
     this._release(segment.id);
+    const drawnAs = renderer ? this._drawnAs(segment) : segment;
     const el = renderer
       ? segmentRenderResultToElement(runWithConfig(cfg, () => renderer.render(segment)), segment)
       : unrenderedSegment(segment);
     if (!el) { old.remove(); return true; }
     old.replaceWith(el);
-    this._install(segment, el, renderer);
+    this._install(segment, el, renderer, drawnAs);
     return true;
   }
 
@@ -1290,12 +1327,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (this._segments.length === 1) this._drawnWithVersion = renderingVersionOf(this._cfg);
     const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (renderer) {
+      const drawnAs = this._drawnAs(segment, true);
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
       const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (el) {
         this._segmentsEl.appendChild(el);
-        this._install(segment, el, renderer);
+        this._install(segment, el, renderer, drawnAs);
       }
     } else {
       const el = unrenderedSegment(segment);
@@ -1802,10 +1840,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     for (const segment of this._segments) {
       const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (renderer) {
+        const drawnAs = this._drawnAs(segment);
         const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
         if (el) {
           this._segmentsEl.appendChild(el);
-          this._install(segment, el, renderer);
+          this._install(segment, el, renderer, drawnAs);
         }
       } else {
         const el = unrenderedSegment(segment);

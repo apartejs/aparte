@@ -36,8 +36,16 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
         // Only a segment marked streaming is still being written: one with no flag at all —
         // `setSegments`, an `appendMessage` with segments — is finished, and is highlighted.
         if (!contentEl) return;
-        renderCodeLanguages(contentEl, { streaming: segment.isStreaming === true });
-        if (segment.isStreaming !== true) highlightMarkdownFences(contentEl);
+        if (segment.isStreaming === true) {
+            // Drawn mid-stream (its first chunk, or a redraw): the streaming renderer writes
+            // it, as it writes every chunk after. `render` went through the one-shot provider,
+            // which reads `Done: **Book ` as finished text — marked showed that `**` raw until
+            // the second chunk reached the streaming side, which completes it.
+            writeStreamedMarkdown(el as AparteMarkdownStreamHost, contentEl, segment.content, true);
+        } else {
+            renderCodeLanguages(contentEl, { streaming: false });
+            highlightMarkdownFences(contentEl);
+        }
         renderCitations(contentEl as HTMLElement, segment);
     },
     update: (el, segment) => {
