@@ -1,5 +1,7 @@
 # @aparte/runner-n8n
 
+## 1.0.1
+
 ## 1.0.0
 
 ### Patch Changes
