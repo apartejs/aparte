@@ -1,0 +1,140 @@
+---
+title: Upgrading to 1.0
+description: What to change when an app moves from aparté 0.x to 1.0 — one version for every package, pictures that wait for a click, the names the beta deprecated and 1.0 removes, and the few behaviours that changed with them.
+sidebar:
+  order: 3
+guide:
+  group: help
+---
+
+1.0.0 is the first release under the [stability promise](/reference/stability/): from here on, a
+name on the declared surface keeps its name, and what it does, until 2.0. Getting there takes a few
+changes to code written against 0.x, and most apps need one or two of them.
+
+## Move every package at once
+
+Every `@aparte/*` package ships at the same version, and each one's peer range on another is now
+`>=1.0.0 <2.0.0`. Upgrade them together, every one your `package.json` lists:
+
+```bash
+npm install @aparte/core@1 @aparte/react@1 @aparte/plugin-marked@1
+```
+
+A 0.x package beside a 1.x one is a peer conflict, and your package manager reports it.
+
+Coming from a release before 0.27? `@aparte/locale-fr` no longer exists, and the same `fr` is in
+`@aparte/locales`:
+
+```diff lang="ts"
+- import { fr } from '@aparte/locale-fr';
++ import { fr } from '@aparte/locales/fr';
+```
+
+The beta also changed a few behaviours along the way, each in the notes of its release; the
+[stability page](/reference/stability/#the-beta-017-to-032) lists them with what to change.
+
+## Pictures wait for a click
+
+A picture a model or a tool chose no longer loads by itself. `data:` and `blob:` pictures do; any
+other shows as a link that names its host, and loads when the reader clicks it. A card shows one
+"Show images" button in place of its pictures, and a held picture is not fetched while a reply
+streams either.
+
+Allow the places your own pictures come from:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
+```
+
+`['*']` loads every picture, as 0.x did. [Pictures a reply can load](/guides/markdown/#pictures-a-reply-can-load)
+says why a picture waits by default — a reply can carry the conversation to any host through a
+picture's address, without a click — and which policy to choose. Until you name one, the first
+picture held on a page writes a note in the browser console with the line to add.
+
+## What 1.0 removes
+
+Each of these was marked deprecated during the beta. If your code uses none of them, there is
+nothing to do here.
+
+**`<aparte-context auto-compact>`.** Remove the attribute: the gauge no longer asks for a
+compaction, and `@aparte/plugin-compaction` compacts by itself once it is set up, past 80 % of the
+window by default.
+
+```diff lang="html"
+- <aparte-context auto-compact></aparte-context>
++ <aparte-context></aparte-context>
+```
+
+**The `window` of an `aparte-compact` request.** It is no longer read. Give `setupCompaction` the
+window, or let the model declare it:
+
+```ts
+import { setupCompaction } from '@aparte/plugin-compaction';
+
+setupCompaction({ contextWindow: 128_000 });
+```
+
+**A `CompactionTarget` without `updateMessage`.** The type now requires it, and `clearAll` and
+`appendMessage` are no longer part of it: since 0.26.0 a compaction writes one checkpoint through
+`updateMessage` and calls nothing else.
+
+```diff lang="ts"
+  const target: CompactionTarget = {
+      getMessages: () => store.messages,
+-     appendMessage: (message) => store.append(message),
+-     clearAll: () => store.clear(),
++     updateMessage: (id, updates) => store.update(id, updates),
+  };
+```
+
+**The `compactionSummaryTitle` locale key.** Remove it from your locale. Nothing has read it since
+0.26.0, and the nine locales of `@aparte/locales` no longer carry it.
+
+**The viewport's `clearMessages()`.** Call `clearAll()`, which also removes the bubbles.
+`clearMessages()` on `<aparte-chat>`, on the framework components and on the imperative API is
+unchanged.
+
+```diff lang="ts"
+- viewport.clearMessages();
++ viewport.clearAll();
+```
+
+**`AparteMessageBranch`, and the `branches` and `activeBranchIndex` fields of `AparteMessage`.**
+Nothing read them. Branches are the message tree: `addSiblingOf`, `navigateBranch` and the
+`aparte-path-changed` event, in [Conversations and branching](/guides/conversations-branching/).
+
+**`AparteCodeSegment.showLineNumbers` and `AparteErrorSegment.stack`.** Nothing read them either;
+put a stack in the error's `details`.
+
+## Behaviours that changed
+
+These keep their names; what they do moved. Most apps meet none of them.
+
+- **Suggestion buttons the model writes send their label.** In a `suggestions` block, a
+  `{ "label", "prompt" }` reply sends its label and the `prompt` is ignored, because the block is
+  model text and the button must send what it shows. Suggestions your app passes still send their
+  `prompt`.
+- **A card the model wrote no longer draws its own buttons.** A card's `actions` receives
+  `{ origin }` as its second argument — `'tool'`, `'segment'` or `'fence'`. In a card the model
+  wrote as a code block (`'fence'`), an action of the card's own data that carries an `id` is not
+  drawn, and its links are. The buttons your `actions` returns are drawn on every card, so do not
+  build a `send` from a `'fence'` card's fields: keep its text fixed, or give the button an `id`
+  and decide in your `aparte-card-action` listener.
+- **A reply cannot drive your page's controls.** Markup in a message no longer carries the
+  attributes core reads as controls (`data-aparte-dialog-open` and the rest), and `<input>` in a
+  reply is limited to a disabled checkbox. Change your code only if a custom segment renderer, a
+  tool's `details` string or a custom sanitizer's output relied on them.
+- **The server handlers answer 415 to a body that is not declared JSON.** `createAparteAgentHandler`
+  and `createAparteChatHandler` refuse a request whose `Content-Type` is not `application/json`.
+  `AparteBackendTransport` sends it; a bare `fetch` with a JSON body must set the header.
+- **A link with a scheme and no slash is an external link.** `[docs](http:example.com/x)` opens in a
+  new tab like any other external link.
+- **A Mermaid node picture from a URL is not drawn.** The diagram shows its source instead, since
+  drawing it sent a request to that address; an inline `data:image/…` picture still draws.
+- **`@aparte/runner-n8n` shows a Chat node's buttons only when their links resume the running
+  execution**, and an n8n error frame no longer puts the workflow's own words in front of the
+  person.
+
+The [changelog](/changelog/) has each of these in full, with the release it came in.

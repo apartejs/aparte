@@ -1,5 +1,45 @@
 # @aparte/plugin-katex
 
+## 1.0.0
+
+### Patch Changes
+
+- 2e5c5ab: The READMEs of the plugins and the framework packages now show a picture of what they draw. No code changes: nothing to do on your side.
+
+  Each plugin README that draws something (Markdown, maths, diagrams, both chart libraries, the approval modes, the question panel, artifacts, the model selector, code highlighting, compaction) shows its own demo, taken from the live docs (`https://apartejs.dev/shots/<name>.png`). The four framework packages show an assistant reply with a card, a formula and a chart.
+
+- e97d464: Markdown a model writes can no longer carry the attributes core reads as controls, and `<input>` in a reply is limited to a disabled checkbox. Your code needs a change only if a custom segment renderer, a tool `details` string or a custom sanitizer's output relied on those attributes (below), or if a reply was meant to carry a text field or a `role` such as `textbox`.
+
+  What now does nothing, and where it can touch your code:
+
+  - A control carrying `data-aparte-dialog-open`, `data-aparte-dialog-close`, `data-aparte-sidebar-toggle`, `data-aparte-split-pane` or `data-aparte-launcher-close` is ignored when it sits inside a message's content: a custom segment renderer, a tool renderer, a reply. Controls your page places (a header button, a dialog's own Close) work as before. The `@aparte/core` component pages for the dialog, sidebar, split and launcher say so.
+  - A tool display's `details` string goes through the sanitizer, so `data-action`, `data-segment-id`, the reserved attributes below and a widget `role` are stripped from it.
+  - A card outside any chat on a page with two or more composers no longer sends: it warns instead of picking one. With exactly one composer, or inside a chat, it sends as before.
+  - `@aparte/core` — the built-in sanitizer drops these attributes from provider output: every `data-aparte-dialog-*`, `data-aparte-sidebar-*` and `data-checkpoint-*`, plus `data-aparte-chat`, `-host`, `-theme`, `-suggestions`, `-split-pane`, `-launcher-close`, `-bubble`, `-empty`, `-panel`, `-panel-host`, `-card-part`, `data-segment-id` and `data-action`. Other `data-*` attributes (`data-line`, `data-aparte-open` for a formula still streaming, `data-aparte-highlighted`) are kept. A sanitizer you register yourself replaces this list, which is why the listeners above check where the click started as well.
+
+  Before, a reply could carry `<span data-aparte-dialog-open="delete-account">` and open your `<dialog>` on a click, toggle any sidebar by id, switch a split's pane, close the launcher or a dialog the chat sits in, press a compaction checkpoint's Restore without its confirm step, or wrap a card in `<div data-aparte-chat>` to restyle it or redirect its button to another chat. A test reads core's source (hyphenated names and `dataset` reads) so a new attribute cannot be forgotten.
+
+  - `@aparte/core` — a widget `role` (`textbox`, `button`, `link`, `checkbox`, `switch`, `tab`, `tablist`, `menu`, `menuitem`, `dialog`, `combobox`, `listbox`, `grid`, `slider`, `toolbar`, `progressbar`, `tabpanel`…) is dropped from model markup, alone or in a list; every other role stays (`region`, `group`, `status`, `alert`, `math`, `meter`, `term`, `doc-*`, `note`, `figure`, `list`, `table`, `heading`…), since those describe structure and do nothing. `<a role="textbox">` used to take the launcher's focus on open, ahead of the composer; the launcher now ignores text in a reply when it looks for the composer.
+  - `@aparte/core` — `<input>` is dropped unless it is `type="checkbox"` (a GFM task list); a kept checkbox is rewritten to `type="checkbox"` and `disabled`, so a padded `type="checkbox "` cannot render as a text box. `<input type="password" title="API key">` used to leave an editable box in the reply. Without a DOM parser (Node, SSR, a Worker) the sanitizer reads each tag the way a browser's tokenizer does and applies the same attribute rule as in a browser, so a server render drops the same attributes (the reserved `data-*`, widget roles, `aparte-` classes, layout styles, ids) and keeps the same task-list checkbox, rebuilt as `<input type="checkbox" disabled>` (checked or not, with its `class`), where a browser would; an attribute value is judged after its numeric entities are decoded and written back escaped. Comments and other `<!` / `<?` declarations are dropped, as in a browser, and a tag left open at the end of the text is dropped.
+  - `@aparte/core` — a button inside a checkpoint's summary panel no longer restores. `resolveConfig` skips a `[data-aparte-host]` element that no `attachConfig` bound, so content inside one keeps the chat's own config instead of the page's. The sidebar and split no longer stamp `aria-expanded` / `aria-pressed` on such text.
+  - `@aparte/plugin-cards` — a card's `send` button looks for its composer from above the bubble, so a `<div data-aparte-chat>` in the reply cannot redirect it to another chat.
+  - `@aparte/plugin-katex`, `@aparte/plugin-artifacts` — the formula pacing key is the segment row (`.aparte-segments > [data-segment-id]`), and the binary-file card honours `data-action="download"` only on its own button, not in a converter's `previewHtml`.
+  - `@aparte/core` — without a DOM parser (Node, SSR, a Worker) the sanitizer is a single linear pass: a stray `<` comes out as `&lt;`, so text left beside a dropped tag can no longer spell a new one (`<<x>script>`); a quote inside an attribute value is written as `&#39;`; a comment ends where a browser ends it; and a dangerous element (`script`, `svg`, `form`, `iframe`…) takes everything up to its end tag, or the rest of the text when it is never closed, as it does in a browser. Long hostile input no longer costs quadratic time.
+  - `@aparte/core` — a `srcset` made of a very long run of letters (100 000 characters) no longer stalls the page for seconds, in a browser or without a DOM; the scheme check now starts only at the beginning of a candidate, so its cost grows in proportion to the length.
+
+- Updated dependencies [26ddd6c]
+- Updated dependencies [e97d464]
+- Updated dependencies [0a6dd91]
+- Updated dependencies [635f69b]
+- Updated dependencies [224afde]
+- Updated dependencies [2e5c5ab]
+- Updated dependencies [67efebe]
+- Updated dependencies [99fcc42]
+- Updated dependencies [e97d464]
+- Updated dependencies [048864d]
+- Updated dependencies [99784ad]
+  - @aparte/core@1.0.0
+
 ## 0.32.1
 
 ## 0.32.0

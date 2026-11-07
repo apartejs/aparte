@@ -70,7 +70,9 @@ setupPlaceCard({
   no key but [a usage policy](https://operations.osmfoundation.org/policies/tiles/) that rules out
   heavy traffic; MapTiler's or Stadia's, with your key in the address; your own. Each tile is a
   request from your visitor's browser to that server, which sees the visitor and the place —
-  which is why the card fetches none unless you ask.
+  which is why the card fetches none unless you ask. The tiles are your configuration, so the
+  chat's [image policy](/guides/markdown/#pictures-a-reply-can-load) does not apply to them; a
+  place's photo does follow it.
 - **The credit.** `mapAttribution` is shown in a corner of the map; most providers require one.
 - **How close.** `mapZoom` (16 by default) is the tile server's zoom: 16 is a street and its
   neighbours, 13 a district.

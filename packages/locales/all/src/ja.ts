@@ -74,6 +74,8 @@ export const ja: AparteLocale = {
     sourceNext: "次の出典",
     sourcePosition: "出典 {i}/{n}",
     opensInNewTab: "（新しいタブで開きます）",
+    imageLoad: "{host} から画像を読み込む",
+    imageLoadNamed: "{host} から画像「{alt}」を読み込む",
     questionDeclined: "回答しませんでした。",
     artifactNotCreated: "作成されませんでした",
     thoughtFor: "思考時間：{duration}",

@@ -27,7 +27,9 @@ const SETUP: Record<Card, string> = {
 };
 
 const PICTURE = `
-  // A card shows only http(s) pictures: these are served by this site.
+  // A card shows only http(s) pictures: these are served by this site, which its image
+  // policy lets load. Without it they wait behind "Show images", as any picture would.
+  window.aparte.aparteGlobalConfig.setImagePolicy(['self']);
   const picture = (name) => new URL('/demo-pictures/' + name + '.svg', location.href).href;
 `;
 

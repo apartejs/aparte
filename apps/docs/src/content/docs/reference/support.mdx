@@ -11,6 +11,10 @@ import { CI_BROWSERS, CI_NODE_VERSIONS, E2E_APPS, NODE_FLOOR, TYPESCRIPT } from 
 
 export const codeList = (names) => names.map((name, i) => (<span key={name}>{i > 0 ? (i === names.length - 1 ? ' and ' : ', ') : ''}<code>{name}</code></span>));
 
+These are the floors of **1.0.0**, November 2026. None of them rises in a patch, and a minor raises
+one only to drop a runtime its vendor no longer supports; the
+[stability page](/reference/stability/#the-promise) has the rule.
+
 ## Browsers
 
 | Engine | Lowest version | What sets it | Run in CI |

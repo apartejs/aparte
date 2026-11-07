@@ -120,6 +120,21 @@ describe('gen-root-changelog — end to end on a temp tree', () => {
             '# @aparte/wrapper-w\n\n## 9.9.9\n\n### Patch Changes\n\n- @aparte/engine@9.9.9\n',
             'utf8',
         );
+        // One changeset, two bump types: `major` for one package, `minor` for another, so
+        // the same entry sits under two headings of two package changelogs (1.0.0's picture
+        // policy: core major, locales minor).
+        for (const [dir, name, heading] of [
+            ['packages/plugins/sa', '@aparte/shared-a', 'Major Changes'],
+            ['packages/plugins/sb', '@aparte/shared-b', 'Minor Changes'],
+        ]) {
+            mkdirSync(join(tree, dir), { recursive: true });
+            writeFileSync(join(tree, dir, 'package.json'), JSON.stringify({ name, version: '9.9.9' }), 'utf8');
+            writeFileSync(
+                join(tree, dir, 'CHANGELOG.md'),
+                `# ${name}\n\n## 9.9.9\n\n### ${heading}\n\n- def5678: The shared change.\n`,
+                'utf8',
+            );
+        }
     });
 
     afterAll(() => {
@@ -140,6 +155,18 @@ describe('gen-root-changelog — end to end on a temp tree', () => {
         const out = readFileSync(join(tree, 'CHANGELOG.md'), 'utf8');
         expect(out).not.toMatch(/^- @aparte\/engine@/m);
         expect(out).toMatch(/Version-only bumps[^\n]*`@aparte\/wrapper-w`/);
+    });
+
+    it('prints a change filed under two headings once, under the higher, credited to both', () => {
+        run(join(tree, 'scripts', 'gen-root-changelog.mjs'), []);
+        const out = readFileSync(join(tree, 'CHANGELOG.md'), 'utf8');
+        expect(out.split('The shared change.').length - 1).toBe(1);
+        const major = out.slice(out.indexOf('### Major Changes'), out.indexOf('### Minor Changes'));
+        expect(major).toContain('The shared change.');
+        expect(major).toContain('<sub>`@aparte/shared-a`, `@aparte/shared-b`</sub>');
+        // The control: an entry with one heading of its own stays where it was.
+        const minor = out.slice(out.indexOf('### Minor Changes'));
+        expect(minor).toContain('The core change.');
     });
 
     it('leaves private packages out', () => {

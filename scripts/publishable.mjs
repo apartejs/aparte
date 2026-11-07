@@ -35,13 +35,13 @@ function parse(version) {
 }
 
 /**
- * The major every publishable version carries: 0 until the release that makes v1, which
- * raises it here on purpose, in its own version PR. A `major` changeset would otherwise
- * publish 1.0.0 with nothing to stop it — the version PR merges itself once green — and
- * changesets has proposed 1.0.0 unasked before (up to 0.5.0, a peer range left behind).
- * A version on npm cannot be taken back.
+ * The major every publishable version carries: 1 since the 1.0.0 release, which raised it
+ * here on purpose, in its own version PR, and 2.0 will do the same. A `major` changeset
+ * would otherwise publish the next major with nothing to stop it, and changesets has
+ * proposed a major unasked before (1.0.0, up to 0.5.0: a peer range left behind). A version
+ * on npm cannot be taken back.
  */
-export const ALLOWED_MAJOR = 0;
+export const ALLOWED_MAJOR = 1;
 
 /** The packages whose version is off {@link ALLOWED_MAJOR}, as `name@version`; empty when none is. */
 export function offMajor(packages) {

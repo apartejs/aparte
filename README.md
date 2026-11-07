@@ -18,15 +18,13 @@ support widget, a research assistant, a shopping assistant, a travel concierge �
 [how it compares](https://apartejs.dev/compare/) with assistant-ui, AI Elements, Deep Chat and Loquix.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
-[![npm (beta)](https://img.shields.io/npm/v/@aparte/core/beta?label=npm%20beta&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/beta)
+[![npm](https://img.shields.io/npm/v/@aparte/core?label=npm&color=d9a24b)](https://www.npmjs.com/package/@aparte/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> 🚀 **Beta on npm.** Every `@aparte/*` package ships **together at one version**
-> under the `beta` tag — `npm i @aparte/core@beta` (the badge above is the live
-> number). The number itself is a plain `0.x`: what says *beta* is the npm tag, the
-> leading zero and this notice — not a `-beta` suffix. The declared surface is
-> [frozen as of 0.17.0](https://apartejs.dev/reference/stability/) and leaves only
-> through a notice release (one exception, listed on that page); what changed when is at
+> 🚀 **1.0 on npm.** Every `@aparte/*` package ships **together at one version** —
+> `npm i @aparte/core` (the badge above is the live number). The declared surface
+> follows semver: a [frozen](https://apartejs.dev/reference/stability/) name keeps its
+> name, and what its documentation says it does, until 2.0; what changed when is at
 > **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
 > [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.
@@ -53,6 +51,11 @@ support widget, a research assistant, a shopping assistant, a travel concierge �
 - **A human in the loop.** Mark a tool `needsApproval` and the user approves or rejects the
   call; the agent can ask typed questions; and with the
   [server loop](https://apartejs.dev/guides/server-loop/) an approval survives a reload.
+- **Safe with what a model writes.** Replies go through a built-in sanitizer, and a picture a
+  model or a tool chose waits for the reader's click until you allow where it comes from, because
+  its address alone can carry the conversation to another host. One line loads yours:
+  `setImagePolicy(['https://cdn.example.com'])`
+  ([why](https://apartejs.dev/guides/markdown/#pictures-a-reply-can-load)).
 - **Framework-agnostic core.** One engine — vanilla Web Components — renders the
   *same* chat everywhere. Thin wrappers give React/Vue/Svelte/Angular an
   ergonomic component; with no framework, use the `<aparte-*>` custom elements
@@ -188,12 +191,12 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 ## Status
 
-Beta, built in the open. The core, engine, four wrappers, providers and plugins are
+1.0, built in the open. The core, engine, four wrappers, providers and plugins are
 **on npm**, and the runnable examples in [`apps/examples`](./apps/examples) — vanilla,
 React, Vue, Svelte 4 and 5, Angular — drive a browser E2E suite (Chromium, WebKit and
 Firefox, accessibility gated with axe-core) on top of the unit suite. The
-declared surface is frozen; what is still open before the first stable release is
-on the [roadmap](https://apartejs.dev/roadmap/).
+declared surface is frozen until 2.0; what comes next is on the
+[roadmap](https://apartejs.dev/roadmap/).
 
 Every `@aparte/*` package is released **together, at one version** — install any of
 them at the same number. What shipped when: **[CHANGELOG.md](./CHANGELOG.md)** (the

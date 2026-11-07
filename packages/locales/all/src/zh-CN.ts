@@ -74,6 +74,8 @@ export const zhCN: AparteLocale = {
     sourceNext: "下一个来源",
     sourcePosition: "来源 {i}/{n}",
     opensInNewTab: "（在新标签页中打开）",
+    imageLoad: "从 {host} 加载图片",
+    imageLoadNamed: "从 {host} 加载图片“{alt}”",
     questionDeclined: "你选择不回答。",
     artifactNotCreated: "未创建",
     thoughtFor: "思考用时：{duration}",

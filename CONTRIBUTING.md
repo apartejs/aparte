@@ -1,8 +1,8 @@
 # Contributing to aparte
 
-Thanks for your interest! aparte is in beta: the declared surface is frozen since 0.17.0
-(see [Stability](https://apartejs.dev/reference/stability/)), and it moves only with a notice
-release. This guide covers how work lands.
+Thanks for your interest! aparte is at 1.x and follows semantic versioning: the declared surface
+is frozen until 2.0 (see [Stability](https://apartejs.dev/reference/stability/)), and a frozen
+name leaves only after a notice in a minor, in the next major. This guide covers how work lands.
 
 ## Principles
 
@@ -205,27 +205,28 @@ A `note:` line in their output means a package was not measured: the snapshot is
 - **An addition** — a new element, attribute, event, export, locale key or token — is allowed, and
   the guard fails until the snapshot is re-taken: run `pnpm frozen:update` and commit the JSON
   with the change.
-- **A removal or a rename** takes two pull requests, a minor apart.
-  1. *The notice.* Keep the name working, mark it `@deprecated` in its JSDoc, and add a changeset
-     that says so, with the release it disappears in and its replacement. The guard checks
+- **A removal or a rename** takes two pull requests: a notice in a minor, the removal in the next
+  major.
+  1. *The notice.* Keep the name working, mark it `@deprecated` in its JSDoc, and add a `minor`
+     changeset that says so, with the major it disappears in and its replacement. The guard checks
      nothing here: the name is still in the tree.
-  2. *The removal*, at least one minor later. Remove the name, add a changeset that names it and
+  2. *The removal*, in the next major. Remove the name, add a `major` changeset that names it and
      contains the word "deprecated", and run `pnpm frozen:update` in the same pull request, so the
      name leaves the snapshot before the release consumes that changeset:
 
      ```md
      ---
-     '@aparte/core': minor
+     '@aparte/core': major
      ---
 
-     `aparte-old-name`, deprecated in 0.X.0, is removed — use `aparte-new-name`.
+     `aparte-old-name`, deprecated in 1.X.0, is removed — use `aparte-new-name`.
      ```
 
   The guard matches loosely: any changeset in `.changeset/` that contains "deprecat" and the name
   — for an attribute, the bare attribute name — counts as a notice. And `pnpm frozen:update`
   writes whatever the tree has, removals included, with no check: a name that disappears from
-  `frozen-surface.json` in a diff is a removal, and its reviewer checks the deprecation came a
-  minor earlier.
+  `frozen-surface.json` in a diff is a removal, and its reviewer checks the deprecation came in an
+  earlier minor.
 
 ## Releasing
 
@@ -267,9 +268,16 @@ The flow:
    > from opening pull requests, so a workflow cannot open the "Version Packages" PR.
    > Publishing is automated (step 2); proposing the version is not.
    > **A new major is refused.** `pnpm version-packages` ends with `scripts/check-major.mjs`,
-   > which stops on any version off major 0, and the release refuses it again before
-   > publishing. The v1 release raises `ALLOWED_MAJOR` in `scripts/publishable.mjs` on
-   > purpose, in its own version PR.
+   > which stops on any version off the allowed major, and the release refuses it again before
+   > publishing. A new major raises `ALLOWED_MAJOR` in `scripts/publishable.mjs` on purpose,
+   > in its own version PR — as 1.0.0 raised it from 0 to 1.
+   >
+   > **How 1.0.0 was cut.** The group stayed `fixed`: 1.0.0 is the number `changeset version`
+   > gives every package once one `major` changeset is pending, and the removals of what the
+   > beta deprecated were those changesets. Two things had to be ready for it, and stay so for
+   > 2.0: `ALLOWED_MAJOR` (above), and the ceiling of each peer range, which `changeset version`
+   > drops on a major (`>=0.32.1 <1.0.0` came out as a bare `>=1.0.0`) and
+   > `scripts/sync-peer-ranges.mjs` writes back as `>=1.0.0 <2.0.0`.
    >
    > **Check the version anyway.** Every release up to 0.5.0-alpha.0 had to have its number
    > corrected by hand (~46 files), because `changeset version` proposed `1.0.0` for any
@@ -280,9 +288,9 @@ The flow:
    >    (its source: `case "*": versionRange = dependencyRelease.oldVersion`). Any bump left
    >    the range, and a peer dependent leaving the range is bumped **major**. Fourteen
    >    packages declare `@aparte/core` as a peer, so all fourteen majored, and `fixed`
-   >    aligned the group on the highest bump. They now carry a literal
-   >    `>=0.5.0-alpha.0 <1.0.0`, which a 0.x bump stays inside — and which is a better
-   >    published contract than a pin that forbade combinations that work.
+   >    aligned the group on the highest bump. They now carry a literal range, the version
+   >    up to the next major (`>=1.0.0 <2.0.0`), which a bump within the major stays inside —
+   >    and which is a better published contract than a pin that forbade combinations that work.
    > 2. **`onlyUpdatePeerDependentsWhenOutOfRange`** must be on (in
    >    `.changeset/config.json`), or peer dependents are majored whether or not they left
    >    the range.
@@ -342,11 +350,11 @@ The flow:
    > "15 already correct" while doing nothing, because Node cannot spawn `npm.cmd` without a
    > shell.
    >
-   > `latest` follows the beta channel on purpose: there is no stable line yet, `latest`
-   > already pointed at a pre-release, and freezing it would only serve older bits to a bare
-   > `npm i @aparte/core`. The day a stable line exists, `latest` stops following — and
-   > that is the day to change that script. `alpha` was aligned for 0.17.0 only, a bridge
-   > for the pins that said `@alpha`, and stays there: it left `TAGS` with 0.17.1.
+   > `latest` is the stable line since 1.0.0, and `beta` still follows it: the publish passes
+   > `--tag beta` and `align-dist-tags` brings `latest` level, so an install that says
+   > `@beta` — the beta's README told everyone to write it — gets the current release instead
+   > of staying on 0.32.1. `alpha` was aligned for 0.17.0 only, a bridge for the pins that said
+   > `@alpha`, and stays there: it left `TAGS` with 0.17.1.
 
 ## Styling
 

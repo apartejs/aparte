@@ -256,15 +256,44 @@ function buildSection(version, packages) {
         }
     }
 
+    // Order matters for a reader: Major before Minor before Patch.
+    const ORDER = ['Major Changes', 'Minor Changes', 'Patch Changes'];
+    const rank = (bucket) => {
+        const i = ORDER.indexOf(bucket);
+        return i === -1 ? ORDER.length : i;
+    };
+
+    /*
+     * One change, one place. A changeset that bumps one package `major` and another `minor`
+     * files the same entry under two headings of two package changelogs, and this section
+     * printed it under both, word for word, the second time credited to the minor package
+     * alone (1.0.0's picture policy: core, cards and streaming-markdown major, locales
+     * minor). It stays under its highest heading, credited to every package that has it.
+     */
+    const home = new Map();
+    for (const [bucket, entries] of byBucket) {
+        for (const entry of entries.keys()) {
+            const at = home.get(entry);
+            if (at === undefined || rank(bucket) < rank(at)) home.set(entry, bucket);
+        }
+    }
+    const readingOrder = new Map(names.changed.map((n, i) => [n, i]));
+    for (const [bucket, entries] of byBucket) {
+        for (const [entry, owners] of entries) {
+            const keep = home.get(entry);
+            if (keep === bucket) continue;
+            const kept = byBucket.get(keep).get(entry);
+            for (const n of owners) if (!kept.includes(n)) kept.push(n);
+            kept.sort((a, b) => readingOrder.get(a) - readingOrder.get(b));
+            entries.delete(entry);
+        }
+        if (entries.size === 0) byBucket.delete(bucket);
+    }
+
     const out = [`## ${version}`, ''];
     out.push('Every `@aparte/*` package ships at this version (they are released in lockstep).', '');
 
-    // Order matters for a reader: Major before Minor before Patch.
-    const ORDER = ['Major Changes', 'Minor Changes', 'Patch Changes'];
-    const bucketNames = [...byBucket.keys()].sort((a, b) => {
-        const ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
-        return (ia === -1 ? ORDER.length : ia) - (ib === -1 ? ORDER.length : ib);
-    });
+    const bucketNames = [...byBucket.keys()].sort((a, b) => rank(a) - rank(b));
 
     const released = names.changed.length + bumpedOnly.length;
     for (const bucket of bucketNames) {

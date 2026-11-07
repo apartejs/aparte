@@ -813,6 +813,8 @@
     "feedbackPositive",
     "file",
     "generating",
+    "imageLoad",
+    "imageLoadNamed",
     "inputPlaceholder",
     "launcherClose",
     "launcherOpen",

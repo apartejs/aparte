@@ -120,7 +120,7 @@ const PACKAGES = countPackages(at('packages/'));
 const ROADMAP_TITLE = 'aparté — roadmap: where the library is, and what comes next';
 const ROADMAP_DESCRIPTION =
     'Where aparté stands and what comes next: what npm serves, what the current branch carries, '
-    + 'the conditions the beta and 1.0 each have to meet, what is still to build — and what we '
+    + 'the conditions the beta and 1.0 each had to meet, what is still to build — and what we '
     + 'decided not to build. Conditions, not dates.';
 
 /**
@@ -135,7 +135,7 @@ const ROADMAP_DESCRIPTION =
 const ROADMAP_IMAGE_ALT =
     'A dark card with a brass edge and the aparté mascot, headed “One road, no dates”, '
     + 'over the line “What npm serves, where the current branch stands, and the conditions '
-    + 'the beta and 1.0 each have to meet.”';
+    + 'the beta and 1.0 each had to meet.”';
 ---
 
 <Landing
@@ -152,7 +152,7 @@ const ROADMAP_IMAGE_ALT =
           <p class="lede">
             apart&eacute; ships when a barrier is cleared, not when a month arrives &#8212; so this
             page carries no calendar. What npm serves, what the current branch holds, the conditions
-            the beta and 1.0 each have to meet, what is still to build, and what we decided
+            the beta and 1.0 each had to meet, what is still to build, and what we decided
             <b>not</b> to build, with the reason.
           </p>
           <ul class="legend" aria-label="What the marks mean">
@@ -186,9 +186,9 @@ const ROADMAP_IMAGE_ALT =
             <h2 class="serif">Where we <span class="paren">(</span>are<span class="paren">)</span></h2>
             <div class="now-card">
               <p class="st-lede">
-                Every breaking change since <b>0.17.0</b> is in the notes of the release that
-                shipped it, and the <a href="/reference/stability/">stability page</a> lists the
-                ones that changed what a name did. Since the wrappers &#8212; React, Vue, Svelte and Angular each written in its framework&#8217;s
+                <b>1.0</b> is out: the surface the beta froze keeps its names, and what its
+                documentation says they do, until 2.0 (the <a href="/reference/stability/">stability
+                page</a> says what that covers). Since the wrappers &#8212; React, Vue, Svelte and Angular each written in its framework&#8217;s
                 own idiom, and a server-rendered chat proved in Next, Nuxt, SvelteKit and Angular SSR,
                 in CI &#8212; a reply has learned to show what models write:
                 <a href="/guides/math/">maths</a> and <a href="/guides/diagrams/">diagrams</a> drawn
@@ -211,7 +211,7 @@ const ROADMAP_IMAGE_ALT =
                 browser, Chromium and WebKit, in two rounds of fixes.
               </p>
               <p class="st-lede">
-                Next come the items still open in the 1.0 barrier below. After them, customization: a chat that wears your design system.
+                Next, customization: a chat that wears your design system.
               </p>
 
 
@@ -248,12 +248,13 @@ const ROADMAP_IMAGE_ALT =
             <p class="state is-done">Shipped</p>
             <h2 class="serif"><span class="paren">(</span>Beta<span class="paren">)</span></h2>
             <p class="st-lede">
-              The beta is a dist-tag and a promise, and both are out: <code>npm i @aparte/core@beta</code>
-              has been the beta channel since <b>0.17.0</b> and follows each release, and the
+              The beta ran from <b>0.17.0</b> to <b>0.32.1</b>, a dist-tag and a promise: the
               <b>declared surface</b> &#8212; elements and their attributes, event names, the
-              exports of each package&#8217;s main entry, locale keys and CSS token names &#8212; is
-              <a href="/reference/stability/">frozen as of that version</a>: a name leaves only
-              after a notice release. The alpha broke cleanly; the beta warns.
+              exports of each package&#8217;s main entry, locale keys and CSS token names &#8212; was
+              <a href="/reference/stability/">frozen</a>, and a name left only after a notice
+              release. The alpha broke cleanly; the beta warned. Since 1.0.0 a bare
+              <code>npm i @aparte/core</code> installs the stable line, and the <code>beta</code>
+              tag follows it.
             </p>
             <p class="st-sub">The barrier, item by item</p>
             <ol class="barrier">
@@ -340,15 +341,15 @@ const ROADMAP_IMAGE_ALT =
 
           <!-- ── station: 1.0 ─────────────────────────────────────────────── -->
           <li class="station st-v1">
-            <span class="mark g-open" aria-hidden="true">(<b>&#160;</b>)</span>
-            <p class="state is-open">Open</p>
+            <span class="mark g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+            <p class="state is-done">Shipped</p>
             <h2 class="serif"><span class="paren">(</span>1.0<span class="paren">)</span></h2>
-            <p class="st-lede">The barrier from beta to 1.0.</p>
+            <p class="st-lede">The barrier from beta to 1.0, and how each condition was met.</p>
             <ul class="checks">
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span><em class="b-state">done &#183; every breaking change since 0.17.0 is in the notes of its release, and the <a href="/reference/stability/">stability page</a> lists those that changed what a name did &#8212; one name, in 0.27.0, left without a notice release</em></li>
-              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span><em class="b-state">done &#183; the <a href="/reference/performance/">performance budget</a> lists each ceiling, and every pull request is checked against it</em></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span><em class="b-state">done &#183; Angular SSR too: a production build of each, rendered on the server and hydrated in a browser</em></li>
-              <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span><em class="b-state">in progress &#183; the <a href="/guides/accessibility/">accessibility guide</a> says what is covered and what is tested, and right-to-left was checked in a real browser, Chromium and WebKit, in two rounds of fixes</em></li>
+              <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span><em class="b-state">done &#183; the <a href="/guides/accessibility/">accessibility guide</a> says what is covered and what is tested, and right-to-left was checked in a real browser, Chromium and WebKit, in two rounds of fixes</em></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">Every locale carries every key.</span><em class="b-state">done &#183; an automated check refuses a locale that misses one</em></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">npm provenance, and a written semver and deprecation policy.</span><em class="b-state">done &#183; every package is published from CI with its provenance, and the <a href="/reference/stability/">stability page</a> writes the notice-then-removal path</em></li>
               <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span><span class="b-text">The 1.0 versioning decision, taken cold.</span><em class="b-state">done &#183; 1.0 keeps the beta&#8217;s names, removes what the beta marked deprecated, and the <a href="/reference/stability/">stability page</a> writes what 1.x promises</em></li>

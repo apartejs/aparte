@@ -16,9 +16,11 @@
  *
  * The card fetches nothing the tool's data does not name: no page, and no address of its
  * own making — no favicon service is asked, no icon guessed at `/favicon.ico`. A picture or an
- * icon the data names is loaded as given, wherever it is hosted (Brave's results name icons
- * on Brave's own proxy). A site without an icon in the data gets its initial on a tinted
- * square, and a page without a picture gets no picture.
+ * icon the data names loads as the chat's image policy allows (`setImagePolicy`), wherever it
+ * is hosted (Brave's results name icons on Brave's own proxy); one the policy holds waits
+ * behind the card's "Show images" button. A site without an icon in the data, or while its
+ * icon is held, gets its initial on a tinted square, and a page without a picture gets no
+ * picture.
  *
  * Every value is text. Search engines highlight the query in their snippets with markup
  * (Brave's `<strong>`): those tags are dropped and the usual entities decoded, and what is
@@ -51,7 +53,7 @@ export interface LinkInput {
     image?: string;
     /** Falls back to the host without `www.`. Also `og:site_name`, `site`, `publisher`, `source`. */
     siteName?: string;
-    /** The site's icon, loaded as given. Without it, the site's initial on a tinted square — no icon address is made up. Also `icon`, `logo`, Brave's `meta_url.favicon`. */
+    /** The site's icon, loaded as the image policy allows. Without it, or while it is held, the site's initial on a tinted square — no icon address is made up. Also `icon`, `logo`, Brave's `meta_url.favicon`. */
     favicon?: string;
     /** Also `byline`, `article:author`, `authors[0]`. */
     author?: string;
@@ -311,12 +313,12 @@ function dateNode(ctx: CardContext, link: Link): HTMLElement | null {
  * initial is what shows when there is no icon, or when the icon fails to load. Decoration:
  * the site's name is written beside it.
  */
-function iconOf(link: Link, size: 'sm' | 'lg'): HTMLElement {
+function iconOf(ctx: CardContext, link: Link, size: 'sm' | 'lg'): HTMLElement {
     const initial = Array.from(siteOf(link))[0]!.toUpperCase();
     const box = el('span', { class: `aparte-link-preview__icon aparte-link-preview__icon--${size}`, attrs: { 'aria-hidden': 'true', 'data-hue': hueOf(link.host) } },
         el('span', { class: 'aparte-link-preview__initial', text: initial }));
-    if (link.favicon) {
-        const img = el('img', { class: 'aparte-link-preview__favicon', attrs: { src: link.favicon, alt: '', loading: 'lazy', decoding: 'async' } });
+    const img = link.favicon ? ctx.image(link.favicon, { class: 'aparte-link-preview__favicon', attrs: { alt: '', loading: 'lazy', decoding: 'async' } }) : null;
+    if (img) {
         img.addEventListener('error', () => {
             img.remove();
             box.removeAttribute('data-favicon');
@@ -355,10 +357,11 @@ function descriptionOf(link: Link): HTMLElement | null {
  * alternative text is empty. A picture that fails to load takes its box with it: a preview
  * without a picture is a preview, a grey hole is not.
  */
-function mediaOf(link: Link, className: string): HTMLElement | null {
-    if (!link.image) return null;
+function mediaOf(ctx: CardContext, link: Link, className: string): HTMLElement | null {
+    // A picture the policy holds is a preview without one: no box.
+    const img = link.image ? ctx.image(link.image, { class: 'aparte-link-preview__img', attrs: { alt: '', loading: 'lazy', decoding: 'async' } }) : null;
+    if (!img) return null;
     const box = el('div', { class: className, attrs: { 'data-loading': '' } });
-    const img = el('img', { class: 'aparte-link-preview__img', attrs: { src: link.image, alt: '', loading: 'lazy', decoding: 'async' } });
     img.addEventListener('load', () => box.removeAttribute('data-loading'), { once: true });
     img.addEventListener('error', () => box.remove(), { once: true });
     box.append(img);
@@ -367,11 +370,11 @@ function mediaOf(link: Link, className: string): HTMLElement | null {
 
 /** `card`: the picture on top, the site line, the title, the description. */
 function cardOf(ctx: CardContext, link: Link): HTMLElement {
-    const media = mediaOf(link, 'aparte-link-preview__media');
+    const media = mediaOf(ctx, link, 'aparte-link-preview__media');
     if (media && link.type === 'video') {
         media.append(el('span', { class: 'aparte-link-preview__play', attrs: { 'aria-hidden': 'true' } }, glyph(PLAY, 'aparte-rich-card__glyph aparte-link-preview__play-glyph')));
     }
-    const site = el('div', { class: 'aparte-link-preview__site' }, iconOf(link, 'sm'),
+    const site = el('div', { class: 'aparte-link-preview__site' }, iconOf(ctx, link, 'sm'),
         joined('aparte-link-preview__site-text', [
             el('span', { class: 'aparte-link-preview__site-name', text: siteOf(link) }),
             link.author ? el('span', { class: 'aparte-link-preview__author', text: link.author }) : null,
@@ -384,7 +387,7 @@ function cardOf(ctx: CardContext, link: Link): HTMLElement {
 
 /** `compact`: one row — the site's mark (with its kind in the corner), the title, the site, a small picture. */
 function rowOf(ctx: CardContext, link: Link, tag: 'div' | 'li'): HTMLElement {
-    const mark = el('span', { class: 'aparte-link-preview__mark' }, iconOf(link, 'lg'));
+    const mark = el('span', { class: 'aparte-link-preview__mark' }, iconOf(ctx, link, 'lg'));
     if (link.type !== 'website') {
         const corner = el('span', { class: 'aparte-link-preview__corner', attrs: { role: 'img', 'data-type': link.type } },
             glyph(typeGlyph(link.type), 'aparte-rich-card__glyph aparte-link-preview__corner-glyph'));
@@ -393,17 +396,17 @@ function rowOf(ctx: CardContext, link: Link, tag: 'div' | 'li'): HTMLElement {
     }
     const meta = joined('aparte-link-preview__meta', [el('span', { class: 'aparte-link-preview__site-name', text: siteOf(link) }), dateNode(ctx, link)]);
     const text = el('div', { class: 'aparte-link-preview__text' }, titleNode(link), meta);
-    return el(tag, { class: 'aparte-link-preview aparte-link-preview--row', attrs: { 'data-type': link.type } }, mark, text, mediaOf(link, 'aparte-link-preview__thumb'));
+    return el(tag, { class: 'aparte-link-preview aparte-link-preview--row', attrs: { 'data-type': link.type } }, mark, text, mediaOf(ctx, link, 'aparte-link-preview__thumb'));
 }
 
 /** `quote`: the block a chat app draws under an unfurled link — a coloured rule, the site, the title, the words, the picture beside. */
 function quoteOf(ctx: CardContext, link: Link, tag: 'div' | 'li'): HTMLElement {
-    const site = el('div', { class: 'aparte-link-preview__site' }, iconOf(link, 'sm'),
+    const site = el('div', { class: 'aparte-link-preview__site' }, iconOf(ctx, link, 'sm'),
         el('span', { class: 'aparte-link-preview__site-name', text: siteOf(link) }), typeBadge(ctx, link));
     const byline = joined('aparte-link-preview__byline', [link.author ? el('span', { class: 'aparte-link-preview__author', text: link.author }) : null, dateNode(ctx, link)]);
     const text = el('div', { class: 'aparte-link-preview__quote-text' }, site, titleNode(link), descriptionOf(link), byline);
     const node = el(tag, { class: 'aparte-link-preview aparte-link-preview--quote', attrs: { 'data-type': link.type, 'data-hue': hueOf(link.host) } },
-        text, mediaOf(link, 'aparte-link-preview__quote-media'));
+        text, mediaOf(ctx, link, 'aparte-link-preview__quote-media'));
     // A colour the reader checked (#rgb, #rrggbb), set as a property — never a style string.
     if (link.themeColor) node.style.setProperty('--aparte-link-preview-accent', link.themeColor);
     return node;

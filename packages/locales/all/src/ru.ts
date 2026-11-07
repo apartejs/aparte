@@ -74,6 +74,8 @@ export const ru: AparteLocale = {
     sourceNext: "Следующий источник",
     sourcePosition: "Источник {i} из {n}",
     opensInNewTab: "(откроется в новой вкладке)",
+    imageLoad: "Загрузить изображение с {host}",
+    imageLoadNamed: "Загрузить изображение «{alt}» с {host}",
     questionDeclined: "Вы решили не отвечать.",
     artifactNotCreated: "Не создано",
     thoughtFor: "Размышление: {duration}",

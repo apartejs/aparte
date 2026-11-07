@@ -1,4 +1,4 @@
-import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
+import { aparteGlobalConfig, escapeAttr, isSafeUrl, type AparteConfig } from '@aparte/core';
 import { parser, parser_write, parser_end, default_renderer, Attr, HREF, SRC, LANG, Token } from '@paulrichez/streaming-markdown';
 
 /** What core's code-language engine reads as a formula still arriving. */
@@ -70,12 +70,15 @@ function asReference(text: string, display: boolean): string | null {
  * bypasses the one-shot `aparteGlobalConfig.sanitizeHtml`. To keep the same URL policy
  * live (an attacker-controlled `[x](javascript:…)` streamed token would produce
  * a clickable `javascript:` link before the final re-render sanitises it), the
- * renderer's `set_attr` is wrapped to drop any `href`/`src` whose scheme fails
+ * renderer's `set_attr` is wrapped to drop any `href` whose scheme fails
  * {@link isSafeUrl}, and to send an external `href` to its own tab
  * (`target="_blank" rel="noopener noreferrer"`) as the one-shot path does — a
  * link is clickable from the moment it streams in, and a bare anchor navigates
- * the frame the chat lives in. The one-shot re-render at `end()` remains the
- * full-fidelity re-sanitisation.
+ * the frame the chat lives in. A picture's `src` is never set on the parser's
+ * node: setting it is the request, so the node is replaced by what
+ * `config.sanitizeHtml` makes of the picture, image policy included
+ * (`setImagePolicy`) — while the reply streams, not only once it settles. The
+ * one-shot re-render at `end()` remains the full-fidelity re-sanitisation.
  *
  * Call once at application startup.
  */
@@ -83,6 +86,20 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
     config.setStreamingMarkdownProvider((target: HTMLElement) => {
         const renderer = default_renderer(target);
         const originalSetAttr = renderer.set_attr;
+        /*
+         * A picture's address is a request the moment it is set — on a node already in the
+         * reply, or in the detached element a complete string renders into, which belongs to
+         * the live document all the same. So the `<img>` the parser built is replaced by what
+         * core makes of the picture: the same one sent without a referrer when the image
+         * policy lets it load, the link a held one becomes, or nothing. Its description is the
+         * text the parser wrote inside it, which an `<img>` cannot show. The parser sets a
+         * `src` on the image it is writing and on nothing else.
+         */
+        const writeImage = (node: Element, address: string): void => {
+            const template = document.createElement('template');
+            template.innerHTML = config.sanitizeHtml(`<img src="${escapeAttr(address)}" alt="${escapeAttr(String(node.textContent))}">`);
+            node.replaceWith(template.content);
+        };
         renderer.set_attr = (data, type, value) => {
             if (type === Attr.Unclosed) {
                 // A display block a blank line or a block's line ended before its closer
@@ -92,7 +109,10 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
                 return;
             }
             if (type === HREF && !isSafeUrl(value, 'a')) return;
-            if (type === SRC && !isSafeUrl(value, 'img')) return;
+            if (type === SRC) {
+                writeImage(data.nodes[data.index]!, value);
+                return;
+            }
             if (type === LANG) {
                 // `language-<token>` is what every one-shot renderer emits for a
                 // fence, so this is not merely a filter: the streamed DOM and the

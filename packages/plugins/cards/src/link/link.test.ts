@@ -17,7 +17,11 @@ const REPO = { url: 'https://github.com/apartejs/aparte' };
 const VIDEO = { url: 'https://www.youtube.com/watch?v=abc', title: 'The talk', image: 'https://i.example/abc.jpg' };
 
 let stop: () => void = () => {};
-beforeEach(() => aparteGlobalConfig.extendLocale({ tag: 'en-US' }));
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => {
+    aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    aparteGlobalConfig.setImagePolicy(['*']);
+});
 afterEach(() => {
     stop();
     stop = () => {};

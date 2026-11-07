@@ -15,8 +15,10 @@ import Variant from '../../../components/catalog/Variant.astro';
 
 A page a tool unfurled or a search found, the way chat apps preview a shared link. Its badge says
 what it is — an article, a video, a repository, a product — read from the page when the data does
-not say. The card fetches nothing: a site without its own icon in the data gets its initial on a
-tinted square.
+not say. The card fetches no page and calls no favicon service: a site without its own icon in the
+data gets its initial on a tinted square. A picture or icon in the data loads only as far as the
+chat's [image policy](/guides/markdown/#pictures-a-reply-can-load) allows, and a "Show images"
+button loads the rest.
 
 ## Variants
 

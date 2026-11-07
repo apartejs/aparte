@@ -31,6 +31,16 @@ import type { AparteCompactor } from '../types/compactor.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
+import {
+    applyImagePolicy, compileImagePolicy, decideImageAddress, forgetShownImages, imageHost, rememberShownImage, sameImagePolicy, shownImagesOf,
+    type AparteImageDecision, type AparteImagePolicy, type HeldImageWords, type ImageDecider,
+} from './image-policy.js';
+
+/**
+ * Whether the page has already been told why a picture waits for a click: once per page, not
+ * per config, so a page with three chats or a test suite with a config per test says it once.
+ */
+let heldImageNoted = false;
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
@@ -309,6 +319,12 @@ export class AparteConfig {
     // LLM-authored) before it is injected via innerHTML. Default = built-in
     // zero-dep allowlist sanitizer; `null` disables it (trusted content only).
     private _sanitizer: AparteSanitizer | null = defaultSanitizer;
+    // Which pictures a model or a tool chose load without a click (`image-policy.ts`): by
+    // default only `data:` and `blob:`, which make no request.
+    private _imagePolicy: AparteImagePolicy = [];
+    private _imageDecider: ImageDecider = compileImagePolicy([]);
+    /** Whether the app named an image policy, the default included; see `decideImage`. */
+    private _imagePolicyNamed = false;
     private _systemPromptTemplate?: string;
     private _systemPromptVarsProvider?: AparteSystemPromptVarsProvider;
     private _statusRenderer?: AparteStatusRenderer;
@@ -650,13 +666,99 @@ export class AparteConfig {
     }
 
     /**
-     * Run the active sanitizer over provider-produced HTML. Public so a
-     * streaming-markdown provider (which appends DOM directly, bypassing
-     * `renderMarkdown`) can apply the same policy. Returns the input unchanged
-     * only when sanitization was disabled via `setHtmlSanitizer(null)`.
+     * Run the active sanitizer over provider-produced HTML, then the image policy
+     * ({@link AparteConfig.setImagePolicy | setImagePolicy}): a picture the policy does not let
+     * load comes back as a link that loads it on a click. Public so a streaming-markdown
+     * provider (which appends DOM directly, bypassing `renderMarkdown`) can apply the same
+     * rules. The image policy runs whichever sanitizer is set, none included, so replacing it
+     * does not turn a reply's pictures back into requests the reader never made.
      */
     sanitizeHtml(html: string): string {
-        return this._sanitizer ? this._sanitizer(html) : html;
+        const clean = this._sanitizer ? this._sanitizer(html) : html;
+        return applyImagePolicy(clean, (url) => this.decideImage(url), () => this._heldImageWords());
+    }
+
+    /**
+     * Which pictures a model or a tool chose load before the reader asks — in a reply's
+     * Markdown, in a card, in a tool's details. By default only `data:` and `blob:` pictures,
+     * which make no request: any other is held, drawn as a small link that says where it would
+     * load from, and loads in place when the reader clicks it.
+     *
+     * The reason is that a picture fetches its address the moment it is shown, and a
+     * prompt-injected model can write the conversation into that address. Name what you trust:
+     *
+     * - a list — `'self'` for the page's own origin, an origin (`'https://cdn.example.com'`),
+     *   or `'*'` for every picture;
+     * - a function, which gets the picture's address (resolved against the page) and answers
+     *   `'load'`, `'hold'` or `'drop'`.
+     *
+     * Every picture that loads goes with `referrerpolicy="no-referrer"`. What is on screen is
+     * drawn again under the new policy. A CSP `img-src` is the stronger rule beside this one:
+     * it also checks where a redirect leads, which no script on the page can see.
+     *
+     * @example aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com']);
+     * @example aparteGlobalConfig.setImagePolicy((url) => url.startsWith('https://images.example.com/') ? 'load' : 'hold');
+     */
+    setImagePolicy(policy: AparteImagePolicy): void {
+        // Any call names the policy, the default included: `setImagePolicy([])` keeps every
+        // picture held and silences the console note `decideImage` writes otherwise.
+        this._imagePolicyNamed = true;
+        // The same rule again changes nothing, so it redraws nothing: a framework that sets it
+        // on every render with a list literal would otherwise redraw every message each time.
+        if (sameImagePolicy(policy, this._imagePolicy)) return;
+        // A copy of a list: the app editing its own array afterwards changes nothing here.
+        this._imagePolicy = typeof policy === 'function' ? policy : [...policy];
+        this._imageDecider = compileImagePolicy(policy);
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /**
+     * What the picture at `url` does under this config's image policy: `'load'`, `'hold'`
+     * (shown as a link that loads it on a click) or `'drop'`. For a plugin that draws pictures
+     * itself, as `@aparte/plugin-cards` does: ask before setting a `src`, because setting it is
+     * the request.
+     */
+    decideImage(url: string): AparteImageDecision {
+        const decision = decideImageAddress(this._imageDecider, url, shownImagesOf(this));
+        if (decision === 'hold') this._noteHeldImage(url);
+        return decision;
+    }
+
+    /**
+     * The first picture the default policy holds, said once to the developer. A picture that
+     * waits for a click with nothing in the console reads as a broken image to whoever wrote
+     * the app, and the line that changes it cannot be guessed. Silent once the app names a
+     * policy, whatever it is: `setImagePolicy([])` keeps the default and the silence.
+     */
+    private _noteHeldImage(url: string): void {
+        if (this._imagePolicyNamed || heldImageNoted) return;
+        heldImageNoted = true;
+        console.warn(
+            `[aparte] A picture from ${imageHost(url)} waits for the reader's click: pictures a model or a tool chose `
+            + 'load only from the sources the app allows. To load yours, call '
+            + "aparteGlobalConfig.setImagePolicy(['https://cdn.example.com']); to keep holding them without this note, "
+            + 'setImagePolicy([]). Why: https://apartejs.dev/guides/markdown/#pictures-a-reply-can-load',
+        );
+    }
+
+    /**
+     * The reader chose to see the picture at `url`: from now on it loads wherever this
+     * config's image policy would only have held it (a picture the policy drops stays
+     * dropped). Core calls it when a held picture's link is clicked; a plugin calls it from
+     * its own "Show images", then draws again. Nothing on screen is redrawn by this call.
+     */
+    showImage(url: string): void {
+        rememberShownImage(this, url);
+    }
+
+    /** What a held picture says, in this config's language. */
+    private _heldImageWords(): HeldImageWords {
+        return {
+            load: (host) => this.t('imageLoad').replace('{host}', () => host),
+            named: (host, alt) => this.t('imageLoadNamed').replace('{host}', () => host).replace('{alt}', () => alt),
+            icon: this.getIcon('image'),
+        };
     }
 
     /**
@@ -2057,6 +2159,10 @@ export class AparteConfig {
         this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;
+        this._imagePolicy = [];
+        this._imageDecider = compileImagePolicy([]);
+        this._imagePolicyNamed = false;
+        forgetShownImages(this);
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
         this._fetchedModels.clear();

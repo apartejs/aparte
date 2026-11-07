@@ -51,7 +51,11 @@ const CAFE = { name: 'Café Méert', types: ['cafe', 'store'], rating: 4.4, addr
 const HOTEL = { name: 'Hôtel Carlton', types: ['lodging'], openNow: true };
 
 let stop: () => void = () => {};
-beforeEach(() => aparteGlobalConfig.extendLocale({ tag: 'en-US' }));
+// These cards are drawn with their pictures; the held default has its own tests.
+beforeEach(() => {
+    aparteGlobalConfig.extendLocale({ tag: 'en-US' });
+    aparteGlobalConfig.setImagePolicy(['*']);
+});
 afterEach(() => {
     stop();
     stop = () => {};
@@ -739,6 +743,17 @@ describe('the map behind a place (mapTiles)', () => {
         expect(tiles(draw(call('resolved', { ...STUDIO, image: 'https://example.com/front.jpg' })))).toHaveLength(0);
         document.body.innerHTML = '';
         expect(tiles(draw(call('resolved', { name: 'Somewhere' })))).toHaveLength(0);
+    });
+
+    it('lays the map under a photo the image policy holds, as for a place without one', () => {
+        // The tiles are the app's own setting, so the policy does not decide them; the photo
+        // came with the tool's result, so it does.
+        aparteGlobalConfig.setImagePolicy([]);
+        setup({ mapTiles: OSM });
+        const card = draw(call('resolved', { ...STUDIO, image: 'https://example.com/front.jpg' }));
+        expect(card.querySelector('img.aparte-place__img')).toBeNull();
+        expect(tiles(card)).toHaveLength(9);
+        expect(card.querySelector('.aparte-rich-card__images-hosts')!.textContent).toBe('example.com');
     });
 
     it('ignores tiles that are not an http(s) address with {z}, {x} and {y}', () => {
