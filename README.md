@@ -20,6 +20,7 @@ support widget, a research assistant, a shopping assistant, a travel concierge �
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@aparte/core?label=npm&color=d9a24b)](https://www.npmjs.com/package/@aparte/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Aparte on StartupScores](https://startupscores.com/badge/aparte.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/aparte)
 
 > 🚀 **1.0 on npm.** Every `@aparte/*` package ships **together at one version** —
 > `npm i @aparte/core` (the badge above is the live number). The declared surface
