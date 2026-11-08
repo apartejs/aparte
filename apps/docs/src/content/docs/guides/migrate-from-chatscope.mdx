@@ -1,6 +1,6 @@
 ---
 title: Migrate from chatscope to aparté
-description: Replace @chatscope/chat-ui-kit-react with aparté in a React app — what each component becomes, how the message model maps, and how to keep your own backend or stream a model.
+description: Move an AI chat built on @chatscope/chat-ui-kit-react to aparté — what each component becomes, how the message model maps, and how to keep your own backend or stream a model.
 sidebar:
   order: 4
   label: From chatscope
@@ -8,9 +8,10 @@ guide:
   group: help
 ---
 
-`@chatscope/chat-ui-kit-react` gives you components to assemble a chat, and leaves the messages and
-the sending to your code. `<AparteChat>` from `@aparte/react` is the whole chat in one component,
-and it draws what an AI reply needs: tokens as they stream, tool calls, reasoning.
+`@chatscope/chat-ui-kit-react` is a kit for chats between people: you assemble the components, and
+the messages and the sending stay in your code. If you built an AI chat on it, `<AparteChat>` from
+`@aparte/react` is the whole chat in one component, and it draws what a model's reply needs: tokens
+as they stream, tool calls, reasoning.
 
 You can move in two steps: change the view and keep your own backend call, then stream the reply.
 
