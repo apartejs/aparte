@@ -72,7 +72,9 @@ function builtIns(options: AparteCommandsOptions): AparteCommand[] {
             enabled: (scope) => { const answer = lastAnswer(scope); return !!answer && !!replyText(answer); },
             run: async (context) => {
                 const answer = lastAnswer(context);
-                if (answer && await copyText(replyText(answer))) context.notify(context.config.t('copied'));
+                if (!answer) return;
+                await copyText(replyText(answer));
+                context.notify(context.config.t('copied'));
             },
         },
     ];

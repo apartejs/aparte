@@ -417,7 +417,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 /* `setStreamingCaret`: at the end of the last paragraph or list item, the only places a line of
    words is being written. Not after code, a table or a heading. */
-.aparte-message[data-caret] :is(.aparte-segment-text:last-child, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+.aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
   content: '';
   display: inline-block;
   width: 0.45em;
@@ -433,7 +433,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .aparte-message[data-caret] :is(.aparte-segment-text:last-child, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+  .aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
     animation: none;
   }
 }

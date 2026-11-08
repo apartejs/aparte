@@ -59,6 +59,22 @@ document.addEventListener('aparte-feedback', (e) => {
 | `feedback` | off | a listener for `aparte-feedback` |
 | `info` | off | a listener for `aparte-message-info`, and `usage` on the message |
 
+### Ask why after a thumbs-down
+
+List the reasons in your own words. A thumbs-down then opens a row of them under the actions; one
+press sends `aparte-feedback-reason`, and `aparte-feedback` has already gone out with the thumb.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setBubbleActions({ feedback: true, feedbackReasons: ['Not accurate', 'Too long', 'Off topic'] });
+
+document.addEventListener('aparte-feedback-reason', (event) => {
+  const { messageId, reason } = event.detail;
+  void fetch('/api/feedback', { method: 'POST', body: JSON.stringify({ messageId, reason }) });
+});
+```
+
 ## Accessibility
 
 - Each action is a button named from the locale (`copy`, `retry`, `edit`, `feedbackPositive`,

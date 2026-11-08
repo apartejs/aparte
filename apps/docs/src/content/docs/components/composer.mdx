@@ -140,6 +140,24 @@ myButton.addEventListener('click', () => composer.submit());
 
 <ToolbarApi />
 
+## Tokens
+
+A token is a pill in the draft that sends a text of its own. `aparte-composer-input` inserts one and
+reports where the caret is, which is what [Triggers](/components/triggers/) is built on, and what a
+control of your own can use:
+
+```ts
+const input = composer.querySelector('aparte-composer-input')!;
+
+const caret = input.getCaret();
+if (caret) input.insertToken(caret.offset, caret.offset, { label: 'Anna', text: '@anna', kind: 'mention', data: { id: 2 } });
+```
+
+`getCaret()` counts one unit per character, per line break and per token. `replaceRange(from, to, text)`
+writes plain text, `getRangeRect(from, to)` gives the box of a range on screen, and `getTokens()` the
+tokens with their place in the message. All of them go through the browser's own edit commands, so
+Undo knows about them.
+
 ## Accessibility
 
 - The field is a multi-line `textbox`, named by its placeholder.

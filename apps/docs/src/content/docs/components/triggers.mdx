@@ -1,0 +1,57 @@
+---
+title: Triggers
+description: The menu that slash commands and @ mentions open in the composer. Lists, searches, submenus and pills, on the menu recipe.
+catalog:
+  group: chat
+  order: 21
+  claims:
+    elements: [aparte-triggers]
+    plugin: '@aparte/plugin-triggers'
+---
+
+import TriggersApi from '../../../generated/api/elements/aparte-triggers.api.mdx';
+
+`aparte-triggers` opens a menu when a trigger character is typed in the composer: `/` for commands,
+`@` for mentions, any other you declare. It draws nothing until one fires, and the focus stays in
+the field the whole time.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-triggers
+```
+
+```html
+<aparte-composer>
+  <aparte-triggers></aparte-triggers>
+  <aparte-composer-input></aparte-composer-input>
+  <aparte-composer-send></aparte-composer-send>
+</aparte-composer>
+```
+
+```ts
+import '@aparte/plugin-triggers';
+
+document.querySelector('aparte-triggers')!.triggers = [
+  { char: '/', at: 'message', commands: true },
+  { char: '@', kind: 'mention', items: [{ id: 'anna', label: 'Anna' }] },
+];
+```
+
+With no `triggers` set, `/` opens at the start of a message and lists the commands your plugins
+add. [Commands and mentions](/guides/commands-and-mentions/) is the full guide: rows, searches,
+submenus, pills, commands.
+
+## Styling
+
+Each panel is an `aparte-menu`, the [menu recipe](/components/menu/), with `role="listbox"`. The row
+the keyboard is on wears `aria-selected="true"`. A pill in the field and in a sent message is an
+`aparte-tag` with the class `aparte-inline-token` and `data-kind` set to the token's `kind`:
+
+```css
+.aparte-inline-token[data-kind='mention'] {
+  --aparte-surface-2: var(--aparte-accent-soft);
+}
+```
+
+<TriggersApi />

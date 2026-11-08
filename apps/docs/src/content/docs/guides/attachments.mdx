@@ -210,6 +210,28 @@ document.addEventListener('aparte-attachment-preview', (event) => {
 Only a file whose URL a tab can open becomes a button: the object URL the composer made for it, or a
 remote URL. A `data:` URL stays a plain tile, since a browser refuses to open one in a tab.
 
+## Show an upload in progress
+
+If your app uploads a file as soon as it is picked, tell the composer how it is going. A bar shows on
+the tile, and nothing can be sent while a file is `uploading`.
+
+```ts
+function upload(file: File): void {
+  const request = new XMLHttpRequest();
+  request.upload.onprogress = (event) => {
+    composer.setAttachmentState(file, { status: 'uploading', progress: Math.round((event.loaded / event.total) * 100) });
+  };
+  request.onload = () => composer.setAttachmentState(file, { status: 'done' });
+  request.onerror = () => composer.setAttachmentState(file, { status: 'error' });
+  request.open('POST', '/api/files');
+  request.send(file);
+}
+```
+
+Without `progress`, the bar moves without saying how far. `{ status: 'error' }` marks the tile, and
+the person can remove it. While a file is on its way the composer wears `data-uploading`, for your
+own styles.
+
 ## Drag, drop and paste
 
 A file dropped anywhere on the composer attaches. While a file is dragged over it, the composer

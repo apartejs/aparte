@@ -1,0 +1,197 @@
+---
+title: "Slash commands and @ mentions in an AI chat"
+description: "Add slash commands, @ mentions and any other trigger to an AI chat composer: static or searched lists, submenus, pills in the message, and commands that other plugins add on their own."
+sidebar:
+  order: 6
+  label: Commands and mentions
+guide:
+  group: conversations
+---
+
+Typing `/` opens a list of things the chat can do. Typing `@` finds a person or a file and leaves a
+pill in the message. `@aparte/plugin-triggers` is both, and any other character you want: you say
+which characters open a menu, and what is in it.
+
+```bash
+npm install @aparte/plugin-triggers
+```
+
+## Put it in the composer
+
+The element draws nothing until a trigger fires. Write it inside `aparte-composer`, anywhere:
+
+```html
+<aparte-composer>
+  <aparte-triggers></aparte-triggers>
+  <aparte-composer-input></aparte-composer-input>
+  <aparte-composer-send></aparte-composer-send>
+</aparte-composer>
+```
+
+With a chat that draws its own composer, put it in the toolbar: it takes no room there.
+
+Then give it its triggers, by property:
+
+```ts
+import '@aparte/plugin-triggers';
+
+const triggers = document.querySelector('aparte-triggers')!;
+
+triggers.triggers = [
+  { char: '/', at: 'message', commands: true },
+  {
+    char: '@',
+    kind: 'mention',
+    items: async (query, { signal }) => {
+      const response = await fetch(`/api/people?q=${encodeURIComponent(query)}`, { signal });
+      const people: Array<{ id: number; name: string }> = await response.json();
+      return people.map((person) => ({ id: String(person.id), label: person.name, data: { id: person.id } }));
+    },
+  },
+  { char: '#', items: [{ id: 'bug', label: 'bug' }, { id: 'idea', label: 'idea' }] },
+];
+```
+
+`at: 'message'` opens only at the start of the draft, which is what a command wants. The default,
+`at: 'word'`, opens at the start of any word, so `paul@example.com` and `https://example.com/` open
+nothing.
+
+The focus stays in the field the whole time: typing keeps narrowing the list, the arrows move in
+it, Enter or Tab chooses, Escape closes it and it stays closed until the caret leaves that trigger.
+Enter sends the message only when no menu is open. During an IME composition every key is left to
+the field.
+
+## What a row does
+
+A row is one object. What it does depends on which field it has:
+
+```ts
+const rows = [
+  // Runs something. What was typed is removed first.
+  { id: 'export', label: 'Export', description: 'Download this conversation', run: () => download() },
+
+  // Replaces what was typed with text.
+  { id: 'sig', label: 'Signature', insert: 'Best regards,\nPaul' },
+
+  // Replaces it with a pill: `label` is shown, `text` is what the message says.
+  { id: 'doc', label: 'report.pdf', insert: { label: 'report.pdf', text: '[report.pdf](/files/12)', kind: 'file', data: { id: 12 } } },
+
+  // Opens a submenu, a list or a function asked when it opens. Any depth.
+  { id: 'team', label: 'Teams', children: (query, { signal }) => loadTeams(signal) },
+
+  // None of these: a pill with the row's label.
+  { id: 'anna', label: 'Anna', data: { id: 2 } },
+];
+```
+
+The other fields are `description`, `icon` (a core icon's name, a short text such as an emoji, or an
+element), `group` (rows of a group sit under its name while nothing is searched), `keywords` (more
+words a search finds it by), `disabled` and `render`, which draws the inside of the row yourself.
+
+A search looks inside the submenus it already knows, and says where a row comes from, so `A › Open`
+and `B › Open` do not read the same. Replace the search with `match`:
+
+```ts
+const trigger = {
+  char: '@',
+  items: people,
+  match: (item, query) => (item.keywords?.includes(query) ? 2 : item.label.startsWith(query)),
+};
+```
+
+A list given as a function is asked after a short pause (`debounce`, 150 ms by default), with an
+`AbortSignal`, and a reply overtaken by a newer search is dropped. It says when it is loading, when
+it found nothing, and offers to try again when it failed.
+
+## What a pill becomes
+
+A pill is one character of the draft: the caret goes around it and Backspace takes it whole. When
+the message is sent, `aparte-send` carries `detail.tokens`, each with its place in the text:
+
+```ts
+document.addEventListener('aparte-send', (event) => {
+  for (const token of event.detail.tokens ?? []) {
+    console.log(token.label, token.text, token.kind, token.data, token.start, token.end);
+  }
+});
+```
+
+`AparteClient` keeps them on the user message (`message.tokens`), so the bubble draws the pill as it
+looked, and passes them to the request as `_meta.tokens`, where your backend can read what the
+model only sees as text.
+
+To send other data with a message, set `detail.meta` from a listener that runs first (capture
+phase). The client keeps it as the message's `metadata` and merges it into `_meta`.
+
+## Commands
+
+`commands: true` lists what the plugins on the page answer. `@aparte/plugin-compaction` adds
+`/compact`, `@aparte/plugin-model-selector` adds `/model` and `@aparte/plugin-approval` adds
+`/approval`. Nothing to wire, and nothing to install if you do not want one: they do not depend on
+this package, and without a menu on the page nothing asks them.
+
+`/new`, `/stop`, `/retry` and `/copy` come from a separate entry, because a chat that does not want
+them should not carry them:
+
+```ts
+import { setupCommands } from '@aparte/plugin-triggers/commands';
+
+setupCommands();
+// With a conversation controller, /new starts a conversation instead of emptying this one.
+setupCommands({ conversations: controller, exclude: ['copy'] });
+```
+
+`/retry` needs `AparteClient`. A command that cannot act right now, `/stop` with no reply running
+for instance, is not listed.
+
+### Change what the plugins added
+
+Your choices are applied last, so they always win:
+
+```ts
+const trigger = {
+  char: '/',
+  at: 'message',
+  commands: {
+    exclude: ['copy'],
+    override: {
+      retry: { label: 'Try again', order: 1 },
+      compact: { description: 'Make room' },
+    },
+  },
+};
+```
+
+A row of `items` with the same `id` as a command replaces it.
+
+### Add your own
+
+From a plugin or from your app, the same way. Listen on `window`, and check the config is yours if
+the page has more than one:
+
+```ts
+window.addEventListener('aparte-collect-commands', (event) => {
+  event.detail.add({
+    id: 'export',
+    description: 'Download this conversation',
+    enabled: ({ composer }) => !composer.streaming,
+    run: (context) => download(context.targetId),
+  });
+});
+```
+
+`name` is what is typed after the `/`, and defaults to `id`. `children` makes a submenu. `order` sorts,
+lower first. `context.notify('…')` says something beside the composer for a few seconds, which is
+how `/compact` tells you there is nothing to compact.
+
+## On a phone, and in right to left
+
+On a narrow screen the menu takes the composer's width and sits above it, one panel at a time: a
+submenu replaces its parent and starts with a row to go back. In right to left the arrows that open
+and close a submenu swap, and the submenu opens on the left.
+
+## The element
+
+The [`aparte-triggers` page](/components/triggers/) lists its properties, events and what you can
+restyle. It draws on the [menu recipe](/components/menu/), so a menu you have already themed needs
+nothing more.

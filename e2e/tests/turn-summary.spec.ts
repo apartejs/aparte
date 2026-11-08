@@ -6,6 +6,7 @@
  * middle, and a real click on a real disclosure.
  */
 import { test, expect } from '@playwright/test';
+import { installLlmMock } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 
@@ -14,6 +15,21 @@ const TURN = '.aparte-turn';
 const LABEL = '.aparte-turn__label';
 const ROW = '.aparte-segment-tool-call';
 const APPROVAL_PANEL = '.aparte-elic-panel.aparte-approval-panel';
+
+test('the streaming caret is drawn after the last words, and only while they arrive', async ({ page }) => {
+    await installLlmMock(page, { scenario: 'text', pace: 60 });
+    const chat = new ChatPage(page);
+    await page.goto('/?caret');
+    await chat.waitUngated();
+    await chat.send('hello');
+    const drawn = () => page.evaluate(() => {
+        const last = [...document.querySelectorAll('.aparte-message[data-caret] p')].pop();
+        return last ? getComputedStyle(last, '::after').content : 'none';
+    });
+    await expect.poll(drawn, { intervals: [20] }).toBe('""');
+    await expect(chat.lastReply.locator('.aparte-message-streaming')).toHaveCount(0, { timeout: 20_000 });
+    expect(await drawn()).toBe('none');
+});
 
 test('off by default: the same chain draws no fold', async ({ page }) => {
     const chat = new ChatPage(page);

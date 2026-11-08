@@ -594,6 +594,111 @@ describe('<aparte-triggers>', () => {
         });
     });
 
+    describe('the built-in commands', () => {
+        function chat(messages: unknown[] = [], options: Parameters<typeof setupCommands>[0] = {}) {
+            const host = document.createElement('aparte-chat-viewport') as unknown as HTMLElement & { getMessages(): unknown[]; clearAll(): void };
+            host.id = 'v1';
+            host.getMessages = () => messages;
+            host.clearAll = vi.fn();
+            document.body.appendChild(host);
+            disposers.push(setupCommands(options));
+            const parts = mount([{ ...SLASH, commands: true }]);
+            parts.composer.setAttribute('target', 'v1');
+            return { ...parts, host };
+        }
+        const answer = { id: 'a1', role: 'assistant', content: 'hello there' };
+        const row = (element: HTMLElement) => options(element).map((o) => o.querySelector('.aparte-menu__body')!.firstChild!.textContent);
+
+        it('/new empties this chat', async () => {
+            const { type, key, host } = chat([answer]);
+            type('/new');
+            key('Enter');
+            await flush();
+            expect(host.clearAll).toHaveBeenCalledOnce();
+        });
+
+        it('/new starts a conversation when it has somewhere to', async () => {
+            const conversations = { setConversationId: vi.fn() };
+            const { type, key, host } = chat([answer], { conversations });
+            type('/new');
+            key('Enter');
+            await flush();
+            expect(conversations.setConversationId).toHaveBeenCalledWith(null);
+            expect(host.clearAll).not.toHaveBeenCalled();
+        });
+
+        it('lists /retry and /copy once there is an answer', () => {
+            const { element, type } = chat([answer]);
+            type('/');
+            expect(row(element)).toEqual(['/new', '/retry', '/copy']);
+        });
+
+        it('/retry names the last answer', async () => {
+            const { type, key } = chat([answer]);
+            const heard = vi.fn();
+            window.addEventListener('aparte-retry', heard, { once: true });
+            type('/retry');
+            key('Enter');
+            await flush();
+            expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({ messageId: 'a1', targetId: 'v1' });
+        });
+
+        it('/copy copies the text of the reply and says so', async () => {
+            const writeText = vi.fn(async () => {});
+            Object.assign(navigator, { clipboard: { writeText } });
+            Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+            const reply = { id: 'a2', role: 'assistant', segments: [{ id: 's', type: 'thinking', content: 'no' }, { id: 't', type: 'text', content: 'yes' }] };
+            const { element, type, key } = chat([reply]);
+            type('/copy');
+            key('Enter');
+            await vi.waitFor(() => expect(element.querySelector('[role="status"]')).not.toBeNull());
+            expect(writeText).toHaveBeenCalledWith('yes');
+        });
+
+        it('/stop is there during a reply, and stops it', async () => {
+            const { composer, type, key } = chat([answer]);
+            window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: {} }));
+            const cancel = vi.spyOn(composer, 'cancel').mockImplementation(() => {});
+            type('/stop');
+            key('Enter');
+            await flush();
+            expect(cancel).toHaveBeenCalledOnce();
+        });
+
+        it('leaves out what it was told to', () => {
+            const { element, type } = chat([answer], { exclude: ['retry', 'copy'] });
+            type('/');
+            expect(row(element)).toEqual(['/new']);
+        });
+    });
+
+    it('says a sentence beside the composer, for a few seconds', async () => {
+        const run = (context: { notify(text: string): void }) => context.notify('Nothing to do');
+        const { element, type, key } = mount([{ ...SLASH, items: [{ id: 'go', label: 'go', run }] }]);
+        vi.useFakeTimers();
+        type('/');
+        key('Enter');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(element.querySelector('[role="status"]')!.textContent).toBe('Nothing to do');
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(element.querySelector('[role="status"]')).toBeNull();
+    });
+
+    it('opens a submenu when the pointer rests on its row, not when it passes', () => {
+        vi.useFakeTimers();
+        const tree: AparteTriggerItem[] = [{ id: 'p', label: 'Parent', children: list('Child') }, { id: 'q', label: 'Other' }];
+        const { element, type } = mount([{ ...AT, items: tree }]);
+        type('@');
+        const [parent, other] = options(element);
+        parent!.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
+        other!.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
+        vi.advanceTimersByTime(200);
+        expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(1);
+        parent!.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
+        vi.advanceTimersByTime(200);
+        expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(2);
+    });
+
     it('warns when placed outside a composer', () => {
         const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
         document.body.appendChild(document.createElement('aparte-triggers'));

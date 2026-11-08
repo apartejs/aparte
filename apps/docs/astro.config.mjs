@@ -302,6 +302,9 @@ export default defineConfig({
             + '`sources` stream event or two fields on a text segment. Charts come from '
             + '`@aparte/plugin-echarts` or `@aparte/plugin-chartjs` (/guides/charts/), from a fenced '
             + 'block or a tool\'s result.',
+            'Slash commands, @ mentions and any other trigger character are `@aparte/plugin-triggers` '
+            + '(/guides/commands-and-mentions/); other plugins add their commands through an event. '
+            + '`setTurnSummary()` folds reasoning and tool calls behind one line (/guides/tool-display/). ',
             'A tool\'s result can be drawn as a rich card with `@aparte/plugin-cards` (/guides/cards/): '
             + 'weather, items, products, places, key figures, orders, market quotes, an agent\'s plan, '
             + 'matches, media and link previews, one entry per card, each reading the tool\'s own '

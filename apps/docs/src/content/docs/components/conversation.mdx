@@ -39,6 +39,15 @@ A turn is `appendMessage()`, then `appendToken()` for each chunk, then `complete
 `loading` says a conversation was chosen and its messages are on their way: the viewport shows
 the outline of a conversation rather than an empty column, and says so to a screen reader.
 
+### The date above each day
+
+```ts
+aparteGlobalConfig.setDateSeparators(true);
+```
+
+Today and Yesterday in words, then the full date in the page's language, above the first message of
+each day. It follows the branch on screen.
+
 ## Usage
 
 <Usage />

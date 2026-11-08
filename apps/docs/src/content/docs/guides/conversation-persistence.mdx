@@ -218,6 +218,18 @@ are on screen. With a framework, let your `conversationId` follow those selectio
 `window.addEventListener('aparte-conversation-select', (e) => setConversationId(e.detail.id))` —
 so that a later `null` is a change the chat sees.
 
+## Keep what was being typed
+
+With `keepDrafts`, leaving a conversation and coming back gives back what was in the composer:
+
+```ts
+const controller = new AparteConversationController(binding, { keepDrafts: true });
+```
+
+It is kept in memory. To keep it across a reload, give your storage adapter `loadDraft(id)` and
+`saveDraft(id, text)`, which are optional and must not touch the conversation's `updatedAt`, or the
+list would move every time somebody types. A pill comes back as its text.
+
 ## Show the list
 
 ```ts
