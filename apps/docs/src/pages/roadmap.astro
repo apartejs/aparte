@@ -211,7 +211,7 @@ const ROADMAP_IMAGE_ALT =
                 browser, Chromium and WebKit, in two rounds of fixes.
               </p>
               <p class="st-lede">
-                Next, customization: a chat that wears your design system.
+                Next: a chat that wears your design system, and the parts a full assistant needs, sub-agents and a canvas.
               </p>
 
 
@@ -369,6 +369,15 @@ const ROADMAP_IMAGE_ALT =
             <p class="st-lede">Named, and not scheduled. Every one of them waits on the same thing &#8212; the last line of this page.</p>
 
             <div class="cluster">
+              <h3>A full assistant</h3>
+              <ul>
+                <li><b>Sub-agents and workflows</b>: an agent&#8217;s steps and its sub-agents, drawn as such in the conversation.</li>
+                <li>A <b>canvas</b>: a document open beside the conversation, that the model writes and the reader keeps working on.</li>
+                <li><b>Artifacts</b>, reworked: today they stay in a card inside the reply.</li>
+                <li>An <b>example app</b> that puts it all together, as the proof that a ChatGPT- or Claude-style assistant can be built from these parts.</li>
+              </ul>
+            </div>
+            <div class="cluster">
               <h3>Plugins</h3>
               <ul>
                 <li><code>@aparte/plugin-speech</code> &#8212; microphone input, over the Web Speech API.</li>
@@ -407,8 +416,8 @@ const ROADMAP_IMAGE_ALT =
             <dl class="nope">
               <dt>Real-time voice sessions</dt>
               <dd>Large, and vendor-specific. Microphone input yes; sessions no.</dd>
-              <dt>A workflow canvas</dt>
-              <dd>Another product.</dd>
+              <dt>A visual workflow editor</dt>
+              <dd>Dragging nodes to build an agent is another product. Showing what an agent does, and a document beside the chat, are on the list above.</dd>
               <dt>Arbitrary generative UI</dt>
               <dd>Custom segments and tool renderers are the sane version of it, and they are already here.</dd>
               <dt>An adapter per agent framework</dt>
