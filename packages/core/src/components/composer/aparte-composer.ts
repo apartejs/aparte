@@ -21,6 +21,18 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  */
 export type AparteComposerPanelMode = 'submit' | 'none';
 
+const ONE_LINE_INPUTS = new Set(['text', 'search', 'email', 'url', 'tel', 'number', 'password']);
+
+/**
+ * Whether Enter in this element can mean "send": it is a field of one line. A `<textarea>`
+ * with `rows="1"` is one (an approval's instruction); a taller one was drawn to hold several
+ * lines, and in it Enter is the next line, as in any form.
+ */
+function isOneLineField(target: EventTarget | null): boolean {
+    if (target instanceof HTMLTextAreaElement) return target.rows === 1;
+    return target instanceof HTMLInputElement && ONE_LINE_INPUTS.has(target.type);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event map for internal pub/sub between primitives
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,7 +338,8 @@ export class AparteComposer extends HTMLElement {
     set disabled(value: boolean) { this.toggleAttribute('disabled', presenceOn(value)); }
     /**
      * When false, Shift+Enter submits and a bare Enter inserts a newline —
-     * the inverse of the default. Driven by the `submit-on-enter` attribute.
+     * the inverse of the default. Driven by the `submit-on-enter` attribute, and it
+     * holds in a panel's one-line fields as it does in the editor.
      */
     get submitOnEnter(): boolean { return this.getAttribute('submit-on-enter') !== 'false'; }
     get attachments(): File[] { return this._attachments; }
@@ -452,6 +465,7 @@ export class AparteComposer extends HTMLElement {
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
         this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
+        panel.addEventListener('keydown', this._onPanelKeydown);
         if (host) {
             host.appendChild(panel);
         } else if (inputEl) {
@@ -498,6 +512,29 @@ export class AparteComposer extends HTMLElement {
         }
         this._evictPanel();
     }
+
+    /**
+     * Enter in a panel's one-line field presses the send button, as it does in the editor.
+     *
+     * The panel takes the editor's place and the editor was the only thing listening, so
+     * what a person wrote in a panel went out by mouse alone: Enter added a line to an
+     * approval's instruction and did nothing in a question's text box. It lives here, once,
+     * because the button is the composer's and so is `submit-on-enter`; `submit()` then
+     * applies the panel's own gates (no act for the button, nothing written, put aside).
+     * The key is cancelled even when nothing can be sent, as the editor does, so an empty
+     * field does not fill with blank lines.
+     *
+     * Same IME guard as the editor: that Enter confirms a candidate. `defaultPrevented`
+     * leaves the key to a field that used it, a combobox picking its highlighted row.
+     */
+    private _onPanelKeydown = (e: KeyboardEvent): void => {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+        if (!isOneLineField(e.target)) return;
+        const submits = this.submitOnEnter ? !e.shiftKey : e.shiftKey;
+        if (!submits) return;
+        e.preventDefault();
+        this.submit();
+    };
 
     /** Close the panel AND tell its owner, so a pending request never orphans. */
     private _evictPanel(): void {
