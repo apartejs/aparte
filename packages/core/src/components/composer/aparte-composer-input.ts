@@ -179,7 +179,7 @@ export class AparteComposerInput extends HTMLElement {
     getRangeRect(from: number, to: number = from): DOMRect | null {
         if (!this._editor) return null;
         const range = flatRange(this._editor, from, to);
-        return range.getClientRects()[0] ?? null;
+        return range.getClientRects?.()[0] ?? null;
     }
 
     /** Replace a range of the draft with text, and leave the caret after it. */

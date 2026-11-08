@@ -207,6 +207,13 @@
   color: inherit;
 }
 
+/* A line that is not a row: a list loading or empty, a sentence from a command. */
+.aparte-menu__status {
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
 .aparte-menu__separator {
   height: var(--aparte-border-width);
   margin-block: var(--aparte-space-2);

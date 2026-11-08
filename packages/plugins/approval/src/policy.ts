@@ -22,6 +22,14 @@ export type ApprovalMode = 'plan' | 'ask' | 'auto-edit' | 'auto';
 /** The four modes, in the order a switch presents them. */
 export const APPROVAL_MODES: readonly ApprovalMode[] = ['plan', 'ask', 'auto-edit', 'auto'];
 
+/** What each mode is called, unless a host says otherwise. */
+export const APPROVAL_MODE_LABELS: Record<ApprovalMode, string> = {
+    plan: 'Plan',
+    ask: 'Ask',
+    'auto-edit': 'Auto-edit',
+    auto: 'Auto',
+};
+
 /** What a tool does — the axis the modes decide on. */
 export type ToolClass = 'read' | 'write' | 'exec';
 

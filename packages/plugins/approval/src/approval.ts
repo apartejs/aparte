@@ -9,15 +9,31 @@
  */
 import { aparteGlobalConfig, type AparteConfig, type AparteApprovalPolicy } from '@aparte/core';
 import {
-    APPROVAL_MODES, createApprovalPolicy, classifyTool,
+    APPROVAL_MODES, APPROVAL_MODE_LABELS, createApprovalPolicy, classifyTool,
     type ApprovalMode, type ApprovalClassification, type ToolClass,
 } from './policy.js';
+
+/** The part of `aparte-collect-commands` this plugin reads; the event is `@aparte/plugin-triggers`'. */
+interface CollectCommandsDetail {
+    config: AparteConfig;
+    add(command: {
+        id: string;
+        order?: number;
+        description?: string;
+        children: Array<{ id: string; label: string; icon?: string; run(): void }>;
+    }): void;
+}
 
 export interface ApprovalSetupOptions {
     /** Your tool names, by what they do. Unlisted names keep their own `needsApproval`. */
     classify: ApprovalClassification;
     /** The starting mode. Default: `ask`. */
     mode?: ApprovalMode;
+    /**
+     * Answer `@aparte/plugin-triggers`' menu with an `/approval` command. Default: `true`,
+     * and with no menu on the page nothing asks.
+     */
+    commands?: boolean;
     /** Called after every switch, with the new and the previous mode. */
     onModeChange?: (mode: ApprovalMode, previous: ApprovalMode) => void;
 }
@@ -89,6 +105,7 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
             return () => { listeners.delete(listener); };
         },
         dispose() {
+            if (answersCommands) window.removeEventListener('aparte-collect-commands', onCollectCommands);
             if (controllers.get(config) === controller) {
                 // Only the policy this setup installed: a config whose policy was since
                 // replaced by someone else keeps that replacement.
@@ -99,6 +116,24 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
             listeners.clear();
         },
     };
+
+    const onCollectCommands = (e: Event): void => {
+        const { detail } = e as CustomEvent<CollectCommandsDetail>;
+        if (detail.config !== config) return;
+        detail.add({
+            id: 'approval',
+            order: 70,
+            description: config.t('triggersCommandApproval'),
+            children: APPROVAL_MODES.map((candidate) => ({
+                id: candidate,
+                label: APPROVAL_MODE_LABELS[candidate],
+                ...(candidate === mode ? { icon: 'check' } : {}),
+                run: () => controller.setMode(candidate),
+            })),
+        });
+    };
+    const answersCommands = options.commands !== false && typeof window !== 'undefined';
+    if (answersCommands) window.addEventListener('aparte-collect-commands', onCollectCommands);
 
     const policy = createApprovalPolicy(() => mode, options.classify);
     // Bookkeeping BEFORE the config is told: `setApprovalPolicy` notifies, and a mounted

@@ -399,6 +399,38 @@ export type AparteLocale = {
     turnUsed?: string;
     /** How many tools a fold used, as `category:form` pairs (default: "one:{n} tool|other:{n} tools") */
     turnTools?: string;
+    /** the menu's line while a list is on its way (default: "Loading…"). */
+    triggersLoading?: string;
+    /** a search that found nothing (default: "No results"). */
+    triggersEmpty?: string;
+    /** a list that failed (default: "This list could not be loaded"). */
+    triggersError?: string;
+    /** the row under a list that failed (default: "Try again"). */
+    triggersRetry?: string;
+    /** the row that leaves a submenu on a phone (default: "Back"). */
+    triggersBack?: string;
+    /** /new (default: "Start a new conversation"). */
+    triggersCommandNew?: string;
+    /** /stop (default: "Stop the reply"). */
+    triggersCommandStop?: string;
+    /** /retry (default: "Answer again"). */
+    triggersCommandRetry?: string;
+    /** /copy (default: "Copy the last reply"). */
+    triggersCommandCopy?: string;
+    /** /compact, from plugin-compaction (default: "Summarise the earlier messages"). */
+    triggersCommandCompact?: string;
+    /** /compact with nothing to summarise (default: "There is nothing to compact yet"). */
+    triggersCompactNothing?: string;
+    /** /compact during a reply (default: "Wait for the reply to finish"). */
+    triggersCompactBusy?: string;
+    /** /compact on a model that does not say its context size (default: "This model does not say how much it can read"). */
+    triggersCompactNoWindow?: string;
+    /** /compact that failed (default: "The summary could not be written"). */
+    triggersCompactFailed?: string;
+    /** /model, from plugin-model-selector (default: "Change the model"). */
+    triggersCommandModel?: string;
+    /** /approval, from plugin-approval (default: "Change the approval mode"). */
+    triggersCommandApproval?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -644,6 +676,22 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     turnWorked: "Worked {duration}",
     turnUsed: "Used {tools}",
     turnTools: "one:{n} tool|other:{n} tools",
+    triggersLoading: 'Loading…',
+    triggersEmpty: 'No results',
+    triggersError: 'This list could not be loaded',
+    triggersRetry: 'Try again',
+    triggersBack: 'Back',
+    triggersCommandNew: 'Start a new conversation',
+    triggersCommandStop: 'Stop the reply',
+    triggersCommandRetry: 'Answer again',
+    triggersCommandCopy: 'Copy the last reply',
+    triggersCommandCompact: 'Summarise the earlier messages',
+    triggersCompactNothing: 'There is nothing to compact yet',
+    triggersCompactBusy: 'Wait for the reply to finish',
+    triggersCompactNoWindow: 'This model does not say how much it can read',
+    triggersCompactFailed: 'The summary could not be written',
+    triggersCommandModel: 'Change the model',
+    triggersCommandApproval: 'Change the approval mode',
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

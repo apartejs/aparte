@@ -1,0 +1,94 @@
+/**
+ * `@aparte/plugin-triggers/commands`: `/new`, `/stop`, `/retry` and `/copy`. Apart from the
+ * main entry, and asked for explicitly: a chat that wants none of them pays for none.
+ */
+import { aparteGlobalConfig, copyText, type AparteChatViewport, type AparteConfig, type AparteMessage } from '@aparte/core';
+import type { AparteCollectCommandsDetail, AparteCommand, AparteCommandScope } from './types.js';
+
+export interface AparteCommandsOptions {
+    /** Ids to leave out, among `new`, `stop`, `retry`, `copy`. */
+    exclude?: readonly string[];
+    /** Whatever holds your conversations. `/new` then starts one; without it, `/new` empties this chat. */
+    conversations?: { setConversationId(id: string | null): unknown };
+}
+
+/** A composer names its viewport with `target`, or sits with it in a chat. */
+function viewportOf(scope: AparteCommandScope): AparteChatViewport | null {
+    const named = scope.targetId ? document.getElementById(scope.targetId) : null;
+    if (named?.matches('aparte-chat-viewport')) return named as AparteChatViewport;
+    return (named ?? scope.chat ?? scope.composer.parentElement)?.querySelector<AparteChatViewport>('aparte-chat-viewport') ?? null;
+}
+
+const lastAnswer = (scope: AparteCommandScope): AparteMessage | undefined => {
+    const messages = viewportOf(scope)?.getMessages() ?? [];
+    return [...messages].reverse().find((message) => message.role === 'assistant');
+};
+
+const replyText = (message: AparteMessage): string => {
+    if (!message.segments?.length) return message.content ?? '';
+    return message.segments
+        .filter((segment) => segment.type === 'text')
+        .map((segment) => (segment as { content: string }).content)
+        .join('\n\n');
+};
+
+function builtIns(options: AparteCommandsOptions): AparteCommand[] {
+    return [
+        {
+            id: 'new',
+            order: 10,
+            description: 'triggersCommandNew',
+            icon: 'edit',
+            run: (context) => {
+                if (options.conversations) void options.conversations.setConversationId(null);
+                else viewportOf(context)?.clearAll();
+            },
+        },
+        {
+            id: 'stop',
+            order: 20,
+            description: 'triggersCommandStop',
+            icon: 'stop',
+            enabled: (scope) => scope.composer.streaming,
+            run: (context) => { context.composer.cancel(); },
+        },
+        {
+            id: 'retry',
+            order: 30,
+            description: 'triggersCommandRetry',
+            icon: 'retry',
+            enabled: (scope) => !scope.composer.streaming && !!lastAnswer(scope),
+            run: (context) => {
+                const answer = lastAnswer(context);
+                if (!answer) return;
+                window.dispatchEvent(new CustomEvent('aparte-retry', { detail: { messageId: answer.id, targetId: context.targetId } }));
+            },
+        },
+        {
+            id: 'copy',
+            order: 40,
+            description: 'triggersCommandCopy',
+            icon: 'copy',
+            enabled: (scope) => { const answer = lastAnswer(scope); return !!answer && !!replyText(answer); },
+            run: async (context) => {
+                const answer = lastAnswer(context);
+                if (answer && await copyText(replyText(answer))) context.notify(context.config.t('copied'));
+            },
+        },
+    ];
+}
+
+/** Answer the menus on this config with the built-in commands. Returns what removes them. */
+export function setupCommands(options: AparteCommandsOptions = {}, config: AparteConfig = aparteGlobalConfig): () => void {
+    const exclude = new Set(options.exclude ?? []);
+    const listener = (event: Event): void => {
+        const { detail } = event as CustomEvent<AparteCollectCommandsDetail>;
+        if (detail.config !== config) return;
+        for (const command of builtIns(options)) {
+            if (exclude.has(command.id)) continue;
+            detail.add({ ...command, description: config.t(command.description as never) });
+        }
+    };
+    window.addEventListener('aparte-collect-commands', listener);
+    return () => window.removeEventListener('aparte-collect-commands', listener);
+}

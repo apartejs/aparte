@@ -52,6 +52,7 @@ import { setupApproval } from '@aparte/plugin-approval';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
 import { runStreamAgent } from '@aparte/engine';
 import { setupCompaction } from '@aparte/plugin-compaction';
+import type { AparteTrigger } from '@aparte/plugin-triggers';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
@@ -332,6 +333,12 @@ async function run(): Promise<SiteSetup> {
     // the chat uses.
     setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 
+    // Two options no site turns on by default, for the browser suite: `?turns=folded` folds a
+    // turn's steps behind one line, `?commands` opens the menus of @aparte/plugin-triggers.
+    const siteParams = new URLSearchParams(location.search);
+    if (siteParams.get('turns') === 'folded') aparteGlobalConfig.setTurnSummary(true);
+    if (siteParams.has('commands')) mountTriggers();
+
     wireAttachmentLightbox();
     return { scenarioMode };
 }
@@ -358,6 +365,50 @@ export function mountModelSelector(slot: HTMLElement | null, fallback?: HTMLElem
         // control changes sides with the reading direction).
         selector.style.marginInlineStart = 'auto';
         fallback?.appendChild(selector);
+    });
+}
+
+/** The people `@` searches, with a little latency so the list really is asked for. */
+const PEOPLE = [{ id: 1, name: 'Paul' }, { id: 2, name: 'Anna' }, { id: 3, name: 'Ines' }];
+
+const SITE_TRIGGERS: readonly AparteTrigger[] = [
+    { char: '/', at: 'message', commands: true },
+    {
+        char: '@',
+        kind: 'mention',
+        debounce: 20,
+        items: async (query) => {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            return PEOPLE
+                .filter(({ name }) => name.toLowerCase().includes(query.toLowerCase()))
+                .map(({ id, name }) => ({ id: String(id), label: name, insert: { label: name, text: `@${name.toLowerCase()}`, kind: 'mention', data: { id } } }));
+        },
+    },
+    {
+        char: '#',
+        items: [
+            { id: 'files', label: 'Files', group: 'Places', children: [{ id: 'report', label: 'report.pdf', insert: { label: 'report.pdf', text: '[report.pdf]', kind: 'file' } }] },
+            { id: 'bug', label: 'bug', group: 'Tags' },
+            { id: 'idea', label: 'idea', group: 'Tags' },
+        ],
+    },
+];
+
+/** Into the composer once a framework has drawn it: the element draws nothing of its own. */
+function mountTriggers(): void {
+    void Promise.all([import('@aparte/plugin-triggers'), import('@aparte/plugin-triggers/commands')]).then(([, { setupCommands }]) => {
+        setupCommands();
+        const place = (): void => {
+            const composer = document.querySelector('aparte-composer');
+            if (!composer) {
+                requestAnimationFrame(place);
+                return;
+            }
+            const element = document.createElement('aparte-triggers');
+            element.triggers = SITE_TRIGGERS;
+            composer.appendChild(element);
+        };
+        place();
     });
 }
 

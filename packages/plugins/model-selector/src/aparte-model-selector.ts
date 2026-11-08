@@ -18,6 +18,20 @@ interface ProviderModels {
     models: AparteAIModel[];
 }
 
+interface CommandRow {
+    id: string;
+    label: string;
+    icon?: string;
+    run?(): void;
+    children?: CommandRow[];
+}
+
+/** The part of `aparte-collect-commands` this element reads; the event is `@aparte/plugin-triggers`'. */
+interface CollectCommandsDetail {
+    config: AparteConfig;
+    add(command: { id: string; order?: number; description?: string; children: CommandRow[] }): void;
+}
+
 /**
  * Escape a value before it is interpolated into an HTML string (text node or
  * double-quoted attribute). Model names/ids come from a remote `/models`
@@ -43,6 +57,7 @@ function esc(value: unknown): string {
  * and what a typed framework wrapper is written from.
  *
  * @element aparte-model-selector
+ * @attr {string} commands - `false` keeps `/model` out of `@aparte/plugin-triggers`' menu.
  * @attr {boolean} auto-select - Selects the first model as soon as one is available.
  * @attr {boolean} persist - Writes the selection into the config, which is what the next message is sent with.
  *   Without it the picker only fires `aparte-model-change`, and applying the choice is the app's. It does not
@@ -102,8 +117,30 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled', 'details'];
     }
 
+    /** Answers `@aparte/plugin-triggers`' menu with `/model`, unless `commands="false"`. */
+    private readonly _onCollectCommands = (e: Event): void => {
+        const { detail } = e as CustomEvent<CollectCommandsDetail>;
+        if (detail.config !== this._cfg || this.getAttribute('commands') === 'false' || this._providerModels.length === 0) return;
+        const several = this._providerModels.length > 1;
+        const rows = (entry: ProviderModels): CommandRow[] => entry.models.map((model) => ({
+            id: `${entry.provider.id}::${model.id}`,
+            label: model.name || model.id,
+            ...(entry.provider.id === this._currentProviderId && model.id === this._currentModelId ? { icon: 'check' } : {}),
+            run: () => this.setSelection(entry.provider.id, model.id),
+        }));
+        detail.add({
+            id: 'model',
+            order: 60,
+            description: this._cfg.t('triggersCommandModel'),
+            children: several
+                ? this._providerModels.map((entry) => ({ id: entry.provider.id, label: entry.provider.getMetadata().name, children: rows(entry) }))
+                : rows(this._providerModels[0]!),
+        });
+    };
+
     async connectedCallback(): Promise<void> {
         this._cfg = resolveConfig(this);
+        window.addEventListener('aparte-collect-commands', this._onCollectCommands);
         // A fresh mount always does a full load, whatever a previous mount left running.
         this._restartLoading();
         this._providerModels = [];
@@ -230,6 +267,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     }
 
     disconnectedCallback(): void {
+        window.removeEventListener('aparte-collect-commands', this._onCollectCommands);
         this._aparteSelect?.removeEventListener('aparte-select-change', this._boundHandleChange);
         this.removeEventListener('aparte-optgroup-toggle', this._handleOptgroupToggle);
         this._composer?.removeEventListener('aparte-composer-change', this._boundComposerChange);

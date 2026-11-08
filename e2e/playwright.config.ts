@@ -286,6 +286,8 @@ const MATH = /math-diagrams\.spec\.ts/;
 // Citations: a provider's annotations read by the real provider, placed by core in the
 // rendered text, the card mounted beside the transcript. DEEP, and Firefox's on vanilla.
 const CITATIONS = /citations\.spec\.ts/;
+const TRIGGERS = /triggers\.spec\.ts/;
+const TURN_SUMMARY = /turn-summary\.spec\.ts/;
 // Right-to-left, measured in a browser (the unit test reads the sheets). Vanilla carries it, so
 // it runs in Chromium and WebKit; the frameworks mount the same elements and the same CSS.
 const RTL = /right-to-left\.spec\.ts/;
@@ -306,7 +308,7 @@ const PERF = /performance\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL, COMPACTION, MATH, CITATIONS];
+const DEEP: RegExp[] = [TRIGGERS, TURN_SUMMARY, STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, TOOL_ROW_SPACER, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW, APPROVAL, COMPACTION, MATH, CITATIONS];
 const suiteFor = (k: AppKey): RegExp[] =>
     // vanilla-dist also runs THEMING: its page has no skin at all (a bare
     // `<aparte-chat>`, core's own default composition), which is exactly where the
