@@ -8,7 +8,7 @@
  * the page is reached from the browser only, an agent that runs its own loop through a server
  * only, and an OpenAI-compatible API or an AI SDK model from either.
  *
- * Drawn twice from the same lists: across for a wide screen, where five frameworks fan into the
+ * Drawn twice from the same lists: across for a wide screen, where six frameworks fan into the
  * library and each transport fans out to what it reaches; down for a phone, where each route
  * keeps its own group. A flow runs along every line, and stops under reduced motion.
  */
@@ -19,6 +19,7 @@ const FRAMEWORKS = [
     { label: 'Vue', href: '/frameworks/vue/' },
     { label: 'Svelte', href: '/frameworks/svelte/' },
     { label: 'Angular', href: '/frameworks/angular/' },
+    { label: 'Laravel', href: '/frameworks/laravel/' },
     { label: 'Vanilla JS', href: '/guides/getting-started/' },
 ];
 const TRANSPORTS = [
@@ -41,14 +42,14 @@ type Path = string;
 
 // ── Across (viewBox 1120 × 420) ──────────────────────────────────────────────
 const PILL = { w: 180, h: 46 };
-const row = (i: number) => 50 + i * 72;
+const row = (i: number) => 42 + i * 62;
 const rowMid = (i: number) => row(i) + PILL.h / 2;
 const CORE = { x: 330, y: 130, w: 260, h: 180 };
 const coreMid = CORE.y + CORE.h / 2;
 const BOX = (i: number) => ({ x: 640, y: i === 0 ? 112 : 252, w: 200, h: 76 });
 const boxMid = (i: number) => BOX(i).y + BOX(i).h / 2;
 const MODEL_X = 930;
-/** The models column holds two more rows than the frameworks, tighter, inside the 420 height. */
+/** The models column holds one more row than the frameworks, tighter, inside the 420 height. */
 const MODEL_PILL_H = 42;
 const modelRow = (i: number) => 42 + i * 54;
 const modelMid = (i: number) => modelRow(i) + MODEL_PILL_H / 2;
@@ -61,7 +62,7 @@ const wide: Path[] = [
 // ── Down (viewBox 360 × 584): each route keeps its own group, so nothing crosses ──
 const TALL_FW = [
     { x: 20, y: 44 }, { x: 130, y: 44 }, { x: 240, y: 44 },
-    { x: 75, y: 86 }, { x: 185, y: 86 },
+    { x: 20, y: 86 }, { x: 130, y: 86 }, { x: 240, y: 86 },
 ];
 const TALL_BOX = (i: number) => ({ x: i === 0 ? 8 : 184, y: 300, w: 168, h: 60 });
 const tallMid = (i: number) => TALL_BOX(i).x + TALL_BOX(i).w / 2;
@@ -83,7 +84,7 @@ const tallHeight = TALL_GROUP_Y + Math.max(tallGroupHeight(0), tallGroupHeight(1
         it, so every node said "How aparté fits" on hover. */}
     <svg class="fits__drawing fits__drawing--wide" viewBox="0 0 1120 420" role="group" aria-label="How aparté fits" aria-describedby="fits-desc">
         <desc id="fits-desc">
-            React, Vue, Svelte, Angular or vanilla JS render the same aparté elements. From the browser, a
+            React, Vue, Svelte, Angular, Laravel or vanilla JS render the same aparté elements. From the browser, a
             request goes straight to a model running in the page, an OpenAI-compatible API or a Vercel AI SDK
             model, with your key or a local server. Through your server, it reaches an OpenAI-compatible API or
             an AI SDK model with the key kept there, or an agent that runs its own loop: AG-UI agents, TanStack AI
