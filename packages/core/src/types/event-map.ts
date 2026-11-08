@@ -34,6 +34,9 @@ import type {
     ApartePathChangedEventDetail,
     AparteBranchNavigateEventDetail,
     AparteFeedbackEventDetail,
+    AparteFeedbackReasonEventDetail,
+    AparteCollectCommandsEventDetail,
+    AparteTriggerSelectEventDetail,
     AparteMessageInfoEventDetail,
     AparteMessageDoneEventDetail,
     AparteModelChangeEventDetail,
@@ -96,6 +99,9 @@ interface AparteEventMap {
     'aparte-branch-navigate': CustomEvent<AparteBranchNavigateEventDetail>;
     'aparte-link-click': CustomEvent<AparteLinkClickEventDetail>;
     'aparte-feedback': CustomEvent<AparteFeedbackEventDetail>;
+    'aparte-feedback-reason': CustomEvent<AparteFeedbackReasonEventDetail>;
+    'aparte-collect-commands': CustomEvent<AparteCollectCommandsEventDetail>;
+    'aparte-trigger-select': CustomEvent<AparteTriggerSelectEventDetail>;
     'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
     'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
     'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;

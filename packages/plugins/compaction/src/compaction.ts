@@ -36,7 +36,7 @@ import {
     aparteGlobalConfig, contentToText, estimateWireTokens, historyFromCheckpoint, measureContext, resolveConfig,
     type AparteConfig, type AparteMessage, type AparteChatMessage, type AparteChatRequest, type AparteStreamEvent,
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
-    type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
+    type AparteCollectCommandsEventDetail, type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
     type AparteCompactorOutcome, type AparteCompactorReason, type AparteCompactorRequest,
 } from '@aparte/core';
 import {
@@ -106,17 +106,6 @@ export type CompactionSkipReason =
 
 /** How a compaction ended — core's outcome, the same type the compactor seam returns. */
 export type CompactionOutcome = AparteCompactorOutcome;
-
-/** The part of `aparte-collect-commands` this plugin reads; the event is `@aparte/plugin-triggers`'. */
-interface CollectCommandsDetail {
-    config: AparteConfig;
-    add(command: {
-        id: string;
-        order?: number;
-        description?: string;
-        run(context: { chat: Element | null; targetId: string | undefined; notify(text: string): void }): Promise<void>;
-    }): void;
-}
 
 export interface CompactionSetupOptions {
     /**
@@ -710,7 +699,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         return owner === aparteGlobalConfig && answering.values().next().value === config;
     };
     const onCollectCommands = (e: Event): void => {
-        const { detail } = e as CustomEvent<CollectCommandsDetail>;
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
         if (detail.config !== config) return;
         detail.add({
             id: 'compact',

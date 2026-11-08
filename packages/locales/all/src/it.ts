@@ -84,6 +84,8 @@ export const it: AparteLocale = {
     turnWorked: "Ha lavorato {duration}",
     turnUsed: "Ha usato {tools}",
     turnTools: "one:{n} strumento|other:{n} strumenti",
+    feedbackReasonTitle: 'Che cosa non ha funzionato?',
+    feedbackReasonDismiss: 'Non ora',
     triggersLoading: 'Caricamento…',
     triggersEmpty: 'Nessun risultato',
     triggersError: 'Impossibile caricare questo elenco',

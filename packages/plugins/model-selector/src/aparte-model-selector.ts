@@ -11,6 +11,7 @@ import {
     type AparteAIModel,
     type AparteModelChangeEventDetail,
     type AparteSelectChangeDetail,
+    type AparteCollectCommandsEventDetail,
 } from '@aparte/core';
 
 interface ProviderModels {
@@ -24,12 +25,6 @@ interface CommandRow {
     icon?: string;
     run?(): void;
     children?: CommandRow[];
-}
-
-/** The part of `aparte-collect-commands` this element reads; the event is `@aparte/plugin-triggers`'. */
-interface CollectCommandsDetail {
-    config: AparteConfig;
-    add(command: { id: string; order?: number; description?: string; children: CommandRow[] }): void;
 }
 
 /**
@@ -119,7 +114,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
     /** Answers `@aparte/plugin-triggers`' menu with `/model`, unless `commands="false"`. */
     private readonly _onCollectCommands = (e: Event): void => {
-        const { detail } = e as CustomEvent<CollectCommandsDetail>;
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
         if (detail.config !== this._cfg || this.getAttribute('commands') === 'false' || this._providerModels.length === 0) return;
         const several = this._providerModels.length > 1;
         const rows = (entry: ProviderModels): CommandRow[] => entry.models.map((model) => ({

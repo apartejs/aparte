@@ -84,6 +84,8 @@ export const ja: AparteLocale = {
     turnWorked: "作業時間 {duration}",
     turnUsed: "{tools}を使用",
     turnTools: "other:{n} 個のツール",
+    feedbackReasonTitle: '何が問題でしたか？',
+    feedbackReasonDismiss: '今はしない',
     triggersLoading: '読み込み中…',
     triggersEmpty: '結果がありません',
     triggersError: 'このリストを読み込めませんでした',

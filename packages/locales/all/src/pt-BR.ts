@@ -84,6 +84,8 @@ export const ptBR: AparteLocale = {
     turnWorked: "Trabalhou {duration}",
     turnUsed: "Usou {tools}",
     turnTools: "one:{n} ferramenta|other:{n} ferramentas",
+    feedbackReasonTitle: 'O que deu errado?',
+    feedbackReasonDismiss: 'Agora não',
     triggersLoading: 'Carregando…',
     triggersEmpty: 'Nenhum resultado',
     triggersError: 'Não foi possível carregar esta lista',

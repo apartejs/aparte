@@ -84,6 +84,8 @@ export const fr: AparteLocale = {
     turnWorked: "Terminé en {duration}",
     turnUsed: "Utilisé : {tools}",
     turnTools: "one:{n} outil|other:{n} outils",
+    feedbackReasonTitle: 'Qu’est-ce qui n’a pas marché ?',
+    feedbackReasonDismiss: 'Pas maintenant',
     triggersLoading: 'Chargement…',
     triggersEmpty: 'Aucun résultat',
     triggersError: 'Impossible de charger cette liste',

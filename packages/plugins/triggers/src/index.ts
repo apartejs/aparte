@@ -11,7 +11,8 @@ export type { TriggerHit } from './detect.js';
 export { matchRows, scoreItem } from './match.js';
 export type { TriggerRow } from './match.js';
 export type {
-    AparteCollectCommandsDetail,
+    AparteCollectCommandsEventDetail,
+    AparteCommandContext,
     AparteCommand,
     AparteCommandScope,
     AparteTrigger,

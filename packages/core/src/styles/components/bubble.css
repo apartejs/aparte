@@ -414,3 +414,47 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 .aparte-message[data-superseded] {
   display: none;
 }
+
+/* `setStreamingCaret`: at the end of the last paragraph or list item, the only places a line of
+   words is being written. Not after code, a table or a heading. */
+.aparte-message[data-caret] :is(.aparte-segment-text:last-child, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-inline-start: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: aparte-caret-blink 1s steps(2, jump-none) infinite;
+}
+
+@keyframes aparte-caret-blink {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-message[data-caret] :is(.aparte-segment-text:last-child, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+    animation: none;
+  }
+}
+
+/* The row a thumbs-down opens. */
+.aparte-feedback-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  margin-block-start: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+/* `setDateSeparators`: the viewport writes the day on the first bubble of each one. */
+aparte-chat-bubble[data-date]::before {
+  content: attr(data-date);
+  display: block;
+  margin-block: var(--aparte-space-6) var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+  text-align: center;
+}

@@ -1,4 +1,5 @@
 import type { AparteComposer } from './aparte-composer.js';
+import type { AparteAttachmentState } from '../../types/index.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -102,6 +103,37 @@ export class AparteComposerAttachments extends HTMLElement {
         this._render(root.attachments);
     }
 
+    /** Draw how a file's upload is going on its tile. */
+    showState(file: File, state: AparteAttachmentState | null): void {
+        const index = this._getRoot()?.attachments.indexOf(file) ?? -1;
+        const tile = this.querySelectorAll<HTMLElement>('.aparte-thumb')[index];
+        if (!tile) return;
+        tile.toggleAttribute('data-failed', state?.status === 'error');
+        let bar = tile.querySelector<HTMLElement>('.aparte-progress');
+        if (state?.status !== 'uploading') {
+            bar?.remove();
+            return;
+        }
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'aparte-progress aparte-thumb__progress';
+            bar.setAttribute('role', 'progressbar');
+            bar.setAttribute('aria-label', file.name);
+            bar.innerHTML = '<div class="aparte-progress__bar"></div>';
+            tile.appendChild(bar);
+        }
+        const known = state.progress !== undefined;
+        bar.classList.toggle('aparte-progress--indeterminate', !known);
+        if (known) {
+            bar.setAttribute('aria-valuenow', String(state.progress));
+            bar.setAttribute('aria-valuemin', '0');
+            bar.setAttribute('aria-valuemax', '100');
+            bar.style.setProperty('--aparte-progress-value', String(state.progress));
+        } else {
+            bar.removeAttribute('aria-valuenow');
+        }
+    }
+
     /** Release the previous render's blob URLs so they don't leak. */
     private _revokeUrls(): void {
         this._objectUrls.forEach(url => URL.revokeObjectURL(url));
@@ -139,6 +171,12 @@ export class AparteComposerAttachments extends HTMLElement {
                 `<span class="aparte-thumbnail__label">${escapeHtml(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');
+
+        const composer = this._getRoot();
+        if (composer) for (const file of files) {
+            const state = composer.getAttachmentState(file);
+            if (state) this.showState(file, state);
+        }
 
         // Remove buttons — every file has exactly one tile, so the button
         // index lines up with the attachments index.

@@ -48,6 +48,8 @@ import { planTurns, rowOf, turnDuration, type TurnRole } from './turn-groups.js'
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import type { AparteMessageToken } from '../../types/index.js';
 import { drawMessageTokens } from './message-tokens.js';
+import { buildFeedbackReasons } from './feedback-reasons.js';
+import type { AparteFeedbackReasonEventDetail } from '../../types/index.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -226,6 +228,7 @@ let checkpointIds = 0;
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
  * @fires {CustomEvent<AparteEditEventDetail>} aparte-edit - An edit was saved.
  * @fires {CustomEvent<AparteFeedbackEventDetail>} aparte-feedback - Thumbs up or down.
+ * @fires {CustomEvent<AparteFeedbackReasonEventDetail>} aparte-feedback-reason - The reason picked after a thumbs-down.
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size — or a file, with `filePreview`, asking the app to open it.
@@ -836,6 +839,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._content += chunk;
     this._updateContent();
     this._syncCopyAction();
+  }
+
+  /** The row under the action bar that asks why, when the app listed reasons. */
+  private _askFeedbackReason(messageId: string): void {
+    const reasons = this._cfg.getBubbleActions().feedbackReasons;
+    if (!reasons?.length || this.querySelector('.aparte-feedback-reasons')) return;
+    const panel = buildFeedbackReasons({
+      reasons,
+      title: this._cfg.t('feedbackReasonTitle'),
+      dismiss: this._cfg.t('feedbackReasonDismiss'),
+      onPick: (reason) => {
+        panel.remove();
+        this.dispatchEvent(new CustomEvent<AparteFeedbackReasonEventDetail>('aparte-feedback-reason', {
+          bubbles: true, composed: true,
+          detail: { messageId, reason },
+        }));
+      },
+      onClose: () => panel.remove(),
+    });
+    this.querySelector('.aparte-footer')?.after(panel);
   }
 
   /** The tokens a user message was written with, drawn as they looked in the composer. */
@@ -2615,6 +2638,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
           bubbles: true, composed: true,
           detail,
         }));
+        if (value === 'negative') this._askFeedbackReason(messageId);
         break;
       }
       case 'info': {
@@ -2782,6 +2806,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         message.removeAttribute('aria-busy');
         message.classList.remove('aparte-message-streaming');
       }
+      message.toggleAttribute('data-caret', streaming && this._cfg.getStreamingCaret());
     }
     this._updateWaiting();
     this._updateFinishNote();

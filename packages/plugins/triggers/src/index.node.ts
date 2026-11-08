@@ -8,7 +8,8 @@ export { matchRows, scoreItem } from './match.js';
 export type { TriggerRow } from './match.js';
 export type { AparteTriggers } from './aparte-triggers.js';
 export type {
-    AparteCollectCommandsDetail,
+    AparteCollectCommandsEventDetail,
+    AparteCommandContext,
     AparteCommand,
     AparteCommandScope,
     AparteTrigger,

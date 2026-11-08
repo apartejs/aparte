@@ -310,6 +310,9 @@ async function run(): Promise<SiteSetup> {
     //    Not on an n8n workflow: n8n keeps every message it was sent, so a retried or
     //    edited turn would reach an agent that remembers the first one.
     aparteGlobalConfig.setBubbleActions({ copy: true, retry: !n8nUrl, edit: !n8nUrl });
+    if (new URLSearchParams(location.search).has('feedback')) {
+        aparteGlobalConfig.setBubbleActions({ feedback: true, feedbackReasons: ['Not accurate', 'Too long', 'Off topic'] });
+    }
     aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
     // 5. Drive the turn with @aparte/engine's headless loop instead of core's inline
@@ -337,6 +340,8 @@ async function run(): Promise<SiteSetup> {
     // turn's steps behind one line, `?commands` opens the menus of @aparte/plugin-triggers.
     const siteParams = new URLSearchParams(location.search);
     if (siteParams.get('turns') === 'folded') aparteGlobalConfig.setTurnSummary(true);
+    if (siteParams.has('caret')) aparteGlobalConfig.setStreamingCaret(true);
+    if (siteParams.has('dates')) aparteGlobalConfig.setDateSeparators(true);
     if (siteParams.has('commands')) mountTriggers();
 
     wireAttachmentLightbox();

@@ -3,7 +3,7 @@
  * main entry, and asked for explicitly: a chat that wants none of them pays for none.
  */
 import { aparteGlobalConfig, copyText, type AparteChatViewport, type AparteConfig, type AparteMessage } from '@aparte/core';
-import type { AparteCollectCommandsDetail, AparteCommand, AparteCommandScope } from './types.js';
+import type { AparteCommand, AparteCommandScope } from './types.js';
 
 export interface AparteCommandsOptions {
     /** Ids to leave out, among `new`, `stop`, `retry`, `copy`. */
@@ -81,8 +81,7 @@ function builtIns(options: AparteCommandsOptions): AparteCommand[] {
 /** Answer the menus on this config with the built-in commands. Returns what removes them. */
 export function setupCommands(options: AparteCommandsOptions = {}, config: AparteConfig = aparteGlobalConfig): () => void {
     const exclude = new Set(options.exclude ?? []);
-    const listener = (event: Event): void => {
-        const { detail } = event as CustomEvent<AparteCollectCommandsDetail>;
+    const listener = ({ detail }: WindowEventMap['aparte-collect-commands']): void => {
         if (detail.config !== config) return;
         for (const command of builtIns(options)) {
             if (exclude.has(command.id)) continue;

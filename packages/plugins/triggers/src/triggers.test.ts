@@ -7,7 +7,7 @@ import { detectTrigger } from './detect.js';
 import { matchRows, scoreItem } from './match.js';
 import { collectCommands, commandItems } from './collect.js';
 import { setupCommands } from './commands.js';
-import type { AparteCollectCommandsDetail, AparteCommand, AparteCommandScope, AparteTrigger, AparteTriggerItem } from './types.js';
+import type { AparteCollectCommandsEventDetail, AparteCommand, AparteCommandScope, AparteTrigger, AparteTriggerItem } from './types.js';
 
 const SLASH: AparteTrigger = { char: '/', at: 'message' };
 const AT: AparteTrigger = { char: '@', at: 'word' };
@@ -113,7 +113,7 @@ describe('collecting commands', () => {
     const listeners: EventListener[] = [];
     const answer = (cfg: AparteConfig, ...commands: AparteCommand[]) => {
         const listener: EventListener = (e) => {
-            const { detail } = e as CustomEvent<AparteCollectCommandsDetail>;
+            const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
             if (detail.config === cfg) commands.forEach((c) => detail.add(c));
         };
         listeners.push(listener);

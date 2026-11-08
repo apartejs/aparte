@@ -1,11 +1,11 @@
 import type {
-    AparteCollectCommandsDetail, AparteCommand, AparteCommandScope, AparteTriggerCommands, AparteTriggerItem,
+    AparteCollectCommandsEventDetail, AparteCommand, AparteCommandScope, AparteTriggerCommands, AparteTriggerItem,
 } from './types.js';
 
 /** Ask whoever is listening for their commands. The last to answer for an id wins. */
 export function collectCommands(host: HTMLElement, scope: AparteCommandScope): AparteCommand[] {
     const found = new Map<string, AparteCommand>();
-    host.dispatchEvent(new CustomEvent<AparteCollectCommandsDetail>('aparte-collect-commands', {
+    host.dispatchEvent(new CustomEvent<AparteCollectCommandsEventDetail>('aparte-collect-commands', {
         bubbles: true,
         composed: true,
         detail: {

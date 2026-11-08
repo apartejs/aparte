@@ -1,4 +1,6 @@
 import type { AparteComposerInput } from './aparte-composer-input.js';
+import type { AparteComposerAttachments } from './aparte-composer-attachments.js';
+import type { AparteAttachmentState } from '../../types/index.js';
 import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
@@ -397,18 +399,47 @@ export class AparteComposer extends HTMLElement {
     }
 
     /**
+     * Show how an attachment's upload is going, for an app that uploads as soon as a file
+     * is picked. While one is `uploading`, nothing is sent. `null` clears it.
+     */
+    setAttachmentState(file: File, state: AparteAttachmentState | null): void {
+        if (state) this._attachmentStates.set(file, state);
+        else this._attachmentStates.delete(file);
+        this._syncUploading();
+        this.querySelector<AparteComposerAttachments>('aparte-composer-attachments')?.showState(file, state);
+    }
+
+    /** The state {@link setAttachmentState} last gave this file. */
+    getAttachmentState(file: File): AparteAttachmentState | undefined {
+        return this._attachmentStates.get(file);
+    }
+
+    private readonly _attachmentStates = new WeakMap<File, AparteAttachmentState>();
+
+    private get _uploading(): boolean {
+        return this._attachments.some((file) => this._attachmentStates.get(file)?.status === 'uploading');
+    }
+
+    /** Reflected for the shipped CSS, the way the model gate is. */
+    private _syncUploading(): void {
+        this.toggleAttribute('data-uploading', this._uploading);
+    }
+
+    /**
      * Drop one pending attachment and notify. Matched by IDENTITY — pass the same
      * `File` object the composer handed you, not an equal one; two picks of the same
      * file on disk are two distinct objects.
      */
     removeAttachment(file: File): void {
         this._attachments = this._attachments.filter(f => f !== file);
+        this._syncUploading();
         this._emit('attachments-change', { attachments: this._attachments });
     }
 
     /** Drop every pending attachment and notify. */
     clearAttachments(): void {
         this._attachments = [];
+        this._syncUploading();
         this._emit('attachments-change', { attachments: [] });
     }
 
@@ -639,6 +670,7 @@ export class AparteComposer extends HTMLElement {
         if (!value && this._attachments.length === 0) return;
         if (this.disabled) return;
         if (this._modelGated) return; // no model selected yet (require-model gate)
+        if (this._uploading) return; // a file is still on its way
 
         this._emit('submit', { value, attachments: this._attachments });
 

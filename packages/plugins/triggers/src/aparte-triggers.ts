@@ -46,9 +46,9 @@ let nextId = 0;
  *
  * @fires {CustomEvent<AparteTriggerSelectEventDetail>} aparte-trigger-select - A row was chosen.
  *   Cancelable: `preventDefault()` leaves the draft untouched and runs nothing.
- * @fires {CustomEvent<AparteCollectCommandsDetail>} aparte-collect-commands - A menu with commands is opening.
+ * @fires {CustomEvent<AparteCollectCommandsEventDetail>} aparte-collect-commands - A menu with commands is opening.
  *
- * @cssprop [--aparte-triggers-max-height=320px] - Height at which a list starts to scroll.
+ * @cssprop [--aparte-menu-max-height=320px] - Height at which a list starts to scroll.
  */
 export class AparteTriggers extends HTMLElement {
     private _triggers: readonly AparteTrigger[] = [{ char: '/', at: 'message', commands: true }];
@@ -291,7 +291,7 @@ export class AparteTriggers extends HTMLElement {
         panel.className = 'aparte-menu';
         panel.setAttribute('role', 'listbox');
         panel.id = `${this._id}-${this._levels.length}`;
-        panel.style.cssText = 'position:fixed;inset:auto;margin:0;overflow-y:auto;max-height:var(--aparte-triggers-max-height,320px)';
+        panel.style.cssText = 'position:fixed;inset:auto;margin:0';
         // Not `pointerdown`: only cancelling `mousedown` keeps the focus in the field.
         panel.addEventListener('mousedown', (e) => e.preventDefault());
         panel.addEventListener('click', this._onClick);

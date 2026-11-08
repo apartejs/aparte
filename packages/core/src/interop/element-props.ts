@@ -41,6 +41,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-retry',
     'aparte-edit',
     'aparte-feedback',
+    'aparte-feedback-reason',
     'aparte-message-info',
     'aparte-branch-navigate',
     'aparte-link-click',

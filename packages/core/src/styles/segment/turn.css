@@ -14,7 +14,7 @@
 }
 
 .aparte-turn__current {
-  font-family: var(--aparte-font-mono);
+  font-family: var(--aparte-code-font-family);
 }
 
 .aparte-turn__body {

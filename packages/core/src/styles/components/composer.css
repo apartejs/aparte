@@ -69,6 +69,17 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    ========================================= */
 
 
+.aparte-thumb__progress {
+  position: absolute;
+  inset-inline: var(--aparte-space-2);
+  inset-block-end: var(--aparte-space-2);
+  width: auto;
+}
+
+.aparte-thumb[data-failed] {
+  outline: var(--aparte-border-width) solid var(--aparte-error);
+}
+
 .aparte-thumb__remove {
   /* Icon size comes from `--sm` — see `--aparte-btn-icon-size` in button.css. */
   /* A scrim, not a ghost. This button sits ON the picture: the recipe rests

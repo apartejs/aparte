@@ -113,6 +113,10 @@ export interface AparteStorageAdapter {
     save(conv: AparteConversation): Promise<void>;
     /** Permanently delete a conversation by id (cascades related rows). */
     delete(id: string): Promise<void>;
+    /** What was typed and not sent, with `keepDrafts` on. Optional, with {@link saveDraft}. */
+    loadDraft?(id: string): Promise<string | null | undefined>;
+    /** Keep a draft. Must not touch the conversation's `updatedAt`. An empty text means none. */
+    saveDraft?(id: string, text: string): Promise<void>;
     /** Archive a conversation (soft-delete). Optional. */
     archive?(id: string): Promise<void>;
     /** Restore an archived conversation. Optional. */

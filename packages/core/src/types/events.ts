@@ -4,6 +4,9 @@
  */
 
 import type { AparteMessage, AparteMessageToken } from './models.js';
+import type { AparteConfig } from '../config/aparte-config.js';
+import type { AparteComposer } from '../components/composer/aparte-composer.js';
+import type { AparteComposerInput } from '../components/composer/aparte-composer-input.js';
 import type { AparteUsage, AparteFinishReason } from './chat.js';
 import type { AparteError } from './errors.js';
 import type { AparteActionZone } from '../config/action-provider.js';
@@ -209,6 +212,84 @@ export interface AparteEditEventDetail {
     content: string;
     /** Optional id of the host element (aparte-chat) — used by `scopeToTargetId`. */
     targetId?: string;
+}
+
+/** The chat a command acts on. */
+export interface AparteCommandScope {
+    config: AparteConfig;
+    composer: AparteComposer;
+    /** The `<aparte-chat>` or `[data-aparte-chat]` above the composer. */
+    chat: HTMLElement | null;
+    /** The id `aparte-*` events name this chat by. */
+    targetId: string | undefined;
+}
+
+/** What a command receives when it is chosen. */
+export interface AparteCommandContext extends AparteCommandScope {
+    query: string;
+    input: AparteComposerInput;
+    /** Say something beside the composer for a few seconds: why a command did nothing. */
+    notify(text: string): void;
+}
+
+/** A command a plugin or an app adds to `@aparte/plugin-triggers`' menu. */
+export interface AparteCommand {
+    /** The same id twice: the last one answering wins. */
+    id: string;
+    /** What is typed after the trigger. Defaults to `id`. */
+    name?: string;
+    /** Defaults to the trigger followed by `name`. */
+    label?: string;
+    description?: string;
+    /** A core icon's name, a short text such as an emoji, or an element. */
+    icon?: string | HTMLElement;
+    group?: string;
+    keywords?: readonly string[];
+    /** Lower comes first. Default 100. */
+    order?: number;
+    hidden?: boolean;
+    /** Asked each time the menu opens. A command that cannot act here is not listed. */
+    enabled?: (scope: AparteCommandScope) => boolean;
+    run?: (context: AparteCommandContext) => void | Promise<void>;
+    children?: readonly AparteCommand[] | ((scope: AparteCommandScope) => readonly AparteCommand[]);
+}
+
+/**
+ * Detail payload for `aparte-collect-commands`, sent up when a menu of
+ * `@aparte/plugin-triggers` opens. A plugin that has a command listens on `window`, checks
+ * `config` is its own, and calls `add`. Core only names the shape: it reads none of it, and
+ * neither side imports the other.
+ *
+ * @event aparte-collect-commands
+ */
+export interface AparteCollectCommandsEventDetail {
+    config: AparteConfig;
+    chat: HTMLElement | null;
+    composer: AparteComposer;
+    add(command: AparteCommand): void;
+}
+
+/**
+ * Detail payload for `aparte-trigger-select`, sent when a row of
+ * `@aparte/plugin-triggers`' menu is chosen. `preventDefault()` leaves the draft untouched.
+ *
+ * @event aparte-trigger-select
+ */
+export interface AparteTriggerSelectEventDetail {
+    trigger: { char: string };
+    item: { id: string; label: string; data?: unknown };
+    query: string;
+}
+
+/**
+ * Detail payload for `aparte-feedback-reason`: why a reply got a thumbs-down, picked from
+ * `setBubbleActions({ feedbackReasons })`.
+ *
+ * @event aparte-feedback-reason
+ */
+export interface AparteFeedbackReasonEventDetail {
+    messageId: string;
+    reason: string;
 }
 
 /**

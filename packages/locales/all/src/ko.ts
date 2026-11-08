@@ -84,6 +84,8 @@ export const ko: AparteLocale = {
     turnWorked: "작업 시간 {duration}",
     turnUsed: "{tools} 사용",
     turnTools: "other:도구 {n}개",
+    feedbackReasonTitle: '무엇이 문제였나요?',
+    feedbackReasonDismiss: '나중에',
     triggersLoading: '불러오는 중…',
     triggersEmpty: '결과 없음',
     triggersError: '이 목록을 불러올 수 없습니다',

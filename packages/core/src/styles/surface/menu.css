@@ -59,6 +59,8 @@
      `width: max-content` is what makes it hug its longest item between the two bounds,
      the way a menu sizes itself to "Include metadata" and stops. */
   --aparte-menu-max-width: 320px;
+  /* Where a list of options starts to scroll: only a listbox is long enough to need it. */
+  --aparte-menu-max-height: 320px;
 
   display: flex;
   flex-direction: column;
@@ -75,6 +77,11 @@
   box-shadow: var(--aparte-menu-shadow);
   color: var(--aparte-text);
   z-index: var(--aparte-z-dropdown);
+}
+
+.aparte-menu[role='listbox'] {
+  max-height: var(--aparte-menu-max-height);
+  overflow-y: auto;
 }
 
 .aparte-menu__item {

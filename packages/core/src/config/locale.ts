@@ -399,6 +399,10 @@ export type AparteLocale = {
     turnUsed?: string;
     /** How many tools a fold used, as `category:form` pairs (default: "one:{n} tool|other:{n} tools") */
     turnTools?: string;
+    /** the row a thumbs-down opens (default: "What went wrong?"). */
+    feedbackReasonTitle?: string;
+    /** closes that row (default: "Not now"). */
+    feedbackReasonDismiss?: string;
     /** the menu's line while a list is on its way (default: "Loading…"). */
     triggersLoading?: string;
     /** a search that found nothing (default: "No results"). */
@@ -676,6 +680,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     turnWorked: "Worked {duration}",
     turnUsed: "Used {tools}",
     turnTools: "one:{n} tool|other:{n} tools",
+    feedbackReasonTitle: 'What went wrong?',
+    feedbackReasonDismiss: 'Not now',
     triggersLoading: 'Loading…',
     triggersEmpty: 'No results',
     triggersError: 'This list could not be loaded',

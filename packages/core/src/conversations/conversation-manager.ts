@@ -204,6 +204,11 @@ export class AparteConversationManager {
     /** The list on its way: a conversation created meanwhile waits for it, or the list would replace it. */
     private _initPromise: Promise<void> | null = null;
 
+    /** The store this manager writes to. */
+    get adapter(): AparteStorageAdapter {
+        return this._adapter;
+    }
+
     constructor(adapter: AparteStorageAdapter, options?: ConversationManagerOptions) {
         this._adapter = adapter;
         this._retention = options?.retention ?? null;

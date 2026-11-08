@@ -7,22 +7,11 @@
  * survives exactly as long as the page, and a host that wants it remembered reads
  * `getMode()` / `onModeChange` and writes wherever it keeps its preferences.
  */
-import { aparteGlobalConfig, type AparteConfig, type AparteApprovalPolicy } from '@aparte/core';
+import { aparteGlobalConfig, type AparteCollectCommandsEventDetail, type AparteConfig, type AparteApprovalPolicy } from '@aparte/core';
 import {
     APPROVAL_MODES, APPROVAL_MODE_LABELS, createApprovalPolicy, classifyTool,
     type ApprovalMode, type ApprovalClassification, type ToolClass,
 } from './policy.js';
-
-/** The part of `aparte-collect-commands` this plugin reads; the event is `@aparte/plugin-triggers`'. */
-interface CollectCommandsDetail {
-    config: AparteConfig;
-    add(command: {
-        id: string;
-        order?: number;
-        description?: string;
-        children: Array<{ id: string; label: string; icon?: string; run(): void }>;
-    }): void;
-}
 
 export interface ApprovalSetupOptions {
     /** Your tool names, by what they do. Unlisted names keep their own `needsApproval`. */
@@ -118,7 +107,7 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
     };
 
     const onCollectCommands = (e: Event): void => {
-        const { detail } = e as CustomEvent<CollectCommandsDetail>;
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
         if (detail.config !== config) return;
         detail.add({
             id: 'approval',

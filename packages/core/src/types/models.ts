@@ -114,6 +114,11 @@ export interface AparteBubbleActionsConfig {
     /** Thumbs-up / thumbs-down feedback (assistant bubbles). Needs a listener. Default: false */
     feedback?: boolean;
     /**
+     * Reasons to offer after a thumbs-down, in your words and language. One press sends
+     * `aparte-feedback-reason`; `aparte-feedback` has already gone out with the thumb.
+     */
+    feedbackReasons?: readonly string[];
+    /**
      * The details ("i") button, which opens the **app-owned** stats popover by
      * emitting `aparte-message-info` (assistant bubbles). Rendered only when the
      * message also carries a `usage` — no numbers, nothing to show. Default: false
@@ -264,6 +269,13 @@ export interface AparteMessage {
 
     /** Optional metadata for custom properties */
     metadata?: Record<string, unknown>;
+}
+
+/** How the upload of a picked file is going (`composer.setAttachmentState`). */
+export interface AparteAttachmentState {
+    status: 'uploading' | 'done' | 'error';
+    /** From 0 to 100. Without it, an `uploading` file shows a moving bar. */
+    progress?: number;
 }
 
 /** A pill in the composer: what it shows, and what the message says in its place. */

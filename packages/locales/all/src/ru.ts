@@ -84,6 +84,8 @@ export const ru: AparteLocale = {
     turnWorked: "Работа заняла {duration}",
     turnUsed: "Использовано: {tools}",
     turnTools: "one:{n} инструмент|few:{n} инструмента|many:{n} инструментов|other:{n} инструмента",
+    feedbackReasonTitle: 'Что пошло не так?',
+    feedbackReasonDismiss: 'Не сейчас',
     triggersLoading: 'Загрузка…',
     triggersEmpty: 'Ничего не найдено',
     triggersError: 'Не удалось загрузить список',

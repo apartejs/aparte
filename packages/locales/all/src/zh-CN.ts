@@ -84,6 +84,8 @@ export const zhCN: AparteLocale = {
     turnWorked: "用时 {duration}",
     turnUsed: "使用了 {tools}",
     turnTools: "other:{n} 个工具",
+    feedbackReasonTitle: '哪里出了问题？',
+    feedbackReasonDismiss: '暂不',
     triggersLoading: '加载中…',
     triggersEmpty: '没有结果',
     triggersError: '无法加载此列表',
