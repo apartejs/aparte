@@ -1,0 +1,123 @@
+---
+title: "aparté 1.0: what the number promises, and where the library goes next"
+description: aparté 1.0 is out. What the version commits to, what the beta taught, and what comes next, from sub-agents and a canvas to a chat that does not need our design system.
+sidebar:
+  label: aparté 1.0
+  order: 3
+---
+
+*Published November 8, 2026.*
+
+aparté 1.0.0 went out on November 7, 2026. aparté is a chat for AI that comes as web components:
+you place it in a page, with React, Vue, Svelte, Angular or no framework, and it talks to your
+model or your agent through whatever you already run. The number does not mean more features than
+the day before. It means a promise. This page says what that promise covers, how the library got
+there, and what comes next.
+
+## What 1.0 promises
+
+From 1.0.0, aparté follows semantic versioning on a declared surface. A frozen name keeps its
+name, and what its documentation says it does, until 2.0.
+
+| Frozen | Not frozen |
+| --- | --- |
+| element tags and the attributes they document | the methods of an element or of an exported class |
+| event names | the fields of an interface |
+| what each package's main entry exports | type names, and other subpath entries |
+| locale keys | the keys a plugin adds to the locale |
+| `--aparte-*` token names | a token's default value, and class names |
+
+A frozen name leaves in two steps: a notice in a minor release, where the old name still works and
+your editor strikes it through, then the removal in the next major. There is one exception, for
+security: a fix that closes a hole may refuse what used to be accepted, in any release, and its
+changelog entry says so on its first line.
+
+The [stability page](/reference/stability/) lists that surface, generated from the code itself.
+Every `@aparte` package ships at the same version, so there is one number to follow.
+
+## What the beta taught
+
+The beta ran from 0.17.0, on September 12, to 0.32.1, on November 2. It froze names, and it held
+them, with one exception: 0.27.0 removed a locale package without a notice release.
+
+What it did not freeze was what those names did. Behaviour and defaults still moved under them, for
+example the copy button, which went off by default in 0.27.1. Each change was in the notes of its
+release, but you had to read them. That is why the 1.0 promise covers what a name does as well as
+the name, and why the stability page lists every such change the beta made.
+
+The rest of the road to 1.0 was a list of conditions that could be measured. The
+[roadmap](/roadmap/) keeps it item by item. Among them:
+
+- **A [performance budget](/reference/performance/)**: token to paint, the memory of a
+  500-message conversation, gzip per package. Every pull request is checked against it.
+- **Server rendering, proven**: a production build on Next, Nuxt, SvelteKit and Angular SSR,
+  rendered on the server and hydrated in a browser, in CI.
+- **[Accessibility](/guides/accessibility/)**: a statement of what is covered and tested, and
+  right-to-left checked in real browsers.
+- **Every locale carries every key**, and every package is published from CI with npm provenance.
+
+1.0.0 also removed what the beta had marked as deprecated, so the stable line does not start by
+carrying it.
+
+## What it is today
+
+[Why aparté](/why/) has the choices in full. In short: `@aparte/core` has one dependency,
+`@aparte/engine`, released with it. The model can be called from the browser or from your server.
+The agent loop can be ours, yours, or one running elsewhere, over AG-UI or n8n. A tool call can
+wait for a person's approval, and with the loop on your server that approval survives a reload.
+Maths, diagrams, charts and cards are plugins you add when you need them.
+
+Routing, sign-in, settings screens and a backend stay your product's.
+
+## Where it goes next: a full assistant
+
+1.0 is a solid chat. It is not yet everything it takes to build an assistant like ChatGPT or
+Claude, and that is the direction for 1.x. It stays a library: aparté provides the parts, and the
+product stays yours.
+
+- **Sub-agents and workflows.** aparté shows an agent's text, reasoning and tool calls. It does
+  not yet show its steps and sub-agents as such: the [AG-UI runner](/providers/agent/ag-ui/) does
+  not tell a sub-agent's output from the main agent's. They should be drawn as what they are.
+- **A canvas.** A document open beside the conversation, that the model writes and the reader
+  keeps working on.
+- **[Artifacts](/components/artifact/), reworked.** Today an artifact is a card inside the reply,
+  with its code and a sandboxed preview, and showing it anywhere else is left to your app.
+- **More plugins, and more customization**, starting with ready-made skins: token sheets, pure CSS.
+
+The proof will be an example app that puts it all together. That follows the rule this library
+already keeps: a capability ships when something in this repository exercises it end to end.
+
+All of this adds to 1.x. None of it changes a frozen name.
+
+## Further out: not hostage to our design system
+
+Today the core package carries both the chat's logic and its interface, our design system
+included. You can restyle our buttons through tokens and replace some pieces by hand, but there is no single
+place to say "use my buttons everywhere". A team with a design system of its own should not have to
+choose between that system and this chat.
+
+The idea for a future 2.0 is to separate the two. The interface would live in a package of its
+own, and the code would ask for "a button" without knowing who draws it. By default, that is
+aparté's. A small plugin could map it to shadcn's, PrimeNG's, or yours.
+
+The pattern is known. [BlockNote](https://github.com/TypeCellOS/BlockNote) does it for an editor,
+with one package per UI library, and
+[react-jsonschema-form](https://github.com/rjsf-team/react-jsonschema-form) and
+[ngx-formly](https://github.com/ngx-formly/ngx-formly) do it for forms. We have not seen it done
+for a chat.
+
+This is an idea, not a plan with a date. It belongs to 2.0 because it moves things, and until
+then, the promise above holds.
+
+## Try it
+
+[Getting started](/guides/getting-started/) is the place to begin, and the
+[changelog](/changelog/) has every release. If something is missing for what you are building,
+[open an issue](https://github.com/apartejs/aparte/issues).
+
+## Sources
+
+- [`@aparte/core` on npm](https://www.npmjs.com/package/@aparte/core?activeTab=versions), for the
+  release dates.
+- aparté, [What will not change under you](/reference/stability/),
+  [Roadmap](/roadmap/) and [Changelog](/changelog/).
