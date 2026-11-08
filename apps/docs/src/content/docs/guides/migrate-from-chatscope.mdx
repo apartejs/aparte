@@ -1,0 +1,168 @@
+---
+title: Migrate from chatscope to aparté
+description: Replace @chatscope/chat-ui-kit-react with aparté in a React app — what each component becomes, how the message model maps, and how to keep your own backend or stream a model.
+sidebar:
+  order: 4
+  label: From chatscope
+guide:
+  group: help
+---
+
+`@chatscope/chat-ui-kit-react` gives you components to assemble a chat, and leaves the messages and
+the sending to your code. `<AparteChat>` from `@aparte/react` is the whole chat in one component,
+and it draws what an AI reply needs: tokens as they stream, tool calls, reasoning.
+
+You can move in two steps: change the view and keep your own backend call, then stream the reply.
+
+## Swap the packages
+
+```bash
+npm uninstall @chatscope/chat-ui-kit-react @chatscope/chat-ui-kit-styles
+npm install @aparte/react @aparte/core
+```
+
+## Change the view, keep your backend call
+
+A typical chatscope chat holds the messages and the typing flag itself:
+
+{/* doc-check: skip excerpt — the code being replaced, on a package this site does not depend on */}
+```jsx
+import { useState } from 'react';
+import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
+import { MainContainer, ChatContainer, MessageList, Message, MessageInput, TypingIndicator } from '@chatscope/chat-ui-kit-react';
+
+export function Chat() {
+  const [messages, setMessages] = useState([]);
+  const [typing, setTyping] = useState(false);
+
+  async function send(_html, text) {
+    setMessages((m) => [...m, { message: text, direction: 'outgoing', position: 'single' }]);
+    setTyping(true);
+    const answer = await askMyServer(text);
+    setMessages((m) => [...m, { message: answer, direction: 'incoming', position: 'single' }]);
+    setTyping(false);
+  }
+
+  return (
+    <div style={{ position: 'relative', height: 500 }}>
+      <MainContainer>
+        <ChatContainer>
+          <MessageList typingIndicator={typing ? <TypingIndicator content="Typing…" /> : null}>
+            {messages.map((m, i) => <Message key={i} model={m} />)}
+          </MessageList>
+          <MessageInput placeholder="Type message here" onSend={send} />
+        </ChatContainer>
+      </MainContainer>
+    </div>
+  );
+}
+```
+
+With aparté, the person's message is added for you and the waiting dots show until the first word:
+
+{/* doc-check: skip excerpt — `askMyServer` is the reader's own call, which is the whole subject of the page */}
+```tsx
+import { useCallback } from 'react';
+import { uuid } from '@aparte/core';
+import { AparteChat, useAparteChat } from '@aparte/react';
+import '@aparte/core/styles.css';
+
+async function* reply(text: string) {
+  yield await askMyServer(text);
+}
+
+export function Chat() {
+  const chat = useAparteChat();
+
+  const onMessageSent = useCallback(async (event: { content: string }) => {
+    const id = uuid();
+    chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    await chat.ref.current?.injectTokenStream(id, reply(event.content));
+  }, [chat.ref]);
+
+  return (
+    <div style={{ height: 500 }}>
+      <AparteChat
+        ref={chat.ref}
+        messages={chat.messages}
+        onMessagesChange={chat.setMessages}
+        onMessageSent={onMessageSent}
+        placeholder="Type message here"
+      />
+    </div>
+  );
+}
+```
+
+## What each part becomes
+
+| chatscope | aparté |
+| --- | --- |
+| `MainContainer`, `ChatContainer`, `MessageList`, `MessageInput` | `<AparteChat>`, in a parent with a height |
+| `Message` and its `model` | an `AparteMessage` in `messages` |
+| `direction: 'outgoing'`, `'incoming'` | `role: 'user'`, `'assistant'` |
+| `message` | `content`, drawn as Markdown once a [renderer](/guides/markdown/) is set up |
+| `sentTime`, a string | `timestamp`, a number such as `Date.now()` |
+| `position` | not needed |
+| `type: 'custom'` and `payload` | `renderBubble(message)` |
+| `TypingIndicator` | built in, while a reply has no words yet |
+| `MessageInput`'s `onSend` | `onMessageSent`; it receives `event.content` |
+| `MessageInput`'s `attachButton` | the `attachments` prop ([Attachments](/guides/attachments/)) |
+| `InputToolbox` | the `toolbar` prop |
+| `Avatar` on a message | [`setAvatarProvider()`](/guides/customization/icons-and-avatars/) |
+| `ConversationHeader` | the [header](/components/header/) |
+| `Sidebar` | [`<aparte-sidebar>`](/components/sidebar/) |
+| `ConversationList`, `Conversation` | [`<aparte-conversation-list>`](/components/conversation-list/) |
+| `@chatscope/use-chat` | `useAparteChat`, and [conversation persistence](/guides/conversation-persistence/) |
+| `MessageSeparator` | no equivalent in the transcript |
+| `onYReachStart`, `loadingMore` | no equivalent: you give the messages up front |
+
+## Styles
+
+`@chatscope/chat-ui-kit-styles` is replaced by `@aparte/core/styles.css`. Where you set Sass variables,
+set CSS variables instead ([Theme](/guides/theming/)):
+
+```css
+:root {
+  --aparte-primary: #b45309;
+  --aparte-bg: #fbf7f0;
+  --aparte-text: #241a12;
+}
+```
+
+## Stream the reply
+
+`injectTokenStream` takes any async iterable, so a server that streams text only changes `reply`:
+
+```ts
+async function* reply(text: string) {
+  const res = await fetch('/api/chat', { method: 'POST', body: text });
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+    yield value;
+  }
+}
+```
+
+## Or let aparté call the model
+
+If you have no loop worth keeping, remove `onMessageSent` and start a client. Register a provider
+([Connect a model](/providers/)), or keep the key on your server
+([Key on your server](/guides/backend-transport/)):
+
+```tsx
+import { AparteChat, useAparteClient } from '@aparte/react';
+import '@aparte/core/styles.css';
+
+export function Chat() {
+  useAparteClient();
+  return <AparteChat />;
+}
+```
+
+## When to stay on chatscope
+
+aparté draws one person talking to an assistant: a message is `user` or `assistant`, and has no
+sender. For a chat between several people, with a name on each message, chatscope fits better.
