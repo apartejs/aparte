@@ -256,8 +256,40 @@ export interface AparteMessage {
      */
     contextEstimate?: number;
 
+    /**
+     * The tokens this message was written with (mentions, a picked file), each with its
+     * place in `content`. The bubble draws them as they looked in the composer.
+     */
+    tokens?: AparteMessageToken[];
+
     /** Optional metadata for custom properties */
     metadata?: Record<string, unknown>;
+}
+
+/** A pill in the composer: what it shows, and what the message says in its place. */
+export interface AparteComposerToken {
+    /** What the pill shows. */
+    label: string;
+    /** What the message contains in its place. Defaults to `label`. */
+    text?: string;
+    /** A name of your own, `mention` or `file`. Reaches the page as `data-kind` on the pill. */
+    kind?: string;
+    /** Whatever the app wants back with the message: an id, a path. Never shown; must survive JSON. */
+    data?: unknown;
+}
+
+/** A token of a sent message, with where it sits in `content` (end excluded). */
+export interface AparteMessageToken extends AparteComposerToken {
+    text: string;
+    start: number;
+    end: number;
+}
+
+/** The caret in a draft. Offsets count one unit per character, per line break and per token. */
+export interface AparteComposerCaret {
+    /** The draft, where each token is one U+FFFC character. */
+    text: string;
+    offset: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

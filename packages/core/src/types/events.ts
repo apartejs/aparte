@@ -3,7 +3,7 @@
  * Event interfaces for component communication and control
  */
 
-import type { AparteMessage } from './models.js';
+import type { AparteMessage, AparteMessageToken } from './models.js';
 import type { AparteUsage, AparteFinishReason } from './chat.js';
 import type { AparteError } from './errors.js';
 import type { AparteActionZone } from '../config/action-provider.js';
@@ -46,6 +46,19 @@ export interface AparteSendEventDetail {
     modelId?: string;
     /** The provider that `modelId` belongs to; defaults to the config's `defaultProvider`. */
     providerId?: string;
+
+    /**
+     * The tokens the draft held (see `AparteComposerToken`). `AparteClient` keeps them on the
+     * user message and passes them to the request as `_meta.tokens`.
+     */
+    tokens?: AparteMessageToken[];
+
+    /**
+     * Data to go with this message and not in its text. `AparteClient` keeps it as the user
+     * message's `metadata` and merges it into the request's `_meta`. The composer never sets
+     * it: add it from a listener that runs before the client's (capture phase).
+     */
+    meta?: Record<string, unknown>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

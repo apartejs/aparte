@@ -6,6 +6,7 @@ import type {
     AparteUsage,
     AparteFinishReason,
     AparteContextSummary,
+    AparteMessageToken,
 } from '../../types/index.js';
 import { isTerminalStatus } from '../../utils/segments.js';
 
@@ -21,6 +22,7 @@ export interface SyncableBubble {
     setSegments?: (segments: AparteSegment[]) => void;
     updateSegment?: (segmentId: string, updates: Partial<AparteSegment>) => void;
     setContent?: (content: string) => void;
+    setTokens?: (tokens: readonly AparteMessageToken[] | undefined) => void;
     setAttachments?: (attachments: AparteAttachment[]) => void;
     setSiblings?: (count: number, index: number) => void;
     setUsage?: (usage: AparteUsage | null | undefined) => void;
@@ -110,6 +112,8 @@ export function populateBubbleFromMessage(
     } else if (message.content !== undefined) {
         bubble.setContent?.(message.content);
     }
+
+    bubble.setTokens?.(message.tokens);
 
     if (message.attachments && message.attachments.length > 0) {
         bubble.setAttachments?.(message.attachments);

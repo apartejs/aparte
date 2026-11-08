@@ -1,3 +1,4 @@
+import type { AparteComposerInput } from './aparte-composer-input.js';
 import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
@@ -641,6 +642,7 @@ export class AparteComposer extends HTMLElement {
 
         this._emit('submit', { value, attachments: this._attachments });
 
+        const tokens = this.querySelector<AparteComposerInput>('aparte-composer-input')?.getTokens?.();
         const detail: AparteSendEventDetail = {
             content: value,
             timestamp: Date.now(),
@@ -653,6 +655,7 @@ export class AparteComposer extends HTMLElement {
              */
             targetId: this._ownTargetId(),
             files: this._attachments.length > 0 ? [...this._attachments] : undefined,
+            ...(tokens?.length ? { tokens } : {}),
         };
 
         this.dispatchEvent(new CustomEvent<AparteSendEventDetail>('aparte-send', {

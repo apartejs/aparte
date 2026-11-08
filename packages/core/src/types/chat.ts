@@ -5,6 +5,7 @@
 import type { AparteTool, AparteToolCall } from './tools.js';
 import type { AparteSegment, AparteSource, AparteCitation } from './segments.js';
 import type { AparteErrorCode } from './errors.js';
+import type { AparteMessageToken } from './models.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Content Parts — multimodal message content (Vercel AI SDK compatible)
@@ -143,6 +144,8 @@ export interface AparteRequestMeta {
      * without inspecting the messages to guess what the request is for.
      */
     compaction?: true;
+    /** The tokens of the message being sent, with what the app put in their `data`. */
+    tokens?: AparteMessageToken[];
     /** Consumer-specific context (open channel). */
     [key: string]: unknown;
 }

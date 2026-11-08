@@ -13,6 +13,8 @@ import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } 
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
+import type { AparteRequestMeta } from '../types/chat.js';
+import type { AparteMessageToken } from '../types/models.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
@@ -757,6 +759,8 @@ export class AparteClient {
             rebuild?: () => Promise<AparteChatMessage[]>;
             /** The files picked for this message, for a runner that uploads them itself. */
             files?: readonly File[];
+            /** What goes in the request's `_meta` from the message that started this turn. */
+            meta?: AparteRequestMeta;
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
@@ -773,6 +777,7 @@ export class AparteClient {
                 stream: true,
                 tools: registeredTools.length ? registeredTools : undefined,
                 ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
+                ...(opts?.meta ? { _meta: opts.meta } : {}),
             };
             if (this.options.requestInterceptor) {
                 built = await this.options.requestInterceptor(built);
@@ -1104,6 +1109,7 @@ export class AparteClient {
             [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
+                ...this._turnMeta([...historyMessages].reverse().find((m) => m.role === 'user')),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1373,6 +1379,12 @@ export class AparteClient {
         return summary === undefined ? [] : [{ role: 'user', content: underPreamble(summary) }];
     }
 
+    /** A message's tokens and metadata as a turn's `_meta`: a send and its retry say the same. */
+    private _turnMeta(asked: { tokens?: AparteMessageToken[]; metadata?: Record<string, unknown>; meta?: Record<string, unknown> } | undefined): { meta?: AparteRequestMeta } {
+        const meta = { ...(asked?.metadata ?? asked?.meta), ...(asked?.tokens?.length ? { tokens: asked.tokens } : {}) };
+        return Object.keys(meta).length > 0 ? { meta } : {};
+    }
+
     /** The "no model selected" warning is said once per client, not once per dropped send. */
     private _warnedNoModel = false;
 
@@ -1492,6 +1504,8 @@ export class AparteClient {
                 content,
                 timestamp: Date.now(),
                 ...(echoFiles.length > 0 ? { attachments: filesToAttachments(echoFiles) } : {}),
+                ...(event.detail?.tokens?.length ? { tokens: event.detail.tokens } : {}),
+                ...(event.detail?.meta ? { metadata: event.detail.meta } : {}),
             });
             if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
         }
@@ -1570,6 +1584,7 @@ export class AparteClient {
             {
                 rebuild: async () => this._buildMessages(content, targetElement, fileParts),
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
+                ...this._turnMeta(event.detail),
             },
         );
     }

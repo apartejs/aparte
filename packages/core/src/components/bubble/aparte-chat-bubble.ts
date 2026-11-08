@@ -46,6 +46,8 @@ import { pluralize } from '../../utils/plural.js';
 import { formatDuration } from '../../utils/format-duration.js';
 import { planTurns, rowOf, turnDuration, type TurnRole } from './turn-groups.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
+import type { AparteMessageToken } from '../../types/index.js';
+import { drawMessageTokens } from './message-tokens.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -326,6 +328,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _branchPickerEl: HTMLDivElement | null = null;
   private _footerEl: HTMLDivElement | null = null;
   private _content = '';
+  private _tokens: readonly AparteMessageToken[] | undefined;
   private _streaming = false;
   private _segments: AparteSegment[] = [];
   private _role: AparteBubbleRole = 'assistant';
@@ -833,6 +836,18 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._content += chunk;
     this._updateContent();
     this._syncCopyAction();
+  }
+
+  /** The tokens a user message was written with, drawn as they looked in the composer. */
+  setTokens(tokens: readonly AparteMessageToken[] | undefined): void {
+    this._tokens = tokens;
+    this._drawTokens();
+  }
+
+  private _drawTokens(): void {
+    if (this._contentEl && this._role === 'user' && this._tokens?.length) {
+      drawMessageTokens(this._contentEl, this._content, this._tokens);
+    }
   }
 
   /** Set content directly */
@@ -1922,6 +1937,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     runWithConfig(this._cfg, () =>
       writeStreamedMarkdown(this as AparteMarkdownStreamHost, this._contentEl!, this._content, this._streaming),
     );
+    this._drawTokens();
     // The first token retires the waiting indicator (and a cleared content brings
     // it back, e.g. a retry that resets the bubble before re-streaming).
     this._updateWaiting();

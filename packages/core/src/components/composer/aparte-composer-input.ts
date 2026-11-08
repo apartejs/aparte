@@ -4,6 +4,8 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 import { acceptsFile } from './accepts-file.js';
+import { flatOffset, flatRange, flatText, serializeDraft, tokenElement } from './composer-tokens.js';
+import type { AparteComposerCaret, AparteComposerToken, AparteMessageToken } from '../../types/index.js';
 
 /**
  * Contenteditable text input primitive.
@@ -157,26 +159,55 @@ export class AparteComposerInput extends HTMLElement {
      */
     getValue(): string {
         // `textContent` drops `<br>`, so multi-line content would collapse onto one
-        // line. Serialize the editor ourselves: text nodes as-is, `<br>` → newline.
-        // We keep the editor flat (text + <br>, see _handleKeydown), but descend into
-        // any stray wrapper for safety.
-        if (!this._editor) return '';
-        let out = '';
-        const walk = (node: Node): void => {
-            node.childNodes.forEach(child => {
-                if (child.nodeType === Node.TEXT_NODE) out += child.textContent ?? '';
-                else if (child.nodeName === 'BR') out += '\n';
-                else walk(child);
-            });
+        // line, and a token's label is not what the message says.
+        return this._editor ? serializeDraft(this._editor, this._tokens).value : '';
+    }
+
+    /** The tokens in the draft, with their place in {@link getValue}. */
+    getTokens(): AparteMessageToken[] {
+        return this._editor ? serializeDraft(this._editor, this._tokens).tokens : [];
+    }
+
+    /** The caret, or `null` when the editor does not hold a collapsed selection. */
+    getCaret(): AparteComposerCaret | null {
+        const sel = this.ownerDocument?.getSelection();
+        if (!this._editor || !sel?.rangeCount || !sel.isCollapsed || !this._editor.contains(sel.anchorNode)) return null;
+        return { text: flatText(this._editor), offset: flatOffset(this._editor, sel.anchorNode!, sel.anchorOffset) };
+    }
+
+    /** The box of a range of the draft on screen, to anchor something to the text. */
+    getRangeRect(from: number, to: number = from): DOMRect | null {
+        if (!this._editor) return null;
+        const range = flatRange(this._editor, from, to);
+        return range.getClientRects()[0] ?? null;
+    }
+
+    /** Replace a range of the draft with text, and leave the caret after it. */
+    replaceRange(from: number, to: number, text: string): void {
+        this._write(from, to, text ? 'insertText' : 'delete', text, () => this.ownerDocument.createTextNode(text));
+    }
+
+    /**
+     * Replace a range of the draft with a token, followed by a space for the caret to land
+     * on: a caret cannot rest after something that is not editable at the end of a line.
+     */
+    insertToken(from: number, to: number, token: AparteComposerToken): void {
+        const id = String(++this._lastTokenId);
+        this._tokens.set(id, token);
+        const doc = this.ownerDocument;
+        const fragment = (): DocumentFragment => {
+            const out = doc.createDocumentFragment();
+            out.append(tokenElement(doc, id, token), doc.createTextNode(' '));
+            return out;
         };
-        walk(this._editor);
-        return out.trim();
+        this._write(from, to, 'insertHTML', `${tokenElement(doc, id, token).outerHTML} `, fragment);
     }
 
     /** Replace the editor's content and mirror the value onto the parent composer. */
     setValue(value: string): void {
         if (!this._editor) return;
         this._editor.textContent = value;
+        this._tokens.clear();
         this._updatePlaceholderVisibility();
         this._adjustHeight();
         this._getRoot()?.setValue(value);
@@ -186,6 +217,7 @@ export class AparteComposerInput extends HTMLElement {
     clear(): void {
         if (!this._editor) return;
         this._editor.innerHTML = '';
+        this._tokens.clear();
         this._updatePlaceholderVisibility();
         this._adjustHeight();
         this._getRoot()?.setValue('');
@@ -222,6 +254,40 @@ export class AparteComposerInput extends HTMLElement {
 
     private _getRoot(): AparteComposer | null {
         return this.closest('aparte-composer') as AparteComposer | null;
+    }
+
+    /** What each pill in the editor stands for; a pill brought back by Undo finds its data here. */
+    private readonly _tokens = new Map<string, AparteComposerToken>();
+    private _lastTokenId = 0;
+
+    /**
+     * Through the browser's own edit commands, or Undo would not know about the change;
+     * straight on the DOM where it has none.
+     */
+    private _write(from: number, to: number, command: string, value: string, fallback: () => Node): void {
+        const editor = this._editor;
+        const sel = this.ownerDocument?.getSelection();
+        if (!editor || !sel) return;
+        editor.focus();
+        const range = flatRange(editor, from, to);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        let written = false;
+        try {
+            written = this.ownerDocument.execCommand(command, false, value);
+        } catch {
+            // Not implemented here: the DOM route below does it.
+        }
+        if (written) return;
+        range.deleteContents();
+        const node = fallback();
+        const last = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild! : node;
+        range.insertNode(node);
+        range.setStartAfter(last);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        this._handleInput();
     }
 
     private _getPlaceholder(): string {
@@ -312,6 +378,8 @@ export class AparteComposerInput extends HTMLElement {
         // candidate — it must never submit. `keyCode === 229` is the legacy
         // signal for engines that don't set `isComposing`.
         if (e.isComposing || e.keyCode === 229) return;
+        // Taken by something over the field, an open menu that chose a row with this Enter.
+        if (e.defaultPrevented) return;
         if (e.key !== 'Enter') return;
         // `submit-on-enter` (default true): Enter submits, Shift+Enter inserts
         // a newline. When false the mapping inverts — Shift+Enter submits and

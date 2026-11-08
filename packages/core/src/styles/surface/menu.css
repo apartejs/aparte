@@ -9,6 +9,10 @@
          <span class="aparte-menu__label">Message</span>
          <button class="aparte-menu__item" role="menuitem">Copy</button>
          <button class="aparte-menu__item" role="menuitem">Retry</button>
+         <button class="aparte-menu__item" role="menuitem" aria-haspopup="menu" aria-expanded="false">
+           Move to
+           <span class="aparte-menu__chevron"><aparte-icon name="chevronRight"></aparte-icon></span>
+         </button>
          <div class="aparte-menu__separator" role="separator"></div>
          <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
          <div class="aparte-menu__separator" role="separator"></div>
@@ -116,6 +120,26 @@
 
 .aparte-menu__item:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--aparte-surface-3);
+}
+
+/* The row a keyboard is on while the focus stays in a field (`aria-activedescendant`), and the
+   row whose submenu is open. */
+.aparte-menu__item[aria-selected='true'],
+.aparte-menu__item[aria-expanded='true'] {
+  background: var(--aparte-surface-2);
+}
+
+/* The far edge of a row that opens a submenu; it points the way the submenu opens. */
+.aparte-menu__chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  --aparte-icon-size: 14px;
+  color: var(--aparte-text-muted);
+}
+
+:dir(rtl) .aparte-menu__chevron {
+  transform: scaleX(-1);
 }
 
 .aparte-menu__item:focus-visible {

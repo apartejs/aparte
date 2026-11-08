@@ -25,6 +25,12 @@
   line-height: var(--aparte-line-height-none);
 }
 
+/* A tag in a line of text: a token in the composer, or in a sent message. */
+.aparte-inline-token {
+  margin-inline: 1px;
+  user-select: all;
+}
+
 .aparte-tag__label {
   overflow: hidden;
   text-overflow: ellipsis;

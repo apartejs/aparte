@@ -1,3 +1,4 @@
+import type { AparteSendEventDetail } from '../types/events.js';
 import type { AparteMessage, AparteAttachment, AparteCompactDoneEventDetail } from '../types/index.js';
 import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation, AparteConversationLoadedDetail } from './types.js';
@@ -257,7 +258,7 @@ export class AparteConversationController {
         // append the user message BEFORE AparteClient (window-bubble listener)
         // sees the event. Without capture, AparteClient would race with us.
         this._onSendCapture = (e: Event) => {
-            const evt = e as CustomEvent<{ content?: string; targetId?: string; files?: File[]; timestamp?: number }>;
+            const evt = e as CustomEvent<AparteSendEventDetail>;
             // Only handle events targeting this binding
             const targetId = evt.detail?.targetId;
             if (targetId && targetId !== this._binding.hostId) return;
@@ -276,6 +277,8 @@ export class AparteConversationController {
                 content,
                 timestamp: evt.detail?.timestamp ?? Date.now(),
                 ...(attachments ? { attachments } : {}),
+                ...(evt.detail?.tokens?.length ? { tokens: evt.detail.tokens } : {}),
+                ...(evt.detail?.meta ? { metadata: evt.detail.meta } : {}),
             };
 
             // 1. Optimistic UI: append the user message immediately so it
