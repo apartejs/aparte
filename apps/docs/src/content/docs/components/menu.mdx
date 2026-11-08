@@ -63,6 +63,9 @@ anchor or beside it, turning when the window ends first.
 ```ts
 import { placeFloating } from '@aparte/core';
 
+const button = document.querySelector<HTMLElement>('#open')!;
+const menu = document.querySelector<HTMLElement>('.aparte-menu')!;
+
 menu.style.position = 'fixed';
 placeFloating(button.getBoundingClientRect(), menu, { side: 'below', align: 'end' });
 ```

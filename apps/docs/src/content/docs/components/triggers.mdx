@@ -54,4 +54,27 @@ the keyboard is on wears `aria-selected="true"`. A pill in the field and in a se
 }
 ```
 
+## Types and helpers
+
+| Export | What it is |
+| --- | --- |
+| `AparteTrigger` | One entry of the `triggers` property: `char`, `at`, `items`, `commands`, `match`, `kind`, `debounce`, `allowSpaces`, `maxItems` |
+| `AparteTriggerItem` | One row of a menu |
+| `AparteTriggerSource` | A list asked on demand: `(query, { signal, trigger })`, returning rows or a promise of rows |
+| `AparteTriggerCommands` | What an app decides about the commands: `exclude`, `override` |
+| `AparteTriggerContext` | What a row's `run` receives |
+| `AparteCommandsOptions` | The options of `setupCommands()`, in `@aparte/plugin-triggers/commands` |
+
+Three pure functions, usable without a page, to test your setup:
+
+```ts
+import { detectTrigger, matchRows, scoreItem, type TriggerHit, type TriggerRow } from '@aparte/plugin-triggers';
+
+const trigger = { char: '@', items: [{ id: 'anna', label: 'Anna' }] };
+
+const hit: TriggerHit | null = detectTrigger('hello @an', 9, [trigger]); // what the caret is in
+const rows: TriggerRow[] = matchRows(trigger.items, 'an', trigger);      // the rows, best first
+const score = scoreItem(trigger.items[0]!, 'an');                        // 3 for a prefix, 0 for no match
+```
+
 <TriggersApi />

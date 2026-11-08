@@ -504,7 +504,7 @@ export class AparteConversationController {
     private get _composer(): AparteComposer | null {
         const { host, hostId } = this._binding;
         return host.querySelector<AparteComposer>('aparte-composer')
-            ?? document.querySelector<AparteComposer>(`aparte-composer[target="${cssEscape(hostId)}"]`);
+            ?? document.querySelector<AparteComposer>(`aparte-composer[target="${cssEscape(hostId)}"]`); // safe-attr: a selector, through cssEscape
     }
 
     private _stashDraft(): void {

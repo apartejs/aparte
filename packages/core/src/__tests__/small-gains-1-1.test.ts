@@ -11,11 +11,10 @@ import '../components/composer/aparte-composer-attachments.js';
 import '../components/viewport/aparte-chat-viewport.js';
 import { aparteGlobalConfig } from '../config/index.js';
 import { AparteConversationManager } from '../conversations/conversation-manager.js';
-import { AparteConversationController } from '../conversations/conversation-controller.js';
+import { AparteConversationController, type AparteChatBinding } from '../conversations/conversation-controller.js';
 import type { AparteComposer } from '../components/composer/aparte-composer.js';
 import type { AparteChatViewport } from '../components/viewport/aparte-chat-viewport.js';
-import type { AparteChatBinding, AparteStorageAdapter } from '../conversations/types.js';
-import type { AparteConversation } from '../conversations/types.js';
+import type { AparteConversation, AparteStorageAdapter } from '../conversations/types.js';
 
 afterEach(() => {
     aparteGlobalConfig.reset();

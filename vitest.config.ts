@@ -143,7 +143,7 @@ const config = defineConfig({
         // (pause, Stop in the wait, the cap, the resume history) measured 96.93%.
         // Lines and statements 93 -> 95 with #100 (2026-10-11): the page-without-provider suites
         // measured 96.93%.
-        'packages/core/src/client/**': { lines: 95, statements: 95, functions: 97, branches: 95 },
+        'packages/core/src/client/**': { lines: 95, statements: 95, functions: 97, branches: 97 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -236,7 +236,7 @@ const config = defineConfig({
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-triggers (2026-11-09): the menu's placement needs a real layout, proved in e2e.
-        'packages/plugins/triggers/src/**': { lines: 94, statements: 94, functions: 85, branches: 85 },
+        'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 90, branches: 85 },
         // Measured 2026-11-01 when the package landed: 100 lines, 92.2 branches, 94.1 functions.
         'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 92, branches: 91 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.

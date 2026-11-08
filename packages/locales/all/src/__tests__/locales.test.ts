@@ -33,7 +33,8 @@ const LOCALES: Row[] = [
 
 const english = APARTE_DEFAULT_LOCALE as Record<string, string | undefined>;
 const KEYS = Object.keys(english).filter((k) => typeof english[k] === 'string');
-const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+// Which ones, not how many times: a plural string says `{n}` once per form its language has.
+const placeholders = (s: string) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort();
 
 /**
  * The few strings that are the same word in a language and in English — a technical term or a

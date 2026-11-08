@@ -451,12 +451,16 @@ export class AparteTriggers extends HTMLElement {
 
     // ── Moving ──────────────────────────────────────────────────────────
 
+    private _drawnRow(level: Level, rowIndex: number): HTMLElement | undefined {
+        return level.panel.querySelectorAll<HTMLElement>('[role="option"]')[rowIndex];
+    }
+
     private _setActive(levelIndex: number, rowIndex: number, reveal: boolean): void {
         const level = this._levels[levelIndex];
         if (!level || level.active === rowIndex) return;
         level.panel.querySelector('[aria-selected="true"]')?.setAttribute('aria-selected', 'false');
         level.active = rowIndex;
-        const row = level.panel.querySelector(`[data-row="${rowIndex}"]`);
+        const row = this._drawnRow(level, rowIndex);
         row?.setAttribute('aria-selected', 'true');
         if (reveal) row?.scrollIntoView?.({ block: 'nearest' });
         this._syncEditor();
@@ -534,7 +538,7 @@ export class AparteTriggers extends HTMLElement {
                 break;
             case into: {
                 if (!active?.item.children) return;
-                const el = level.panel.querySelector<HTMLElement>(`[data-row="${level.active}"]`);
+                const el = this._drawnRow(level, level.active);
                 if (el) this._openChild(index, active, el);
                 break;
             }
@@ -601,7 +605,7 @@ export class AparteTriggers extends HTMLElement {
             return;
         }
         if (item.children) {
-            const el = level.panel.querySelector<HTMLElement>(`[data-row="${rowIndex}"]`);
+            const el = this._drawnRow(level, rowIndex);
             if (el) this._openChild(levelIndex, row, el);
             return;
         }

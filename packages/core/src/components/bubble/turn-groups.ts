@@ -48,7 +48,7 @@ export function planTurns<T>(items: readonly T[], roleOf: (item: T) => TurnRole)
  * earlier prose take an update meant for the real row (see `segment-lookup-scope.test.ts`).
  */
 export function rowOf(container: Element, segmentId: string): HTMLElement | null {
-    const id = `[data-segment-id="${cssEscape(segmentId)}"]`; // safe-text: a CSS selector, escaped for one; no markup is built here
+    const id = `[data-segment-id="${cssEscape(segmentId)}"]`; // safe-text: a CSS selector, no markup // safe-attr: through cssEscape
     return container.querySelector<HTMLElement>(`:scope > ${id}, :scope > .aparte-turn > .aparte-turn__body > ${id}`);
 }
 

@@ -14,6 +14,7 @@ npm install @aparte/plugin-triggers
 </aparte-composer>
 ```
 
+<!-- doc-check: skip searchPeople is your own search -->
 ```ts
 import '@aparte/plugin-triggers';
 import { setupCommands } from '@aparte/plugin-triggers/commands';
