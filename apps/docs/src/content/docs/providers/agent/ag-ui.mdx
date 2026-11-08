@@ -83,10 +83,11 @@ person approved once in the turn is not asked about again when the agent pauses 
 
 ## Approvals
 
-When the agent pauses on a call that needs a person — an interrupt whose reason is `tool_call` or
-`confirmation` — the page asks with the same
+When the agent pauses on a call that needs a person — an interrupt whose reason is `tool_call`,
+`confirmation` or `approval_required` — the page asks with the same
 [approval panel](/guides/tools/#require-approval-human-in-the-loop) as for its own tools, and your
-[approval policy](/components/approval-mode/) can answer first. Every answer goes back to the
+[approval policy](/components/approval-mode/) can answer first. A refusal goes back as `{ approved: false }`,
+with `instruction` when the person wrote what to do instead. Every answer goes back to the
 agent in one `resume`, and the run goes on on the agent's server, in the same reply. The pause is
 part of the conversation, so a [saved conversation](/guides/conversation-persistence/) brings the
 question back after a reload.
@@ -167,10 +168,6 @@ ADK asks through a tool of its own, `adk_request_confirmation`. Its example hide
 - An interrupt the page cannot answer — one such as `input_required`, or one that names no
   `toolCallId` — ends the reply without an error, and is answered `cancelled` when the thread
   resumes or runs again.
-- A refusal reaches the agent as `{ approved: false }`, without the words the person wrote. The
-  row still shows them: the runner takes the refusal from core's `toolRefusal`, so the row says
-  who refused (`You said: “…”`, `Refused by policy`), and the agent reads the same sentence as
-  before.
 
 ## Next
 

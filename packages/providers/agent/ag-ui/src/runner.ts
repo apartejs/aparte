@@ -107,7 +107,7 @@ function readTicket(token: string | undefined): Ticket | undefined {
 
 /** An interrupt's reason, as what the page must do about its call. */
 function interruptKind(interrupt: AgUiInterrupt): 'approval' | 'external' | undefined {
-    if (interrupt.reason === 'tool_call' || interrupt.reason === 'confirmation') return 'approval';
+    if (interrupt.reason === 'tool_call' || interrupt.reason === 'confirmation' || interrupt.reason === 'approval_required') return 'approval';
     if (/client_tool/.test(interrupt.reason)) return 'external';
     return undefined;
 }
@@ -174,7 +174,8 @@ function resumeItem(interrupt: Ticket['interrupts'][number], outcome: Outcome | 
         };
     }
     if (outcome.kind === 'decision') {
-        return { interruptId: interrupt.id, status: 'resolved', payload: { approved: outcome.approved } };
+        const instruction = !outcome.approved && outcome.instruction ? { instruction: outcome.instruction } : {};
+        return { interruptId: interrupt.id, status: 'resolved', payload: { approved: outcome.approved, ...instruction } };
     }
     if (outcome.kind === 'failed') {
         return {
