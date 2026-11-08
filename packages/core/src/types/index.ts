@@ -18,6 +18,7 @@ export type {
     AparteMessage,
     AparteContextSummary,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
     AparteBubbleActionName,
     AparteViewportConfig,
     AparteInputConfig

@@ -98,6 +98,12 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
  *   in exactly the given order, and naming a button there IS the opt-in (the flag
  *   is not consulted). Lets a theme match a specific product 1:1.
  */
+/** See `AparteConfig.setTurnSummary`. */
+export interface AparteTurnSummaryOptions {
+    /** Keep a fold open while its steps run, and close it when they are done (default: closed). */
+    openWhileRunning?: boolean;
+}
+
 export interface AparteBubbleActionsConfig {
     /** Copy message text to clipboard — the one action core honors alone. Default: false */
     copy?: boolean;

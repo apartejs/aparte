@@ -1,0 +1,22 @@
+/* aparté — a turn's steps behind one line (`setTurnSummary`). The disclosure is the accordion
+   recipe; this is only what a turn adds: a quiet face, and the rows set in under it. */
+.aparte-turn {
+  margin-block: var(--aparte-space-3);
+  border-block-end: 0;
+}
+
+.aparte-turn__summary {
+  justify-content: flex-start;
+  gap: var(--aparte-space-2);
+  padding-block: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-turn__current {
+  font-family: var(--aparte-font-mono);
+}
+
+.aparte-turn__body {
+  padding-inline-start: var(--aparte-space-5);
+}

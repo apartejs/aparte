@@ -28,7 +28,7 @@ import type {
 import type { AparteSegmentDefaults } from '../types/segments.js';
 import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteCompactor } from '../types/compactor.js';
-import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
+import type { AparteBubbleActionsConfig, AparteTurnSummaryOptions, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import {
@@ -436,6 +436,7 @@ export class AparteConfig {
     // Bubble Actions — APARTE_DEFAULT_BUBBLE_ACTIONS is the single source of truth
     // (init here, restored by reset(), and the fallback in getBubbleActions()).
     private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+    private _turnSummary: AparteTurnSummaryOptions | null = null;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -487,6 +488,27 @@ export class AparteConfig {
     setBubbleActions(config: AparteBubbleActionsConfig): void {
         this._bubbleActionsConfig = { ...this._bubbleActionsConfig, ...config };
         this._notify();
+    }
+
+    /**
+     * Fold the steps of a reply behind one line: a run of reasoning and tool calls between two
+     * pieces of text becomes "Worked 9 s · 7 tools", which opens on the usual rows. A call
+     * waiting for approval, a call that failed and a tool drawn by its own renderer stay out
+     * of the fold. Off by default; `false` turns it off again.
+     *
+     * @example
+     * aparteGlobalConfig.setTurnSummary(true);
+     * aparteGlobalConfig.setTurnSummary({ openWhileRunning: true }); // watch the steps, folded at the end
+     */
+    setTurnSummary(options: AparteTurnSummaryOptions | boolean): void {
+        this._turnSummary = options === false ? null : options === true ? {} : options;
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** The options {@link setTurnSummary} left, or null when replies are not folded. */
+    getTurnSummary(): Readonly<AparteTurnSummaryOptions> | null {
+        return this._turnSummary;
     }
 
     /**
@@ -2183,6 +2205,7 @@ export class AparteConfig {
         this._approvalPolicy = null;
         this._compactor = null;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+        this._turnSummary = null;
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();
     }

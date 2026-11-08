@@ -391,6 +391,14 @@ export type AparteLocale = {
     thoughtFor?: string;
     /** A settled reasoning block's label (default: "Thought") — and with `showDuration`, when no timing came with it. */
     thought?: string;
+    /** The line over a fold of steps while they run (default: "Working…") */
+    turnWorking?: string;
+    /** The line over a finished fold (default: "Worked {duration}") */
+    turnWorked?: string;
+    /** The line over a finished fold with no timing, a stored turn (default: "Used {tools}") */
+    turnUsed?: string;
+    /** How many tools a fold used, as `category:form` pairs (default: "one:{n} tool|other:{n} tools") */
+    turnTools?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
     /**
@@ -632,6 +640,10 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     artifactNotCreated: "Not created",
     thoughtFor: "Thought for {duration}",
     thought: "Thought",
+    turnWorking: "Working…",
+    turnWorked: "Worked {duration}",
+    turnUsed: "Used {tools}",
+    turnTools: "one:{n} tool|other:{n} tools",
     approvalOptionsLabel: "Your decision",
     approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",

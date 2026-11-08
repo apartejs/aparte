@@ -46,6 +46,7 @@ import './styles/components/bubble.css';
 import './styles/components/checkpoint.css';
 import './styles/components/composer.css';
 import './styles/segment/thinking.css';
+import './styles/segment/turn.css';
 import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
@@ -92,6 +93,7 @@ export type {
     AparteStatus,
     AparteAttachment,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
     AparteBubbleActionName,
     AparteSegment,
     AparteSegmentTypes,

@@ -38,6 +38,7 @@ export type {
     AparteStatus,
     AparteAttachment,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
     AparteBubbleActionName,
     AparteSegment,
     AparteSegmentTypes,
