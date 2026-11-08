@@ -208,6 +208,13 @@ export interface AparteAIProviderCore {
     prepareModel?(modelId: string, onProgress: (p: ModelLoadProgress) => void): Promise<void>;
 
     /**
+     * Optional. The `temperature` a retry asks for, for a provider that decodes greedily
+     * unless told otherwise, so a retry would repeat the same answer. Left out, a retry
+     * sends none: most models sample by default, and recent ones refuse the parameter.
+     */
+    retryTemperature?: number;
+
+    /**
      * Optional. Delete a locally cached/downloaded model.
      * Provider-agnostic: Transformers.js clears the Cache API, Ollama calls /api/delete, etc.
      * Backward-compatible: providers that do not implement this method are unaffected.

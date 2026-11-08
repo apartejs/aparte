@@ -15,7 +15,7 @@
  * aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
  *     id: 'anthropic',
  *     name: 'Anthropic',
- *     models: [{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }],
+ *     models: [{ id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5' }],
  *     languageModel: (modelId, auth) =>
  *         createAnthropic({
  *             apiKey: typeof auth === 'string' ? auth : auth?.['apiKey'],

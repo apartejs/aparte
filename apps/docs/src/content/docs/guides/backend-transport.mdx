@@ -123,7 +123,7 @@ import { fullStreamToAparteEvents, toModelMessages, toToolChoice, toToolSet } fr
 
 declare function getSession(req: Request): Promise<{ userId: string } | null>;   // your session lookup
 
-const MODELS = ['claude-sonnet-4-5', 'claude-haiku-4-5'];
+const MODELS = ['claude-sonnet-5-5', 'claude-haiku-5-5'];
 
 export async function POST(req: Request): Promise<Response> {
   if (!(await getSession(req))) return new Response('Unauthorized', { status: 401 });
@@ -183,7 +183,7 @@ aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
   languageModel: () => { throw new Error('This provider runs on the server.'); },
 }));
 aparteGlobalConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
-aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-4-5' });
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-5-5' });
 new AparteClient().start();
 ```
 
