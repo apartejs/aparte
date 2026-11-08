@@ -30,7 +30,25 @@ The element draws nothing until a trigger fires. Write it inside `aparte-compose
 
 With a chat that draws its own composer, put it in the toolbar: it takes no room there.
 
-Then give it its triggers, by property:
+Then give it its triggers, by property. In a framework, the same property through the element:
+
+{/* doc-check: skip excerpt — one template line per framework */}
+```tsx
+// React, in the chat's `toolbar`
+<AparteUi name="aparte-triggers" props={{ triggers }} />
+```
+
+{/* doc-check: skip excerpt — one template line per framework */}
+```html
+<!-- Vue -->
+<aparte-triggers :triggers.prop="triggers"></aparte-triggers>
+<!-- Svelte -->
+<aparte-triggers {triggers}></aparte-triggers>
+<!-- Angular, with CUSTOM_ELEMENTS_SCHEMA -->
+<aparte-triggers [triggers]="triggers"></aparte-triggers>
+```
+
+In plain JavaScript:
 
 ```ts
 import '@aparte/plugin-triggers';
