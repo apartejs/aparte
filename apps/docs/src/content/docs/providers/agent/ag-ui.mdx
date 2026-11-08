@@ -147,6 +147,20 @@ Agno serves an agent or a team over AG-UI with the `AGUI` interface of its `Agen
 `POST /agui`; give that URL to `createAgUiRunner`. This is
 [Agno's AG-UI example](https://docs.agno.com/agent-os/interfaces/ag-ui/introduction).
 
+## LangGraph, Pydantic AI and Google ADK
+
+Each of these examples is a Python agent with a tool that waits for a person, and a scripted model
+so it runs without a key:
+
+| Framework | How the tool waits | Example |
+| --- | --- | --- |
+| LangGraph | `interrupt()` with a `reason` and the call's id, and `emit_interrupt_outcome=True` on the agent | [langgraph-ag-ui](https://github.com/apartejs/examples/tree/main/langgraph-ag-ui) |
+| Pydantic AI | `requires_approval=True` on the tool | [pydantic-ai-ag-ui](https://github.com/apartejs/examples/tree/main/pydantic-ai-ag-ui) |
+| Google ADK | `require_confirmation=True` on the tool, and `emit_interrupt_outcome=True` on the agent | [google-adk-ag-ui](https://github.com/apartejs/examples/tree/main/google-adk-ag-ui) |
+
+ADK asks through a tool of its own, `adk_request_confirmation`. Its example hides that row with
+[`registerToolDisplay`](/guides/tool-display/) and has the question name the real tool.
+
 ## What is not supported
 
 - A person's message goes as text and images, as AG-UI 1.0 content; other files are left out.
