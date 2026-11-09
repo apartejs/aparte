@@ -18,6 +18,10 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * The row is not part of the default `<aparte-chat>` shell — nothing is drawn until you
  * put something in it.
  *
+ * It is hidden while an approval or a question is open in the composer: the panel is all
+ * there is to answer. A row holding `<aparte-composer-send>` stays, since a written answer
+ * is sent with it.
+ *
  * It declares no custom property of its own: the gap, the padding and the top separator
  * come from the global `--aparte-space-*` and `--aparte-border*` tokens, so it inherits a
  * theme rather than exposing knobs to re-set.

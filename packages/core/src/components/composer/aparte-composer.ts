@@ -107,9 +107,9 @@ export interface AparteComposerChangeEventDetail {
  * `data-aparte-panel-host` if there is one, else right after the first input —
  * and `hidePanel()` removes it. One at a time
  * — a second `showPanel()` evicts the first and calls its `onEvict`. While one is up the
- * host carries `[data-panel-active]`, which hides `<aparte-composer-input>` and
- * `<aparte-composer-add-attachment>` and leaves the attachments strip and the toolbar in
- * place.
+ * host carries `[data-panel-active]`, which hides `<aparte-composer-input>`,
+ * `<aparte-composer-add-attachment>` and `<aparte-composer-toolbar>` (unless that row
+ * holds the send button) and leaves the attachments strip in place.
  *
  * It is not a transport either. `submit()` trims, checks the gates (disabled, empty,
  * no model selected), dispatches `aparte-send` and clears — nothing here talks to a

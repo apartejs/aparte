@@ -69,6 +69,38 @@ test('a gated call asks before it runs, and Approve lets it through', async ({ p
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
+test('an open card is all the composer shows, and the toolbar comes back with the answer', async ({ page }) => {
+    const chat = await openSite(page);
+    // PRECONDITION: the row is really there, or the assertion below is true for free.
+    await expect(chat.composerToolbar).toBeVisible();
+
+    await chat.send('what is the weather?');
+    const panel = page.locator(PANEL);
+    await expect(panel).toBeVisible();
+
+    // The approval switch lives in this row. Turned to Plan under an open card, it said
+    // no writes while the card's Approve still ran one.
+    await expect(chat.composerToolbar).toBeHidden();
+    await expect(chat.approvalMode).toBeHidden();
+
+    await panel.locator(APPROVE).click();
+    await expect(panel).toHaveCount(0);
+    await expect(chat.composerToolbar).toBeVisible();
+});
+
+test('a toolbar holding the send button stays while a card is open', async ({ page }) => {
+    const chat = await openSite(page);
+    // A layout of your own may put the button in this row, and a panel with a written
+    // answer submits through it: hiding the row would leave that answer with no way out.
+    await page.evaluate(() => {
+        document.querySelector('aparte-composer-toolbar')!.append(document.querySelector('aparte-composer-send')!);
+    });
+
+    await chat.send('what is the weather?');
+    await expect(page.locator(PANEL)).toBeVisible();
+    await expect(chat.composerToolbar).toBeVisible();
+});
+
 test('Reject stops the call, and the model answers the refusal', async ({ page }) => {
     const errors = collectPageErrors(page);
     const chat = await openSite(page);
