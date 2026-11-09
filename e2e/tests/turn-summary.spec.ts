@@ -52,7 +52,8 @@ test('four calls fold behind one line, and open on a click', async ({ page }) =>
     const turn = chat.lastReply.locator(TURN);
     await expect(turn).toHaveCount(1);
     await expect(turn.locator(LABEL)).toHaveText(/4 tools/);
-    await expect(turn.locator(ROW).first()).toBeHidden();
+    // The attribute, not visibility: WebKit gives the content of a closed <details> a box.
+    await expect(turn).not.toHaveAttribute('open', '');
 
     await turn.locator('.aparte-turn__summary').click();
     await expect(turn.locator(ROW)).toHaveCount(4);

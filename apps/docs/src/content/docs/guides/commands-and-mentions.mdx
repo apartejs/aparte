@@ -155,13 +155,13 @@ them should not carry them:
 ```ts
 import { setupCommands } from '@aparte/plugin-triggers/commands';
 
-setupCommands();
-// With a conversation controller, /new starts a conversation instead of emptying this one.
-setupCommands({ conversations: controller, exclude: ['copy'] });
+setupCommands({ onNew: () => controller.setConversationId(null), exclude: ['copy'] });
 ```
 
-`/retry` needs `AparteClient`. A command that cannot act right now, `/stop` with no reply running
-for instance, is not listed.
+Without `onNew`, `/new` empties the chat on the page. A chat drawn by React, Vue, Svelte or Angular
+owns its messages, so there `/new` is not listed until `onNew` says how to start over. `/retry`
+needs `AparteClient`. A command that cannot act right now, `/stop` with no reply running for
+instance, is not listed.
 
 ### Change what the plugins added
 

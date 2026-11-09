@@ -557,7 +557,7 @@ describe('<aparte-triggers>', () => {
         });
 
         it('lists what the built-ins answer, and only what can act', () => {
-            disposers.push(setupCommands());
+            disposers.push(setupCommands({ onNew: () => {} }));
             const { element, type } = commandsMount();
             type('/');
             expect(labels(element)).toEqual(['/new']);
@@ -571,14 +571,14 @@ describe('<aparte-triggers>', () => {
         });
 
         it('leaves out what an app excludes', () => {
-            disposers.push(setupCommands());
+            disposers.push(setupCommands({ onNew: () => {} }));
             const { element, type } = commandsMount({ commands: { exclude: ['new'] } });
             type('/');
             expect(element.isOpen).toBe(false);
         });
 
         it('sets a list of the app before the commands, and an id it reuses replaces the command', () => {
-            disposers.push(setupCommands());
+            disposers.push(setupCommands({ onNew: () => {} }));
             const { element, type } = commandsMount({ items: [{ id: 'new', label: 'Mine' }, { id: 'x', label: 'Extra' }] });
             type('/');
             expect(labels(element)).toEqual(['Mine', 'Extra']);
@@ -618,13 +618,20 @@ describe('<aparte-triggers>', () => {
         });
 
         it('/new starts a conversation when it has somewhere to', async () => {
-            const conversations = { setConversationId: vi.fn() };
-            const { type, key, host } = chat([answer], { conversations });
+            const onNew = vi.fn();
+            const { type, key, host } = chat([answer], { onNew });
             type('/new');
             key('Enter');
             await flush();
-            expect(conversations.setConversationId).toHaveBeenCalledWith(null);
+            expect(onNew).toHaveBeenCalledOnce();
             expect(host.clearAll).not.toHaveBeenCalled();
+        });
+
+        it('does not offer /new in a chat a framework draws, until told how', () => {
+            const { element, type, host } = chat([answer], { exclude: ['retry', 'copy'] });
+            host.setAttribute('framework-managed', '');
+            type('/');
+            expect(element.isOpen).toBe(false);
         });
 
         it('lists /retry and /copy once there is an answer', () => {

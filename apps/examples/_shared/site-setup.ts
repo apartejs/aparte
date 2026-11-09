@@ -402,7 +402,7 @@ const SITE_TRIGGERS: readonly AparteTrigger[] = [
 /** Into the composer once a framework has drawn it: the element draws nothing of its own. */
 function mountTriggers(): void {
     void Promise.all([import('@aparte/plugin-triggers'), import('@aparte/plugin-triggers/commands')]).then(([, { setupCommands }]) => {
-        setupCommands();
+        setupCommands({ onNew: () => document.getElementById('new-chat')?.click() });
         const place = (): void => {
             const composer = document.querySelector('aparte-composer');
             if (!composer) {

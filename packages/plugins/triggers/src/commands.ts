@@ -8,8 +8,12 @@ import type { AparteCommand, AparteCommandScope } from './types.js';
 export interface AparteCommandsOptions {
     /** Ids to leave out, among `new`, `stop`, `retry`, `copy`. */
     exclude?: readonly string[];
-    /** Whatever holds your conversations. `/new` then starts one; without it, `/new` empties this chat. */
-    conversations?: { setConversationId(id: string | null): unknown };
+    /**
+     * What `/new` does: start a conversation, usually `controller.setConversationId(null)`.
+     * Without it `/new` empties this chat, which a chat drawn by a framework cannot do from
+     * here: it owns its messages, so `/new` is not listed there until you say how.
+     */
+    onNew?: () => void;
 }
 
 /** A composer names its viewport with `target`, or sits with it in a chat. */
@@ -39,8 +43,9 @@ function builtIns(options: AparteCommandsOptions): AparteCommand[] {
             order: 10,
             description: 'triggersCommandNew',
             icon: 'edit',
+            enabled: (scope) => !!options.onNew || !!viewportOf(scope) && !viewportOf(scope)!.hasAttribute('framework-managed'),
             run: (context) => {
-                if (options.conversations) void options.conversations.setConversationId(null);
+                if (options.onNew) options.onNew();
                 else viewportOf(context)?.clearAll();
             },
         },
