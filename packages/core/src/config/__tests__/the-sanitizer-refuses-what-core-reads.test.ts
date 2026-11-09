@@ -154,6 +154,8 @@ describe('the list follows what core reads', () => {
         'data-aparte-settled',     // the streaming highlighter's own pane (same as hl-len/tail), set on elements core builds
         'data-aparte-key',         // a cache key on the sources list core builds; a forged one only skips a re-render
         'data-aparte-image',       // a held picture's address: the image policy judges it again wherever it meets one, so a forged one gets what writing `src` gets
+        'data-aparte-token',       // a pill in the composer's own field, which renders no Markdown
+        'data-aparte-text',        // what that pill sends; same field
         'data-aparte-image-alt',   // a held picture's description, written back as text
     ]);
 

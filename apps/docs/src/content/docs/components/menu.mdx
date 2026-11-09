@@ -41,6 +41,37 @@ Where the menu sits, and opening and closing it, are yours: there is no position
 - The button that opens the menu takes `aria-haspopup="menu"` and `aria-expanded`; the arrow keys
   between items and Escape to close are your script's.
 
+## A submenu, and a list with a keyboard
+
+A row that opens a submenu wears `.aparte-menu__chevron` at its far edge, which points the way the
+writing runs, and `aria-expanded="true"` while the submenu is open:
+
+```html
+<button class="aparte-menu__item" role="menuitem" aria-haspopup="menu" aria-expanded="false">
+  Move to
+  <span class="aparte-menu__chevron"><aparte-icon name="chevronRight"></aparte-icon></span>
+</button>
+```
+
+Where the focus stays in a field, the way a mention list works, the row the keyboard is on says so
+with `aria-selected="true"` in a `role="listbox"`. A listbox scrolls past `--aparte-menu-max-height`
+(320px). `.aparte-menu__status` is a line that is not a row: loading, or nothing found.
+
+Placing the box is yours, and `placeFloating()` from `@aparte/core` does it: below or above an
+anchor or beside it, turning when the window ends first.
+
+```ts
+import { placeFloating } from '@aparte/core';
+
+const button = document.querySelector<HTMLElement>('#open')!;
+const menu = document.querySelector<HTMLElement>('.aparte-menu')!;
+
+menu.style.position = 'fixed';
+placeFloating(button.getBoundingClientRect(), menu, { side: 'below', align: 'end' });
+```
+
+[Triggers](/components/triggers/) is built on all of this.
+
 ## Related
 
 - [Popover](/components/popover/) — a floating box for anything that is not a list of commands.

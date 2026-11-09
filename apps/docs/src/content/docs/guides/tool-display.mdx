@@ -121,6 +121,27 @@ aparteGlobalConfig.registerToolDisplay('delete_file', {
 
 A label that throws, or is empty, falls back to the identifier.
 
+## Fold a turn behind one line
+
+An agent that reads ten files draws ten rows before it says anything. One call folds them:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setTurnSummary(true);
+```
+
+The reasoning and the tool calls between two pieces of text fold together. While they run, the line
+says `Working…` and names the current tool; once the reply moves on, `Worked 9 s · 7 tools`. A
+stored conversation has no timing, so it says `Used 7 tools`.
+
+What someone has to read stays out of the fold: a call waiting for approval, a call that failed, and
+a tool drawn with `registerToolRenderer` (a card is the result). A tool marked `hidden` is not
+counted, and a single step is never folded. Anything somebody opened stays open while the turn goes on.
+
+`setTurnSummary({ openWhileRunning: true })` keeps the fold open while it works and closes it at the
+end, unless somebody touched it.
+
 ## What's behind the line
 
 An opened row shows **Input** and **Output**: the arguments and the result, raw. That is right

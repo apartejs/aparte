@@ -87,15 +87,11 @@ put down on purpose, so a future session does not re-derive the answer from scra
   is what such a tool would give it.* The `terminal` segment that used to stand in for
   this was removed rather than kept: nothing emitted it, and its `exitCode` /
   `isRunning` fields were the signature of an app that owned the execution.
-- **Grouping consecutive tool calls** behind one "3 tools used" line, the way
-  assistant-ui's `ToolGroup` does. Two reasons to wait. It is not a renderer change: a
-  group spans SEGMENTS, so the bubble would have to notice that 3, 4 and 5 are all tool
-  calls and wrap them — a change in the most load-bearing composition path in core, for
-  a presentational nicety. And the row redesign removed most of its motivation: grouping
-  exists to tame visual noise, and the row is one quiet ~22px line where the old chip was
-  a bordered, colour-filled badge, so five of them is five quiet lines rather than a wall.
-  *Trigger: a real turn whose consecutive calls actually make the transcript unreadable —
-  measured on a page, not imagined.*
+- **Grouping consecutive tool calls — DONE 2026-11-09, as `setTurnSummary()`.** Off by
+  default, because the reason to wait still holds for a reply with a few steps. The bubble
+  MOVES existing rows into one `<details>` (`_syncTurns`), so what somebody opened stays open;
+  what must be read stays out (awaiting approval, failed, a tool renderer); `rowOf()` is the
+  one lookup, at two fixed levels, so a `data-segment-id` planted in prose takes no update.
 - **Exporting the tool-row builders** so the default becomes a composable kit
   (`buildToolRow` + the Input/Output parts) rather than only a good default. Measured
   against the rule in #7 rather than assumed: the one in-repo consumer of

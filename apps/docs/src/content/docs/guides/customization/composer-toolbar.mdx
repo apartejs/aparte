@@ -90,7 +90,8 @@ import Variant from '../../../../components/catalog/Variant.astro';
 [`<aparte-composer-toolbar>`](/components/composer/) is the row under the input. Its controls sit
 in the order you write them, and `margin-inline-start: auto` pushes one, with everything after it,
 to the end — on the right, or on the left in a right-to-left language. An empty toolbar draws
-nothing. The mode picker stands for a control of your own.
+nothing, and the row is hidden while an approval or a question is open in the composer. The mode
+picker stands for a control of your own.
 
 The default chat has no toolbar. In plain HTML, write the whole chat: the message list, the
 `<aparte-elicitation>` panel where [questions and approvals](/guides/elicitation/) appear, and the

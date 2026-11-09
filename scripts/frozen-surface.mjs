@@ -99,6 +99,7 @@ const MANIFESTS = [
     ['@aparte/plugin-approval', 'packages/plugins/approval/dist/custom-elements.json'],
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user/dist/custom-elements.json'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector/dist/custom-elements.json'],
+    ['@aparte/plugin-triggers', 'packages/plugins/triggers/dist/custom-elements.json'],
 ];
 const ELEMENT_FLOOR = 20;
 

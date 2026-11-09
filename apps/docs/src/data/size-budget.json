@@ -16,11 +16,11 @@
         "css": 0
     },
     "@aparte/locales": {
-        "js": 24576,
+        "js": 27648,
         "css": 0
     },
     "@aparte/plugin-approval": {
-        "js": 3072,
+        "js": 3584,
         "css": 0
     },
     "@aparte/plugin-artifacts": {
@@ -77,6 +77,10 @@
     },
     "@aparte/plugin-titler": {
         "js": 512,
+        "css": 0
+    },
+    "@aparte/plugin-triggers": {
+        "js": 9216,
         "css": 0
     },
     "@aparte/provider-ai-sdk": {

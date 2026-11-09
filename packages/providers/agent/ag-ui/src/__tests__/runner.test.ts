@@ -413,6 +413,22 @@ describe('createAgUiRunner: pauses and resumes', () => {
             by: 'person',
             instruction: 'use the staging bucket',
         });
+        expect(second.bodies[0]!['resume']).toEqual([
+            { interruptId: 'i1', status: 'resolved', payload: { approved: false, instruction: 'use the staging bucket' } },
+        ]);
+    });
+
+    it('asks for an approval on the reason the Laravel AI SDK sends', async () => {
+        const f = fakeFetch(sse(
+            started,
+            { type: 'TOOL_CALL_START', toolCallId: 'd1', toolCallName: 'delete_file' },
+            { type: 'TOOL_CALL_ARGS', toolCallId: 'd1', delta: '{}' },
+            { type: 'TOOL_CALL_END', toolCallId: 'd1' },
+            finished({ outcome: { type: 'interrupt', interrupts: [{ id: 'i1', reason: 'approval_required', toolCallId: 'd1' }] } }),
+        ));
+        const r = run(f.fetch);
+        await r.done;
+        expect(r.types()).toContain('tool-awaiting-approval');
     });
 
     it('ends on an interrupt the page cannot answer, and cancels it on the next run of the thread', async () => {

@@ -5,6 +5,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
+import { placeFloating } from '../../utils/place-floating.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 import {
     conversationStatusOf,
@@ -723,17 +724,12 @@ export class AparteConversationList extends HTMLElement {
      * safe to do once.
      */
     private _placeMenu(button: HTMLElement, menu: HTMLElement): void {
-        const r = button.getBoundingClientRect();
-        const m = menu.getBoundingClientRect();
-        let top = r.bottom + MENU_GAP;
-        if (top + m.height > window.innerHeight - VIEWPORT_MARGIN && r.top - m.height - MENU_GAP >= VIEWPORT_MARGIN) {
-            top = r.top - m.height - MENU_GAP;
-        }
-        const rtl = getComputedStyle(this).direction === 'rtl';
-        let left = rtl ? r.left : r.right - m.width;
-        left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - m.width - VIEWPORT_MARGIN));
-        menu.style.top = `${top}px`;
-        menu.style.left = `${left}px`;
+        placeFloating(button.getBoundingClientRect(), menu, {
+            gap: MENU_GAP,
+            margin: VIEWPORT_MARGIN,
+            align: 'end',
+            rtl: getComputedStyle(this).direction === 'rtl',
+        });
     }
 
     private _closeMenu(returnFocus = false): void {

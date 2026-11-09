@@ -1,5 +1,21 @@
 # @aparte-workspace/ssr-sveltekit
 
+## 0.0.25
+
+### Patch Changes
+
+- Updated dependencies [c980d67]
+- Updated dependencies [c7ee63f]
+- Updated dependencies [c980d67]
+- Updated dependencies [c980d67]
+- Updated dependencies [c980d67]
+- Updated dependencies [a5c3f82]
+- Updated dependencies [c980d67]
+- Updated dependencies [2753047]
+  - @aparte/core@1.1.0
+  - @aparte/provider-scenario@1.1.0
+  - @aparte/svelte@1.1.0
+
 ## 0.0.24
 
 ### Patch Changes

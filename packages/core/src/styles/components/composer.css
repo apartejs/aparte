@@ -23,10 +23,23 @@ aparte-composer[data-model-gated] aparte-composer-send {
    The text input goes, and so does the attachment picker — an affordance nothing
    can honour is not rendered (ratified decision #8), and it stayed clickable
    through a whole elicitation. The attachments strip stays: pending attachments
-   are the user's STATE, not an action to offer. So does the toolbar —
-   switching model still does something. */
+   are the user's STATE, not an action to offer. */
 aparte-composer[data-panel-active] aparte-composer-input,
 aparte-composer[data-panel-active] aparte-composer-add-attachment {
+  display: none;
+}
+
+/* The toolbar goes too: while a panel is up, the panel is all there is to answer.
+   It used to stay, on the grounds that switching model still does something, and the
+   approval switch sits in that row: turned to Plan under an open card, it said no
+   writes while the card's Approve still ran one.
+
+   Not when the row holds the send button or the panel itself, which a layout of your
+   own may put there: a panel with a written answer submits through the button, and a
+   hidden host would hide the question. Its own rule, because `:has()` voids a whole
+   comma list on an engine that does not know it; such an engine keeps the row, as it
+   always did. */
+aparte-composer[data-panel-active] aparte-composer-toolbar:not(:has(aparte-composer-send)):not(:has([data-aparte-panel])) {
   display: none;
 }
 
@@ -68,6 +81,17 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    Attachments
    ========================================= */
 
+
+.aparte-thumb__progress {
+  position: absolute;
+  inset-inline: var(--aparte-space-2);
+  inset-block-end: var(--aparte-space-2);
+  width: auto;
+}
+
+.aparte-thumb[data-failed] {
+  outline: var(--aparte-border-width) solid var(--aparte-error);
+}
 
 .aparte-thumb__remove {
   /* Icon size comes from `--sm` — see `--aparte-btn-icon-size` in button.css. */

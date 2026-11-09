@@ -87,6 +87,8 @@ const BARRELS = [
     // reason. A package absent from this array is not "exempt", it is unmeasured.
     { pkg: '@aparte/plugin-approval', types: 'packages/plugins/approval/dist/index.d.ts', readme: 'packages/plugins/approval/README.md' },
     { pkg: '@aparte/plugin-compaction', types: 'packages/plugins/compaction/dist/index.d.ts', readme: 'packages/plugins/compaction/README.md' },
+    { pkg: '@aparte/plugin-triggers', types: 'packages/plugins/triggers/dist/index.d.ts', readme: 'packages/plugins/triggers/README.md' },
+    { pkg: '@aparte/plugin-triggers/commands', types: 'packages/plugins/triggers/dist/commands.d.ts', readme: 'packages/plugins/triggers/README.md' },
     { pkg: '@aparte/plugin-titler', types: 'packages/plugins/titler/dist/index.d.ts', readme: 'packages/plugins/titler/README.md' },
     { pkg: '@aparte/plugin-storage-idb', types: 'packages/plugins/storage-idb/dist/index.d.ts', readme: 'packages/plugins/storage-idb/README.md' },
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },

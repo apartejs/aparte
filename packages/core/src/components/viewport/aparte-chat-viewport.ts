@@ -76,6 +76,15 @@ function hasDerivedSegments(message: AparteMessage): boolean {
     return (message as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS] === true;
 }
 
+/** A tag the engine rejects still gets a date. */
+function longDate(at: Date, tag?: string): string {
+    try {
+        return new Intl.DateTimeFormat(tag || undefined, { dateStyle: 'long' }).format(at);
+    } catch {
+        return at.toDateString();
+    }
+}
+
 /**
  * The transcript surface: a light-DOM container with sticky scrolling, token
  * streaming and segment-aware rendering.
@@ -446,6 +455,7 @@ export class AparteChatViewport extends HTMLElement {
         // The transcript's own name is locale text on the same terms.
         const surface = this._frameworkManagedDOM ? this : this.querySelector('.aparte-viewport-container');
         surface?.setAttribute('aria-label', resolveConfig(this).t('transcript'));
+        this._syncDateSeparators();
     };
 
     /**
@@ -1473,6 +1483,33 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
+    /** The day on the first bubble of each one, by what is on screen: a branch has its own days. */
+    private _syncDateSeparators(): void {
+        const cfg = resolveConfig(this);
+        const on = cfg.getDateSeparators();
+        if (!on && !this.querySelector('aparte-chat-bubble[data-date]')) return;
+        const now = new Date();
+        const dayOf = (at: Date): number => new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+        const today = dayOf(now);
+        let previous: number | null = null;
+        this.querySelectorAll('aparte-chat-bubble').forEach((bubble) => {
+            const raw = Number(bubble.getAttribute('timestamp'));
+            const at = raw ? new Date(raw) : null;
+            const day = at ? dayOf(at) : null;
+            const starts = on && at && day !== previous;
+            if (day !== null) previous = day;
+            if (!starts || !at) {
+                if (bubble.hasAttribute('data-date')) bubble.removeAttribute('data-date');
+                return;
+            }
+            const elapsed = Math.round((today - day!) / 86_400_000);
+            const label = elapsed === 0 ? cfg.t('conversationGroupToday')
+                : elapsed === 1 ? cfg.t('conversationGroupYesterday')
+                : longDate(at, cfg.getLocale().tag);
+            if (bubble.getAttribute('data-date') !== label) bubble.setAttribute('data-date', label);
+        });
+    }
+
     /**
      * Re-render the active path: clears the messages wrapper and rebuilds bubbles
      * for every message on the current active branch path (root → head).
@@ -1525,6 +1562,7 @@ export class AparteChatViewport extends HTMLElement {
             populateBubbleFromMessage(bubble as unknown as SyncableBubble, message, sibInfo);
         }
 
+        this._syncDateSeparators();
         this._dispatchPathChanged(activeMessages, siblingsInfo);
         this._syncBusy();
         // The bubbles above are new: a compaction still writing its checkpoint is said again.
@@ -1862,6 +1900,10 @@ export class AparteChatViewport extends HTMLElement {
 
         this._mutationObserver = new MutationObserver((mutations) => {
             this._lastMutationAt = performance.now();
+            // Bubbles coming and going, not the words streaming inside one.
+            if (mutations.some((m) => m.type === 'childList' && (m.target === this || (m.target as Element).classList?.contains('aparte-messages-wrapper')))) {
+                this._syncDateSeparators();
+            }
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
             // A user bubble arriving is a send, whichever framework rendered it: the pin

@@ -42,7 +42,14 @@ import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate, isSegmentSettled } from '../../utils/segments.js';
+import { pluralize } from '../../utils/plural.js';
+import { formatDuration } from '../../utils/format-duration.js';
+import { planTurns, rowOf, turnDuration, type TurnRole } from './turn-groups.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
+import type { AparteMessageToken } from '../../types/index.js';
+import { drawMessageTokens } from './message-tokens.js';
+import { buildFeedbackReasons } from './feedback-reasons.js';
+import type { AparteFeedbackReasonEventDetail } from '../../types/index.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -221,6 +228,7 @@ let checkpointIds = 0;
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
  * @fires {CustomEvent<AparteEditEventDetail>} aparte-edit - An edit was saved.
  * @fires {CustomEvent<AparteFeedbackEventDetail>} aparte-feedback - Thumbs up or down.
+ * @fires {CustomEvent<AparteFeedbackReasonEventDetail>} aparte-feedback-reason - The reason picked after a thumbs-down.
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size — or a file, with `filePreview`, asking the app to open it.
@@ -323,6 +331,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _branchPickerEl: HTMLDivElement | null = null;
   private _footerEl: HTMLDivElement | null = null;
   private _content = '';
+  private _tokens: readonly AparteMessageToken[] | undefined;
   private _streaming = false;
   private _segments: AparteSegment[] = [];
   private _role: AparteBubbleRole = 'assistant';
@@ -598,6 +607,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (!drawn || this._stillDrawnByCurrent(segment, drawn)) continue;
       this._redrawSegment(segment);
     }
+    this._syncTurns();
   }
 
   /**
@@ -638,6 +648,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (this._keepsItsDrawing(segment, drawn)) continue;
       this._redrawSegment(segment);
     }
+    this._syncTurns();
     this._reflectError();
     this._syncCopyAction();
   }
@@ -663,12 +674,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     for (const segment of this._segments) {
       const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (!renderer?.relabel) continue;
-      const el = this._segmentsEl.querySelector(
-        `:scope > [data-segment-id="${cssEscape(segment.id)}"]`,
-      ) as HTMLElement | null;
+      const el = rowOf(this._segmentsEl, segment.id);
       if (!el) continue;
       runWithConfig(this._cfg, () => renderer.relabel!(el, segment));
     }
+    this._syncTurns();
   }
 
   /**
@@ -831,6 +841,38 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._syncCopyAction();
   }
 
+  /** The row under the action bar that asks why, when the app listed reasons. */
+  private _askFeedbackReason(messageId: string): void {
+    const reasons = this._cfg.getBubbleActions().feedbackReasons;
+    if (!reasons?.length || this.querySelector('.aparte-feedback-reasons')) return;
+    const panel = buildFeedbackReasons({
+      reasons,
+      title: this._cfg.t('feedbackReasonTitle'),
+      dismiss: this._cfg.t('feedbackReasonDismiss'),
+      onPick: (reason) => {
+        panel.remove();
+        this.dispatchEvent(new CustomEvent<AparteFeedbackReasonEventDetail>('aparte-feedback-reason', {
+          bubbles: true, composed: true,
+          detail: { messageId, reason },
+        }));
+      },
+      onClose: () => panel.remove(),
+    });
+    this.querySelector('.aparte-footer')?.after(panel);
+  }
+
+  /** The tokens a user message was written with, drawn as they looked in the composer. */
+  setTokens(tokens: readonly AparteMessageToken[] | undefined): void {
+    this._tokens = tokens;
+    this._drawTokens();
+  }
+
+  private _drawTokens(): void {
+    if (this._contentEl && this._role === 'user' && this._tokens?.length) {
+      drawMessageTokens(this._contentEl, this._content, this._tokens);
+    }
+  }
+
   /** Set content directly */
   setContent(content: string): void {
     this._content = content;
@@ -927,6 +969,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if (kept.has(segment.id)) this._applySegmentUpdate(segment.id, segment, segment);
       else this._redrawSegment(segment);
     }
+    this._syncTurns();
     this._reflectError();
     this._syncCopyAction();
     return true;
@@ -936,6 +979,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   addSegment(segment: AparteSegment): void {
     this._segments.push(segment);
     this._appendSegmentEl(segment);
+    this._syncTurns();
     if (segment.type === 'text' && segment.sources) this._syncSources();
     this._updateWaiting();
   }
@@ -952,7 +996,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if ('sources' in updates) this._syncSources();
       this._syncCopyAction();
       // A call that settles is a step that ended: the dots may be due again.
-      if ('status' in updates || 'isStreaming' in updates) this._updateWaiting();
+      if ('status' in updates || 'isStreaming' in updates) {
+        this._syncTurns();
+        this._updateWaiting();
+      }
     }
   }
 
@@ -1014,8 +1061,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._segments.splice(index, 1);
     }
     this._release(segmentId);
-    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
+    const el = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
     el?.remove();
+    this._syncTurns();
     this._syncSources();
     this._updateWaiting();
     this._syncCopyAction();
@@ -1097,6 +1145,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._role = updates.role!;
       this._updateRole();
     }
+    // Before the content: a rewritten message is drawn with the tokens it now has.
+    if ('tokens' in updates) this._tokens = updates.tokens;
     if ('content' in updates) {
       this._content = updates.content!;
       this._updateContent();
@@ -1344,8 +1394,134 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._reflectError();
   }
 
+  /** Whether a segment joins a turn's fold, is passed over by it, or ends it. */
+  private _turnRole(segment: AparteSegment): TurnRole {
+    if (segment.type === 'thinking') return 'fold';
+    if (segment.type !== 'tool_call') return 'stop';
+    const call = segment as AparteToolCallSegment;
+    if (this._cfg.isToolHidden(call.toolCall?.name ?? '')) return 'skip';
+    // Someone has to read these: a question waiting for an answer, a call that failed.
+    if (call.status === 'awaiting-approval' || call.status === 'failed') return 'stop';
+    // A card or a receipt is the result itself, not a step on the way to one.
+    return this._toolRendererFor(segment) ? 'stop' : 'fold';
+  }
+
+  /** The fold a drawn row sits in, or null when it is a direct child. */
+  private _turnHolding(row: HTMLElement | undefined): HTMLElement | null {
+    const turn = row?.parentElement?.parentElement;
+    return turn?.classList.contains('aparte-turn') && turn.parentElement === this._segmentsEl ? turn : null;
+  }
+
+  private _createTurn(): HTMLElement {
+    const turn = document.createElement('details');
+    turn.className = 'aparte-turn aparte-accordion__item';
+    const summary = document.createElement('summary');
+    summary.className = 'aparte-accordion__header aparte-turn__summary';
+    const label = document.createElement('span');
+    label.className = 'aparte-turn__label';
+    const current = document.createElement('span');
+    current.className = 'aparte-turn__current';
+    const icon = document.createElement('span');
+    icon.className = 'aparte-accordion__icon';
+    icon.innerHTML = this._cfg.getIcon('expand');
+    summary.append(label, current, icon);
+    // Whoever opened or closed it decides from then on: the end of a turn must not undo it.
+    summary.addEventListener('click', () => { turn.dataset['touched'] = ''; });
+    const body = document.createElement('div');
+    body.className = 'aparte-accordion__panel aparte-turn__body';
+    turn.append(summary, body);
+    return turn;
+  }
+
+  /**
+   * Fold each run of steps behind its line, by moving the rows already drawn: a moved
+   * `<details>` keeps its open state, a redraw would lose it. Called whenever the plan can
+   * change, never per token. A fold is found again by its members, not by its place, so one
+   * that grows or splits keeps its own open state.
+   */
+  private _syncTurns(): void {
+    const container = this._segmentsEl;
+    if (!container || this._releasedWhileDetached) return;
+    const options = this._cfg.getTurnSummary();
+    const runs = options ? planTurns(this._segments, (segment) => this._turnRole(segment)) : [];
+    if (runs.length === 0 && !container.querySelector(':scope > .aparte-turn')) return;
+
+    const place = (parent: Element, node: Element, after: Element | null): Element => {
+      const expected = after ? after.nextSibling : parent.firstChild;
+      if (node !== expected) parent.insertBefore(node, expected);
+      return node;
+    };
+    const rowFor = (segment: AparteSegment): HTMLElement | undefined => this._drawn.get(segment.id)?.el;
+    const used = new Set<HTMLElement>();
+    const startsAt = new Map(runs.map((run) => [run.from, run]));
+    let lastPlaced: Element | null = null;
+
+    for (let index = 0; index < this._segments.length; index += 1) {
+      const run = startsAt.get(index);
+      if (!run) {
+        const row = rowFor(this._segments[index]!);
+        if (row) lastPlaced = place(container, row, lastPlaced);
+        continue;
+      }
+      const members = this._segments.slice(run.from, run.to + 1);
+      const existing = members.map((member) => this._turnHolding(rowFor(member))).find((held) => held && !used.has(held));
+      const turn = existing ?? this._createTurn();
+      used.add(turn);
+      lastPlaced = place(container, turn, lastPlaced);
+      const body = turn.querySelector(':scope > .aparte-turn__body')!;
+      let lastInBody: Element | null = null;
+      for (const member of members) {
+        const row = rowFor(member);
+        if (row) lastInBody = place(body, row, lastInBody);
+      }
+      this._labelTurn(turn, members, run.to === this._segments.length - 1, options?.openWhileRunning === true);
+      index = run.to;
+    }
+    for (const stale of container.querySelectorAll<HTMLElement>(':scope > .aparte-turn')) {
+      if (!used.has(stale)) stale.remove();
+    }
+  }
+
+  /** The fold's one line: what it is doing while it works, what it did once it has. */
+  private _labelTurn(turn: HTMLElement, members: AparteSegment[], trailing: boolean, openWhileRunning: boolean): void {
+    const cfg = this._cfg;
+    const steps = members.filter((member) => this._turnRole(member) === 'fold');
+    const calls = steps.filter((step): step is AparteToolCallSegment => step.type === 'tool_call');
+    const running = (this._streaming && trailing) || calls.some((call) => !isSegmentSettled(call));
+    const label = turn.querySelector<HTMLElement>(':scope > summary > .aparte-turn__label')!;
+    const current = turn.querySelector<HTMLElement>(':scope > summary > .aparte-turn__current')!;
+    label.classList.toggle('aparte-shimmer', running);
+    label.textContent = running ? cfg.t('turnWorking') : this._turnOutcome(steps, calls.length);
+    current.textContent = running && calls.length > 0 ? this._stepName(calls.at(-1)!) : '';
+    if (openWhileRunning && !('touched' in turn.dataset)) (turn as HTMLDetailsElement).open = running;
+  }
+
+  private _turnOutcome(steps: AparteSegment[], callCount: number): string {
+    const cfg = this._cfg;
+    const tag = cfg.getLocale().tag || undefined;
+    const tools = callCount > 0 ? pluralize(cfg.t('turnTools'), callCount, tag) : '';
+    const ms = turnDuration(steps);
+    if (ms !== undefined) {
+      const worked = cfg.t('turnWorked').replace('{duration}', () => formatDuration(ms, tag));
+      return tools ? `${worked} · ${tools}` : worked;
+    }
+    return tools ? cfg.t('turnUsed').replace('{tools}', () => tools) : cfg.t('thought');
+  }
+
+  /** What a call goes by on screen: the label the app gave it, else its identifier. */
+  private _stepName(call: AparteToolCallSegment): string {
+    const name = call.toolCall?.name ?? '';
+    const label = this._cfg.getToolDisplay(name)?.label;
+    if (typeof label !== 'function') return label ?? name;
+    try {
+      return label(call);
+    } catch {
+      return name;
+    }
+  }
+
   private _applySegmentUpdate(segmentId: string, segment: AparteSegment, updates: Partial<AparteSegment>): void {
-    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
+    const el = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
     if (!el) {
       this._renderSegments();
       return;
@@ -1374,7 +1550,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       const drawn = this._drawn.get(segmentId);
       if (drawn) {
         drawn.segment = segment;
-        const now = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
+        const now = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
         if (now && now !== drawn.el) {
           drawn.el = now;
           drawn.tool = segment.type === 'tool_call' ? toolRendererThatDrew(now) : null;
@@ -1593,7 +1769,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // A call waiting for approval is a person being asked — hidden or not, an empty reply
     // included: nothing comes until they answer.
     const asking = last?.type === 'tool_call' && (last as AparteToolCallSegment).status === 'awaiting-approval';
-    const betweenSteps = last?.type === 'tool_call' && (isSegmentSettled(last) || lastEl?.hidden === true);
+    // A fold still working says so on its own line: the dots would say it twice.
+    const betweenSteps = last?.type === 'tool_call' && (isSegmentSettled(last) || lastEl?.hidden === true)
+      && lastEl?.classList.contains('aparte-turn') !== true;
     const waiting = this._streaming && this._role !== 'user' && !asking && (empty || betweenSteps);
 
     // The painted box is hidden when it has nothing to paint. It carries the user
@@ -1784,6 +1962,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     runWithConfig(this._cfg, () =>
       writeStreamedMarkdown(this as AparteMarkdownStreamHost, this._contentEl!, this._content, this._streaming),
     );
+    this._drawTokens();
     // The first token retires the waiting indicator (and a cleared content brings
     // it back, e.g. a retry that resets the bubble before re-streaming).
     this._updateWaiting();
@@ -1852,6 +2031,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         this._install(segment, el, undefined);
       }
     }
+    this._syncTurns();
 
     // Hide simple content when segments are present
     if (this._contentEl) {
@@ -2460,6 +2640,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
           bubbles: true, composed: true,
           detail,
         }));
+        if (value === 'negative') this._askFeedbackReason(messageId);
+        else this.querySelector('.aparte-feedback-reasons')?.remove();
         break;
       }
       case 'info': {
@@ -2627,6 +2809,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         message.removeAttribute('aria-busy');
         message.classList.remove('aparte-message-streaming');
       }
+      message.toggleAttribute('data-caret', streaming && this._cfg.getStreamingCaret());
     }
     this._updateWaiting();
     this._updateFinishNote();
@@ -2657,6 +2840,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // streamed, the finished message is drawn again with it — segment by segment, keeping
     // the cards a mounted renderer holds (it checks the version itself).
     if (wasStreaming && !streaming && this._segments.length > 0) this._redrawIfStale();
+    this._syncTurns();
   }
 }
 

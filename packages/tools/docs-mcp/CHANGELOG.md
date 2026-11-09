@@ -1,5 +1,11 @@
 # @aparte/docs-mcp
 
+## 1.1.0
+
+### Patch Changes
+
+- 51adc92: `@aparte/docs-mcp` declares its name for the official MCP registry.
+
 ## 1.0.2
 
 ## 1.0.1

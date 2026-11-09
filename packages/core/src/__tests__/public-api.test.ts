@@ -104,6 +104,7 @@ describe('@aparte/core public API', () => {
             "overrideSegmentRenderer",
             "parseAparteEventStream",
             "parseMarkdownToSegments",
+            "placeFloating",
             "populateBubbleFromMessage",
             "readableToAsyncIterable",
             "registerAllComponents",

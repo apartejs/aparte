@@ -1,5 +1,63 @@
 # @aparte/core
 
+## 1.1.0
+
+### Minor Changes
+
+- c980d67: Add `composer.setAttachmentState(file, { status, progress })`: a bar on the tile while a file uploads, for an app that uploads as soon as a file is picked.
+
+  While a file is `uploading` the composer holds the send and wears `data-uploading`. `{ status: 'error' }` marks the tile.
+
+- c7ee63f: Add tokens to the composer: `insertToken()`, `getTokens()`, `getCaret()`, `getRangeRect()` and `replaceRange()` on `<aparte-composer-input>`.
+
+  A token is a pill in the draft that sends a text of its own (`{ label: 'Paul', text: '@paul', kind: 'mention', data: { id: 7 } }`). It reaches `aparte-send` as `detail.tokens` with its place in the message, `AparteMessage.tokens` keeps it, the request carries it as `_meta.tokens`, and the user's bubble draws it as it looked. A message with no token changes nothing.
+
+  `aparte-send` also accepts `detail.meta`, kept as the message's `metadata` and merged into the request's `_meta`.
+
+  `placeFloating()` is exported: it writes `top` and `left` on a fixed box beside an anchor and turns it when the window ends first.
+
+  The `.aparte-menu` recipe gains the row a keyboard is on (`aria-selected`), the row whose submenu is open (`aria-expanded`), and `.aparte-menu__chevron`.
+
+- c980d67: Add `aparteGlobalConfig.setDateSeparators(true)`: the date above the first message of each day.
+
+  Today and Yesterday in words, then the full date in the page's language. It follows the branch on screen.
+
+- c980d67: Add `setBubbleActions({ feedbackReasons: ['Not accurate', 'Too long'] })`: a thumbs-down then asks why.
+
+  One press sends the new `aparte-feedback-reason` event with the message id and the reason. `aparte-feedback` still goes out on the thumb itself, as before. New locale keys: `feedbackReasonTitle`, `feedbackReasonDismiss`.
+
+- c980d67: Add `new AparteConversationController(binding, { keepDrafts: true })`: what was typed in a conversation comes back on return.
+
+  Kept in memory. A storage adapter with the optional `loadDraft` and `saveDraft` keeps it across reloads, and `updatedAt` does not move.
+
+- a5c3f82: Retry no longer sends `temperature: 0.4`, which recent models refuse, unless the provider asks for it.
+
+  A provider that decodes greedily without a temperature, so a retry would repeat the same answer, now sets the new optional `retryTemperature`. `@aparte/provider-transformers` does. No other provider sends one on a retry, and models that sample by default still vary their answer.
+
+- c980d67: Add `aparteGlobalConfig.setStreamingCaret(true)`: a blinking caret where the words of a reply are arriving.
+
+  It sits at the end of the last paragraph or list item, and is still under `prefers-reduced-motion`.
+
+- 2753047: Add `aparteGlobalConfig.setTurnSummary()`: reasoning and consecutive tool calls fold behind one line. Off by default, and with it off the DOM does not change.
+
+  While the steps run the line says `Working…` and names the current tool; afterwards it says `Worked 9 s · 7 tools`, or `Used 7 tools` on a stored turn that carries no timing. `setTurnSummary({ openWhileRunning: true })` keeps the fold open while it works, and never closes one somebody opened.
+
+  A call waiting for approval, a call that failed and a tool with its own `registerToolRenderer` stay outside the fold, since those are what somebody has to read. A `hidden` tool is neither counted nor breaks the run, and a single step is never folded.
+
+  New locale keys, added in all nine bundles: `turnWorking`, `turnWorked`, `turnUsed`, `turnTools`. `turnTools` is a plural form string by `Intl.PluralRules` category (`one:{n} tool|other:{n} tools`).
+
+### Patch Changes
+
+- Pasting several lines keeps its line breaks. They were sent run together.
+
+  In Chromium each pasted line became a block, and the draft read blocks as one line. There is nothing to change in your code.
+
+- The composer's toolbar is hidden while an approval or a question is open: the panel is all the composer shows.
+
+  It comes back with the answer, and there is nothing to change in your code. A toolbar holding `<aparte-composer-send>` stays, since a written answer is sent with it. The approval switch sits in that row: turned to Plan under an open card, it said no writes while the card's Approve still ran one.
+
+- @aparte/engine@1.1.0
+
 ## 1.0.2
 
 ### Patch Changes

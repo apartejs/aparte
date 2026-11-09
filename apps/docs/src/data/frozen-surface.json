@@ -159,6 +159,7 @@
       "package": "@aparte/plugin-model-selector",
       "attributes": [
         "auto-select",
+        "commands",
         "details",
         "disabled",
         "persist",
@@ -241,6 +242,10 @@
         "suggestions",
         "target"
       ]
+    },
+    "aparte-triggers": {
+      "package": "@aparte/plugin-triggers",
+      "attributes": []
     }
   },
   "events": {
@@ -251,6 +256,7 @@
       "aparte-approval-mode-change",
       "aparte-attachment-preview",
       "aparte-branch-navigate",
+      "aparte-collect-commands",
       "aparte-compact",
       "aparte-compact-done",
       "aparte-compact-error",
@@ -269,6 +275,7 @@
       "aparte-conversation-unpin",
       "aparte-edit",
       "aparte-feedback",
+      "aparte-feedback-reason",
       "aparte-launcher-toggle",
       "aparte-link-click",
       "aparte-message-aborted",
@@ -289,7 +296,8 @@
       "aparte-sidebar-toggle",
       "aparte-split-resize",
       "aparte-suggestion",
-      "aparte-tool-approval-request"
+      "aparte-tool-approval-request",
+      "aparte-trigger-select"
     ],
     "names": [
       "aparte-cancel",
@@ -424,6 +432,7 @@
       "overrideSegmentRenderer",
       "parseAparteEventStream",
       "parseMarkdownToSegments",
+      "placeFloating",
       "populateBubbleFromMessage",
       "readableToAsyncIterable",
       "registerAllComponents",
@@ -668,6 +677,12 @@
       "createTitleProvider",
       "setupTitler"
     ],
+    "@aparte/plugin-triggers": [
+      "AparteTriggers",
+      "detectTrigger",
+      "matchRows",
+      "scoreItem"
+    ],
     "@aparte/provider-ai-sdk": [
       "createAiSdkProvider",
       "fullStreamToAparteEvents",
@@ -811,6 +826,8 @@
     "errorUnreachable",
     "feedbackNegative",
     "feedbackPositive",
+    "feedbackReasonDismiss",
+    "feedbackReasonTitle",
     "file",
     "generating",
     "imageLoad",
@@ -883,6 +900,26 @@
     "toolTurnLimit",
     "toolUnavailable",
     "transcript",
+    "triggersBack",
+    "triggersCommandApproval",
+    "triggersCommandCompact",
+    "triggersCommandCopy",
+    "triggersCommandModel",
+    "triggersCommandNew",
+    "triggersCommandRetry",
+    "triggersCommandStop",
+    "triggersCompactBusy",
+    "triggersCompactFailed",
+    "triggersCompactNoWindow",
+    "triggersCompactNothing",
+    "triggersEmpty",
+    "triggersError",
+    "triggersLoading",
+    "triggersRetry",
+    "turnTools",
+    "turnUsed",
+    "turnWorked",
+    "turnWorking",
     "typing",
     "unarchiveConversation",
     "unpinConversation",
@@ -1134,6 +1171,7 @@
     "--aparte-mark-intent",
     "--aparte-mark-intent-ink",
     "--aparte-mark-tint",
+    "--aparte-menu-max-height",
     "--aparte-menu-max-width",
     "--aparte-menu-min-width",
     "--aparte-menu-shadow",

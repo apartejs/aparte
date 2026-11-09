@@ -68,12 +68,14 @@ approval.subscribe((mode, previous) => console.info(previous, '→', mode));
 ```
 
 A name in a list matches exactly; a `RegExp` matches a pattern. A change of mode applies to the
-next tool call, in the middle of a run too. `setupApproval()` takes `ApprovalSetupOptions` and
+next tool call, in the middle of a run too. While a card is open the toolbar is hidden, so the
+switch cannot change under a question already asked. `setupApproval()` takes `ApprovalSetupOptions` and
 returns an `ApprovalController` (`getMode`, `setMode`, `subscribe`), which
 `getApprovalController(config)` finds again from anywhere.
 
 The element also dispatches `aparte-approval-mode-change` with `{ mode, previousMode }`
-(`AparteApprovalModeChangeEventDetail`), bubbling, so an ancestor can save the choice. Nothing is
+(`AparteApprovalModeChangeEventDetail`), bubbling, so an ancestor can save the choice. The
+`/approval` command does the same, from the composer. Nothing is
 remembered across a reload: keep `getMode()` wherever you keep preferences.
 
 The plugin ships no framework binding. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the

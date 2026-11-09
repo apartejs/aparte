@@ -32,7 +32,7 @@ aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
     })(modelId),
 }));
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-4-5' });
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude-sonnet-5-5' });
 new AparteClient({
   keyResolver: (providerId) => localStorage.getItem(`${providerId}.key`) ?? undefined,   // the person's key
 }).start();

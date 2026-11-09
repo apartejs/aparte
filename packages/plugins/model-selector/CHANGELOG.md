@@ -1,5 +1,17 @@
 # @aparte/plugin-model-selector
 
+## 1.1.0
+
+### Minor Changes
+
+- 855778c: These plugins now add `/compact`, `/model` and `/approval` to `@aparte/plugin-triggers`' menu when it is on the page.
+
+  They answer an event, so neither side depends on the other, and nothing changes without the menu. Turn one off with `setupCompaction({ commands: false })`, `setupApproval({ commands: false })` or `<aparte-model-selector commands="false">`.
+
+### Patch Changes
+
+- `setSelection()` sends `aparte-model-change` once, with the model it changed from. It used to send it twice, neither time with that model.
+
 ## 1.0.2
 
 ## 1.0.1

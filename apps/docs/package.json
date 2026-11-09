@@ -1,7 +1,7 @@
 {
     "name": "@aparte-workspace/docs",
     "type": "module",
-    "version": "0.0.65",
+    "version": "0.0.66",
     "private": true,
     "scripts": {
         "gen:css-vars": "node scripts/gen-css-vars.mjs",
@@ -51,6 +51,7 @@
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/plugin-streaming-markdown": "workspace:*",
         "@aparte/plugin-titler": "workspace:*",
+        "@aparte/plugin-triggers": "workspace:*",
         "katex": "^0.19.1",
         "mermaid": "^11.17.2",
         "@aparte/privacy": "^1.1.0",

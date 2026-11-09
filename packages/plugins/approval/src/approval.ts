@@ -7,9 +7,13 @@
  * survives exactly as long as the page, and a host that wants it remembered reads
  * `getMode()` / `onModeChange` and writes wherever it keeps its preferences.
  */
-import { aparteGlobalConfig, type AparteConfig, type AparteApprovalPolicy } from '@aparte/core';
 import {
-    APPROVAL_MODES, createApprovalPolicy, classifyTool,
+    aparteGlobalConfig, type AparteApprovalModeChangeEventDetail, type AparteCollectCommandsEventDetail,
+    type AparteConfig, type AparteApprovalPolicy,
+} from '@aparte/core';
+import type { AparteApprovalMode } from './aparte-approval-mode.js';
+import {
+    APPROVAL_MODES, APPROVAL_MODE_LABELS, createApprovalPolicy, classifyTool,
     type ApprovalMode, type ApprovalClassification, type ToolClass,
 } from './policy.js';
 
@@ -18,6 +22,11 @@ export interface ApprovalSetupOptions {
     classify: ApprovalClassification;
     /** The starting mode. Default: `ask`. */
     mode?: ApprovalMode;
+    /**
+     * Answer `@aparte/plugin-triggers`' menu with an `/approval` command. Default: `true`,
+     * and with no menu on the page nothing asks.
+     */
+    commands?: boolean;
     /** Called after every switch, with the new and the previous mode. */
     onModeChange?: (mode: ApprovalMode, previous: ApprovalMode) => void;
 }
@@ -89,6 +98,7 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
             return () => { listeners.delete(listener); };
         },
         dispose() {
+            if (answersCommands) window.removeEventListener('aparte-collect-commands', onCollectCommands);
             if (controllers.get(config) === controller) {
                 // Only the policy this setup installed: a config whose policy was since
                 // replaced by someone else keeps that replacement.
@@ -99,6 +109,33 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
             listeners.clear();
         },
     };
+
+    const onCollectCommands = (e: Event): void => {
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
+        if (detail.config !== config) return;
+        const labels = detail.composer?.querySelector<AparteApprovalMode>('aparte-approval-mode')?.labels;
+        detail.add({
+            id: 'approval',
+            order: 70,
+            description: config.t('triggersCommandApproval'),
+            children: APPROVAL_MODES.map((candidate) => ({
+                id: candidate,
+                label: labels?.[candidate] ?? APPROVAL_MODE_LABELS[candidate],
+                ...(candidate === mode ? { icon: 'check' } : {}),
+                run: (context) => {
+                    const previousMode = mode;
+                    controller.setMode(candidate);
+                    if (mode === previousMode) return;
+                    // As the switch does: an app saves the choice from this event.
+                    context.composer.dispatchEvent(new CustomEvent<AparteApprovalModeChangeEventDetail>('aparte-approval-mode-change', {
+                        bubbles: true, composed: true, detail: { mode: candidate, previousMode },
+                    }));
+                },
+            })),
+        });
+    };
+    const answersCommands = options.commands !== false && typeof window !== 'undefined';
+    if (answersCommands) window.addEventListener('aparte-collect-commands', onCollectCommands);
 
     const policy = createApprovalPolicy(() => mode, options.classify);
     // Bookkeeping BEFORE the config is told: `setApprovalPolicy` notifies, and a mounted

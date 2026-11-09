@@ -133,6 +133,22 @@ const PLUGIN_OWNED = new Set([
     'questionDeclined', // @aparte/plugin-ask-user — the receipt's line when the person declined
     'artifactNotCreated', // @aparte/plugin-artifacts — a refused, stopped or failed create_artifact
     'modelSelectorPlaceholder', // @aparte/plugin-model-selector — the empty picker's placeholder
+    'triggersLoading', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersEmpty', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersError', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersRetry', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersBack', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandNew', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandStop', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandRetry', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandCopy', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandCompact', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCompactNothing', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCompactBusy', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCompactNoWindow', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCompactFailed', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandModel', // @aparte/plugin-triggers or a plugin answering its menu
+    'triggersCommandApproval', // @aparte/plugin-triggers or a plugin answering its menu
 ]);
 
 /**

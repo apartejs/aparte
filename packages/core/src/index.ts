@@ -46,6 +46,7 @@ import './styles/components/bubble.css';
 import './styles/components/checkpoint.css';
 import './styles/components/composer.css';
 import './styles/segment/thinking.css';
+import './styles/segment/turn.css';
 import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
@@ -92,6 +93,11 @@ export type {
     AparteStatus,
     AparteAttachment,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
+    AparteComposerToken,
+    AparteAttachmentState,
+    AparteMessageToken,
+    AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,
     AparteSegmentTypes,
@@ -152,6 +158,12 @@ export type {
     AparteRetryEventDetail,
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
+    AparteFeedbackReasonEventDetail,
+    AparteCollectCommandsEventDetail,
+    AparteTriggerSelectEventDetail,
+    AparteCommand,
+    AparteCommandScope,
+    AparteCommandContext,
     AparteActionEventDetail,
     // Chat types
     AparteChatRequest,
@@ -344,6 +356,8 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // same — while it was not exported at all, so the only way to follow that advice
 // was `CSS.escape`, which over-escapes inside a quoted attribute selector.
 export { cssEscape } from './utils/css-escape.js';
+export { placeFloating } from './utils/place-floating.js';
+export type { AparteFloatingOptions } from './utils/place-floating.js';
 // Exported because the same wall is hit outside core: a wrapper naming its host
 // element, a provider tagging a request, or any bring-your-own-loop consumer
 // generating message ids all reach for `crypto.randomUUID`, which does not exist

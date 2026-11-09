@@ -36,7 +36,7 @@ import {
     aparteGlobalConfig, contentToText, estimateWireTokens, historyFromCheckpoint, measureContext, resolveConfig,
     type AparteConfig, type AparteMessage, type AparteChatMessage, type AparteChatRequest, type AparteStreamEvent,
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
-    type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
+    type AparteCollectCommandsEventDetail, type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
     type AparteCompactorOutcome, type AparteCompactorReason, type AparteCompactorRequest,
 } from '@aparte/core';
 import {
@@ -189,6 +189,12 @@ export interface CompactionSetupOptions {
      * turn's abort signal to the compactor, so it does not depend on this listener.
      */
     listen?: boolean;
+    /**
+     * Answer `@aparte/plugin-triggers`' menu with a `/compact` command. Default: `true`, and
+     * with no menu on the page nothing asks. It is an event, so this package does not depend
+     * on that one.
+     */
+    commands?: boolean;
     /**
      * Compact by itself. Default `true`: once set up, the plugin summarises a chat when a
      * turn ends with the context at `threshold` of its window, before a send whose request
@@ -692,6 +698,25 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         // reported missing — once per setup on the page.
         return owner === aparteGlobalConfig && answering.values().next().value === config;
     };
+    const onCollectCommands = (e: Event): void => {
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
+        if (detail.config !== config) return;
+        detail.add({
+            id: 'compact',
+            order: 50,
+            description: config.t('triggersCommandCompact'),
+            run: async (context) => {
+                const outcome = await controller.compact({ target: context.chat, ...(context.targetId !== undefined ? { targetId: context.targetId } : {}), reason: 'manual' });
+                if (outcome.ok && outcome.skipped) {
+                    const busy = outcome.reason === 'streaming' || outcome.reason === 'running';
+                    context.notify(config.t(busy ? 'triggersCompactBusy' : outcome.reason === 'no-window' ? 'triggersCompactNoWindow' : 'triggersCompactNothing'));
+                }
+                else if (!outcome.ok) context.notify(config.t('triggersCompactFailed'));
+            },
+        });
+    };
+    const answersCommands = options.commands !== false && typeof window !== 'undefined';
+    if (answersCommands) window.addEventListener('aparte-collect-commands', onCollectCommands);
     const onCompact = (e: Event): void => {
         if (!addressed(e)) return;
         const detail = (e as CustomEvent<AparteCompactEventDetail | undefined>).detail;
@@ -1085,6 +1110,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (disposed) return;
             disposed = true;
             controller.abort();
+            if (answersCommands) window.removeEventListener('aparte-collect-commands', onCollectCommands);
             if (listening) {
                 window.removeEventListener('aparte-compact', onCompact);
                 window.removeEventListener('aparte-abort', onAbort);

@@ -28,7 +28,7 @@ import type {
 import type { AparteSegmentDefaults } from '../types/segments.js';
 import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteCompactor } from '../types/compactor.js';
-import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
+import type { AparteBubbleActionsConfig, AparteTurnSummaryOptions, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import {
@@ -436,6 +436,9 @@ export class AparteConfig {
     // Bubble Actions — APARTE_DEFAULT_BUBBLE_ACTIONS is the single source of truth
     // (init here, restored by reset(), and the fallback in getBubbleActions()).
     private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+    private _turnSummary: AparteTurnSummaryOptions | null = null;
+    private _streamingCaret = false;
+    private _dateSeparators = false;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -490,6 +493,47 @@ export class AparteConfig {
     }
 
     /**
+     * Fold the steps of a reply behind one line: a run of reasoning and tool calls between two
+     * pieces of text becomes "Worked 9 s · 7 tools", which opens on the usual rows. A call
+     * waiting for approval, a call that failed and a tool drawn by its own renderer stay out
+     * of the fold. Off by default; `false` turns it off again.
+     *
+     * @example
+     * aparteGlobalConfig.setTurnSummary(true);
+     * aparteGlobalConfig.setTurnSummary({ openWhileRunning: true }); // watch the steps, folded at the end
+     */
+    setTurnSummary(options: AparteTurnSummaryOptions | boolean): void {
+        this._turnSummary = options === false ? null : options === true ? {} : options;
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** Draw a blinking caret where the words of a reply are arriving. Off by default. */
+    setStreamingCaret(on: boolean): void {
+        this._streamingCaret = on;
+        this._notify();
+    }
+
+    getStreamingCaret(): boolean {
+        return this._streamingCaret;
+    }
+
+    /** Draw the date above the first message of each day. Off by default. */
+    setDateSeparators(on: boolean): void {
+        this._dateSeparators = on;
+        this._notify();
+    }
+
+    getDateSeparators(): boolean {
+        return this._dateSeparators;
+    }
+
+    /** The options {@link setTurnSummary} left, or null when replies are not folded. */
+    getTurnSummary(): Readonly<AparteTurnSummaryOptions> | null {
+        return this._turnSummary;
+    }
+
+    /**
      * Declare which host-dependent affordances your app handles. Core renders the
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
@@ -521,6 +565,7 @@ export class AparteConfig {
         edit: boolean;
         feedback: boolean;
         info: boolean;
+        feedbackReasons?: readonly string[];
         user?: AparteBubbleActionName[];
         assistant?: AparteBubbleActionName[];
     } {
@@ -530,6 +575,7 @@ export class AparteConfig {
             edit: this._bubbleActionsConfig.edit ?? APARTE_DEFAULT_BUBBLE_ACTIONS.edit,
             feedback: this._bubbleActionsConfig.feedback ?? APARTE_DEFAULT_BUBBLE_ACTIONS.feedback,
             info: this._bubbleActionsConfig.info ?? APARTE_DEFAULT_BUBBLE_ACTIONS.info,
+            feedbackReasons: this._bubbleActionsConfig.feedbackReasons,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
@@ -2183,6 +2229,9 @@ export class AparteConfig {
         this._approvalPolicy = null;
         this._compactor = null;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+        this._turnSummary = null;
+        this._streamingCaret = false;
+        this._dateSeparators = false;
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();
     }

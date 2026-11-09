@@ -45,10 +45,11 @@ type Internals = {
 
 function setup(options: Partial<AparteClientOptions> = {}) {
     const cfg = new AparteConfig();
-    cfg.registerAIProvider({
+    const provider: Record<string, unknown> = {
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
         getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
-    } as never);
+    };
+    cfg.registerAIProvider(provider as never);
     cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     cfg.setKeyProvider(() => 'k');
     const seen: AparteChatRequest[] = [];
@@ -61,7 +62,7 @@ function setup(options: Partial<AparteClientOptions> = {}) {
     const make = (target?: HTMLElement) => new AparteClient({
         config: cfg, autoRegister: false, ...(target ? { targetResolver: () => target as never } : {}), ...options,
     }) as unknown as Internals;
-    return { seen, make };
+    return { seen, make, provider };
 }
 
 /**
@@ -147,6 +148,24 @@ describe('send: the model reads the summary, then the messages from the checkpoi
         const { make } = setup({ history: (viewport) => { received = viewport; return []; } });
         make()._buildMessages('x', { getMessages: () => transcript() });
         expect(received.map((m) => m.id)).toEqual(['u1', 'a1', 'u2', 'a2']);
+    });
+});
+
+describe('what a retry asks of the model', () => {
+    const retried = async (retryTemperature?: number) => {
+        const { seen, make, provider } = setup();
+        if (retryTemperature !== undefined) provider['retryTemperature'] = retryTemperature;
+        const { el } = treeTarget(transcript());
+        await make(el)._handleRetry(new CustomEvent('aparte-retry', { detail: { messageId: 'a2' } }));
+        return seen[0]!;
+    };
+
+    it('sends no temperature, which recent models refuse', async () => {
+        expect(await retried()).not.toHaveProperty('temperature');
+    });
+
+    it('sends the one a provider asks for, when it decodes greedily without it', async () => {
+        expect((await retried(0.4)).temperature).toBe(0.4);
     });
 });
 

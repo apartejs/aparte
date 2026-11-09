@@ -18,6 +18,11 @@ export type {
     AparteMessage,
     AparteContextSummary,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
+    AparteComposerToken,
+    AparteAttachmentState,
+    AparteMessageToken,
+    AparteComposerCaret,
     AparteBubbleActionName,
     AparteViewportConfig,
     AparteInputConfig
@@ -39,6 +44,12 @@ export type {
     AparteRetryEventDetail,
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
+    AparteFeedbackReasonEventDetail,
+    AparteCollectCommandsEventDetail,
+    AparteTriggerSelectEventDetail,
+    AparteCommand,
+    AparteCommandScope,
+    AparteCommandContext,
     AparteActionEventDetail
 } from './events.js';
 

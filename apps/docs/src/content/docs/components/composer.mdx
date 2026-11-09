@@ -71,7 +71,8 @@ target; `<aparte-composer-attachments>` shows the files waiting to be sent. They
 `<aparte-composer-toolbar>` is the row under the field for a model picker, a mode switch or your
 own buttons. Children keep their DOM order; `margin-inline-start: auto` on one pushes it, and
 everything after it, to the end of the row. An `<aparte-composer-action>` is an icon button that
-only emits `aparte-action-click`: what it does is up to you.
+only emits `aparte-action-click`: what it does is up to you. The row is hidden while an approval
+or a question is open in the composer, and comes back with the answer.
 
 ### While a reply streams
 
@@ -139,6 +140,24 @@ myButton.addEventListener('click', () => composer.submit());
 ### `<aparte-composer-toolbar>`
 
 <ToolbarApi />
+
+## Tokens
+
+A token is a pill in the draft that sends a text of its own. `aparte-composer-input` inserts one and
+reports where the caret is, which is what [Triggers](/components/triggers/) is built on, and what a
+control of your own can use:
+
+```ts
+const input = composer.querySelector('aparte-composer-input')!;
+
+const caret = input.getCaret();
+if (caret) input.insertToken(caret.offset, caret.offset, { label: 'Anna', text: '@anna', kind: 'mention', data: { id: 2 } });
+```
+
+`getCaret()` counts one unit per character, per line break and per token. `replaceRange(from, to, text)`
+writes plain text, `getRangeRect(from, to)` gives the box of a range on screen, and `getTokens()` the
+tokens with their place in the message. All of them go through the browser's own edit commands, so
+Undo knows about them.
 
 ## Accessibility
 

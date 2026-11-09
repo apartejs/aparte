@@ -1,3 +1,7 @@
+import type { AparteSendEventDetail } from '../types/events.js';
+import type { AparteComposer } from '../components/composer/aparte-composer.js';
+import type { AparteStorageAdapter } from './types.js';
+import { cssEscape } from '../utils/css-escape.js';
 import type { AparteMessage, AparteAttachment, AparteCompactDoneEventDetail } from '../types/index.js';
 import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation, AparteConversationLoadedDetail } from './types.js';
@@ -64,6 +68,12 @@ const MAX_COMPACTION_SAVE_WAITS = 6;
 type CompactionSaveDetail = Pick<AparteCompactDoneEventDetail, 'targetId' | 'summary' | 'messageId' | 'restored'>;
 
 export interface AparteConversationControllerOptions {
+    /**
+     * Keep what was typed in each conversation, and give it back on return. In memory,
+     * unless the storage adapter has `loadDraft` and `saveDraft`. A pill comes back as its
+     * text. Default: false.
+     */
+    keepDrafts?: boolean;
     /**
      * Conversation manager. If omitted, the controller resolves it from
      * `aparteGlobalConfig.getConversationManager()` when first needed.
@@ -257,11 +267,12 @@ export class AparteConversationController {
         // append the user message BEFORE AparteClient (window-bubble listener)
         // sees the event. Without capture, AparteClient would race with us.
         this._onSendCapture = (e: Event) => {
-            const evt = e as CustomEvent<{ content?: string; targetId?: string; files?: File[]; timestamp?: number }>;
+            const evt = e as CustomEvent<AparteSendEventDetail>;
             // Only handle events targeting this binding
             const targetId = evt.detail?.targetId;
             if (targetId && targetId !== this._binding.hostId) return;
 
+            this._forgetDraft();
             const content = evt.detail?.content ?? '';
             const files = evt.detail?.files;
             // Shared with raw-core consumers via the exported `filesToAttachments`
@@ -276,6 +287,8 @@ export class AparteConversationController {
                 content,
                 timestamp: evt.detail?.timestamp ?? Date.now(),
                 ...(attachments ? { attachments } : {}),
+                ...(evt.detail?.tokens?.length ? { tokens: evt.detail.tokens } : {}),
+                ...(evt.detail?.meta ? { metadata: evt.detail.meta } : {}),
             };
 
             // 1. Optimistic UI: append the user message immediately so it
@@ -480,6 +493,82 @@ export class AparteConversationController {
      * reload never kills an in-flight response.
      */
     async setConversationId(id: string | null): Promise<void> {
+        if (!this._options.keepDrafts || id === this._activeId) {
+            await this._openConversation(id);
+            return;
+        }
+        const call = ++this._draftCalls;
+        // Until the next draft is back, the field still shows the one put away: a switch
+        // during that load must not file it under the conversation being opened.
+        if (!this._draftAway) this._stashDraft();
+        this._draftAway = true;
+        try {
+            await this._openConversation(id);
+        } finally {
+            if (call === this._draftCalls) this._draftAway = false;
+        }
+        if (call === this._draftCalls) await this._restoreDraft(call);
+    }
+
+    /** Drafts by conversation; the empty key is a chat that has no conversation yet. */
+    private readonly _drafts = new Map<string, string>();
+    private _draftCalls = 0;
+    private _draftAway = false;
+
+    private get _composer(): AparteComposer | null {
+        const { host, hostId } = this._binding;
+        return host.querySelector<AparteComposer>('aparte-composer')
+            ?? document.querySelector<AparteComposer>(`aparte-composer[target="${cssEscape(hostId)}"]`); // safe-attr: a selector, through cssEscape
+    }
+
+    private _stashDraft(): void {
+        if (!this._options.keepDrafts) return;
+        const composer = this._composer;
+        if (!composer) return;
+        const key = this._activeId ?? '';
+        const text = composer.value;
+        if (text) this._drafts.set(key, text);
+        else this._drafts.delete(key);
+        this._saveDraft(key, text);
+    }
+
+    /** A message was sent: what it was drafted from must not come back, in this tab or the next. */
+    private _forgetDraft(): void {
+        if (!this._options.keepDrafts) return;
+        const key = this._activeId ?? '';
+        this._drafts.delete(key);
+        this._saveDraft(key, '');
+    }
+
+    /** A store that fails loses a draft, and nothing else. */
+    private _saveDraft(key: string, text: string): void {
+        const adapter = this._draftAdapter();
+        if (!key || !adapter) return;
+        Promise.resolve().then(() => adapter.saveDraft!(key, text)).catch((error: unknown) => {
+            console.warn('[ConversationController] the draft could not be saved:', key, error);
+        });
+    }
+
+    private async _restoreDraft(call: number): Promise<void> {
+        const key = this._activeId ?? '';
+        const adapter = this._draftAdapter();
+        let text = this._drafts.get(key);
+        if (text === undefined && key && adapter) {
+            try {
+                text = (await adapter.loadDraft!(key)) ?? '';
+            } catch (error) {
+                console.warn('[ConversationController] the draft could not be read:', key, error);
+            }
+        }
+        if (call === this._draftCalls) this._composer?.setValue(text ?? '');
+    }
+
+    private _draftAdapter(): AparteStorageAdapter | null {
+        const adapter = this._manager()?.adapter ?? null;
+        return adapter?.loadDraft && adapter.saveDraft ? adapter : null;
+    }
+
+    private async _openConversation(id: string | null): Promise<void> {
         const isSwitch = id !== this._activeId;
         const manager = this._manager();
         // Abort any in-flight stream tied to this binding only when actually

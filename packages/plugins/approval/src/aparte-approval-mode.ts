@@ -14,14 +14,9 @@ import {
     type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
 import { getApprovalController, type ApprovalController } from './approval.js';
-import { APPROVAL_MODES, type ApprovalMode } from './policy.js';
+import { APPROVAL_MODES, APPROVAL_MODE_LABELS, type ApprovalMode } from './policy.js';
 
-const DEFAULT_LABELS: Record<ApprovalMode, string> = {
-    plan: 'Plan',
-    ask: 'Ask',
-    'auto-edit': 'Auto-edit',
-    auto: 'Auto',
-};
+const DEFAULT_LABELS = APPROVAL_MODE_LABELS;
 
 /**
  * A select over the four approval modes — plan, ask, auto-edit, auto — bound to the

@@ -98,6 +98,12 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
  *   in exactly the given order, and naming a button there IS the opt-in (the flag
  *   is not consulted). Lets a theme match a specific product 1:1.
  */
+/** See `AparteConfig.setTurnSummary`. */
+export interface AparteTurnSummaryOptions {
+    /** Keep a fold open while its steps run, and close it when they are done (default: closed). */
+    openWhileRunning?: boolean;
+}
+
 export interface AparteBubbleActionsConfig {
     /** Copy message text to clipboard — the one action core honors alone. Default: false */
     copy?: boolean;
@@ -107,6 +113,11 @@ export interface AparteBubbleActionsConfig {
     edit?: boolean;
     /** Thumbs-up / thumbs-down feedback (assistant bubbles). Needs a listener. Default: false */
     feedback?: boolean;
+    /**
+     * Reasons to offer after a thumbs-down, in your words and language. One press sends
+     * `aparte-feedback-reason`; `aparte-feedback` has already gone out with the thumb.
+     */
+    feedbackReasons?: readonly string[];
     /**
      * The details ("i") button, which opens the **app-owned** stats popover by
      * emitting `aparte-message-info` (assistant bubbles). Rendered only when the
@@ -250,8 +261,47 @@ export interface AparteMessage {
      */
     contextEstimate?: number;
 
+    /**
+     * The tokens this message was written with (mentions, a picked file), each with its
+     * place in `content`. The bubble draws them as they looked in the composer.
+     */
+    tokens?: AparteMessageToken[];
+
     /** Optional metadata for custom properties */
     metadata?: Record<string, unknown>;
+}
+
+/** How the upload of a picked file is going (`composer.setAttachmentState`). */
+export interface AparteAttachmentState {
+    status: 'uploading' | 'done' | 'error';
+    /** From 0 to 100. Without it, an `uploading` file shows a moving bar. */
+    progress?: number;
+}
+
+/** A pill in the composer: what it shows, and what the message says in its place. */
+export interface AparteComposerToken {
+    /** What the pill shows. */
+    label: string;
+    /** What the message contains in its place. Defaults to `label`. */
+    text?: string;
+    /** A name of your own, `mention` or `file`. Reaches the page as `data-kind` on the pill. */
+    kind?: string;
+    /** Whatever the app wants back with the message: an id, a path. Never shown; must survive JSON. */
+    data?: unknown;
+}
+
+/** A token of a sent message, with where it sits in `content` (end excluded). */
+export interface AparteMessageToken extends AparteComposerToken {
+    text: string;
+    start: number;
+    end: number;
+}
+
+/** The caret in a draft. Offsets count one unit per character, per line break and per token. */
+export interface AparteComposerCaret {
+    /** The draft, where each token is one U+FFFC character. */
+    text: string;
+    offset: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

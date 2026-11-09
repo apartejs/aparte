@@ -579,6 +579,9 @@ export const TransformersProvider: AparteAIProvider
     & Required<Pick<AparteAIProvider, 'prepareModel' | 'getModelStatus' | 'chat'>> = {
     id: 'transformers',
 
+    // Decoding is greedy without a temperature, so a retry would repeat the answer.
+    retryTemperature: 0.4,
+
     getMetadata() {
         return {
             id: 'transformers',

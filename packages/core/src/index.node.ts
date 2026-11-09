@@ -38,6 +38,11 @@ export type {
     AparteStatus,
     AparteAttachment,
     AparteBubbleActionsConfig,
+    AparteTurnSummaryOptions,
+    AparteComposerToken,
+    AparteAttachmentState,
+    AparteMessageToken,
+    AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,
     AparteSegmentTypes,
@@ -95,6 +100,12 @@ export type {
     AparteRetryEventDetail,
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
+    AparteFeedbackReasonEventDetail,
+    AparteCollectCommandsEventDetail,
+    AparteTriggerSelectEventDetail,
+    AparteCommand,
+    AparteCommandScope,
+    AparteCommandContext,
     AparteActionEventDetail,
     AparteChatRequest,
     AparteRequestMeta,
@@ -342,6 +353,8 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // guide both tell a renderer author to use `cssEscape` for a selector, so it has to
 // be importable. It touches no DOM, so the SSR barrel carries it too.
 export { cssEscape } from './utils/css-escape.js';
+export { placeFloating } from './utils/place-floating.js';
+export type { AparteFloatingOptions } from './utils/place-floating.js';
 export { uuid } from './utils/uuid.js';
 export { copyText } from './utils/copy-text.js';
 // Pure and DOM-free, so the SSR barrel carries it too — and that is the point: a

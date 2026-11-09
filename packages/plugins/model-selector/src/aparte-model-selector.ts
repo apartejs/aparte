@@ -11,11 +11,20 @@ import {
     type AparteAIModel,
     type AparteModelChangeEventDetail,
     type AparteSelectChangeDetail,
+    type AparteCollectCommandsEventDetail,
 } from '@aparte/core';
 
 interface ProviderModels {
     provider: AparteAIProvider;
     models: AparteAIModel[];
+}
+
+interface CommandRow {
+    id: string;
+    label: string;
+    icon?: string;
+    run?(): void;
+    children?: CommandRow[];
 }
 
 /**
@@ -43,6 +52,7 @@ function esc(value: unknown): string {
  * and what a typed framework wrapper is written from.
  *
  * @element aparte-model-selector
+ * @attr {string} commands - `false` keeps `/model` out of `@aparte/plugin-triggers`' menu.
  * @attr {boolean} auto-select - Selects the first model as soon as one is available.
  * @attr {boolean} persist - Writes the selection into the config, which is what the next message is sent with.
  *   Without it the picker only fires `aparte-model-change`, and applying the choice is the app's. It does not
@@ -102,8 +112,33 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled', 'details'];
     }
 
+    /** Answers `@aparte/plugin-triggers`' menu with `/model`, unless `commands="false"`. */
+    private readonly _onCollectCommands = (e: Event): void => {
+        const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
+        if (detail.config !== this._cfg || this.getAttribute('commands') === 'false' || this._providerModels.length === 0 || this._isDisabled()) return;
+        // Several chats can share a config: each selector answers for its own.
+        const chat = this.closest('aparte-chat, [data-aparte-chat]');
+        if (this._composer ? this._composer !== detail.composer : chat && chat !== detail.chat) return;
+        const several = this._providerModels.length > 1;
+        const rows = (entry: ProviderModels): CommandRow[] => entry.models.map((model) => ({
+            id: `${entry.provider.id}::${model.id}`,
+            label: model.name || model.id,
+            ...(entry.provider.id === this._currentProviderId && model.id === this._currentModelId ? { icon: 'check' } : {}),
+            run: () => this.setSelection(entry.provider.id, model.id),
+        }));
+        detail.add({
+            id: 'model',
+            order: 60,
+            description: this._cfg.t('triggersCommandModel'),
+            children: several
+                ? this._providerModels.map((entry) => ({ id: entry.provider.id, label: entry.provider.getMetadata().name, children: rows(entry) }))
+                : rows(this._providerModels[0]!),
+        });
+    };
+
     async connectedCallback(): Promise<void> {
         this._cfg = resolveConfig(this);
+        window.addEventListener('aparte-collect-commands', this._onCollectCommands);
         // A fresh mount always does a full load, whatever a previous mount left running.
         this._restartLoading();
         this._providerModels = [];
@@ -230,6 +265,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     }
 
     disconnectedCallback(): void {
+        window.removeEventListener('aparte-collect-commands', this._onCollectCommands);
         this._aparteSelect?.removeEventListener('aparte-select-change', this._boundHandleChange);
         this.removeEventListener('aparte-optgroup-toggle', this._handleOptgroupToggle);
         this._composer?.removeEventListener('aparte-composer-change', this._boundComposerChange);
@@ -289,6 +325,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
     /** Programmatically set the selection. */
     setSelection(providerId: string, modelId: string): void {
+        const previousProviderId = this._currentProviderId;
+        const previousModelId = this._currentModelId;
         this._currentProviderId = providerId;
         this._currentModelId = modelId;
 
@@ -297,7 +335,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._aparteSelect.value = compositeValue;
         }
 
-        this._emitChange();
+        this._emitChange(previousProviderId, previousModelId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -603,6 +641,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
         // Parse composite value "providerId::modelId"
         const [providerId, modelId] = detail.value.split('::');
+        // `setSelection` moved the select, and says so itself: once, with what it changed from.
+        if (providerId === this._currentProviderId && modelId === this._currentModelId) return;
 
         this._currentProviderId = providerId || null;
         this._currentModelId = modelId || null;
