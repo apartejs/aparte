@@ -45,8 +45,13 @@ function builtIns(options: AparteCommandsOptions): AparteCommand[] {
             icon: 'edit',
             enabled: (scope) => !!options.onNew || !!viewportOf(scope) && !viewportOf(scope)!.hasAttribute('framework-managed'),
             run: (context) => {
-                if (options.onNew) options.onNew();
-                else viewportOf(context)?.clearAll();
+                if (options.onNew) {
+                    options.onNew();
+                    return;
+                }
+                // Emptying the list does not stop what is still writing to it.
+                if (context.composer.streaming) context.composer.cancel();
+                viewportOf(context)?.clearAll();
             },
         },
         {

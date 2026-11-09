@@ -42,6 +42,13 @@ export function matchRows(items: readonly AparteTriggerItem[], query: string, tr
     return trigger.maxItems ? scored.slice(0, trigger.maxItems) : scored;
 }
 
+/** A list's rows, then the commands it did not already hold, within `maxItems`. */
+export function mergeRows(rows: readonly TriggerRow[], commands: readonly TriggerRow[], trigger: AparteTrigger): TriggerRow[] {
+    const ids = new Set(rows.map((row) => row.item.id));
+    const merged = [...rows, ...commands.filter((row) => !ids.has(row.item.id))];
+    return trigger.maxItems ? merged.slice(0, trigger.maxItems) : merged;
+}
+
 /** Rows of a group brought together, the groups in the order they first appear. */
 export function groupRows(rows: readonly TriggerRow[]): Array<{ group: string | undefined; rows: TriggerRow[] }> {
     const groups: Array<{ group: string | undefined; rows: TriggerRow[] }> = [];

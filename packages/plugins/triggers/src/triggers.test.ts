@@ -4,7 +4,7 @@ import { AparteConfig, aparteGlobalConfig, type AparteComposer, type AparteCompo
 import './aparte-triggers.js';
 import { AparteTriggers } from './aparte-triggers.js';
 import { detectTrigger } from './detect.js';
-import { matchRows, scoreItem } from './match.js';
+import { matchRows, mergeRows, scoreItem } from './match.js';
 import { collectCommands, commandItems } from './collect.js';
 import { setupCommands } from './commands.js';
 import type { AparteCollectCommandsEventDetail, AparteCommand, AparteCommandScope, AparteTrigger, AparteTriggerItem } from './types.js';
@@ -105,6 +105,16 @@ describe('matching', () => {
     });
 });
 
+describe('merging a list and the commands', () => {
+    const row = (id: string) => ({ item: { id, label: id }, path: [] });
+
+    it('does not repeat an id, and stays within maxItems', () => {
+        const merged = mergeRows([row('a'), row('b')], [row('b'), row('c')], SLASH);
+        expect(merged.map((r) => r.item.id)).toEqual(['a', 'b', 'c']);
+        expect(mergeRows([row('a'), row('b')], [row('c')], { ...SLASH, maxItems: 2 }).map((r) => r.item.id)).toEqual(['a', 'b']);
+    });
+});
+
 describe('collecting commands', () => {
     const config = new AparteConfig();
     const scope = (cfg: AparteConfig = config): AparteCommandScope => ({
@@ -154,6 +164,20 @@ describe('collecting commands', () => {
 
     it('sorts by order, then as they came', () => {
         expect(items([{ id: 'b' }, { id: 'c', order: 1 }, { id: 'a' }]).map((i) => i.id)).toEqual(['c', 'b', 'a']);
+    });
+
+    it('keeps a list of children a list, so a search can look inside it', () => {
+        const [parent] = commandItems([{ id: 'model', children: [{ id: 'gpt', label: 'GPT' }] }], '/', scope());
+        expect(Array.isArray(parent!.children)).toBe(true);
+        expect(matchRows([parent!], 'gp', SLASH).map((r) => r.item.label)).toEqual(['GPT']);
+    });
+
+    it('closes only the command whose gate throws', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const items = commandItems([{ id: 'bad', enabled: () => { throw new Error('no'); } }, { id: 'good' }], '/', scope());
+        expect(items.map((i) => i.id)).toEqual(['good']);
+        expect(warn).toHaveBeenCalledOnce();
+        warn.mockRestore();
     });
 
     it('leaves out what is hidden, and what cannot act here', () => {
@@ -224,6 +248,68 @@ describe('<aparte-triggers>', () => {
         expect(labels(element)).toEqual(['Paul', 'Anna']);
         type('@an');
         expect(labels(element)).toEqual(['Anna']);
+    });
+
+    describe('beside a question or an approval', () => {
+        it('closes when something else in the composer takes the focus', () => {
+            const { composer, element, editor, type } = mount([{ ...AT, items: list('Paul') }]);
+            type('@');
+            expect(element.isOpen).toBe(true);
+            const card = composer.appendChild(document.createElement('button'));
+            editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: card }));
+            expect(element.isOpen).toBe(false);
+        });
+
+        it('closes when a panel opens, and does not come back behind it', () => {
+            const { composer, element, type } = mount([{ ...AT, items: list('Paul') }]);
+            type('@');
+            composer.showPanel(document.createElement('div'), { mode: 'none' });
+            expect(element.isOpen).toBe(false);
+            document.dispatchEvent(new Event('selectionchange'));
+            expect(element.isOpen).toBe(false);
+        });
+    });
+
+    it('starts on the first row that can be chosen, in the order they are drawn', () => {
+        const { element, type } = mount([{ ...AT, items: [
+            { id: 'a', label: 'A', group: 'one', disabled: true },
+            { id: 'b', label: 'B', group: 'two' },
+            { id: 'c', label: 'C', group: 'one', disabled: true },
+        ] }]);
+        type('@');
+        expect(active(element)).toBe('B');
+    });
+
+    it('does not open the submenu of a disabled row', () => {
+        const { element, type, key } = mount([{ ...AT, items: [{ id: 'x', label: 'X', disabled: true, children: list('a') }] }]);
+        type('@');
+        key('ArrowRight');
+        expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(1);
+    });
+
+    it('does not reopen on a text that starts with the trigger', () => {
+        const { element, input, type, key } = mount([{ ...AT, items: [{ id: 'p', label: 'Paul', insert: '@paul' }] }]);
+        type('@');
+        key('Enter');
+        document.dispatchEvent(new Event('selectionchange'));
+        expect(input.getValue()).toBe('@paul');
+        expect(element.isOpen).toBe(false);
+    });
+
+    it('does not double a trigger the label already has', () => {
+        const { input, type, key } = mount([{ ...AT, items: list('@paul') }]);
+        type('@');
+        key('Enter');
+        expect(input.getTokens()[0]!.text).toBe('@paul');
+    });
+
+    it('keeps following the page after a search that found nothing', () => {
+        const { type } = mount([{ ...AT, items: list('Paul') }]);
+        type('@');
+        const remove = vi.spyOn(window, 'removeEventListener');
+        type('@zz');
+        expect(remove).not.toHaveBeenCalledWith('resize', expect.anything());
+        remove.mockRestore();
     });
 
     it('closes on a list with nothing to offer', () => {
@@ -380,6 +466,53 @@ describe('<aparte-triggers>', () => {
     });
 
     describe('a list asked on demand', () => {
+        it('drops a failure that a newer search overtook', async () => {
+            const replies: Array<{ resolve(items: AparteTriggerItem[]): void; reject(error: unknown): void }> = [];
+            const { element, type } = mount([{ ...AT, debounce: 0, items: () => new Promise((resolve, reject) => { replies.push({ resolve, reject }); }) }]);
+            type('@a');
+            await flush();
+            type('@ab');
+            await flush();
+            replies[1]!.resolve(list('fresh'));
+            await flush();
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            replies[0]!.reject(new Error('429'));
+            await flush();
+            expect(labels(element)).toEqual(['fresh']);
+            expect(warn).not.toHaveBeenCalled();
+            warn.mockRestore();
+        });
+
+        it('holds Enter while the list is on its way', async () => {
+            const send = vi.fn();
+            const { composer, type, key } = mount([{ ...AT, debounce: 0, items: () => new Promise(() => {}) }]);
+            composer.addEventListener('aparte-send', send);
+            type('@a');
+            await flush();
+            expect(key('Enter').defaultPrevented).toBe(true);
+            expect(send).not.toHaveBeenCalled();
+        });
+
+        it('stays within maxItems', async () => {
+            const { element, type } = mount([{ ...AT, debounce: 0, maxItems: 1, items: () => list('one', 'two') }]);
+            type('@a');
+            await flush();
+            expect(labels(element)).toEqual(['one']);
+        });
+
+        it('takes a submenu with it when its list is drawn again', async () => {
+            vi.useFakeTimers();
+            const { element, type, key } = mount([{ ...AT, debounce: 100, items: (q) => (q ? list('result') : [{ id: 'a', label: 'A', children: list('x') }]) }]);
+            type('@');
+            await vi.advanceTimersByTimeAsync(0);
+            type('@a');
+            key('ArrowRight');
+            expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(2);
+            await vi.advanceTimersByTimeAsync(120);
+            expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(1);
+            expect(labels(element)).toEqual(['result']);
+        });
+
         it('is asked after the pause, once for several keystrokes', async () => {
             vi.useFakeTimers();
             const source = vi.fn((q: string) => list(`result ${q}`));
@@ -614,6 +747,17 @@ describe('<aparte-triggers>', () => {
             type('/new');
             key('Enter');
             await flush();
+            expect(host.clearAll).toHaveBeenCalledOnce();
+        });
+
+        it('/new stops a reply on its way before emptying the chat', async () => {
+            const { composer, type, key, host } = chat([answer]);
+            window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: {} }));
+            const cancel = vi.spyOn(composer, 'cancel').mockImplementation(() => {});
+            type('/new');
+            key('Enter');
+            await flush();
+            expect(cancel).toHaveBeenCalledOnce();
             expect(host.clearAll).toHaveBeenCalledOnce();
         });
 

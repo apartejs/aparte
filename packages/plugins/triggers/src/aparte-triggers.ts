@@ -1,10 +1,10 @@
 import {
-    placeFloating, resolveConfig,
+    deferHydrationOf, placeFloating, resolveConfig,
     type AparteComposer, type AparteComposerInput, type AparteComposerToken,
 } from '@aparte/core';
 import { collectCommands, commandItems } from './collect.js';
 import { detectTrigger, type TriggerHit } from './detect.js';
-import { groupRows, matchRows, type TriggerRow } from './match.js';
+import { groupRows, matchRows, mergeRows, type TriggerRow } from './match.js';
 import type {
     AparteCommandScope, AparteTrigger, AparteTriggerContext, AparteTriggerItem, AparteTriggerSelectEventDetail,
     AparteTriggerSource,
@@ -30,6 +30,7 @@ const HOVER_OPEN_MS = 120;
 const DEFAULT_DEBOUNCE_MS = 150;
 const COMPACT_WIDTH = '(max-width: 640px)';
 const BACK_ID = '__aparte-back';
+const RETRY_ID = '__aparte-retry';
 
 let nextId = 0;
 
@@ -89,6 +90,7 @@ export class AparteTriggers extends HTMLElement {
         composer.addEventListener('compositionend', this._onCompositionEnd);
         composer.addEventListener('focusout', this._onFocusOut);
         composer.addEventListener('aparte-send', this._onSend);
+        composer.addEventListener('aparte-composer-change', this._onComposerChange);
         document.addEventListener('selectionchange', this._refresh);
     }
 
@@ -102,6 +104,7 @@ export class AparteTriggers extends HTMLElement {
         composer.removeEventListener('compositionend', this._onCompositionEnd);
         composer.removeEventListener('focusout', this._onFocusOut);
         composer.removeEventListener('aparte-send', this._onSend);
+        composer.removeEventListener('aparte-composer-change', this._onComposerChange);
         document.removeEventListener('selectionchange', this._refresh);
         this._composer = null;
     }
@@ -154,14 +157,19 @@ export class AparteTriggers extends HTMLElement {
         this._refresh();
     };
     private readonly _onSend = (): void => { this.close(); };
+    /** The focus left the field. Not for the composer around it: a card that opens there takes the keys. */
     private readonly _onFocusOut = (e: FocusEvent): void => {
-        if (!this._composer?.contains(e.relatedTarget as Node | null)) this.close();
+        if (!this.contains(e.relatedTarget as Node | null)) this.close();
+    };
+    /** A question or an approval took the composer's place: there is no field left to complete. */
+    private readonly _onComposerChange = (): void => {
+        if (this.isOpen && this._composer?.hasAttribute('data-panel-active')) this.close();
     };
 
     /** Read the caret again: every keystroke, and every move of the caret. */
     private readonly _refresh = (): void => {
         if (this._composing) return;
-        const caret = this._input?.getCaret() ?? null;
+        const caret = this._composer?.hasAttribute('data-panel-active') ? null : this._input?.getCaret() ?? null;
         const hit = caret ? detectTrigger(caret.text, caret.offset, this._triggers) : null;
         if (!hit) {
             this._dismissed = null;
@@ -208,74 +216,67 @@ export class AparteTriggers extends HTMLElement {
         const { trigger, query } = hit;
         const local = matchRows(this._commands, query, trigger);
         if (typeof trigger.items !== 'function') {
-            const items = matchRows(trigger.items ?? [], query, trigger);
-            const ids = new Set(items.map((row) => row.item.id));
-            const rows = [...items, ...local.filter((row) => !ids.has(row.item.id))];
+            const rows = mergeRows(matchRows(trigger.items ?? [], query, trigger), local, trigger);
             if (rows.length === 0) {
-                this.close();
-                this._hit = hit;
+                // The search can still shorten back to something: the listeners stay.
+                this._truncate(0);
+                this._syncEditor();
                 return;
             }
             this._show(0, rows, null);
             return;
         }
         const source = trigger.items;
-        const run = (): void => this._ask(0, () => source(query, this._askContext(trigger)), (rows) => [...rows, ...local]);
+        const run = (): void => this._ask(0, (signal) => source(query, { signal, trigger }), (rows) => mergeRows(rows, local, trigger));
         const delay = query ? trigger.debounce ?? DEFAULT_DEBOUNCE_MS : 0;
         if (delay > 0) this._debounce = setTimeout(run, delay);
         else run();
         if (this._root().rows.length === 0) this._show(0, local, local.length ? null : 'loading');
     }
 
-    private _askContext(trigger: AparteTrigger): { signal: AbortSignal; trigger: AparteTrigger } {
-        return { signal: this._abortFor(this._levels.length - 1).signal, trigger };
-    }
-
-    private _abortFor(index: number): AbortController {
-        const level = this._levels[index]!;
-        level.abort?.abort();
-        level.abort = new AbortController();
-        return level.abort;
-    }
-
-    /** Ask a source; a reply that a newer question has overtaken is dropped. */
+    /** Ask a source. A reply or a failure that a newer question has overtaken is dropped. */
     private _ask(
         index: number,
-        ask: () => readonly AparteTriggerItem[] | Promise<readonly AparteTriggerItem[]>,
+        ask: (signal: AbortSignal) => readonly AparteTriggerItem[] | Promise<readonly AparteTriggerItem[]>,
         finish: (rows: TriggerRow[]) => TriggerRow[],
     ): void {
         const level = this._levels[index];
         if (!level) return;
+        level.abort?.abort();
+        level.abort = new AbortController();
+        // This question's own signal: `level.abort` will be the next one's.
+        const { signal } = level.abort;
         const fail = (error: unknown): void => {
-            if (level.abort?.signal.aborted) return;
+            if (signal.aborted) return;
             console.warn('[aparte-triggers] a list failed to load.', error);
             level.reload = () => this._ask(index, ask, finish);
             this._show(index, [], 'error');
         };
         let pending: ReturnType<typeof ask>;
         try {
-            level.abort?.abort();
-            level.abort = new AbortController();
-            pending = ask();
+            pending = ask(signal);
         } catch (error) {
             fail(error);
             return;
         }
-        const signal = level.abort.signal;
         Promise.resolve(pending).then((items) => {
-            if (signal.aborted || this._levels[index] !== level) return;
+            if (signal.aborted) return;
             const rows = finish(items.map((item) => ({ item, path: [] })));
             this._show(index, rows, rows.length ? null : 'empty');
-        }, fail);
+        }).catch(fail);
     }
 
     private _show(index: number, rows: TriggerRow[], status: Status): void {
         const level = this._levels[index];
         if (!level) return;
+        // What was opened from the old rows goes with them.
+        this._truncate(index + 1);
         const back = index > 0 && this._compact
             ? [{ item: { id: BACK_ID, label: resolveConfig(this).t('triggersBack') }, path: [] }]
             : [];
-        level.rows = [...back, ...rows];
+        // In the order they are drawn, or the first row to take the keyboard is the wrong one.
+        const ordered = this._hit?.query ? rows : groupRows(rows).flatMap((group) => group.rows);
+        level.rows = [...back, ...ordered];
         level.status = status;
         level.active = level.rows.findIndex((row) => !row.item.disabled && row.item.id !== BACK_ID);
         if (level.active < 0) level.active = level.rows.length ? 0 : -1;
@@ -323,17 +324,16 @@ export class AparteTriggers extends HTMLElement {
             line.textContent = t.t(status === 'loading' ? 'triggersLoading' : status === 'empty' ? 'triggersEmpty' : 'triggersError');
             panel.appendChild(line);
             if (status === 'error') {
-                level.rows = [{ item: { id: '__aparte-retry', label: t.t('triggersRetry') }, path: [] }];
-                level.active = 0;
+                level.rows = [...level.rows, { item: { id: RETRY_ID, label: t.t('triggersRetry') }, path: [] }];
+                level.active = level.rows.length - 1;
             }
         }
-        const searching = !!this._hit?.query;
-        const groups = searching ? [{ group: undefined, rows: level.rows }] : groupRows(level.rows);
-        level.rows = groups.flatMap((group) => group.rows);
+        const groups = this._hit?.query ? [{ group: undefined, rows: level.rows }] : groupRows(level.rows);
+        const gutter = level.rows.some((row) => row.item.icon);
         let at = 0;
         for (const group of groups) {
             const parent = group.group ? this._groupElement(panel, group.group) : panel;
-            for (const row of group.rows) parent.appendChild(this._rowElement(row, index, at++, level));
+            for (const row of group.rows) parent.appendChild(this._rowElement(row, index, at++, level, gutter));
         }
     }
 
@@ -350,7 +350,7 @@ export class AparteTriggers extends HTMLElement {
         return group;
     }
 
-    private _rowElement(row: TriggerRow, levelIndex: number, rowIndex: number, level: Level): HTMLElement {
+    private _rowElement(row: TriggerRow, levelIndex: number, rowIndex: number, level: Level, gutter: boolean): HTMLElement {
         const { item, path } = row;
         const el = document.createElement('div');
         el.className = 'aparte-menu__item';
@@ -367,7 +367,7 @@ export class AparteTriggers extends HTMLElement {
         const custom = item.render?.(item);
         if (custom instanceof HTMLElement) el.appendChild(custom);
         else if (typeof custom === 'string') el.innerHTML = custom; // safe-text: the consumer's own render hook, documented as HTML
-        else this._fillRow(el, item, path, level.rows.some((other) => other.item.icon));
+        else this._fillRow(el, item, path, gutter);
         if (item.children) {
             const chevron = document.createElement('span');
             chevron.className = 'aparte-menu__chevron';
@@ -476,7 +476,7 @@ export class AparteTriggers extends HTMLElement {
             next = (next + step + count) % count;
             if (!level.rows[next]!.item.disabled) break;
         }
-        this._setActive(index, next, true);
+        if (!level.rows[next]!.item.disabled) this._setActive(index, next, true);
     }
 
     private _truncate(keep: number): void {
@@ -495,15 +495,13 @@ export class AparteTriggers extends HTMLElement {
         const level = this._newLevel(el);
         this._levels.push(level);
         const index = this._levels.length - 1;
-        const path = [...row.path, row.item.label];
-        const toRows = (items: readonly AparteTriggerItem[]): TriggerRow[] => items.map((item) => ({ item, path: path.slice(path.length) }));
         if (typeof children !== 'function') {
-            this._show(index, toRows(children), null);
+            this._show(index, children.map((item) => ({ item, path: [] })), null);
             return;
         }
         const trigger = this._hit!.trigger;
         this._show(index, [], 'loading');
-        this._ask(index, () => (children as AparteTriggerSource)('', this._askContext(trigger)), (rows) => rows);
+        this._ask(index, (signal) => (children as AparteTriggerSource)('', { signal, trigger }), (rows) => rows);
     }
 
     private _back(): boolean {
@@ -529,15 +527,16 @@ export class AparteTriggers extends HTMLElement {
             case 'ArrowUp': this._move(-1); break;
             case 'Enter':
             case 'Tab':
-                if (e.shiftKey || !active) return;
-                this._choose(index, level.active);
+                if (e.shiftKey || (!active && level.status !== 'loading')) return;
+                // A list still on its way: the key waits for it rather than sending what was typed.
+                if (active) this._choose(index, level.active);
                 break;
             case 'Escape':
                 this._dismissed = { start: this._hit!.start, char: this._hit!.trigger.char };
                 this.close();
                 break;
             case into: {
-                if (!active?.item.children) return;
+                if (!active?.item.children || active.item.disabled) return;
                 const el = this._drawnRow(level, level.active);
                 if (el) this._openChild(index, active, el);
                 break;
@@ -578,7 +577,7 @@ export class AparteTriggers extends HTMLElement {
         clearTimeout(this._hover);
         const row = level.rows[rowIndex];
         this._hover = setTimeout(() => {
-            if (!this._levels[levelIndex] || level.active !== rowIndex) return;
+            if (!this._levels[levelIndex] || level.active !== rowIndex || !el.isConnected) return;
             if (row?.item.children && !row.item.disabled) this._openChild(levelIndex, row, el);
             else {
                 this._truncate(levelIndex + 1);
@@ -599,7 +598,6 @@ export class AparteTriggers extends HTMLElement {
             return;
         }
         if (level.status === 'error') {
-            level.status = 'loading';
             this._show(levelIndex, [], 'loading');
             level.reload?.();
             return;
@@ -619,14 +617,18 @@ export class AparteTriggers extends HTMLElement {
     }
 
     private _apply(item: AparteTriggerItem, hit: TriggerHit, input: AparteComposerInput, end: number): void {
+        const { char } = hit.trigger;
         const token: AparteComposerToken = {
             label: item.label,
-            text: `${hit.trigger.char}${item.label}`,
+            text: item.label.startsWith(char) ? item.label : `${char}${item.label}`,
             ...(hit.trigger.kind ? { kind: hit.trigger.kind } : {}),
             ...(item.data !== undefined ? { data: item.data } : {}),
         };
-        if (typeof item.insert === 'string') input.replaceRange(hit.start, end, item.insert);
-        else if (item.insert) input.insertToken(hit.start, end, item.insert);
+        if (typeof item.insert === 'string') {
+            // A text that starts with the trigger must not reopen the menu it was chosen from.
+            this._dismissed = { start: hit.start, char };
+            input.replaceRange(hit.start, end, item.insert);
+        } else if (item.insert) input.insertToken(hit.start, end, item.insert);
         else if (item.run) input.replaceRange(hit.start, end, '');
         else input.insertToken(hit.start, end, token);
         if (!item.run) return;
@@ -660,5 +662,8 @@ export class AparteTriggers extends HTMLElement {
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get('aparte-triggers')) {
+    // Before defining, like core's own elements: in a server-rendered chat the tag waits for
+    // the wrapper's release instead of writing on a DOM the framework is about to compare.
+    deferHydrationOf(AparteTriggers);
     customElements.define('aparte-triggers', AparteTriggers);
 }

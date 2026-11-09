@@ -32,8 +32,19 @@ function toItem(command: AparteCommand, char: string, scope: AparteCommandScope)
         ...(command.icon !== undefined ? { icon: command.icon } : {}),
         ...(command.group !== undefined ? { group: command.group } : {}),
         ...(command.run ? { run: command.run } : {}),
-        ...(children ? { children: () => commandItems(typeof children === 'function' ? children(scope) : children, '', scope) } : {}),
+        // A list stays a list, so that a search can look inside it.
+        ...(children ? { children: typeof children === 'function' ? () => commandItems(children(scope), '', scope) : commandItems(children, '', scope) } : {}),
     };
+}
+
+/** A plugin's gate that throws closes its own command, not the whole menu. */
+function appliesHere(command: AparteCommand, scope: AparteCommandScope): boolean {
+    try {
+        return command.enabled?.(scope) ?? true;
+    } catch (error) {
+        console.warn(`[aparte-triggers] "${command.id}" could not say whether it applies here.`, error);
+        return false;
+    }
 }
 
 /** The commands as rows: the app's choices applied last, what cannot act here left out. */
@@ -47,7 +58,7 @@ export function commandItems(
     return commands
         .filter((command) => !exclude.has(command.id))
         .map((command) => ({ ...command, ...choices.override?.[command.id] }))
-        .filter((command) => !command.hidden && (command.enabled?.(scope) ?? true))
+        .filter((command) => !command.hidden && appliesHere(command, scope))
         .map((command, index) => ({ command, index }))
         .sort((a, b) => (a.command.order ?? 100) - (b.command.order ?? 100) || a.index - b.index)
         .map(({ command }) => toItem(command, char, scope));

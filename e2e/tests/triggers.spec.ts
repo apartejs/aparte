@@ -120,6 +120,49 @@ test('Escape closes it, and it stays closed until the caret leaves the trigger',
     await expect(page.locator(OPTION).first()).toBeVisible();
 });
 
+test('Enter on a card that opens over the menu is the card\'s', async ({ page }) => {
+    await open(page);
+    await page.keyboard.type('/');
+    await expect(page.locator(LIST)).toBeVisible();
+
+    // An agent can ask while someone is typing the next message. The menu used to stay
+    // open and take the Enter meant for Approve, and run its first command instead.
+    await page.evaluate(() => {
+        const composer = document.querySelector('aparte-composer') as HTMLElement & { showPanel(el: HTMLElement, o: object): symbol };
+        const card = document.createElement('button');
+        card.id = 'card';
+        card.addEventListener('click', () => { card.dataset['pressed'] = 'yes'; });
+        composer.showPanel(card, { mode: 'none' });
+        card.focus();
+    });
+    await expect(page.locator(LIST)).toHaveCount(0);
+
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#card')).toHaveAttribute('data-pressed', 'yes');
+});
+
+test('several lines stay several lines when a row inserts them', async ({ page }) => {
+    await open(page);
+    const value = await page.evaluate(() => {
+        const input = document.querySelector('aparte-composer-input') as HTMLElement & { replaceRange(a: number, b: number, t: string): void; getValue(): string };
+        input.replaceRange(0, 0, 'Best regards,\nPaul');
+        return input.getValue();
+    });
+    expect(value).toBe('Best regards,\nPaul');
+});
+
+test('several lines stay several lines when they are pasted', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'WebKit ignores clipboardData on a synthetic paste');
+    const chat = await open(page);
+    await chat.editor.evaluate((editor) => {
+        const data = new DataTransfer();
+        data.setData('text/plain', 'one\n  two\n\nthree');
+        editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    });
+    const value = await page.evaluate(() => (document.querySelector('aparte-composer-input') as HTMLElement & { getValue(): string }).getValue());
+    expect(value).toBe('one\n  two\n\nthree');
+});
+
 test('an email address opens nothing', async ({ page }) => {
     const chat = await open(page);
     await chat.editor.pressSequentially('paul@example');
