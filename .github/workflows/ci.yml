@@ -93,18 +93,22 @@ jobs:
             run_everything "the manifest diff failed"
           fi
 
-          other=$(printf '%s\n' "$files" | grep -vE '^\.changeset/|(^|/)CHANGELOG\.md$|(^|/)package\.json$' || true)
+          # The browser suite serves the examples, never the docs site, and nothing here reads
+          # context7.json. One file under apps/docs is the exception: the performance spec
+          # takes its ceilings from it.
+          other=$(printf '%s\n' "$files" | grep -vE '^\.changeset/|(^|/)CHANGELOG\.md$|(^|/)package\.json$|^apps/docs/|^context7\.json$' || true)
+          budget=$(printf '%s\n' "$files" | grep -E '^apps/docs/src/data/performance-budget\.json$' || true)
           # A manifest can carry a real change too — a dependency, an exports map. Only a
           # version bump and the internal peer floors `sync-peer-ranges` moves are inert.
           real=$(printf '%s\n' "$manifests" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
             | grep -vE '"version":|"@aparte/[^"]+": ">=' || true)
 
-          if [ -n "$other" ] || [ -n "$real" ]; then
+          if [ -n "$other" ] || [ -n "$real" ] || [ -n "$budget" ]; then
             echo "source=true" >> "$GITHUB_OUTPUT"
             echo "source files changed — running the browser suite"
           else
             echo "source=false" >> "$GITHUB_OUTPUT"
-            echo "versions, changelogs and changesets only — the browser suite has nothing new to see"
+            echo "versions, changelogs, changesets and the docs site only — the browser suite has nothing new to see"
           fi
 
       # A merged pull request used to run the whole suite a second time on main before the
