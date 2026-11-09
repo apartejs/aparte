@@ -60,9 +60,14 @@ const paneContent = new WeakMap<Element, string>();
  */
 const openedPreviews = new WeakMap<object, Set<string>>();
 
+/** The document as the card shows, copies and downloads it. */
+function documentOf(segment: AparteArtifactSegment): string {
+    return stripCodeFences(segment.content || '', (segment.artifactType || '').toLowerCase());
+}
+
 /** The key of one artifact's preview: its id and a hash of its content (FNV-1a). */
 function previewKey(segment: AparteArtifactSegment): string {
-    const content = stripCodeFences(segment.content || '');
+    const content = documentOf(segment);
     let h = 0x811c9dc5;
     for (let i = 0; i < content.length; i++) h = Math.imul(h ^ content.charCodeAt(i), 0x01000193);
     return `${segment.id}\u0000${content.length}:${(h >>> 0).toString(36)}`;
@@ -100,7 +105,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const previewLabel = cfg.t('preview');
         const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
-        const cleanContent = stripCodeFences(segment.content || '');
+        const cleanContent = documentOf(segment);
         /*
          * Ids, so the tabs can POINT at their panels.
          *
@@ -232,7 +237,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const wrapper = element.querySelector('.aparte-code-content-wrapper');
         if (wrapper) {
             const displayLang = languageForKind(kind);
-            const cleanContent = stripCodeFences(segment.content || '');
+            const cleanContent = documentOf(segment);
             paneContent.set(element, cleanContent);
             void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                 wrapper.innerHTML = html;
@@ -307,7 +312,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                 const latest = latestSegment.get(element) ?? segment;
                 // As the card shows it, copies it and downloads it: without the code fences a
                 // model may wrap the content in.
-                const artifact = { ...latest, content: stripCodeFences(latest.content || '') };
+                const artifact = { ...latest, content: documentOf(latest) };
                 element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
                     bubbles: true,
                     composed: true,
@@ -322,7 +327,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element, and copy the
                 // latest segment, not the one this closure captured: see `latestSegment`.
-                const code = stripCodeFences((latestSegment.get(element) ?? segment).content || '');
+                const code = documentOf(latestSegment.get(element) ?? segment);
                 void copyText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
@@ -360,7 +365,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             return;
         }
         const wasStreaming = element.getAttribute('data-streaming') === 'true';
-        const cleanContent = stripCodeFences(segment.content || '');
+        const cleanContent = documentOf(segment);
 
         // 1. Live-update the code pane during streaming.
         //
@@ -434,7 +439,7 @@ export function languageForKind(kind: string): string {
 }
 
 function downloadTextArtifact(segment: AparteArtifactSegment): void {
-    const content = stripCodeFences(segment.content || '');
+    const content = documentOf(segment);
     const kind = (segment.artifactType || '').toLowerCase();
     const ext = ({
         react: 'jsx', html: 'html', svg: 'svg', js: 'js', css: 'css',
@@ -500,7 +505,7 @@ function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment
     // else the built-in document with its CSP.
     const option = renderOptions(contextConfig(element)).preview;
     const build = typeof option === 'function' ? option : buildSafePreviewDocument;
-    const srcdoc = build(kind, stripCodeFences(segment.content || ''), title);
+    const srcdoc = build(kind, documentOf(segment), title);
 
     /*
      * `sandbox="allow-scripts"` and nothing else: no `allow-same-origin` (opaque

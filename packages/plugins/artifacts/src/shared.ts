@@ -15,68 +15,66 @@
 
 
 /**
- * Strip leading/trailing markdown code fences (``` or ~~~, optional lang tag).
- * Also strips any content that appears after the closing fence (small models
- * frequently duplicate lines after the closing ``` block).
+ * Take off a code fence a model put AROUND a document (``` or ~~~, optional language tag),
+ * and whatever follows its closing fence: small models frequently repeat lines there.
+ *
+ * Only a fence that opens the document counts, since one further down is the document's
+ * own. A Markdown document can also open on a code block of its own, so it is unwrapped only
+ * when its fence says it holds Markdown; `kind` is the artifact's short kind.
  *
  * Char-based scanner — no regex.
  */
-export function stripCodeFences(content: string): string {
-    let s = content;
+export function stripCodeFences(content: string, kind?: string): string {
+    const firstLineEnd = lineEnd(content, 0);
+    const opener = content.startsWith('```') || content.startsWith('~~~') ? readFence(content, 0, firstLineEnd) : null;
+    if (!opener) return content.trim();
+    if (kind === 'markdown' && opener.info !== 'markdown' && opener.info !== 'md') return content.trim();
 
-    // Opening fence: leading ``` or ~~~ (3+) optionally followed by language tag,
-    // then a newline. Walk the start of the string only.
-    if (s.startsWith('```') || s.startsWith('~~~')) {
-        const fenceChar = s[0];
-        let i = 0;
-        while (i < s.length && s[i] === fenceChar) i++;
-        // Skip language tag chars (anything until newline)
-        while (i < s.length && s[i] !== '\n') i++;
-        // Skip the newline itself if present
-        if (i < s.length && s[i] === '\n') i++;
-        s = s.slice(i);
-    }
-
-    // Closing fence: scan forward to find a line that is exclusively `````/`~~~`+
-    // optionally followed by trailing whitespace; cut there + everything after.
-    const closeAt = findClosingFence(s);
-    if (closeAt !== -1) s = s.slice(0, closeAt);
-
-    return s.trim();
+    const body = content.slice(firstLineEnd + 1);
+    const closeAt = findClosingFence(body, opener);
+    return (closeAt === -1 ? body : body.slice(0, closeAt)).trim();
 }
 
-/** Find the byte offset where a closing fence line begins, or -1 if none. */
-function findClosingFence(s: string): number {
-    let i = 0;
-    while (i < s.length) {
-        // Find start of next line
-        const lineStart = i;
-        // Skip leading whitespace on this line (indentation)
-        let k = lineStart;
-        while (k < s.length && (s[k] === ' ' || s[k] === '\t')) k++;
-        if (k < s.length && (s[k] === '`' || s[k] === '~')) {
-            const fenceChar = s[k];
-            let runs = 0;
-            while (k < s.length && s[k] === fenceChar) { runs++; k++; }
-            if (runs >= 3) {
-                // The rest of the line should be whitespace only — otherwise
-                // it's not a closing fence (e.g. inline backtick text).
-                let onlyWs = true;
-                while (k < s.length && s[k] !== '\n') {
-                    if (s[k] !== ' ' && s[k] !== '\t' && s[k] !== '\r') { onlyWs = false; break; }
-                    k++;
-                }
-                if (onlyWs) {
-                    // Cut at start of this line; if a `\n` precedes, drop it too
-                    let cut = lineStart;
-                    if (cut > 0 && s[cut - 1] === '\n') cut--;
-                    return cut;
-                }
-            }
-        }
-        // Advance to next line
-        while (i < s.length && s[i] !== '\n') i++;
-        if (i < s.length) i++;
+interface Fence {
+    char: string;
+    run: number;
+    /** What follows the fence on its line, lower-cased: the language tag. */
+    info: string;
+}
+
+function lineEnd(s: string, from: number): number {
+    const at = s.indexOf('\n', from);
+    return at === -1 ? s.length : at;
+}
+
+/** The fence on the line `[start, end)`, or `null` when the line is not one. */
+function readFence(s: string, start: number, end: number): Fence | null {
+    let i = start;
+    while (i < end && (s[i] === ' ' || s[i] === '\t')) i++;
+    const char = s[i];
+    if (i >= end || (char !== '`' && char !== '~')) return null;
+    const from = i;
+    while (i < end && s[i] === char) i++;
+    if (i - from < 3) return null;
+    const info = s.slice(i, end).trim().toLowerCase();
+    // A backtick fence's tag holds no backtick: that is what tells it from inline code.
+    if (char === '`' && info.includes('`')) return null;
+    return { char, run: i - from, info };
+}
+
+/**
+ * Where the line closing `opener` begins, or -1 if none. It takes the opener's character and
+ * at least its length. A tagged fence inside opens a block of the document's, and the next
+ * bare fence closes that block rather than the document.
+ */
+function findClosingFence(s: string, opener: Fence): number {
+    let nested = 0;
+    for (let start = 0; start < s.length; start = lineEnd(s, start) + 1) {
+        const fence = readFence(s, start, lineEnd(s, start));
+        if (!fence || fence.char !== opener.char) continue;
+        if (fence.info) nested++;
+        else if (nested > 0) nested--;
+        else if (fence.run >= opener.run) return start;
     }
     return -1;
 }
