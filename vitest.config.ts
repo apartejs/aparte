@@ -231,12 +231,12 @@ const config = defineConfig({
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
         'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 85 },
-        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 83 },
+        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 85 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-triggers (2026-11-09): the menu's placement needs a real layout, proved in e2e.
-        'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 90, branches: 85 },
+        'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 92, branches: 88 },
         // Measured 2026-11-01 when the package landed: 100 lines, 92.2 branches, 94.1 functions.
         'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 92, branches: 91 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
