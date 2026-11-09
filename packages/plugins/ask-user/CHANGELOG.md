@@ -1,5 +1,7 @@
 # @aparte/plugin-ask-question
 
+## 1.1.1
+
 ## 1.1.0
 
 ## 1.0.2
