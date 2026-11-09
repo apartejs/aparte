@@ -290,6 +290,19 @@ function remoteProvider(id: string): AparteAIProvider {
     } as unknown as AparteAIProvider;
 }
 
+/** The tokens an edit left in the text, at their new places. One whose text is gone is gone. */
+function tokensStillIn(content: string, tokens: readonly AparteMessageToken[]): AparteMessageToken[] {
+    const kept: AparteMessageToken[] = [];
+    let from = 0;
+    for (const token of [...tokens].sort((a, b) => a.start - b.start)) {
+        const start = content.indexOf(token.text, from);
+        if (start < 0) continue;
+        from = start + token.text.length;
+        kept.push({ ...token, start, end: from });
+    }
+    return kept;
+}
+
 /**
  * AparteClient
  *
@@ -1152,8 +1165,12 @@ export class AparteClient {
             return;
         }
 
-        // 1. Update the user message content
-        targetElement.updateMessage?.(messageId, { content: newContent });
+        // 1. Update the user message content, and the tokens it still holds
+        const before = targetElement.getMessages?.().find((m) => m.id === messageId);
+        targetElement.updateMessage?.(messageId, {
+            content: newContent,
+            ...(before?.tokens ? { tokens: tokensStillIn(newContent, before.tokens) } : {}),
+        });
 
         // 2. Collect all messages, find index of edited message
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
@@ -1200,6 +1217,7 @@ export class AparteClient {
             targetElement, newMessageId, provider,
             [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
+                ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),

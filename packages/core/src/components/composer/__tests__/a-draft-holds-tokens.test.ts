@@ -3,7 +3,7 @@
  * The seams `@aparte/plugin-triggers` stands on: a caret as a number, a token as one unit of
  * the draft, and what a sent message says about its tokens.
  */
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
 import '../aparte-composer.js';
 import '../aparte-composer-input.js';
 import '../../bubble/aparte-chat-bubble.js';
@@ -144,6 +144,38 @@ describe('replaceRange', () => {
     });
 });
 
+describe('several lines, as one edit', () => {
+    function withCommands() {
+        const parts = field();
+        const exec = vi.fn(() => true);
+        Object.defineProperty(document, 'execCommand', { configurable: true, value: exec });
+        return { ...parts, exec };
+    }
+    afterEach(() => {
+        delete (document as unknown as Record<string, unknown>)['execCommand'];
+    });
+
+    it('goes in as line breaks, not as the blocks insertText would make', () => {
+        const { input, exec } = withCommands();
+        input.replaceRange(0, 0, 'a\n<b>');
+        expect(exec).toHaveBeenCalledWith('insertHTML', false, 'a<br>&lt;b&gt;');
+    });
+
+    it('stays plain typing on a single line', () => {
+        const { input, exec } = withCommands();
+        input.replaceRange(0, 0, 'one line');
+        expect(exec).toHaveBeenCalledWith('insertText', false, 'one line');
+    });
+
+    it('is the same for a paste, whatever ends its lines', () => {
+        const { editor, exec } = withCommands();
+        const paste = new Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(paste, 'clipboardData', { value: { items: [], getData: () => 'a\r\nb' } });
+        editor.dispatchEvent(paste);
+        expect(exec).toHaveBeenCalledWith('insertHTML', false, 'a<br>b');
+    });
+});
+
 describe('Enter, once something over the field took it', () => {
     it('does not send', () => {
         const { composer, input, editor } = field();
@@ -214,6 +246,21 @@ describe('a sent message shows its tokens', () => {
     });
 });
 
+describe('a rewritten message', () => {
+    it('draws the tokens it now has, not the ones it had', () => {
+        const el = document.createElement('aparte-chat-bubble') as HTMLElement & {
+            setContent(c: string): void; setTokens(t: unknown): void; updateMessage(u: object): void;
+        };
+        el.setAttribute('data-role', 'user');
+        document.body.appendChild(el);
+        el.setContent('@a @b');
+        el.setTokens([{ label: 'A', text: '@a', start: 0, end: 2 }]);
+        expect(el.querySelectorAll('.aparte-inline-token')).toHaveLength(1);
+        el.updateMessage({ content: '@b @a', tokens: [] });
+        expect(el.querySelectorAll('.aparte-inline-token')).toHaveLength(0);
+    });
+});
+
 describe('placeFloating', () => {
     const box = (width: number, height: number) => {
         const el = document.createElement('div');
@@ -239,10 +286,10 @@ describe('placeFloating', () => {
         expect(el.style.top).toBe('646px');
     });
 
-    it('stays on the side asked when neither has room', () => {
+    it('keeps the start of the box on screen when neither side has room', () => {
         const el = box(200, 2000);
         placeFloating(at(300, 300), el, { side: 'above' });
-        expect(el.style.top).toBe(`${300 - 2000 - 4}px`);
+        expect(el.style.top).toBe('8px');
     });
 
     it('lines up with the other edge in right to left, and never leaves the window', () => {

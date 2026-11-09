@@ -1145,6 +1145,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._role = updates.role!;
       this._updateRole();
     }
+    // Before the content: a rewritten message is drawn with the tokens it now has.
+    if ('tokens' in updates) this._tokens = updates.tokens;
     if ('content' in updates) {
       this._content = updates.content!;
       this._updateContent();
@@ -2639,6 +2641,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
           detail,
         }));
         if (value === 'negative') this._askFeedbackReason(messageId);
+        else this.querySelector('.aparte-feedback-reasons')?.remove();
         break;
       }
       case 'info': {

@@ -272,7 +272,7 @@ export class AparteConversationController {
             const targetId = evt.detail?.targetId;
             if (targetId && targetId !== this._binding.hostId) return;
 
-            this._drafts.delete(this._activeId ?? '');
+            this._forgetDraft();
             const content = evt.detail?.content ?? '';
             const files = evt.detail?.files;
             // Shared with raw-core consumers via the exported `filesToAttachments`
@@ -493,13 +493,27 @@ export class AparteConversationController {
      * reload never kills an in-flight response.
      */
     async setConversationId(id: string | null): Promise<void> {
-        this._stashDraft();
-        await this._openConversation(id);
-        if (this._activeId === id) await this._restoreDraft(id);
+        if (!this._options.keepDrafts || id === this._activeId) {
+            await this._openConversation(id);
+            return;
+        }
+        const call = ++this._draftCalls;
+        // Until the next draft is back, the field still shows the one put away: a switch
+        // during that load must not file it under the conversation being opened.
+        if (!this._draftAway) this._stashDraft();
+        this._draftAway = true;
+        try {
+            await this._openConversation(id);
+        } finally {
+            if (call === this._draftCalls) this._draftAway = false;
+        }
+        if (call === this._draftCalls) await this._restoreDraft(call);
     }
 
     /** Drafts by conversation; the empty key is a chat that has no conversation yet. */
     private readonly _drafts = new Map<string, string>();
+    private _draftCalls = 0;
+    private _draftAway = false;
 
     private get _composer(): AparteComposer | null {
         const { host, hostId } = this._binding;
@@ -515,18 +529,38 @@ export class AparteConversationController {
         const text = composer.value;
         if (text) this._drafts.set(key, text);
         else this._drafts.delete(key);
-        const adapter = this._draftAdapter();
-        if (key && adapter) void adapter.saveDraft!(key, text);
+        this._saveDraft(key, text);
     }
 
-    private async _restoreDraft(id: string | null): Promise<void> {
+    /** A message was sent: what it was drafted from must not come back, in this tab or the next. */
+    private _forgetDraft(): void {
         if (!this._options.keepDrafts) return;
-        const key = id ?? '';
+        const key = this._activeId ?? '';
+        this._drafts.delete(key);
+        this._saveDraft(key, '');
+    }
+
+    /** A store that fails loses a draft, and nothing else. */
+    private _saveDraft(key: string, text: string): void {
+        const adapter = this._draftAdapter();
+        if (!key || !adapter) return;
+        Promise.resolve().then(() => adapter.saveDraft!(key, text)).catch((error: unknown) => {
+            console.warn('[ConversationController] the draft could not be saved:', key, error);
+        });
+    }
+
+    private async _restoreDraft(call: number): Promise<void> {
+        const key = this._activeId ?? '';
         const adapter = this._draftAdapter();
         let text = this._drafts.get(key);
-        if (text === undefined && key && adapter) text = (await adapter.loadDraft!(key)) ?? '';
-        if (this._activeId !== id) return;
-        this._composer?.setValue(text ?? '');
+        if (text === undefined && key && adapter) {
+            try {
+                text = (await adapter.loadDraft!(key)) ?? '';
+            } catch (error) {
+                console.warn('[ConversationController] the draft could not be read:', key, error);
+            }
+        }
+        if (call === this._draftCalls) this._composer?.setValue(text ?? '');
     }
 
     private _draftAdapter(): AparteStorageAdapter | null {

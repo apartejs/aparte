@@ -76,6 +76,15 @@ function hasDerivedSegments(message: AparteMessage): boolean {
     return (message as unknown as Record<symbol, unknown>)[APARTE_DERIVED_SEGMENTS] === true;
 }
 
+/** A tag the engine rejects still gets a date. */
+function longDate(at: Date, tag?: string): string {
+    try {
+        return new Intl.DateTimeFormat(tag || undefined, { dateStyle: 'long' }).format(at);
+    } catch {
+        return at.toDateString();
+    }
+}
+
 /**
  * The transcript surface: a light-DOM container with sticky scrolling, token
  * streaming and segment-aware rendering.
@@ -446,6 +455,7 @@ export class AparteChatViewport extends HTMLElement {
         // The transcript's own name is locale text on the same terms.
         const surface = this._frameworkManagedDOM ? this : this.querySelector('.aparte-viewport-container');
         surface?.setAttribute('aria-label', resolveConfig(this).t('transcript'));
+        this._syncDateSeparators();
     };
 
     /**
@@ -1477,6 +1487,7 @@ export class AparteChatViewport extends HTMLElement {
     private _syncDateSeparators(): void {
         const cfg = resolveConfig(this);
         const on = cfg.getDateSeparators();
+        if (!on && !this.querySelector('aparte-chat-bubble[data-date]')) return;
         const now = new Date();
         const dayOf = (at: Date): number => new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
         const today = dayOf(now);
@@ -1494,7 +1505,7 @@ export class AparteChatViewport extends HTMLElement {
             const elapsed = Math.round((today - day!) / 86_400_000);
             const label = elapsed === 0 ? cfg.t('conversationGroupToday')
                 : elapsed === 1 ? cfg.t('conversationGroupYesterday')
-                : new Intl.DateTimeFormat(cfg.getLocale().tag, { dateStyle: 'long' }).format(at);
+                : longDate(at, cfg.getLocale().tag);
             if (bubble.getAttribute('data-date') !== label) bubble.setAttribute('data-date', label);
         });
     }

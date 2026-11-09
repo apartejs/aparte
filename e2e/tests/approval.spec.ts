@@ -101,6 +101,15 @@ test('a toolbar holding the send button stays while a card is open', async ({ pa
     await expect(chat.composerToolbar).toBeVisible();
 });
 
+test('a toolbar holding the panel itself stays while a card is open', async ({ page }) => {
+    const chat = await openSite(page);
+    // A hidden host would hide the question, and the turn would wait for ever.
+    await page.evaluate(() => document.querySelector('aparte-composer-toolbar')!.setAttribute('data-aparte-panel-host', ''));
+
+    await chat.send('what is the weather?');
+    await expect(page.locator(PANEL)).toBeVisible();
+});
+
 test('Reject stops the call, and the model answers the refusal', async ({ page }) => {
     const errors = collectPageErrors(page);
     const chat = await openSite(page);

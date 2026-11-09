@@ -48,6 +48,10 @@
 
 ### Patch Changes
 
+- Pasting several lines keeps its line breaks. They were sent run together.
+
+  In Chromium each pasted line became a block, and the draft read blocks as one line. There is nothing to change in your code.
+
 - The composer's toolbar is hidden while an approval or a question is open: the panel is all the composer shows.
 
   It comes back with the answer, and there is nothing to change in your code. A toolbar holding `<aparte-composer-send>` stays, since a written answer is sent with it. The approval switch sits in that row: turned to Plan under an open card, it said no writes while the card's Approve still ran one.

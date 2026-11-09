@@ -33,7 +33,7 @@ export function placeFloating(
         const [first, second] = rtl ? [before, after] : [after, before];
         const fits = (x: number): boolean => x >= margin && x + box.width <= window.innerWidth - margin;
         left = fits(first) || !fits(second) ? first : second;
-        top = clamp(anchor.top, window.innerHeight, box.height);
+        top = anchor.top;
     } else {
         const below = anchor.bottom + gap;
         const above = anchor.top - box.height - gap;
@@ -43,6 +43,7 @@ export function placeFloating(
         else top = fitsAbove || !fitsBelow ? above : below;
         left = (align === 'start') !== rtl ? anchor.left : anchor.right - box.width;
     }
-    floating.style.top = `${top}px`;
+    // A window too short for either side still shows the start of the box.
+    floating.style.top = `${clamp(top, window.innerHeight, box.height)}px`;
     floating.style.left = `${clamp(left, window.innerWidth, box.width)}px`;
 }

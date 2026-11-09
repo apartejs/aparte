@@ -1,6 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { escapeAttr } from '../../utils/escape.js';
+import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 import { acceptsFile } from './accepts-file.js';
@@ -184,7 +184,7 @@ export class AparteComposerInput extends HTMLElement {
 
     /** Replace a range of the draft with text, and leave the caret after it. */
     replaceRange(from: number, to: number, text: string): void {
-        this._write(from, to, text ? 'insertText' : 'delete', text, () => this.ownerDocument.createTextNode(text));
+        this._write(from, to, () => (text ? this._insertPlain(text) : this._exec('delete')), () => this.ownerDocument.createTextNode(text));
     }
 
     /**
@@ -200,7 +200,7 @@ export class AparteComposerInput extends HTMLElement {
             out.append(tokenElement(doc, id, token), doc.createTextNode(' '));
             return out;
         };
-        this._write(from, to, 'insertHTML', `${tokenElement(doc, id, token).outerHTML} `, fragment);
+        this._write(from, to, () => this._exec('insertHTML', `${tokenElement(doc, id, token).outerHTML} `), fragment);
     }
 
     /** Replace the editor's content and mirror the value onto the parent composer. */
@@ -264,7 +264,7 @@ export class AparteComposerInput extends HTMLElement {
      * Through the browser's own edit commands, or Undo would not know about the change;
      * straight on the DOM where it has none.
      */
-    private _write(from: number, to: number, command: string, value: string, fallback: () => Node): void {
+    private _write(from: number, to: number, edit: () => boolean, fallback: () => Node): void {
         const editor = this._editor;
         const sel = this.ownerDocument?.getSelection();
         if (!editor || !sel) return;
@@ -272,13 +272,7 @@ export class AparteComposerInput extends HTMLElement {
         const range = flatRange(editor, from, to);
         sel.removeAllRanges();
         sel.addRange(range);
-        let written = false;
-        try {
-            written = this.ownerDocument.execCommand(command, false, value);
-        } catch {
-            // Not implemented here: the DOM route below does it.
-        }
-        if (written) return;
+        if (edit()) return;
         range.deleteContents();
         const node = fallback();
         const last = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild! : node;
@@ -288,6 +282,24 @@ export class AparteComposerInput extends HTMLElement {
         sel.removeAllRanges();
         sel.addRange(range);
         this._handleInput();
+    }
+
+    /** A browser edit command, or `false` where there is none: a caller then edits the DOM. */
+    private _exec(command: string, value?: string): boolean {
+        try {
+            return this.ownerDocument.execCommand(command, false, value);
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Plain text, as one edit. Several lines go as `<br>`s, because `insertText` makes each
+     * line a block, and the draft is read flat: the lines would be sent run together.
+     */
+    private _insertPlain(text: string): boolean {
+        if (!/[\r\n]/.test(text)) return this._exec('insertText', text);
+        return this._exec('insertHTML', escapeHtml(text).replace(/\r\n?|\n/g, '<br>'));
     }
 
     private _getPlaceholder(): string {
@@ -445,9 +457,7 @@ export class AparteComposerInput extends HTMLElement {
 
         // Plain text paste
         const text = cd.getData('text/plain');
-        if (text) {
-            document.execCommand('insertText', false, text);
-        }
+        if (text) this._insertPlain(text);
     }
 
     private _adjustHeight(): void {

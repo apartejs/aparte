@@ -25,7 +25,7 @@ function draw(root: Element, content: string, token: AparteMessageToken): void {
     const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
         const node = walker.currentNode as Text;
-        for (let at = node.data.indexOf(token.text); at >= 0; at = node.data.indexOf(token.text, at + 1)) {
+        for (let at = node.data.indexOf(token.text); at >= 0; at = node.data.indexOf(token.text, at + token.text.length)) {
             if (skip-- > 0) continue;
             const range = doc.createRange();
             range.setStart(node, at);

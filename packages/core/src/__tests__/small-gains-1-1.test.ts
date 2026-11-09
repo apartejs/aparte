@@ -33,6 +33,15 @@ describe('the reason for a thumbs-down', () => {
     }
     const down = (el: HTMLElement) => el.querySelector<HTMLElement>('[data-action="feedback-negative"]')!.click();
 
+    it('goes away when the thumb changes its mind', () => {
+        const el = bubble();
+        aparteGlobalConfig.setBubbleActions({ feedback: true, feedbackReasons: ['Too long'], assistant: ['thumbDown', 'thumbUp'] });
+        down(el);
+        expect(el.querySelector('.aparte-feedback-reasons')).not.toBeNull();
+        el.querySelector<HTMLElement>('[data-action="feedback-positive"]')!.click();
+        expect(el.querySelector('.aparte-feedback-reasons')).toBeNull();
+    });
+
     it('is not asked unless the app listed reasons', () => {
         const el = bubble();
         down(el);
@@ -136,6 +145,23 @@ describe('date separators', () => {
         expect(dates(el)).toEqual([expect.stringContaining('2026'), null, 'Yesterday', 'Today', null]);
     });
 
+    it('survive a locale tag the engine rejects', async () => {
+        aparteGlobalConfig.setDateSeparators(true);
+        aparteGlobalConfig.setLocale({ tag: 'en_US' } as never);
+        const [first] = await settled(viewport(noon - 3 * DAY));
+        expect(first).toContain('2026');
+        aparteGlobalConfig.resetLocale();
+    });
+
+    it('follow the option when it changes after the messages are drawn', async () => {
+        const el = viewport(noon);
+        expect(await settled(el)).toEqual([null]);
+        aparteGlobalConfig.setDateSeparators(true);
+        expect(await settled(el)).toEqual(['Today']);
+        aparteGlobalConfig.setDateSeparators(false);
+        expect(await settled(el)).toEqual([null]);
+    });
+
     it('step over a message that has no date', async () => {
         aparteGlobalConfig.setDateSeparators(true);
         expect(await settled(viewport(noon, undefined, noon))).toEqual(['Today', null, null]);
@@ -188,6 +214,60 @@ describe('a draft kept per conversation', () => {
         composer.setValue('left alone');
         await controller.setConversationId('b');
         expect(composer.value).toBe('left alone');
+    });
+
+    it('leaves the field alone when the conversation does not change', async () => {
+        const { controller, manager, composer } = setup(true);
+        await manager.init();
+        await controller.setConversationId('a');
+        composer.setValue('typing');
+        const setValue = vi.spyOn(composer, 'setValue');
+        await controller.setConversationId('a');
+        expect(setValue).not.toHaveBeenCalled();
+    });
+
+    it('does not file a draft under a conversation still loading', async () => {
+        const { controller, manager, composer } = setup(true);
+        await manager.init();
+        await controller.setConversationId('a');
+        composer.setValue('from a');
+        let release: (loaded: boolean) => void = () => {};
+        vi.spyOn(manager, 'isLoaded').mockReturnValueOnce(false);
+        vi.spyOn(manager, 'ensureFull').mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+        const opening = controller.setConversationId('b');
+        await controller.setConversationId('a');
+        release(true);
+        await opening;
+        expect(composer.value).toBe('from a');
+        await controller.setConversationId('b');
+        expect(composer.value).toBe('');
+    });
+
+    it('is forgotten by the store too, once sent', async () => {
+        const saveDraft = vi.fn(async () => {});
+        const { controller, manager, composer } = setup(true, { saveDraft, loadDraft: async () => undefined });
+        await manager.init();
+        await controller.setConversationId('a');
+        composer.setValue('send me');
+        composer.submit();
+        await new Promise((r) => setTimeout(r, 0));
+        expect(saveDraft).toHaveBeenCalledWith('a', '');
+    });
+
+    it('survives a store that fails', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const { controller, manager, composer } = setup(true, {
+            saveDraft: async () => { throw new Error('full'); },
+            loadDraft: async () => { throw new Error('gone'); },
+        });
+        await manager.init();
+        await controller.setConversationId('a');
+        composer.setValue('typed');
+        await expect(controller.setConversationId('b')).resolves.toBeUndefined();
+        await new Promise((r) => setTimeout(r, 0));
+        expect(composer.value).toBe('');
+        expect(warn).toHaveBeenCalled();
+        warn.mockRestore();
     });
 
     it('goes through the adapter when it can', async () => {

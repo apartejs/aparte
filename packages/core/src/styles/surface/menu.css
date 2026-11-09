@@ -81,6 +81,8 @@
 
 .aparte-menu[role='listbox'] {
   max-height: var(--aparte-menu-max-height);
+  /* Never taller than the window: what is past its edge could not be scrolled to. */
+  max-height: min(var(--aparte-menu-max-height), calc(100dvh - 16px));
   overflow-y: auto;
 }
 

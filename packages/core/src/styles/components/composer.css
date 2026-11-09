@@ -34,11 +34,12 @@ aparte-composer[data-panel-active] aparte-composer-add-attachment {
    approval switch sits in that row: turned to Plan under an open card, it said no
    writes while the card's Approve still ran one.
 
-   Not when the row holds the send button, which a layout of your own may put there:
-   a panel with a written answer submits through it. Its own rule, because `:has()`
-   voids a whole comma list on an engine that does not know it; such an engine keeps
-   the row, as it always did. */
-aparte-composer[data-panel-active] aparte-composer-toolbar:not(:has(aparte-composer-send)) {
+   Not when the row holds the send button or the panel itself, which a layout of your
+   own may put there: a panel with a written answer submits through the button, and a
+   hidden host would hide the question. Its own rule, because `:has()` voids a whole
+   comma list on an engine that does not know it; such an engine keeps the row, as it
+   always did. */
+aparte-composer[data-panel-active] aparte-composer-toolbar:not(:has(aparte-composer-send)):not(:has([data-aparte-panel])) {
   display: none;
 }
 

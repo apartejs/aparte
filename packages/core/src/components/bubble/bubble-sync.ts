@@ -80,6 +80,9 @@ export function populateBubbleFromMessage(
     message: AparteMessage,
     siblingInfo?: AparteSiblingInfo,
 ): void {
+    // Before the content: a rewritten message is drawn with the tokens it now has.
+    bubble.setTokens?.(message.tokens);
+
     if (message.segments && message.segments.length > 0) {
         const existing = bubble.getSegments?.() ?? [];
         if (existing.length === message.segments.length) {
@@ -112,8 +115,6 @@ export function populateBubbleFromMessage(
     } else if (message.content !== undefined) {
         bubble.setContent?.(message.content);
     }
-
-    bubble.setTokens?.(message.tokens);
 
     if (message.attachments && message.attachments.length > 0) {
         bubble.setAttachments?.(message.attachments);
