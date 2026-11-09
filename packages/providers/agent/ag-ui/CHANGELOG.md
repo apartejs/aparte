@@ -1,5 +1,13 @@
 # @aparte/runner-ag-ui
 
+## 1.1.0
+
+### Minor Changes
+
+- 650610b: The AG-UI runner now asks for an approval on the interrupt reason `approval_required`, and sends the words of a refusal to the agent.
+
+  `approval_required` is what the Laravel AI SDK sends. A refusal goes back as `{ approved: false, instruction }` when the person wrote what to do instead; the agent reads `approved` as before.
+
 ## 1.0.2
 
 ## 1.0.1

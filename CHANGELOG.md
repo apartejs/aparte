@@ -4,6 +4,86 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.1.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [c980d67](https://github.com/apartejs/aparte/commit/c980d67): Add `composer.setAttachmentState(file, { status, progress })`: a bar on the tile while a file uploads, for an app that uploads as soon as a file is picked.
+
+  While a file is `uploading` the composer holds the send and wears `data-uploading`. `{ status: 'error' }` marks the tile.
+  <sub>`@aparte/core`</sub>
+
+- [c7ee63f](https://github.com/apartejs/aparte/commit/c7ee63f): Add tokens to the composer: `insertToken()`, `getTokens()`, `getCaret()`, `getRangeRect()` and `replaceRange()` on `<aparte-composer-input>`.
+
+  A token is a pill in the draft that sends a text of its own (`{ label: 'Paul', text: '@paul', kind: 'mention', data: { id: 7 } }`). It reaches `aparte-send` as `detail.tokens` with its place in the message, `AparteMessage.tokens` keeps it, the request carries it as `_meta.tokens`, and the user's bubble draws it as it looked. A message with no token changes nothing.
+
+  `aparte-send` also accepts `detail.meta`, kept as the message's `metadata` and merged into the request's `_meta`.
+
+  `placeFloating()` is exported: it writes `top` and `left` on a fixed box beside an anchor and turns it when the window ends first.
+
+  The `.aparte-menu` recipe gains the row a keyboard is on (`aria-selected`), the row whose submenu is open (`aria-expanded`), and `.aparte-menu__chevron`.
+  <sub>`@aparte/core`</sub>
+
+- [c980d67](https://github.com/apartejs/aparte/commit/c980d67): Add `aparteGlobalConfig.setDateSeparators(true)`: the date above the first message of each day.
+
+  Today and Yesterday in words, then the full date in the page's language. It follows the branch on screen.
+  <sub>`@aparte/core`</sub>
+
+- [c980d67](https://github.com/apartejs/aparte/commit/c980d67): Add `setBubbleActions({ feedbackReasons: ['Not accurate', 'Too long'] })`: a thumbs-down then asks why.
+
+  One press sends the new `aparte-feedback-reason` event with the message id and the reason. `aparte-feedback` still goes out on the thumb itself, as before. New locale keys: `feedbackReasonTitle`, `feedbackReasonDismiss`.
+  <sub>`@aparte/core`, `@aparte/locales`</sub>
+
+- [c980d67](https://github.com/apartejs/aparte/commit/c980d67): Add `new AparteConversationController(binding, { keepDrafts: true })`: what was typed in a conversation comes back on return.
+
+  Kept in memory. A storage adapter with the optional `loadDraft` and `saveDraft` keeps it across reloads, and `updatedAt` does not move.
+  <sub>`@aparte/core`</sub>
+
+- [a5c3f82](https://github.com/apartejs/aparte/commit/a5c3f82): Retry no longer sends `temperature: 0.4`, which recent models refuse, unless the provider asks for it.
+
+  A provider that decodes greedily without a temperature, so a retry would repeat the same answer, now sets the new optional `retryTemperature`. `@aparte/provider-transformers` does. No other provider sends one on a retry, and models that sample by default still vary their answer.
+  <sub>`@aparte/core`, `@aparte/provider-ai-sdk`, `@aparte/provider-transformers`</sub>
+
+- [c980d67](https://github.com/apartejs/aparte/commit/c980d67): Add `aparteGlobalConfig.setStreamingCaret(true)`: a blinking caret where the words of a reply are arriving.
+
+  It sits at the end of the last paragraph or list item, and is still under `prefers-reduced-motion`.
+  <sub>`@aparte/core`</sub>
+
+- [2753047](https://github.com/apartejs/aparte/commit/2753047): Add `aparteGlobalConfig.setTurnSummary()`: reasoning and consecutive tool calls fold behind one line. Off by default, and with it off the DOM does not change.
+
+  While the steps run the line says `Working…` and names the current tool; afterwards it says `Worked 9 s · 7 tools`, or `Used 7 tools` on a stored turn that carries no timing. `setTurnSummary({ openWhileRunning: true })` keeps the fold open while it works, and never closes one somebody opened.
+
+  A call waiting for approval, a call that failed and a tool with its own `registerToolRenderer` stay outside the fold, since those are what somebody has to read. A `hidden` tool is neither counted nor breaks the run, and a single step is never folded.
+
+  New locale keys, added in all nine bundles: `turnWorking`, `turnWorked`, `turnUsed`, `turnTools`. `turnTools` is a plural form string by `Intl.PluralRules` category (`one:{n} tool|other:{n} tools`).
+  <sub>`@aparte/core`, `@aparte/locales`</sub>
+
+- [650610b](https://github.com/apartejs/aparte/commit/650610b): The AG-UI runner now asks for an approval on the interrupt reason `approval_required`, and sends the words of a refusal to the agent.
+
+  `approval_required` is what the Laravel AI SDK sends. A refusal goes back as `{ approved: false, instruction }` when the person wrote what to do instead; the agent reads `approved` as before.
+  <sub>`@aparte/runner-ag-ui`</sub>
+
+- [855778c](https://github.com/apartejs/aparte/commit/855778c): These plugins now add `/compact`, `/model` and `/approval` to `@aparte/plugin-triggers`' menu when it is on the page.
+
+  They answer an event, so neither side depends on the other, and nothing changes without the menu. Turn one off with `setupCompaction({ commands: false })`, `setupApproval({ commands: false })` or `<aparte-model-selector commands="false">`.
+  <sub>`@aparte/plugin-approval`, `@aparte/plugin-compaction`, `@aparte/plugin-model-selector`</sub>
+
+- [855778c](https://github.com/apartejs/aparte/commit/855778c): New package: `/` commands, `@` mentions and any other trigger character in the composer.
+
+  Write `<aparte-triggers>` inside `<aparte-composer>` and give it the triggers you want: static lists or a search function with `AbortSignal`, groups, submenus of any depth, your own row rendering. A row runs something, inserts text, or inserts a pill that sends a text of its own. The focus stays in the field; arrows, Enter, Tab and Escape act on the menu, in right to left too, and a phone gets one panel at a time.
+
+  `@aparte/plugin-triggers/commands` adds `/new`, `/stop`, `/retry` and `/copy` when you ask for them.
+  <sub>`@aparte/plugin-triggers`</sub>
+
+### Patch Changes
+
+- [51adc92](https://github.com/apartejs/aparte/commit/51adc92): `@aparte/docs-mcp` declares its name for the official MCP registry.
+  <sub>`@aparte/docs-mcp`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-n8n`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`.</sub>
+
 ## 1.0.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

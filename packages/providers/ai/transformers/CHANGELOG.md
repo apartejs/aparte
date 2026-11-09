@@ -1,5 +1,13 @@
 # @aparte/provider-transformers
 
+## 1.1.0
+
+### Minor Changes
+
+- a5c3f82: Retry no longer sends `temperature: 0.4`, which recent models refuse, unless the provider asks for it.
+
+  A provider that decodes greedily without a temperature, so a retry would repeat the same answer, now sets the new optional `retryTemperature`. `@aparte/provider-transformers` does. No other provider sends one on a retry, and models that sample by default still vary their answer.
+
 ## 1.0.2
 
 ## 1.0.1
