@@ -4,6 +4,21 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.1.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [3bc8977](https://github.com/apartejs/aparte/commit/3bc8977): A Markdown artifact is no longer cut off after its first code block, on screen or in Copy, Download and Open. There is nothing to change in your code.
+
+  The card looked for a closing code fence whether or not the document had opened one, so the first code block of a report ended the report. It now removes a fence only when one wraps the whole document, and it still drops what a model repeats after that fence.
+
+  A wrapped document keeps the code blocks inside it, and a Markdown document that opens on a code block of its own is left as it is. `stripCodeFences` is internal to the plugin, so its new `kind` argument changes no public name.
+  <sub>`@aparte/plugin-artifacts`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.1.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

@@ -1,5 +1,7 @@
 # @aparte/plugin-model-selector
 
+## 1.1.1
+
 ## 1.1.0
 
 ### Minor Changes

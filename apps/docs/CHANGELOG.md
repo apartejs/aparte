@@ -1,5 +1,13 @@
 # @aparte-workspace/docs
 
+## 0.0.67
+
+### Patch Changes
+
+- @aparte/core@1.1.1
+- @aparte/locales@1.1.1
+- @aparte/plugin-shiki@1.1.1
+
 ## 0.0.66
 
 ### Patch Changes
