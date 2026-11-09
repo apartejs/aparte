@@ -7,7 +7,11 @@
  * survives exactly as long as the page, and a host that wants it remembered reads
  * `getMode()` / `onModeChange` and writes wherever it keeps its preferences.
  */
-import { aparteGlobalConfig, type AparteCollectCommandsEventDetail, type AparteConfig, type AparteApprovalPolicy } from '@aparte/core';
+import {
+    aparteGlobalConfig, type AparteApprovalModeChangeEventDetail, type AparteCollectCommandsEventDetail,
+    type AparteConfig, type AparteApprovalPolicy,
+} from '@aparte/core';
+import type { AparteApprovalMode } from './aparte-approval-mode.js';
 import {
     APPROVAL_MODES, APPROVAL_MODE_LABELS, createApprovalPolicy, classifyTool,
     type ApprovalMode, type ApprovalClassification, type ToolClass,
@@ -109,15 +113,24 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
     const onCollectCommands = (e: Event): void => {
         const { detail } = e as CustomEvent<AparteCollectCommandsEventDetail>;
         if (detail.config !== config) return;
+        const labels = detail.composer?.querySelector<AparteApprovalMode>('aparte-approval-mode')?.labels;
         detail.add({
             id: 'approval',
             order: 70,
             description: config.t('triggersCommandApproval'),
             children: APPROVAL_MODES.map((candidate) => ({
                 id: candidate,
-                label: APPROVAL_MODE_LABELS[candidate],
+                label: labels?.[candidate] ?? APPROVAL_MODE_LABELS[candidate],
                 ...(candidate === mode ? { icon: 'check' } : {}),
-                run: () => controller.setMode(candidate),
+                run: (context) => {
+                    const previousMode = mode;
+                    controller.setMode(candidate);
+                    if (mode === previousMode) return;
+                    // As the switch does: an app saves the choice from this event.
+                    context.composer.dispatchEvent(new CustomEvent<AparteApprovalModeChangeEventDetail>('aparte-approval-mode-change', {
+                        bubbles: true, composed: true, detail: { mode: candidate, previousMode },
+                    }));
+                },
             })),
         });
     };

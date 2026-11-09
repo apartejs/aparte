@@ -7,9 +7,9 @@ import type { AparteModelSelector } from '../aparte-model-selector.js';
 type Row = { id: string; label: string; icon?: string; run?(): void; children?: Row[] };
 type Added = { id: string; children: Row[] };
 
-function ask(config: AparteConfig): Added[] {
+function ask(config: AparteConfig, more: { composer?: Element | null; chat?: Element | null } = {}): Added[] {
     const added: Added[] = [];
-    window.dispatchEvent(new CustomEvent('aparte-collect-commands', { detail: { config, add: (c: Added) => added.push(c) } }));
+    window.dispatchEvent(new CustomEvent('aparte-collect-commands', { detail: { config, ...more, add: (c: Added) => added.push(c) } }));
     return added;
 }
 
@@ -55,6 +55,33 @@ describe('/model in the command menu', () => {
         const el = await mount();
         el.setSelection('a', 'm2');
         expect(ask(aparteGlobalConfig)[0]!.children.find((r) => r.icon === 'check')!.label).toBe('m2');
+    });
+
+    it('answers for its own composer on a page of several chats', async () => {
+        aparteGlobalConfig.registerAIProvider(provider('a', ['m1']));
+        const composer = document.body.appendChild(document.createElement('aparte-composer'));
+        const other = document.body.appendChild(document.createElement('aparte-composer'));
+        composer.appendChild(document.createElement('aparte-model-selector'));
+        await new Promise((r) => setTimeout(r, 0));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(ask(aparteGlobalConfig, { composer })).toHaveLength(1);
+        expect(ask(aparteGlobalConfig, { composer: other })).toEqual([]);
+    });
+
+    it('stays out while it is disabled', async () => {
+        aparteGlobalConfig.registerAIProvider(provider('a', ['m1']));
+        await mount({ disabled: '' });
+        expect(ask(aparteGlobalConfig)).toEqual([]);
+    });
+
+    it('says what it changed from', async () => {
+        aparteGlobalConfig.registerAIProvider(provider('a', ['m1', 'm2']));
+        const el = await mount();
+        el.setSelection('a', 'm1');
+        const heard: Array<{ previousModelId?: string }> = [];
+        el.addEventListener('aparte-model-change', (e) => heard.push((e as CustomEvent).detail));
+        el.setSelection('a', 'm2');
+        expect(heard[0]!.previousModelId).toBe('m1');
     });
 
     it('stays out when asked to, and once removed', async () => {
