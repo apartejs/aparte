@@ -44,6 +44,24 @@ const { section, label, hasTree } = Astro.props;
     }
 </aparte-sidebar>
 
+<!--
+    The page being read, in view in its list. A section longer than the window opened its list at
+    the top on every page, the current one far below. Inline, so it runs while the page is parsed,
+    before the first paint: the list does not jump. It scrolls the list alone, never the page, and
+    only when the current link is out of view. On a phone the drawer is hidden here, so this does
+    nothing.
+-->
+<script is:inline>
+    (() => {
+        const tree = document.querySelector('#site-nav .site-nav__tree');
+        const current = tree && tree.querySelector('[aria-current="page"]');
+        if (!current || tree.scrollHeight <= tree.clientHeight) return;
+        const top = current.getBoundingClientRect().top - tree.getBoundingClientRect().top;
+        if (top >= 0 && top + current.offsetHeight <= tree.clientHeight) return;
+        tree.scrollTop += top - (tree.clientHeight - current.offsetHeight) / 2;
+    })();
+</script>
+
 <script>
     const narrow = matchMedia('(max-width: 48rem)');
     const upgrade = () => void import('@aparte/core');
