@@ -134,11 +134,18 @@ export class AparteLauncher extends HTMLElement {
         if (!this.classList.contains('aparte-launcher')) this.classList.add('aparte-launcher');
         // Re-used on a re-parent: a second button would be the element's own doing twice.
         if (!this._button) {
-            this._button = document.createElement('button');
+            // A page brought back from its HTML (Livewire's Back button, a page cache) makes a new
+            // element whose markup already holds the button the old one drew: take that one up.
+            const drawn = this.querySelector(':scope > button.aparte-launcher__button');
+            this._button = drawn instanceof HTMLButtonElement ? drawn : document.createElement('button');
             this._button.type = 'button';
             this._button.addEventListener('click', this._onButtonClick);
         }
-        this.appendChild(this._button);
+        // Any other one in the markup is a dead copy: nothing listens to it.
+        for (const stale of this.querySelectorAll(':scope > .aparte-launcher__button')) {
+            if (stale !== this._button) stale.remove();
+        }
+        if (this._button.parentNode !== this) this.appendChild(this._button);
         if (typeof MutationObserver === 'function') {
             this._childWatch ??= new MutationObserver(() => this._keepButton());
             this._childWatch.observe(this, { childList: true });

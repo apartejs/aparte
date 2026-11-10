@@ -183,6 +183,44 @@ describe('<aparte-launcher>: a framework that takes its button out', () => {
     });
 });
 
+describe('<aparte-launcher>: a page brought back from its own HTML', () => {
+    // Livewire's wire:navigate keeps the page's HTML for the Back button and parses it back in;
+    // so does any page cache that restores markup. The launcher it brings back is a NEW element
+    // whose markup already holds the button the old one drew.
+    const restore = (): AparteLauncher => {
+        const html = document.body.innerHTML;
+        document.body.innerHTML = html;
+        return document.querySelector('aparte-launcher') as AparteLauncher;
+    };
+
+    it('takes up the button in its markup instead of drawing a second one, and that button opens', () => {
+        mount('label="Help"');
+        const el = restore();
+        const buttons = el.querySelectorAll('.aparte-launcher__button');
+        expect(buttons).toHaveLength(1);
+        expect(buttons[0]?.querySelector('.aparte-launcher__label')?.textContent).toBe('Help');
+        (buttons[0] as HTMLButtonElement).click();
+        expect(el.open).toBe(true);
+        expect(buttons[0]?.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('draws the button for the state it comes back in, open or closed', () => {
+        mount('open');
+        const el = restore();
+        expect(el.querySelectorAll('.aparte-launcher__button')).toHaveLength(1);
+        expect(buttonOf(el).getAttribute('aria-expanded')).toBe('true');
+        buttonOf(el).click();
+        expect(el.open).toBe(false);
+    });
+
+    it('keeps one button when the markup it comes back with already held two', () => {
+        mount();
+        const el = document.querySelector('aparte-launcher') as AparteLauncher;
+        el.append(buttonOf(el).cloneNode(true));
+        expect(restore().querySelectorAll('.aparte-launcher__button')).toHaveLength(1);
+    });
+});
+
 describe('<aparte-launcher>: opening and closing', () => {
     it('opens and closes on its button, and the button says which', () => {
         const el = mount('label="Help"');
