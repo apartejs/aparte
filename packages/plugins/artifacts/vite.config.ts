@@ -16,6 +16,8 @@ export default defineConfig({
                 index: resolve(__dirname, 'src/index.ts'),
                 // The DOM-free entry the `node` export condition points at.
                 'index.node': resolve(__dirname, 'src/index.node.ts'),
+                // The document panel, on its own: an app that only wants the card does not ship it.
+                panel: resolve(__dirname, 'src/panel.ts'),
             },
             name: 'ApartePluginArtifacts',
             fileName: (_format, entryName) => `${entryName}.js`,

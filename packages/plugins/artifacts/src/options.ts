@@ -76,6 +76,12 @@ export interface ArtifactOpenEventDetail {
 // core's event map.
 interface ArtifactEventMap {
     'aparte-artifact-open': CustomEvent<ArtifactOpenEventDetail>;
+    /**
+     * A document card in a reply was drawn or changed: the conversation's documents may
+     * have changed (`artifactDocuments`). Bubbles out of the chat; no detail. The document
+     * panel reads the conversation again on it.
+     */
+    'aparte-artifact-change': CustomEvent<void>;
 }
 declare global {
     interface HTMLElementEventMap extends ArtifactEventMap {}

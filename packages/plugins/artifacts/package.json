@@ -8,7 +8,11 @@
     "description": "Artifacts for aparté — a create_artifact tool the model calls, a rich Code/Preview card that renders its result, and the <artifact> tag grammar for a model that writes one in its prose.",
     "customElements": "dist/custom-elements.json",
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./dist/panel.js",
+        "./src/panel.ts",
+        "./src/panel/aparte-artifact-panel.ts"
+    ],
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -42,6 +46,12 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "default": "./dist/index.js"
+        },
+        "./panel": {
+            "@aparte-workspace/source": "./src/panel.ts",
+            "types": "./dist/panel.d.ts",
+            "import": "./dist/panel.js",
+            "default": "./dist/panel.js"
         }
     },
     "files": [

@@ -261,6 +261,7 @@ const card = {
     setup: (element: HTMLElement, segment: AparteArtifactSegment, options: ArtifactCardOptions = {}): void => {
         cardOptions.set(element, options);
         latestSegment.set(element, segment);
+        announceChange(element, options);
         const kind = (segment.artifactType || '').toLowerCase();
         if (BINARY_FILE_KINDS.has(kind)) {
             setupBinaryFileArtifact(element, segment, kind);
@@ -390,6 +391,7 @@ const card = {
         // frame that is now showing stale content so the next press rebuilds it.
         const previous = latestSegment.get(element);
         latestSegment.set(element, segment);
+        announceChange(element, cardOptions.get(element) ?? {});
         if (previous && previous.content !== segment.content) {
             element.querySelector('.aparte-art-card__pane[data-pane="preview"] iframe')?.remove();
         }
@@ -480,6 +482,22 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
 
 /** The card's hooks with their options, for the document panel: the same card, drawn as its body. */
 export const artifactCard = card;
+
+/**
+ * Tell the page a card in a reply was drawn or changed: a panel beside the chat reads the
+ * conversation again. Not from the panel's own card, which would be telling itself.
+ */
+function announceChange(element: HTMLElement, options: ArtifactCardOptions): void {
+    if (options.surface === 'panel') return;
+    /**
+     * A document card in a reply was drawn or changed, so the conversation's documents may
+     * have changed: read them again (`artifactDocuments`). Bubbles out of the chat and out
+     * of shadow roots; no detail. `<aparte-artifact-panel>` listens to it.
+     *
+     * @event aparte-artifact-change
+     */
+    element.dispatchEvent(new CustomEvent('aparte-artifact-change', { bubbles: true, composed: true }));
+}
 
 /** The cards whose prose is waiting for the next frame. */
 const proseScheduled = new WeakSet<Element>();
