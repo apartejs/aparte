@@ -40,6 +40,8 @@ export { createArtifactTool, artifactHandler, ARTIFACT_SYSTEM_PROMPT } from './t
 export type { ArtifactToolOptions } from './tool.js';
 export { artifactBlock, artifactSegment, artifactFromToolCall, ARTIFACT_TAG, ARTIFACT_SEGMENT_TYPE } from './segment.js';
 export type { ArtifactSegment, ArtifactInput } from './segment.js';
+export { artifactDocuments, ARTIFACT_TOOL_NAMES } from './documents.js';
+export type { ArtifactDocument, ArtifactVersion, ArtifactRead, ArtifactDocumentsOptions } from './documents.js';
 export { deriveArtifactKind } from './kinds.js';
 export { buildSafePreviewDocument, PREVIEW_CSP } from './preview-document.js';
 export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions, ArtifactOpenEventDetail } from './options.js';

@@ -41,6 +41,11 @@ export interface ArtifactSegment extends AparteSegmentBase {
     title?: string;
     /** The document. Accumulates while a tagged block streams. */
     content: string;
+    /**
+     * The document this is a version of, when the tag named one (`id=`): the id of the
+     * document the model is rewriting. Absent, the segment's own id is the document's.
+     */
+    documentId?: string;
 }
 
 /** The artifact joins core's segment union, so `addSegment(id, artifactSegment(…))` takes it as it is. */
@@ -55,6 +60,8 @@ declare module '@aparte/core' {
  * result, so the card reads one shape on both paths.
  */
 export interface ArtifactInput {
+    /** The document this is a version of. The tool gives a new document its id; see `artifactDocuments`. */
+    documentId?: string;
     mimeType: string;
     title?: string;
     content: string;
