@@ -171,7 +171,7 @@ aparte-artifact-panel > [slot='actions'] {
 
 /* A narrow pane: the title keeps the first row with Close, the rest takes the second. A
    container query cannot restyle its own container, which is why that row always exists. */
-@container (max-width: 30rem) {
+@container (max-width: 26rem) {
     .aparte-art-panel__title { grid-area: 1 / 1 / 2 / 6; }
     .aparte-art-panel__versions { grid-area: 2 / 1; justify-self: start; padding-inline-start: var(--aparte-space-4); }
     aparte-artifact-panel > [slot='actions'] { grid-area: 2 / 3; }

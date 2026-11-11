@@ -23,9 +23,12 @@ const doc = (documentId: string, content: string, title = 'Plan') => call({ docu
 
 /** A chat as the panel sees one: an element with an id, `getMessages()` and events. */
 function chat(messages: AparteMessage[]): HTMLElement & { messages: AparteMessage[] } {
-    const element = Object.assign(document.createElement('div'), { messages }) as HTMLElement & { messages: AparteMessage[]; getMessages: () => AparteMessage[] };
+    // A method, so it reads the messages the element holds now: the tests replace them.
+    const element = Object.assign(document.createElement('div'), {
+        messages,
+        getMessages(this: { messages: AparteMessage[] }): AparteMessage[] { return this.messages; },
+    });
     element.id = 'chat';
-    element.getMessages = () => element.messages;
     document.body.append(element);
     return element;
 }
@@ -313,6 +316,36 @@ describe('<aparte-artifact-panel>', () => {
         panelFor();
         panelFor();
         expect(document.head.querySelectorAll('#aparte-artifact-panel-styles')).toHaveLength(1);
+    });
+
+    it('reads the tools of the plugin under the names the app gave them', () => {
+        const renamed: AparteToolCallSegment = { ...doc('doc_1', 'one'), toolCall: { id: 'c', name: 'make_document', input: {} } };
+        chat([reply('a1', renamed)]);
+        const panel = panelFor();
+        expect(panel.hasAttribute('data-empty')).toBe(true);
+        panel.tools = ['make_document'];
+        expect(panel.tools).toEqual(['make_document']);
+        expect(panel.shownVersion?.content).toBe('one');
+    });
+
+    it('takes the chat as a property, for a chat with no id; each property reads back what was set', () => {
+        const source = chat([reply('a1', doc('doc_1', 'one'))]);
+        source.removeAttribute('id');
+        const panel = document.createElement('aparte-artifact-panel');
+        document.body.append(panel);
+        expect(panel.hasAttribute('data-empty')).toBe(true);
+
+        panel.chat = source;
+        expect(panel.chat).toBe(source);
+        expect(panel.shownVersion?.content).toBe('one');
+
+        const read = () => null;
+        const render = () => false;
+        panel.read = read;
+        panel.render = render;
+        expect(panel.read).toBe(read);
+        expect(panel.render).toBe(render);
+        expect(panel.documents).toBeNull();
     });
 
     it('is the class behind the tag', () => {

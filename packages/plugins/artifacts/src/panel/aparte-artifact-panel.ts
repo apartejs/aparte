@@ -421,7 +421,8 @@ export class AparteArtifactPanel extends ElementBase {
         if (!card) return;
         body.append(card);
         // The card with tabs lends its tabs and its buttons to the panel's header (panel.css).
-        body.classList.toggle('aparte-art-panel__body--card', card.querySelector('.aparte-art-card__tabs') !== null);
+        const tabbed = card.querySelector('[role="tablist"]') !== null;
+        body.classList.toggle('aparte-art-panel__body--card', tabbed);
         artifactCard.setup(card, segment, { surface: 'panel' });
         this._shown = { key, card, cleanup: null };
     }

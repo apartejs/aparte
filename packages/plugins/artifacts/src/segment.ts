@@ -111,9 +111,12 @@ export function artifactBlock(tag: string = ARTIFACT_TAG): AparteStreamBlock {
                 title: attrs['title'],
                 content: '',
             });
-            const title = segment.title ? ` title="${attribute(segment.title)}"` : '';
+            // Not markup for the page: the text the MODEL reads back, never parsed as HTML.
+            // `attribute()` drops what could close a value, where an entity would come
+            // back from the model as the literal `&quot;` (the parser decodes nothing).
+            const title = segment.title ? ` title="${attribute(segment.title)}"` : ''; // safe-attr: wire text for the model, quotes and brackets removed by attribute()
             segment.wire = {
-                before: `<${tag} id="${segment.documentId}" type="${attribute(segment.mimeType)}"${title}>`,
+                before: `<${tag} id="${segment.documentId}" type="${attribute(segment.mimeType)}"${title}>`, // safe-attr: wire text for the model; the id is a plain token (documentIdOf / newDocumentId), the type goes through attribute()
                 after: `</${tag}>`,
             };
             return segment;

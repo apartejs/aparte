@@ -28,8 +28,11 @@ type Chat = HTMLElement & { messages: AparteMessage[] };
 /** A chat, a split and a panel, as an app lays them out. The split is a plain element with the two properties. */
 function page(messages: AparteMessage[] = []): { chat: Chat; panel: AparteArtifactPanel; split: ArtifactPanelSplit } {
     const split = Object.assign(document.createElement('div'), { single: false, pane: 'start' as const }) as ArtifactPanelSplit;
-    const chat = Object.assign(document.createElement('div'), { messages }) as Chat & { getMessages: () => AparteMessage[] };
-    chat.getMessages = () => chat.messages;
+    // A method, so it reads the messages the element holds now: the tests replace them.
+    const chat: Chat = Object.assign(document.createElement('div'), {
+        messages,
+        getMessages(this: { messages: AparteMessage[] }): AparteMessage[] { return this.messages; },
+    });
     const panel = document.createElement('aparte-artifact-panel');
     split.append(chat, panel);
     document.body.append(split);
