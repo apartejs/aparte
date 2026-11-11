@@ -91,12 +91,13 @@ const notes = [];
 
 // ── elements ────────────────────────────────────────────────────────────────
 //
-// Core plus the three plugins that define an element. `@aparte/plugin-artifacts` ships a
-// manifest too and declares no custom element (its card is a tool renderer), so it
-// contributes nothing and is not listed.
+// Core plus the plugins that define an element. `@aparte/plugin-artifacts` is one of them
+// since its document panel (`<aparte-artifact-panel>`); its card is a tool renderer and
+// contributes nothing here.
 const MANIFESTS = [
     ['@aparte/core', 'packages/core/dist/custom-elements.json'],
     ['@aparte/plugin-approval', 'packages/plugins/approval/dist/custom-elements.json'],
+    ['@aparte/plugin-artifacts', 'packages/plugins/artifacts/dist/custom-elements.json'],
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user/dist/custom-elements.json'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector/dist/custom-elements.json'],
     ['@aparte/plugin-triggers', 'packages/plugins/triggers/dist/custom-elements.json'],

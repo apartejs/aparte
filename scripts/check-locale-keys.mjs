@@ -121,6 +121,10 @@ const KEY_FLOOR = 75;
 const PLUGIN_OWNED = new Set([
     'download', // @aparte/plugin-artifacts — the card's download button
     'openArtifact', // @aparte/plugin-artifacts — the card's Open button, when the app asks for it
+    'closeArtifact', // @aparte/plugin-artifacts — the document panel's Close button
+    'artifactVersion', // @aparte/plugin-artifacts — the document panel's version group, for assistive technology
+    'previousVersion', // @aparte/plugin-artifacts — the document panel's arrow to the version before
+    'nextVersion', // @aparte/plugin-artifacts — the document panel's arrow to the version after
     'modelContextWindow', // @aparte/plugin-model-selector — a model's context window under its name (`details`)
     'preview', // @aparte/plugin-artifacts — the card's two tabs
     'code',
