@@ -262,10 +262,18 @@ describe('<aparte-artifact-panel>', () => {
 
         // Still a direct child, between the panel's own parts: nothing was moved or wrapped.
         expect(mine.parentElement).toBe(panel);
-        expect([...panel.children].map((c) => c.className || c.getAttribute('slot'))).toEqual([
-            'aparte-art-panel__title', 'aparte-art-panel__versions', 'actions',
-            'aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-panel__close', 'aparte-art-panel__body',
+        expect([...panel.children].map((c) => c.getAttribute('slot') ?? [...c.classList].find((name) => name.startsWith('aparte-art-panel__')))).toEqual([
+            'aparte-art-panel__title', 'aparte-art-panel__versions', 'actions', 'aparte-art-panel__close', 'aparte-art-panel__body',
         ]);
+    });
+
+    it('says when its body is a card with tabs, so the header can take the tabs and the buttons', () => {
+        chat([reply('a1', doc('doc_1', 'one'))]);
+        const panel = panelFor();
+        expect(part(panel, 'body').classList.contains('aparte-art-panel__body--card')).toBe(true);
+        // An app's own rendering is one box: nothing of a card to lend.
+        panel.render = (_version, container) => { container.textContent = 'mine'; };
+        expect(part(panel, 'body').classList.contains('aparte-art-panel__body--card')).toBe(false);
     });
 
     it('builds its parts once, however often it is moved in the page', () => {
