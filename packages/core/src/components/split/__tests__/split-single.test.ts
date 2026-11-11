@@ -63,8 +63,39 @@ describe('#54 — <aparte-split single>', () => {
 
     it('the stylesheet hides the seam and the other pane for [single], byte for byte with the breakpoint\'s state', () => {
         const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, '');
-        expect(css).toMatch(/aparte-split\[single\]\s*>\s*\.aparte-split__handle/);
-        expect(css).toMatch(/aparte-split\[single\]:not\(\[pane='end'\]\)\s*>\s*:nth-child\(3\)/);
-        expect(css).toMatch(/aparte-split\[single\]\[pane='end'\]\s*>\s*:nth-child\(1\)/);
+        // Each rule steps aside while the element moves between one pane and two
+        // (`data-moving`): the other pane must be laid out to be seen arriving or leaving.
+        expect(css).toMatch(/aparte-split\[single\]:not\(\[data-moving\]\)\s*>\s*\.aparte-split__handle/);
+        expect(css).toMatch(/aparte-split\[single\]:not\(\[data-moving\]\):not\(\[pane='end'\]\)\s*>\s*:nth-child\(3\)/);
+        expect(css).toMatch(/aparte-split\[single\]:not\(\[data-moving\]\)\[pane='end'\]\s*>\s*:nth-child\(1\)/);
+        // No one-pane rule is left that would win during the move.
+        expect(css).not.toMatch(/aparte-split\[single\](?!:not\(\[data-moving\]\))/);
+    });
+
+    it('the move is a transition of the tracks, off under reduced motion', () => {
+        const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, '');
+        expect(css).toMatch(/aparte-split\[data-moving='run'\]\s*\{\s*transition:\s*grid-template-columns var\(--aparte-duration-slower\)/);
+        expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*aparte-split\[data-moving='run'\]\s*\{\s*transition: none/);
+    });
+
+    // The motion itself needs a layout engine: e2e/tests/layout.spec.ts proves it in real
+    // browsers. Here, what must hold where there is none.
+    it('with no layout to measure, the change is immediate and leaves nothing behind', async () => {
+        const el = await mount();
+        el.single = true;
+        expect(el.hasAttribute('data-moving')).toBe(false);
+        expect(el.style.gridTemplateColumns).toBe('');
+        el.single = false;
+        expect(el.hasAttribute('data-moving')).toBe(false);
+        expect(el.style.gridTemplateColumns).toBe('');
+    });
+
+    it('does not move when the reader asked for less motion', async () => {
+        (globalThis as unknown as { matchMedia: unknown }).matchMedia = () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} });
+        const el = await mount();
+        // A layout to measure, so only the preference can be what holds it back.
+        Object.defineProperty(el, 'clientWidth', { value: 800 });
+        el.single = true;
+        expect(el.hasAttribute('data-moving')).toBe(false);
     });
 });

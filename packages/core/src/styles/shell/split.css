@@ -249,7 +249,7 @@ aparte-split[orientation='vertical'] .aparte-split__scrim,
    Not "position: 100% and a zero-size handle": that leaves a focusable separator of
    no width sitting in the tab order. */
 aparte-split[data-stacked],
-aparte-split[single],
+aparte-split[single]:not([data-moving]),
 .aparte-split--only-start,
 .aparte-split--only-end {
   grid-template-columns: minmax(0, 1fr);
@@ -257,7 +257,7 @@ aparte-split[single],
 }
 
 aparte-split[data-stacked] > .aparte-split__handle,
-aparte-split[single] > .aparte-split__handle,
+aparte-split[single]:not([data-moving]) > .aparte-split__handle,
 .aparte-split--only-start > .aparte-split__handle,
 .aparte-split--only-end > .aparte-split__handle {
   display: none;
@@ -267,15 +267,42 @@ aparte-split[single] > .aparte-split__handle,
    the one `pane` names. Same rules as the breakpoint's, so the element reads both the
    same way. */
 aparte-split[data-stacked]:not([pane='end']) > :nth-child(3),
-aparte-split[single]:not([pane='end']) > :nth-child(3),
+aparte-split[single]:not([data-moving]):not([pane='end']) > :nth-child(3),
 .aparte-split--only-start > :nth-child(3) {
   display: none;
 }
 
 aparte-split[data-stacked][pane='end'] > :nth-child(1),
-aparte-split[single][pane='end'] > :nth-child(1),
+aparte-split[single]:not([data-moving])[pane='end'] > :nth-child(1),
 .aparte-split--only-end > :nth-child(1) {
   display: none;
+}
+
+/* Between one pane and two, after `single` changed. `display: none` cannot be animated, so
+   for the length of the move the element holds the one-pane rules off (`:not([data-moving])`
+   above), keeps its three tracks and writes them inline, in pixels, from what is on screen
+   to what this sheet shows next; then it removes both. The sidebar animates its fold the
+   same way a pane now arrives: a panel that appears at once reads as a jump of the page.
+
+   `run` only: the first value is set while the starting tracks are measured, and a
+   transition switched on then would animate the measurement itself. */
+aparte-split[data-moving='run'] {
+  transition:
+    grid-template-columns var(--aparte-duration-slower) var(--aparte-ease),
+    grid-template-rows var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+/* The seam shrinks with its track: what it draws outside (the grab zone, the grip) would
+   otherwise stay on top of the pane beside it. */
+aparte-split[data-moving] > .aparte-split__handle {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  aparte-split[data-moving='run'] {
+    transition: none;
+  }
 }
 
 /* `disabled` is inert, so it must not look grabbable: the element takes the tab stop

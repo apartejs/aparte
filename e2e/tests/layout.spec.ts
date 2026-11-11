@@ -576,3 +576,97 @@ test.describe('center-empty and a restore', () => {
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 });
+
+/**
+ * `single` flips the split between one pane and two. It used to jump: the sheet's one-pane
+ * state takes the other pane out with `display: none`. The element now moves the tracks
+ * itself for the length of the change. What can be wrong only shows in an engine: are there
+ * frames in between, does it end exactly where the sheet would have put it, and does a
+ * reader who asked for less motion get the change at once.
+ */
+test.describe('the split, between one pane and two', () => {
+    /** Set `single` and read the end pane's width on every frame until the split has settled. */
+    async function sample(page: Page, single: boolean): Promise<{ widths: number[]; moving: boolean; inline: string; display: string }> {
+        return page.evaluate((to) => new Promise<{ widths: number[]; moving: boolean; inline: string; display: string }>((resolve) => {
+            const split = document.querySelector('aparte-split') as HTMLElement & { single: boolean };
+            const pane = split.children[2] as HTMLElement;
+            const widths: number[] = [];
+            const start = performance.now();
+            split.single = to;
+            const tick = (): void => {
+                widths.push(Math.round(pane.getBoundingClientRect().width));
+                const elapsed = performance.now() - start;
+                if ((!split.hasAttribute('data-moving') && elapsed > 60) || elapsed > 3000) {
+                    resolve({ widths, moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns, display: getComputedStyle(pane).display });
+                } else {
+                    requestAnimationFrame(tick);
+                }
+            };
+            requestAnimationFrame(tick);
+        }), single);
+    }
+    const endWidth = (page: Page): Promise<number> =>
+        page.evaluate(() => Math.round((document.querySelector('aparte-split')!.children[2] as HTMLElement).getBoundingClientRect().width));
+    /** Frames where the pane is neither gone nor at its full size. */
+    const between = (widths: number[], full: number): number => widths.filter((w) => w > 8 && w < full - 8).length;
+
+    test('the other pane leaves and arrives in motion, and ends where the sheet puts it', async ({ page }) => {
+        const { errors } = await open(page, 'split');
+        const full = await endWidth(page);
+        expect(full, 'there is a second pane to move').toBeGreaterThan(200);
+
+        const closing = await sample(page, true);
+        expect(between(closing.widths, full), `closing: ${closing.widths.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(closing.widths.every((w, i, all) => i === 0 || w <= all[i - 1]! + 1), 'closing only shrinks').toBe(true);
+        // Nothing of the move is left: the sheet's one-pane state, and no track written inline.
+        expect(closing.moving).toBe(false);
+        expect(closing.inline).toBe('');
+        expect(closing.display).toBe('none');
+
+        const opening = await sample(page, false);
+        expect(between(opening.widths, full), `opening: ${opening.widths.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(opening.widths.every((w, i, all) => i === 0 || w >= all[i - 1]! - 1), 'opening only grows').toBe(true);
+        expect(opening.moving).toBe(false);
+        expect(opening.inline).toBe('');
+        expect(Math.abs((await endWidth(page)) - full), 'back at the size it had').toBeLessThanOrEqual(1);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+
+    test('a second change before the first has ended settles on the last one', async ({ page }) => {
+        await open(page, 'split');
+        const full = await endWidth(page);
+        const settled = await page.evaluate(() => new Promise<{ moving: boolean; inline: string; single: boolean }>((resolve) => {
+            const split = document.querySelector('aparte-split') as HTMLElement & { single: boolean };
+            split.single = true;
+            setTimeout(() => { split.single = false; }, 90);
+            setTimeout(() => resolve({ moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns, single: split.single }), 1000);
+        }));
+        expect(settled).toEqual({ moving: false, inline: '', single: false });
+        expect(Math.abs((await endWidth(page)) - full)).toBeLessThanOrEqual(1);
+    });
+
+    test('a reader who asked for less motion gets the change at once', async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await open(page, 'split');
+        const full = await endWidth(page);
+        const closing = await sample(page, true);
+        expect(between(closing.widths, full), `closing: ${closing.widths.join(',')}`).toBe(0);
+        expect(closing.display).toBe('none');
+        const opening = await sample(page, false);
+        expect(between(opening.widths, full), `opening: ${opening.widths.join(',')}`).toBe(0);
+        expect(Math.abs((await endWidth(page)) - full)).toBeLessThanOrEqual(1);
+    });
+
+    test('stacked by its breakpoint, the split has one pane either way and moves nothing', async ({ page }) => {
+        await page.setViewportSize(PHONE);
+        await open(page, 'split');
+        const moved = await page.evaluate(() => {
+            const split = document.querySelector('aparte-split') as HTMLElement & { single: boolean };
+            split.single = true;
+            const closing = split.hasAttribute('data-moving');
+            split.single = false;
+            return { stacked: split.hasAttribute('data-stacked'), closing, opening: split.hasAttribute('data-moving') };
+        });
+        expect(moved).toEqual({ stacked: true, closing: false, opening: false });
+    });
+});
