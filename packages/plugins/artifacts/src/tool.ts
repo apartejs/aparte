@@ -9,10 +9,10 @@
  * policy may well class writing a document as a `write`), the handler, the envelope —
  * and the card is a tool renderer on its result.
  */
-import { uuid } from '@aparte/core';
 import type { AparteMessage, AparteTool, AparteToolCall, AparteToolContext, AparteToolResult } from '@aparte/core';
 import type { ArtifactInput } from './segment.js';
-import { artifactDocuments, documentIdOf, ARTIFACT_TOOL_NAMES } from './documents.js';
+import { artifactDocuments, ARTIFACT_TOOL_NAMES } from './documents.js';
+import { documentIdOf, newDocumentId } from './ids.js';
 
 /** What the model is told, when the app does not say otherwise. */
 export const ARTIFACT_SYSTEM_PROMPT =
@@ -54,11 +54,6 @@ export function createArtifactTool(options: ArtifactToolOptions = {}): AparteToo
     };
     if (options.systemPrompt !== false) tool.systemPrompt = options.systemPrompt ?? ARTIFACT_SYSTEM_PROMPT;
     return tool;
-}
-
-/** A new document's id: the plugin's, never the model's, and short enough to be copied without a slip. */
-function newDocumentId(): string {
-    return `doc_${uuid().replace(/-/g, '').slice(0, 8).toLowerCase()}`;
 }
 
 /**

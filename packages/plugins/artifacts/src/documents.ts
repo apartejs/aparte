@@ -15,6 +15,7 @@
  */
 import type { AparteMessage, AparteSegment, AparteToolCallSegment } from '@aparte/core';
 import { artifactSegment, ARTIFACT_SEGMENT_TYPE, type ArtifactInput, type ArtifactSegment } from './segment.js';
+import { documentIdOf } from './ids.js';
 
 /** The names of the tools whose result is a document, when the app did not rename them. */
 export const ARTIFACT_TOOL_NAMES: readonly string[] = ['create_artifact', 'edit_artifact'];
@@ -67,14 +68,6 @@ export interface ArtifactDocumentsOptions {
     read?: (segment: AparteSegment, message: AparteMessage) => ArtifactRead | null;
 }
 
-/** An id is a plain token. Anything else (a model's prose, a path, markup) is not taken as one. */
-const ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-/** `id` if it is a usable document id, else `undefined`. */
-export function documentIdOf(id: unknown): string | undefined {
-    return typeof id === 'string' && ID.test(id) ? id : undefined;
-}
-
 /** The default reading: this plugin's tools, once they resolved with a document, and the tag's segment. */
 function defaultRead(segment: AparteSegment, tools: readonly string[]): ArtifactRead | null {
     if (segment.type === 'tool_call') {
@@ -86,7 +79,10 @@ function defaultRead(segment: AparteSegment, tools: readonly string[]): Artifact
     }
     if (segment.type === ARTIFACT_SEGMENT_TYPE) {
         const tagged = segment as ArtifactSegment;
-        return { ...tagged, ...(tagged.isStreaming ? { streaming: true } : {}) };
+        // A model writes the body on its own lines: the break after the opening tag and the
+        // one before the closing tag are the tag's layout, not the document.
+        const content = tagged.content.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+        return { ...tagged, content, ...(tagged.isStreaming ? { streaming: true } : {}) };
     }
     return null;
 }
