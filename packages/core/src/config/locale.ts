@@ -159,8 +159,14 @@ export type AparteLocale = {
     splitHandleLabel?: string;
     /** Accessible name of `<aparte-launcher>`'s button while the chat is closed, when it shows no `label` (default: "Open the chat") */
     launcherOpen?: string;
-    /** Accessible name of `<aparte-launcher>`'s button while the chat is open (default: "Close the chat") */
+    /** Accessible name of `<aparte-launcher>`'s button while the chat is open, and of the ✕ in its header (default: "Close the chat") */
     launcherClose?: string;
+    /** Title of `<aparte-launcher>`'s header when the element sets no `heading` (default: "Chat") */
+    launcherHeading?: string;
+    /** Accessible name of the button in `<aparte-launcher>`'s header that enlarges the chat (default: "Expand the chat") */
+    launcherMaximize?: string;
+    /** Accessible name of the same button while the chat is enlarged: it brings it back to its card (default: "Shrink the chat") */
+    launcherRestore?: string;
     /**
      * Accessible name of the transcript itself (default: "Transcript").
      *
@@ -785,5 +791,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     splitHandleLabel: "Resize the panes",
     launcherOpen: "Open the chat",
     launcherClose: "Close the chat",
+    launcherHeading: "Chat",
+    launcherMaximize: "Expand the chat",
+    launcherRestore: "Shrink the chat",
     transcript: "Transcript"
 };

@@ -1,8 +1,10 @@
 /*
  * aparté — the launcher: a chat that floats in a corner of the page, the support widget a
  * product site puts at the bottom of every page. `<aparte-launcher>` adds its button after
- * your children and reflects `open` and `data-sheet`; these rules place the button and the
- * card, and turn the open card into a full-window sheet on a narrow window.
+ * your children and, over a card that has none, its header before them; it reflects `open`,
+ * `maximized` and `data-sheet`. These rules place the button and the card, join the header
+ * to the card, and turn the open card into a full-window sheet — on a narrow window, and on
+ * any window while it is maximized.
  *
  * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
  * them concatenated in that same order, the way a browser does.
@@ -29,7 +31,7 @@ aparte-launcher > * {
 
 /* Closed: the chat stays mounted — its conversation and its client with it — but out of
    sight, out of the tab order and out of the accessibility tree. Keyed on the attribute,
-   so it holds before the element upgrades too.
+   so it holds before the element upgrades too. The element's header goes with it.
 
    `!important`, the way `[hidden]` is made to hold in base.css, because what it hides is
    YOUR card, and a card sets its own `display`: inline (`style="display: flex"`, which is
@@ -46,7 +48,7 @@ aparte-launcher:not([open]) > :not(.aparte-launcher__button) {
    it is given a size, so a chat inside has the definite height it needs. Under `:where()`,
    at the weight of a type selector: your own card's classes (its ground, its border, its
    corners) win over this default, which only a plain chat needs. */
-aparte-launcher > :where(:not(.aparte-launcher__button)) {
+aparte-launcher > :where(:not(.aparte-launcher__button, .aparte-launcher__header)) {
   box-sizing: border-box;
   flex: 0 1 auto;
   inline-size: min(var(--aparte-launcher-width), calc(100vw - 2 * var(--aparte-launcher-offset)));
@@ -58,6 +60,111 @@ aparte-launcher > :where(:not(.aparte-launcher__button)) {
   border: var(--aparte-border-width) solid var(--aparte-border);
   border-radius: var(--aparte-launcher-radius);
   box-shadow: var(--aparte-popover-shadow);
+}
+
+/* The header the element draws over a card that has none. It wears the app header's recipe
+   (the title, the actions at the end) and declares that recipe's height rather than
+   out-specifying it. What it adds is what joins it to the card under it: the card's width,
+   its top corners and its border, and a negative margin that takes back the gap between the
+   two. The shadow is the launcher's, below. */
+.aparte-launcher__header {
+  --aparte-app-header-height: var(--aparte-launcher-header-height);
+  box-sizing: border-box;
+  order: -1;
+  flex: none;
+  inline-size: min(var(--aparte-launcher-width), calc(100vw - 2 * var(--aparte-launcher-offset)));
+  margin-block-end: calc(-1 * var(--aparte-launcher-gap));
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-start-start-radius: var(--aparte-launcher-radius);
+  border-start-end-radius: var(--aparte-launcher-radius);
+}
+
+/* The title sits on the chat's inset, wider than the recipe's; the end keeps the recipe's,
+   since an icon button carries its own space around its glyph. Under the element's name
+   because the recipe's sheet comes later in the cascade, at a class's weight. */
+aparte-launcher > .aparte-launcher__header {
+  padding-inline-start: var(--aparte-space-8);
+}
+
+/* Its controls take the header's ink, so a coloured header — a `background` and a `color`
+   on `.aparte-launcher__header` — carries its buttons with it. The recipe's tokens,
+   declared: its ghost button reads them. */
+.aparte-launcher__header .aparte-btn {
+  --aparte-btn-intent-ink: currentColor;
+  --aparte-btn-bg-hover: color-mix(in srgb, currentColor 10%, transparent);
+  --aparte-btn-bg-active: color-mix(in srgb, currentColor 16%, transparent);
+  /* The focus ring in the header's ink too: the theme's ring colour is lost on a brand fill
+     (1.4:1 on a mid blue), and the ink is the one colour the header guarantees reads on it. */
+  --aparte-border-focus: currentColor;
+}
+
+/* The assistant's avatar, as the avatar provider draws it in the messages; no provider, or
+   one that draws nothing for the assistant, and the slot takes no room. */
+.aparte-launcher__avatar {
+  flex: none;
+}
+
+.aparte-launcher__avatar:empty:not([data-image]) {
+  display: none;
+}
+
+.aparte-launcher__heading {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+/* The line under the title is quieter by its size and weight, not by a fainter colour: a
+   fainter ink fell under AA (3.2:1) on a brand fill, where the header's ink is all it has. */
+.aparte-launcher__subheading {
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* As a card under its header, the launcher itself holds the window's height — the header
+   and the card under it — plus the gap and the button below them. The header takes what it
+   holds, which a theme may make taller (a larger title, a line that wraps, more padding), and
+   the card the rest: subtracting a fixed header height from the card would let a taller
+   header push the window past its height. `--aparte-btn-size-lg` is the button's own block
+   size, open or closed, round or a pill. The cap is the launcher's own, so a short window
+   shortens the card. */
+aparte-launcher[open]:not([data-sheet], [maximized]):has(> .aparte-launcher__header) {
+  block-size: min(
+    calc(var(--aparte-launcher-height) + var(--aparte-launcher-gap) + var(--aparte-btn-size-lg)),
+    calc(100dvh - 2 * var(--aparte-launcher-offset))
+  );
+}
+
+/* One shadow for the header and the card together, drawn by the launcher behind both. A
+   shadow on each met in a seam at the header's lower edge, a line across the shadow beside
+   the card where one ended and the other began. The launcher's height is the window's plus
+   the gap and the button (above), so the box ends where the card does; `z-index: -1` keeps
+   it under the button, which the shadow would otherwise dim. */
+aparte-launcher[open]:not([data-sheet], [maximized]):has(> .aparte-launcher__header)::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block: 0 calc(var(--aparte-launcher-gap) + var(--aparte-btn-size-lg));
+  inset-inline-end: 0;
+  inline-size: min(var(--aparte-launcher-width), calc(100vw - 2 * var(--aparte-launcher-offset)));
+  border-radius: var(--aparte-launcher-radius);
+  box-shadow: var(--aparte-popover-shadow);
+  pointer-events: none;
+}
+
+/* Under the header the card is what is left, without the corners, the border and the
+   shadow the header and the launcher now draw. At the card's own weight, so your card's
+   classes still win. */
+aparte-launcher:where(:has(> .aparte-launcher__header)) > :where(:not(.aparte-launcher__button, .aparte-launcher__header)) {
+  flex: 1 1 0;
+  block-size: auto;
+  border-block-start: 0;
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  box-shadow: none;
 }
 
 /* The button wears the recipe (solid, primary, large; round, or a pill with a label) and
@@ -77,8 +184,16 @@ aparte-launcher > :where(:not(.aparte-launcher__button)) {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  aparte-launcher[open] > :not(.aparte-launcher__button) {
+  aparte-launcher[open] > :not(.aparte-launcher__button),
+  aparte-launcher[open]:not([data-sheet], [maximized]):has(> .aparte-launcher__header)::before {
     animation: aparte-launcher-in var(--aparte-duration-slow) var(--aparte-ease);
+  }
+
+  /* Maximized, the chat fades in at its new size; brought back, the card slides in again — a
+     change of animation name restarts it, both ways. Not keyed on the breakpoint, so a window
+     resized across it while maximized replays nothing. */
+  aparte-launcher[open][maximized] > :not(.aparte-launcher__button) {
+    animation: aparte-fade-in var(--aparte-duration-slow) var(--aparte-ease);
   }
 }
 
@@ -89,37 +204,77 @@ aparte-launcher > :where(:not(.aparte-launcher__button)) {
   }
 }
 
-/* The sheet: under the breakpoint the open chat fills the window. The button moves to the
-   top corner to close it, over a band the card leaves for it — or goes, when the card holds
-   its own close control. The insets keep clear of a phone's notch and home bar. */
-aparte-launcher[data-sheet][open] {
+/* The sheet: the open chat fills the window — under the breakpoint, and on any window while
+   it is maximized. Without the element's header, the button moves to the top corner to
+   close it, over a band the card leaves for it, or goes when the card holds its own close
+   control. The insets keep clear of a phone's notch and home bar. */
+aparte-launcher[open]:is([data-sheet], [maximized]) {
   inset: 0;
   gap: 0;
   align-items: stretch;
   max-block-size: none;
   overscroll-behavior: contain;
+  /* The home bar's inset is the launcher's, on the chat's ground: on the card it replaced
+     the chat's own bottom padding, and the composer touched the window's lower edge. The
+     launcher covers what it draws over, so it takes the pointer there: a tap in that band
+     went through to the page behind. */
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+  background: var(--aparte-bg);
+  pointer-events: auto;
 }
 
-aparte-launcher[data-sheet][open] > :not(.aparte-launcher__button) {
+aparte-launcher[open]:is([data-sheet], [maximized]) > :not(.aparte-launcher__button, .aparte-launcher__header) {
   flex: 1 1 auto;
   inline-size: auto;
   block-size: auto;
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+  padding-block-start: env(safe-area-inset-top, 0px);
 }
 
-aparte-launcher[data-sheet][open]:not(:has([data-aparte-launcher-close])) > :not(.aparte-launcher__button) {
+aparte-launcher[open]:is([data-sheet], [maximized]):not(:has([data-aparte-launcher-close])) > :not(.aparte-launcher__button, .aparte-launcher__header) {
   padding-block-start: calc(var(--aparte-btn-size-lg) + 2 * var(--aparte-space-3) + env(safe-area-inset-top, 0px));
 }
 
-aparte-launcher[data-sheet][open] > .aparte-launcher__button {
+aparte-launcher[open]:is([data-sheet], [maximized]) > .aparte-launcher__button {
   position: absolute;
   inset-block-start: calc(var(--aparte-space-3) + env(safe-area-inset-top, 0px));
   inset-inline-end: var(--aparte-space-3);
 }
 
-aparte-launcher[data-sheet][open]:has([data-aparte-launcher-close]) > .aparte-launcher__button {
+aparte-launcher[open]:is([data-sheet], [maximized]):has([data-aparte-launcher-close]) > .aparte-launcher__button {
+  display: none;
+}
+
+/* The element's header heads the sheet: the window's width, no corners, and clear of the
+   notch, which the card under it then no longer has to keep clear of. */
+aparte-launcher[open]:is([data-sheet], [maximized]) > .aparte-launcher__header {
+  --aparte-app-header-height: calc(var(--aparte-launcher-header-height) + env(safe-area-inset-top, 0px));
+  inline-size: auto;
+  margin-block-end: 0;
+  padding-block-start: calc(var(--aparte-space-2) + env(safe-area-inset-top, 0px));
+  border-width: 0 0 var(--aparte-border-width);
+  border-radius: 0;
+}
+
+aparte-launcher[open]:is([data-sheet], [maximized]):has(> .aparte-launcher__header) > :not(.aparte-launcher__button, .aparte-launcher__header) {
+  padding-block-start: 0;
+}
+
+/* Maximized as a panel (`maximizable="panel"`), the sheet keeps to the inline-end edge, the
+   window's height and `--aparte-launcher-panel-width` wide, and the page stays in view and
+   in reach beside it. Its edge is drawn, and it carries the popover's shadow onto the page. */
+aparte-launcher[open][maximized][maximizable='panel']:not([data-sheet]) {
+  inset-inline-start: auto;
+  /* `100%` and not `100vw`: the window's width without its scrollbar, which `100vw` counts. */
+  inline-size: min(var(--aparte-launcher-panel-width), 100%);
+  border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
+  box-shadow: var(--aparte-popover-shadow);
+}
+
+/* A sheet under the breakpoint already fills the window: there is nothing left to enlarge,
+   yours included. A maximized one keeps its control, which brings the card back. */
+aparte-launcher[data-sheet] [data-aparte-launcher-maximize] {
   display: none;
 }

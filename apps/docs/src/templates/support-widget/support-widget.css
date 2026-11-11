@@ -180,35 +180,8 @@
     position: absolute;
 }
 
-.sw-widget:not([data-sheet]) {
+.sw-widget:not([data-sheet], [maximized]) {
     max-block-size: calc(100% - var(--aparte-space-8) - var(--aparte-launcher-offset));
-}
-
-.sw-panel__header {
-    display: flex;
-    align-items: center;
-    gap: var(--aparte-space-5);
-}
-
-.sw-panel__who {
-    flex: 1;
-    min-inline-size: 0;
-}
-
-.sw-panel__title {
-    margin: 0;
-    font-size: var(--aparte-font-size-base);
-    font-weight: var(--aparte-font-weight-semibold);
-}
-
-.sw-panel__status {
-    display: flex;
-    align-items: center;
-    gap: var(--aparte-space-3);
-    margin: 0;
-    color: var(--aparte-text-muted);
-    font-size: var(--aparte-font-size-sm);
-    font-weight: var(--aparte-font-weight-normal);
 }
 
 /* The chat takes what the header leaves, in a widget's smaller type. The question panel gets

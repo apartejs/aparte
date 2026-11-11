@@ -43,6 +43,12 @@ export const expandIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="no
 /** Collapse/show less icon */
 export const collapseIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 14.5 12 8l6.5 6.5"/></svg>`;
 
+/** Maximize — two corners pulled outward, along the diagonal. */
+export const maximizeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.5h5.5V10"/><path d="M10 19.5H4.5V14"/><path d="m19.5 4.5-6 6"/><path d="m4.5 19.5 6-6"/></svg>`;
+
+/** Minimize — the same two corners pushed back in, the inverse of `maximize`. */
+export const minimizeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 10H14V4.5"/><path d="M4.5 14H10v5.5"/><path d="m14 10 5.5-5.5"/><path d="m10 14-5.5 5.5"/></svg>`;
+
 /** Terminal/command prompt icon — a prompt chevron and a cursor line. */
 export const terminalIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5 10.5 12 5 17.5"/><path d="M13 18h6"/></svg>`;
 
@@ -127,6 +133,8 @@ export const APARTE_ICON_GLYPHS = {
     error: errorIcon,
     expand: expandIcon,
     collapse: collapseIcon,
+    maximize: maximizeIcon,
+    minimize: minimizeIcon,
     terminal: terminalIcon,
     paperclip: paperclipIcon,
     image: imageIcon,

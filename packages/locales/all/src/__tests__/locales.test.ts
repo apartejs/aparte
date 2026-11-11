@@ -42,10 +42,10 @@ const placeholders = (s: string) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].ma
  */
 const SAME_AS_ENGLISH: Record<string, string[]> = {
     fr: ['contextMessages', 'contextTotal', 'sourcesCount', 'sourcesOne', 'sourcesCard', 'approvalArgsLabel', 'code', 'roleNameAssistant', 'conversationList', 'sidebarLabel'],
-    es: ['elicitationNo', 'contextTotal', 'error'],
-    'pt-BR': ['contextTotal'],
-    de: ['contextTools', 'code', 'messageInfo'],
-    it: ['elicitationNo', 'toolInput', 'toolOutput', 'file'],
+    es: ['elicitationNo', 'contextTotal', 'error', 'launcherHeading'],
+    'pt-BR': ['contextTotal', 'launcherHeading'],
+    de: ['contextTools', 'code', 'messageInfo', 'launcherHeading'],
+    it: ['elicitationNo', 'toolInput', 'toolOutput', 'file', 'launcherHeading'],
     ru: [],
     ja: [],
     ko: [],

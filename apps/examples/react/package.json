@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/example-react",
-  "version": "0.0.69",
+  "version": "0.0.70",
   "private": true,
   "type": "module",
   "description": "Minimal React example — @aparte/react + a real (BYOK / local) model.",

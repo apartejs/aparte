@@ -23,6 +23,20 @@ describe('AparteUi.vue', () => {
         expect(el.style.getPropertyValue('--glow-speed')).toBe('4s');
     });
 
+    it("turns <aparte-launcher>'s header OFF with the string on false, and passes the rest of its props", () => {
+        // `header` is ON by default: removing it on `false` would have drawn the header.
+        const wrapper = mount(AparteUi, {
+            props: { name: 'aparte-launcher', props: { open: true, header: false, heading: 'Help', maximizable: 'panel', maximized: true } },
+        });
+        const el = wrapper.element.querySelector('aparte-launcher') as HTMLElement & { covers: boolean };
+        expect(el.getAttribute('header')).toBe('false');
+        expect(el.querySelector('.aparte-launcher__header')).toBeNull();
+        expect(el.getAttribute('heading')).toBe('Help');
+        expect(el.getAttribute('maximizable')).toBe('panel');
+        expect(el.hasAttribute('maximized')).toBe(true);
+        expect(el.covers).toBe(false);
+    });
+
     it('maps true to a bare attribute and false/null to removal', async () => {
         const wrapper = mount(AparteUi, { props: { name: 'aparte-composer', props: { disabled: true } } });
         const el = wrapper.element.querySelector('aparte-composer') as HTMLElement;

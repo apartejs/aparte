@@ -78,6 +78,8 @@ export default {
         'aparte-composer-add-attachment': ['multiple'],
         // aparte-composer.ts — `get submitOnEnter() { return getAttribute(…) !== 'false'; }`
         'aparte-composer': ['submit-on-enter'],
+        // aparte-launcher.ts — `get header() { return getAttribute('header') !== 'false'; }`
+        'aparte-launcher': ['header'],
     },
 
     /**

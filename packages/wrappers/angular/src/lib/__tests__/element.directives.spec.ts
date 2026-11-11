@@ -302,7 +302,8 @@ describe('the element directives', () => {
         <aparte-context [window]="1000" [warn]="0.7" [danger]="0.95" target="t" variant="ring" [used]="10"
             (contextThreshold)="seen['contextThreshold'] = true" (compact)="seen['compact'] = true"></aparte-context>
 
-        <aparte-launcher [open]="true" label="Help" breakpoint="40rem"
+        <aparte-launcher [open]="true" label="Help" breakpoint="40rem" [header]="false"
+            heading="Kilnhouse support" subheading="Usually answers in a minute" maximizable="panel" [maximized]="true"
             (launcherToggle)="seen['launcherToggle'] = true"></aparte-launcher>
 
         <aparte-scroll-rail target="t" every="message"
@@ -383,6 +384,12 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-launcher', 'open', ''],
         ['aparte-launcher', 'label', 'Help'],
         ['aparte-launcher', 'breakpoint', '40rem'],
+        // ON by default, so OFF is the string: removing it would turn the header back on.
+        ['aparte-launcher', 'header', 'false'],
+        ['aparte-launcher', 'heading', 'Kilnhouse support'],
+        ['aparte-launcher', 'subheading', 'Usually answers in a minute'],
+        ['aparte-launcher', 'maximizable', 'panel'],
+        ['aparte-launcher', 'maximized', ''],
         ['aparte-scroll-rail', 'target', 't'],
         ['aparte-scroll-rail', 'every', 'message'],
         ['aparte-sidebar', 'collapsed', ''],

@@ -124,6 +124,8 @@ async function main(): Promise<void> {
         if (chatEl) {
             const launcher = document.createElement('aparte-launcher');
             launcher.setAttribute('label', 'Help');
+            // Its header (titled by the locale) gets the maximize button too.
+            launcher.setAttribute('maximizable', '');
             document.body.append(launcher);
             launcher.prepend(chatEl);
         }

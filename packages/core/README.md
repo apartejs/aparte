@@ -90,8 +90,9 @@ The `node` entry is checked on every CI run by importing the built package in re
 - **Customization** — icons, render hooks and the message-action registry (the buttons under a
   message) via `aparteGlobalConfig`. A composer button is an `<aparte-composer-action>`
   element you write in markup.
-- **`<aparte-launcher>`** — a floating button that opens the chat as a window, and as a
-  full-window sheet on a narrow or short screen.
+- **`<aparte-launcher>`** — a floating button that opens the chat as a window under a header
+  (the assistant's avatar, a title, a ✕, and with `maximizable` a button that maximizes it), and as
+  a full-window sheet on a narrow or short screen.
 - **Citations** — sources a provider returns appear as a chip after the cited passage, with a
   card and a list.
 - **Pictures** — a picture a model or a tool chose waits for the reader's click until you allow

@@ -123,6 +123,11 @@
     --aparte-input-action-btn-size: var(--aparte-touch-target-size);
   }
 
+  /* The launcher's header controls: in a sheet its ✕ is the one way out on screen. */
+  .aparte-launcher__header .aparte-btn {
+    --aparte-btn-size: var(--aparte-touch-target-size);
+  }
+
   /* The bubble's action bar too: 28px buttons under a thumb missed as often as they
      hit (UI audit 2026-08-28, §8.3 #10). The bar's height follows the same token.
      And it is SHOWN: the bar is revealed by hover, and a finger cannot hover, so on a

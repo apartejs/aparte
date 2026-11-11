@@ -155,7 +155,7 @@ body:has(.aparte-dialog[open]) {
   }
 
   .aparte-dialog[open]::backdrop {
-    animation: aparte-dialog-backdrop-in var(--aparte-duration-slow) var(--aparte-ease);
+    animation: aparte-fade-in var(--aparte-duration-slow) var(--aparte-ease);
   }
 }
 
@@ -166,8 +166,4 @@ body:has(.aparte-dialog[open]) {
   }
 }
 
-@keyframes aparte-dialog-backdrop-in {
-  from {
-    opacity: 0;
-  }
-}
+

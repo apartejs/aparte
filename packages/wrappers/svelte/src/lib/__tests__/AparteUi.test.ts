@@ -12,6 +12,23 @@ import { registerAllComponents, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 registerAllComponents();
 afterEach(cleanup);
 
+describe("<AparteUi> on <aparte-launcher>", () => {
+    it('turns the header OFF with the string on false, and passes the rest of its props', async () => {
+        // `header` is ON by default: removing it on `false` would have drawn the header.
+        // `props` is also the testing library's own option, so the component's go under it.
+        const { container } = render(AparteUi, {
+            props: { name: 'aparte-launcher', props: { open: true, header: false, heading: 'Help', maximizable: 'panel', maximized: true } },
+        });
+        await tick();
+        const el = container.querySelector('aparte-launcher') as HTMLElement & { covers: boolean };
+        expect(el.getAttribute('header')).toBe('false');
+        expect(el.querySelector('.aparte-launcher__header')).toBeNull();
+        expect(el.getAttribute('heading')).toBe('Help');
+        expect(el.getAttribute('maximizable')).toBe('panel');
+        expect(el.covers).toBe(false);
+    });
+});
+
 describe('<AparteUi> callback prop', () => {
     it('calls onelementEvent with the element’s event, alongside the elementEvent component event', async () => {
         const onelementEvent = vi.fn();

@@ -133,34 +133,26 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
     {
         id: 'launcher',
         title: 'A chat in a corner of the page',
-        html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then it, Escape or ✕ to close.
-     A support card: who answers at the top, a greeting, and three questions to start from. -->
-<style>
-  .support { display: flex; flex-direction: column }
-  .support header { display: grid; padding: var(--aparte-space-3) var(--aparte-space-4); border-block-end: var(--aparte-border-width) solid var(--aparte-border) }
-  .support header small { color: var(--aparte-text-muted) }
-  .support aparte-chat { flex: 1; min-height: 0 }
-</style>
+        html: `<!-- In a page it floats over the window; here, over this frame. Press the button, then ⤢ to enlarge
+     the card, and the button, Escape or ✕ to close. The header is the launcher's: who answers, and how fast. -->
 <div style="height: 32rem"></div>
-<aparte-launcher label="Help" breakpoint="none" style="--aparte-launcher-height: 26rem">
-  <section class="support">
-    <header><strong>Kilnhouse support</strong><small>Usually answers in a minute</small></header>
-    <aparte-chat id="help">
-      <aparte-chat-viewport>
-        <aparte-chat-bubble message-id="hello" data-role="assistant" name="Assistant"
-          content="Hi! I can track an order, change a delivery address or start a return."></aparte-chat-bubble>
-      </aparte-chat-viewport>
-      <aparte-composer placeholder="Ask about your order…">
-        <aparte-suggestions suggestions='["Where is my order?", "Change my address", "Start a return"]'></aparte-suggestions>
-        <div class="aparte-composer-shell">
-          <div class="aparte-composer-row">
-            <aparte-composer-input></aparte-composer-input>
-            <aparte-composer-send></aparte-composer-send>
-          </div>
+<aparte-launcher label="Help" heading="Kilnhouse support" subheading="Usually answers in a minute" maximizable
+  breakpoint="none" style="--aparte-launcher-height: 26rem">
+  <aparte-chat id="help">
+    <aparte-chat-viewport>
+      <aparte-chat-bubble message-id="hello" data-role="assistant" name="Assistant"
+        content="Hi! I can track an order, change a delivery address or start a return."></aparte-chat-bubble>
+    </aparte-chat-viewport>
+    <aparte-composer placeholder="Ask about your order…">
+      <aparte-suggestions suggestions='["Where is my order?", "Change my address", "Start a return"]'></aparte-suggestions>
+      <div class="aparte-composer-shell">
+        <div class="aparte-composer-row">
+          <aparte-composer-input></aparte-composer-input>
+          <aparte-composer-send></aparte-composer-send>
         </div>
-      </aparte-composer>
-    </aparte-chat>
-  </section>
+      </div>
+    </aparte-composer>
+  </aparte-chat>
 </aparte-launcher>
 
 <script>
@@ -178,7 +170,7 @@ export const LAYOUT_DEMOS: DemoEntry[] = [
     {
         id: 'launcher-sheet',
         title: 'The launcher as a sheet on a phone',
-        html: `<!-- Under its breakpoint the open chat fills the window and its button moves to the top corner.
+        html: `<!-- Under its breakpoint the open chat fills the window under its header, whose ✕ closes it.
      A breakpoint wider than this frame keeps it a sheet here. -->
 <div style="height: 30rem"></div>
 <aparte-launcher open breakpoint="200rem">

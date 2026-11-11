@@ -369,6 +369,11 @@
   --aparte-launcher-width: 23.75rem;
   --aparte-launcher-height: 37.5rem;
   --aparte-launcher-offset: 1.25rem;
+  /* The launcher's header: at least tall enough for a title and the line under it, and it
+     grows with what it holds. Maximized as a panel, half again the card's width and more:
+     enough to read a table, and on a laptop the page keeps the larger part of the window. */
+  --aparte-launcher-header-height: 3.5rem;
+  --aparte-launcher-panel-width: 36rem;
 
   /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
