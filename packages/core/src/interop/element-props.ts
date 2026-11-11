@@ -1,3 +1,5 @@
+import { isDefaultOn } from './default-on-attributes.js';
+
 /**
  * Vanilla-DOM helpers shared by the framework wrappers' `AparteUi` pass-through
  * component. They live in core (zero-dep) so the four wrappers don't each carry
@@ -154,6 +156,10 @@ export function applyElementProps(
             // Ignoring a string costs a consumer nothing, because an `on*` string is
             // not a working way to attach a listener here.
             el.removeAttribute(key);
+        } else if (value === false && isDefaultOn(el, key)) {
+            // ON by default (`<aparte-launcher>`'s `header`, the composer's `submit-on-enter`):
+            // the element reads an absent attribute as ON, so removing it would turn it on.
+            el.setAttribute(key, 'false');
         } else if (value === null || value === undefined || value === false) {
             el.removeAttribute(key);
         } else if (typeof value === 'number' && Number.isNaN(value)) {
