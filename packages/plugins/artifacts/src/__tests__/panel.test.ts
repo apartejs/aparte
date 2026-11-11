@@ -235,6 +235,17 @@ describe('<aparte-artifact-panel>', () => {
         expect(part(panel, 'body').querySelector('.aparte-segment-artifact-card')).not.toBeNull();
     });
 
+    it('a version handed back after the app began to write leaves none of it under the card', () => {
+        chat([reply('a1', doc('doc_1', 'one'))]);
+        const panel = panelFor();
+        panel.render = (_version, container) => {
+            container.textContent = 'half of my own view';
+            return false;
+        };
+        expect(part(panel, 'body').textContent).not.toContain('half of my own view');
+        expect(part(panel, 'body').querySelector('.aparte-segment-artifact-card')).not.toBeNull();
+    });
+
     it('Close and Escape say so, and the panel hides nothing itself', () => {
         chat([reply('a1', doc('doc_1', 'one'))]);
         const panel = panelFor();
@@ -272,7 +283,7 @@ describe('<aparte-artifact-panel>', () => {
         const panel = panelFor();
         expect(part(panel, 'body').classList.contains('aparte-art-panel__body--card')).toBe(true);
         // An app's own rendering is one box: nothing of a card to lend.
-        panel.render = (_version, container) => { container.textContent = 'mine'; };
+        panel.render = (_version, container) => { container.textContent = 'mine'; return true; };
         expect(part(panel, 'body').classList.contains('aparte-art-panel__body--card')).toBe(false);
     });
 

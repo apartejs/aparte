@@ -30,10 +30,10 @@ export type ArtifactPanelSource = (Element | object) & { getMessages?: () => Apa
 
 /**
  * Draw a version yourself. Return `false` to keep the built-in rendering for this one (so
- * one kind can be replaced without rewriting the others), nothing once you drew it, or a
+ * one kind can be replaced without rewriting the others), `true` once you drew it, or a
  * function the panel calls before it draws something else.
  */
-export type ArtifactPanelRender = (version: ArtifactVersion, container: HTMLElement) => void | false | (() => void);
+export type ArtifactPanelRender = (version: ArtifactVersion, container: HTMLElement) => boolean | (() => void);
 
 /** `aparte-artifact-version-change`: what the panel shows changed, by the arrows, by `show()`, or because a document or a version arrived. */
 export interface ArtifactVersionChangeEventDetail {
@@ -406,11 +406,13 @@ export class AparteArtifactPanel extends ElementBase {
         }
         this._clearBody();
 
-        const custom = this._render?.(version, body);
-        if (custom !== false && this._render) {
-            this._shown = { key, card: null, cleanup: typeof custom === 'function' ? custom : null };
+        const drawn = this._render ? this._render(version, body) : false;
+        if (drawn !== false) {
+            this._shown = { key, card: null, cleanup: typeof drawn === 'function' ? drawn : null };
             return;
         }
+        // Handed back: whatever the app started to write goes, the card draws.
+        body.replaceChildren();
 
         // The card's own markup (escaped and sanitised where it is built), drawn as the body.
         const template = this.ownerDocument.createElement('template');
