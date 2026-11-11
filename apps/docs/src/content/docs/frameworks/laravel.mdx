@@ -76,6 +76,24 @@ Route::aparte('/chat', App\Ai\Agents\Assistant::class)->middleware(['auth', 'thr
 <x-aparte::launcher endpoint="/chat" label="Help" />
 ```
 
+The chat opens above the button under a [header](/components/launcher/#the-header): a title (the
+button's `label` unless you set `heading`), a line under it, and a ✕. Add `maximizable` for a button in
+the header that [maximizes](/components/launcher/#maximize) the chat to the whole window, or
+`maximizable="panel"` for a full-height panel along the edge that keeps the page in view:
+
+```blade
+<x-aparte::launcher
+    endpoint="/chat"
+    label="Help"
+    heading="Support"
+    subheading="Usually answers in a minute"
+    maximizable
+/>
+```
+
+Escape brings a maximized chat back to its card, `header="false"` leaves the header out, and its
+colours are yours to set in CSS. This needs `apartejs/laravel` 0.3 or later.
+
 ## Filament
 
 The plugin works with Filament 4 and 5:
@@ -88,6 +106,23 @@ $panel->plugin(ApartePlugin::make()->agent(App\Ai\Agents\Assistant::class)->labe
 
 Every page of the panel gets the button, for whoever is signed in to it. The route is added for you,
 behind the panel's authentication, and the chat follows the panel's light or dark mode.
+
+The chat opens under a header titled with the `label`. A different title, a line under it and a
+maximize button are options of the plugin; there is no maximize button unless you call
+`maximizable()`:
+
+```php
+$panel->plugin(
+    ApartePlugin::make()
+        ->agent(App\Ai\Agents\Assistant::class)
+        ->label('Assistant')
+        ->heading('Shop assistant')
+        ->subheading('Answers about your orders')
+        ->maximizable(), // or ->maximizable('panel') to keep the page in view
+);
+```
+
+These options need `apartejs/laravel` 0.3 or later.
 
 ## Approve tool calls
 
