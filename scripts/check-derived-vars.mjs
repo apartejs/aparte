@@ -434,6 +434,14 @@ const CSSPROP_SOURCES = [
  * about what "core's source" means.
  */
 const cssPropFiles = [];
+/**
+ * The plugins' own stylesheets, found by the same walk. A plugin that defines an element
+ * styles it from a sheet of its own (`plugins/artifacts/src/panel/panel.css`), so that is
+ * where its `@cssprop` knobs are read: the rule below counts those reads too. Without
+ * them a plugin's knob could only be documented by being read in CORE's sheets, which is
+ * the wrong way round.
+ */
+const pluginSheets = [];
 {
     const stack = [...CSSPROP_SOURCES];
     while (stack.length) {
@@ -447,6 +455,8 @@ const cssPropFiles = [];
             }
         } else if (/[.]ts$/.test(p) && !/[.]test[.]ts$/.test(p)) {
             cssPropFiles.push(p);
+        } else if (/[.]css$/.test(p) && p.startsWith('packages/plugins/')) {
+            pluginSheets.push(p);
         }
     }
 }
@@ -558,8 +568,10 @@ if (cssPropDeclared.size < CSSPROP_FLOOR) {
     );
 }
 {
+    // Core's sheets, and each plugin's own (see `pluginSheets`), comments removed.
+    const pluginCss = pluginSheets.map((f) => readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ')).join(String.fromCharCode(10));
     const readAnywhere = new Set(
-        [...lines.join(String.fromCharCode(10)).matchAll(/var\((--aparte-[\w-]+)/g)].map((m) => m[1]),
+        [...(lines.join(String.fromCharCode(10)) + String.fromCharCode(10) + pluginCss).matchAll(/var\((--aparte-[\w-]+)/g)].map((m) => m[1]),
     );
     for (const [token, file] of cssPropDeclared) {
         if (!readAnywhere.has(token)) {

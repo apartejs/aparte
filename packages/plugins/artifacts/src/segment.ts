@@ -15,6 +15,7 @@
  */
 import type { AparteSegmentBase, AparteStreamBlock, AparteToolCallSegment } from '@aparte/core';
 import { deriveArtifactKind } from './kinds.js';
+import { documentIdOf, newDocumentId } from './ids.js';
 
 /** Segment type discriminator. Registered by `setupArtifacts()`, not built into core. */
 export const ARTIFACT_SEGMENT_TYPE = 'artifact' as const;
@@ -41,6 +42,12 @@ export interface ArtifactSegment extends AparteSegmentBase {
     title?: string;
     /** The document. Accumulates while a tagged block streams. */
     content: string;
+    /**
+     * The document this is a version of: the id the tag named (`id=`, the model is
+     * rewriting a document it was shown), else the new one the grammar or the tool gave
+     * it. Absent on a segment saved before documents had ids: its own id stands in.
+     */
+    documentId?: string;
 }
 
 /** The artifact joins core's segment union, so `addSegment(id, artifactSegment(…))` takes it as it is. */
@@ -55,6 +62,8 @@ declare module '@aparte/core' {
  * result, so the card reads one shape on both paths.
  */
 export interface ArtifactInput {
+    /** The document this is a version of. The tool gives a new document its id; see `artifactDocuments`. */
+    documentId?: string;
     mimeType: string;
     title?: string;
     content: string;
@@ -63,6 +72,7 @@ export interface ArtifactInput {
 /** Build the segment for a document, from either path. */
 export function artifactSegment(id: string, input: Partial<ArtifactInput>): ArtifactSegment {
     const mimeType = typeof input.mimeType === 'string' && input.mimeType.trim() ? input.mimeType.trim() : 'text/plain';
+    const documentId = documentIdOf(input.documentId);
     return {
         id,
         type: ARTIFACT_SEGMENT_TYPE,
@@ -70,24 +80,47 @@ export function artifactSegment(id: string, input: Partial<ArtifactInput>): Arti
         artifactType: deriveArtifactKind(mimeType),
         title: typeof input.title === 'string' && input.title.trim() ? input.title.trim() : undefined,
         content: typeof input.content === 'string' ? input.content : '',
+        ...(documentId ? { documentId } : {}),
     };
 }
+
+/** A value written between double quotes in the tag the model reads back: nothing that could close it. */
+const attribute = (value: string): string => value.replace(/["<>\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
  * The block grammar for `<artifact …>…</artifact>` in the prose.
  *
  * Both attribute spellings are read — `type=` (Anthropic's) and `mimeType=` — and
- * `mimeType` wins when both are present; `title=` is optional. Everything the parser
- * does with it (chunk boundaries, the partial closing tag, `finalize()`) is core's.
+ * `mimeType` wins when both are present; `title=` and `id=` are optional. Everything the
+ * parser does with it (chunk boundaries, the partial closing tag, `finalize()`) is core's.
+ *
+ * The segment gets a document id: the one the tag names (the model is rewriting a
+ * document it was shown), else a new one. And it says how it reads back in the history
+ * (`wire`): as the tag, with that id, so the model can name the document again. Without
+ * that the model would read its own tag back as plain text and have nothing to point at.
+ * Nothing is added between the tag and the body: the model reads back the line breaks it
+ * wrote, so a document does not grow a blank line each time it is rewritten.
  */
 export function artifactBlock(tag: string = ARTIFACT_TAG): AparteStreamBlock {
     return {
         tag,
-        toSegment: ({ attrs, id }) => artifactSegment(id, {
-            mimeType: attrs['mimeType'] ?? attrs['mimetype'] ?? attrs['type'],
-            title: attrs['title'],
-            content: '',
-        }),
+        toSegment: ({ attrs, id }) => {
+            const segment = artifactSegment(id, {
+                documentId: documentIdOf(attrs['id']) ?? newDocumentId(),
+                mimeType: attrs['mimeType'] ?? attrs['mimetype'] ?? attrs['type'],
+                title: attrs['title'],
+                content: '',
+            });
+            // Not markup for the page: the text the MODEL reads back, never parsed as HTML.
+            // `attribute()` drops what could close a value, where an entity would come
+            // back from the model as the literal `&quot;` (the parser decodes nothing).
+            const title = segment.title ? ` title="${attribute(segment.title)}"` : ''; // safe-attr: wire text for the model, quotes and brackets removed by attribute()
+            segment.wire = {
+                before: `<${tag} id="${segment.documentId}" type="${attribute(segment.mimeType)}"${title}>`, // safe-attr: wire text for the model; the id is a plain token (documentIdOf / newDocumentId), the type goes through attribute()
+                after: `</${tag}>`,
+            };
+            return segment;
+        },
     };
 }
 

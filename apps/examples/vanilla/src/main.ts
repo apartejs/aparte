@@ -2,6 +2,7 @@ import '@aparte/core'; // registers the <aparte-*> custom elements
 // No stylesheet import here: core's CSS comes through the <link> in index.html (see
 // src/style.css), which is render-blocking — a JS-injected sheet arrives after this
 // module, and the static shell painted bare until then.
+import { connectArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
 import { mountModelSelector, setupSite } from '../../_shared/site-setup';
 import { wireShell } from './shell';
 
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
     // keeps its picker, so nothing joins the switch in the toolbar row.
     if (!scenarioMode) mountModelSelector(document.getElementById('model-slot'), document.querySelector('aparte-composer-toolbar'));
 
-    // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`, `?layout=launcher`) ─
+    // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=document`, `?layout=page`, `?layout=launcher`) ─
     //
     // Same convention as `?chats=2` below: off by default, so the page stays the
     // single-chat reference, and reachable by a URL a reader can share.
@@ -66,19 +67,21 @@ async function main(): Promise<void> {
      * split with no children, and the element inserts its seam between the first two —
      * with none there it lands first, which is the pane track the stacked rules hide.
      */
-    function buildSplit(chatEl: HTMLElement): HTMLElement {
+    function buildSplit(chatEl: HTMLElement, beside?: HTMLElement): HTMLElement {
         const split = document.createElement('aparte-split');
         split.setAttribute('position', '38');
         split.setAttribute('style', 'height:100%; --aparte-split-min: 16rem');
 
         const pane = document.createElement('section');
         pane.className = 'aparte-split__pane';
+        // What sits beside the chat: the element a caller brings, else the preview frame.
+        if (beside) pane.appendChild(beside);
         const frame = document.createElement('iframe');
         frame.title = 'Preview';
         frame.setAttribute('style', 'display:block; inline-size:100%; block-size:100%; border:0');
         // `srcdoc` through setAttribute, never interpolated into innerHTML.
         frame.setAttribute('srcdoc', PREVIEW_DOC);
-        pane.appendChild(frame);
+        if (!beside) pane.appendChild(frame);
 
         const parent = chatEl.parentElement;
         const anchor = chatEl.nextSibling;
@@ -90,13 +93,16 @@ async function main(): Promise<void> {
     }
 
     /** The two buttons that switch panes while the split is stacked. No script behind them. */
-    function paneSwitcher(): DocumentFragment {
+    function paneSwitcher(second = 'Preview'): DocumentFragment {
         const t = document.createElement('template');
         // `--surface` rather than a bare `.aparte-btn`: the plain form is a ghost, which
         // reads as two words of text rather than two controls when nothing sits beside it.
         t.innerHTML =
             '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>'
-            + '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>';
+            + '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="end"></button>';
+        // What the second pane is called: a preview, or the document panel.
+        const end = t.content.querySelector('[data-aparte-split-pane="end"]');
+        if (end) end.textContent = second;
         return t.content;
     }
 
@@ -128,6 +134,24 @@ async function main(): Promise<void> {
         if (chatEl) {
             buildSplit(chatEl);
             actions?.prepend(paneSwitcher());
+        }
+    }
+    //   ?layout=document — the chat beside its documents: an <aparte-artifact-panel> in
+    //                      the other pane, wired by connectArtifactPanel. A card's Open
+    //                      button shows that document in the panel and opens the pane;
+    //                      Close folds it. The pane starts folded: there is no document yet.
+    //                      After setupSite(), which is where setupArtifacts() runs: the
+    //                      wiring turns the card's Open button on, and a setup made after
+    //                      it would turn it off again.
+    if (layoutParam === 'document') {
+        const chatEl = document.querySelector<HTMLElement>('aparte-chat');
+        const actions = document.querySelector<HTMLElement>('.aparte-app-header__actions');
+        if (chatEl) {
+            const panel = document.createElement('aparte-artifact-panel');
+            panel.setAttribute('label', 'Document');
+            const split = buildSplit(chatEl, panel) as ArtifactPanelSplit;
+            connectArtifactPanel({ chat: chatEl, panel, split });
+            actions?.prepend(paneSwitcher('Document'));
         }
     }
 

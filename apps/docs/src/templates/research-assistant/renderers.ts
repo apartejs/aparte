@@ -21,7 +21,7 @@ import {
     type AparteThinkingSegment,
     type AparteToolCallSegment,
 } from '@aparte/core';
-import { artifactFromToolCall, type ArtifactSegment } from '@aparte/plugin-artifacts';
+import { artifactFromToolCall, type ArtifactOpenEventDetail } from '@aparte/plugin-artifacts';
 import { setupLinkCard } from '@aparte/plugin-cards/link';
 import { countSources } from './report';
 import { domainOf } from './sources';
@@ -50,7 +50,7 @@ function toolHead(icon: Node, words: (string | Node)[], running: boolean): HTMLE
 }
 
 /** The report the agent wrote, as a receipt in the transcript: its title and a way back to it. */
-function renderReceipt(segment: AparteToolCallSegment, open: (artifact: ArtifactSegment) => void): HTMLElement {
+function renderReceipt(segment: AparteToolCallSegment): HTMLElement {
     const artifact = artifactFromToolCall(segment);
     const root = el('div', 'research-tool');
     if (segment.status === 'pending') {
@@ -72,7 +72,15 @@ function renderReceipt(segment: AparteToolCallSegment, open: (artifact: Artifact
     const button = el('button', 'aparte-btn aparte-btn--sm aparte-btn--surface', 'Open');
     button.type = 'button';
     button.setAttribute('aria-label', `Open ${artifact.title ?? 'the report'}`);
-    button.addEventListener('click', () => open(artifact));
+    // What the plugin's own card says when its Open button is pressed: the document panel
+    // beside the chat shows this report (connectArtifactPanel, in app.ts).
+    button.addEventListener('click', () => {
+        button.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
+            bubbles: true,
+            composed: true,
+            detail: { artifact, documentId: artifact.documentId ?? artifact.id, segmentId: segment.id },
+        }));
+    });
     card.append(icon, text, button);
     root.append(card);
     return root;
@@ -87,7 +95,7 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
     label.textContent = ms === undefined ? 'Thought' : ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
 }
 
-export function registerResearchRenderers(openReport: (artifact: ArtifactSegment) => void): void {
+export function registerResearchRenderers(): void {
     // The results as @aparte/plugin-cards' link card, one row a page: the site's mark, the
     // title, the site. Its heading names the search, the call's query while it runs.
     setupLinkCard({
@@ -96,7 +104,12 @@ export function registerResearchRenderers(openReport: (artifact: ArtifactSegment
         mapInput: (input) => ({ title: `Searching “${String(input['query'] ?? '')}”` }),
         variant: 'compact',
     });
-    aparteGlobalConfig.registerToolRenderer('create_artifact', { render: (segment) => renderReceipt(segment, openReport) });
+    aparteGlobalConfig.registerToolRenderer('create_artifact', {
+        render: (segment) => renderReceipt(segment),
+        // A report was written: the panel reads the conversation again, without waiting for the
+        // end of the turn. The plugin's card says the same when it is the one drawn.
+        setup: (element) => { element.dispatchEvent(new CustomEvent('aparte-artifact-change', { bubbles: true, composed: true })); },
+    });
     aparteGlobalConfig.registerToolSummary('read_page', (segment) => {
         const url = String(segment.toolCall.input['url'] ?? '');
         return domainOf(url);

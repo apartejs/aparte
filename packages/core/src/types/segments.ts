@@ -35,6 +35,16 @@ export interface AparteSegmentBase {
      */
     fallback?: string;
 
+    /**
+     * For a type core does not know: what goes around the segment's `content` in the
+     * HISTORY sent back to the model. A block grammar sets it so the model reads back the
+     * tag it wrote, with what it needs to name the block again (an id, a title):
+     * `{ before: '<note id="n1">', after: '</note>' }`. Without it the model reads the
+     * content alone. Not read for the types core serialises itself (`text`, `code`), nor
+     * for a segment whose content is empty (its `fallback` stands in, bare).
+     */
+    wire?: { before?: string; after?: string };
+
     // ── Identity and measurement ─────────────────────────────────────────────
     // A segment used to know only what it WAS, never where it sat or when it
     // happened — while the message one level up already carried a `timestamp`, a

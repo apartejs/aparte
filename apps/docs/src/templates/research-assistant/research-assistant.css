@@ -129,73 +129,34 @@
     background: var(--aparte-surface-1);
 }
 
-.research-pane__bar {
-    position: sticky;
-    z-index: 1;
-    top: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--aparte-space-3);
-    padding: var(--aparte-space-2) var(--aparte-space-4) var(--aparte-space-2) var(--aparte-space-6);
-    border-block-end: var(--aparte-border-width) solid var(--aparte-border);
-    background: var(--aparte-surface-1);
-}
-
-.research-pane__bar[hidden] {
-    display: none;
-}
-
-.research-pane__title {
-    min-width: 0;
-    overflow: hidden;
-    font-size: var(--aparte-font-size-sm);
-    font-weight: var(--aparte-font-weight-semibold);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.research-pane__meta {
-    flex: none;
-    color: var(--aparte-text-muted);
-    font-size: var(--aparte-font-size-sm);
-}
-
-/* The copy button's announcement, for screen readers only. */
-.research-pane__status {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-}
-
-.research-pane__copy {
-    margin-inline-start: auto;
-    flex: none;
-}
-
-.research-pane__close {
-    flex: none;
-}
-
-.research-report {
+/* The library's document panel fills the pane; what follows is this template's own on top of it. */
+.research-pane > aparte-artifact-panel {
+    /* The report is read: a wider column than a reply, larger headings, more air. */
+    --aparte-artifact-panel-measure: 46rem;
     --aparte-prose-h1-size: 1.75em;
     --aparte-prose-h1-margin: 0 0 0.35em;
     --aparte-prose-h2-size: 1.15em;
     --aparte-prose-h2-margin: 1.75em 0 0.5em;
     --aparte-prose-p-margin: 0.6em 0;
-    box-sizing: border-box;
-    inline-size: 100%;
-    max-inline-size: 46rem;
-    margin-inline: auto;
-    padding: var(--aparte-space-6) var(--aparte-space-8) var(--aparte-space-8);
+}
+
+/* How many sources the report cites, beside its title. */
+.research-pane__meta {
+    padding-inline: var(--aparte-space-3);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+    white-space: nowrap;
 }
 
 /* The line under the title: where, when, and that the data is illustrative. */
-.research-report h1 + p {
+.research-pane .aparte-art-card__prose h1 + p {
     color: var(--aparte-text-muted);
     font-size: var(--aparte-font-size-sm);
+}
+
+/* Shown only while the panel has nothing to show (it then draws nothing itself). */
+.research-pane > aparte-artifact-panel:not([data-empty]) + .research-pane__empty {
+    display: none;
 }
 
 .research-pane__empty {
@@ -211,10 +172,6 @@
     text-align: center;
 }
 
-.research-pane__empty[hidden] {
-    display: none;
-}
-
 .research-pane__empty p {
     max-inline-size: 22rem;
     margin: 0;
@@ -223,14 +180,4 @@
 .research-pane__empty-title {
     color: var(--aparte-text);
     font-weight: var(--aparte-font-weight-semibold);
-}
-
-@media (max-width: 48rem) {
-    .research-pane__bar {
-        padding-inline-start: var(--aparte-space-4);
-    }
-
-    .research-report {
-        padding: var(--aparte-space-5) var(--aparte-space-4) var(--aparte-space-6);
-    }
 }

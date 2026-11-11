@@ -78,6 +78,7 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  * @attr {boolean} disabled - No drag, no keys, no tab stop; the seam stays drawn.
  * @attr {string} label - The seam's accessible name. Defaults to the locale's `splitHandleLabel`.
  * @attr {boolean} data-stacked - Written BY the element while one pane is shown. Read-only; style against it.
+ * @attr {string} data-moving - Written BY the element while it moves between one pane and two after `single` changed (both panes are laid out for that time). Read-only. The move takes `--aparte-duration-slower`; `aparte-split[data-moving] { transition: none }` makes it immediate, and it is skipped under `prefers-reduced-motion`.
  *
  * @fires {CustomEvent<AparteSplitResizeDetail>} aparte-split-resize - The position settled: after a drag, a key, a double-click or a property set. Never during a drag — persist from here.
  *
@@ -385,6 +386,7 @@ export class AparteSplit extends HTMLElement {
         // A scrim left behind is fixed, full-page and transparent: the whole document
         // would go dead to the pointer with nothing on screen to explain it.
         this._removeScrim();
+        this._endMove?.();
         this._handle?.removeAttribute('data-dragging');
         this._dragging = false;
         this._keying = false;
@@ -443,6 +445,7 @@ export class AparteSplit extends HTMLElement {
                 this._stampHandle();
                 // One pane shown, or both again: the switch says which, or nothing.
                 this._syncPaneControls();
+                this._moveBetweenOneAndTwo();
                 return;
             case 'breakpoint':
                 this._watchBreakpoint();
@@ -450,6 +453,103 @@ export class AparteSplit extends HTMLElement {
             case 'label':
                 this._relabel();
         }
+    }
+
+    // ─── One pane ↔ two, in motion ────────────────────────────────────────
+
+    /**
+     * No layout worth reading: one pane is shown, or the tracks are in motion between one
+     * and two. Whatever measures the panes or moves the seam asks this, not `stacked`
+     * alone: a `pane` named while the split moves commits a position, and read from tracks
+     * that are halfway it wrote the full width into `position`, so the split came back at
+     * its maximum instead of the size it had.
+     */
+    private get _unmeasurable(): boolean {
+        return this.stacked || this.hasAttribute('data-moving');
+    }
+
+    /** Ends the move in flight: the inline tracks and the marker go, the sheet's state stays. */
+    private _endMove: (() => void) | null = null;
+
+    /**
+     * `single` just changed: move between one pane and two instead of jumping.
+     *
+     * The sheet's one-pane state takes the other pane out with `display: none`, which
+     * cannot be animated. So for the length of the move the element keeps its three tracks
+     * (`data-moving` holds the one-pane rules off) and drives them itself, in pixels it
+     * measured: from what is on screen to what the sheet will show. When the move ends the
+     * inline tracks and the marker are removed and the sheet's state is all that is left,
+     * exactly as if nothing had been animated.
+     *
+     * It does nothing, and the change is immediate as before, when the reader asked for
+     * less motion, when the split is stacked by its breakpoint (one pane either way), and
+     * where there is no layout to measure.
+     */
+    private _moveBetweenOneAndTwo(): void {
+        this._endMove?.();
+        if (!this.isConnected || this.hasAttribute('data-stacked')) return;
+        if (this.classList.contains('aparte-split--only-start') || this.classList.contains('aparte-split--only-end')) return;
+        if (typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        const vertical = this.orientation === 'vertical';
+        const tracks = vertical ? 'gridTemplateRows' : 'gridTemplateColumns';
+        const full = vertical ? this.clientHeight : this.clientWidth;
+        if (full <= 0) return;
+
+        // The two-pane tracks, as the sheet lays them out with the one-pane rules held off.
+        this.setAttribute('data-moving', '');
+        const two = getComputedStyle(this)[tracks];
+        if (two.trim().split(/\s+/).length !== 3) {
+            this.removeAttribute('data-moving');
+            return;
+        }
+        const shownAlone = this.pane === 'end' ? 'end' : 'start';
+        const one = shownAlone === 'end' ? `0px 0px ${full}px` : `${full}px 0px 0px`;
+        const toSingle = this.single;
+
+        // The pane that arrives or leaves keeps the size it has beside the other one, and
+        // is uncovered or covered by its track: laid out at every width between nothing and
+        // that size it would re-wrap on each frame, and a pane with its own narrow layout
+        // would flash it. It holds on to the edge it shares with the split, so the start
+        // pane comes in from the start and the end pane from the end.
+        const sizes = two.trim().split(/\s+/);
+        const other = this.children[shownAlone === 'end' ? 0 : 2] as HTMLElement | undefined;
+        const size = vertical ? 'blockSize' : 'inlineSize';
+        const align = vertical ? 'alignSelf' : 'justifySelf';
+        const kept = other ? { size: other.style[size], align: other.style[align] } : null;
+        if (other) {
+            other.style[size] = sizes[shownAlone === 'end' ? 0 : 2]!;
+            other.style[align] = shownAlone === 'end' ? 'end' : 'start';
+        }
+
+        this.style[tracks] = toSingle ? two : one;
+        // The starting tracks have to be laid out before the transition is switched on.
+        void this.offsetWidth;
+        this.setAttribute('data-moving', 'run');
+        this.style[tracks] = toSingle ? one : two;
+
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const onEnd = (event: TransitionEvent): void => {
+            if (event.target === this && event.propertyName.startsWith('grid-template')) end();
+        };
+        const end = (): void => {
+            if (timer !== null) clearTimeout(timer);
+            this.removeEventListener('transitionend', onEnd);
+            this.style.removeProperty(vertical ? 'grid-template-rows' : 'grid-template-columns');
+            if (other && kept) {
+                other.style[size] = kept.size;
+                other.style[align] = kept.align;
+            }
+            this.removeAttribute('data-moving');
+            this._endMove = null;
+            this._measureBounds();
+        };
+        this._endMove = end;
+        this.addEventListener('transitionend', onEnd);
+        // A transition that never ends (a tab in the background, a duration of zero) must
+        // not leave the split between two states: the sheet's duration, plus a margin.
+        const seconds = Number.parseFloat(getComputedStyle(this).transitionDuration) || 0;
+        timer = setTimeout(end, seconds * 1000 + 120);
     }
 
     // ─── Structure ────────────────────────────────────────────────────────
@@ -540,7 +640,7 @@ export class AparteSplit extends HTMLElement {
      * host's storage when "Preview" is tapped on a phone.
      */
     private _achievedPercent(): number {
-        if (this.stacked) return this._position;
+        if (this._unmeasurable) return this._position;
         const total = this._measure(this);
         const pane = this._primaryPane();
         if (!pane || !(total > 0)) return this._position;
@@ -566,7 +666,7 @@ export class AparteSplit extends HTMLElement {
      */
     private _measureBounds(): void {
         const handle = this._handle;
-        if (!handle || this._dragging || this.stacked) return;
+        if (!handle || this._dragging || this._unmeasurable) return;
         const pane = this._primaryPane();
         const total = this._measure(this);
         if (!pane || !(total > 0)) {
@@ -654,7 +754,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     private _onPointerDown = (event: PointerEvent): void => {
-        if (this.disabled || this.stacked || this._dragging) return;
+        if (this.disabled || this._unmeasurable || this._dragging) return;
         if (event.button > 0) return;
         // Not the browser's default: without this a drag starts a text selection in the
         // pane the pointer crosses. The focus that preventDefault costs is given back
@@ -814,7 +914,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     private _onDoubleClick = (): void => {
-        if (this.disabled || this.stacked) return;
+        if (this.disabled || this._unmeasurable) return;
         this.reset();
     };
 
@@ -826,7 +926,7 @@ export class AparteSplit extends HTMLElement {
             this._endDrag('pointer', this._dragStartPercent);
             return;
         }
-        if (this.disabled || this.stacked || event.target !== this._handle) return;
+        if (this.disabled || this._unmeasurable || event.target !== this._handle) return;
         if (event.key === 'Enter') {
             event.preventDefault();
             this._source = 'keyboard';

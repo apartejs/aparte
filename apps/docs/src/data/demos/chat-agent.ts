@@ -94,6 +94,51 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
   ]);
 </script>`,
     },
+    {
+        id: 'artifact-panel',
+        title: 'A document beside the chat, with its versions',
+        plugins: ['artifacts', 'markdown'],
+        html: `<!-- In your app: import { setupArtifacts } from '@aparte/plugin-artifacts';
+                  import { connectArtifactPanel } from '@aparte/plugin-artifacts/panel'. -->
+<!-- breakpoint: under 24rem the split shows one pane (48rem by default; this frame is narrower). -->
+<aparte-split position="38" breakpoint="24rem" single style="height: 26rem">
+  <aparte-chat id="chat">
+    <aparte-chat-viewport></aparte-chat-viewport>
+  </aparte-chat>
+  <aparte-artifact-panel for="chat"></aparte-artifact-panel>
+</aparte-split>
+
+<script>
+  const { setupArtifacts, connectArtifactPanel } = window.apartePlugins.artifacts;
+  const split = document.querySelector('aparte-split');
+  const panel = document.querySelector('aparte-artifact-panel');
+
+  setupArtifacts();
+  // A card's Open button shows its document in the panel and opens the pane; Close folds it.
+  connectArtifactPanel({ chat: document.querySelector('aparte-chat'), panel, split });
+
+  // Two replies that wrote the same document: the second call passed the first one's id back.
+  const wrote = (id, content) => ({
+    id, type: 'tool_call', status: 'resolved', result: 'Artifact created.',
+    toolCall: { id, name: 'create_artifact', input: {} },
+    structuredResult: { documentId: 'doc_4f2a91c0', mimeType: 'text/markdown', title: 'Launch note', content },
+  });
+  document.querySelector('aparte-chat-viewport').setMessages([
+    { id: 'u1', role: 'user', content: 'Write the launch note.', timestamp: 1 },
+    { id: 'a1', role: 'assistant', content: '', timestamp: 2, segments: [
+      wrote('s1', '# Launch note\\n\\nDocuments now open beside the chat.'),
+    ] },
+    { id: 'u2', role: 'user', content: 'Say what a version is.', timestamp: 3 },
+    { id: 'a2', role: 'assistant', content: '', timestamp: 4, segments: [
+      wrote('s2', '# Launch note\\n\\nDocuments now open beside the chat.\\n\\n## Versions\\n\\nEach time the model rewrites a document, the panel keeps the one before. The arrows walk them.'),
+    ] },
+  ]);
+
+  // What a press on the last card's Open button does.
+  panel.show('doc_4f2a91c0');
+  split.single = false;
+</script>`,
+    },
 
     // ── Approval ──────────────────────────────────────────────────────────────
     {

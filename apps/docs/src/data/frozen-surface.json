@@ -8,6 +8,16 @@
       "package": "@aparte/plugin-approval",
       "attributes": []
     },
+    "aparte-artifact-panel": {
+      "package": "@aparte/plugin-artifacts",
+      "attributes": [
+        "data-empty",
+        "document-id",
+        "for",
+        "label",
+        "version"
+      ]
+    },
     "aparte-ask-user": {
       "package": "@aparte/plugin-ask-user",
       "attributes": []
@@ -222,6 +232,7 @@
       "attributes": [
         "breakpoint",
         "collapsed",
+        "data-moving",
         "data-stacked",
         "disabled",
         "label",
@@ -483,8 +494,10 @@
       "ARTIFACT_SEGMENT_TYPE",
       "ARTIFACT_SYSTEM_PROMPT",
       "ARTIFACT_TAG",
+      "ARTIFACT_TOOL_NAMES",
       "PREVIEW_CSP",
       "artifactBlock",
+      "artifactDocuments",
       "artifactFromToolCall",
       "artifactHandler",
       "artifactRenderer",
@@ -763,6 +776,7 @@
     "approveTool",
     "archiveConversation",
     "artifactNotCreated",
+    "artifactVersion",
     "assistantResponse",
     "cancel",
     "checkpointCount",
@@ -775,6 +789,7 @@
     "checkpointRestore",
     "checkpointRestoreConfirm",
     "checkpointShow",
+    "closeArtifact",
     "code",
     "contextCompactNow",
     "contextFree",
@@ -846,12 +861,14 @@
     "modelSelectorPlaceholder",
     "newChat",
     "nextResponse",
+    "nextVersion",
     "openArtifact",
     "opensInNewTab",
     "pinConversation",
     "preview",
     "previewPending",
     "previousResponse",
+    "previousVersion",
     "questionDeclined",
     "rebuildingPreview",
     "rejectTool",

@@ -509,6 +509,14 @@ export type AparteLocale = {
     download?: string;
     /** The artifact card's Open button, when the app asked for it (default: "Open") */
     openArtifact?: string;
+    /** The document panel's Close button (default: "Close") */
+    closeArtifact?: string;
+    /** Which version of a document the panel shows, for assistive technology: `{n}` is the version, `{total}` how many there are (default: "Version {n} of {total}") */
+    artifactVersion?: string;
+    /** The document panel's button to the version before (default: "Previous version") */
+    previousVersion?: string;
+    /** The document panel's button to the version after (default: "Next version") */
+    nextVersion?: string;
     /** A model's context window under its name in the model selector's `details` — `{n}` is the size (default: "{n} context") */
     modelContextWindow?: string;
     /**
@@ -708,6 +716,10 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     loading: "Loading…",
     download: "Download",
     openArtifact: "Open",
+    closeArtifact: "Close",
+    artifactVersion: "Version {n} of {total}",
+    previousVersion: "Previous version",
+    nextVersion: "Next version",
     modelContextWindow: "{n} context",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",

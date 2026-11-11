@@ -78,6 +78,15 @@ streams, the card pulses and the code follows the tokens; Preview and Download w
 end. [Turn a tag into a segment](/guides/customization/segments/#turn-a-tag-into-a-segment)
 explains the mechanism.
 
+### Change a document
+
+Each document has an id, which the plugin gives it. The tool returns it in its result, and a
+tagged document reads back to the model with it (`<artifact id="doc_4f2a91c0" …>`). To change
+a document the model passes the id back, as `id` to the tool or `id=` on the tag, with the
+complete new content. That is a new version of the same document: nothing is overwritten, the
+earlier versions stay in the conversation, and the [document panel](/components/artifact-panel/)
+walks them. `artifactDocuments(messages)` reads them for your own code.
+
 ## Customize
 
 ```ts
@@ -104,6 +113,10 @@ The built-in preview document is `buildSafePreviewDocument`, under the policy `P
 declared both as the frame's attribute and in a `<meta>`.
 
 ### Open it in a pane
+
+The [document panel](/components/artifact-panel/) is the pane, ready to place: the document
+beside the chat, with its versions, wired to this button by one function. What follows is the
+button alone, for a pane of your own.
 
 ```ts
 import { setupArtifacts } from '@aparte/plugin-artifacts';

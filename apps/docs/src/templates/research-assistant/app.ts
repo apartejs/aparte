@@ -6,7 +6,9 @@
  * The pane is a function of the thread: whichever thread is open, it shows the last report
  * that thread's create_artifact call produced, and a new report lands in it the moment the
  * tool returns. A thread with no report shows the chat alone; the pane's ✕ closes it, and the
- * report's receipt in the transcript opens it again.
+ * report's receipt in the transcript opens it again. All of that is the library's document
+ * panel (`<aparte-artifact-panel>`) and its wiring; what is this template's own is the
+ * receipt, the report's typography and the "n sources" beside its title.
  */
 import {
     aparteGlobalConfig,
@@ -19,24 +21,24 @@ import {
     type AparteConversation,
     type AparteConversationList,
     type AparteMessage,
+    type AparteSplit,
     type AparteStorageAdapter,
-    type AparteToolCallSegment,
 } from '@aparte/core';
 import { moonIcon, sunIcon } from '@aparte/core/icons';
-import { artifactFromToolCall, artifactHandler, createArtifactTool, setupArtifacts } from '@aparte/plugin-artifacts';
+import { artifactDocuments, setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
 import { setupECharts } from '@aparte/plugin-echarts';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
 import { createScenarioProvider } from '@aparte/provider-scenario';
 import { followTheme, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
 import { registerResearchRenderers } from './renderers';
-import { createReportPane, type Report } from './report';
+import { countSources } from './report';
 import { PLAY_QUESTION, SCENARIOS, SUGGESTIONS, WEIGH_QUESTION } from './scenario';
 import { THREADS, WHEELS_ID } from './threads';
 import { readPage, readPageTool, webSearch, webSearchTool } from './tools';
 
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
-type Split = HTMLElement & { showPane(pane: 'start' | 'end'): void; single: boolean };
 type Sidebar = HTMLElement & { readonly drawer: boolean; close(): void };
 
 const mode = templateMode();
@@ -60,65 +62,42 @@ function part<T extends Element>(selector: string): T {
 const chat = part<HTMLElement>('aparte-chat');
 const viewport = part<AparteChatViewport>('aparte-chat-viewport');
 const composer = part<Composer>('aparte-composer');
-const input = part<HTMLElement & { focusEnd(): void }>('aparte-composer-input');
 const list = part<AparteConversationList>('aparte-conversation-list');
-const split = part<Split>('aparte-split');
+const split = part<AparteSplit>('aparte-split');
 const sidebar = part<Sidebar>('aparte-sidebar');
 const title = part<HTMLElement>('[data-research-title]');
 const gauge = part<HTMLElement & { used: number | null }>('aparte-context');
-
-const pane = createReportPane(part<HTMLElement>('.research-pane'));
+const panel = part<AparteArtifactPanel>('aparte-artifact-panel');
 
 // The header's Chat / Report pair switches the split on a phone with no script, and the split
 // keeps their pressed state.
 
-function showPane(which: 'start' | 'end'): void {
-    split.showPane(which);
-}
-
-/** The report beside the chat, or the chat alone: `single` keeps one pane at every width. */
-function setPaneOpen(open: boolean): void {
-    split.single = !open;
-    if (!open) showPane('start');
-}
-
-function openReport(report: Report): void {
-    pane.show(report);
-    setPaneOpen(true);
-    showPane('end');
-}
-
-// The ✕ takes the pane away with the focus on it: the focus goes to the receipt that opens the
-// report again, or to the composer when the thread shows none.
-part('[data-research-close]').addEventListener('click', () => {
-    setPaneOpen(false);
-    const reopen = [...viewport.querySelectorAll<HTMLButtonElement>('.research-receipt button')].at(-1);
-    if (reopen) reopen.focus();
-    else input.focusEnd();
-});
-
 /** A thread was picked, or a new one started: on a phone, close the drawer and show the chat. */
 function leaveDrawer(): void {
     if (sidebar.drawer) sidebar.close();
-    showPane('start');
+    split.showPane('start');
 }
 
 // ─── The tools of a research run ─────────────────────────────────────────────
 
-// create_artifact, its grammar and its card. The plugin's card has no "open beside the chat",
-// so registerResearchRenderers replaces it with a receipt that opens the report in the pane,
-// and the tool is registered again with a handler that also puts each new report there.
+// create_artifact, its grammar and its card; registerResearchRenderers replaces the card with
+// a receipt, whose button says "open this document" the way the card's does.
 setupArtifacts();
-aparteGlobalConfig.registerTool(createArtifactTool(), async (call) => {
-    const result = await artifactHandler(call);
-    pane.show(result.structuredContent as Report);
-    // Beside the chat on a wide screen; a phone stays on the chat, where the receipt appears.
-    setPaneOpen(true);
-    return result;
-});
 aparteGlobalConfig.registerTool(webSearchTool, webSearch);
 aparteGlobalConfig.registerTool(readPageTool, readPage);
-registerResearchRenderers(openReport);
+registerResearchRenderers();
+
+// The report beside the chat. The receipt opens it; a report written in a turn opens it by
+// itself on a wide screen (a phone stays on the chat, where the receipt appears); ✕ folds the
+// pane and gives the focus back to the receipt, or to the composer when there is none.
+connectArtifactPanel({ chat, panel, split, autoOpen: true });
+
+// Beside the report's title: how many sources it cites.
+const sources = part<HTMLElement>('.research-pane__meta');
+panel.addEventListener('aparte-artifact-version-change', () => {
+    const content = panel.shownVersion?.content;
+    sources.textContent = content === undefined ? '' : `${countSources(content)} sources`;
+});
 
 // ─── The model and the client ────────────────────────────────────────────────
 
@@ -178,19 +157,10 @@ manager.subscribe(() => {
     title.textContent = active?.title || 'New research';
 });
 
-/** The thread's last report, from its create_artifact call's result. */
-function lastReport(messages: AparteMessage[]): Report | null {
-    const calls = messages.flatMap((m) => m.segments ?? [])
-        .filter((s): s is AparteToolCallSegment => s.type === 'tool_call' && s.toolCall.name === 'create_artifact' && s.status === 'resolved');
-    const last = calls.at(-1);
-    return last ? artifactFromToolCall(last) : null;
-}
-
 /** Put the pane and the context gauge on the thread just opened. */
 function showThread(messages: AparteMessage[]): void {
-    const report = lastReport(messages);
-    pane.show(report);
-    setPaneOpen(report !== null);
+    // A thread that has a report opens on it, beside the chat; one that has none shows the chat alone.
+    split.single = artifactDocuments(messages).length === 0;
     // The gauge reads a turn's usage when the turn ends, and nothing on a thread that is
     // opened: it gets the thread's last reading, and the next turn replaces it.
     const usage = messages.filter((m) => m.role === 'assistant' && m.usage).at(-1)?.usage;

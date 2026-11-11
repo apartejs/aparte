@@ -1,0 +1,312 @@
+---
+title: Document panel
+description: A conversation's document beside the chat — the version the model just wrote, the ones before it, and its code, preview, copy and download.
+catalog:
+  group: layout
+  order: 6
+  claims:
+    elements: [aparte-artifact-panel]
+  demos: [artifact-panel]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import PanelApi from '../../../generated/api/elements/aparte-artifact-panel.api.mdx';
+
+<Variant id="artifact-panel" />
+
+When the model writes a document, the reply shows it as a [card](/components/artifact/).
+`<aparte-artifact-panel>` shows the same document where you put it: the other pane of a
+[split](/components/split/), a dialog, a drawer. It has the document's versions, with arrows to
+walk them, and the card's own Code and Preview tabs, Copy and Download.
+
+It reads the documents from the conversation and keeps nothing of its own. So the active
+branch shows its own versions, and a conversation you reload shows what was saved.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-artifacts @aparte/core
+```
+
+```html
+<aparte-split position="40" single>
+  <aparte-chat id="chat">…</aparte-chat>
+  <aparte-artifact-panel for="chat"></aparte-artifact-panel>
+</aparte-split>
+```
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+setupArtifacts();
+
+const disconnect = connectArtifactPanel({
+  chat: document.querySelector<HTMLElement>('aparte-chat')!,
+  panel: document.querySelector<AparteArtifactPanel>('aparte-artifact-panel')!,
+  split: document.querySelector<ArtifactPanelSplit>('aparte-split')!,
+});
+```
+
+The panel is a separate entry of the package, `@aparte/plugin-artifacts/panel`, so an app that
+only wants the card does not ship it. Importing it defines the element.
+
+`connectArtifactPanel` is the wiring between the three:
+
+- It turns on the card's **Open** button for this chat. A press shows that version in the
+  panel, opens the split's pane and moves the focus to the panel's title.
+- **Close**, or Escape in the panel, folds the pane and gives the focus back to the button
+  that opened it.
+- A conversation with no document shows the chat alone.
+
+It returns a function that undoes all of it. Call `setupArtifacts()` first: a setup made
+after the wiring turns the Open button off again.
+
+### Open it by itself
+
+```ts
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+declare const chat: HTMLElement;
+declare const panel: AparteArtifactPanel;
+declare const split: ArtifactPanelSplit;
+
+connectArtifactPanel({ chat, panel, split, autoOpen: true });
+```
+
+With `autoOpen`, the pane opens when a turn writes a document or a new version of one, without
+taking the focus from the composer. It does not open for a conversation that is merely loaded,
+and on a narrow screen, where the split shows one pane, the reader stays on the chat.
+
+### Documents and versions
+
+A document has an id. The plugin gives it: `create_artifact` returns it in its result
+(`doc_4f2a91c0`), and a document written with the `<artifact>` tag reads back to the model as
+`<artifact id="doc_4f2a91c0" …>`. To change a document the model passes the id back, and the
+call is a new **version** of that document. Nothing is overwritten: a version is added and the
+earlier ones stay.
+
+`artifactDocuments()` is that reading, for your own code:
+
+```ts
+import type { AparteChatViewport } from '@aparte/core';
+import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+const viewport = document.querySelector<AparteChatViewport>('aparte-chat-viewport')!;
+
+for (const doc of artifactDocuments(viewport.getMessages())) {
+  console.info(doc.id, doc.title, `${doc.versions.length} version(s)`);
+  console.info(doc.latest.content); // what the document is now
+}
+```
+
+It is a pure function over `getMessages()`, also exported for Node. A call that was refused,
+stopped or failed is not a version. A conversation saved before documents had ids reads as one
+document per card.
+
+## Customize
+
+### Another layout
+
+The split is optional. Without it, show and hide the panel yourself:
+
+```ts
+import { connectArtifactPanel, type AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare const chat: HTMLElement;
+declare const panel: AparteArtifactPanel;
+declare const dialog: HTMLDialogElement; // the panel is inside it
+
+connectArtifactPanel({
+  chat,
+  panel,
+  onOpen: () => dialog.showModal(),
+  onClose: () => dialog.close(),
+});
+```
+
+### Your own buttons
+
+Write one child with `slot="actions"`. It sits in the header before Close, and it is left
+where you wrote it, so a framework that owns it keeps owning it.
+
+```html
+<aparte-artifact-panel for="chat">
+  <div slot="actions">
+    <button class="aparte-btn aparte-btn--sm" type="button" id="export">Export</button>
+  </div>
+</aparte-artifact-panel>
+```
+
+```ts
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare const panel: AparteArtifactPanel;
+declare function exportAsPdf(title: string, markdown: string): void; // yours
+
+document.querySelector('#export')?.addEventListener('click', () => {
+  const version = panel.shownVersion; // the version on screen, or null
+  if (version) exportAsPdf(version.title ?? 'Document', version.content);
+});
+
+// Whenever what the panel shows changes, the first document included.
+panel.addEventListener('aparte-artifact-version-change', (event) => {
+  const { documentId, version, total } = event.detail;
+  console.info(documentId, `${version} of ${total}`);
+});
+```
+
+To hide a built-in button, hide it: the panel is light DOM.
+
+```css
+aparte-artifact-panel [data-action='download'] {
+  display: none;
+}
+```
+
+### Draw one kind yourself
+
+```ts
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare const panel: AparteArtifactPanel;
+declare function tableFrom(csv: string): HTMLElement; // yours
+
+panel.render = (version, container) => {
+  if (version.artifactType !== 'csv') return false; // everything else: the built-in rendering
+  container.replaceChildren(tableFrom(version.content));
+  return true;
+};
+```
+
+Return `false` to hand a version back, `true` once you drew it, or a function the panel calls
+before it draws something else.
+
+### Documents from your own store
+
+```ts
+import type { ArtifactDocument, ArtifactVersion } from '@aparte/plugin-artifacts';
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare const panel: AparteArtifactPanel;
+declare const saved: { id: string; title: string; markdown: string }; // yours
+
+const version: ArtifactVersion = {
+  documentId: saved.id,
+  index: 1,
+  author: 'user',
+  messageId: saved.id,
+  mimeType: 'text/markdown',
+  artifactType: 'markdown',
+  title: saved.title,
+  content: saved.markdown,
+};
+const mine: ArtifactDocument = { id: saved.id, title: saved.title, versions: [version], latest: version };
+
+panel.documents = [mine]; // null goes back to the conversation
+```
+
+### An agent with its own tool
+
+An agent that writes documents with a tool of its own (`write_report`) is read through `read`,
+on the panel and on `artifactDocuments()` alike. It is called for every segment; `null` leaves
+the segment to the default reading.
+
+```ts
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare const panel: AparteArtifactPanel;
+
+panel.read = (segment) => {
+  if (segment.type !== 'tool_call' || segment.toolCall.name !== 'write_report' || segment.status !== 'resolved') return null;
+  const input = segment.toolCall.input as { name: string; body: string };
+  return { documentId: 'report', mimeType: 'text/markdown', title: input.name, content: input.body };
+};
+```
+
+### Without the panel
+
+The panel is one reader of the documents. Your own needs two things: the card's
+`aparte-artifact-open`, which says which document and which appearance of it, and
+`artifactDocuments()`.
+
+```ts
+import type { AparteChatViewport } from '@aparte/core';
+import { artifactDocuments, setupArtifacts } from '@aparte/plugin-artifacts';
+
+declare const viewport: AparteChatViewport;
+declare function showInMyPane(title: string, content: string, version: number, total: number): void; // yours
+
+setupArtifacts({ open: true });
+
+document.addEventListener('aparte-artifact-open', (event) => {
+  const { documentId, segmentId } = event.detail;
+  const doc = artifactDocuments(viewport.getMessages()).find((d) => d.id === documentId);
+  const version = doc?.versions.find((v) => v.segmentId === segmentId) ?? doc?.latest;
+  if (doc && version) showInMyPane(doc.title ?? '', version.content, version.index, doc.versions.length);
+});
+```
+
+### Reading width and typography
+
+A Markdown document is shown rendered, for reading, at `--aparte-artifact-panel-measure`
+(72ch). Its text wears the same prose recipe as a reply, so the prose variables apply:
+
+```css
+aparte-artifact-panel {
+  --aparte-artifact-panel-measure: 46rem;
+  --aparte-prose-h1-size: 1.75em;
+  --aparte-prose-p-margin: 0.6em 0;
+}
+```
+
+A page or a component is the model's code. It is shown as source and runs only when the reader
+presses Preview, as on the card.
+
+### Ask before a document is changed
+
+`create_artifact` is a tool, so the [approval policy](/components/approval-mode/) rules on it. A
+call that passes an `id` changes a document that exists:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setApprovalPolicy((call) =>
+  call.name === 'create_artifact' && call.input['id'] ? { verdict: 'ask' } : undefined,
+);
+```
+
+### With a server loop
+
+The documents are read from the conversation, which is in the page. With
+[`createAparteAgentHandler`](/guides/server-loop/), call `setupArtifacts()` in the page and do
+not declare `create_artifact` on the server: the same tool on both sides is refused.
+
+### In a framework
+
+The plugin ships no framework binding. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
+component that hosts the tag; Vue and Svelte accept it as it is. In a React `.tsx` file,
+declare the tag once, as for
+[any plugin's element](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package).
+Set `render`, `read` and `documents` as properties, through a `ref`. The class is exported as
+`AparteArtifactPanel`.
+
+## API
+
+<PanelApi />
+
+## Accessibility
+
+- The panel is a region named by the document's title; with no document it draws nothing.
+- Opening it from a card moves the focus to the title. Closing gives the focus back to the
+  button that opened it, or to the composer when it opened by itself.
+- Escape inside the panel closes it.
+- The version arrows are buttons named "Previous version" and "Next version"; the group says
+  "Version 2 of 3". The strings are the `previousVersion`, `nextVersion`, `artifactVersion` and
+  `closeArtifact` locale keys.
+
+## Related
+
+- [Artifact](/components/artifact/) — the card in the reply, the tool and the tag.
+- [Split](/components/split/) — two panes; it moves between one pane and two.
+- [Approval mode](/components/approval-mode/) — which tool calls ask first.

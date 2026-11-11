@@ -62,3 +62,62 @@ parser — taught the grammar by this plugin through `registerStreamBlock` — s
 MIME types follow the standard, plus Anthropic's `application/vnd.ant.*` namespace for
 framework kinds (`application/vnd.ant.react`). `deriveArtifactKind(mimeType)` gives the short
 kind the card switches on.
+
+## Documents and versions
+
+Each document has an id, which the plugin gives it: `create_artifact` returns it in its result
+(`doc_4f2a91c0`), and a tagged document reads back to the model as
+`<artifact id="doc_4f2a91c0" …>`. To change a document the model passes the id back, as `id`
+to the tool or `id=` on the tag, with the complete new content. That is a new **version** of
+the same document: nothing is overwritten.
+
+`artifactDocuments(messages)` reads them from a conversation, a pure function also exported
+for Node:
+
+```ts
+import type { AparteChatViewport } from '@aparte/core';
+import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+declare const viewport: AparteChatViewport; // your <aparte-chat-viewport>
+
+for (const doc of artifactDocuments(viewport.getMessages())) {
+  console.info(doc.id, doc.title, doc.versions.length, doc.latest.content);
+}
+```
+
+It returns `ArtifactDocument[]`, each with its `ArtifactVersion`s, oldest first. A call that
+was refused, stopped or failed is not a version. `ArtifactDocumentsOptions` takes `tools` (the
+names of this plugin's tools if you renamed them; `ARTIFACT_TOOL_NAMES` by default) and `read`,
+which returns an `ArtifactRead` for a segment the plugin does not know, an agent's own
+document tool for instance.
+
+## The document panel
+
+`@aparte/plugin-artifacts/panel` is a separate entry: `<aparte-artifact-panel>`, the document
+beside the chat with its versions, and `connectArtifactPanel`, which wires a card's Open
+button to it.
+
+```html
+<aparte-split position="40" single>
+  <aparte-chat id="chat">…</aparte-chat>
+  <aparte-artifact-panel for="chat"></aparte-artifact-panel>
+</aparte-split>
+```
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+setupArtifacts();
+// Open shows the document and opens the pane; Close folds it.
+connectArtifactPanel({
+  chat: document.querySelector<HTMLElement>('aparte-chat')!,
+  panel: document.querySelector<AparteArtifactPanel>('aparte-artifact-panel')!,
+  split: document.querySelector<ArtifactPanelSplit>('aparte-split')!,
+});
+```
+
+The panel reads the conversation and keeps nothing of its own. It takes your own documents
+(`documents`), your own rendering of one kind (`render`), your own buttons (a child with
+`slot="actions"`), and it works without a split (`onOpen`, `onClose`). The whole of it is on
+[its page](https://apartejs.dev/components/artifact-panel/).

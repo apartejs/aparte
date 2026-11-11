@@ -17,7 +17,7 @@
  * applied to a tier-(c) affordance. The document it mounts comes from
  * `./preview-document.ts`, or from the consumer's own builder.
  */
-import { escapeHtml, escapeAttr, copyText, contextConfig } from '@aparte/core';
+import { escapeHtml, escapeAttr, copyText, contextConfig, renderCodeLanguages } from '@aparte/core';
 import type { AparteSegmentRenderer } from '@aparte/core';
 import { ARTIFACT_SEGMENT_TYPE, type ArtifactSegment } from './segment.js';
 import { deriveArtifactKind } from './kinds.js';
@@ -78,9 +78,36 @@ function previewEnabled(): boolean {
     return renderOptions(contextConfig()).preview !== false;
 }
 
-export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
-    type: ARTIFACT_SEGMENT_TYPE,
-    render: (segment: ArtifactSegment) => {
+/**
+ * Where a card is drawn. In a reply (the default) it is the card as it always was. As the
+ * body of the document panel (`./panel`) it is the same card, with two differences: no
+ * Open button (it is open), and a Markdown document is shown rendered, for reading, with
+ * its source one tab away.
+ */
+export interface ArtifactCardOptions {
+    surface?: 'reply' | 'panel';
+}
+
+/** How each mounted card was asked to be drawn, for the handlers that run later. */
+const cardOptions = new WeakMap<Element, ArtifactCardOptions>();
+
+/**
+ * A Markdown document read as prose: in the panel only. Rendering it runs nothing (the
+ * Markdown provider's output goes through core's sanitizer), so unlike a page or a
+ * component it needs no gesture, and the panel opens on it.
+ */
+function readsAsProse(kind: string, options: ArtifactCardOptions): boolean {
+    return options.surface === 'panel' && kind === 'markdown';
+}
+
+/** The rendered Markdown of a document, in the wrapper a reply's own text wears. */
+function proseMarkup(content: string): string {
+    return `<div class="aparte-art-card__prose aparte-segment-text"><div class="aparte-segment-content" dir="auto">${contextConfig().renderMarkdown(content)}</div></div>`;
+}
+
+/** The card's hooks, each taking how the card is drawn. The renderer below is these with no options. */
+const card = {
+    render: (segment: ArtifactSegment, options: ArtifactCardOptions = {}): string => {
         const kind = (segment.artifactType || 'unknown').toLowerCase();
         // Binary file kinds (xlsx/pdf/docx) follow a separate track: the generated JS
         // is implementation noise, so the file card shows progress, then the file.
@@ -90,7 +117,8 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const title = segment.title?.trim() || labelForKind(kind);
         const displayLang = languageForKind(kind);
         const isStreaming = !!segment.isStreaming;
-        const previewable = PREVIEWABLE_KINDS.has(kind) && previewEnabled();
+        const prose = readsAsProse(kind, options);
+        const previewable = prose || (PREVIEWABLE_KINDS.has(kind) && previewEnabled());
         // `t()`, not `getLocale().x ?? 'X'`: `t()` already falls back to
         // APARTE_DEFAULT_LOCALE, so the English lives in ONE place instead of being
         // re-typed at each call site — and `setLocale()` REPLACES rather than merges,
@@ -101,7 +129,11 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const cfg = contextConfig();
         const downloadLabel = cfg.t('download');
         const openLabel = cfg.t('openArtifact');
-        const openable = renderOptions(cfg).open === true;
+        const openable = renderOptions(cfg).open === true && options.surface !== 'panel';
+        // Prose opens on its rendering and can be read while it is written; everything
+        // else opens on Code, and its preview waits for a press (see below).
+        const firstTab = prose ? 'preview' : 'code';
+        const previewLocked = isStreaming && !prose;
         const previewLabel = cfg.t('preview');
         const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
@@ -148,7 +180,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-streaming="${isStreaming ? 'true' : 'false'}"
-                 data-tab="code"
+                 data-tab="${firstTab}"
                  data-previewable="${previewable ? 'true' : 'false'}"
                  data-binary="${isBinary ? 'true' : 'false'}">
                 <header class="aparte-art-card__header">
@@ -168,8 +200,8 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                     </div>
                 </header>
                 <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
-                    <button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-code" aria-controls="aparte-art-${cardId}-pane-code" aria-selected="true" tabindex="0" data-tab-target="code">${escapeHtml(codeLabel)}</button>
-                    ${previewable ? `<button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-preview" aria-controls="aparte-art-${cardId}-pane-preview" aria-selected="false" tabindex="-1" data-tab-target="preview" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
+                    <button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-code" aria-controls="aparte-art-${cardId}-pane-code" aria-selected="${prose ? 'false' : 'true'}" tabindex="${prose ? '-1' : '0'}" data-tab-target="code">${escapeHtml(codeLabel)}</button>
+                    ${previewable ? `<button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-preview" aria-controls="aparte-art-${cardId}-pane-preview" aria-selected="${prose ? 'true' : 'false'}" tabindex="${prose ? '0' : '-1'}" data-tab-target="preview" ${previewLocked ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" role="tabpanel" id="aparte-art-${cardId}-pane-code" aria-labelledby="aparte-art-${cardId}-tab-code" tabindex="0" data-pane="code">
@@ -179,7 +211,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                     </div>
                     ${previewable ? `
                         <div class="aparte-art-card__pane" role="tabpanel" id="aparte-art-${cardId}-pane-preview" aria-labelledby="aparte-art-${cardId}-tab-preview" tabindex="0" data-pane="preview">
-                            <div class="aparte-art-card__pending">${escapeHtml(cfg.t('previewPending'))}</div>
+                            ${prose ? proseMarkup(cleanContent) : `<div class="aparte-art-card__pending">${escapeHtml(cfg.t('previewPending'))}</div>`}
                         </div>
                     ` : ''}
                 </div>
@@ -226,8 +258,13 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         const codeTab = element.querySelector('[data-tab-target="code"]');
         if (codeTab) codeTab.textContent = cfg.t('code');
     },
-    setup: (element: HTMLElement, segment: AparteArtifactSegment) => {
+    setup: (element: HTMLElement, segment: AparteArtifactSegment, options: ArtifactCardOptions = {}): void => {
+        cardOptions.set(element, options);
         latestSegment.set(element, segment);
+        announceChange(element, options);
+        // A document read as prose has its charts and diagrams drawn, as a reply's are.
+        const prosePane = element.querySelector('.aparte-art-card__prose');
+        if (prosePane) renderCodeLanguages(prosePane);
         const kind = (segment.artifactType || '').toLowerCase();
         if (BINARY_FILE_KINDS.has(kind)) {
             setupBinaryFileArtifact(element, segment, kind);
@@ -316,7 +353,9 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
                 element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
                     bubbles: true,
                     composed: true,
-                    detail: { artifact },
+                    // Which document, and which appearance of it: what a panel needs to show
+                    // this very version among the document's others (`artifactDocuments`).
+                    detail: { artifact, documentId: latest.documentId ?? latest.id, segmentId: latest.id },
                 }));
             });
         }
@@ -355,6 +394,7 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         // frame that is now showing stale content so the next press rebuilds it.
         const previous = latestSegment.get(element);
         latestSegment.set(element, segment);
+        announceChange(element, cardOptions.get(element) ?? {});
         if (previous && previous.content !== segment.content) {
             element.querySelector('.aparte-art-card__pane[data-pane="preview"] iframe')?.remove();
         }
@@ -366,6 +406,10 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
         }
         const wasStreaming = element.getAttribute('data-streaming') === 'true';
         const cleanContent = documentOf(segment);
+
+        // 0. The prose of a Markdown document in the panel follows what is written: at most
+        //    once a frame, since rendering Markdown costs the whole document each time.
+        if (readsAsProse(kind, cardOptions.get(element) ?? {}) && previous?.content !== segment.content) scheduleProse(element);
 
         // 1. Live-update the code pane during streaming.
         //
@@ -426,10 +470,56 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
             // a real user press — see the note at `initialTab`.
         }
     },
+};
+
+export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
+    type: ARTIFACT_SEGMENT_TYPE,
+    render: (segment) => card.render(segment),
+    relabel: card.relabel,
+    setup: (element, segment) => card.setup(element, segment),
+    update: card.update,
     // The card's sheet, injected once per document by core — the seam a renderer that
     // is not core's has onto the page. It is a real `.css` file, inlined at build.
     getStyles: () => artifactStyles,
 };
+
+/** The card's hooks with their options, for the document panel: the same card, drawn as its body. */
+export const artifactCard = card;
+
+/**
+ * Tell the page a card in a reply was drawn or changed: a panel beside the chat reads the
+ * conversation again. Not from the panel's own card, which would be telling itself.
+ */
+function announceChange(element: HTMLElement, options: ArtifactCardOptions): void {
+    if (options.surface === 'panel') return;
+    /**
+     * A document card in a reply was drawn or changed, so the conversation's documents may
+     * have changed: read them again (`artifactDocuments`). Bubbles out of the chat and out
+     * of shadow roots; no detail. `<aparte-artifact-panel>` listens to it.
+     *
+     * @event aparte-artifact-change
+     */
+    element.dispatchEvent(new CustomEvent('aparte-artifact-change', { bubbles: true, composed: true }));
+}
+
+/** The cards whose prose is waiting for the next frame. */
+const proseScheduled = new WeakSet<Element>();
+
+function scheduleProse(element: HTMLElement): void {
+    if (proseScheduled.has(element)) return;
+    proseScheduled.add(element);
+    const paint = (): void => {
+        proseScheduled.delete(element);
+        const pane = element.querySelector('.aparte-art-card__pane[data-pane="preview"]');
+        const segment = latestSegment.get(element);
+        // Static markup built by `proseMarkup`: the Markdown provider's output, sanitised by core.
+        if (!pane || !segment) return;
+        pane.innerHTML = proseMarkup(documentOf(segment));
+        renderCodeLanguages(pane);
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(paint);
+    else paint();
+}
 
 export function languageForKind(kind: string): string {
     if (kind === 'react') return 'jsx';

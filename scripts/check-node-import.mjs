@@ -285,6 +285,7 @@ const SATELLITES = [
     ['@aparte/plugin-triggers/commands', 'packages/plugins/triggers'],
     ['@aparte/plugin-storage-idb', 'packages/plugins/storage-idb'],
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
+    ['@aparte/plugin-artifacts/panel', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],
     ['@aparte/plugin-marked/streaming', 'packages/plugins/marked'],

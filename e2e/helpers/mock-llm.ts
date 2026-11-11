@@ -76,6 +76,10 @@ export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_ARTIFACT_MARK = 'aparte artifact fixture';
 /** The title the tag carries — what the card shows in its header. */
 export const MOCK_ARTIFACT_TITLE = 'Launch note';
+/** The heading of the second version the `artifact-revise` scenario writes. */
+export const MOCK_ARTIFACT_REVISED = 'aparte artifact fixture, revised';
+/** What `artifact-revise` writes when the history it is sent names no document: the id did not come back. */
+export const MOCK_ARTIFACT_NO_ID = 'no document id in the history';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
 /**
@@ -117,6 +121,11 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
  * - `text` — the default markdown reply (bold + a second line for height)
  * - `thinking` — `reasoning_content` deltas, then text: a thinking segment
  * - `code` — a fenced block: the code segment, its header and copy button
+ * - `artifact` — an `<artifact>` tag in the prose, cut across deltas
+ * - `artifact-revise` — the same document first, then, on every later request, the
+ *   document REWRITTEN under the id the history gave back: what a model does when it
+ *   reads `<artifact id="…">` in what it is told it wrote. With no id in the history it
+ *   writes `MOCK_ARTIFACT_NO_ID` instead, so a lost id fails a spec by name
  * - `tool-call` — a streamed tool call the app's registered tool answers
  * - `ask-user` — calls the real `ask_user` tool, which SUSPENDS the turn
  *   on `requestUserInput` until a presenter shows a panel and it is answered
@@ -131,6 +140,7 @@ export type LlmScenario =
     | 'long-thinking'
     | 'code'
     | 'artifact'
+    | 'artifact-revise'
     | 'tool-call'
     | 'ask-user'
     | 'ask-two-questions'
@@ -444,6 +454,7 @@ function bodyForScenario(scenario: LlmScenario): string {
          * chunk-boundary handling is what this exercises in a browser.
          */
         case 'artifact':
+        case 'artifact-revise':
             return [
                 contentEvent('Here is a first draft:\n\n'),
                 contentEvent(`<artifact type="text/html" ti`),
@@ -655,6 +666,24 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
         // product: the receipt in that failure showed both answers submitted correctly.
         if ((scenario === 'ask-user' || scenario === 'ask-two-questions') && chatRequests.length > 1) {
             await fulfill(route, bodyForScenario('text'), 'text/event-stream');
+            return;
+        }
+
+        // `artifact-revise`, from the second request on: rewrite the document the history
+        // names. The id is read in what the request carries, as a model reads it, so this
+        // only works if the tag came back to the model with the id the plugin gave it.
+        if (scenario === 'artifact-revise' && chatRequests.length > 1) {
+            const messages = (chatRequests.at(-1)?.['messages'] ?? []) as Array<{ role?: string; content?: unknown }>;
+            const said = messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n');
+            const id = /<artifact id="([A-Za-z0-9_-]+)"/.exec(said)?.[1];
+            await fulfill(route, [
+                contentEvent('Here is the new version:\n\n'),
+                contentEvent(id
+                    ? `<artifact id="${id}" type="text/html" title="${MOCK_ARTIFACT_TITLE}"><h1>${MOCK_ARTIFACT_REVISED}</h1></artifact>`
+                    : `<artifact type="text/html" title="${MOCK_ARTIFACT_NO_ID}"><h1>${MOCK_ARTIFACT_NO_ID}</h1></artifact>`),
+                contentEvent('\n\nAnything else?'),
+                finishEvent(), usageEvent(), DONE,
+            ].join(''), 'text/event-stream');
             return;
         }
 
