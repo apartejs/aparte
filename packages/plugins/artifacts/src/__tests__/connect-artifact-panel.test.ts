@@ -98,6 +98,40 @@ describe('connectArtifactPanel', () => {
         expect(document.activeElement).toBe(open);
     });
 
+    it('Close with no button to go back to: the focus goes to the chat\'s composer, not nowhere', async () => {
+        const { chat, panel, split } = page();
+        connectArtifactPanel({ chat, panel, split, autoOpen: true });
+        const input = Object.assign(document.createElement('aparte-composer-input'), { focused: 0, focusEnd() { this.focused++; } });
+        chat.append(input);
+        // Opened by itself: no card's button was pressed.
+        chat.dispatchEvent(new CustomEvent('aparte-message-start', { bubbles: true }));
+        chat.messages = [reply('a1', call('doc_1', 'one'))];
+        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
+        await frame(); await frame();
+
+        // As in a browser that does not focus a clicked button: the focus is on the body.
+        (document.activeElement as HTMLElement | null)?.blur();
+        panel.querySelector<HTMLButtonElement>('.aparte-art-panel__close')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(input.focused).toBe(1);
+    });
+
+    it('Close leaves the focus alone when it is somewhere else on the page', () => {
+        const segment = call('doc_1', 'one');
+        const { chat, panel, split } = page([reply('a1', segment)]);
+        connectArtifactPanel({ chat, panel, split });
+        const input = Object.assign(document.createElement('aparte-composer-input'), { focused: 0, focusEnd() { this.focused++; } });
+        chat.append(input);
+        const elsewhere = document.createElement('input');
+        document.body.append(elsewhere);
+        elsewhere.focus();
+
+        panel.dispatchEvent(new CustomEvent('aparte-artifact-panel-close', { bubbles: true }));
+
+        expect(input.focused).toBe(0);
+        expect(document.activeElement).toBe(elsewhere);
+    });
+
     it('the panel can sit in the first pane', () => {
         const segment = call('doc_1', 'one');
         const { chat, panel, split } = page([reply('a1', segment)]);

@@ -87,9 +87,15 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
         open(true);
     };
     const onClose = (): void => {
+        // Where the focus is before the pane goes: in the panel, or nowhere (a browser that
+        // does not focus a button it is clicked on leaves it on the page's body).
+        const active = panel.ownerDocument.activeElement;
+        const adrift = !active || active === panel.ownerDocument.body || panel.contains(active);
         fold();
-        // Back where the reader was: the button that opened the panel, if it is still there.
+        // Back where the reader was: the button that opened the panel, if it is still
+        // there; else the composer, so the focus is not left on a pane that is gone.
         if (opener?.isConnected) opener.focus();
+        else if (adrift) focusComposer(chat);
         opener = null;
     };
 
@@ -159,6 +165,14 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
         for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.removeEventListener(name, onLoaded);
         setRenderOptions(config, before);
     };
+}
+
+/** Put the focus in the chat's composer: core's input when the chat has one, else nothing. */
+function focusComposer(chat: HTMLElement): void {
+    const input = chat.querySelector<HTMLElement & { focusEnd?: () => void }>('aparte-composer-input');
+    if (!input) return;
+    if (typeof input.focusEnd === 'function') input.focusEnd();
+    else input.focus();
 }
 
 /** What the conversation's documents look like, to tell when one appeared or changed. */
