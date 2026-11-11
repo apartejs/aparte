@@ -146,3 +146,8 @@ aparte-conversation-list {
 @keyframes aparte-spin {
   to { transform: rotate(360deg); }
 }
+
+/* One fade in, for what appears where it stands: a dialog's backdrop, a launcher maximized. */
+@keyframes aparte-fade-in {
+  from { opacity: 0; }
+}

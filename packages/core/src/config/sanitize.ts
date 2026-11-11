@@ -138,7 +138,7 @@ const APARTE_CLASS = /^aparte-/i;
 /**
  * The attributes core READS, as a command or as a boundary, on an element it finds by
  * walking the DOM: a delegated click listener (`data-aparte-dialog-open`, the sidebar
- * and split toggles, the launcher's close), the chat that owns a card's `send`
+ * and split toggles, the launcher's close and maximize), the chat that owns a card's `send`
  * (`data-aparte-chat`), the instance config a subtree resolves to (`data-aparte-host`),
  * the palette a subtree wears (`data-aparte-theme`), a checkpoint's Restore
  * (`data-checkpoint-action`), the row a segment update targets (`data-segment-id`).
@@ -153,7 +153,7 @@ const APARTE_CLASS = /^aparte-/i;
  */
 export const RESERVED_ATTRIBUTES = new Set([
     'data-aparte-chat', 'data-aparte-host', 'data-aparte-theme',
-    'data-aparte-split-pane', 'data-aparte-launcher-close', 'data-aparte-suggestions',
+    'data-aparte-split-pane', 'data-aparte-launcher-close', 'data-aparte-launcher-maximize', 'data-aparte-suggestions',
     'data-aparte-bubble', 'data-aparte-empty', 'data-aparte-panel', 'data-aparte-panel-host',
     'data-aparte-card-part',
     'data-segment-id', 'data-action',

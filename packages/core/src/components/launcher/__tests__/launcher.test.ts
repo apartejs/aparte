@@ -2,7 +2,8 @@
 /**
  * `<aparte-launcher>` — the chat that floats in a corner of the page.
  *
- * The element owns one thing, its button, and the state: open or closed, card or sheet.
+ * The element owns its button, its header, and the state: open or closed, card or sheet,
+ * maximized or not.
  * The children are the host's, so every test checks they are left where they were.
  * jsdom applies no stylesheet, so what the sheet draws is pinned by reading it at the end.
  */
@@ -12,7 +13,7 @@ import '../../context/aparte-context.js';
 import type { AparteLauncher, AparteLauncherToggleDetail } from '../aparte-launcher.js';
 import { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_LOCALE, attachConfig, detachConfig } from '../../../config/index.js';
 import { releaseDeferredHydration } from '../../../interop/defer-hydration.js';
-import { messageSquareIcon, closeIcon } from '../../../icons/glyphs.js';
+import { messageSquareIcon, closeIcon, maximizeIcon, minimizeIcon } from '../../../icons/glyphs.js';
 import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 
 type MediaListener = (e: { matches: boolean }) => void;
@@ -51,6 +52,12 @@ function mount(attrs = '', inner = '<div id="chat"><div id="composer" role="text
 
 const buttonOf = (el: AparteLauncher) => el.querySelector('.aparte-launcher__button') as HTMLButtonElement;
 
+/** The element's children as names: its header and its button by their part, the host's by id or tag. */
+const partsOf = (el: AparteLauncher): string[] => Array.from(el.children).map((c) =>
+    c.classList.contains('aparte-launcher__header') ? 'header'
+        : c.classList.contains('aparte-launcher__button') ? 'button'
+            : c.id || c.tagName);
+
 /** A glyph as the DOM serialises it, which closes `<path/>` its own way. */
 function asParsed(svg: string): string {
     const span = document.createElement('span');
@@ -72,10 +79,10 @@ const key = (target: Element, k: string, shiftKey = false): KeyboardEvent => {
 };
 
 describe('<aparte-launcher>: what it adds', () => {
-    it('adds its class and one button after the children it leaves in place', () => {
+    it('adds its class, its header before the children it leaves in place, and one button after them', () => {
         const el = mount();
         expect(el.classList.contains('aparte-launcher')).toBe(true);
-        expect(Array.from(el.children).map((c) => c.id || c.className)).toEqual(['chat', expect.stringContaining('aparte-launcher__button')]);
+        expect(partsOf(el)).toEqual(['header', 'chat', 'button']);
         expect(buttonOf(el).type).toBe('button');
     });
 
@@ -144,7 +151,7 @@ describe('<aparte-launcher>: a framework that takes its button out', () => {
         el.setAttribute('label', 'Help');
         expect(buttonOf(el)).toBe(button);
         expect(button.querySelector('.aparte-launcher__label')?.textContent).toBe('Help');
-        expect(Array.from(el.children).map((c) => c.id || 'button')).toEqual(['chat', 'button']);
+        expect(partsOf(el)).toEqual(['header', 'chat', 'button']);
         expect(el.querySelector('#chat')).toBe(chat);
     });
 
@@ -154,7 +161,7 @@ describe('<aparte-launcher>: a framework that takes its button out', () => {
         el.insertBefore(document.createElement('section'), button);
         el.append(document.createElement('aside'));
         await settle();
-        expect(Array.from(el.children).map((c) => c.tagName)).toEqual(['DIV', 'SECTION', 'BUTTON', 'ASIDE']);
+        expect(partsOf(el)).toEqual(['header', 'chat', 'SECTION', 'button', 'ASIDE']);
         expect(buttonOf(el)).toBe(button);
     });
 
@@ -232,6 +239,7 @@ describe('<aparte-launcher>: opening and closing', () => {
         expect(button.getAttribute('aria-label')).toBe('Close the chat');
         expect(button.className).toContain('aparte-btn--circle');
         expect(button.querySelector('.aparte-launcher__label')).toBeNull();
+        // A close control while open, as a launcher is everywhere, header or not.
         expect(button.querySelector('.aparte-launcher__icon')?.innerHTML).toBe(asParsed(closeIcon));
         button.click();
         expect(el.open).toBe(false);
@@ -257,7 +265,7 @@ describe('<aparte-launcher>: opening and closing', () => {
         el.show();
         el.show();
         el.close();
-        expect(seen).toEqual([{ open: true, sheet: true }, { open: false, sheet: true }]);
+        expect(seen).toEqual([{ open: true, sheet: true, maximized: false, covers: true }, { open: false, sheet: true, maximized: false, covers: false }]);
     });
 
     it('announces the sheet again when the window crosses the breakpoint while it is open', () => {
@@ -270,10 +278,10 @@ describe('<aparte-launcher>: opening and closing', () => {
         el.close();
         narrow(true);
         expect(seen).toEqual([
-            { open: true, sheet: false },
-            { open: true, sheet: true },
-            { open: true, sheet: false },
-            { open: false, sheet: false },
+            { open: true, sheet: false, maximized: false, covers: false },
+            { open: true, sheet: true, maximized: false, covers: true },
+            { open: true, sheet: false, maximized: false, covers: false },
+            { open: false, sheet: false, maximized: false, covers: false },
         ]);
     });
 
@@ -507,7 +515,8 @@ describe('<aparte-launcher>: the focus and the keys', () => {
     });
 
     it('keeps Tab inside the sheet, and leaves it free on a card', () => {
-        const el = mount();
+        // Without the header, whose ✕ would be the ring's first stop (the next test).
+        const el = mount('header="false"');
         el.show();
         const composer = document.getElementById('composer') as HTMLElement;
         const button = buttonOf(el);
@@ -527,11 +536,377 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         expect(key(el, 'Enter').defaultPrevented).toBe(false);
     });
 
+    it("starts the sheet's ring at its header's ✕, the first control on screen", () => {
+        const el = mount('open');
+        narrow(true);
+        const send = document.getElementById('send') as HTMLElement;
+        const close = el.querySelector<HTMLElement>('.aparte-launcher__close')!;
+        // The ring's last stop wraps to the first, the header's ✕. jsdom draws nothing, so the
+        // round button still counts as the last stop here; a browser hides it while the
+        // header holds a ✕ (proved in e2e/tests/launcher.spec.ts, the phone's Tab ring).
+        void send;
+        buttonOf(el).focus();
+        expect(key(buttonOf(el), 'Tab').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(close);
+    });
+
+    it('keeps Tab inside while maximized, on a window wide enough for a card', () => {
+        const el = mount('open maximized header="false"');
+        const composer = document.getElementById('composer') as HTMLElement;
+        const button = buttonOf(el);
+        button.focus();
+        expect(key(button, 'Tab').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(composer);
+        el.maximized = false;
+        button.focus();
+        expect(key(button, 'Tab').defaultPrevented).toBe(false);
+    });
+
     it('lets Tab go in a sheet with nothing to focus', () => {
         const el = mount('open', '<div>text only</div>');
         narrow(true);
         el.querySelector<HTMLElement>('.aparte-launcher__button')!.remove();
         expect(key(el, 'Tab').defaultPrevented).toBe(false);
+    });
+});
+
+describe('<aparte-launcher>: its header', () => {
+    const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+    const headerOf = (el: AparteLauncher) => el.querySelector<HTMLElement>(':scope > .aparte-launcher__header');
+    const part = (el: AparteLauncher, name: string) => el.querySelector<HTMLElement>(`.aparte-launcher__${name}`)!;
+
+    it('draws one over a card that has none, titled by the locale, with a ✕ that closes the chat', () => {
+        const el = mount('open');
+        const header = headerOf(el)!;
+        // A div wearing the recipe: a <header> outside a section is the page's banner landmark.
+        expect(header.tagName).toBe('DIV');
+        expect(header.className).toContain('aparte-app-header');
+        expect(part(el, 'title').textContent).toBe('Chat');
+        expect(part(el, 'subheading').hidden).toBe(true);
+        const close = part(el, 'close') as HTMLButtonElement;
+        expect(close.getAttribute('aria-label')).toBe('Close the chat');
+        expect(close.getAttribute('title')).toBe('Close the chat');
+        expect(close.querySelector('.aparte-launcher__icon')?.innerHTML).toBe(asParsed(closeIcon));
+        close.focus();
+        close.click();
+        expect(el.open).toBe(false);
+        expect(document.activeElement).toBe(buttonOf(el));
+    });
+
+    it('takes its title and the line under it from heading and subheading, and follows them', () => {
+        const el = mount('heading="  Kilnhouse support " subheading="Usually answers in a minute"');
+        const header = headerOf(el);
+        expect(part(el, 'title').textContent).toBe('Kilnhouse support');
+        expect(part(el, 'subheading').textContent).toBe('Usually answers in a minute');
+        expect(part(el, 'subheading').hidden).toBe(false);
+        el.setAttribute('heading', 'Help');
+        el.removeAttribute('subheading');
+        expect(part(el, 'title').textContent).toBe('Help');
+        expect(part(el, 'subheading').hidden).toBe(true);
+        // Set but empty: no title, and the ✕ stays.
+        el.setAttribute('heading', '');
+        expect(part(el, 'title').hidden).toBe(true);
+        expect(headerOf(el)).toBe(header);
+    });
+
+    it('names its title and its controls from the config of the chat inside', async () => {
+        const el = mount('maximizable');
+        const config = new AparteConfig();
+        config.setLocale({ ...APARTE_DEFAULT_LOCALE, launcherHeading: 'Discussion', launcherClose: 'Fermer la discussion', launcherMaximize: 'Agrandir la discussion' });
+        attachConfig(el.querySelector('#chat') as HTMLElement, config);
+        await settle();
+        expect(part(el, 'title').textContent).toBe('Discussion');
+        expect(part(el, 'close').getAttribute('aria-label')).toBe('Fermer la discussion');
+        expect(part(el, 'maximize').getAttribute('aria-label')).toBe('Agrandir la discussion');
+    });
+
+    it('draws none over a card that brings its own header at its top level, and only then', () => {
+        expect(headerOf(mount('heading="Help"', '<section><header>Kilnhouse</header><div id="chat"></div></section>'))).toBeNull();
+        // A close control alone is not a header: an "End chat" in the card's footer is one too.
+        expect(headerOf(mount('', '<div id="chat"><footer><button type="button" data-aparte-launcher-close>End chat</button></footer></div>'))).not.toBeNull();
+        // A header deeper in the card is its content — a reply, a form — not the card's own.
+        expect(headerOf(mount('', '<div id="chat"><article><header>A reply</header></article></div>'))).not.toBeNull();
+    });
+
+    it('steps aside when the card renders its own header after it connected, and comes back when it goes', async () => {
+        const el = mount('', '<section id="chat"><div>conversation</div></section>');
+        expect(headerOf(el)).not.toBeNull();
+        const own = document.createElement('header');
+        own.textContent = 'Kilnhouse';
+        el.querySelector('#chat')!.prepend(own);
+        await settle();
+        expect(headerOf(el)).toBeNull();
+        own.remove();
+        await settle();
+        expect(headerOf(el)).not.toBeNull();
+    });
+
+    it("titles itself with the button's label when it has no heading, before the locale's word", () => {
+        expect(part(mount('label="Help"'), 'title').textContent).toBe('Help');
+        expect(part(mount('label="Help" heading="Kilnhouse support"'), 'title').textContent).toBe('Kilnhouse support');
+    });
+
+    it("survives a provider that throws in the header, written for a message's host", () => {
+        const errors: unknown[] = [];
+        const original = console.error;
+        console.error = (...args: unknown[]) => { errors.push(args); };
+        try {
+            aparteGlobalConfig.setAvatarProvider({
+                render(_role, host) {
+                    // The lookup a provider written for messages makes, unguarded.
+                    host.closest('aparte-chat-bubble')!.getAttribute('message-id');
+                },
+            });
+            const el = mount();
+            const seen = record(el);
+            el.show();
+            expect(el.open).toBe(true);
+            expect(seen).toHaveLength(1);
+            expect(part(el, 'avatar').childElementCount).toBe(0);
+            expect(errors).toHaveLength(1);
+            // Not called again on every render.
+            el.setAttribute('heading', 'Help');
+            expect(errors).toHaveLength(1);
+        } finally {
+            console.error = original;
+        }
+    });
+
+    it("wears the assistant's role, so the stylesheet's assistant colours and picture reach it", () => {
+        expect(part(mount(), 'avatar').getAttribute('data-role')).toBe('assistant');
+    });
+
+    it("draws the assistant's avatar by the config's avatar provider, the messages' own, and none without one", () => {
+        const el = mount();
+        const avatar = part(el, 'avatar');
+        expect(avatar.childElementCount).toBe(0);
+        let undone = 0;
+        aparteGlobalConfig.setAvatarProvider({
+            render(role, host) {
+                const face = document.createElement('b');
+                face.textContent = role === 'assistant' ? 'W' : '?';
+                host.append(face);
+                return () => { undone++; };
+            },
+        });
+        expect(avatar.textContent).toBe('W');
+        expect(avatar.getAttribute('aria-hidden')).toBe('true');
+        expect(avatar.nextElementSibling?.className).toBe('aparte-launcher__heading');
+        // Not drawn again on a render that changes nothing about the provider.
+        el.setAttribute('heading', 'Help');
+        expect(avatar.querySelectorAll('b')).toHaveLength(1);
+        expect(undone).toBe(0);
+        aparteGlobalConfig.setAvatarProvider(null);
+        expect(avatar.childElementCount).toBe(0);
+        expect(undone).toBe(1);
+    });
+
+    it('steps aside when a card with its own header arrives later, and comes back when it goes', async () => {
+        const el = mount();
+        const card = document.createElement('section');
+        card.innerHTML = '<header>Kilnhouse</header>';
+        el.querySelector('#chat')!.replaceWith(card);
+        await settle();
+        expect(headerOf(el)).toBeNull();
+        card.remove();
+        await settle();
+        expect(partsOf(el)).toEqual(['header', 'button']);
+    });
+
+    it('draws none with header="false", and its property says and sets the same', () => {
+        const el = mount('header="false"');
+        expect(headerOf(el)).toBeNull();
+        expect(el.header).toBe(false);
+        el.header = true;
+        expect(el.hasAttribute('header')).toBe(false);
+        expect(headerOf(el)).not.toBeNull();
+        // `header={false}` from a framework sets the property, which writes the attribute's
+        // OFF — where removing a boolean attribute would have meant ON.
+        el.header = false;
+        expect(el.getAttribute('header')).toBe('false');
+        expect(headerOf(el)).toBeNull();
+    });
+
+    it('stays first in the DOM when the host prepends its card after connect, so Tab reads the title first', async () => {
+        const el = mount('', '');
+        const card = document.createElement('div');
+        card.id = 'chat';
+        el.prepend(card);
+        await settle();
+        expect(partsOf(el)).toEqual(['header', 'chat', 'button']);
+    });
+
+    it('names its title as a heading, for a screen reader to reach the chat by', () => {
+        const title = part(mount('heading="Help"'), 'title');
+        expect(title.getAttribute('role')).toBe('heading');
+        expect(title.getAttribute('aria-level')).toBe('2');
+    });
+
+    it('puts its header back first when a framework takes it out', async () => {
+        const el = mount();
+        const header = headerOf(el)!;
+        header.remove();
+        await settle();
+        expect(el.firstElementChild).toBe(header);
+    });
+
+    it('keeps one header when the page is brought back from its own HTML, and its ✕ closes', () => {
+        mount('heading="Help" open');
+        const html = document.body.innerHTML;
+        document.body.innerHTML = html;
+        const el = document.querySelector('aparte-launcher') as AparteLauncher;
+        expect(el.querySelectorAll(':scope > .aparte-launcher__header')).toHaveLength(1);
+        part(el, 'close').click();
+        expect(el.open).toBe(false);
+    });
+
+    it('hands the focus on open to the card, never to its own ✕', () => {
+        const el = mount('', '<div><a href="#faq" id="faq">FAQ</a></div>');
+        buttonOf(el).click();
+        expect(document.activeElement?.id).toBe('faq');
+    });
+});
+
+describe('<aparte-launcher>: maximize', () => {
+    const maximizeOf = (el: AparteLauncher) => el.querySelector<HTMLButtonElement>('.aparte-launcher__maximize')!;
+
+    it('shows its maximize button only when maximizable', () => {
+        const el = mount();
+        expect(maximizeOf(el).hidden).toBe(true);
+        el.setAttribute('maximizable', '');
+        expect(maximizeOf(el).hidden).toBe(false);
+    });
+
+    it('enlarges the card and brings it back, the button named for what it will do, and still the one focused', () => {
+        const el = mount('maximizable open');
+        const button = maximizeOf(el);
+        expect(button.getAttribute('aria-label')).toBe('Expand the chat');
+        expect(button.querySelector('.aparte-launcher__icon')?.innerHTML).toBe(asParsed(maximizeIcon));
+        button.focus();
+        button.click();
+        expect(el.maximized).toBe(true);
+        expect(el.hasAttribute('maximized')).toBe(true);
+        // The same node: a new one would have taken the focus out from under the click.
+        expect(maximizeOf(el)).toBe(button);
+        expect(document.activeElement).toBe(button);
+        expect(button.getAttribute('aria-label')).toBe('Shrink the chat');
+        expect(button.getAttribute('title')).toBe('Shrink the chat');
+        expect(button.querySelector('.aparte-launcher__icon')?.innerHTML).toBe(asParsed(minimizeIcon));
+        // Its name says the state; a toggle whose name changes does not also say it is pressed.
+        expect(button.hasAttribute('aria-pressed')).toBe(false);
+        button.click();
+        expect(el.maximized).toBe(false);
+        expect(button.getAttribute('aria-label')).toBe('Expand the chat');
+        expect(el.open).toBe(true);
+    });
+
+    it('answers maximize() and restore() from a script, as show() and close() answer for open', () => {
+        const el = mount('maximizable');
+        el.maximize();
+        expect(el.maximized).toBe(true);
+        expect(el.hasAttribute('maximized')).toBe(true);
+        el.restore();
+        expect(el.maximized).toBe(false);
+        // Kept while closed: the chat opens maximized.
+        el.maximize();
+        el.show();
+        expect(el.covers).toBe(true);
+    });
+
+    it('announces each change of it once with the rest of the state, and not the one its markup asked for', () => {
+        const seen: AparteLauncherToggleDetail[] = [];
+        document.addEventListener('aparte-launcher-toggle', (e) => seen.push((e as CustomEvent<AparteLauncherToggleDetail>).detail));
+        const el = mount('open maximized');
+        expect(el.maximized).toBe(true);
+        expect(seen).toEqual([]);
+        // The same state, spelled differently: no change to announce.
+        el.setAttribute('maximized', 'true');
+        el.maximized = false;
+        el.maximized = true;
+        el.close();
+        expect(seen).toEqual([
+            { open: true, sheet: false, maximized: false, covers: false },
+            { open: true, sheet: false, maximized: true, covers: true },
+            { open: false, sheet: false, maximized: true, covers: false },
+        ]);
+    });
+
+    it('toggles from a control of the card marked data-aparte-launcher-maximize, and keeps it pressed or not', () => {
+        const el = mount('open', '<section><header><button type="button" id="grow" data-aparte-launcher-maximize><span id="glyph">⤢</span></button></header><div id="chat"></div></section>');
+        const grow = document.getElementById('grow') as HTMLButtonElement;
+        expect(grow.getAttribute('aria-pressed')).toBe('false');
+        (document.getElementById('glyph') as HTMLElement).click();
+        expect(el.maximized).toBe(true);
+        expect(grow.getAttribute('aria-pressed')).toBe('true');
+        el.maximized = false;
+        expect(grow.getAttribute('aria-pressed')).toBe('false');
+        // Not from a control outside the launcher.
+        document.body.insertAdjacentHTML('beforeend', '<button type="button" id="far" data-aparte-launcher-maximize>far</button>');
+        (document.getElementById('far') as HTMLButtonElement).click();
+        expect(el.maximized).toBe(false);
+        expect(document.getElementById('far')?.hasAttribute('aria-pressed')).toBe(false);
+    });
+
+    it('covers the window maximized, and not as a panel, which leaves Tab free and says so when it changes', () => {
+        const seen: AparteLauncherToggleDetail[] = [];
+        document.addEventListener('aparte-launcher-toggle', (e) => seen.push((e as CustomEvent<AparteLauncherToggleDetail>).detail));
+        const el = mount('open maximized maximizable header="false"');
+        expect(el.covers).toBe(true);
+        el.setAttribute('maximizable', 'panel');
+        expect(el.covers).toBe(false);
+        const button = buttonOf(el);
+        button.focus();
+        expect(key(button, 'Tab').defaultPrevented).toBe(false);
+        // Same mode, another spelling of it: nothing to announce.
+        el.setAttribute('maximizable', 'panel');
+        el.setAttribute('maximizable', '');
+        expect(el.covers).toBe(true);
+        expect(seen).toEqual([
+            { open: true, sheet: false, maximized: true, covers: false },
+            { open: true, sheet: false, maximized: true, covers: true },
+        ]);
+        el.close();
+        expect(el.covers).toBe(false);
+    });
+
+    it('brings a maximized chat back on Escape first, then closes on the next', () => {
+        const el = mount('open maximizable maximized');
+        const composer = document.getElementById('composer') as HTMLElement;
+        composer.focus();
+        expect(key(composer, 'Escape').defaultPrevented).toBe(true);
+        expect(el.maximized).toBe(false);
+        expect(el.open).toBe(true);
+        key(composer, 'Escape');
+        expect(el.open).toBe(false);
+        // Under the breakpoint there is nothing to bring back: Escape closes at once.
+        el.maximize();
+        el.show();
+        narrow(true);
+        composer.focus();
+        key(composer, 'Escape');
+        expect(el.open).toBe(false);
+    });
+
+    it('hands the focus to the ✕ when the window turns into a sheet under the focused maximize button', () => {
+        const el = mount('open maximizable');
+        const maximize = el.querySelector<HTMLButtonElement>('.aparte-launcher__maximize')!;
+        maximize.focus();
+        narrow(true);
+        expect(document.activeElement).toBe(el.querySelector('.aparte-launcher__close'));
+    });
+
+    it('hands the focus on when the header it was in goes away', () => {
+        const el = mount('open');
+        el.querySelector<HTMLButtonElement>('.aparte-launcher__close')!.focus();
+        el.header = false;
+        expect(document.activeElement?.id).toBe('composer');
+    });
+
+    it('ignores a maximize control inside a reply', () => {
+        const el = mount('open', '<div id="chat"><div class="aparte-message-content"><button type="button" id="forged" data-aparte-launcher-maximize>⤢</button></div></div>');
+        (document.getElementById('forged') as HTMLButtonElement).click();
+        expect(el.maximized).toBe(false);
+        expect(document.getElementById('forged')?.hasAttribute('aria-pressed')).toBe(false);
     });
 });
 
@@ -591,12 +966,47 @@ describe('launcher.css', () => {
         expect(css).toMatch(/aparte-launcher \{[^}]*position: fixed;[^}]*inset-inline-end: var\(--aparte-launcher-offset\);/);
     });
 
-    it('fills the window with the open sheet, and hides its button when the card closes itself', () => {
-        expect(css).toMatch(/aparte-launcher\[data-sheet\]\[open\] \{[^}]*inset: 0;/);
-        expect(css).toMatch(/aparte-launcher\[data-sheet\]\[open\]:has\(\[data-aparte-launcher-close\]\) > \.aparte-launcher__button \{\s*display: none;/);
+    it('fills the window with the open sheet, under the breakpoint or maximized, and hides its button when the card closes itself', () => {
+        expect(css).toMatch(/aparte-launcher\[open\]:is\(\[data-sheet\], \[maximized\]\) \{[^}]*inset: 0;/);
+        expect(css).toMatch(/aparte-launcher\[open\]:is\(\[data-sheet\], \[maximized\]\):has\(\[data-aparte-launcher-close\]\) > \.aparte-launcher__button \{\s*display: none;/);
     });
 
     it('animates the card only for a reader who did not ask for less motion', () => {
-        expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*aparte-launcher\[open\] > :not\(\.aparte-launcher__button\) \{\s*animation: aparte-launcher-in/);
+        expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*aparte-launcher\[open\] > :not\(\.aparte-launcher__button\),[^{]*\{\s*animation: aparte-launcher-in/);
+    });
+
+    it('joins its header to the card: first, over it, the gap taken back, and one shadow for both', () => {
+        expect(css).toMatch(/\.aparte-launcher__header \{[^}]*order: -1;[^}]*margin-block-end: calc\(-1 \* var\(--aparte-launcher-gap\)\);/);
+        expect(css).toMatch(/aparte-launcher\[open\]:not\(\[data-sheet\], \[maximized\]\):has\(> \.aparte-launcher__header\)::before \{[^}]*z-index: -1;[^}]*box-shadow: var\(--aparte-popover-shadow\);/);
+    });
+
+    it("holds the window's height on the launcher under its header, so a taller header shortens the card", () => {
+        expect(css).toMatch(/aparte-launcher\[open\]:not\(\[data-sheet\], \[maximized\]\):has\(> \.aparte-launcher__header\) \{\s*block-size: min\(\s*calc\(var\(--aparte-launcher-height\) \+ var\(--aparte-launcher-gap\) \+ var\(--aparte-btn-size-lg\)\)/);
+        expect(css).toMatch(/aparte-launcher:where\(:has\(> \.aparte-launcher__header\)\) > :where\(:not\(\.aparte-launcher__button, \.aparte-launcher__header\)\) \{\s*flex: 1 1 0;\s*block-size: auto;/);
+    });
+
+    it("leaves the chat its own bottom padding in a sheet: the home bar's inset is the launcher's", () => {
+        expect(css).toMatch(/aparte-launcher\[open\]:is\(\[data-sheet\], \[maximized\]\) \{[^}]*padding-block-end: env\(safe-area-inset-bottom, 0px\);/);
+        expect(css).toMatch(/aparte-launcher\[open\]:is\(\[data-sheet\], \[maximized\]\) > :not\(\.aparte-launcher__button, \.aparte-launcher__header\) \{[^}]*padding-block-start: env\(safe-area-inset-top, 0px\);\s*\}/);
+    });
+
+    it("keeps a panel to the window's inline-end edge, its width a token", () => {
+        expect(css).toMatch(/aparte-launcher\[open\]\[maximized\]\[maximizable='panel'\]:not\(\[data-sheet\]\) \{\s*inset-inline-start: auto;[^}]*inline-size: min\(var\(--aparte-launcher-panel-width\), 100%\);/);
+    });
+
+    it("brings the launcher's shadow in with the card, never before it", () => {
+        expect(css).toMatch(/aparte-launcher\[open\] > :not\(\.aparte-launcher__button\),\s*aparte-launcher\[open\]:not\(\[data-sheet\], \[maximized\]\):has\(> \.aparte-launcher__header\)::before \{\s*animation: aparte-launcher-in/);
+    });
+
+    it('hides every maximize control in a sheet under the breakpoint, and only there', () => {
+        expect(css).toMatch(/aparte-launcher\[data-sheet\] \[data-aparte-launcher-maximize\] \{\s*display: none;/);
+    });
+
+    it('fades the maximized chat in only for a reader who did not ask for less motion', () => {
+        expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^@]*aparte-launcher\[open\]\[maximized\] > :not\(\.aparte-launcher__button\) \{\s*animation: aparte-fade-in/);
+    });
+
+    it('takes the pointer over what it covers, the home bar\'s band included', () => {
+        expect(css).toMatch(/aparte-launcher\[open\]:is\(\[data-sheet\], \[maximized\]\) \{[^}]*pointer-events: auto;/);
     });
 });

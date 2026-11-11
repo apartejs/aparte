@@ -34,6 +34,10 @@ export interface AparteIconProvider {
     expand?: () => string;
     /** Collapse/show less icon */
     collapse?: () => string;
+    /** Enlarge — the button in `<aparte-launcher>`'s header that maximizes the chat */
+    maximize?: () => string;
+    /** Bring back — the same button while the chat is maximized */
+    minimize?: () => string;
     /** Terminal/command prompt icon */
     terminal?: () => string;
     /** File attachment / paperclip icon (used by upload plugin) */

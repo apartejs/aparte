@@ -179,6 +179,9 @@ export const fr: AparteLocale = {
     splitHandleLabel: "Redimensionner les panneaux",
     launcherOpen: "Ouvrir la discussion",
     launcherClose: "Fermer la discussion",
+    launcherHeading: "Discussion",
+    launcherMaximize: "Agrandir la discussion",
+    launcherRestore: "Réduire la discussion",
     transcript: "Transcription",
     tag: "fr-FR",
     direction: 'ltr'

@@ -21,7 +21,7 @@ describe('attributes core reads as a command or a boundary', () => {
         'data-aparte-chat', 'data-aparte-host', 'data-aparte-theme',
         'data-aparte-dialog-open', 'data-aparte-dialog-close', 'data-aparte-dialog-static',
         'data-aparte-sidebar-toggle', 'data-aparte-sidebar-search',
-        'data-aparte-split-pane', 'data-aparte-launcher-close', 'data-aparte-suggestions',
+        'data-aparte-split-pane', 'data-aparte-launcher-close', 'data-aparte-launcher-maximize', 'data-aparte-suggestions',
         'data-checkpoint-action', 'data-checkpoint-reason',
         'data-segment-id', 'data-action',
     ];
