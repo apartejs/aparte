@@ -30,14 +30,15 @@ export interface ConnectArtifactPanelOptions {
     /** Which pane of the split the panel is in. Default `end`. */
     pane?: 'start' | 'end';
     /**
-     * Open the panel by itself when a document appears or gets a new version in a turn.
-     * Off by default: the panel opens when somebody presses a card's Open button. On a
-     * narrow screen, where the split shows one pane, it stays on the chat either way.
+     * Open the panel by itself when a turn writes a document or a new version of one.
+     * Off by default: the panel opens when somebody presses a card's Open button. A
+     * conversation that is opened never opens it (what it holds is not news), and on a
+     * narrow screen, where the split shows one pane, the reader stays on the chat.
      */
     autoOpen?: boolean;
     /** After the panel was given a document to show: your own layout's turn. */
     onOpen?: () => void;
-    /** After Close or Escape: your own layout's turn. */
+    /** After Close or Escape, or when the conversation shown has no document: your own layout's turn. */
     onClose?: () => void;
 }
 
@@ -70,15 +71,12 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
         options.onOpen?.();
         if (focus) panel.focusTitle();
     };
-    const close = (): void => {
+    const fold = (): void => {
         if (split) {
             split.pane = chatPane;
             split.single = true;
         }
         options.onClose?.();
-        // Back where the reader was: the button that opened the panel, if it is still there.
-        if (opener?.isConnected) opener.focus();
-        opener = null;
     };
 
     const onOpen = (event: Event): void => {
@@ -88,33 +86,63 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
         panel.show(documentId, { segmentId });
         open(true);
     };
-    const onClose = (): void => close();
+    const onClose = (): void => {
+        fold();
+        // Back where the reader was: the button that opened the panel, if it is still there.
+        if (opener?.isConnected) opener.focus();
+        opener = null;
+    };
 
-    // A new document, or a new version, written during a turn.
+    // ── A document written during a turn ──────────────────────────────────
+    let turn = false;
     let known = signature(panel);
-    const onDone = (): void => {
-        // The panel reads the conversation on the next frame; ask after it.
+    let queued = false;
+    /** After the panel's own reading (it reads on the next frame): did a document appear or change? */
+    const afterNextRead = (then: (changed: boolean, any: boolean) => void): void => {
+        if (queued) return;
+        queued = true;
         requestAnimationFrame(() => {
-            const now = signature(panel, true);
+            queued = false;
+            panel.refresh();
+            const now = signature(panel);
             const changed = now !== known;
             known = now;
-            if (!changed || !options.autoOpen || now === '') return;
+            then(changed, now !== '');
+        });
+    };
+    const onWritten = (): void => {
+        // Only what a turn writes is news: cards drawn when a conversation is opened are not.
+        if (!turn) return;
+        afterNextRead((changed, any) => {
+            if (!changed || !any || !options.autoOpen) return;
             // One pane at a time (a phone): the reader stays on the chat, where the card is.
             if (split?.hasAttribute('data-stacked')) return;
+            // The document just written, at its latest version.
             panel.removeAttribute('document-id');
             panel.removeAttribute('version');
             panel.refresh();
             open(false);
         });
     };
-    // A conversation was opened: what it holds is not news.
-    const onLoaded = (): void => { requestAnimationFrame(() => { known = signature(panel, true); }); };
+    const onStart = (): void => { turn = true; };
+    const onEnd = (): void => {
+        onWritten();
+        turn = false;
+    };
+    // Another conversation: nothing pinned from the last one, and no pane open on nothing.
+    const onLoaded = (): void => {
+        panel.removeAttribute('document-id');
+        panel.removeAttribute('version');
+        opener = null;
+        afterNextRead((_changed, any) => { if (!any) fold(); });
+    };
 
     chat.addEventListener('aparte-artifact-open', onOpen);
     panel.addEventListener('aparte-artifact-panel-close', onClose);
-    chat.addEventListener('aparte-message-done', onDone);
-    chat.addEventListener('aparte-conversation-loaded', onLoaded);
-    chat.addEventListener('aparte-reset-done', onLoaded);
+    chat.addEventListener('aparte-message-start', onStart);
+    chat.addEventListener('aparte-artifact-change', onWritten);
+    for (const name of ['aparte-message-done', 'aparte-message-aborted', 'aparte-message-error'] as const) chat.addEventListener(name, onEnd);
+    for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.addEventListener(name, onLoaded);
 
     // Nothing to show yet: the split shows the chat alone.
     if (split && panel.hasAttribute('data-empty')) {
@@ -125,15 +153,15 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
     return () => {
         chat.removeEventListener('aparte-artifact-open', onOpen);
         panel.removeEventListener('aparte-artifact-panel-close', onClose);
-        chat.removeEventListener('aparte-message-done', onDone);
-        chat.removeEventListener('aparte-conversation-loaded', onLoaded);
-        chat.removeEventListener('aparte-reset-done', onLoaded);
+        chat.removeEventListener('aparte-message-start', onStart);
+        chat.removeEventListener('aparte-artifact-change', onWritten);
+        for (const name of ['aparte-message-done', 'aparte-message-aborted', 'aparte-message-error'] as const) chat.removeEventListener(name, onEnd);
+        for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.removeEventListener(name, onLoaded);
         setRenderOptions(config, before);
     };
 }
 
 /** What the conversation's documents look like, to tell when one appeared or changed. */
-function signature(panel: AparteArtifactPanel, fresh = false): string {
-    if (fresh) panel.refresh();
+function signature(panel: AparteArtifactPanel): string {
     return panel.readDocuments().map((d) => `${d.id}:${d.versions.length}`).join(',');
 }

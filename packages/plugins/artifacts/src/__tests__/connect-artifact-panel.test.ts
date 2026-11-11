@@ -118,12 +118,19 @@ describe('connectArtifactPanel', () => {
         expect(seen).toEqual(['open', 'close']);
     });
 
+    const say = (chat: Chat, name: string): void => { chat.dispatchEvent(new CustomEvent(name, { bubbles: true })); };
+    /** A whole turn that leaves the conversation as `messages`. */
+    async function turn(chat: Chat, messages: AparteMessage[]): Promise<void> {
+        say(chat, 'aparte-message-start');
+        chat.messages = messages;
+        say(chat, 'aparte-message-done');
+        await frame(); await frame();
+    }
+
     it('does not open by itself unless asked', async () => {
         const { chat, panel, split } = page();
         connectArtifactPanel({ chat, panel, split });
-        chat.messages = [reply('a1', call('doc_1', 'one'))];
-        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
-        await frame(); await frame();
+        await turn(chat, [reply('a1', call('doc_1', 'one'))]);
         expect(split.single).toBe(true);
     });
 
@@ -134,9 +141,7 @@ describe('connectArtifactPanel', () => {
         document.body.append(composer);
         composer.focus();
 
-        chat.messages = [reply('a1', call('doc_1', 'one'))];
-        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
-        await frame(); await frame();
+        await turn(chat, [reply('a1', call('doc_1', 'one'))]);
 
         expect(split.single).toBe(false);
         expect(split.pane).toBe('end');
@@ -144,23 +149,46 @@ describe('connectArtifactPanel', () => {
         expect(document.activeElement).toBe(composer);
     });
 
+    it('autoOpen: the pane opens when the document is written, not when the turn ends', async () => {
+        const { chat, panel, split } = page();
+        connectArtifactPanel({ chat, panel, split, autoOpen: true });
+
+        say(chat, 'aparte-message-start');
+        chat.messages = [reply('a1', call('doc_1', 'one'))];
+        // What a card in the reply says when it is drawn; the turn is still running.
+        say(chat, 'aparte-artifact-change');
+        await frame(); await frame();
+
+        expect(split.single).toBe(false);
+        expect(panel.shownVersion?.content).toBe('one');
+    });
+
+    it('autoOpen: a new version of a document somebody had gone back in is shown at that new version', async () => {
+        const first = call('doc_1', 'one');
+        const { chat, panel, split } = page([reply('a1', first), reply('a2', call('doc_1', 'two'))]);
+        connectArtifactPanel({ chat, panel, split, autoOpen: true });
+        cardIn(chat, first)!.click();
+        expect(panel.shownVersion?.index).toBe(1);
+
+        await turn(chat, [...chat.messages, reply('a3', call('doc_1', 'three'))]);
+        expect(panel.shownVersion).toMatchObject({ index: 3, content: 'three' });
+    });
+
     it('autoOpen: a turn that wrote no document opens nothing', async () => {
         const { chat, panel, split } = page([reply('a1', call('doc_1', 'one'))]);
         connectArtifactPanel({ chat, panel, split, autoOpen: true });
         split.single = true;
-        chat.messages = [...chat.messages, reply('a2', { id: 't', type: 'text', content: 'done' } as AparteSegment)];
-        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
-        await frame(); await frame();
+        await turn(chat, [...chat.messages, reply('a2', { id: 't', type: 'text', content: 'done' } as AparteSegment)]);
         expect(split.single).toBe(true);
     });
 
-    it('autoOpen: a conversation that is opened is not news', async () => {
+    it('autoOpen: a conversation that is opened is not news, even though its cards are drawn', async () => {
         const { chat, panel, split } = page();
         connectArtifactPanel({ chat, panel, split, autoOpen: true });
         chat.messages = [reply('a1', call('doc_1', 'one'))];
-        chat.dispatchEvent(new CustomEvent('aparte-conversation-loaded', { bubbles: true }));
-        await frame(); await frame();
-        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
+        // No turn is running: the cards of a stored conversation say they were drawn, then it is loaded.
+        say(chat, 'aparte-artifact-change');
+        say(chat, 'aparte-conversation-loaded');
         await frame(); await frame();
         expect(split.single).toBe(true);
     });
@@ -169,11 +197,43 @@ describe('connectArtifactPanel', () => {
         const { chat, panel, split } = page();
         connectArtifactPanel({ chat, panel, split, autoOpen: true });
         split.setAttribute('data-stacked', '');
-        chat.messages = [reply('a1', call('doc_1', 'one'))];
-        chat.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
-        await frame(); await frame();
+        await turn(chat, [reply('a1', call('doc_1', 'one'))]);
         expect(split.pane).toBe('start');
         expect(split.single).toBe(true);
+    });
+
+    it('another conversation: nothing stays pinned from the last one', async () => {
+        const first = call('doc_1', 'one');
+        const { chat, panel, split } = page([reply('a1', first), reply('a2', call('doc_1', 'two'))]);
+        connectArtifactPanel({ chat, panel, split });
+        cardIn(chat, first)!.click();
+        expect(panel.getAttribute('document-id')).toBe('doc_1');
+
+        chat.messages = [reply('b1', call('doc_other', 'another thread'))];
+        say(chat, 'aparte-conversation-loaded');
+        await frame(); await frame();
+
+        expect(panel.hasAttribute('document-id')).toBe(false);
+        expect(panel.shownVersion?.content).toBe('another thread');
+        // It had a document to show: the pane somebody opened stays open.
+        expect(split.single).toBe(false);
+    });
+
+    it('another conversation with no document: the pane is not left open on nothing', async () => {
+        const segment = call('doc_1', 'one');
+        const { chat, panel, split } = page([reply('a1', segment)]);
+        const closed: string[] = [];
+        connectArtifactPanel({ chat, panel, split, onClose: () => closed.push('closed') });
+        cardIn(chat, segment)!.click();
+        expect(split.single).toBe(false);
+
+        chat.messages = [];
+        say(chat, 'aparte-conversation-loaded');
+        await frame(); await frame();
+
+        expect(split.single).toBe(true);
+        expect(split.pane).toBe('start');
+        expect(closed).toEqual(['closed']);
     });
 
     it('undone, it listens to nothing', () => {
