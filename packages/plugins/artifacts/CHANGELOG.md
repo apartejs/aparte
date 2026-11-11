@@ -1,5 +1,42 @@
 # @aparte/plugin-artifacts
 
+## 1.2.0
+
+### Minor Changes
+
+- fd00133: A document now has an id and versions: the model changes one by passing its id back, and `artifactDocuments(messages)` reads them from the conversation.
+
+  Nothing to change in your code. `create_artifact` gives each new document a short id (`doc_4f2a91c0`), returns it in its result and tells the model how to use it: call the tool again with `id` and the complete new content. A document written with the `<artifact>` tag gets one too, and now reads back to the model as the tag with that id (`<artifact id="…" type="…" title="…">`), so a model with no tools can rewrite it the same way. A call or a tag that names an existing id is a new version of that document; nothing is overwritten, the earlier versions stay in the conversation.
+
+  `artifactDocuments(messages, { tools?, read? })` is a pure function, exported for Node too. It returns `ArtifactDocument[]` with their `ArtifactVersion`s, oldest first. A call that was refused, stopped or failed is not a version. `read` translates a segment the plugin does not know (an agent's own document tool). A conversation saved before this release reads as one document per card.
+
+  `aparte-artifact-open` now also carries `documentId` and `segmentId`. A card in a reply dispatches `aparte-artifact-change` when it is drawn or changed.
+
+  The default system prompt gains one sentence, on changing a document; a prompt of your own is untouched.
+
+- fd00133: New `<aparte-artifact-panel>`: a conversation's document beside the chat, with its versions. Import it from `@aparte/plugin-artifacts/panel`.
+
+  ```html
+  <aparte-split position="40" single>
+    <aparte-chat id="chat">…</aparte-chat>
+    <aparte-artifact-panel for="chat"></aparte-artifact-panel>
+  </aparte-split>
+  ```
+
+  ```ts
+  import { setupArtifacts } from "@aparte/plugin-artifacts";
+  import { connectArtifactPanel } from "@aparte/plugin-artifacts/panel";
+
+  setupArtifacts();
+  connectArtifactPanel({ chat, panel, split });
+  ```
+
+  `connectArtifactPanel` turns on the card's Open button for that chat: a press shows that version in the panel, opens the split's pane and moves the focus to the title; Close, or Escape, folds the pane and gives the focus back. `autoOpen: true` opens the pane when a turn writes a document. The split is optional (`onOpen`, `onClose` for a dialog or a drawer).
+
+  The panel reads the conversation and keeps nothing of its own. One header row holds the title, the version arrows, your own buttons (a child with `slot="actions"`), the card's Code and Preview tabs, Copy, Download and Close. A Markdown document is shown rendered, for reading; a page or a component is shown as source and runs only on a press, as on the card. It also takes your own documents (`documents`), an agent's own tool (`read`) and your own rendering of one kind (`render`). It is a separate entry, so an app that only wants the card does not ship it.
+
+  Four locale keys come with it, translated in the nine languages of `@aparte/locales`: `closeArtifact`, `artifactVersion`, `previousVersion`, `nextVersion`.
+
 ## 1.1.2
 
 ## 1.1.1
