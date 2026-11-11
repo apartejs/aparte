@@ -18,7 +18,7 @@
 
 import { inflateSync } from 'node:zlib';
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { installLlmMock } from '../helpers/mock-llm.js';
+import { installLlmMock, MOCK_ARTIFACT_MARK, MOCK_ARTIFACT_NO_ID, MOCK_ARTIFACT_REVISED, MOCK_ARTIFACT_TITLE } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 import { waitForStill } from '../helpers/settle.js';
@@ -585,19 +585,35 @@ test.describe('center-empty and a restore', () => {
  * reader who asked for less motion get the change at once.
  */
 test.describe('the split, between one pane and two', () => {
-    /** Set `single` and read the end pane's width on every frame until the split has settled. */
-    async function sample(page: Page, single: boolean): Promise<{ widths: number[]; moving: boolean; inline: string; display: string }> {
-        return page.evaluate((to) => new Promise<{ widths: number[]; moving: boolean; inline: string; display: string }>((resolve) => {
+    interface Move {
+        /** The start pane's width on every frame: it is what gives way, so it is what moves. */
+        start: number[];
+        /** The end pane's width on every frame it was displayed. */
+        end: number[];
+        moving: boolean;
+        inline: string;
+        endDisplay: string;
+        endInline: string;
+    }
+
+    /** Set `single` and read both panes on every frame until the split has settled. */
+    async function sample(page: Page, single: boolean): Promise<Move> {
+        return page.evaluate((to) => new Promise<Move>((resolve) => {
             const split = document.querySelector('aparte-split') as HTMLElement & { single: boolean };
-            const pane = split.children[2] as HTMLElement;
-            const widths: number[] = [];
-            const start = performance.now();
+            const [first, , last] = Array.from(split.children) as HTMLElement[];
+            const start: number[] = [];
+            const end: number[] = [];
+            const began = performance.now();
             split.single = to;
             const tick = (): void => {
-                widths.push(Math.round(pane.getBoundingClientRect().width));
-                const elapsed = performance.now() - start;
+                start.push(Math.round(first!.getBoundingClientRect().width));
+                if (getComputedStyle(last!).display !== 'none') end.push(Math.round(last!.getBoundingClientRect().width));
+                const elapsed = performance.now() - began;
                 if ((!split.hasAttribute('data-moving') && elapsed > 60) || elapsed > 3000) {
-                    resolve({ widths, moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns, display: getComputedStyle(pane).display });
+                    resolve({
+                        start, end, moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns,
+                        endDisplay: getComputedStyle(last!).display, endInline: last!.style.inlineSize,
+                    });
                 } else {
                     requestAnimationFrame(tick);
                 }
@@ -605,56 +621,87 @@ test.describe('the split, between one pane and two', () => {
             requestAnimationFrame(tick);
         }), single);
     }
-    const endWidth = (page: Page): Promise<number> =>
-        page.evaluate(() => Math.round((document.querySelector('aparte-split')!.children[2] as HTMLElement).getBoundingClientRect().width));
-    /** Frames where the pane is neither gone nor at its full size. */
-    const between = (widths: number[], full: number): number => widths.filter((w) => w > 8 && w < full - 8).length;
+    const widths = (page: Page): Promise<{ start: number; end: number; total: number }> =>
+        page.evaluate(() => {
+            const split = document.querySelector('aparte-split')!;
+            const w = (el: Element): number => Math.round(el.getBoundingClientRect().width);
+            return { start: w(split.children[0]!), end: w(split.children[2]!), total: w(split) };
+        });
+    /** Frames where the start pane is neither at its two-pane size nor at the full width. */
+    const between = (frames: number[], two: number, one: number): number => frames.filter((w) => w > two + 8 && w < one - 8).length;
 
     test('the other pane leaves and arrives in motion, and ends where the sheet puts it', async ({ page }) => {
         const { errors } = await open(page, 'split');
-        const full = await endWidth(page);
-        expect(full, 'there is a second pane to move').toBeGreaterThan(200);
+        const at = await widths(page);
+        expect(at.end, 'there is a second pane to move').toBeGreaterThan(200);
 
         const closing = await sample(page, true);
-        expect(between(closing.widths, full), `closing: ${closing.widths.join(',')}`).toBeGreaterThanOrEqual(2);
-        expect(closing.widths.every((w, i, all) => i === 0 || w <= all[i - 1]! + 1), 'closing only shrinks').toBe(true);
-        // Nothing of the move is left: the sheet's one-pane state, and no track written inline.
+        expect(between(closing.start, at.start, at.total), `closing: ${closing.start.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(closing.start.every((w, i, all) => i === 0 || w >= all[i - 1]! - 1), 'closing: the pane that stays only grows').toBe(true);
+        // The pane that leaves is covered, not squeezed: it keeps its size to the last frame.
+        expect(closing.end.every((w) => Math.abs(w - at.end) <= 1), `closing, the leaving pane: ${closing.end.join(',')}`).toBe(true);
+        // Nothing of the move is left: the sheet's one-pane state, and nothing written inline.
         expect(closing.moving).toBe(false);
         expect(closing.inline).toBe('');
-        expect(closing.display).toBe('none');
+        expect(closing.endDisplay).toBe('none');
+        expect(closing.endInline).toBe('');
 
         const opening = await sample(page, false);
-        expect(between(opening.widths, full), `opening: ${opening.widths.join(',')}`).toBeGreaterThanOrEqual(2);
-        expect(opening.widths.every((w, i, all) => i === 0 || w >= all[i - 1]! - 1), 'opening only grows').toBe(true);
+        expect(between(opening.start, at.start, at.total), `opening: ${opening.start.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(opening.start.every((w, i, all) => i === 0 || w <= all[i - 1]! + 1), 'opening: the pane that was alone only shrinks').toBe(true);
+        // The pane that arrives is uncovered at the size it will have: nothing in it re-wraps on the way.
+        expect(opening.end.every((w) => Math.abs(w - at.end) <= 1), `opening, the arriving pane: ${opening.end.join(',')}`).toBe(true);
         expect(opening.moving).toBe(false);
         expect(opening.inline).toBe('');
-        expect(Math.abs((await endWidth(page)) - full), 'back at the size it had').toBeLessThanOrEqual(1);
+        expect(opening.endInline).toBe('');
+        expect(await widths(page), 'back at the sizes it had').toEqual(at);
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 
     test('a second change before the first has ended settles on the last one', async ({ page }) => {
         await open(page, 'split');
-        const full = await endWidth(page);
-        const settled = await page.evaluate(() => new Promise<{ moving: boolean; inline: string; single: boolean }>((resolve) => {
+        const at = await widths(page);
+        const settled = await page.evaluate(() => new Promise<{ moving: boolean; inline: string; single: boolean; endInline: string }>((resolve) => {
             const split = document.querySelector('aparte-split') as HTMLElement & { single: boolean };
             split.single = true;
             setTimeout(() => { split.single = false; }, 90);
-            setTimeout(() => resolve({ moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns, single: split.single }), 1000);
+            setTimeout(() => resolve({
+                moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns, single: split.single,
+                endInline: (split.children[2] as HTMLElement).style.inlineSize,
+            }), 1000);
         }));
-        expect(settled).toEqual({ moving: false, inline: '', single: false });
-        expect(Math.abs((await endWidth(page)) - full)).toBeLessThanOrEqual(1);
+        expect(settled).toEqual({ moving: false, inline: '', single: false, endInline: '' });
+        expect(await widths(page)).toEqual(at);
     });
 
     test('a reader who asked for less motion gets the change at once', async ({ page }) => {
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await open(page, 'split');
-        const full = await endWidth(page);
+        const at = await widths(page);
         const closing = await sample(page, true);
-        expect(between(closing.widths, full), `closing: ${closing.widths.join(',')}`).toBe(0);
-        expect(closing.display).toBe('none');
+        expect(between(closing.start, at.start, at.total), `closing: ${closing.start.join(',')}`).toBe(0);
+        expect(closing.endDisplay).toBe('none');
         const opening = await sample(page, false);
-        expect(between(opening.widths, full), `opening: ${opening.widths.join(',')}`).toBe(0);
-        expect(Math.abs((await endWidth(page)) - full)).toBeLessThanOrEqual(1);
+        expect(between(opening.start, at.start, at.total), `opening: ${opening.start.join(',')}`).toBe(0);
+        expect(await widths(page)).toEqual(at);
+    });
+
+    test('a pane named while the split moves does not change the size it comes back to', async ({ page }) => {
+        // What a host does to show a panel: two panes, then which one. The second attribute
+        // commits a position, and it used to be read from tracks that were halfway.
+        const { split } = await open(page, 'split');
+        const at = await widths(page);
+        const position = await split.getAttribute('position');
+        await split.evaluate((el) => { (el as HTMLElement & { single: boolean }).single = true; });
+        await expect(split).not.toHaveAttribute('data-moving');
+        await split.evaluate((el) => {
+            const host = el as HTMLElement & { single: boolean; pane: string };
+            host.single = false;
+            host.pane = 'end';
+        });
+        await expect(split).not.toHaveAttribute('data-moving');
+        expect(await split.getAttribute('position')).toBe(position);
+        expect(await widths(page)).toEqual(at);
     });
 
     test('stacked by its breakpoint, the split has one pane either way and moves nothing', async ({ page }) => {
@@ -668,5 +715,128 @@ test.describe('the split, between one pane and two', () => {
             return { stacked: split.hasAttribute('data-stacked'), closing, opening: split.hasAttribute('data-moving') };
         });
         expect(moved).toEqual({ stacked: true, closing: false, opening: false });
+    });
+});
+
+/**
+ * The chat beside its documents: `<aparte-artifact-panel>` in the split's other pane, wired
+ * by `connectArtifactPanel` (the vanilla example's `?layout=document`).
+ *
+ * The whole chain, in an engine: the tag becomes a card, the card's Open button shows the
+ * document in the panel and opens the pane, the model reads the document's id in the history
+ * and rewrites it, and the panel shows two versions of ONE document. The mock reads the id in
+ * the request it is sent, as a model would, so a tag that came back without it fails here.
+ */
+test.describe('the chat beside its documents', () => {
+    async function openDocuments(page: Page): Promise<{ errors: string[]; chat: ChatPage; split: Locator; panel: Locator }> {
+        const errors = collectPageErrors(page);
+        await installLlmMock(page, { scenario: 'artifact-revise' });
+        await page.goto('/?layout=document');
+        const split = page.locator('aparte-split');
+        await expect(split).toBeVisible();
+        return { errors, chat: new ChatPage(page), split, panel: page.locator('aparte-artifact-panel') };
+    }
+    /** How far apart two boxes' vertical centres are. */
+    const offRow = (a: { y: number; height: number } | null, b: { y: number; height: number } | null): number =>
+        Math.abs((a!.y + a!.height / 2) - (b!.y + b!.height / 2));
+
+    test('with no document yet, the chat has the whole width and the panel draws nothing', async ({ page }) => {
+        const { errors, split, panel } = await openDocuments(page);
+        await expect(split).toHaveAttribute('single', '');
+        await expect(panel).toHaveAttribute('data-empty', '');
+        await expect(panel).toBeHidden();
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+
+    test('a card opens its document in the panel, and Close gives the focus back to the card', async ({ page }) => {
+        // Wide enough for the header to be one row: under 30rem of pane it takes two, which the
+        // phone test below covers. The projects' own viewports sit on either side of that.
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const { errors, chat, split, panel } = await openDocuments(page);
+        await chat.sendAndSettle('write me a page', { expect: 'Tell me what to change' });
+
+        // The wiring turned the card's Open button on; nothing opens by itself.
+        const open = chat.segment('artifact-card').first().locator('[data-action="open"]');
+        await expect(open).toBeVisible();
+        await expect(split).toHaveAttribute('single', '');
+
+        await open.click();
+        await expect(split).not.toHaveAttribute('single');
+        await expect(split, 'the pane has arrived').not.toHaveAttribute('data-moving');
+        await expect(panel).toBeVisible();
+        const title = panel.locator('.aparte-art-panel__title');
+        await expect(title).toHaveText(MOCK_ARTIFACT_TITLE);
+        await expect(title).toBeFocused();
+        // One version: no arrows. The card's tabs and buttons sit in the panel's header row.
+        await expect(panel.locator('.aparte-art-panel__versions')).toBeHidden();
+        const header = await title.boundingBox();
+        expect(offRow(await panel.locator('[data-tab-target="code"]').boundingBox(), header), 'the tabs are on the row of the title').toBeLessThan(header!.height);
+        expect(offRow(await panel.locator('[data-action="copy"]').boundingBox(), header), 'Copy is on the row of the title').toBeLessThan(header!.height);
+        await expect(panel.locator('[data-action="open"]'), 'an open document has no Open button').toHaveCount(0);
+
+        // A page is the model's code: it is shown as source, and runs only on a press.
+        await expect(panel.locator('[data-pane="code"]')).toContainText(`<h1>${MOCK_ARTIFACT_MARK}</h1>`);
+        await expect(panel.locator('iframe')).toHaveCount(0);
+        await panel.locator('[data-tab-target="preview"]').click();
+        const frame = panel.locator('iframe');
+        await expect(frame).toHaveCount(1);
+        const body = await panel.locator('.aparte-art-card__body').boundingBox();
+        const box = await frame.boundingBox();
+        expect(box!.height, 'the preview fills the pane, not a fixed card height').toBeGreaterThan(body!.height - 4);
+
+        await panel.locator('.aparte-art-panel__close').click();
+        await expect(split).toHaveAttribute('single', '');
+        await expect(open).toBeFocused();
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+
+    test('the model rewrites the document it reads the id of: two versions of one document', async ({ page }) => {
+        const { errors, chat, panel } = await openDocuments(page);
+        await chat.sendAndSettle('write me a page', { expect: 'Tell me what to change' });
+        await chat.segment('artifact-card').first().locator('[data-action="open"]').click();
+        await expect(panel.locator('[data-pane="code"]')).toContainText(MOCK_ARTIFACT_MARK);
+
+        await chat.sendAndSettle('make it better', { expect: 'Anything else' });
+
+        // The id went to the model and came back: one document, at its second version, which
+        // the panel followed because nobody had gone back to an older one.
+        await expect(panel.locator('.aparte-art-panel__title')).not.toHaveText(MOCK_ARTIFACT_NO_ID);
+        await expect(panel.locator('.aparte-art-panel__count')).toHaveText('2 / 2');
+        await expect(panel.locator('[data-pane="code"]')).toContainText(MOCK_ARTIFACT_REVISED);
+        const documents = await panel.evaluate((el) => (el as unknown as { readDocuments(): Array<{ versions: unknown[] }> }).readDocuments().map((d) => d.versions.length));
+        expect(documents, 'one document with two versions, not two documents').toEqual([2]);
+
+        // Back to the first version, and forward again.
+        await panel.locator('.aparte-art-panel__version').first().click();
+        await expect(panel.locator('.aparte-art-panel__count')).toHaveText('1 / 2');
+        await expect(panel.locator('[data-pane="code"]')).not.toContainText(MOCK_ARTIFACT_REVISED);
+        await panel.locator('.aparte-art-panel__version').last().click();
+        await expect(panel.locator('[data-pane="code"]')).toContainText(MOCK_ARTIFACT_REVISED);
+
+        // The older card in the conversation opens its own version.
+        await chat.segment('artifact-card').first().locator('[data-action="open"]').click();
+        await expect(panel.locator('.aparte-art-panel__count')).toHaveText('1 / 2');
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+
+    test('on a phone the panel is the second pane, full width, with a way back to the chat', async ({ page }) => {
+        await page.setViewportSize(PHONE);
+        const { errors, chat, split, panel } = await openDocuments(page);
+        await chat.sendAndSettle('write me a page', { expect: 'Tell me what to change' });
+        await chat.segment('artifact-card').first().locator('[data-action="open"]').click();
+
+        await expect(split).toHaveAttribute('data-stacked', '');
+        await expect(split).toHaveAttribute('pane', 'end');
+        await expect(panel).toBeVisible();
+        const box = await panel.boundingBox();
+        expect(box!.width, 'the panel takes the width of the phone').toBeGreaterThan(PHONE.width - 4);
+        // Nothing is cut off on the right: the header fits, on two rows if it has to.
+        const close = await panel.locator('.aparte-art-panel__close').boundingBox();
+        expect(close!.x + close!.width).toBeLessThanOrEqual(PHONE.width);
+
+        await panel.locator('.aparte-art-panel__close').click();
+        await expect(split).toHaveAttribute('pane', 'start');
+        await expect(panel).toBeHidden();
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
 });
