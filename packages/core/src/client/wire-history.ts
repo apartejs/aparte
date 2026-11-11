@@ -161,7 +161,9 @@ export const isInFlight = (m: AparteMessage): boolean => m.status === 'streaming
  * `content` if it has one, else its `fallback`, else nothing. Dropping such a
  * segment would make a document the model had just produced invisible on the very
  * next turn, so it could not be asked to change the thing it had built. An artifact
- * is a plugin's type like any other and follows this rule.
+ * is a plugin's type like any other and follows this rule. Such a segment may also say
+ * what goes around its content (`wire`): the tag a grammar read it from, with the id the
+ * model needs to name it again.
  *
  * `thinking` and `tool_call` stay out on purpose — the first is the model's own
  * scratchpad, and most APIs neither want it back nor bill for it kindly; the
@@ -182,7 +184,11 @@ export function segmentsToWireText(segments: AparteMessage['segments']): string 
         } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
             continue;
         } else if (typeof content === 'string' && content) {
-            parts.push(content);
+            // What the segment says goes around its content (`AparteSegmentBase.wire`).
+            const wire = (segment as { wire?: { before?: unknown; after?: unknown } }).wire;
+            const before = wire && typeof wire.before === 'string' ? wire.before : '';
+            const after = wire && typeof wire.after === 'string' ? wire.after : '';
+            parts.push(`${before}${content}${after}`);
         } else {
             const fallback = (segment as { fallback?: string }).fallback;
             if (fallback) parts.push(fallback);
