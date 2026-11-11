@@ -418,6 +418,8 @@ export class AparteArtifactPanel extends ElementBase {
         const card = template.content.firstElementChild as HTMLElement | null;
         if (!card) return;
         body.append(card);
+        // The card with tabs lends its tabs and its buttons to the panel's header (panel.css).
+        body.classList.toggle('aparte-art-panel__body--card', card.querySelector('.aparte-art-card__tabs') !== null);
         artifactCard.setup(card, segment, { surface: 'panel' });
         this._shown = { key, card, cleanup: null };
     }
@@ -425,6 +427,7 @@ export class AparteArtifactPanel extends ElementBase {
     private _clearBody(): void {
         this._shown?.cleanup?.();
         this._shown = null;
+        this._body?.classList.remove('aparte-art-panel__body--card');
         this._body?.replaceChildren();
     }
 
