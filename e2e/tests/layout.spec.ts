@@ -594,6 +594,12 @@ test.describe('the split, between one pane and two', () => {
         inline: string;
         endDisplay: string;
         endInline: string;
+        /**
+         * The CSS transitions running on the split's tracks right after the change. A count of
+         * frames alone depends on how fast the engine paints: WebKit on a loaded CI runner gave
+         * two frames for the whole 0.3s move. A transition that runs is the motion itself.
+         */
+        transitions: number;
     }
 
     /** Set `single` and read both panes on every frame until the split has settled. */
@@ -605,6 +611,8 @@ test.describe('the split, between one pane and two', () => {
             const end: number[] = [];
             const began = performance.now();
             split.single = to;
+            const transitions = split.getAnimations()
+                .filter((a) => (a as Animation & { transitionProperty?: string }).transitionProperty?.startsWith('grid-template')).length;
             const tick = (): void => {
                 start.push(Math.round(first!.getBoundingClientRect().width));
                 if (getComputedStyle(last!).display !== 'none') end.push(Math.round(last!.getBoundingClientRect().width));
@@ -612,7 +620,7 @@ test.describe('the split, between one pane and two', () => {
                 if ((!split.hasAttribute('data-moving') && elapsed > 60) || elapsed > 3000) {
                     resolve({
                         start, end, moving: split.hasAttribute('data-moving'), inline: split.style.gridTemplateColumns,
-                        endDisplay: getComputedStyle(last!).display, endInline: last!.style.inlineSize,
+                        endDisplay: getComputedStyle(last!).display, endInline: last!.style.inlineSize, transitions,
                     });
                 } else {
                     requestAnimationFrame(tick);
@@ -636,7 +644,8 @@ test.describe('the split, between one pane and two', () => {
         expect(at.end, 'there is a second pane to move').toBeGreaterThan(200);
 
         const closing = await sample(page, true);
-        expect(between(closing.start, at.start, at.total), `closing: ${closing.start.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(closing.transitions, 'closing: the tracks are in a transition').toBeGreaterThanOrEqual(1);
+        expect(between(closing.start, at.start, at.total), `closing: ${closing.start.join(',')}`).toBeGreaterThanOrEqual(1);
         expect(closing.start.every((w, i, all) => i === 0 || w >= all[i - 1]! - 1), 'closing: the pane that stays only grows').toBe(true);
         // The pane that leaves is covered, not squeezed: it keeps its size to the last frame.
         expect(closing.end.every((w) => Math.abs(w - at.end) <= 1), `closing, the leaving pane: ${closing.end.join(',')}`).toBe(true);
@@ -647,7 +656,8 @@ test.describe('the split, between one pane and two', () => {
         expect(closing.endInline).toBe('');
 
         const opening = await sample(page, false);
-        expect(between(opening.start, at.start, at.total), `opening: ${opening.start.join(',')}`).toBeGreaterThanOrEqual(2);
+        expect(opening.transitions, 'opening: the tracks are in a transition').toBeGreaterThanOrEqual(1);
+        expect(between(opening.start, at.start, at.total), `opening: ${opening.start.join(',')}`).toBeGreaterThanOrEqual(1);
         expect(opening.start.every((w, i, all) => i === 0 || w <= all[i - 1]! + 1), 'opening: the pane that was alone only shrinks').toBe(true);
         // The pane that arrives is uncovered at the size it will have: nothing in it re-wraps on the way.
         expect(opening.end.every((w) => Math.abs(w - at.end) <= 1), `opening, the arriving pane: ${opening.end.join(',')}`).toBe(true);
@@ -680,6 +690,7 @@ test.describe('the split, between one pane and two', () => {
         const at = await widths(page);
         const closing = await sample(page, true);
         expect(between(closing.start, at.start, at.total), `closing: ${closing.start.join(',')}`).toBe(0);
+        expect(closing.transitions, 'no transition at all').toBe(0);
         expect(closing.endDisplay).toBe('none');
         const opening = await sample(page, false);
         expect(between(opening.start, at.start, at.total), `opening: ${opening.start.join(',')}`).toBe(0);
