@@ -163,6 +163,12 @@ aparte-artifact-panel > [slot='actions'] {
     min-block-size: 0;
 }
 
+/* The source fills the pane on the code's own ground: in a reply the block ends with the
+   code, in a pane a block that stopped halfway would leave the rest another colour. */
+.aparte-art-panel__body--card .aparte-art-card__pane[data-pane='code'] {
+    background: var(--aparte-code-bg);
+}
+
 /* A narrow pane: the title keeps the first row with Close, the rest takes the second. A
    container query cannot restyle its own container, which is why that row always exists. */
 @container (max-width: 30rem) {
