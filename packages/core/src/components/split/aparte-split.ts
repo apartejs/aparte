@@ -457,6 +457,17 @@ export class AparteSplit extends HTMLElement {
 
     // ─── One pane ↔ two, in motion ────────────────────────────────────────
 
+    /**
+     * No layout worth reading: one pane is shown, or the tracks are in motion between one
+     * and two. Whatever measures the panes or moves the seam asks this, not `stacked`
+     * alone: a `pane` named while the split moves commits a position, and read from tracks
+     * that are halfway it wrote the full width into `position`, so the split came back at
+     * its maximum instead of the size it had.
+     */
+    private get _unmeasurable(): boolean {
+        return this.stacked || this.hasAttribute('data-moving');
+    }
+
     /** Ends the move in flight: the inline tracks and the marker go, the sheet's state stays. */
     private _endMove: (() => void) | null = null;
 
@@ -492,8 +503,24 @@ export class AparteSplit extends HTMLElement {
             this.removeAttribute('data-moving');
             return;
         }
-        const one = this.pane === 'end' ? `0px 0px ${full}px` : `${full}px 0px 0px`;
+        const shownAlone = this.pane === 'end' ? 'end' : 'start';
+        const one = shownAlone === 'end' ? `0px 0px ${full}px` : `${full}px 0px 0px`;
         const toSingle = this.single;
+
+        // The pane that arrives or leaves keeps the size it has beside the other one, and
+        // is uncovered or covered by its track: laid out at every width between nothing and
+        // that size it would re-wrap on each frame, and a pane with its own narrow layout
+        // would flash it. It holds on to the edge it shares with the split, so the start
+        // pane comes in from the start and the end pane from the end.
+        const sizes = two.trim().split(/\s+/);
+        const other = this.children[shownAlone === 'end' ? 0 : 2] as HTMLElement | undefined;
+        const size = vertical ? 'blockSize' : 'inlineSize';
+        const align = vertical ? 'alignSelf' : 'justifySelf';
+        const kept = other ? { size: other.style[size], align: other.style[align] } : null;
+        if (other) {
+            other.style[size] = sizes[shownAlone === 'end' ? 0 : 2]!;
+            other.style[align] = shownAlone === 'end' ? 'end' : 'start';
+        }
 
         this.style[tracks] = toSingle ? two : one;
         // The starting tracks have to be laid out before the transition is switched on.
@@ -509,6 +536,10 @@ export class AparteSplit extends HTMLElement {
             if (timer !== null) clearTimeout(timer);
             this.removeEventListener('transitionend', onEnd);
             this.style.removeProperty(vertical ? 'grid-template-rows' : 'grid-template-columns');
+            if (other && kept) {
+                other.style[size] = kept.size;
+                other.style[align] = kept.align;
+            }
             this.removeAttribute('data-moving');
             this._endMove = null;
             this._measureBounds();
@@ -609,7 +640,7 @@ export class AparteSplit extends HTMLElement {
      * host's storage when "Preview" is tapped on a phone.
      */
     private _achievedPercent(): number {
-        if (this.stacked) return this._position;
+        if (this._unmeasurable) return this._position;
         const total = this._measure(this);
         const pane = this._primaryPane();
         if (!pane || !(total > 0)) return this._position;
@@ -635,7 +666,7 @@ export class AparteSplit extends HTMLElement {
      */
     private _measureBounds(): void {
         const handle = this._handle;
-        if (!handle || this._dragging || this.stacked) return;
+        if (!handle || this._dragging || this._unmeasurable) return;
         const pane = this._primaryPane();
         const total = this._measure(this);
         if (!pane || !(total > 0)) {
@@ -723,7 +754,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     private _onPointerDown = (event: PointerEvent): void => {
-        if (this.disabled || this.stacked || this._dragging) return;
+        if (this.disabled || this._unmeasurable || this._dragging) return;
         if (event.button > 0) return;
         // Not the browser's default: without this a drag starts a text selection in the
         // pane the pointer crosses. The focus that preventDefault costs is given back
@@ -883,7 +914,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     private _onDoubleClick = (): void => {
-        if (this.disabled || this.stacked) return;
+        if (this.disabled || this._unmeasurable) return;
         this.reset();
     };
 
@@ -895,7 +926,7 @@ export class AparteSplit extends HTMLElement {
             this._endDrag('pointer', this._dragStartPercent);
             return;
         }
-        if (this.disabled || this.stacked || event.target !== this._handle) return;
+        if (this.disabled || this._unmeasurable || event.target !== this._handle) return;
         if (event.key === 'Enter') {
             event.preventDefault();
             this._source = 'keyboard';
