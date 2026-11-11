@@ -228,6 +228,25 @@ describe('measureContext', () => {
         expect(m.other).toBe(0);
     });
 
+    it("counts no tool and no tool instruction for a model that is sent none", () => {
+        const c = config();
+        c.registerAIProvider({
+            id: 'mock',
+            getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M', capabilities: ['chat'] }],
+            chat: async () => '',
+        } as never);
+        c.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        c.setSystemPrompt('s'.repeat(380));
+        c.registerTool(
+            { name: 'search', description: 'd'.repeat(380), inputSchema: { type: 'object' }, systemPrompt: 'p'.repeat(380) },
+            async () => ({ toolCallId: 'search', content: 'ok' }),
+        );
+        const m = measureContext({ messages: [user('u1', text(380))], config: c });
+        expect(m.parts.tools).toBe(0);
+        expect(m.parts.system, "the app's prompt alone, not the tool's").toBe(100);
+    });
+
     it('measures the view after a checkpoint: the summary and the messages from it, not the ones it replaces', () => {
         const messages = [
             user('u1', text(3800)),

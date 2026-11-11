@@ -1619,9 +1619,16 @@ export class AparteConfig {
      * system message after the app's own ({@link AparteConfig.resolveSystemPrompt | resolveSystemPrompt()});
      * a request you assemble yourself should send them the same way, or the model loses the
      * tools' instructions.
+     *
+     * Pass the tools the request actually carries, and only theirs come back: an instruction
+     * to use a tool the model was not given (a model without `function_calling`, a turn sent
+     * with `toolChoice: 'none'`) has it describe a call it cannot make. Without the argument,
+     * every registered tool's.
      */
-    resolveToolSystemPrompts(): string | null {
+    resolveToolSystemPrompts(tools?: readonly AparteTool[]): string | null {
+        const sent = tools ? new Set(tools.map((tool) => tool.name)) : null;
         const prompts = Array.from(this._tools.values())
+            .filter((entry) => !sent || sent.has(entry.tool.name))
             .map((entry) => entry.tool.systemPrompt?.trim())
             .filter((prompt): prompt is string => Boolean(prompt));
         return prompts.length ? prompts.join('\n\n') : null;

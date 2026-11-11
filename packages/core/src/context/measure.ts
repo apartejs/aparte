@@ -218,9 +218,11 @@ function nextRequestTokens(reply: AparteMessage, k: number): number {
 export function measureContext(input: AparteContextMeasureInput): AparteContextMeasure {
     const { messages, config } = input;
     const view = historyFromCheckpoint(messages);
-    const system = estimateTokens(config.resolveSystemPrompt()) + estimateTokens(config.resolveToolSystemPrompts());
+    const sent = toolsForCurrentModel(config);
+    // The tools' instructions go with the tools: none for a model that is sent none.
+    const system = estimateTokens(config.resolveSystemPrompt()) + estimateTokens(config.resolveToolSystemPrompts(sent));
     // The definitions as a provider is sent them. An empty list is nothing, not the two characters of `[]`.
-    const declared = toolsForCurrentModel(config).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+    const declared = sent.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
     const tools = declared.length ? estimateJson(declared) : 0;
     const summary = view.summary === undefined ? 0 : estimateTokens(underPreamble(view.summary));
     const parts = { system, tools, summary, messages: estimateWireTokens(view.messages) };

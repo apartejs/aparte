@@ -100,6 +100,44 @@ describe("a registered tool's systemPrompt", () => {
         expect((seen[0]?.messages ?? []).filter((m) => m.role === 'system')).toHaveLength(0);
     });
 
+    // A tool's instruction travels with the tool. A model told to "use create_artifact" in a
+    // request that carries no create_artifact either describes a call it cannot make or writes
+    // one out as text: the instruction is only true where the tool is.
+    it('stays out when the model declines tools, as the tool itself does', async () => {
+        const { cfg, el, seen } = harness();
+        cfg.registerAIProvider({
+            id: 'mock',
+            getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M', capabilities: ['chat'] }],
+            chat: async () => '',
+        } as never);
+        cfg.registerTool(tool('delete_file', 'TOOL INSTRUCTION'), async () => ({ toolCallId: 't', content: 'ok' }));
+        await send(cfg, el);
+
+        expect(seen[0]?.tools).toBeUndefined();
+        expect(systemText(seen)).not.toContain('TOOL INSTRUCTION');
+    });
+
+    it("stays out when a request interceptor sets toolChoice: 'none'", async () => {
+        const { cfg, el, seen } = harness();
+        cfg.setSystemPrompt('You are a careful assistant.');
+        cfg.registerTool(tool('delete_file', 'TOOL INSTRUCTION'), async () => ({ toolCallId: 't', content: 'ok' }));
+        const client = new AparteClient({
+            config: cfg,
+            autoRegister: false,
+            targetResolver: () => el as never,
+            requestInterceptor: (request) => ({ ...request, toolChoice: 'none' }),
+        });
+        await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+            new CustomEvent('aparte-send', { detail: { content: 'hello' } }),
+        );
+
+        expect(seen[0]?.tools).toBeUndefined();
+        expect(systemText(seen)).not.toContain('TOOL INSTRUCTION');
+        // Only the tool's line leaves: the app's own prompt is not the tool's to take with it.
+        expect(systemText(seen)).toContain('You are a careful assistant.');
+    });
+
     it("stays separate from the app's own system prompt, and comes after it", async () => {
         const { cfg, el, seen } = harness();
         cfg.setSystemPrompt('You are a careful assistant.');
