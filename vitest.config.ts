@@ -213,11 +213,11 @@ const config = defineConfig({
         // suite measured 96.64%, and the ratchet asked.
         // Core functions 92 -> 94 (2026-10-25): the wrappers-native lot's renderer-lifecycle,
         // defer-hydration and echo tests; the ratchet asked.
-        'packages/core/src/**': { lines: 95, statements: 95, functions: 94, branches: 90 },
+        'packages/core/src/**': { lines: 95, statements: 95, functions: 94, branches: 92 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/all/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
-        'packages/plugins/artifacts/src/**': { lines: 90, statements: 90, functions: 94, branches: 79 },
+        'packages/plugins/artifacts/src/**': { lines: 93, statements: 93, functions: 96, branches: 84 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         // plugin-cards (2026-10-31): measured 99.07 / 94.87 / 98.84 over the kit and eleven cards.
         'packages/plugins/cards/src/**': { lines: 98, statements: 98, functions: 98, branches: 94 },
