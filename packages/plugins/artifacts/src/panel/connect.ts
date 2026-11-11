@@ -65,8 +65,10 @@ export function connectArtifactPanel(options: ConnectArtifactPanelOptions): () =
 
     const open = (focus: boolean): void => {
         if (split) {
-            split.pane = panelPane;
+            // Two panes first, from the chat alone: the split moves from what is on screen.
+            // Naming the pane first would show the panel alone for a frame.
             split.single = false;
+            split.pane = panelPane;
         }
         options.onOpen?.();
         if (focus) panel.focusTitle();
