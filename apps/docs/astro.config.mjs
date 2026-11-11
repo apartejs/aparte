@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
@@ -12,6 +12,9 @@ import { guideGroups } from './scripts/lib/guides.mjs';
 import { CHANGELOG_COMPARE } from './src/lib/changelog-compare.mjs';
 import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 import { LLMS_SETS } from './src/data/llms-sets.mjs';
+
+/** Page path → the day its source last changed, kept by scripts/gen-lastmod.mjs and the pre-commit hook. */
+const LASTMOD = JSON.parse(readFileSync(new URL('./src/data/lastmod.json', import.meta.url), 'utf8'));
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -127,6 +130,8 @@ export default defineConfig({
         // The landing's reply (`poster="reply"`): a card, a formula and a chart.
         const card = path === '/' ? 'reply' : /^\/components\/([\w-]+)-card\/$/.exec(path)?.[1];
         if (card && existsSync(`public/cards/${card}.png`)) item.img = [{ url: `https://apartejs.dev/cards/${card}.png` }];
+        // When the page's source last changed (scripts/gen-lastmod.mjs says why it is a file).
+        if (LASTMOD[path]) item.lastmod = LASTMOD[path];
         return item;
       },
     }),

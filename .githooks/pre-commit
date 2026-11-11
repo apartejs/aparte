@@ -25,6 +25,11 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 printf '\n[aparte] pre-commit: lint + typecheck of what is staged\n'
 
+# A docs page in the commit: its sitemap date becomes today (apps/docs/scripts/gen-lastmod.mjs).
+if printf '%s\n' "$staged" | grep -qE '^apps/docs/src/(content/docs/.*\.mdx?|pages/.*\.astro)$'; then
+    node apps/docs/scripts/gen-lastmod.mjs --staged
+fi
+
 # eslint's own config decides what it reads; files it ignores are skipped, not errors.
 lintable=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|mjs|cjs|mts|cts|svelte|vue)$' || true)
 if [ -n "$lintable" ]; then
