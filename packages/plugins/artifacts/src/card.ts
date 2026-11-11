@@ -17,7 +17,7 @@
  * applied to a tier-(c) affordance. The document it mounts comes from
  * `./preview-document.ts`, or from the consumer's own builder.
  */
-import { escapeHtml, escapeAttr, copyText, contextConfig } from '@aparte/core';
+import { escapeHtml, escapeAttr, copyText, contextConfig, renderCodeLanguages } from '@aparte/core';
 import type { AparteSegmentRenderer } from '@aparte/core';
 import { ARTIFACT_SEGMENT_TYPE, type ArtifactSegment } from './segment.js';
 import { deriveArtifactKind } from './kinds.js';
@@ -262,6 +262,9 @@ const card = {
         cardOptions.set(element, options);
         latestSegment.set(element, segment);
         announceChange(element, options);
+        // A document read as prose has its charts and diagrams drawn, as a reply's are.
+        const prosePane = element.querySelector('.aparte-art-card__prose');
+        if (prosePane) renderCodeLanguages(prosePane);
         const kind = (segment.artifactType || '').toLowerCase();
         if (BINARY_FILE_KINDS.has(kind)) {
             setupBinaryFileArtifact(element, segment, kind);
@@ -510,7 +513,9 @@ function scheduleProse(element: HTMLElement): void {
         const pane = element.querySelector('.aparte-art-card__pane[data-pane="preview"]');
         const segment = latestSegment.get(element);
         // Static markup built by `proseMarkup`: the Markdown provider's output, sanitised by core.
-        if (pane && segment) pane.innerHTML = proseMarkup(documentOf(segment));
+        if (!pane || !segment) return;
+        pane.innerHTML = proseMarkup(documentOf(segment));
+        renderCodeLanguages(pane);
     };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(paint);
     else paint();

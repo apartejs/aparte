@@ -93,6 +93,20 @@ describe('the card as the panel body', () => {
         expect(element.querySelector('[data-pane="preview"] h1')?.textContent).toBe('Plan B');
     });
 
+    it('a chart or a diagram inside the document is drawn, as it is in a reply', async () => {
+        aparteGlobalConfig.setMarkdownProvider(() => '<p>Sales</p><pre><code class="language-mermaid">flowchart TD</code></pre>');
+        aparteGlobalConfig.registerCodeLanguageRenderer({ languages: ['mermaid'], render: () => '<img class="aparte-diagram" alt="Diagram">' });
+        const element = mount(note(), 'panel');
+        await frame();
+        expect(element.querySelector('[data-pane="preview"] img.aparte-diagram')).not.toBeNull();
+
+        // And again after the document changed.
+        artifactCard.update(element, { ...note(), content: '# Plan, revised' });
+        await frame();
+        await frame();
+        expect(element.querySelector('[data-pane="preview"] img.aparte-diagram')).not.toBeNull();
+    });
+
     it('Open says which document and which appearance of it', () => {
         const element = mount(note());
         let detail: { documentId?: string; segmentId?: string } = {};
