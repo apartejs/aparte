@@ -100,7 +100,8 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
         plugins: ['artifacts', 'markdown'],
         html: `<!-- In your app: import { setupArtifacts } from '@aparte/plugin-artifacts';
                   import { connectArtifactPanel } from '@aparte/plugin-artifacts/panel'. -->
-<aparte-split position="42" single style="height: 26rem">
+<!-- breakpoint: under 24rem the split shows one pane (48rem by default; this frame is narrower). -->
+<aparte-split position="38" breakpoint="24rem" single style="height: 26rem">
   <aparte-chat id="chat">
     <aparte-chat-viewport></aparte-chat-viewport>
   </aparte-chat>

@@ -749,7 +749,7 @@ test.describe('the chat beside its documents', () => {
     });
 
     test('a card opens its document in the panel, and Close gives the focus back to the card', async ({ page }) => {
-        // Wide enough for the header to be one row: under 30rem of pane it takes two, which the
+        // Wide enough for the header to be one row: under 26rem of pane it takes two, which the
         // phone test below covers. The projects' own viewports sit on either side of that.
         await page.setViewportSize({ width: 1440, height: 900 });
         const { errors, chat, split, panel } = await openDocuments(page);
