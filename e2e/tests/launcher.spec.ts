@@ -2,10 +2,11 @@
  * `<aparte-launcher>` — the chat that floats in a corner of the window.
  *
  * Driven through the vanilla example's `?layout=launcher`, which moves the page's chat
- * into a launcher. What only a browser shows: the button fixed at the window's bottom
- * inline-end corner, the card opening above it, the focus going into the composer and
- * back, a whole turn answered inside the card, and on a phone the open chat filling the
- * window. Geometry is compared with the viewport, never with a pixel constant.
+ * into a launcher, with the header it draws and its maximize button. What only a browser
+ * shows: the button fixed at the window's bottom inline-end corner, the card opening above
+ * it under its header, the focus going into the composer and back, a whole turn answered
+ * inside the card, the card enlarged and brought back, and on a phone the open chat filling
+ * the window. Geometry is compared with the viewport, never with a pixel constant.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -27,6 +28,7 @@ async function open(page: Page): Promise<{ errors: string[]; chat: ChatPage }> {
 
 const button = (page: Page) => page.locator('aparte-launcher .aparte-launcher__button');
 const card = (page: Page) => page.locator('aparte-launcher > aparte-chat');
+const header = (page: Page) => page.locator('aparte-launcher > .aparte-launcher__header');
 
 /** The card's opening slide finished: measured during it, the card sits a few pixels low. */
 async function settled(page: Page): Promise<void> {
@@ -65,6 +67,115 @@ test.describe('the launcher, at desktop width', () => {
         await chat.sendAndSettle('hello from the corner');
         await expect(chat.bubbles('assistant').last()).toBeVisible();
         expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('heads the card with its header, joined to it, and closes from its ✕ or the button', async ({ page }) => {
+        await open(page);
+        await button(page).click();
+        await settled(page);
+        await expect(header(page)).toBeVisible();
+        // No heading: the button's label titles it.
+        await expect(header(page).locator('.aparte-launcher__title')).toHaveText('Help');
+        const headerBox = (await header(page).boundingBox())!;
+        const cardBox = (await card(page).boundingBox())!;
+        // One card: the same column, the header's lower edge on the chat's upper one.
+        expect(Math.abs(headerBox.x - cardBox.x)).toBeLessThan(1);
+        expect(Math.abs(headerBox.width - cardBox.width)).toBeLessThan(1);
+        expect(Math.abs(headerBox.y + headerBox.height - cardBox.y)).toBeLessThan(1);
+        // Open, the button is a close control, as a launcher's is everywhere.
+        await expect(button(page)).toHaveAttribute('aria-label', 'Close the chat');
+        await header(page).locator('.aparte-launcher__close').click();
+        await expect(card(page)).toBeHidden();
+        await expect(button(page)).toBeFocused();
+    });
+
+    test('gives a taller header its room from the card, and keeps the window its height', async ({ page }) => {
+        // A theme that makes the header taller — n8n's, a 2em title over a line that wraps —
+        // must not push the window past its height: the card under it gives up the room.
+        await open(page);
+        await button(page).click();
+        await settled(page);
+        const measure = async () => {
+            const h = (await header(page).boundingBox())!;
+            const c = (await card(page).boundingBox())!;
+            return { header: h.height, total: c.y + c.height - h.y };
+        };
+        const before = await measure();
+        await page.addStyleTag({ content: 'aparte-launcher > .aparte-launcher__header { padding: 1rem } .aparte-launcher__title { font-size: 2em }' });
+        await expect.poll(async () => (await measure()).header).toBeGreaterThan(before.header + 10);
+        const after = await measure();
+        expect(Math.abs(after.total - before.total)).toBeLessThan(1);
+        const cardBottom = (await card(page).boundingBox())!;
+        expect(cardBottom.y + cardBottom.height).toBeLessThanOrEqual((await button(page).boundingBox())!.y);
+    });
+
+    test('maximizes to the whole window, keeps Tab inside, and brings the card back', async ({ page }) => {
+        const { errors } = await open(page);
+        await button(page).click();
+        await settled(page);
+        const before = (await card(page).boundingBox())!;
+        const maximize = header(page).locator('.aparte-launcher__maximize');
+        await expect(maximize).toHaveAttribute('aria-label', 'Expand the chat');
+        // Pressed and read in one task: `getAnimations()` flushes the style, so the animation
+        // the attribute starts is there to see whatever the machine's frame rate.
+        const growing = await page.evaluate(() => {
+            document.querySelector<HTMLElement>('aparte-launcher .aparte-launcher__maximize')!.click();
+            const chat = document.querySelector('aparte-launcher > aparte-chat')!;
+            return chat.getAnimations().some((a) => a instanceof CSSAnimation && a.animationName === 'aparte-fade-in');
+        });
+        expect(growing, 'the maximized chat fades in').toBe(true);
+        await expect(page.locator('aparte-launcher')).toHaveAttribute('maximized', '');
+        await settled(page);
+        const view = page.viewportSize()!;
+        const headerBox = (await header(page).boundingBox())!;
+        const after = (await card(page).boundingBox())!;
+        expect(Math.round(headerBox.x)).toBe(0);
+        expect(Math.round(headerBox.y)).toBe(0);
+        expect(Math.round(headerBox.width)).toBe(view.width);
+        expect(Math.round(after.y)).toBe(Math.round(headerBox.y + headerBox.height));
+        expect(Math.round(after.y + after.height)).toBe(view.height);
+        // The header holds the ✕, so the button goes, and the page behind is out of reach.
+        await expect(button(page)).toBeHidden();
+        expect(await page.locator('aparte-launcher').evaluate((el) => (el as HTMLElement & { covers: boolean }).covers)).toBe(true);
+        for (let i = 0; i < 20; i++) {
+            await page.keyboard.press('Tab');
+            const inside = await page.evaluate(() => !!document.activeElement?.closest('aparte-launcher'));
+            expect(inside, `focus left the maximized chat after ${i + 1} Tab presses`).toBe(true);
+        }
+        await expect(maximize).toHaveAttribute('aria-label', 'Shrink the chat');
+        await maximize.click();
+        await expect(page.locator('aparte-launcher')).not.toHaveAttribute('maximized', '');
+        await expect(maximize).toBeFocused();
+        await settled(page);
+        const back = (await card(page).boundingBox())!;
+        expect(Math.round(back.width)).toBe(Math.round(before.width));
+        expect(Math.round(back.height)).toBe(Math.round(before.height));
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('maximizes to a panel beside the page with maximizable="panel", and leaves the page in reach', async ({ page }) => {
+        await open(page);
+        await page.locator('aparte-launcher').evaluate((el) => el.setAttribute('maximizable', 'panel'));
+        await button(page).click();
+        await settled(page);
+        await header(page).locator('.aparte-launcher__maximize').click();
+        await settled(page);
+        const view = page.viewportSize()!;
+        const panel = (await page.locator('aparte-launcher').boundingBox())!;
+        // Along the inline-end edge, the window's height, narrower than the window.
+        expect(Math.round(panel.x + panel.width)).toBe(view.width);
+        expect(Math.round(panel.y)).toBe(0);
+        expect(Math.round(panel.height)).toBe(view.height);
+        expect(panel.width).toBeLessThan(view.width);
+        expect(await page.locator('aparte-launcher').evaluate((el) => (el as HTMLElement & { covers: boolean }).covers)).toBe(false);
+        // Tab is free: the page beside the panel is still in reach.
+        await header(page).locator('.aparte-launcher__close').focus();
+        let left = false;
+        for (let i = 0; i < 40 && !left; i++) {
+            await page.keyboard.press('Tab');
+            left = await page.evaluate(() => !document.activeElement?.closest('aparte-launcher'));
+        }
+        expect(left, 'Tab reaches the page beside the panel').toBe(true);
     });
 
     test('closes on Escape and on its button, handing the focus back to the button', async ({ page }) => {
@@ -210,12 +321,63 @@ test.describe('the launcher, at desktop width', () => {
     });
 });
 
+test.describe('the launcher as a panel on a window narrower than the panel', () => {
+    // Over the 30rem breakpoint, so a card; under the panel's 36rem, so the panel is the
+    // whole window — and then it covers the page, Tab stays inside, and `covers` says so.
+    test.use({ viewport: { width: 540, height: 800 } });
+
+    test('covers the window, says so, and keeps Tab inside', async ({ page }) => {
+        await open(page);
+        await page.locator('aparte-launcher').evaluate((el) => el.setAttribute('maximizable', 'panel'));
+        await button(page).click();
+        await settled(page);
+        await header(page).locator('.aparte-launcher__maximize').click();
+        await settled(page);
+        const panel = (await page.locator('aparte-launcher').boundingBox())!;
+        expect(Math.round(panel.x)).toBe(0);
+        expect(await page.locator('aparte-launcher').evaluate((el) => (el as HTMLElement & { covers: boolean }).covers)).toBe(true);
+        for (let i = 0; i < 20; i++) {
+            await page.keyboard.press('Tab');
+            const inside = await page.evaluate(() => !!document.activeElement?.closest('aparte-launcher'));
+            expect(inside, `focus left the panel after ${i + 1} Tab presses`).toBe(true);
+        }
+    });
+});
+
 test.describe('the launcher, on a phone', () => {
     test.use({ viewport: PHONE });
 
-    test('fills the window with the open chat, and closes from the button in the top corner', async ({ page }) => {
+    test("fills the window with its header and the chat, and closes from the header's ✕", async ({ page }) => {
         const { errors } = await open(page);
         await expect(page.locator('aparte-launcher')).toHaveAttribute('data-sheet', '');
+        await button(page).click();
+        await settled(page);
+        const headerBox = (await header(page).boundingBox())!;
+        const cardBox = (await card(page).boundingBox())!;
+        expect(Math.round(headerBox.x)).toBe(0);
+        expect(Math.round(headerBox.y)).toBe(0);
+        expect(Math.round(headerBox.width)).toBe(PHONE.width);
+        expect(Math.round(cardBox.y)).toBe(Math.round(headerBox.y + headerBox.height));
+        expect(Math.round(cardBox.y + cardBox.height)).toBe(PHONE.height);
+        // The composer keeps the chat's gap under it: the sheet used to erase it, and the
+        // composer sat on the window's lower edge.
+        const composerBox = (await page.locator('aparte-launcher aparte-composer').first().boundingBox())!;
+        expect(PHONE.height - (composerBox.y + composerBox.height)).toBeGreaterThan(4);
+        // Its header holds the ✕, so the button goes; and a sheet has nothing left to enlarge.
+        await expect(button(page)).toBeHidden();
+        await expect(header(page).locator('.aparte-launcher__maximize')).toBeHidden();
+        await header(page).locator('.aparte-launcher__close').click();
+        await expect(card(page)).toBeHidden();
+        await expect(button(page)).toBeFocused();
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('without its header, fills the window and closes from the button in the top corner', async ({ page }) => {
+        const { errors } = await open(page);
+        await page.locator('aparte-launcher').evaluate((el) => {
+            (el as HTMLElement & { header: boolean }).header = false;
+        });
+        await expect(header(page)).toHaveCount(0);
         await button(page).click();
         await settled(page);
         const cardBox = (await card(page).boundingBox())!;

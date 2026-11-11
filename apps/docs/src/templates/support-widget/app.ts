@@ -46,25 +46,25 @@ type Chat = HTMLElement & { viewport: Viewport | null };
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
 
 const launcher = document.querySelector<AparteLauncher>('aparte-launcher.sw-widget')!;
-const panel = launcher.querySelector<HTMLElement>('.sw-panel')!;
-const chat = panel.querySelector<Chat>('aparte-chat')!;
-const composer = panel.querySelector<Composer>('aparte-composer')!;
-const input = panel.querySelector<HTMLElement & { focusEnd(): void }>('aparte-composer-input')!;
-const suggestions = panel.querySelector<HTMLElement>('aparte-suggestions')!;
+const chat = launcher.querySelector<Chat>('aparte-chat')!;
+const composer = launcher.querySelector<Composer>('aparte-composer')!;
+const input = launcher.querySelector<HTMLElement & { focusEnd(): void }>('aparte-composer-input')!;
+const suggestions = launcher.querySelector<HTMLElement>('aparte-suggestions')!;
 const site = document.querySelector<HTMLElement>('.sw-site')!;
-const status = panel.querySelector<HTMLElement & { show(): void; hide(): void }>('aparte-chat-status')!;
+const status = launcher.querySelector<HTMLElement & { show(): void; hide(): void }>('aparte-chat-status')!;
 
 // ── The launcher ─────────────────────────────────────────────────────────────────────────────
-// The launcher opens, closes and moves the focus; the ✕ in the card's header closes it through
-// `data-aparte-launcher-close`. The panel starts open, so a visitor sees it (on a phone it
-// would cover the whole site, so there it starts closed); nothing takes the focus until they act.
+// The launcher opens, closes and moves the focus, and draws the header: Wren's name, the line
+// under it, the button that enlarges the chat and the ✕. The chat starts open, so a visitor
+// sees it (on a phone it would cover the whole site, so there it starts closed); nothing takes
+// the focus until they act.
 
 /**
- * An open sheet covers the site: take it out of the tab order and the accessibility tree
- * meanwhile. The toggle fires again when the window crosses the breakpoint while it is open.
+ * An open chat that covers the site — the sheet on a phone — takes it out of the tab order
+ * and the accessibility tree meanwhile. Maximized here it is a panel, and the site stays. The toggle fires again when the window crosses the breakpoint while it is open.
  */
 function syncSite(): void {
-    site.inert = launcher.open && launcher.sheet;
+    site.inert = launcher.covers;
 }
 launcher.addEventListener('aparte-launcher-toggle', syncSite);
 
@@ -85,10 +85,10 @@ chat.addEventListener('aparte-send', () => {
 });
 
 // ── The person behind the assistant ─────────────────────────────────────────────────────────
+// When a person joins, the header says so: the launcher's header follows its attributes.
 setupHandoff(chat, status, () => {
-    panel.querySelector<HTMLElement>('.sw-panel__agent')!.hidden = false;
-    panel.querySelector('.sw-panel__title')!.textContent = `${AGENT.firstName} and ${ASSISTANT_NAME}`;
-    panel.querySelector('.sw-panel__status-text')!.textContent = `${AGENT.firstName} from ${AGENT.team} is here.`;
+    launcher.setAttribute('heading', `${AGENT.firstName} and ${ASSISTANT_NAME}`);
+    launcher.setAttribute('subheading', `${AGENT.firstName} from ${AGENT.team} is here.`);
 });
 
 // ── The modes ────────────────────────────────────────────────────────────────────────────────

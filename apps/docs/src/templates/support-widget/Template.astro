@@ -2,10 +2,10 @@
 /**
  * The Support widget template: the website of Kilnhouse, an invented booking app for craft
  * studios, with its help chat in the corner. The page is a backdrop made of kit recipes; the
- * widget is an <aparte-launcher> around a card of Kilnhouse's own, which holds a hand-composed
- * <aparte-chat>. The behaviour is app.ts.
+ * widget is an <aparte-launcher>, whose header names Wren, around a hand-composed <aparte-chat>.
+ * The behaviour is app.ts.
  */
-import { AGENT, ASSISTANT_NAME, MARK_SVG } from './brand';
+import { ASSISTANT_NAME, MARK_SVG } from './brand';
 import './support-widget.css';
 
 const suggestions = JSON.stringify([
@@ -109,24 +109,8 @@ const suggestions = JSON.stringify([
         </footer>
     </div>
 
-    <aparte-launcher class="sw-widget" label="Help" open>
-        <section class="sw-panel aparte-card" aria-labelledby="sw-panel-title">
-            <header class="aparte-card__header sw-panel__header">
-                <span class="aparte-avatar-group sw-panel__faces">
-                    <span class="aparte-avatar"><span class="sw-face sw-face--assistant"><Fragment set:html={MARK_SVG} /></span></span>
-                    <span class="aparte-avatar sw-panel__agent" hidden><span class="sw-face sw-face--agent">{AGENT.initials}</span></span>
-                </span>
-                <div class="sw-panel__who">
-                    <h2 class="sw-panel__title" id="sw-panel-title">{ASSISTANT_NAME} from Kilnhouse</h2>
-                    <p class="sw-panel__status">
-                        <span class="aparte-badge aparte-badge--success aparte-badge--dot" aria-hidden="true"></span>
-                        <span class="sw-panel__status-text">Online. A person is a message away.</span>
-                    </p>
-                </div>
-                <button class="aparte-btn aparte-btn--icon aparte-btn--ghost" type="button" aria-label="Close the help chat" data-aparte-launcher-close>
-                    <aparte-icon name="close"></aparte-icon>
-                </button>
-            </header>
+    <aparte-launcher class="sw-widget" label="Help" heading={`${ASSISTANT_NAME} from Kilnhouse`}
+        subheading="Online. A person is a message away." maximizable="panel" open>
             <aparte-chat class="sw-chat">
                 <aparte-chat-viewport></aparte-chat-viewport>
                 <aparte-chat-status></aparte-chat-status>
@@ -143,7 +127,6 @@ const suggestions = JSON.stringify([
                     </div>
                 </aparte-composer>
             </aparte-chat>
-        </section>
     </aparte-launcher>
 </div>
 
