@@ -118,6 +118,19 @@ describe('<aparte-artifact-panel>', () => {
         expect(changes.map((c) => c.version)).toEqual([2]);
     });
 
+    it('announces the first document it shows, so an app can hang its own details on it', async () => {
+        const source_ = chat([]);
+        const panel = panelFor();
+        const changes: unknown[] = [];
+        panel.addEventListener('aparte-artifact-version-change', (event) => changes.push(event.detail));
+
+        source_.messages = [reply('a1', doc('doc_1', 'one'))];
+        source_.dispatchEvent(new CustomEvent('aparte-message-done', { bubbles: true }));
+        await frame();
+
+        expect(changes).toEqual([{ documentId: 'doc_1', version: 1, total: 1 }]);
+    });
+
     it('stays on the version somebody went back to when a new one arrives', async () => {
         const source_ = chat([reply('a1', doc('doc_1', 'one')), reply('a2', doc('doc_1', 'two'))]);
         const panel = panelFor();

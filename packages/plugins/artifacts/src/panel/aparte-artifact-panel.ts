@@ -35,7 +35,7 @@ export type ArtifactPanelSource = (Element | object) & { getMessages?: () => Apa
  */
 export type ArtifactPanelRender = (version: ArtifactVersion, container: HTMLElement) => void | false | (() => void);
 
-/** `aparte-artifact-version-change`: the version shown changed, by the arrows or because a new one arrived. */
+/** `aparte-artifact-version-change`: what the panel shows changed, by the arrows, by `show()`, or because a document or a version arrived. */
 export interface ArtifactVersionChangeEventDetail {
     documentId: string;
     /** 1, 2, 3… */
@@ -67,7 +67,7 @@ let panelIdSeq = 0;
  * @attr {boolean} data-empty - Written BY the element while there is no document to show: it then draws nothing. Read-only; style or fold your layout against it.
  *
  * @fires {CustomEvent} aparte-artifact-panel-close - The Close button, or Escape inside the panel. The panel does not hide itself: the app owns the layout. Bubbles.
- * @fires {CustomEvent<ArtifactVersionChangeEventDetail>} aparte-artifact-version-change - The version shown changed: `{ documentId, version, total }`. Bubbles.
+ * @fires {CustomEvent<ArtifactVersionChangeEventDetail>} aparte-artifact-version-change - What the panel shows changed, the first document it shows included: `{ documentId, version, total }`. Bubbles.
  *
  * @slot actions - Your own buttons (Export, Share), in the header before Close: one child with `slot="actions"`. It is left where you wrote it.
  *
@@ -346,7 +346,8 @@ export class AparteArtifactPanel extends ElementBase {
         runWithConfig(config, () => this._draw(document, version));
 
         const announced = `${document.id}\u0000${version.index}\u0000${total}`;
-        if (this._announced !== null && this._announced !== announced) {
+        // The first document shown is announced too: an app hangs its own header details on it.
+        if (this._announced !== announced) {
             this.dispatchEvent(new CustomEvent<ArtifactVersionChangeEventDetail>('aparte-artifact-version-change', {
                 bubbles: true, composed: true, detail: { documentId: document.id, version: version.index, total },
             }));
