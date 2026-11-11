@@ -58,12 +58,16 @@ export interface ArtifactRenderOptions {
 /**
  * The artifact card's Open button was pressed (`setupArtifacts({ open: true })`): show the
  * artifact where the app wants it. Bubbles out of the chat and out of shadow roots. The
- * detail is the artifact as the card shows it now.
+ * detail is the artifact as the card shows it now, with the document it is a version of.
  *
  * @event aparte-artifact-open
  */
 export interface ArtifactOpenEventDetail {
     artifact: ArtifactSegment;
+    /** The document the card is a version of (see `artifactDocuments`). */
+    documentId: string;
+    /** The segment the card draws: which appearance of the document was opened. */
+    segmentId: string;
 }
 
 // Typed where it is dispatched: `addEventListener('aparte-artifact-open', (e) => e.detail.artifact)`
