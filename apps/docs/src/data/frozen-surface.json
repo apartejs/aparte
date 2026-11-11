@@ -161,8 +161,13 @@
       "attributes": [
         "breakpoint",
         "data-sheet",
+        "header",
+        "heading",
         "label",
-        "open"
+        "maximizable",
+        "maximized",
+        "open",
+        "subheading"
       ]
     },
     "aparte-model-selector": {
@@ -849,7 +854,10 @@
     "imageLoadNamed",
     "inputPlaceholder",
     "launcherClose",
+    "launcherHeading",
+    "launcherMaximize",
     "launcherOpen",
+    "launcherRestore",
     "loading",
     "loadingConversation",
     "loadingConversations",
@@ -1170,8 +1178,10 @@
     "--aparte-kbd-padding",
     "--aparte-kbd-radius",
     "--aparte-launcher-gap",
+    "--aparte-launcher-header-height",
     "--aparte-launcher-height",
     "--aparte-launcher-offset",
+    "--aparte-launcher-panel-width",
     "--aparte-launcher-radius",
     "--aparte-launcher-width",
     "--aparte-line-height-loose",
