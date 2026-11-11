@@ -795,9 +795,17 @@ export class AparteClient {
             if (this.options.requestInterceptor) {
                 built = await this.options.requestInterceptor(built);
             }
-            // toolChoice: 'none' — strip tools so the model never sees them.
+            // toolChoice: 'none' — strip tools so the model never sees them, and their
+            // instructions with them (the system message _systemMessages() added).
             if (built.toolChoice === 'none') {
-                built = { ...built, tools: undefined };
+                const toolPrompts = this._config.resolveToolSystemPrompts(registeredTools);
+                built = {
+                    ...built,
+                    tools: undefined,
+                    messages: toolPrompts
+                        ? built.messages.filter((m) => !(m.role === 'system' && m.content === toolPrompts))
+                        : built.messages,
+                };
             }
             return built;
         };
@@ -1143,7 +1151,8 @@ export class AparteClient {
         const messages: AparteChatMessage[] = [];
         const appPrompt = this._config.resolveSystemPrompt();
         if (appPrompt) messages.push({ role: 'system', content: appPrompt });
-        const toolPrompts = this._config.resolveToolSystemPrompts();
+        // Only the instructions of the tools this model is sent: see resolveToolSystemPrompts.
+        const toolPrompts = this._config.resolveToolSystemPrompts(this._toolsForCurrentModel());
         if (toolPrompts) messages.push({ role: 'system', content: toolPrompts });
         return messages;
     }
