@@ -1,10 +1,14 @@
 ---
-/** `@aparte/plugin-artifacts` for a demo frame: the demo calls `setupArtifacts()` itself. */
+/**
+ * `@aparte/plugin-artifacts` for a demo frame: the demo calls `setupArtifacts()` itself.
+ * The document panel is a separate entry of the package; a frame gets both under one name.
+ */
 ---
 
 <script>
     import * as artifacts from '@aparte/plugin-artifacts';
+    import * as panel from '@aparte/plugin-artifacts/panel';
 
     const host = window as unknown as { apartePlugins?: Record<string, unknown> };
-    (host.apartePlugins ??= {}).artifacts = artifacts;
+    (host.apartePlugins ??= {}).artifacts = { ...artifacts, ...panel };
 </script>
