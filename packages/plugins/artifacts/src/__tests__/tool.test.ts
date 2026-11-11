@@ -22,14 +22,14 @@ describe('the create_artifact tool', () => {
     it('the handler returns the document as the structured result, with prose the model can read', async () => {
         const result = await artifactHandler({ id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: ' Page ', content: '<p>hi</p>' } });
         expect(result.toolCallId).toBe('c1');
-        expect(result.structuredContent).toEqual({ mimeType: 'text/html', title: 'Page', content: '<p>hi</p>' });
+        expect(result.structuredContent).toEqual({ documentId: expect.stringMatching(/^doc_[a-z0-9]{8}$/), mimeType: 'text/html', title: 'Page', content: '<p>hi</p>' });
         expect(result.content).toContain('Page');
         expect(result.content).toContain('do not repeat');
     });
 
     it('the handler tolerates a model that forgot the type', async () => {
         const result = await artifactHandler({ id: 'c2', name: 'create_artifact', input: { content: 'plain' } });
-        expect(result.structuredContent).toEqual({ mimeType: 'text/plain', content: 'plain' });
+        expect(result.structuredContent).toEqual({ documentId: expect.stringMatching(/^doc_[a-z0-9]{8}$/), mimeType: 'text/plain', content: 'plain' });
     });
 });
 
