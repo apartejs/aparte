@@ -91,6 +91,7 @@ const BARRELS = [
     { pkg: '@aparte/plugin-triggers/commands', types: 'packages/plugins/triggers/dist/commands.d.ts', readme: 'packages/plugins/triggers/README.md' },
     { pkg: '@aparte/plugin-titler', types: 'packages/plugins/titler/dist/index.d.ts', readme: 'packages/plugins/titler/README.md' },
     { pkg: '@aparte/plugin-storage-idb', types: 'packages/plugins/storage-idb/dist/index.d.ts', readme: 'packages/plugins/storage-idb/README.md' },
+    { pkg: '@aparte/plugin-subagents', types: 'packages/plugins/subagents/dist/index.d.ts', readme: 'packages/plugins/subagents/README.md' },
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
     { pkg: '@aparte/runner-ag-ui', types: 'packages/providers/agent/ag-ui/dist/index.d.ts', readme: 'packages/providers/agent/ag-ui/README.md' },
     { pkg: '@aparte/runner-n8n', types: 'packages/providers/agent/n8n/dist/index.d.ts', readme: 'packages/providers/agent/n8n/README.md' },
@@ -198,6 +199,8 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/plugin-compaction', 0],
     // plugin-storage-idb: the factory and its two types, on the persistence guide.
     ['@aparte/plugin-storage-idb', 0],
+    // plugin-subagents: every export is named in its README until its guide page lands.
+    ['@aparte/plugin-subagents', 0],
     ['@aparte/provider-scenario', 1],
     // runner-ag-ui: the runner and its options, both on the AG-UI page.
     ['@aparte/runner-ag-ui', 0],

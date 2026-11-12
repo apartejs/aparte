@@ -76,14 +76,16 @@ export const isOpenDeferred = (segment: AparteSegment): segment is AparteToolCal
     && ((segment as AparteToolCallSegment).status === 'awaiting-approval' || (segment as AparteToolCallSegment).status === 'pending');
 
 /**
- * A call a resume leaves open: a paused one, and one still RUNNING — the call that opened
- * a sub-agent paused under it is not finished, and answering it `STOPPED_TOOL_TEXT` would
- * tell the model it never ran. A server loop never pauses on a running call (each call has
- * settled or carries its ticket by then), so its resume is unchanged.
+ * A call a resume leaves open: a paused one, and one not finished — still RUNNING, or
+ * WAITING for a person with no ticket of its own: the call that opened a sub-agent paused
+ * under it is not finished (a plugin may mark it waiting while the sub-agent's question is
+ * up), and answering it `STOPPED_TOOL_TEXT` would tell the model it never ran. A server loop
+ * never pauses on an unfinished call without its ticket (each call has settled or carries
+ * one by then), so its resume is unchanged.
  */
 const isLeftOpen = (segment: AparteSegment): segment is AparteToolCallSegment =>
     segment.type === 'tool_call'
-    && ((segment as AparteToolCallSegment).status === 'pending' || isOpenDeferred(segment));
+    && ((segment as AparteToolCallSegment).status === 'pending' || (segment as AparteToolCallSegment).status === 'awaiting-approval');
 
 /**
  * `textOf` turns a run of non-call segments into the text a model reads back — the

@@ -52,6 +52,12 @@ describe('a resume leaves a running call open', () => {
         expect(unansweredTail(out as never).map((c) => c.id)).toEqual(['c1', 'c2']);
     });
 
+    it('leaves open a call waiting for a person with no ticket: the call of a sub-agent whose question is up', () => {
+        const out = wireTurns(reply([text('t', 'Delegating.'), call('c1', 'awaiting-approval')]), textOf, { openDeferred: true });
+        expect(out).toEqual([{ role: 'assistant', content: 'Delegating.', toolCalls: [{ id: 'c1', name: 'delegate', input: { task: 'c1' } }] }]);
+        expect(unansweredTail(out as never).map((c) => c.id)).toEqual(['c1']);
+    });
+
     it('outside a resume, a call that never finished is still answered as stopped', () => {
         const out = wireTurns(reply([call('c1', 'pending')]), textOf);
         expect(out.at(-1)).toEqual({ role: 'tool', content: STOPPED_TOOL_TEXT, toolCallId: 'c1', toolName: 'delegate' });
