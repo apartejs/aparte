@@ -654,10 +654,12 @@ export class AparteClient {
      * no DOM) or its own presenter, both strictly more capable than an id on an event.
      */
     private async _askForApproval(
-        event: { id: string; name: string; input: Record<string, unknown> },
+        event: { id: string; name: string; input: Record<string, unknown>; agent?: { id: string; name?: string } },
         signal: AbortSignal,
         target: HTMLElement,
     ): Promise<{ approved: boolean; payload?: unknown; instruction?: string; by?: StreamRefusalOrigin }> {
+        // Who asks, when it is a sub-agent with a name: an id is not a word for a person.
+        const agentName = event.agent?.name?.trim();
         const answer = await requestUserInput({
             kind: 'approval',
             /*
@@ -677,7 +679,11 @@ export class AparteClient {
                 } as AparteToolCallSegment;
                 const name = toolNameOf(call, chat).text;
                 const what = toolTargetOf(call, chat);
-                return (loc.approvalAsk ?? 'Allow {tool}?').replace('{tool}', () => (what ? `${name} ${what}` : name));
+                const tool = what ? `${name} ${what}` : name;
+                if (!agentName) return (loc.approvalAsk ?? 'Allow {tool}?').replace('{tool}', () => tool);
+                // One pass, so a name that reads "{tool}" is not filled in a second time.
+                return (loc.approvalAskBy ?? 'Allow {tool} for {agent}?')
+                    .replace(/\{(agent|tool)\}/g, (_, key: string) => (key === 'agent' ? agentName : tool));
             },
             // A plain string, not a function: the arguments are the model's — its JSON, or
             // the tool's own formatter's reading of it — and do not change with the
@@ -849,6 +855,7 @@ export class AparteClient {
         if (this._streamController !== streamController) this._streamController?.abort();
         this._streamController = streamController;
         this._turnsInFlight.add(messageId);
+        this._agentNames.set(messageId, new Map());
         // The compactor this chat answers to: the one on ITS config first (a chat inside an
         // instance boundary), then the client's. Needs `rebuild` to be of any use — what it
         // does is make the history smaller, and only the caller knows how to send it again.
@@ -915,7 +922,7 @@ export class AparteClient {
                 const approvedNow = new Set<string>();
                 const outcomes = stopped
                     ? undefined
-                    : await this._answerDeferred(targetElement, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
+                    : await this._answerDeferred(targetElement, messageId, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
                 approvedAtLastPause = approvedNow;
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
@@ -1051,6 +1058,7 @@ export class AparteClient {
             }
         } finally {
             this._turnsInFlight.delete(messageId);
+            this._agentNames.delete(messageId);
         }
     }
 
@@ -1059,6 +1067,13 @@ export class AparteClient {
      * load of their conversation must not start them again (`resumeDeferred`).
      */
     private readonly _turnsInFlight = new Set<string>();
+
+    /**
+     * The name of each sub-agent of a turn in flight, by reply then `agentId`, as its
+     * `agent-start` gave it: what a paused run's question says about who asks. A pending
+     * call carries only an `agentId`. Lives as long as the turn, never on the message.
+     */
+    private readonly _agentNames = new Map<string, Map<string, string>>();
 
     /**
      * Handle aparte-retry — add a sibling branch to the assistant message and re-stream
@@ -1854,6 +1869,8 @@ export class AparteClient {
         let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            // Kept for the question a pause asks about one of its calls.
+            if (event.type === 'agent-start' && event.name) this._agentNames.get(messageId)?.set(event.agentId, event.name);
             // A sub-agent's event is never the run's. Its crash is answered inside its call,
             // and a run-level event carrying an `agentId` (a runner of the app's own) neither
             // ends nor pauses the turn, nor seeds the reply a second time.
@@ -1975,7 +1992,7 @@ export class AparteClient {
      */
     private _approvalResolverFor(targetElement: AparteChatTargetElement, gatedElsewhere = false): StreamApprovalResolver {
         return this.options.approvalResolver
-            ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
+            ?? (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
                 const ruling: AparteApprovalRuling = gatedElsewhere
                     ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name)) ?? { verdict: 'ask' })
                     : this._config.ruleOnToolCall(call);
@@ -2000,6 +2017,7 @@ export class AparteClient {
      */
     private async _answerDeferred(
         targetElement: AparteChatTargetElement,
+        messageId: string,
         pending: StreamDeferredCall[],
         signal: AbortSignal,
         rowEvents?: AparteStreamRunEmitter,
@@ -2020,10 +2038,13 @@ export class AparteClient {
         for (const [index, p] of pending.entries()) {
             if (signal.aborted) break;
             const call = { id: p.toolCallId, name: p.name, input: (p.input ?? {}) as Record<string, unknown> };
+            // A sub-agent's call is asked about as its: by name, when its `agent-start` gave one.
+            const agentName = p.agentId === undefined ? undefined : this._agentNames.get(messageId)?.get(p.agentId);
+            const asked = p.agentId === undefined ? call : { ...call, agent: { id: p.agentId, ...(agentName ? { name: agentName } : {}) } };
             if (p.reason === 'approval') {
                 let decision: Awaited<ReturnType<StreamApprovalResolver>> | undefined;
                 try {
-                    decision = await resolver(call, signal);
+                    decision = await resolver(asked, signal);
                 } catch (error: unknown) {
                     // Resuming without the answer only paused the same call again. The
                     // turn's error exit closes the calls.
@@ -2041,7 +2062,7 @@ export class AparteClient {
                 const key = approvalKey(call);
                 if (!approvedBefore.has(key) && !approvedNow.has(key)) {
                     try {
-                        gate = await this._gateBrowserTool(call, signal, targetElement, rowEvents);
+                        gate = await this._gateBrowserTool(asked, signal, targetElement, rowEvents);
                     } catch (error: unknown) {
                         if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
                         gate = undefined;
@@ -2087,7 +2108,7 @@ export class AparteClient {
      * call, the decision when something did, `undefined` when nobody answered.
      */
     private async _gateBrowserTool(
-        call: AparteToolCall,
+        call: AparteToolCall & Pick<Parameters<StreamApprovalResolver>[0], 'agent'>,
         signal: AbortSignal,
         targetElement: AparteChatTargetElement,
         rowEvents?: AparteStreamRunEmitter,
@@ -2098,7 +2119,13 @@ export class AparteClient {
         if (ruling === 'allow') return null;
         // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
-        if (ruling === 'ask') rowEvents?.({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+        // A sub-agent's call says so: its row is not the reply's, and whoever draws it hears this.
+        if (ruling === 'ask') {
+            rowEvents?.({
+                type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input,
+                ...(call.agent ? { agentId: call.agent.id } : {}),
+            });
+        }
         const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
         // Back to running, and still PAUSED: the resume hands this call back open for its
         // result to answer. Not through `rowEvents` — that adapter never saw the call start,

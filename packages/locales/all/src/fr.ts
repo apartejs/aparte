@@ -29,6 +29,7 @@ export const fr: AparteLocale = {
     approvalOptionsLabel: "Votre décision",
     approvalArgsLabel: "Arguments",
     approvalAsk: "Autoriser {tool} ?",
+    approvalAskBy: "Autoriser {tool} pour {agent} ?",
     approvalWaiting: "En attente",
     scrollToBottom: "Aller en bas de la conversation",
     suggestionsLabel: "Suggestions de messages",

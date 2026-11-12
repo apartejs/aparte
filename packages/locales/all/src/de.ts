@@ -29,6 +29,7 @@ export const de: AparteLocale = {
     approvalOptionsLabel: "Deine Entscheidung",
     approvalArgsLabel: "Argumente",
     approvalAsk: "{tool} erlauben?",
+    approvalAskBy: "{tool} für {agent} erlauben?",
     approvalWaiting: "Ausstehend",
     scrollToBottom: "Nach unten scrollen",
     suggestionsLabel: "Vorgeschlagene Prompts",

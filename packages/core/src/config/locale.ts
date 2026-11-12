@@ -241,6 +241,15 @@ export type AparteLocale = {
      */
     approvalAsk?: string;
     /**
+     * The question an approval asks when a sub-agent's call is asking (default:
+     * "Allow {tool} for {agent}?").
+     *
+     * `{agent}` is replaced with the name the sub-agent was started with, `{tool}` as in
+     * `approvalAsk`. A sub-agent with no name is asked about with `approvalAsk`: its id is
+     * not a word for a person.
+     */
+    approvalAskBy?: string;
+    /**
      * Accessible name of the viewport's scroll-to-bottom button (default:
      * "Scroll to bottom").
      *
@@ -639,6 +648,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationAnswerLabel: "Your answer",
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
     approvalAsk: "Allow {tool}?",
+    approvalAskBy: "Allow {tool} for {agent}?",
     approvalWaiting: "Waiting",
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",

@@ -29,6 +29,7 @@ export const ptBR: AparteLocale = {
     approvalOptionsLabel: "Sua decisão",
     approvalArgsLabel: "Argumentos",
     approvalAsk: "Permitir {tool}?",
+    approvalAskBy: "Permitir {tool} para {agent}?",
     approvalWaiting: "Aguardando",
     scrollToBottom: "Ir para o fim",
     suggestionsLabel: "Sugestões de mensagens",

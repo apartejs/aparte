@@ -190,6 +190,10 @@ app with its own loop writes its own. `approvalAsk` is the lever for the wording
 `extendLocale({ approvalAsk: 'Run {tool}?' })`. The arguments block under the question is
 unchanged.
 
+When the call belongs to a sub-agent that was given a name, the question says who asks:
+"Allow Delete a file a.ts for Researcher?", from the locale key `approvalAskBy`
+(`Allow {tool} for {agent}?`). A sub-agent with no name gets the `approvalAsk` question.
+
 - **Approve** runs the handler.
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,
   and the model gets a turn to answer it.

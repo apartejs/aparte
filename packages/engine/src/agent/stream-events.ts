@@ -323,9 +323,13 @@ export interface StreamDeferral {
 /**
  * Resolves a human-in-the-loop approval (mirrors core's
  * `AparteToolApprovalResolver`). Injected so the loop stays headless.
+ *
+ * `call.agent` is the sub-agent whose call this is — its `agentId` and the `name` it was
+ * started with — so the question can say who asks; absent for the run's own call. For a
+ * sub-agent's sub-agent, it is the innermost one: the agent whose tool is asking.
  */
 export type StreamApprovalResolver = (
-    call: { id: string; name: string; input: Record<string, unknown> },
+    call: { id: string; name: string; input: Record<string, unknown>; agent?: { id: string; name?: string } },
     signal: AbortSignal,
 ) => Promise<{
     approved: boolean;

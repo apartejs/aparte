@@ -66,6 +66,13 @@ export async function runSubAgent(
         agent.emit(event);
     };
 
+    // The nested loop asks through the parent's resolver, saying whose call it is. A call
+    // that already names an agent is a sub-agent's of this one: the innermost one asks.
+    const parentResolver = run.canAsk ? run.approvalResolver : undefined;
+    const self = { id: agent.agentId, ...(opts.name !== undefined ? { name: opts.name } : {}) };
+    const approvalResolver: StreamRunOptions['approvalResolver'] = parentResolver
+        && ((call, sig) => parentResolver(call.agent ? call : { ...call, agent: self }, sig));
+
     try {
         const usage = await runStreamAgent({
             messageId: agent.agentId,
@@ -74,7 +81,7 @@ export async function runSubAgent(
             toolLookup: opts.toolLookup ?? run.toolLookup,
             toolConfigLookup: opts.toolConfigLookup ?? run.toolConfigLookup,
             // No `deferral`, ever: the nested loop lives inside one call, which must answer.
-            approvalResolver: run.canAsk ? run.approvalResolver : undefined,
+            approvalResolver,
             emitter,
             signal,
             maxTurns: opts.maxTurns ?? run.maxTurns,
