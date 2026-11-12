@@ -85,4 +85,52 @@ Compute the offsets from the strings (`text.indexOf(passage)`) rather than count
 an edit to a sentence cannot leave a chip on the wrong words. Ask the `showcase` for *"why is
 the sky blue?"* or *"with sources"* to see a three-source answer.
 
+## Sub-agents
+
+A `subagents` step makes the model delegate: it calls one ordinary tool, `delegate`, with
+`{ agents: [{ name, task }] }`, which is what a real model would send. Each entry is a
+`ScenarioSubagent`: its `name`, its `task`, and the `turns` its own model plays. Register the
+tool that runs them with `scenarioSubagentTool(provider)`, and add `setupSubagents()` from
+`@aparte/plugin-subagents` to see one line per sub-agent:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+const provider = createScenarioProvider({
+  turns: [
+    // One sub-agent: its line is the delegate call's row.
+    [{ text: 'Let me hand that off.' }, { subagents: [
+      { name: 'Researcher', task: 'Read the parser', turns: [
+        [{ tool: 'read_file', input: { path: 'src/parser.ts' } }],
+        'It splits the input on commas and never checks for quotes.',
+      ] },
+    ] }],
+    'The parser does not handle quoted commas. Want a fix?',
+    // Several: they run side by side, each on a line of its own.
+    [{ subagents: [
+      { name: 'Reader', task: 'Read the parser', turns: ['It splits on commas.'] },
+      { name: 'Searcher', task: 'Find its callers', turns: ['Two callers: import.ts and cli.ts.'] },
+      { name: 'Tester', task: 'Run the tests', turns: ['12 pass, 1 fails on a quoted field.'] },
+    ] }],
+    'All three are back: the quoted field is the bug.',
+  ],
+});
+aparteGlobalConfig.registerAIProvider(provider);
+const { tool, handler } = scenarioSubagentTool(provider);
+aparteGlobalConfig.registerTool(tool, handler);
+setupSubagents();
+```
+
+Each sub-agent runs through the real loop, as a nested run of its own: its `{ tool }` steps run
+the handlers registered on the config (`read_file` above is yours to register) and its next turn
+follows their result; a
+`subagents` step in its turn delegates again. Its words never reach the reply. What the model
+reads back is the sub-agent's last text, or, for several, one `name: text` block each; a
+sub-agent that fails is said in a sentence, and does not fail the call. Stop ends them with the
+turn. With `scenarios`, route the answer with `after: 'delegate'`, as for any tool; name the
+tool otherwise with `toolName` on the step and `scenarioSubagentTool(provider, { name })`. The
+handler needs the loop: called outside it (no `context.run`), it throws.
+
 Full guide: [apartejs.dev/providers/ai/scenario](https://apartejs.dev/providers/ai/scenario/).

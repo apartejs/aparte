@@ -739,7 +739,8 @@
     "@aparte/provider-scenario": [
       "createScenarioProvider",
       "defaultMatch",
-      "playTurn"
+      "playTurn",
+      "scenarioSubagentTool"
     ],
     "@aparte/provider-transformers": [
       "TransformersProvider",
