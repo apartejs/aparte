@@ -70,14 +70,28 @@ export function toolTargetOf(
     config: AparteConfig,
     line: AparteToolLine | undefined = toolLineOf(segment, config),
 ): string {
+    return toolTargetPartsOf(segment, config, line).text;
+}
+
+/**
+ * The target and where it came from: `isWords` when the tool-line provider gave it (a
+ * sentence for a person — a sub-agent's task), not the app's summary, which is read off the
+ * arguments (a path, a command) and keeps the code face on an agent's row.
+ */
+export function toolTargetPartsOf(
+    segment: AparteToolCallSegment,
+    config: AparteConfig,
+    line: AparteToolLine | undefined = toolLineOf(segment, config),
+): { text: string; isWords: boolean } {
     const summary = config.getToolSummary(segment.toolCall?.name ?? '');
     if (summary) {
         try {
             const text = textOf(summary(segment));
-            if (text) return text;
+            if (text) return { text, isWords: false };
         } catch { /* the provider's, below */ }
     }
-    return textOf(line?.target);
+    const text = textOf(line?.target);
+    return { text, isWords: text !== '' };
 }
 
 /**

@@ -15,7 +15,7 @@ import type {
 import { injectToolRendererStyles } from '../segment-renderers.js';
 import { copyButtonMarkup, wireCopyButton, relabelCopyButton } from '../copy-button.js';
 import { describeToolInput } from '../../utils/tool-input.js';
-import { toolNameOf, toolTargetOf, toolLineOf, toolActivityOf, toolLineNoteOf } from '../../utils/tool-line.js';
+import { toolNameOf, toolTargetPartsOf, toolLineOf, toolActivityOf, toolLineNoteOf } from '../../utils/tool-line.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
@@ -366,8 +366,8 @@ function highlightParts(element: HTMLElement): void {
  * provider's — `''` when neither says anything, or when the summary throws: a summary reads
  * model-chosen input, and a bad one must cost the row its one line, not the bubble its render.
  */
-function toolTarget(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
-    return toolTargetOf(segment, contextConfig(), line);
+function toolTarget(segment: AparteToolCallSegment, line: AparteToolLine | undefined): { text: string; isWords: boolean } {
+    return toolTargetPartsOf(segment, contextConfig(), line);
 }
 
 /**
@@ -379,15 +379,17 @@ function toolTarget(segment: AparteToolCallSegment, line: AparteToolLine | undef
 function setTarget(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
     const el = element.querySelector('.aparte-tool-target');
     if (!el) return;
-    const text = toolTarget(segment, line);
+    const { text, isWords } = toolTarget(segment, line);
     if (el.textContent !== text) el.textContent = text;
     el.toggleAttribute('hidden', !text);
+    el.classList.toggle('aparte-tool-target--words', isWords);
 }
 
 /**
  * Write what the call is doing now (the tool-line provider's `activity`) into its container —
  * always in the line, like the target, so a relabel can write it without adding a node, and
- * `hidden` once the call has settled or when there is nothing to say. Plain text, and no
+ * `hidden` once the call has settled or when there is nothing to say. Its own line under the
+ * name (the stylesheet wraps it there), so it is the line's last child, after the note. Plain text, and no
  * live region of its own: inside the transcript's log, a streaming reply is `aria-busy`, so
  * its changes are not announced one by one; a screen reader reads it with the row.
  */
@@ -484,12 +486,12 @@ function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undef
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${icon}</span>
                     <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}${quiet.shimmer ? ' aparte-shimmer' : ''}">${escapeHtml(name.text)}</span>
-                    <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
-                    <span class="aparte-tool-activity"${activity ? '' : ' hidden'}>${escapeHtml(activity)}</span>
+                    <span class="aparte-tool-target${target.isWords ? ' aparte-tool-target--words' : ''}"${target.text ? '' : ' hidden'}>${escapeHtml(target.text)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${quiet.spinner ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state${quiet.stateHidden ? ' aparte-sr-only' : ''}">${badge}</span>
-                <span class="aparte-tool-note"${note ? ` title="${escapeAttr(note)}"` : ' hidden'}>${escapeHtml(note)}</span>`;
+                <span class="aparte-tool-note"${note ? ` title="${escapeAttr(note)}"` : ' hidden'}>${escapeHtml(note)}</span>
+                <span class="aparte-tool-activity"${activity ? '' : ' hidden'}>${escapeHtml(activity)}</span>`;
 }
 
 /**

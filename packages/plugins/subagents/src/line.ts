@@ -63,13 +63,22 @@ function callLine(call: AparteToolCallSegment, config: AparteConfig): string {
     return [shown, target].filter(Boolean).join(' ');
 }
 
-/** What it is doing now: its latest call still running or waiting, as that call's row names it. */
+/**
+ * What it is doing now: its LATEST call, as that call's row names it — the one running or
+ * waiting, else the last one that finished. Only a call open at that instant used to count,
+ * and with fast tools the line never said anything: the call was over before the next draw.
+ * The caller asks only while the sub-agent runs or waits, so a finished call reads as the
+ * step it is on until the next one starts (it is thinking or writing about that result).
+ */
 function activityOf(sub: AparteSubagent, config: AparteConfig): string {
+    let latest: AparteToolCallSegment | undefined;
     for (let i = sub.segments.length - 1; i >= 0; i -= 1) {
         const segment = sub.segments[i]!;
+        if (segment.type !== 'tool_call') continue;
         if (isOpenCall(segment)) return callLine(segment, config);
+        latest ??= segment as AparteToolCallSegment;
     }
-    return '';
+    return latest ? callLine(latest, config) : '';
 }
 
 /**

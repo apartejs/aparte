@@ -84,6 +84,33 @@ describe('the provider fills the line', () => {
         expect(draw(call({ id: 's2', status: 'failed' })).querySelector('.aparte-tool-activity')!.hasAttribute('hidden')).toBe(true);
     });
 
+    // Beside the target, in the same ink, the two read as one run-on sentence: the activity is
+    // the line's last child, which the stylesheet wraps onto a line of its own under the name.
+    it.each([
+        ['the plain line', call({ toolCall: { id: 'c1', name: 'delegate', input: {} } }), '.aparte-tool-line'],
+        ['the <details> row, inside its summary', call(), '.aparte-tool-summary'],
+    ])('puts what the call is doing after the note, outside the label: %s', (_, segment, line) => {
+        aparteGlobalConfig.setToolLineProvider(explorer);
+        const el = draw(segment);
+        const activity = part(el, 'activity');
+        expect(activity.parentElement!.matches(line)).toBe(true);
+        expect(activity.parentElement!.lastElementChild).toBe(activity);
+        expect(activity.previousElementSibling!.classList.contains('aparte-tool-note')).toBe(true);
+        expect(activity.closest('.aparte-tool-label')).toBeNull();
+    });
+
+    it('marks a target the provider gave as words; an app summary stays the code it is', () => {
+        aparteGlobalConfig.setToolLineProvider(explorer);
+        let el = draw(call());
+        expect(part(el, 'target').classList.contains('aparte-tool-target--words')).toBe(true);
+        aparteGlobalConfig.registerToolSummary('delegate', () => 'src/parse.ts');
+        renderer().relabel!(el, call());
+        expect(shown(el, 'target')).toBe('src/parse.ts');
+        expect(part(el, 'target').classList.contains('aparte-tool-target--words')).toBe(false);
+        el = draw(call({ id: 's2' }));
+        expect(part(el, 'target').classList.contains('aparte-tool-target--words')).toBe(false);
+    });
+
     it('takes nothing away from a row without a provider: both places are there, and hidden', () => {
         const el = draw(call());
         expect(shown(el, 'name')).toBe('delegate');

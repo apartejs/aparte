@@ -67,6 +67,39 @@ describe("a sub-agent's line", () => {
         expect(shown(c.row('tool-c1'), 'name')).toBe('delegate');
     });
 
+    // Only a call open at that instant used to count, and with fast tools the line never said
+    // anything: the call was over before the next draw. While the sub-agent works, its latest
+    // call is the step it is on — it is reading that result, or writing about it.
+    it('keeps naming its latest call once that call has finished, while it still works', () => {
+        stop = setupSubagents();
+        const { c } = working();
+        c.run(...as('a1', { type: 'tool-resolved', toolCallId: 'r1', result: 'x' }, { type: 'text-delta', delta: 'Reading it' }));
+        expect(shown(c.row('tool-c1'), 'activity')).toBe('Read parser.ts');
+    });
+
+    it('names the call running now over a later one that finished', () => {
+        stop = setupSubagents();
+        const { c } = working();
+        // r1 still runs; a later call starts and finishes beside it.
+        c.run(...as('a1',
+            { type: 'tool-start', toolCallId: 'g2', name: 'grep', input: { q: 'x' } },
+            { type: 'tool-resolved', toolCallId: 'g2', result: 'none' },
+        ));
+        expect(shown(c.row('tool-c1'), 'activity')).toBe('Read parser.ts');
+    });
+
+    it('says nothing before its first call', () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 'a1', name: 'Researcher', toolCallId: 'c1' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Thinking it over' }),
+        );
+        expect(shown(c.row('tool-c1'), 'activity')).toBeNull();
+    });
+
     it('stops saying what it does once it is done, and keeps the count and the duration', async () => {
         stop = setupSubagents();
         const { c, now } = working();
