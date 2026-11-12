@@ -38,8 +38,9 @@ setupSubagents();
 
 `setupSubagents()` works on the page's config, or on the one you pass last, like every setup
 function, and returns the function that takes it off again. The words follow the chat's language:
-the counts (`subagentsTools`) and the name of an agent given none (`subagentsUnnamed`) come in the
-ten languages of [`@aparte/locales`](/guides/localization/), and `extendLocale` replaces them.
+the counts (`subagentsTools`) and the name of an agent given none (`subagentsUnnamed`) ship with the
+plugin in the same ten languages as [`@aparte/locales`](/guides/localization/), and `extendLocale`
+replaces them.
 
 ## Three ways sub-agents reach the page
 
@@ -256,6 +257,10 @@ aparteGlobalConfig.registerToolDisplay('Researcher', { hidden: true });
 ```
 
 A hidden line is still saved with the conversation, its sub-agent's conversation with it.
+
+With [a turn's steps folded behind one line](/guides/tool-display/#fold-a-turn-behind-one-line), a
+sub-agent drawn on its call's line folds with the turn's other steps. One with a line of its own
+stays in view, as a step that waits or failed does.
 
 ## Show the conversation elsewhere
 

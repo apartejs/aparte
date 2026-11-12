@@ -133,4 +133,33 @@ turn. With `scenarios`, route the answer with `after: 'delegate'`, as for any to
 tool otherwise with `toolName` on the step and `scenarioSubagentTool(provider, { name })`. The
 handler needs the loop: called outside it (no `context.run`), it throws.
 
+A sub-agent's turn may also be a function of the request its loop sends, called when that turn
+is played: it reads the result of the sub-agent's last tool call, so the script can answer what
+the tool said. Here, a build runner that says so when its command was refused:
+
+```ts
+import { aparteGlobalConfig, contentToText } from '@aparte/core';
+import { createScenarioProvider } from '@aparte/provider-scenario';
+
+const provider = createScenarioProvider({
+    turns: [
+        [{ subagents: [{
+            name: 'Build runner',
+            task: 'Run the build',
+            turns: [
+                [{ tool: 'run_command', input: { cmd: 'pnpm build' } }],
+                (request) => {
+                    const last = request.messages[request.messages.length - 1];
+                    return /rejected|refused|Plan mode:/.test(contentToText(last?.content ?? ''))
+                        ? 'I could not run the build: the command was refused.'
+                        : 'The build passed.';
+                },
+            ],
+        }] }],
+        'That is what the build runner found.',
+    ],
+});
+aparteGlobalConfig.registerAIProvider(provider);
+```
+
 Full guide: [apartejs.dev/providers/ai/scenario](https://apartejs.dev/providers/ai/scenario/).

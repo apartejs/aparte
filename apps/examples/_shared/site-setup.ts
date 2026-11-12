@@ -57,7 +57,7 @@ import type { AparteTrigger } from '@aparte/plugin-triggers';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
-import { DELEGATE, delegateLabel, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { DELEGATE, delegateLabel, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -78,14 +78,6 @@ const CANNED: Record<string, string> = {
     write_file: 'Wrote 4 lines to CHANGELOG.md.',
     run_command: 'Build finished in 12.4s. 0 errors.',
 };
-
-/**
- * What a `tool` message says when the call did NOT run: the panel's Reject (with the
- * user's own words, or without), and the approval policy's own refusal — in `plan` mode
- * the sentence `@aparte/plugin-approval` writes. All three are the loop's, not ours; a
- * canned result above says none of them.
- */
-const REFUSAL = /rejected by the user|rejected this tool call|refused by the approval policy|Plan mode:/;
 
 export interface SiteSetup {
     /** The scripted model answers (no server, no key): the default, and `?scenario`. */

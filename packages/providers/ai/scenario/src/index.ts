@@ -91,8 +91,24 @@ export interface ScenarioSubagent {
      * Its model's calls, answered in order; the last one repeats. A `{ tool }` step runs the
      * page's registered handler and the next turn follows its result; a `{ subagents }` step
      * delegates in turn.
+     *
+     * A turn may be a function of the request the nested loop sends, called when that turn is
+     * played: it reads the conversation so far — the result of the sub-agent's last tool call
+     * included — and returns the turn, so a script can answer what its tool said (a command
+     * that was refused, say).
+     *
+     * @example
+     * turns: [
+     *   [{ tool: 'run_command', input: { command: 'pnpm build' } }],
+     *   (request) => {
+     *     const last = request.messages[request.messages.length - 1];
+     *     return /rejected|refused|Plan mode:/.test(contentToText(last?.content ?? ''))
+     *       ? 'I could not run the build: the command was refused.'
+     *       : 'The build passed.';
+     *   },
+     * ]
      */
-    turns: ScenarioTurn[];
+    turns: (ScenarioTurn | ((request: AparteChatRequest) => ScenarioTurn))[];
 }
 
 /** A turn with the conditions under which it answers. */
@@ -550,7 +566,8 @@ export function scenarioSubagentTool(
     const modelOf = (agent: ScenarioSubagent, signal: AbortSignal) => {
         let calls = 0;
         return async (request: AparteChatRequest): Promise<AsyncIterable<AparteStreamEvent>> => {
-            const turn = agent.turns.length > 0 ? agent.turns[Math.min(calls++, agent.turns.length - 1)]! : '';
+            const scripted = agent.turns.length > 0 ? agent.turns[Math.min(calls++, agent.turns.length - 1)]! : '';
+            const turn = typeof scripted === 'function' ? scripted(request) : scripted;
             return readableToAsyncIterable(play(turn, request, state.pacing, signal, state.keep), signal);
         };
     };

@@ -143,6 +143,11 @@ the real loop as a nested run: its `{ tool }` steps run the handlers registered 
 (`read_file` above is yours to register), and a `subagents` step in its turn delegates again.
 Several sub-agents in one step run side by side, each on a line of its own.
 
+A sub-agent's turn can also be a function of the request its loop sends, `(request) => turn`,
+called when that turn comes up in the order. The request holds the sub-agent's conversation so far,
+so the function can read what its last tool call returned and answer from it: a sub-agent whose
+command the person rejected says it could not run it, instead of reporting a run that never happened.
+
 What the model reads back is the sub-agent's last text, or, for several, one `name: text` block
 each; a sub-agent that fails is said in a sentence and does not fail the call. Stop ends them with
 the turn. With `scenarios`, route the answer with `after: 'delegate'`, as for any tool, and name the

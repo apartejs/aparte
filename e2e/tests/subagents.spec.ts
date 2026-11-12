@@ -31,6 +31,7 @@ const DONE_NOTE = /^1 tool · \S/;
 
 const PANEL = '.aparte-elic-panel.aparte-approval-panel';
 const APPROVE = '.aparte-approval-option--affirm';
+const REJECT = '.aparte-approval-option--deny';
 
 async function openSite(page: Page): Promise<ChatPage> {
     const chat = new ChatPage(page);
@@ -116,6 +117,24 @@ test('the approval panel names the sub-agent that asks, and approving lets the t
     await expect(line).toHaveAttribute('data-status', 'resolved');
     await expect(chat.toolNote(line)).toHaveText(DONE_NOTE);
     expect(await chat.lastReply.innerText()).not.toContain('The build finished in 12.4 s with no errors.');
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('rejecting the sub-agent’s command: the reply says it was refused, not that the build passed', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = await openSite(page);
+    await chat.send(GATED);
+
+    const panel = page.locator(PANEL);
+    await expect(panel).toBeVisible();
+    await panel.locator(REJECT).click();
+    await expect(panel).toHaveCount(0);
+
+    await expect(chat.lastReply).toContainText('its command was refused', { timeout: 20_000 });
+    await expect(chat.streaming()).toHaveCount(0);
+    const text = await replyText(chat);
+    expect(text).not.toContain('The build is green');
+    expect(text).not.toContain('12.4 s');
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 

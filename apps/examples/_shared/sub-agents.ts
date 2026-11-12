@@ -14,7 +14,7 @@
  * What runs them is `scenarioSubagentTool` from `@aparte/provider-scenario`; what draws them
  * is `@aparte/plugin-subagents`.
  */
-import type { AparteChatRequest, AparteToolCallSegment } from '@aparte/core';
+import { contentToText, type AparteChatRequest, type AparteToolCallSegment } from '@aparte/core';
 import type { Scenario } from '@aparte/provider-scenario';
 
 /** The tool the delegating steps call: the scenario provider's default name. */
@@ -50,7 +50,8 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
                     task: 'Run the build and report any errors',
                     turns: [
                         [{ thinking: 'A build is `pnpm build` at the root.' }, { tool: 'run_command', input: { cmd: 'pnpm build' } }],
-                        'The build finished in 12.4 s with no errors.',
+                        // What its command returned decides what it says: a refused call ran nothing.
+                        (request) => (refused(request) ? BUILD_REFUSED : 'The build finished in 12.4 s with no errors.'),
                     ],
                 }],
             },
@@ -113,6 +114,7 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
     },
     subagentDone: { turn: 'The last release was **0.16.11**, so the next one is 0.17.0.' },
     subagentApprovalDone: { turn: 'The build is green: 12.4 s, no errors.' },
+    subagentApprovalRefused: { turn: 'The build did not run: its command was refused, so I cannot say whether it passes.' },
     // A delegation no path above wrote (a local model calling the tool on its own).
     delegated: { after: DELEGATE, turn: 'The sub-agents are back; their answers are in the call above.' },
 };
@@ -133,10 +135,28 @@ export function routeDelegation(request: AparteChatRequest): string | undefined 
         const lead = leadOf(call.input);
         if (lead === LEAD.team) return 'subagentsDone';
         if (lead === LEAD.one) return 'subagentDone';
-        if (lead === LEAD.gated) return 'subagentApprovalDone';
+        // The tool result is the sub-agent's last text: it says whether the build ran.
+        if (lead === LEAD.gated) return contentToText(last.content).includes(BUILD_REFUSED) ? 'subagentApprovalRefused' : 'subagentApprovalDone';
         return undefined;
     }
     return undefined;
+}
+
+/**
+ * What a `tool` message says when the call did NOT run: the panel's Reject (with the
+ * user's own words, or without), and the approval policy's own refusal — in `plan` mode
+ * the sentence `@aparte/plugin-approval` writes. All three are the loop's, not ours; a
+ * canned result (site-setup.ts) says none of them.
+ */
+export const REFUSAL = /rejected by the user|rejected this tool call|refused by the approval policy|Plan mode:/;
+
+/** What the build runner says when its command did not run. */
+const BUILD_REFUSED = 'I could not run the build: the command was refused.';
+
+/** Whether the request's last message is a refused call's result. */
+function refused(request: AparteChatRequest): boolean {
+    const last = request.messages[request.messages.length - 1];
+    return last?.role === 'tool' && REFUSAL.test(contentToText(last.content));
 }
 
 function leadOf(input: unknown): string | undefined {

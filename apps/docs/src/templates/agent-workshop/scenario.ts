@@ -62,6 +62,19 @@ const WRITE_FIX: ScenarioStep[] = [plan('done', 'done', 'in-progress'), { tool: 
  * turns. They call the page's real tools, so their reads open in Files and their test run lands
  * in Terminal, and their rows are drawn like the agent's own under each line (app.ts).
  */
+/** What the Test runner says when its `pnpm test` did not run; `route` reads it in its report. */
+const TESTS_NOT_RUN = 'I could not run the tests: `pnpm test` was refused';
+
+/**
+ * Whether a tool result is a refusal, and whose: the approval plugin's in Plan mode, or the
+ * loop's when the person rejects a call.
+ */
+function refusalOf(result: string): 'plan' | 'person' | undefined {
+    if (result.includes('Plan mode:')) return 'plan';
+    if (/rejected (by the user|this tool call)/.test(result)) return 'person';
+    return undefined;
+}
+
 export const INVESTIGATORS: ScenarioSubagent[] = [
     {
         name: 'Parser reader',
@@ -84,7 +97,14 @@ export const INVESTIGATORS: ScenarioSubagent[] = [
         task: 'Run the test suite and report what fails',
         turns: [
             [{ wait: 900 }, { tool: 'run_command', input: { command: 'pnpm test' } }],
-            '1 of 11 tests fails: *reads decimal amounts* in `tests/parse.test.ts`, `expected 3600000 to be 5400000`. The other 10 pass.',
+            // It reports what its run said: a refused `pnpm test` ran nothing, so nothing failed.
+            (request) => {
+                const last = request.messages[request.messages.length - 1];
+                const why = last?.role === 'tool' ? refusalOf(contentToText(last.content)) : undefined;
+                if (why === 'plan') return `${TESTS_NOT_RUN} in Plan mode.`;
+                if (why === 'person') return `${TESTS_NOT_RUN}.`;
+                return '1 of 11 tests fails: *reads decimal amounts* in `tests/parse.test.ts`, `expected 3600000 to be 5400000`. The other 10 pass.';
+            },
         ],
     },
 ];
@@ -229,10 +249,16 @@ export function route(request: AparteChatRequest): string | undefined {
     const turn = messages.slice(start);
 
     // The approval plugin's refusal in Plan mode, and the loop's when the person rejects a call.
-    if (result.includes('Plan mode:')) return FIX.test(asked) ? 'planned' : 'refused';
-    if (/rejected (by the user|this tool call)/.test(result)) return 'declined';
+    const why = refusalOf(result);
+    if (why === 'plan') return FIX.test(asked) ? 'planned' : 'refused';
+    if (why === 'person') return 'declined';
 
     const name = last.toolName as ToolName | undefined;
+    // The Test runner's refusal, as it reported it: the same answer as a refused run of the agent's own.
+    if ((name as string | undefined) === 'delegate' && result.includes(TESTS_NOT_RUN)) {
+        if (!result.includes(`${TESTS_NOT_RUN} in Plan mode`)) return 'declined';
+        return FIX.test(asked) ? 'planned' : 'refused';
+    }
     if (name === 'read_file' && EXPLAIN.test(asked)) return 'explained';
     if (name === 'run_command') {
         const failing = /\d+ failed/.test(result);
