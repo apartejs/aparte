@@ -116,6 +116,7 @@ describe('@aparte/core public API', () => {
             "requestUserInput",
             "resolveConfig",
             "revokeAttachmentUrls",
+            "runSubAgent",
             "runWithConfig",
             "segmentDuration",
             "segmentTiming",

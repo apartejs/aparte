@@ -18,6 +18,9 @@ export interface AgentStreamRunnerOptions {
 
 type WireLine = StreamRunEvent | { type: 'run-error'; message: string; code?: string };
 
+/** The lines that start, end or pause the run: never a sub-agent's. */
+const RUN_LEVEL = new Set(['run-start', 'run-done', 'run-aborted', 'run-suspended']);
+
 /**
  * An `AparteStreamRunner` that runs `AparteClient`'s loop on YOUR server — the one
  * `createAparteAgentHandler` serves — and replays its events here, where the client's
@@ -36,6 +39,8 @@ type WireLine = StreamRunEvent | { type: 'run-error'; message: string; code?: st
  * takes when a conversation with a paused call is reloaded days later.
  */
 export function createAgentStreamRunner(options: AgentStreamRunnerOptions): AparteStreamRunner {
+    // Said once per runner: a backend that sends one such line sends it every turn.
+    let warnedAttributedEnd = false;
     return async (opts) => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
@@ -83,6 +88,18 @@ export function createAgentStreamRunner(options: AgentStreamRunnerOptions): Apar
                     ? line.code as AparteErrorCode
                     : undefined;
                 throw new AparteError(line.message || 'The agent run failed.', known ?? AparteErrorCode.PROVIDER_ERROR, line.code ? { code: line.code } : undefined);
+            }
+            if (RUN_LEVEL.has(line.type) && (line as { agentId?: unknown }).agentId != null) {
+                // A sub-agent never starts, ends or pauses the run. A hand-written backend that
+                // writes a sub-agent's own `run-done` would otherwise end the turn early.
+                if (!warnedAttributedEnd) {
+                    warnedAttributedEnd = true;
+                    console.warn(
+                        `[aparte] The agent endpoint sent a "${line.type}" line carrying an agentId; it was dropped. `
+                        + 'A sub-agent never starts or ends the run: close it with "agent-end", and end the run with one "run-done" of its own.',
+                    );
+                }
+                continue;
             }
             if (line.type === 'run-done' || line.type === 'run-suspended') {
                 usage = line.usage;

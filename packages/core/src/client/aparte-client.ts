@@ -12,7 +12,7 @@ import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteToolCall, AparteTool, AparteApprovalRuling } from '../types/tools.js';
+import type { AparteToolCall, AparteTool, AparteApprovalRuling, AparteToolRun } from '../types/tools.js';
 import type { AparteRequestMeta } from '../types/chat.js';
 import type { AparteMessageToken } from '../types/models.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
@@ -1854,6 +1854,10 @@ export class AparteClient {
         let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
             adapter(event);
+            // A sub-agent's event is never the run's. Its crash is answered inside its call,
+            // and a run-level event carrying an `agentId` (a runner of the app's own) neither
+            // ends nor pauses the turn, nor seeds the reply a second time.
+            if ((event as { agentId?: unknown }).agentId != null) return;
             if (event.type === 'tool-failed') toolCrash = event.error;
             if (event.type === 'run-done') finishReason = event.finishReason;
             if (event.type === 'run-suspended') {
@@ -1880,7 +1884,9 @@ export class AparteClient {
             const handler = this._config.getToolHandler(name);
             if (!handler) return undefined;
             const context = { target: targetElement as unknown as HTMLElement, config: this._config };
-            return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
+            // The engine's third argument, the run, becomes `context.run`: what a handler
+            // opens a sub-agent from.
+            return (call: AparteToolCall, sig: AbortSignal, run?: AparteToolRun) => handler(call, sig, run ? { ...context, run } : context);
         };
         // The gate is decided per CALL, from the arguments, by the same ruling the
         // channel below answers with — read live, not snapshotted, so a policy
@@ -2056,6 +2062,8 @@ export class AparteClient {
                 const handler = this._config.getToolHandler(p.name);
                 try {
                     if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
+                    // No `run`: the run that asked is the server's, and it is over. A handler
+                    // that opens a sub-agent here gets `runSubAgent`'s clear error.
                     const result = await handler(ran, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
                     outcomes[p.toolCallId] = {
                         kind: 'result',

@@ -5,6 +5,7 @@
 
 import type { AparteToolCallSegment } from './segments.js';
 import type { AparteIconName } from '../config/icon-provider.js';
+import type { StreamToolRun } from '@aparte/engine';
 
 /** Definition of a tool the AI can call */
 export interface AparteTool {
@@ -54,6 +55,8 @@ export interface AparteToolApprovalRequestDetail {
     toolCallId: string;
     toolName: string;
     input: Record<string, unknown>;
+    /** The sub-agent whose call this is; absent for the reply's own. */
+    agentId?: string;
 }
 
 /** A tool call emitted by the AI during streaming */
@@ -151,7 +154,19 @@ export interface AparteToolContext {
      * through the DOM — a handler running in a worker, or one reading a provider.
      */
     config?: unknown;
+    /**
+     * The run this call belongs to, for a handler that opens a sub-agent: pass it to
+     * `runSubAgent`. The loop supplies it, in the page and on the server; a browser tool
+     * answering a paused server run has none.
+     */
+    run?: AparteToolRun;
 }
+
+/**
+ * The run a tool call belongs to — engine's `StreamToolRun`. Handed to a handler as
+ * `context.run`; what `runSubAgent` opens a sub-agent from.
+ */
+export type AparteToolRun = StreamToolRun;
 
 /**
  * What a call targets, in one line: the text the DEFAULT tool row shows after the

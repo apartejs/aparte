@@ -17,7 +17,7 @@
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
 import { segmentContentUpdate } from '../utils/segments.js';
-import type { AparteConfig } from '../config/aparte-config.js';
+import { aparteGlobalConfig, type AparteConfig, type AparteRunEventObserver, type AparteRunEventContext } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent, AparteSource, AparteCitation } from '../types/index.js';
 import type {
     AparteThinkingSegment,
@@ -25,7 +25,7 @@ import type {
 } from '../types/segments.js';
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
-import { toolRefusal as engineToolRefusal } from '@aparte/engine';
+import { toolRefusal as engineToolRefusal, runSubAgent as engineRunSubAgent } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
 import { AparteErrorCode } from '../types/errors.js';
 import { resolveConfig } from '../config/config-context.js';
@@ -54,6 +54,27 @@ export type AparteStreamRunEvent = StreamRunEvent;
  * //     by: 'person', instruction: 'use the staging bucket' }
  */
 export const toolRefusal: typeof engineToolRefusal = engineToolRefusal;
+
+/**
+ * Run a sub-agent from inside a tool handler — engine's `runSubAgent`, under core's roof.
+ * `run` is the handler's `context.run`, `signal` its second argument; `request` is the
+ * sub-agent's own conversation. Its events reach the page as the sub-agent's: kept out of
+ * the reply, and handed to the observers of {@link AparteConfig.observeRunEvents}.
+ *
+ * Resolves `{ status, text }` and never rejects for a sub-agent that failed, so the tool
+ * decides what the model reads. A handler called without a run (a browser tool answering
+ * a paused server run) has nothing to open one from, and rejects with a clear error.
+ *
+ * @example
+ * aparteGlobalConfig.registerTool(researchTool, async (call, signal, context) => {
+ *   const child = await runSubAgent(context!.run!, {
+ *     name: 'researcher',
+ *     request: { modelId: 'your-model', messages: [{ role: 'user', content: String(call.input['task']) }] },
+ *   }, signal);
+ *   return { toolCallId: call.id, content: child.text };
+ * });
+ */
+export const runSubAgent: typeof engineRunSubAgent = engineRunSubAgent;
 
 /** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
 export type AparteStreamRunEmitter = StreamRunEmitter;
@@ -218,7 +239,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         thinkingCollapsed = true;
     };
 
-    return (e: AparteStreamRunEvent): void => {
+    const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
             case 'run-start':
                 target.updateMessage?.(messageId, { status: 'streaming' });
@@ -438,7 +459,73 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
         }
     };
+
+    // The chat's config: the one its element resolves (a client on the global config also
+    // answers a chat with its own), else the adapter's — read per event, as above.
+    const chatConfig = (): AparteConfig =>
+        (typeof Element !== 'undefined' && target instanceof Element ? resolveConfig(target) : config);
+    // An observer that threw, reported once for this reply rather than once per token.
+    const reported = new Set<AparteRunEventObserver>();
+
+    /**
+     * Hand the event to every observer: the chat's config's first, then the adapter's when it
+     * is another (a client given `{ config }` as a settings bag, with no boundary on the page),
+     * then the global's — each observer once. Says whether anyone was there.
+     */
+    const observe = (e: AparteStreamRunEvent, own: AparteConfig): boolean => {
+        const observers = new Set<AparteRunEventObserver>();
+        for (const c of new Set([own, config, aparteGlobalConfig])) {
+            for (const fn of c.getRunEventObservers()) observers.add(fn);
+        }
+        if (observers.size === 0) return false;
+        const ctx: AparteRunEventContext = { messageId, target, ...(targetId !== undefined ? { targetId } : {}), config: own };
+        for (const fn of observers) {
+            try {
+                fn(e, ctx);
+            } catch (error) {
+                if (!reported.has(fn)) {
+                    reported.add(fn);
+                    console.error('[aparte] A run-event observer threw; the reply goes on without it. Further throws from it in this reply are not reported.', error);
+                }
+            }
+        }
+        return true;
+    };
+
+    /*
+     * The router. A sub-agent's event — one that carries an `agentId`, and `agent-start` /
+     * `agent-end` — never reaches the reply's own handling, observed or not: its text is not
+     * the reply's, its `turn-start` must not reset the reply's parser, its calls are not the
+     * reply's rows, and a run-level event it carries (a hand-written backend) does not end
+     * the reply. Here, at the top of the emitter, so every adapter — the client's three, an
+     * app's own — routes the same way.
+     */
+    return (e: AparteStreamRunEvent): void => {
+        const own = chatConfig();
+        const observed = observe(e, own);
+        const agentId = (e as { agentId?: unknown }).agentId;
+        if (agentId == null && e.type !== 'agent-start' && e.type !== 'agent-end') {
+            handle(e);
+            return;
+        }
+        if (!observed && !warnedConfigs.has(own)) {
+            warnedConfigs.add(own);
+            console.warn(
+                `[aparte] A sub-agent's events arrived (agent "${String(agentId)}") and nothing draws them: `
+                + 'they are kept out of the reply and not shown. Add @aparte/plugin-subagents (setupSubagents()) '
+                + 'to show one line per sub-agent, or hear them with config.observeRunEvents().',
+            );
+        }
+        // Somebody must still be asked: an app that presents decisions itself listens for
+        // this. The one event the router answers itself — the reply has no row for the call.
+        if (e.type === 'tool-awaiting-approval') {
+            dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input, agentId }, targetId);
+        }
+    };
 }
+
+/** The configs already told that a sub-agent's events went undrawn: once each. */
+const warnedConfigs = new WeakSet<AparteConfig>();
 
 /**
  * Bridge a `ReadableStream` (what the transport returns) to the

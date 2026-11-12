@@ -125,6 +125,7 @@ export type {
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
+    AparteToolRun,
     AparteToolRenderer,
     AparteToolSummary,
     AparteToolInputFormatter,
@@ -312,7 +313,8 @@ export { estimateTokens, estimateWireTokens, measureContext } from './context/me
 export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
-export { toolRefusal } from './client/stream-adapter.js';
+export { toolRefusal, runSubAgent } from './client/stream-adapter.js';
+export type { AparteRunEventContext, AparteRunEventObserver } from './config/aparte-config.js';
 export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { AparteMessageRepository } from './runtime/message-repository.js';

@@ -292,8 +292,10 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     toolLookup: (name) => {
                         const t = offered.has(name) ? tools.get(name) : undefined;
                         // The request rides along: a tool checks the caller's rights itself,
-                        // since the model — not the caller — chose the arguments.
-                        return t ? (call, signal) => t.handler(call as AparteToolCall, signal, { request: req }) : undefined;
+                        // since the model — not the caller — chose the arguments. The run too,
+                        // for a tool that opens a sub-agent; its events go out on this stream
+                        // like the run's own.
+                        return t ? (call, signal, run) => t.handler(call as AparteToolCall, signal, run ? { request: req, run } : { request: req }) : undefined;
                     },
                     toolConfigLookup: (name) => {
                         if (!offered.has(name)) return undefined;

@@ -44,6 +44,11 @@ It answers `{ toolCallId, content }`: `content` is what the model reads, and an 
 `structuredContent` reaches a [renderer of yours](#custom-tool-renderer) as
 `segment.structuredResult`, never the model.
 
+The context also carries `run`, an `AparteToolRun`: the run the call belongs to, from which a
+handler opens a sub-agent with `runSubAgent(context.run, { name, request }, signal)`, exported by
+`@aparte/core` as by [the engine](/guides/engine/#events). The sub-agent's text and tool calls stay
+out of the reply.
+
 A tool's `systemPrompt` tells the model when to use it, and its `maxTurns` is the last turn of a
 reply in which it may still run. On the client, `toolTimeoutMs` is the time a handler may take,
 five minutes by default: a call past its turns or its time is stopped, and the reply ends with it.

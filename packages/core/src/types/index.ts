@@ -142,6 +142,7 @@ export type {
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
+    AparteToolRun,
     AparteToolRenderer,
     AparteToolSummary,
     AparteToolInputFormatter,

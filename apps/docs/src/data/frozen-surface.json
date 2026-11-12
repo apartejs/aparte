@@ -460,6 +460,7 @@
       "requestUserInput",
       "resolveConfig",
       "revokeAttachmentUrls",
+      "runSubAgent",
       "runWithConfig",
       "segmentDuration",
       "segmentTiming",

@@ -31,7 +31,8 @@ import type {
  *
  * Resolves `{ status, text }`, `text` being what the sub-agent wrote last: `'done'`, or
  * `'failed'` with `error` (the model or a tool of its own failed), or `'stopped'`. Never
- * rejects for a sub-agent that failed.
+ * rejects for a sub-agent that failed; rejects with a `TypeError` when `run` is missing (a
+ * handler called outside the loop has nothing to open a sub-agent from).
  */
 export async function runSubAgent(
     run: StreamToolRun,
@@ -39,6 +40,14 @@ export async function runSubAgent(
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
     signal: AbortSignal,
 ): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string }> {
+    // A handler called outside a loop — a browser tool answering a paused server run — has
+    // no run, and reading `startAgent` off `undefined` named nothing a reader could act on.
+    if (!run || typeof run.startAgent !== 'function') {
+        throw new TypeError(
+            "runSubAgent() needs the run its tool was called in (the handler's third argument, or `context.run`), "
+            + 'and this call has none: a handler run outside the agent loop cannot open a sub-agent.',
+        );
+    }
     if (signal.aborted) return { status: 'stopped', text: '' };
 
     const agent = run.startAgent({ name: opts.name, description: opts.description, detached: opts.detached });

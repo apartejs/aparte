@@ -46,6 +46,7 @@ import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 import { chatBoundaryOf } from '../utils/chat-boundary.js';
 import { ToolTable } from './tool-table.js';
+import type { AparteStreamRunEvent, StreamAdapterTarget } from '../client/stream-adapter.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
 export type AparteHighlightProvider =
@@ -283,6 +284,28 @@ function drawingOf(provider: object | undefined, name: string): (() => string) |
  */
 const iconLayers = new WeakSet<object>();
 
+/**
+ * Where a run event was heard: the reply it belongs to, the chat element it is drawn on,
+ * and that chat's config — the one whose renderers draw it.
+ */
+export interface AparteRunEventContext {
+    /** The streamed assistant message the run writes. */
+    messageId: string;
+    /** What the reply is drawn on: the chat's element, or the target an app drives itself. */
+    target: StreamAdapterTarget;
+    /** The id of the chat, when the adapter was given one. */
+    targetId?: string;
+    /** The chat's config: the one its element resolves, else the adapter's. */
+    config: AparteConfig;
+}
+
+/**
+ * Hears every event of a run — the run's own and its sub-agents' — before the reply handles
+ * it. Registered with {@link AparteConfig.observeRunEvents}. Synchronous, like the emitter it
+ * listens to; one that throws is reported once and the reply goes on.
+ */
+export type AparteRunEventObserver = (event: AparteStreamRunEvent, ctx: AparteRunEventContext) => void;
+
 /** Every name along a provider's prototype chain, short of `Object.prototype`. */
 function namesOf(provider: object | undefined): string[] {
     const names = new Set<string>();
@@ -429,6 +452,8 @@ export class AparteConfig {
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
+    /** One entry per registration, so each remover takes back its own — see {@link observeRunEvents}. */
+    private _runEventObservers: Array<{ fn: AparteRunEventObserver }> = [];
 
     // Host handlers — what the app declares it can actually complete.
     private _hostHandlers: AparteHostHandlersConfig = { ...APARTE_DEFAULT_HOST_HANDLERS };
@@ -1982,6 +2007,35 @@ export class AparteConfig {
         return Array.from(this._streamBlocks.values());
     }
 
+    /**
+     * Hear every event of a reply's run, before the reply handles it — including the
+     * events of its sub-agents, which the reply never draws: an event that carries an
+     * `agentId`, and `agent-start` / `agent-end`, are kept out of the reply whether anyone
+     * observes them or not. This is how a plugin draws a sub-agent's conversation.
+     *
+     * A chat hears the observers of its own config first, then those of
+     * {@link aparteGlobalConfig}, the way a segment renderer is found: one registered once on
+     * the page reaches a chat that carries a config of its own. An observer that throws is
+     * reported once per reply, and the reply goes on. Returns the function that removes it.
+     *
+     * @example
+     * const stop = aparteGlobalConfig.observeRunEvents((event, { messageId }) => {
+     *   if (event.type === 'agent-start') console.info(`${messageId}: ${event.name} started`);
+     * });
+     */
+    observeRunEvents(observer: AparteRunEventObserver): () => void {
+        const entry = { fn: observer };
+        this._runEventObservers.push(entry);
+        return () => {
+            this._runEventObservers = this._runEventObservers.filter((e) => e !== entry);
+        };
+    }
+
+    /** The observers registered on this config, in registration order (read by the stream adapter). */
+    getRunEventObservers(): AparteRunEventObserver[] {
+        return this._runEventObservers.map((e) => e.fn);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Conversation Manager (optional, agnostic persistence layer)
     // ─────────────────────────────────────────────────────────────────────────
@@ -2179,7 +2233,7 @@ export class AparteConfig {
      * the tools with their renderers and summaries, the renderers and render hooks, the
      * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
-     * and their queue. Three things stay: the transport, the key sources added with
+     * and their queue, the run-event observers. Three things stay: the transport, the key sources added with
      * {@link AparteConfig.registerKeyProvider | registerKeyProvider()} (an `AparteClient`'s
      * `keyResolver` among them), and the {@link AparteConfig.subscribe | subscribe()} listeners.
      */
@@ -2226,6 +2280,7 @@ export class AparteConfig {
         notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._streamBlocks.clear();
+        this._runEventObservers = [];
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;
