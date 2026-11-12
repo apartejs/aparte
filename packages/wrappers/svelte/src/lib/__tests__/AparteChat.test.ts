@@ -480,3 +480,27 @@ describe('AparteChat while a conversation is on its way', () => {
         expect(container.querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });
 });
+
+describe('typeToFocus', () => {
+    afterEach(cleanup);
+
+    it('writes nothing for the default and the value for the two others', async () => {
+        const { container, component } = render(AparteChat, { messages: [] });
+        const chat = component as unknown as { $set: (p: Record<string, unknown>) => void };
+        const composer = container.querySelector('aparte-composer')!;
+        await tick();
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+
+        chat.$set({ typeToFocus: 'page' });
+        await tick();
+        expect(composer.getAttribute('type-to-focus')).toBe('page');
+
+        chat.$set({ typeToFocus: 'off' });
+        await tick();
+        expect(composer.getAttribute('type-to-focus')).toBe('off');
+
+        chat.$set({ typeToFocus: 'chat' });
+        await tick();
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+    });
+});

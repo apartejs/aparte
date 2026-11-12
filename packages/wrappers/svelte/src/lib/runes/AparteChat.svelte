@@ -19,6 +19,7 @@
     isTyping = false,
     typingText,
     submitOnEnter = true,
+    typeToFocus = 'chat',
     layoutTransitionMs = 0,
     centerWhenEmpty = false,
     loading = false,
@@ -142,6 +143,7 @@
     composerRef.setAttribute('placeholder', placeholder);
     toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
+    toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
   });
 
   function handleSend(event: Event) {

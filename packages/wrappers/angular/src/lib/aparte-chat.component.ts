@@ -34,6 +34,7 @@ import type {
     AparteConfig,
     AparteActionEventDetail,
     AparteChatImperativeApi,
+    AparteTypeToFocus,
 } from '@aparte/core';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
 import { AparteBubbleDirective } from './aparte-bubble.directive';
@@ -128,6 +129,7 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
         [attr.placeholder]="placeholder()"
         [attr.disabled]="disabled() || waiting() ? '' : null"
         [attr.submit-on-enter]="submitOnEnter() ? null : 'false'"
+        [attr.type-to-focus]="typeToFocus() === 'chat' ? null : typeToFocus()"
         (aparte-send)="onAparteSend($event)"
       >
         <!-- Custom composer via [slot='composer']; falls back to the default
@@ -283,6 +285,8 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
     readonly submitOnEnter = input(true, { transform: booleanAttribute });
+    /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
+    readonly typeToFocus = input<AparteTypeToFocus>('chat');
 
     /**
      * Opt in to the "centered composer when empty" layout: the composer sits

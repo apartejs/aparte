@@ -11,7 +11,7 @@ import React, {
     useImperativeHandle,
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -40,6 +40,8 @@ export interface AparteChatProps {
     typingText?: string;
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
     submitOnEnter?: boolean;
+    /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
+    typeToFocus?: AparteTypeToFocus;
     /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
     layoutTransitionMs?: number;
     /**
@@ -208,6 +210,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         isTyping = false,
         typingText,
         submitOnEnter = true,
+        typeToFocus = 'chat',
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
         loading = false,
@@ -454,6 +457,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                 ref={composerRef as React.Ref<HTMLElement>}
                 target={hostId}
                 submit-on-enter={submitOnEnter ? undefined : 'false'}
+                type-to-focus={typeToFocus === 'chat' ? undefined : typeToFocus}
             >
                 {composer ?? (
                     <div className="aparte-composer-shell">

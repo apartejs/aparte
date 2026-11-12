@@ -1,5 +1,14 @@
 # @aparte-workspace/ssr-nuxt
 
+## 0.0.30
+
+### Patch Changes
+
+- Updated dependencies [83a6ad3]
+  - @aparte/core@1.4.0
+  - @aparte/vue@1.4.0
+  - @aparte/provider-scenario@1.4.0
+
 ## 0.0.29
 
 ### Patch Changes

@@ -6,6 +6,7 @@ export type {
     AparteComposerChangeEventDetail,
     AparteComposerPanelMode,
 } from './aparte-composer.js';
+export type { AparteTypeToFocus } from './type-to-focus.js';
 export { AparteComposerInput } from './aparte-composer-input.js';
 export { AparteComposerSend } from './aparte-composer-send.js';
 export { AparteComposerCancel } from './aparte-composer-cancel.js';

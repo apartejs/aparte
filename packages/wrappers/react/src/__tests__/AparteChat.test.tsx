@@ -721,3 +721,22 @@ describe('<AparteChat> with a transcript the parent owns', () => {
         expect(separator()).toBeNull();
     });
 });
+
+describe('typeToFocus', () => {
+    afterEach(cleanup);
+
+    it('writes nothing for the default and the value for the two others', () => {
+        const composerOf = (c: HTMLElement) => c.querySelector('aparte-composer')!;
+        const { container, rerender } = render(<AparteChat messages={[]} onMessageSent={() => {}} />);
+        expect(composerOf(container).hasAttribute('type-to-focus')).toBe(false);
+
+        rerender(<AparteChat messages={[]} onMessageSent={() => {}} typeToFocus="page" />);
+        expect(composerOf(container).getAttribute('type-to-focus')).toBe('page');
+
+        rerender(<AparteChat messages={[]} onMessageSent={() => {}} typeToFocus="off" />);
+        expect(composerOf(container).getAttribute('type-to-focus')).toBe('off');
+
+        rerender(<AparteChat messages={[]} onMessageSent={() => {}} typeToFocus="chat" />);
+        expect(composerOf(container).hasAttribute('type-to-focus')).toBe(false);
+    });
+});
