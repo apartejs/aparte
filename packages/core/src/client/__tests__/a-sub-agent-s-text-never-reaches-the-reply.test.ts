@@ -113,3 +113,20 @@ describe('a sub-agent\'s events, with no observer', () => {
         expect(warn).not.toHaveBeenCalled();
     });
 });
+
+describe("a pause that waits on a sub-agent's call", () => {
+    it("marks no row of the reply for it, only the reply's own calls", () => {
+        const t = target();
+        const emit = createStreamAdapter({ target: t, config: new AparteConfig(), messageId: 'm1' });
+        emit({ type: 'run-start' });
+        emit({
+            type: 'run-suspended',
+            pending: [
+                { toolCallId: 'c9', name: 'write_file', input: {}, reason: 'approval', agentId: 'a1' },
+                { toolCallId: 'p1', name: 'delete_file', input: {}, reason: 'approval' },
+            ],
+        });
+        // The sub-agent's call is not a row of the reply: it takes no ticket here.
+        expect(t.updates.map(([id]) => id)).toEqual(['tool-p1']);
+    });
+});

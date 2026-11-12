@@ -90,7 +90,7 @@ function harness(opts: { name?: string; parentWrites?: boolean; streamRunner?: (
     const client = new AparteClient({ config: cfg, autoRegister: false, ...(opts.streamRunner ? { streamRunner: opts.streamRunner } : {}) });
     const turn = (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
         ._streamTurn(target, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
-    return { cfg, turn };
+    return { cfg, turn, target };
 }
 
 const question = (): string | undefined => document.querySelector('.aparte-elic-message')?.textContent ?? undefined;
@@ -183,5 +183,39 @@ describe("a sub-agent's question names it", () => {
 
         expect(await asked(turn)).toBe('Allow Write a.ts for Researcher?');
         expect(waits).toEqual([{ type: 'tool-awaiting-approval', toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, agentId: 'a1' }]);
+    });
+
+    it("approving a sub-agent's page tool in a paused run moves the sub-agent's row, never the reply's", async () => {
+        // The row that waits lives with whoever draws the sub-agent; the reply has none for
+        // it (and a row of the reply's sharing the id must not flip to running).
+        let calls = 0;
+        const pausedOnAPageTool = async (o: AparteStreamRunOptions): Promise<undefined> => {
+            o.emitter({ type: 'run-start' });
+            if (calls++ === 0) {
+                o.emitter({ type: 'agent-start', agentId: 'a1', name: 'Researcher' });
+                o.emitter({ type: 'tool-start', toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, agentId: 'a1' });
+                o.emitter({ type: 'run-suspended', pending: [{ toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, reason: 'external', agentId: 'a1' }] });
+            } else {
+                o.emitter({ type: 'run-done' });
+            }
+            return undefined;
+        };
+        const { cfg, turn, target } = harness({ streamRunner: pausedOnAPageTool });
+        const rowEvents: unknown[] = [];
+        cfg.observeRunEvents((event) => {
+            if (event.type === 'tool-awaiting-approval' || event.type === 'tool-approved') rowEvents.push(event);
+        });
+        await expect.poll(() => document.querySelector('.aparte-approval-panel')).not.toBeNull();
+        // What the reply is written from the Approve on.
+        const replyWrites: string[] = [];
+        (target as unknown as { updateSegment: (id: string) => void }).updateSegment = (id) => { replyWrites.push(id); };
+        [...document.querySelectorAll<HTMLButtonElement>('.aparte-approval-option')].find((b) => b.textContent === 'Approve')!.click();
+        await turn;
+
+        expect(rowEvents).toEqual([
+            { type: 'tool-awaiting-approval', toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, agentId: 'a1' },
+            { type: 'tool-approved', toolCallId: 'w1', agentId: 'a1' },
+        ]);
+        expect(replyWrites).not.toContain('tool-w1');
     });
 });

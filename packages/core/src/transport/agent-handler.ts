@@ -9,6 +9,7 @@ import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { readableToAsyncIterable } from '../client/stream-adapter.js';
 import { sameCalls, signTicket, verifyTicket, type AparteTicketCall } from './agent-ticket.js';
 import { refuseUnsafeRequest } from './request-guard.js';
+import { uuid } from '../utils/uuid.js';
 
 /** A server tool: its definition (what the model sees) and its handler (what runs here). */
 export interface AparteAgentTool {
@@ -323,6 +324,11 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     signal: run.signal,
                     ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
                     ...(options.toolTimeoutMs !== undefined ? { toolTimeoutMs: options.toolTimeoutMs } : {}),
+                    // Ids that cannot repeat from one request to the next, as the browser
+                    // client mints them. The engine's default is a counter per run, and every
+                    // request is a run: the resume of a paused reply named its first sub-agent
+                    // `agent-0` again, and the page took it for the first one resumed.
+                    idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
                 }).then(async () => {
                     await pendingWrite;
                     close();

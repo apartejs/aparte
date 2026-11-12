@@ -967,7 +967,9 @@ async function invokeToolHandler(
 
     // The call's own signal, not the run's: a sub-agent the handler opens ends with the
     // call, on a Stop and on this timeout alike.
-    const run = createToolRun(runBase, call.id, controller.signal);
+    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal);
+    // What the handler threw, when it crashed: the sub-agents it left open end `failed` with it.
+    let crash: { error: unknown } | undefined;
 
     try {
         const result = await Promise.race([
@@ -989,11 +991,20 @@ async function invokeToolHandler(
         // loop's invariant is that an announced call gets exactly one terminal
         // event. Throwing from inside skipped it — the row spun "Running" for good
         // while the message showed an error card. The caller reports, then throws.
+        crash = { error: err };
         return { status: 'failed', error: err };
     } finally {
         clearTimeout(timeout);
         signal.removeEventListener('abort', onParentAbort);
         if (onParentAbortRace) signal.removeEventListener('abort', onParentAbortRace);
+        /*
+         * The call is over, so is every sub-agent it opened. A Stop or the timeout closed them
+         * already (the call's signal); a handler that threw, returned, or left a `runSubAgent`
+         * un-awaited did not, and its line started and never stopped — an un-awaited one went
+         * on emitting after its call, after the run itself. Here, before the caller emits the
+         * call's own `tool-failed` / `tool-resolved`, as `agent-end` precedes `tool-aborted`.
+         */
+        closeOpen(crash ? 'failed' : 'stopped', crash ? { error: errorText(crash.error) } : undefined);
     }
 }
 
@@ -1007,12 +1018,30 @@ type RunLevelEvent = Extract<StreamRunEvent, { type: 'run-start' | 'run-done' | 
 const RUN_LEVEL = new Set<string>(['run-start', 'run-done', 'run-aborted', 'run-suspended']);
 const isRunLevel = (event: StreamRunEvent): event is RunLevelEvent => RUN_LEVEL.has(event.type);
 
-/** The `run` one tool call is handed: the run's parts, and a sub-agent tied to this call. */
-function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal): StreamToolRun {
+/**
+ * The `run` one tool call is handed: the run's parts, and a sub-agent tied to this call. And
+ * `closeOpen`, which ends the sub-agents the call opened that are still open, the latest first
+ * (ending one that is closed already does nothing).
+ */
+function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal): {
+    run: StreamToolRun;
+    closeOpen: StreamAgentHandle['end'];
+} {
     const { emitter, ...parts } = base;
+    const opened: StreamAgentHandle[] = [];
     return {
-        ...parts,
-        startAgent: (info) => openAgent(emitter, base.idGen('agent'), info.detached ? undefined : toolCallId, info, callSignal),
+        run: {
+            ...parts,
+            startAgent: (info) => {
+                const handle = openAgent(emitter, base.idGen('agent'), info.detached ? undefined : toolCallId, info, callSignal);
+                opened.push(handle);
+                return handle;
+            },
+        },
+        closeOpen: (status, detail) => {
+            for (const handle of opened.reverse()) handle.end(status, detail);
+            opened.length = 0;
+        },
     };
 }
 

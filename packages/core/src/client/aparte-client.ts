@@ -2128,10 +2128,16 @@ export class AparteClient {
         }
         const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
         // Back to running, and still PAUSED: the resume hands this call back open for its
-        // result to answer. Not through `rowEvents` — that adapter never saw the call start,
-        // so it takes any settle for the end of the pause and drops `deferred`, and the
-        // history then answered the call "stopped before it ran".
-        if (decision?.approved && ruling === 'ask') targetElement.updateSegment?.(`tool-${call.id}`, { status: 'pending' } as Partial<AparteSegment>);
+        // result to answer. The reply's own call not through `rowEvents` — that adapter never
+        // saw the call start, so it takes any settle for the end of the pause and drops
+        // `deferred`, and the history then answered the call "stopped before it ran".
+        // A sub-agent's call has no row in the reply (a reply row sharing its id would flip to
+        // running): through `rowEvents`, with its `agentId`, the router hands it to whoever
+        // draws the sub-agent, and the reply's `deferred` flags are never touched.
+        if (decision?.approved && ruling === 'ask') {
+            if (call.agent) rowEvents?.({ type: 'tool-approved', toolCallId: call.id, agentId: call.agent.id });
+            else targetElement.updateSegment?.(`tool-${call.id}`, { status: 'pending' } as Partial<AparteSegment>);
+        }
         return decision;
     }
 

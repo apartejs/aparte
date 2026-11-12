@@ -340,7 +340,10 @@ that throws leaves the default line.
 
 `createSegmentList` holds a conversation that is not the reply, such as a sub-agent's: a stream
 adapter writes into it as it writes into a chat, and each segment gets its index and timing. The
-`AparteSegmentList` it returns has the `segments`, and `onChange` to hear each change.
+`AparteSegmentList` it returns has the `segments`, and `onChange` to hear each change. An adapter
+you feed with events an observer handed you (a sub-agent's, heard with `observeRunEvents`) takes
+`observe: false`: those events reached every observer already, and without it each observer hears
+them a second time, without their `agentId`, as if they were the reply's.
 
 ```ts
 import { aparteGlobalConfig, createSegmentList, createStreamAdapter, formatDuration, pluralize } from '@aparte/core';

@@ -136,7 +136,10 @@ conversation — the parent's is not handed on — and `request.tools` is what i
 by the handlers registered on the config. `runSubAgent` resolves `{ status, text }`: `'done'`,
 `'failed'` with an `error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
 rejects for a sub-agent that failed, so the tool decides what the model reads: what the handler
-returns as `content`, as for any tool. The model never reads the sub-agent's conversation.
+returns as `content`, as for any tool. The model never reads the sub-agent's conversation. A
+sub-agent ends with its tool: a handler that returns while one it opened still runs (a `runSubAgent`
+it did not await) ends it **Stopped**, one that throws ends it **Failed**, and nothing more of it
+is shown.
 
 The same handler runs on [the server](/guides/server-loop/): pass it in `createAparteAgentHandler`'s
 `tools`, and its `context.run` is the server's run. The sub-agent calls the model with the server's
@@ -203,7 +206,10 @@ call that opened it:
 `agent-end`'s `status` is `done`, `failed` (with `error`), `waiting` or `stopped`. The four run
 lines — `run-start`, `run-done`, `run-aborted`, `run-suspended` — belong to the run and never carry
 an `agentId`: a sub-agent never starts or ends it, and the runner drops such a line with a warning.
-A sub-agent of a sub-agent names its parent in `parentAgentId`. The request the page sends is the
+A sub-agent of a sub-agent names its parent in `parentAgentId`. An `agentId` names one sub-agent for
+the whole reply, a pause and its resume included: an `agent-start` for an id already seen continues
+that sub-agent when it names the same `toolCallId`, or none, and opens a new line when it names
+another call. Mint ids that do not repeat across requests. The request the page sends is the
 one [the server loop's wire](/guides/server-loop/#the-wire) describes.
 
 ## What the line shows
@@ -355,8 +361,8 @@ the sub-agent.
   reads **Stopped** after a reload, and does not resume.
 - **Without the plugin, a sub-agent is neither drawn nor kept.** Its text and its tool calls stay
   out of the reply either way; the call that opened it shows as an ordinary tool row, and the
-  console says once that nothing draws sub-agents. `config.observeRunEvents` hears their events
-  if you draw them yourself.
+  console says once that nothing draws sub-agents. `config.observeRunEvents` hears their events,
+  once each and with their `agentId`, if you draw them yourself.
 
 ## Test it with no model
 

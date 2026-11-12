@@ -54,9 +54,6 @@ const COALESCED = new Set<AparteStreamRunEvent['type']>(['text-delta', 'thinking
 const isOpen = (status: AparteToolCallSegment['status'] | undefined): boolean =>
     (status ?? 'pending') === 'pending' || status === 'awaiting-approval';
 
-/** Every lane list, from every setup: an adapter writing one also calls the observers, and that echo is ignored. */
-const laneLists = new WeakSet<object>();
-
 /** A sub-agent's anchor, just written: which chat, which reply, which agent, and the segment as it is now. */
 export interface LaneWrite {
     readonly target: object;
@@ -114,6 +111,8 @@ interface Lane {
     name?: string;
     description?: string;
     readonly parentId?: string;
+    /** The call that opened it, as its `agent-start` named it: a re-announce on another call is another sub-agent. */
+    readonly toolCallId?: string;
     status: AparteSubagentStatus;
     result?: string;
     error?: string;
@@ -167,6 +166,14 @@ const hostKey = (host: Lane | null, toolCallId: string): string => `${host?.id ?
 /** The plugin segment that stands for a sub-agent no call opened. */
 const ownSegmentId = (agentId: string): string => `subagent-${agentId}`;
 
+/** That id, or one beside it when the host holds it already: a reused id's first sub-agent keeps its own. */
+function freeOwnId(segments: readonly AparteSegment[] | undefined, agentId: string): string {
+    const base = ownSegmentId(agentId);
+    let id = base;
+    for (let n = 2; segments?.some((s) => s.id === id); n += 1) id = `${base}-${n}`;
+    return id;
+}
+
 /** The observer of one setup, and what forgets everything it follows. */
 export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: AparteRunEventContext) => void; dispose: () => void } {
     const owner = {};
@@ -211,9 +218,11 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         segments: lane.list.segments as AparteSegment[],
     });
 
-    /** Write a segment of the reply or of a lane — never another reply's, never after the run. */
+    /**
+     * Write a segment of the reply or of a lane — never another reply's. Never after the run
+     * either, and that is `flush`'s to refuse: it is the one way here, through `writeAnchor`.
+     */
     const write = (run: Run, host: Lane | null, segmentId: string, updates: Record<string, unknown>): void => {
-        if (run.closed) return;
         if (host) {
             host.list.updateSegment?.(segmentId, updates as Partial<AparteSegment>);
             return;
@@ -431,10 +440,30 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             ?? (toolCallId ? segments.find((s) => s.id === `tool-${toolCallId}` && subagentOf(s)?.id === agentId) : undefined);
     };
 
+    /** A lane whose id a new sub-agent now carries: settled as it stands, written, and no longer reached by its id. */
+    const retire = (run: Run, lane: Lane): void => {
+        run.lanes.delete(lane.id);
+        if (lane.status === 'running' || lane.status === 'waiting') {
+            lane.status = 'stopped';
+            settleLane(lane, true);
+            lane.streaming = false;
+            dispatchEnd(run, lane, 'stopped');
+        }
+        markDirty(run, lane, true);
+    };
+
     const startAgent = (run: Run, e: Extract<AparteStreamRunEvent, { type: 'agent-start' }>, ctx: AparteRunEventContext): void => {
         const known = run.lanes.get(e.agentId);
-        if (known) {
-            // A resumed sub-agent: the same lane, working again.
+        /*
+         * A resumed sub-agent is re-announced on the call that opened it (AG-UI), or on none:
+         * the same lane, working again. On ANOTHER call it is another sub-agent under a reused
+         * id — a backend that mints ids per request names a resume's first one like the paused
+         * run's — and taking it for the first one resumed wrote its name and its text on the
+         * first one's line. The first one is over; the new one gets a line of its own.
+         */
+        const reused = known !== undefined && e.toolCallId !== undefined && e.toolCallId !== known.toolCallId;
+        if (known && reused) retire(run, known);
+        if (known && !reused) {
             known.status = 'running';
             delete known.result;
             delete known.error;
@@ -449,7 +478,8 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
         const host = e.parentAgentId ? (run.lanes.get(e.parentAgentId) ?? null) : null;
         const segments = hostSegments(run, host);
-        const saved = savedAnchor(segments, e.agentId, e.toolCallId);
+        // What the host holds under this id is the retired one's, never this one's to adopt.
+        const saved = reused ? undefined : savedAnchor(segments, e.agentId, e.toolCallId);
         const callKey = e.toolCallId ? hostKey(host, e.toolCallId) : '';
         const callId = e.toolCallId ? `tool-${e.toolCallId}` : '';
         const callTaken = callKey !== '' && (run.callAgents.has(callKey)
@@ -459,17 +489,18 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
         const previous = saved ? subagentOf(saved) : undefined;
         const list = createSegmentList({ messageId: run.messageId, ...(previous ? { segments: previous.segments } : {}), config: ctx.config });
-        laneLists.add(list);
         const lane: Lane = {
             id: e.agentId,
             ...(e.name !== undefined ? { name: e.name } : previous?.name !== undefined ? { name: previous.name } : {}),
             ...(e.description !== undefined ? { description: e.description } : previous?.description !== undefined ? { description: previous.description } : {}),
             ...(e.parentAgentId !== undefined ? { parentId: e.parentAgentId } : {}),
+            ...(e.toolCallId !== undefined ? { toolCallId: e.toolCallId } : {}),
             status: 'running',
             list,
-            emit: createStreamAdapter({ target: list, config: ctx.config, messageId: run.messageId }),
+            // Not observed: every observer heard these events from the reply's adapter already.
+            emit: createStreamAdapter({ target: list, config: ctx.config, messageId: run.messageId, observe: false }),
             host,
-            anchorId: onCall ? callId : ownSegmentId(e.agentId),
+            anchorId: onCall ? callId : saved ? saved.id : freeOwnId(segments, e.agentId),
             anchorKind: onCall ? 'call' : 'own',
             ready: true,
             streaming: true,
@@ -552,8 +583,6 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
     };
 
     const observe = (event: AparteStreamRunEvent, ctx: AparteRunEventContext): void => {
-        // A lane's own adapter calls the observers too, with the events already stripped.
-        if (laneLists.has(ctx.target)) return;
         const agentId = (event as { agentId?: unknown }).agentId;
         const attributed = typeof agentId === 'string' || event.type === 'agent-start' || event.type === 'agent-end';
         let run = runs.get(ctx.messageId);

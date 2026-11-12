@@ -127,6 +127,18 @@ export interface CreateStreamAdapterOptions {
      * falls back to `target.id`, which is right for the viewport-only chat shape.
      */
     targetId?: string;
+    /**
+     * Whether the events this adapter is fed go to the observers of
+     * {@link AparteConfig.observeRunEvents}. On by default: an adapter writing a reply is how
+     * its run is heard. Pass `false` for an adapter fed events an observer handed you — a
+     * sub-agent's, written into its own segment list: they reached every observer already,
+     * from the reply's adapter, and a second copy without its `agentId` reads as the reply's.
+     *
+     * @example
+     * // A sub-agent's conversation, written apart from the reply, heard once by the app.
+     * const lane = createStreamAdapter({ target: createSegmentList({ messageId }), config, messageId, observe: false });
+     */
+    observe?: boolean;
 }
 
 /**
@@ -136,7 +148,7 @@ export interface CreateStreamAdapterOptions {
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
-    const { target, config, messageId, targetId } = opts;
+    const { target, config, messageId, targetId, observe: notify = true } = opts;
 
     // Per-turn streaming state (reset on `turn-start`, mirroring `_streamLoop`
     // creating a fresh parser / maps each outer iteration).
@@ -430,6 +442,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 // call lives in the conversation the app saves and a reload can answer it.
                 const ticket = (e as { ticket?: unknown }).ticket;
                 for (const p of e.pending) {
+                    // A sub-agent's call is not a row of the reply: nothing here to mark, and a
+                    // row of the reply that shared its id must not take its ticket.
+                    if (p.agentId != null) continue;
                     const id = `tool-${p.toolCallId}`;
                     const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
                     // Every call is in the message — started here at `tool-start`, or by the run
@@ -499,10 +514,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
      * reply's rows, and a run-level event it carries (a hand-written backend) does not end
      * the reply. Here, at the top of the emitter, so every adapter — the client's three, an
      * app's own — routes the same way.
+     *
+     * With `observe: false` no observer is called: what the adapter is fed (a sub-agent's
+     * events, its `agentId` taken off) reached them already from the reply's adapter, and a
+     * second, unattributed copy read as the reply's own. Its caller holds the events, so
+     * nothing it is fed counts as unheard either.
      */
     return (e: AparteStreamRunEvent): void => {
         const own = chatConfig();
-        const observed = observe(e, own);
+        const observed = !notify || observe(e, own);
         const agentId = (e as { agentId?: unknown }).agentId;
         if (agentId == null && e.type !== 'agent-start' && e.type !== 'agent-end') {
             handle(e);

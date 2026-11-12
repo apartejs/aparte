@@ -465,7 +465,9 @@ export interface StreamToolRun {
 /**
  * A sub-agent opened by {@link StreamToolRun.startAgent}. Closed by `end`, and by a Stop
  * or a timeout of the call that opened it — then with `stopped`, before the call's own
- * `tool-aborted`. Once closed, it emits nothing more.
+ * `tool-aborted`. A handler that settles with it still open closes it too, before the call's
+ * own `tool-failed` / `tool-resolved`: `failed` with the handler's message when it threw,
+ * `stopped` otherwise. Once closed, it emits nothing more.
  */
 export interface StreamAgentHandle {
     readonly agentId: string;
