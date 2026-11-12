@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.4.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [83a6ad3](https://github.com/apartejs/aparte/commit/83a6ad3): A letter typed after a click or a selection in the chat now goes to the input. Nothing to change; `type-to-focus="off"` (`typeToFocus="off"` on the framework components) turns it off.
+
+  Someone who selects a few words of a reply to copy them, then goes on typing, used to type into nothing: the click had taken the caret out of the input. The composer now takes it back on the first key that writes a character.
+
+  - It applies when the person was last in the chat: the last click was in the chat, or the focus is on one of its controls. The page around an embedded chat keeps its own keys.
+  - `type-to-focus="page"` takes a letter typed anywhere in the page, for an app whose page is the chat.
+  - Never taken: a key typed in a field (yours or the chat's), a shortcut, the space bar, Tab, Enter, the arrows, a key another handler cancelled.
+  - The attribute is read on `<aparte-composer>`, and `<aparte-chat>` forwards it. New exported type: `AparteTypeToFocus`.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.3.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
