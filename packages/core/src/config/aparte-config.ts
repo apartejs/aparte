@@ -23,9 +23,9 @@ import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
 import type {
     AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolInputFormatter, AparteToolCall, AparteToolMatcher, AparteToolDisplay,
-    AparteApprovalPolicy, AparteApprovalRuling,
+    AparteApprovalPolicy, AparteApprovalRuling, AparteToolLine,
 } from '../types/tools.js';
-import type { AparteSegmentDefaults } from '../types/segments.js';
+import type { AparteSegmentDefaults, AparteToolCallSegment } from '../types/segments.js';
 import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteCompactor } from '../types/compactor.js';
 import type { AparteBubbleActionsConfig, AparteTurnSummaryOptions, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
@@ -449,6 +449,8 @@ export class AparteConfig {
     /** Bumped by `reset()`: a restore function from before it must not undo what came after. */
     private _overrideGeneration = 0;
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
+    /** What a plugin says about a call, read after the app's display — see {@link setToolLineProvider}. */
+    private _toolLineProvider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null = null;
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -1900,6 +1902,37 @@ export class AparteConfig {
         return !renderer || rank[renderer.level] <= rank[display.level];
     }
 
+    /**
+     * Say more about a call than its display does: what ran it, what it is doing now, a
+     * short note after its state. For a plugin that knows a call from the inside — a
+     * sub-agent's line is the line of the call that opened it.
+     *
+     * One provider per config; `null` removes it. It is consulted AFTER the app's display,
+     * field by field, so the app always wins: `label` and `target` are read when the display
+     * gives none, `details` when the display has no `details` key. `activity` shows while
+     * the call runs or waits; `note` shows in every state. A function, called whenever the
+     * row is drawn, updated or relabelled — never text stored on the segment — so its words
+     * follow a language switch. One that throws, or returns nothing, leaves the default
+     * line. A chat with a config of its own and no provider reads {@link aparteGlobalConfig}'s.
+     *
+     * @example
+     * aparteGlobalConfig.setToolLineProvider((segment) =>
+     *     segment.toolCall.name === 'delegate' ? { activity: 'Reading the parser', note: '3 tools' } : undefined);
+     */
+    setToolLineProvider(provider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null): void {
+        if (this._toolLineProvider === provider) return;
+        this._toolLineProvider = provider;
+        // Its `details` can change what is behind a line, which a relabel does not redraw.
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** The tool-line provider this config reads: its own, else the page's. */
+    getToolLineProvider(): ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null {
+        if (this._toolLineProvider || this === aparteGlobalConfig) return this._toolLineProvider;
+        return aparteGlobalConfig._toolLineProvider;
+    }
+
     /** Drop one field of the entry under `match`, and the entry when nothing is left. */
     private _dropToolDisplayField(match: AparteToolMatcher, field: keyof AparteToolDisplay): void {
         const entry = this._toolDisplays.get(match);
@@ -2230,7 +2263,7 @@ export class AparteConfig {
 
     /**
      * Put the configuration back to its defaults: the providers and the selected model,
-     * the tools with their renderers and summaries, the renderers and render hooks, the
+     * the tools with their renderers and summaries, the tool-line provider, the renderers and render hooks, the
      * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
      * and their queue, the run-event observers. Three things stay: the transport, the key sources added with
@@ -2279,6 +2312,7 @@ export class AparteConfig {
         this._overrideGeneration++;
         notifyRenderersChanged(this);
         this._toolDisplays.clear();
+        this._toolLineProvider = null;
         this._streamBlocks.clear();
         this._runEventObservers = [];
         this._modelConfig = {};

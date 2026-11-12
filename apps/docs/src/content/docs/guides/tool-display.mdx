@@ -320,11 +320,53 @@ A `'*'` hide therefore leaves a tool with a renderer of its own drawn, such as
 `registerToolDisplay('ask_user', { hidden: true })` hides it, and that is what `receipt: false` on
 `setupAskUser()` does.
 
+## A line a plugin fills
+
+A plugin that knows more about a call than its name, such as the sub-agent a `delegate` call
+started, fills the same row with `setToolLineProvider`. It returns an `AparteToolLine`, all plain
+text:
+
+- `label` and `target`, used only when your display gives no label or summary;
+- `activity`, what the call is doing now, shown after the target while the call runs or waits;
+- `note`, a short text after the state word, such as `3 tools · 12 s`, in every state;
+- `details`, used only when your display has no `details` key.
+
+Your `registerToolDisplay` always wins, field by field. A config holds one provider (`null`
+removes it), and a chat with a config of its own uses the page's when it has none. It is called
+whenever the row is drawn, updated or relabelled, so its words follow a language switch:
+`pluralize` and `formatDuration` give the plural and the duration a turn's fold uses. A provider
+that throws leaves the default line.
+
+`createSegmentList` holds a conversation that is not the reply, such as a sub-agent's: a stream
+adapter writes into it as it writes into a chat, and each segment gets its index and timing. The
+`AparteSegmentList` it returns has the `segments`, and `onChange` to hear each change.
+
+```ts
+import { aparteGlobalConfig, createSegmentList, createStreamAdapter, formatDuration, pluralize } from '@aparte/core';
+import type { AparteToolLine } from '@aparte/core';
+
+const list = createSegmentList({ messageId: 'reply-1' });
+const emit = createStreamAdapter({ target: list, config: aparteGlobalConfig, messageId: 'reply-1' });
+emit({ type: 'tool-start', toolCallId: 'r1', name: 'read_file', input: { path: 'parser.ts' } });
+
+aparteGlobalConfig.setToolLineProvider((segment): AparteToolLine | undefined => {
+  if (segment.toolCall.name !== 'delegate') return undefined;
+  const tag = aparteGlobalConfig.getLocale().tag || undefined;
+  const tools = list.segments.filter((s) => s.type === 'tool_call').length;
+  return {
+    label: 'Explorer',
+    activity: 'Reading parser.ts',
+    note: `${pluralize('one:{n} tool|other:{n} tools', tools, tag)} · ${formatDuration(12_000, tag)}`,
+  };
+});
+```
+
 ## On a narrow screen
 
 The row keeps its state word whatever the width (a quiet row shows it only when something went
-wrong or waits for approval, and then keeps it too). The note and the target give way first, cut
-with an ellipsis, and the note carries its full text as a `title`, so a hover still reads it.
+wrong or waits for approval, and then keeps it too). The note, the target and the activity give
+way first, cut with an ellipsis, and the note carries its full text as a `title`, so a hover still
+reads it.
 
 ## Next
 

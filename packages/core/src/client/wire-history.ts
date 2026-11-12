@@ -76,6 +76,16 @@ export const isOpenDeferred = (segment: AparteSegment): segment is AparteToolCal
     && ((segment as AparteToolCallSegment).status === 'awaiting-approval' || (segment as AparteToolCallSegment).status === 'pending');
 
 /**
+ * A call a resume leaves open: a paused one, and one still RUNNING — the call that opened
+ * a sub-agent paused under it is not finished, and answering it `STOPPED_TOOL_TEXT` would
+ * tell the model it never ran. A server loop never pauses on a running call (each call has
+ * settled or carries its ticket by then), so its resume is unchanged.
+ */
+const isLeftOpen = (segment: AparteSegment): segment is AparteToolCallSegment =>
+    segment.type === 'tool_call'
+    && ((segment as AparteToolCallSegment).status === 'pending' || isOpenDeferred(segment));
+
+/**
  * `textOf` turns a run of non-call segments into the text a model reads back — the
  * client's own reconstruction, so a fence or an artifact reads the same whether a call
  * sits beside it or not.
@@ -85,8 +95,9 @@ export function wireTurns(
     textOf: (segments: AparteSegment[]) => string,
     options: {
         /**
-         * Leave this message's paused calls unanswered: the request that RESUMES them
-         * sends the envelope with those calls open, for the server to answer them.
+         * Leave this message's paused calls unanswered — and its calls still running: the
+         * request that RESUMES them sends the envelope with those calls open, for the
+         * server to answer them.
          */
         openDeferred?: boolean;
     } = {},
@@ -110,7 +121,7 @@ export function wireTurns(
                 toolCalls: calls.map((c) => ({ id: c.toolCall.id, name: c.toolCall.name, input: c.toolCall.input })),
             });
             for (const c of calls) {
-                if (options.openDeferred && isOpenDeferred(c)) continue;
+                if (options.openDeferred && isLeftOpen(c)) continue;
                 out.push({ role: 'tool', content: answerOf(c), toolCallId: c.toolCall.id, toolName: c.toolCall.name });
             }
         }
@@ -125,7 +136,7 @@ export function wireTurns(
     for (const segment of segments) {
         if (segment.type === 'tool_call') {
             calls.push(segment as AparteToolCallSegment);
-            if (options.openDeferred && isOpenDeferred(segment)) open = true;
+            if (options.openDeferred && isLeftOpen(segment)) open = true;
         } else {
             if (calls.length > 0 && !open) flush();
             texts.push(segment);

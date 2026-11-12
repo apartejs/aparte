@@ -9,12 +9,13 @@ import { contextConfig } from '../../config/index.js';
 import type {
     AparteSegmentRenderer,
     AparteToolCallSegment,
+    AparteToolLine,
     AparteToolRenderer,
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
 import { copyButtonMarkup, wireCopyButton, relabelCopyButton } from '../copy-button.js';
 import { describeToolInput } from '../../utils/tool-input.js';
-import { toolNameOf, toolTargetOf } from '../../utils/tool-line.js';
+import { toolNameOf, toolTargetOf, toolLineOf, toolActivityOf, toolLineNoteOf } from '../../utils/tool-line.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
@@ -66,7 +67,7 @@ function stateBadge(segment: AparteToolCallSegment): string {
  * row says it in the reader's language. `''` when the state word is the whole story — a
  * bare refusal, a Stop — or when the segment predates those fields.
  */
-function noteOf(segment: AparteToolCallSegment): string {
+function reasonOf(segment: AparteToolCallSegment): string {
     const cfg = contextConfig();
     if (segment.status === 'rejected') {
         const by = segment.refusal?.by;
@@ -85,6 +86,14 @@ function noteOf(segment: AparteToolCallSegment): string {
         }
     }
     return '';
+}
+
+/**
+ * The row's trailing note: why the call ended, then what the tool-line provider adds ("3
+ * tools · 12 s") — one place after the state word, both in the reader's language.
+ */
+function noteOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
+    return [reasonOf(segment), toolLineNoteOf(line)].filter(Boolean).join(' · ');
 }
 
 /**
@@ -109,8 +118,11 @@ function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput'; text: s
  */
 type Behind = { kind: 'parts' } | { kind: 'none' } | { kind: 'body'; body: HTMLElement | string };
 
-function behindOf(segment: AparteToolCallSegment): Behind {
-    const details = contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.details;
+function behindOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): Behind {
+    // The app's display first, by its KEY: a display that says `details` says it for good;
+    // the tool-line provider's is read only when the display has none.
+    const display = contextConfig().getToolDisplay(segment.toolCall?.name ?? '');
+    const details = display && 'details' in display ? display.details : line?.details;
     if (details === false) return { kind: 'none' };
     if (typeof details !== 'function') return { kind: 'parts' };
     try {
@@ -133,10 +145,15 @@ const appDetailOf = (element: Element): Element | null =>
  * Put what the app drew behind the line. Its own markup, so the whole detail is replaced;
  * the `<details>` around it stays, and with it what the reader opened. An update brings new
  * data, so new nodes: listeners the app attached read the call they were made for.
+ *
+ * Except an element that is ALREADY in place: the app's function handed back the one it
+ * keeps and completes itself (a sub-agent's conversation, growing under the line), so there
+ * is nothing to write — and serialising it would re-read the whole of it on every token.
  */
 function setBody(element: Element, body: HTMLElement | string): void {
     const detail = element.querySelector('.aparte-tool-detail');
     if (!detail) return;
+    if (typeof body !== 'string' && body.parentNode === detail) return;
     if (typeof body === 'string') detail.innerHTML = body;
     else detail.replaceChildren(body);
     drawnBodies.set(detail, serialized(body));
@@ -218,10 +235,10 @@ function patchChanges(live: Node, prev: Node, next: Node): void {
 }
 
 /** Write the note into its container — always in the pill, like the target, so `update` can patch it. */
-function setNote(element: Element, segment: AparteToolCallSegment): void {
+function setNote(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
     const el = element.querySelector('.aparte-tool-note');
     if (!el) return;
-    const text = noteOf(segment);
+    const text = noteOf(segment, line);
     if (el.textContent !== text) el.textContent = text;
     el.toggleAttribute('hidden', !text);
     // Its own title: one line cut by an ellipsis must still be readable whole — the
@@ -345,12 +362,12 @@ function highlightParts(element: HTMLElement): void {
 }
 
 /**
- * What the call targets, from the summary registered for its tool — `''` when there is
- * none, or when it throws: a summary reads model-chosen input, and a bad one must cost
- * the row its one line, not the bubble its render.
+ * What the call targets, from the summary registered for its tool, else the tool-line
+ * provider's — `''` when neither says anything, or when the summary throws: a summary reads
+ * model-chosen input, and a bad one must cost the row its one line, not the bubble its render.
  */
-function toolTarget(segment: AparteToolCallSegment): string {
-    return toolTargetOf(segment, contextConfig());
+function toolTarget(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
+    return toolTargetOf(segment, contextConfig(), line);
 }
 
 /**
@@ -359,21 +376,37 @@ function toolTarget(segment: AparteToolCallSegment): string {
  * be arriving when the row is first drawn. `relabel` calls it too, so a summary
  * registered after the row was drawn reaches it on the next config change.
  */
-function setTarget(element: Element, segment: AparteToolCallSegment): void {
+function setTarget(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
     const el = element.querySelector('.aparte-tool-target');
     if (!el) return;
-    const text = toolTarget(segment);
+    const text = toolTarget(segment, line);
+    if (el.textContent !== text) el.textContent = text;
+    el.toggleAttribute('hidden', !text);
+}
+
+/**
+ * Write what the call is doing now (the tool-line provider's `activity`) into its container —
+ * always in the line, like the target, so a relabel can write it without adding a node, and
+ * `hidden` once the call has settled or when there is nothing to say. Plain text, and no
+ * live region of its own: inside the transcript's log, a streaming reply is `aria-busy`, so
+ * its changes are not announced one by one; a screen reader reads it with the row.
+ */
+function setActivity(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
+    const el = element.querySelector('.aparte-tool-activity');
+    if (!el) return;
+    const text = toolActivityOf(segment, line);
     if (el.textContent !== text) el.textContent = text;
     el.toggleAttribute('hidden', !text);
 }
 
 /**
  * The name the row shows: the label the app declared (`registerToolDisplay`), else the
- * identifier — the app's wire format, which core never turns into words on its own. A
- * label that throws or says nothing costs the row its label, not its render.
+ * tool-line provider's, else the identifier — the app's wire format, which core never turns
+ * into words on its own. A label that throws or says nothing costs the row its label, not
+ * its render.
  */
-function nameOf(segment: AparteToolCallSegment): { text: string; isLabel: boolean } {
-    return toolNameOf(segment, contextConfig());
+function nameOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): { text: string; isLabel: boolean } {
+    return toolNameOf(segment, contextConfig(), line);
 }
 
 /** The row's glyph: the display's icon key when the provider knows it, else `tool`. */
@@ -423,10 +456,10 @@ function setQuiet(element: Element, segment: AparteToolCallSegment): void {
 }
 
 /** Write the name into its container: a label function may read the status, so `update` calls it too. */
-function setName(element: Element, segment: AparteToolCallSegment): void {
+function setName(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
     const el = element.querySelector('.aparte-tool-name');
     if (!el) return;
-    const { text, isLabel } = nameOf(segment);
+    const { text, isLabel } = nameOf(segment, line);
     if (el.textContent !== text) el.textContent = text;
     el.classList.toggle('aparte-tool-name--label', isLabel);
 }
@@ -439,18 +472,20 @@ function setName(element: Element, segment: AparteToolCallSegment): void {
  * literal and rendered as visible text in the bubble — the exact trap this file's
  * `getStyles` block warns about, walked into one edit later.
  */
-function pillMarkup(segment: AparteToolCallSegment): string {
+function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
-    const target = toolTarget(segment);
-    const note = noteOf(segment);
-    const name = nameOf(segment);
+    const target = toolTarget(segment, line);
+    const activity = toolActivityOf(segment, line);
+    const note = noteOf(segment, line);
+    const name = nameOf(segment, line);
     const quiet = quietOf(segment);
     return `
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${icon}</span>
                     <span class="aparte-tool-name${name.isLabel ? ' aparte-tool-name--label' : ''}${quiet.shimmer ? ' aparte-shimmer' : ''}">${escapeHtml(name.text)}</span>
                     <span class="aparte-tool-target"${target ? '' : ' hidden'}>${escapeHtml(target)}</span>
+                    <span class="aparte-tool-activity"${activity ? '' : ' hidden'}>${escapeHtml(activity)}</span>
                 </span>
                 <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${quiet.spinner ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state${quiet.stateHidden ? ' aparte-sr-only' : ''}">${badge}</span>
@@ -510,7 +545,7 @@ function drawerOf(element: Element, current: AparteToolRenderer | null): AparteT
  * have been ruled out. `behind` comes from the caller so the app's `details` is asked once
  * per draw: `update` has already asked it when it decides to rebuild.
  */
-function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElement | string {
+function drawDefault(segment: AparteToolCallSegment, behind: Behind, line: AparteToolLine | undefined): HTMLElement | string {
     const name = segment.toolCall?.name ?? 'tool';
     const status = segment.status ?? 'pending';
     const toolCallId = segment.toolCall?.id ?? '';
@@ -525,7 +560,7 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind): HTMLElemen
      * spinner is always in the DOM and CSS shows it only while `pending`, and the
      * status slot is one element whose CONTENT is the waiting label or the glyph.
      */
-    const pill = pillMarkup(segment);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+    const pill = pillMarkup(segment, line);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
     // The quiet line, for a stylesheet: the target in the chat's font, the chevron at the end.
     const quiet = isQuiet(segment) ? ' data-quiet' : '';
     const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
@@ -636,7 +671,8 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             return out || placeholderMarkup(segment);
         }
 
-        return drawDefault(segment, behindOf(segment));
+        const line = toolLineOf(segment, contextConfig());
+        return drawDefault(segment, behindOf(segment, line), line);
     },
     /**
      * The pill's glyphs, and the label it wears while a person is deciding.
@@ -659,11 +695,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             custom.relabel?.(element, segment);
             return;
         }
+        // The provider is asked again: its words are in the reader's language too.
+        const line = toolLineOf(segment, cfg);
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = iconOf(segment);
-        setName(element, segment);
-        setTarget(element, segment);
-        setNote(element, segment);
+        setName(element, segment, line);
+        setTarget(element, segment, line);
+        setActivity(element, segment, line);
+        setNote(element, segment, line);
         // The part labels are locale text too; the parts themselves stay (relabel adds none).
         const inputLabel = element.querySelector('[data-part="input"] .aparte-tool-part-label');
         if (inputLabel) inputLabel.textContent = cfg.t('toolInput');
@@ -677,7 +716,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // asked again, and what it draws now is written into the nodes already there.
         const appDetail = appDetailOf(element);
         if (appDetail) {
-            const behind = behindOf(segment);
+            const behind = behindOf(segment, line);
             if (behind.kind === 'body') relabelBody(appDetail, behind.body);
         }
         // Through `stateBadge`, which is the whole point of it existing.
@@ -773,13 +812,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         }
         // Asked here, past the hide and the renderer, so an app's `details` is never asked
         // for a call it cannot draw — and once: a rebuild draws with this same answer.
-        const behind = behindOf(segment);
+        const line = toolLineOf(segment, contextConfig());
+        const behind = behindOf(segment, line);
         const input = behind.kind === 'parts' ? describeInput(segment) : '';
         const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
         const wantsDetail = behind.kind === 'body' || !!input || !!outcome;
         const holdsAppDetail = !!appDetailOf(element);
         if (wantsDetail !== (element.tagName === 'DETAILS') || (wantsDetail && (behind.kind === 'body') !== holdsAppDetail)) {
-            rebuild(drawDefault(segment, behind));
+            rebuild(drawDefault(segment, behind, line));
             return;
         }
 
@@ -787,9 +827,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const badge = element.querySelector('.aparte-tool-state');
         if (badge) badge.innerHTML = stateBadge(segment);
         setQuiet(element, segment);
-        setName(element, segment);
-        setTarget(element, segment);
-        setNote(element, segment);
+        setName(element, segment, line);
+        setTarget(element, segment, line);
+        setActivity(element, segment, line);
+        setNote(element, segment, line);
 
         if (behind.kind === 'body') {
             setBody(element, behind.body);

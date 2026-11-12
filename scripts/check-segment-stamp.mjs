@@ -67,6 +67,10 @@ const ARRAY_WRITERS = new Set([
     'packages/core/src/host/aparte-chat-host.ts',
     'packages/core/src/components/bubble/aparte-chat-bubble.ts',
     'packages/core/src/parsers/aparte-stream-parser.ts',
+    // `createSegmentList`: the one list a plugin may grow (a sub-agent's conversation, on the
+    // call that opened it), and it stamps through this file's helpers on the way in — so a
+    // plugin never grows an array itself, and never writes a timestamp.
+    'packages/core/src/utils/segment-list.ts',
 ]);
 
 /**

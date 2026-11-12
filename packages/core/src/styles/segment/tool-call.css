@@ -168,6 +168,25 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 .aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
     order: 1;
 }
+/* What the call is doing now (`setToolLineProvider`'s `activity`), while it runs or waits:
+   the target's continuation, at the note's size. Inside the label's one line and cut with an
+   ellipsis like the target, so its text arriving, changing or leaving never changes the
+   row's height — the line does not jump as a sub-agent moves from step to step. Words for a
+   person, so the chat's own face on every row, quiet or not, and the label's weight undone:
+   it is text, not the call's name. No motion of its own, so reduced motion has nothing to
+   hold still. */
+.aparte-tool-activity {
+    min-width: 0;
+    /* Gives way with the target, before the name and the state word. */
+    flex-shrink: 1000;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: inherit;
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-normal);
+    color: var(--aparte-text-muted);
+}
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
    the placement rule this repo already settled on: no left/right in a name, so
@@ -185,9 +204,10 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     user-select: none;
 }
 .aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
-/* Why the call ended — who refused, why it stopped — for the person reading the row.
-   The state word's quieter continuation, as the target is the name's: one line, cut
-   with an ellipsis before it can push the row wider. */
+/* Why the call ended — who refused, why it stopped — for the person reading the row, then
+   what a tool-line provider adds ("3 tools · 12 s"), in every state. The state word's
+   quieter continuation, as the target is the name's: one line, cut with an ellipsis before
+   it can push the row wider. */
 .aparte-tool-note {
     min-width: 0;
     /* Gives way first, before the label; its full text is its title. */

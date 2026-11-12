@@ -44,6 +44,7 @@ import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate, isSegmentSettled } from '../../utils/segments.js';
 import { pluralize } from '../../utils/plural.js';
 import { formatDuration } from '../../utils/format-duration.js';
+import { toolNameOf } from '../../utils/tool-line.js';
 import { planTurns, rowOf, turnDuration, type TurnRole } from './turn-groups.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import type { AparteMessageToken } from '../../types/index.js';
@@ -1508,16 +1509,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     return tools ? cfg.t('turnUsed').replace('{tools}', () => tools) : cfg.t('thought');
   }
 
-  /** What a call goes by on screen: the label the app gave it, else its identifier. */
+  /** What a call goes by on screen — the name its row shows, through the same function. */
   private _stepName(call: AparteToolCallSegment): string {
-    const name = call.toolCall?.name ?? '';
-    const label = this._cfg.getToolDisplay(name)?.label;
-    if (typeof label !== 'function') return label ?? name;
-    try {
-      return label(call);
-    } catch {
-      return name;
-    }
+    return toolNameOf(call, this._cfg).text;
   }
 
   private _applySegmentUpdate(segmentId: string, segment: AparteSegment, updates: Partial<AparteSegment>): void {

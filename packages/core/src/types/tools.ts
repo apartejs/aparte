@@ -280,6 +280,29 @@ export interface AparteToolDisplay {
 export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
 
 /**
+ * What a tool-line provider says about one call — `AparteConfig.setToolLineProvider`. A
+ * plugin that knows more about a call than its name (what ran it, what it is doing now)
+ * fills the default row with it; every field is plain text, never HTML, and every field is
+ * optional.
+ *
+ * The app's display always wins, field by field: `label` and `target` are read only when
+ * the display gives none, and `details` only when the display has no `details` key.
+ * `activity` and `note` have no display field of their own.
+ */
+export interface AparteToolLine {
+    /** What the call goes by, when the display declares no label. */
+    label?: string;
+    /** What the call targets, when the display declares no summary. */
+    target?: string;
+    /** What the call is doing now, shown after the target while it runs or waits. */
+    activity?: string;
+    /** A short trailing text, after the state word, in every state: "3 tools · 12 s". */
+    note?: string;
+    /** What is behind the line, when the display has no `details` key. */
+    details?: false | AparteToolDetails;
+}
+
+/**
  * Per-tool segment renderer.
  * Registered via aparteGlobalConfig.registerToolRenderer(toolName, renderer).
  * When the AI calls a tool, this renderer controls what appears in the bubble
