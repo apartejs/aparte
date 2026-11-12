@@ -30,6 +30,7 @@ const installed = new WeakMap<AparteConfig, () => void>();
  * import { setupSubagents } from '@aparte/plugin-subagents';
  * setupSubagents();                          // the line alone
  * setupSubagents({ counts: false });         // without "3 tools · 12 s"
+ * setupSubagents({ details: 'transcript' }); // its conversation under the line, closed
  */
 export function setupSubagents(options: SubagentsOptions = {}, config: AparteConfig = aparteGlobalConfig): () => void {
     installed.get(config)?.();

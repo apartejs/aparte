@@ -14,7 +14,7 @@ describe('the node entry', () => {
     it('imports without a DOM, sets up, and reads a saved sub-agent', async () => {
         expect(typeof document).toBe('undefined');
         const core = await import('@aparte/core');
-        const { setupSubagents, subagentOf, subagentStatus } = await import('../index.node.js');
+        const { setupSubagents, subagentOf, subagentStatus, subagentTranscript } = await import('../index.node.js');
         const config = new core.AparteConfig();
         const stop = setupSubagents({}, config);
         expect(config.getRunEventObservers()).toHaveLength(1);
@@ -25,6 +25,8 @@ describe('the node entry', () => {
         } as const;
         expect(subagentOf(saved as never)?.name).toBe('Researcher');
         expect(subagentStatus(saved as never)).toBe('stopped');
+        // Its conversation has nowhere to be drawn without a document: no detail.
+        expect(subagentTranscript(saved as never)).toBe('');
         // The observer runs without a DOM too: a run with a sub-agent, into a segment list.
         const list = core.createSegmentList({ messageId: 'm1' });
         const emit = core.createStreamAdapter({ target: list, config, messageId: 'm1' });
@@ -36,5 +38,9 @@ describe('the node entry', () => {
         const lane = subagentOf(list.segments[0]!);
         expect(lane?.segments.map((s) => (s as { content?: string }).content)).toEqual(['Hello from Node.']);
         stop();
+        // The setup with the conversation under the line installs the same way.
+        const again = setupSubagents({ details: 'transcript' }, config);
+        expect(config.getToolLineProvider()).toBeTypeOf('function');
+        again();
     });
 });

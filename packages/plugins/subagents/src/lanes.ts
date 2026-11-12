@@ -57,6 +57,27 @@ const isOpen = (status: AparteToolCallSegment['status'] | undefined): boolean =>
 /** Every lane list, from every setup: an adapter writing one also calls the observers, and that echo is ignored. */
 const laneLists = new WeakSet<object>();
 
+/** A sub-agent's anchor, just written: which chat, which reply, which agent, and the segment as it is now. */
+export interface LaneWrite {
+    readonly target: object;
+    readonly targetId?: string;
+    readonly messageId: string;
+    readonly agentId: string;
+    readonly anchor: AparteSegment;
+}
+
+/** Who hears every anchor written, from every setup: the standalone views. */
+const laneWatchers = new Set<(write: LaneWrite) => void>();
+
+/**
+ * Hear every sub-agent's anchor as it is written — once a frame while it streams, at once
+ * for everything else. What `<aparte-subagent-view>` follows a live sub-agent with.
+ */
+export function watchLaneWrites(fn: (write: LaneWrite) => void): () => void {
+    laneWatchers.add(fn);
+    return () => { laneWatchers.delete(fn); };
+}
+
 /**
  * Who draws a reply's sub-agents, when two setups hear the same run (one on a chat's config,
  * one on the global): the first to see a sub-agent's event, which is the chat's — observers
@@ -223,6 +244,26 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             }
         }
         write(run, lane.host, lane.anchorId, updates);
+        if (laneWatchers.size === 0 || run.closed) return;
+        // The anchor as the conversation holds it now; a host that cannot be read gets the
+        // plugin's own shape, which reads the same state.
+        const anchor = anchorOf(run, lane) ?? {
+            id: lane.anchorId, type: SUBAGENT_SEGMENT_TYPE, subagent: updates['subagent'], isStreaming: lane.streaming,
+        } as AparteSubagentSegment;
+        const note: LaneWrite = {
+            target: run.target,
+            ...(run.targetId !== undefined ? { targetId: run.targetId } : {}),
+            messageId: run.messageId,
+            agentId: lane.id,
+            anchor,
+        };
+        for (const fn of [...laneWatchers]) {
+            try {
+                fn(note);
+            } catch (err) {
+                console.error('[aparte] a sub-agent view threw', err);
+            }
+        }
     };
 
     /** Write every lane that changed, a sub-agent before the parent whose lane holds it. */

@@ -8,7 +8,11 @@
     "description": "Sub-agents for aparté: one line per sub-agent — its name, its task, what it is doing now, how far it got — with its conversation kept out of the reply.",
     "customElements": "dist/custom-elements.json",
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./dist/*.js",
+        "./src/index.ts",
+        "./src/aparte-subagent-view.ts"
+    ],
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",

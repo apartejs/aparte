@@ -18,6 +18,7 @@ import {
 } from '@aparte/core';
 import { callStatusOf, subagentOf, subagentStatus } from './status.js';
 import { markStandIn } from './line.js';
+import { rendererStyles } from './styles.js';
 import { SUBAGENT_SEGMENT_TYPE, type AparteSubagentSegment } from './types.js';
 
 /** The tool name a sub-agent with no name stands in under. */
@@ -77,4 +78,7 @@ export const subagentRenderer: AparteSegmentRenderer<AparteSubagentSegment> = {
     },
     relabel: (element, segment) => toolRow()?.relabel?.(element, standInCall(segment)),
     cleanup: (element, segment) => toolRow()?.cleanup?.(element, standInCall(segment)),
+    // The plugin's sheet (the transcript's, the view's): core puts it on the page with the
+    // renderers' own, once, unless a view already did.
+    getStyles: rendererStyles,
 };

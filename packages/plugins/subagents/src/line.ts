@@ -17,10 +17,10 @@ import {
     type AparteConfig,
     type AparteSegment,
     type AparteToolCallSegment,
-    type AparteToolDetails,
     type AparteToolLine,
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
+import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
 import type { AparteSubagent, AparteSubagentStatus, SubagentsOptions } from './types.js';
 
@@ -31,17 +31,6 @@ const standIns = new WeakSet<object>();
 export function markStandIn(segment: AparteToolCallSegment): AparteToolCallSegment {
     standIns.add(segment);
     return segment;
-}
-
-/**
- * What `details: 'transcript'` puts under the line — the sub-agent's conversation. Filled by
- * the transcript module; until it is, `'transcript'` draws the line alone.
- */
-let transcriptDetails: AparteToolDetails | undefined;
-
-/** Give `details: 'transcript'` what it draws. */
-export function provideTranscript(details: AparteToolDetails | undefined): void {
-    transcriptDetails = details;
 }
 
 const isOpenCall = (segment: AparteSegment): segment is AparteToolCallSegment =>
@@ -155,7 +144,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
 
         const details = options.details;
         line.details = typeof details === 'function' ? details
-            : details === 'transcript' ? (transcriptDetails ?? false)
+            : details === 'transcript' ? subagentTranscript
             : false;
         return line;
     };

@@ -9,7 +9,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { aparteGlobalConfig, type AparteToolCallSegment } from '@aparte/core';
 import { setupSubagents } from '../index.js';
-import { provideTranscript } from '../line.js';
 import { as, chat, frame, shown } from './harness.js';
 
 let stop: (() => void) | undefined;
@@ -114,23 +113,12 @@ describe("a sub-agent's line", () => {
         expect(row.querySelector('.aparte-tool-detail')!.textContent).toContain('Lane of delegate');
     });
 
-    it("'transcript' is accepted, and draws the line alone until a transcript is provided", () => {
+    it("'transcript' puts the sub-agent's conversation behind the line", () => {
         stop = setupSubagents({ details: 'transcript' });
         const { c } = working();
-        expect(c.row('tool-c1')!.tagName).not.toBe('DETAILS');
-    });
-
-    it("'transcript' draws what the transcript module provides", () => {
-        provideTranscript((segment) => `Transcript of ${segment.toolCall.name}`);
-        try {
-            stop = setupSubagents({ details: 'transcript' });
-            const { c } = working();
-            const row = c.row('tool-c1')!;
-            expect(row.tagName).toBe('DETAILS');
-            expect(row.querySelector('.aparte-tool-detail')!.textContent).toContain('Transcript of delegate');
-        } finally {
-            provideTranscript(undefined);
-        }
+        const row = c.row('tool-c1')!;
+        expect(row.tagName).toBe('DETAILS');
+        expect(row.querySelector('.aparte-tool-detail > aparte-subagent-view')!.textContent).toContain('Find the callers');
     });
 
     it('a label that throws costs the running call its label, not the line', () => {

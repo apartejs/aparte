@@ -6,10 +6,15 @@
  * that opened a sub-agent becomes its line — name, task, what it is doing now, "3 tools ·
  * 12 s", and its state — and the sub-agent's conversation is kept on that call, saved with
  * the conversation and never sent to the model. A sub-agent no call opened gets the same
- * line, from a segment of the plugin's own.
+ * line, from a segment of the plugin's own. Its conversation can be shown under the line
+ * (`subagentTranscript`, `details: 'transcript'`) or anywhere else
+ * (`<aparte-subagent-view>`).
  */
 export { setupSubagents } from './setup.js';
 export { subagentOf, subagentStatus } from './status.js';
+export { subagentTranscript } from './transcript.js';
+export { AparteSubagentView } from './aparte-subagent-view.js';
+export type { SubagentViewSource } from './aparte-subagent-view.js';
 export { SUBAGENT_SEGMENT_TYPE } from './types.js';
 export type {
     AparteSubagent,

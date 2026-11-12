@@ -8,6 +8,9 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'jsdom',
+        // The plugin's sheet reaches the page as a `?raw` import, which Vitest's CSS skip
+        // would return as ''. Only that sheet: `css: true` would also inject core's.
+        css: { include: [/subagents\.css/] },
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         include: ['src/**/*.test.ts'],
         alias: {

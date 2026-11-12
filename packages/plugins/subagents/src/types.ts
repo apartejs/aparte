@@ -62,7 +62,8 @@ export interface SubagentsOptions {
     /**
      * What is behind the line. `false` (the default): the line alone, with no disclosure.
      * A function: what it returns is shown under the line, as a tool display's `details`.
-     * `'transcript'`: the sub-agent's conversation under the line.
+     * `'transcript'`: the sub-agent's conversation under the line (`subagentTranscript`),
+     * closed until the reader opens it — or open, with the tool display's `open: true`.
      */
     details?: false | 'transcript' | AparteToolDetails;
 }

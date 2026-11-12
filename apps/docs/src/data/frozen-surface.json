@@ -248,6 +248,16 @@
         "single"
       ]
     },
+    "aparte-subagent-view": {
+      "package": "@aparte/plugin-subagents",
+      "attributes": [
+        "agent-id",
+        "data-empty",
+        "data-inline",
+        "for",
+        "message-id"
+      ]
+    },
     "aparte-suggestions": {
       "package": "@aparte/core",
       "attributes": [
@@ -695,6 +705,14 @@
     ],
     "@aparte/plugin-streaming-markdown": [
       "setupStreamingMarkdownProvider"
+    ],
+    "@aparte/plugin-subagents": [
+      "AparteSubagentView",
+      "SUBAGENT_SEGMENT_TYPE",
+      "setupSubagents",
+      "subagentOf",
+      "subagentStatus",
+      "subagentTranscript"
     ],
     "@aparte/plugin-titler": [
       "createTitleProvider",
